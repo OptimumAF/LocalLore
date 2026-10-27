@@ -1,5 +1,20 @@
 # D09 AppContainer feasibility: Rust-first frozen contract
 
+> **CURRENT STATUS: UNQUALIFIED. Further unchanged canary runs, ignored
+> diagnostic probes and profile creation/deletion attempts are STOPPED.**
+> The ordinary positive control failed; the boxed AppContainer case was not
+> reached. Neither this prototype nor its passing safety tests qualifies native
+> app, renderer, worker, network isolation or whole-app offline operation.
+
+The commands below preserve historical proposals and failed measurements; they
+are not a current execution plan. The focused draft source now reconciles only
+accepted main `cebaf4f9e3d8867c6f88569c2f4fdb72e38b4eb0`. This handoff is
+source/Git/documentation only. After independent review, Root's separate planned
+checks are default qualifier unit tests with ignored cases remaining ignored,
+strict lint, and normal app/qualifier builds **without launching either image**.
+No new profile, socket, canary, opt-in probe or application execution is planned.
+Full D09 acceptance and offline/security qualification remain open.
+
 Refs #31 D09.02/.05/.06. Base accepted `3f75b5d6`. SOURCE ONLY at freeze;
 no compile, child, network, profile or ACL operation has been executed by author.
 This is a developer qualifier, not an app sandbox feature or an offline verdict.
@@ -90,21 +105,28 @@ observe actual app/WebView/worker tokens and useful file/IPC/render behavior.
 COM/UDF/runtime incompatibility is a possible measured failure; never fix it by
 granting network, disabling Chromium sandboxing or altering system ACLs.
 
-This is runnable feasibility work, not a demonstrated external blocker. A failed
-WebView follow-up can justify a separately admitted isolated environment; no
+The original source prepared runnable feasibility work, not a demonstrated
+external blocker. A failed WebView follow-up can justify a separately admitted
+isolated environment; no
 firewall, global network, CheckNetIsolation, OS feature, security alert or package
 approval settings change is authorized by this source allocation.
 
-## Root-only first qualification commands (UNRUN)
+## Historical first qualification commands (superseded; archival only)
+
+These initial source-proposal commands were UNRUN at their freeze. The direct
+executable invocation was superseded by the required outer image/ancestor pin
+protocol below. Preserve this record without treating it as a command to run;
+all further unchanged canary and profile attempts are stopped.
 
 ```text
 cargo build --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --bin offline-qualifier --jobs 1 --target-dir <owned-target>
 <owned-target>/debug/offline-qualifier.exe
 ```
 
-Root records first compile and behavior failures separately, strict lint/format,
-normal graph/hook exclusion/restoration and exact source/executable hashes. The
-first actual process needs a separately reviewed execution slot; none ran here.
+The initial freeze required separate compile/behavior records, strict lint/format,
+normal graph/hook exclusion/restoration and exact source/executable hashes. No
+process had run at that freeze. Subsequent reviewed attempts and their failures
+are preserved below; this historical proposal grants no new execution slot.
 
 Primary sources checked during design: [AppContainer launch](https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer),
 [legacy Win32 children](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-for-legacy-applications-),
@@ -255,9 +277,9 @@ observation; it cannot repair the original Job/reader measurements.
 
 ## Subsequent actual failures and profile-free diagnosis, October27
 
-These are failed feasibility measurements, not an offline qualification. The
-branch now includes accepted main6f6608bf. Production renderer/default handlers,
-engine, provider, storage and lock behavior are unchanged by the required-feature
+These are failed feasibility measurements, not an offline qualification. At
+those measurements the branch included accepted main6f6608bf. Production
+renderer/default handlers, engine, provider, storage and lock behavior are unchanged by the required-feature
 qualifier. The package's explicit default-run preserves the existing app CLI.
 
 The bounded cleanup correction atfee3cb74 captures the second baseline's actual
@@ -319,15 +341,18 @@ are confirmed. No ACL, token state, privilege, sharing or system-setting change
 was made. There is no raw-open success fallback. No profile, network, app,
 WebView, worker or model was used in either unit-test cohort.
 
-Reproducer after explicit source review, from repository root:
+Archived reproducer for the failed opt-in cohort, from repository root
+(record only; **do not run**):
 
 ```powershell
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --bin offline-qualifier --locked --offline --jobs 1 --target-dir $ownedTarget win::tests::low_integrity_file_read_mask_diagnostic -- --exact --ignored --nocapture --test-threads=1
 ```
 
-Use the existing isolated cache and task-owned TEMP/TMP; serialize heavy work.
-Do not directly select the child test without its owned bounded stdin. Preserve
-the actual nonzero result. Further unchanged canary attempts are stopped while
+The recorded run used the existing isolated cache and task-owned TEMP/TMP with
+serialized heavy work. Its fixed child required the owned bounded stdin; direct
+child selection was never a valid reproducer. The actual nonzero result remains
+unchanged. This command is not part of the current validation plan. Further
+unchanged canary, ignored-probe and profile attempts are stopped while
 independent desktop work continues. The cause of the file denial remains
 unresolved, and whole-app offline/renderer/worker/network gates remain open.
 

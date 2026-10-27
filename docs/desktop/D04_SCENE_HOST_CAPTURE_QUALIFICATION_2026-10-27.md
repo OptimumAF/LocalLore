@@ -153,6 +153,7 @@ failed. All heavy checks were coordinated serially.
 | Strict dev native Clippy | f7a0870e | PASS | 12.1889486 |
 | Full frontend verifier | f7a0870e | PASS | 19.5338920 |
 | Normal native build | f7a0870e | PASS, unlaunched | 36.3841058 |
+| Android aarch64 dependency graph | f7a0870e | PASS, zero desktop/native-runtime dependency hits | 0.7673594 |
 
 The 142/31 summaries include integration and documentation-test summaries;
 ignored tests are excluded from pass counts and were not executed by this
@@ -187,6 +188,7 @@ cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets @co
 cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --all-targets @common -- -D warnings
 & $taskNode apps/desktop/verify-frontend.mjs
 cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml @common
+cargo tree -p locallore-android --target aarch64-linux-android --all-features --locked --offline
 rustfmt --edition 2021 --check crates/locallore/src/host.rs crates/locallore/tests/host_scene_recipe_v1.rs crates/locallore-workspace/tests/host_scene_recipe_v1.rs crates/locallore-eval/src/scene_capture_v1.rs crates/locallore-eval/tests/scene_capture_v1.rs
 ```
 
@@ -222,13 +224,13 @@ private path, prompt, save or model artifact is published here.
 
 ## Remaining gates
 
-Final-source Android dependency metadata compatibility is pending at this
-document freeze; prior Core Android graph evidence is not relabeled. No new
-Android cross-build/JVM/device/phone result is claimed. Native IPC, mounted UI,
+The final-source Android aarch64 dependency graph passed on clean unchanged f7:
+zero matches for Tauri/Wry/Tao or the desktop native inference runtime. This is
+dependency metadata only, separate from the portable workspace's Android Rust
+tests. No new Android cross-build/JVM/device/phone result is claimed. Native IPC, mounted UI,
 app-owned render images, model loading/inference, offline containment,
 accessibility, package/distribution and human scene-quality gates are absent
 from this packet. No render artifact exists here to inspect. The smallest next
-verification is the coordinator-owned Android dependency graph, followed by a
-separately frozen fixed scene native journey using the same controller/IPC/
+verification is the separately frozen fixed scene native journey using the same controller/IPC/
 Store paths and honest synthetic-provider labeling. No task checkbox, release
 readiness or merge approval follows from these supporting results.

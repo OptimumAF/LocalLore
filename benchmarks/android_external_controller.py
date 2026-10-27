@@ -44,6 +44,12 @@ def require(value, reason):
         raise ExternalRefused(reason)
 
 
+def _require_current_proof(proof):
+    # Historical decoders stay readable; only the fixed current runner uses this gate.
+    require(type(proof) is dict and type(proof.get("version")) is int and proof["version"] == 2
+            and proof.get("scope") == "locallore_process_controller_v2", "current_controller_required")
+
+
 def write_bytes(path, raw):
     with path.open("xb") as stream:
         require(stream.write(raw) == len(raw), "short_write")
@@ -404,6 +410,7 @@ def worker(request, out):
     require(session.capture.clean is True, "clients_unknown")
     session.check()
     proof = validate_controller_result(raw, expected)
+    _require_current_proof(proof)
     environment.create_json(out / "proof-v1.json", proof)
     require(all(value is not None for value in records.values()) and fixture is not None
             and all(value is not None for value in (*helpers.values(), *transports.values(), *sidecars.values())), "evidence_missing")
@@ -503,6 +510,14 @@ def validate_execution(request, out):
     return record
 
 
+def validate_current_execution(request, out):
+    """Deep original readback plus the fixed current controller-result requirement."""
+    record = validate_execution(request, out)
+    proof = driver.bound_json(record["proof"], Path(out) / "proof-v1.json")
+    _require_current_proof(proof)
+    return record
+
+
 def supervise(request):
     require(os.name == "nt" and type(request) is dict and set(request) == FIELDS, "request_fields")
     require(type(request["case"]) is str and request["case"] in CASES and type(request["run_id"]) is str
@@ -533,7 +548,7 @@ def supervise(request):
             environment.create_json(out / "sources-after-v1.json", after)
             record["sources_after"] = environment.binding(out / "sources-after-v1.json")
             require(before == after, "source_drift")
-            validate_execution(request, out)
+            validate_current_execution(request, out)
             admit(request)
             require(driver.source_map() == before, "source_drift")
             record.update(passed=True, external=environment.binding(out / "external-v1.json"))

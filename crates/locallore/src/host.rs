@@ -329,13 +329,23 @@ pub type ProviderFactory = Arc<dyn Fn() -> Box<dyn InferenceProvider + Send> + S
 pub enum HostPlayConstructionV1 {
     Memory(crate::play::PlayContextPolicy),
     PlayerLiteralV1,
+    /// Explicit opt-in; never repoint the immutable PlayerLiteralV1 mapping.
+    PlayerLiteralPresentationV1,
 }
 impl HostPlayConstructionV1 {
-    fn labels(self) -> (&'static str, &'static str) {
+    fn labels(self, presentation: bool) -> (&'static str, &'static str) {
         match self {
+            Self::Memory(_) if presentation => (
+                crate::play::PRESENTATION_PROMPT_VERSION,
+                "locallore-play-v2",
+            ),
             Self::Memory(_) => (crate::play::PROMPT_VERSION, "locallore-play-v2"),
             Self::PlayerLiteralV1 => (
                 crate::play::LITERAL_PLAY_PROMPT_VERSION_V1,
+                "locallore-director-literal-v1",
+            ),
+            Self::PlayerLiteralPresentationV1 => (
+                crate::play::LITERAL_PRESENTATION_PROMPT_VERSION_V1,
                 "locallore-director-literal-v1",
             ),
         }
@@ -2300,7 +2310,8 @@ impl Host {
                         work.cancel.is_cancelled()
                     })
                     .map(|s| (s.engine, Some(s.coverage))),
-                HostPlayConstructionV1::PlayerLiteralV1 => self
+                HostPlayConstructionV1::PlayerLiteralV1
+                | HostPlayConstructionV1::PlayerLiteralPresentationV1 => self
                     .literal_generation_engine(
                         session,
                         scope,
@@ -2311,8 +2322,11 @@ impl Host {
             };
             match snapshot {
                 Ok((engine, coverage)) => {
-                    if construction == HostPlayConstructionV1::PlayerLiteralV1
-                        && engine.domain_version() != 1
+                    if matches!(
+                        construction,
+                        HostPlayConstructionV1::PlayerLiteralV1
+                            | HostPlayConstructionV1::PlayerLiteralPresentationV1
+                    ) && engine.domain_version() != 1
                     {
                         return self.finish_work(work, Err(Error::Version));
                     }
@@ -2359,6 +2373,16 @@ impl Host {
                                 &local.profile,
                                 sink.as_mut()
                                     .map(|sink| sink as &mut dyn turn_trace::TraceSink),
+                            )
+                        }
+                        HostPlayConstructionV1::PlayerLiteralPresentationV1 => {
+                            crate::play::execute_traced_with_literal_director_presentation_v1(
+                                &mut engine,
+                                &work.request,
+                                &mut *(local.provider)(),
+                                &work.cancel,
+                                &local.profile,
+                                sink.as_mut().map(|s| s as &mut dyn turn_trace::TraceSink),
                             )
                         }
                     }
@@ -2473,6 +2497,7 @@ impl Host {
                         trace_provenance(
                             local_play.as_ref(),
                             matches!(t.request.intent, Intent::FreeText { .. }),
+                            s.engine.seed().presentation.is_some(),
                         ),
                     )
                     .handle
@@ -2828,10 +2853,10 @@ fn trace_saved_outcome(saved: &SavedTurn, prepared: Option<&Receipt>) -> Outcome
         _ => Outcome::Unknown,
     }
 }
-fn trace_provenance(local: Option<&LocalPlay>, free_text: bool) -> Provenance {
+fn trace_provenance(local: Option<&LocalPlay>, free_text: bool, presentation: bool) -> Provenance {
     if free_text {
         if let Some(local) = local {
-            let (prompt_label, schema_label) = local.construction.labels();
+            let (prompt_label, schema_label) = local.construction.labels(presentation);
             if !local.real_model {
                 return Provenance {
                     profile_label: Label::new(&local.profile.id),
@@ -3073,7 +3098,7 @@ mod tests {
                 true
             );
             let local = h.state.lock().unwrap().local_play.clone();
-            let provenance = trace_provenance(local.as_ref(), true);
+            let provenance = trace_provenance(local.as_ref(), true, false);
             assert_eq!(provenance.model_sha256.is_some(), real);
             assert_eq!(provenance.worker_sha256.is_some(), real);
             assert_eq!(provenance.profile_sha256.is_some(), real);

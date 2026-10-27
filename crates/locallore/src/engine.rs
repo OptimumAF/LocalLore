@@ -501,6 +501,30 @@ impl Engine {
         record: &crate::play::PlayRecord,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
+        if record.prompt_version == crate::play::LITERAL_PRESENTATION_PROMPT_VERSION_V1 {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let staged = self.stage_play_v25(request, proposal, &|| false)?;
+            return self.commit_staged_literal_presentation_play_history_v1(
+                staged,
+                record,
+                &|| false,
+                recorded_history,
+            );
+        }
+        if record.prompt_version == crate::play::PRESENTATION_PROMPT_VERSION {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let staged = self.stage_play_v25(request, proposal, &|| false)?;
+            return self.commit_staged_presentation_play_history_v1(
+                staged,
+                record,
+                &|| false,
+                recorded_history,
+            );
+        }
         if record.prompt_version == crate::play::LITERAL_PLAY_PROMPT_VERSION_V1 {
             if let Some(receipt) = self.recorded(request)? {
                 return Ok(receipt);

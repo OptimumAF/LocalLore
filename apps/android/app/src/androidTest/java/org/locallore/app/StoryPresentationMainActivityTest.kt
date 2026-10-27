@@ -11,6 +11,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.LinkOption
+import java.security.MessageDigest
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -116,7 +118,22 @@ class StoryPresentationMainActivityTest {
                 val player = data(JSONObject().put("op", "play_snapshot").put("session", session).put("scope", scope)
                     .put("expected_revision", story.revision))
                 assertEquals(setOf("scope", "revision", "rules", "player", "inventory", "receipts"), player.keys().asSequence().toSet())
-                assertEquals(story.revision, player.getLong("revision")); assertEquals(0, player.getJSONArray("receipts").length())
+                check(story.revision in 0L..1L) // This fixed synthetic control only creates A0 or one accepted A1.
+                val receipts = player.getJSONArray("receipts")
+                assertEquals(story.revision, player.getLong("revision"))
+                assertEquals(story.revision, receipts.length().toLong())
+                if (story.revision == 1L) {
+                    val receipt = receipts.getJSONObject(0)
+                    val turn = receipt.getJSONObject("request").getString("turn")
+                    val status = data(JSONObject().put("op", "turn_status").put("session", session)
+                        .put("scope", scope).put("turn", turn))
+                    assertEquals(setOf("turn", "scope", "expected_revision", "phase", "error", "receipt"), status.keys().asSequence().toSet())
+                    assertEquals("committed", status.getString("phase")); assertEquals(turn, status.getString("turn"))
+                    assertEquals(0L, status.getLong("expected_revision")); assertTrue(status.isNull("error"))
+                    assertEquals(story.story, status.getJSONObject("scope").getString("story"))
+                    assertEquals(story.branch, status.getJSONObject("scope").getString("branch"))
+                    assertEquals(receipt.toString(), status.getJSONObject("receipt").toString())
+                }
                 val presentation = data(JSONObject().put("op", "story_presentation_view").put("session", session).put("scope", scope)
                     .put("expected_revision", story.revision))
                 assertEquals(setOf("version", "scope", "revision", "presentation"), presentation.keys().asSequence().toSet())
@@ -165,7 +182,7 @@ class StoryPresentationMainActivityTest {
     }
 
     @Test fun presentedCreationRetainsToneAndPhrasesOnNativeReopen() {
-        val firstSettings = StoryPresentation("warm", listOf("Red fog", "storm bell"))
+        val firstSettings = StoryPresentation("warm", listOf("spider"))
         val secondSettings = StoryPresentation("brisk", listOf("Glass rain", "amber hush"))
         lateinit var first: SavedStory
         lateinit var second: SavedStory
@@ -189,6 +206,59 @@ class StoryPresentationMainActivityTest {
         assertUnchanged(firstView, views(first)); assertUnchanged(secondView, views(second))
         activity {
             select(first); assertUnchanged(firstView, views(first))
+            assertTrue(firstView.player.getJSONObject("inventory").has("potion"))
+            assertEquals(TextProvider.SCRIPTED, model.state.value.textProvider)
+            val gift = "I give my last potion to Mira."
+            tag("play-example").assertIsEnabled().performClick()
+            tag("play-input").assert(hasText(gift))
+            tag("play-send").assertIsEnabled().performClick()
+            compose.waitUntil(15_000) { model.state.value.let { !it.busy && it.revision == 1L } }
+            settled()
+            val advanced = checkNotNull(model.state.value.selectedStory)
+            assertEquals(first.story, advanced.story); assertEquals(first.branch, advanced.branch)
+            assertEquals(first.title, advanced.title); assertEquals(1L, advanced.revision)
+            first = advanced
+            firstView = views(first)
+            assertEquals(firstSettings, settings(firstView)); assertEquals("SYNTHETIC Marin", name(firstView))
+            assertFalse(firstView.player.getJSONObject("inventory").has("potion"))
+            val receipt = firstView.player.getJSONArray("receipts").getJSONObject(0)
+            val request = receipt.getJSONObject("request")
+            assertEquals(first.story, request.getJSONObject("scope").getString("story"))
+            assertEquals(first.branch, request.getJSONObject("scope").getString("branch"))
+            assertEquals(0L, request.getLong("expected_revision"))
+            val intent = request.getJSONObject("intent")
+            assertEquals("free_text", intent.getString("kind"))
+            assertEquals("action", intent.getJSONObject("value").getString("kind"))
+            assertEquals(gift, intent.getJSONObject("value").getString("text"))
+            val events = receipt.getJSONArray("events")
+            val transfers = (0 until events.length()).map { events.getJSONObject(it).getJSONObject("outcome") }
+                .filter { it.getString("effect") == "given" }
+            assertEquals(1, transfers.size)
+            assertEquals("potion", transfers.single().getString("item"))
+            assertEquals("player", transfers.single().getString("from")); assertEquals("mira", transfers.single().getString("to"))
+            assertEquals(1, transfers.single().getInt("quantity"))
+            val narration = receipt.getString("narration")
+            assertTrue(narration.isNotBlank()); assertFalse(narration.lowercase(Locale.ROOT).contains("spider"))
+            val play = receipt.getJSONObject("play")
+            assertEquals(2, play.getInt("version"))
+            assertEquals("locallore-play-v2.7-story-presentation-v1", play.getString("prompt_version"))
+            assertEquals("grounded-prose-v2.3-story-presentation-v1", play.getString("policy"))
+            val binding = play.getJSONObject("story_presentation")
+            assertEquals(setOf("version", "presentation_sha256"), binding.keys().asSequence().toSet())
+            assertEquals(1, binding.getInt("version"))
+            // Exact reviewed ASCII fixture in the native StoryPresentationV1 serialization order.
+            val expectedBinding = MessageDigest.getInstance("SHA-256")
+                .digest("{\"version\":1,\"tone\":\"warm\",\"excluded_phrases\":[\"spider\"]}".toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+            assertEquals(expectedBinding, binding.getString("presentation_sha256"))
+            select(second); assertUnchanged(secondView, views(second))
+        }
+        // A1 reads restore and validate the original committed receipt through another native Host.
+        assertUnchanged(firstView, views(first)); assertUnchanged(secondView, views(second))
+        activity {
+            select(first); assertUnchanged(firstView, views(first))
+            assertEquals(1L, model.state.value.revision)
+            assertFalse(views(first).player.getJSONObject("inventory").has("potion"))
             select(second); assertUnchanged(secondView, views(second))
         }
     }

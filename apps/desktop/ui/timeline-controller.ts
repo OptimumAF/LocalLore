@@ -45,13 +45,14 @@ export async function resumeTimeline(
     const oldError = c.get().visibleError;
     await c.resume(scope);
     const s = c.get(),
-        selected = c.selected();
+        selected = c.selected(),
+        play = s.play ?? s.playV2;
     if (
         selected &&
         sameScope(selected.scope, scope) &&
-        s.play &&
-        sameScope(s.play.scope, scope) &&
-        selected.revision === s.play.revision
+        play &&
+        sameScope(play.scope, scope) &&
+        selected.revision === play.revision
     )
         return;
     throw Error(

@@ -2,6 +2,7 @@
 //! Independent configured-player adversaries through the actual Host/Store owner.
 //! Expected Seeds/hashes use bundled bytes and public serde, never setup production helpers.
 use locallore::{
+    context_compiler::{self, Budget, CompileError, CompileRequest, Payload, Role},
     contracts::{Command, Intent, Request, Scope, Seed},
     engine::Engine,
     host::{Host, WorkspaceForkRequest, MAX_SESSIONS},
@@ -211,6 +212,33 @@ fn reject_unchanged(temp: &Temp, host: &Host, before: &Value, command: Value, er
     assert_eq!(&temp.canonical(), before);
 }
 
+fn context_request(engine: &Engine, name: &str, referenced_ids: Vec<String>) -> CompileRequest {
+    CompileRequest {
+        version: context_compiler::COMPILER_VERSION,
+        scope: engine.scope().clone(),
+        expected_head: engine.revision(),
+        at_revision: None,
+        observer: engine.seed().player.clone(),
+        role: Role::Character,
+        query: name.into(),
+        referenced_ids,
+        budget: Budget::default(),
+    }
+}
+
+fn assert_player_alias_compiles_without_revealing_npc_knowledge(engine: &Engine, name: &str) {
+    let before = engine.canonical_bytes();
+    let request = context_request(engine, name, vec![engine.seed().player.clone()]);
+    let compiled = context_compiler::compile(engine, &request).unwrap();
+    assert!(compiled.records.iter().any(|row| matches!(
+        &row.payload, Payload::Alias { actor, name: actual }
+            if actor == &engine.seed().player && actual == name
+    )));
+    let wire = serde_json::to_string(&compiled).unwrap();
+    assert!(!wire.contains("BRACKEN-CHEST-482") && !wire.contains("BRACKEN-RUMOR-619"));
+    assert_eq!(engine.canonical_bytes(), before);
+}
+
 #[test]
 fn setup_preview_uses_independent_domain_hash_and_preserves_every_existing_story() {
     let temp = Temp::new();
@@ -247,11 +275,12 @@ fn setup_preview_uses_independent_domain_hash_and_preserves_every_existing_story
             assert_eq!(preview["template_sha256"], sha256(fixture_bytes(template)));
             assert_eq!(preview["setup_sha256"], setup_hash(template, &seed));
             assert_eq!(preview["player_name"], expected_name.as_str());
+            let player_line = format!("Player: {expected_name}");
             assert!(preview["details"]
                 .as_array()
                 .unwrap()
                 .iter()
-                .any(|line| line.as_str() == Some(&format!("Player: {expected_name}"))));
+                .any(|line| line.as_str() == Some(player_line.as_str())));
             assert!(preview["details"].as_array().unwrap().len() <= 64);
             assert!(serde_json::to_vec(&preview).unwrap().len() <= 16384);
             assert_eq!(preview, setup(&host, template, name));
@@ -364,6 +393,11 @@ fn duplicate_npc_display_name_does_not_retarget_actor_ids_or_npc_knowledge() {
         .beliefs[0]
         .proposition
         .contains("BRACKEN-RUMOR-619"));
+    assert_eq!(
+        context_compiler::compile(&engine, &context_request(&engine, "Nessa", vec![])).unwrap_err(),
+        CompileError::AmbiguousAlias
+    );
+    assert_player_alias_compiles_without_revealing_npc_knowledge(&engine, "Nessa");
     gift(&host, &created, HARBOR);
     let after = temp.engine(&scope(&created));
     assert_eq!(after.state().items["sail-thread"].owner, "nessa");
@@ -466,7 +500,6 @@ fn custom_player_survives_turn_fork_archive_import_reopen_and_exact_retained_ret
         .fork_branch(
             original["session"].as_str().unwrap(),
             &WorkspaceForkRequest {
-                version: 1,
                 parent: root.clone(),
                 child_branch: "original-alternate".into(),
                 expected_parent_revision: 1,
@@ -532,6 +565,11 @@ fn custom_player_survives_turn_fork_archive_import_reopen_and_exact_retained_ret
         let engine = temp.engine(&root);
         assert_eq!(engine.state().actors["player"].name, "Ilex");
         assert_eq!(engine.state().items["sail-thread"].owner, "nessa");
+        assert_player_alias_compiles_without_revealing_npc_knowledge(&engine, "Ilex");
+        assert_player_alias_compiles_without_revealing_npc_knowledge(
+            &temp.engine(&scope(&restored_child)),
+            "Ilex",
+        );
     }
     assert_eq!(source.canonical(), target.canonical());
 }
@@ -588,6 +626,10 @@ fn unicode_name_limits_are_exact_and_normalization_never_silently_merges_labels(
         maximum
     );
     let first = setup(&host, HARBOR, Some("é"));
+    assert_player_alias_compiles_without_revealing_npc_knowledge(
+        &temp.engine(&scope(&named)),
+        &maximum,
+    );
     let second = setup(&host, HARBOR, Some("e\u{301}"));
     assert_ne!(first["setup_sha256"], second["setup_sha256"]);
     assert_ne!(first["player_name"], second["player_name"]);

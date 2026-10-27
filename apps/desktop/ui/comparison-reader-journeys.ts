@@ -111,6 +111,17 @@ export async function comparisonReaderJourneys({
                           profile: state.summary.report.profile,
                           unavailable: state.summary.report.unavailable,
                           limitations: state.summary.report.limitations,
+                          human_reviewed: state.summary.report.human_reviewed,
+                          human_rubric: state.summary.report.human_rubric,
+                          quality_accepted:
+                              state.summary.report.quality_accepted,
+                          ...(state.summary.report.version === 4
+                              ? {
+                                    source_bound_committed_rows:
+                                        state.summary.report
+                                            .source_bound_committed_rows,
+                                }
+                              : {}),
                           turns: state.summary.report.turns.map((row) => ({
                               turn: row.turn,
                               arm: row.arm,
@@ -129,12 +140,29 @@ export async function comparisonReaderJourneys({
                                         construction: row.construction,
                                         construction_evidence_status:
                                             row.construction_evidence_status,
-                                        literal_source_units:
-                                            row.literal_source_units,
-                                        literal_selected_start:
-                                            row.literal_selected_start,
-                                        literal_selected_units:
-                                            row.literal_selected_units,
+                                        ...("literal_source_units" in row
+                                            ? {
+                                                  literal_source_units:
+                                                      row.literal_source_units,
+                                                  literal_selected_start:
+                                                      row.literal_selected_start,
+                                                  literal_selected_units:
+                                                      row.literal_selected_units,
+                                              }
+                                            : {
+                                                  construction_evidence_reason:
+                                                      row.construction_evidence_reason,
+                                                  narrator_prompt_sha256:
+                                                      row.narrator_prompt_sha256,
+                                                  narrator_schema_sha256:
+                                                      row.narrator_schema_sha256,
+                                                  scene_frame_sha256:
+                                                      row.scene_frame_sha256,
+                                                  privacy_evidence_status:
+                                                      row.privacy_evidence_status,
+                                                  actual_receipt_sha256:
+                                                      row.actual_receipt_sha256,
+                                              }),
                                     }
                                   : { policy: row.policy }),
                           })),

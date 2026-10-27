@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -33,6 +34,7 @@ FIELDS = {"case", "run_id", "out", "sdk", "powershell", "build", "gate", "runnin
 CLAIM = "external-controller-claimed-v1.json"
 SCOPE = "android_external_controller_execution"
 WORKER_LINE = "external_worker_completed"
+SESSION_SECONDS = 1100
 
 
 class ExternalRefused(RuntimeError):
@@ -48,6 +50,20 @@ def _require_current_proof(proof):
     # Historical decoders stay readable; only the fixed current runner uses this gate.
     require(type(proof) is dict and type(proof.get("version")) is int and proof["version"] == 2
             and proof.get("scope") == "locallore_process_controller_v2", "current_controller_required")
+
+
+def _require_session_lifetime(descriptor):
+    """Refuse a shortened owned lease; neither reserve nor extend its lifetime."""
+    require(type(descriptor) is dict, "owned_lifetime")
+    deadline = descriptor.get("deadline_epoch")
+    now = time.time()
+    require(type(deadline) in (int, float) and type(now) in (int, float), "owned_lifetime")
+    try:
+        finite = math.isfinite(deadline) and math.isfinite(now)
+        remaining = deadline - now if finite else 0
+    except OverflowError:
+        raise ExternalRefused("owned_lifetime") from None
+    require(finite and remaining >= SESSION_SECONDS, "owned_lifetime")
 
 
 def write_bytes(path, raw):
@@ -122,7 +138,8 @@ class Session:
                 and self.lease["serial"] == "emulator-5592" and self.lease["console_port"] == 5592
                 and self.lease["guest_boot_verified"] is False, "owned_target")
         self.check()
-        self.capture = SdkCapture(out / "clients", 1100, sdk / "platform-tools/adb.exe",
+        _require_session_lifetime(self.lease)
+        self.capture = SdkCapture(out / "clients", SESSION_SECONDS, sdk / "platform-tools/adb.exe",
                                   Path(request["powershell"]), environment.read_json(request["server"]), self.lease["launcher"])
         self.capture.check_server()
         for _ in range(24):

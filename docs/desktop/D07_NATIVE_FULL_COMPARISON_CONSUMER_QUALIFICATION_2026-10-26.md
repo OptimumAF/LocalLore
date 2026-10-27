@@ -161,3 +161,105 @@ The ordinary frontend is restored by `node verify-frontend.mjs`; an ordinary
 native build must be performed afterward without `dev-harness`. The local
 offline-cache blocker is not a reason to weaken a gate or reuse historical
 PR #214 evidence as a pass for this frontend.
+
+## Restored dependencies and actual native qualification
+
+The owner explicitly authorized restoration of exact locked Rust packages.
+`cargo fetch --locked --target x86_64-pc-windows-msvc --manifest-path
+apps/desktop/src-tauri/Cargo.toml` used a task-isolated Cargo home: 49 existing
+checksum-matching archives copied, 251 retained archives / 42461782 bytes, every
+archive verified against the unchanged root lock. Lock SHA256:
+`4fb7c498ca0ecc62c4ea1f65c63b370ab4336eb75133d08b3a71f5664156cf93`.
+No dependency upgrade, global-cache mutation or model/worker download occurred.
+All subsequent native commands used `--locked --offline`, jobs1, debug0,
+incremental0, the same external target and the restored isolated Cargo home.
+
+Strict native Clippy (`--all-targets --all-features -- -D warnings`) passed at
+clean unchanged `d614ca73` in 347.894 seconds after the fresh-cache rebuild.
+
+| Actual native UI cohort | Result and retained limitation |
+|---|---|
+| `native-ui-restored1`, clean unchanged `d614ca73` | Worker/frontend/native builds passed. Actual app exited1 after 157.210s; one wide idle PNG, individually inspected. Fixed 60s observation expired during reference/setup before confirmation. Report read state after disposal, so its null phase/error does not identify the earlier worker state. No generated-report proof was obtained. |
+| `native-ui-restored2`, clean unchanged `b919c49f` | Added bounded transition history, pre-cleanup state, 240s pre-confirmation observation and close-before-consent-release failure cleanup. App exited1 after 270.032s; five PNGs individually inspected. Held/cancelled/denied and lost-ACK recovery passed before the helper mistook a preceding closed presentation for a new asynchronous admission's terminal result. The captured failure state was still the new start's cleanup preflight. |
+| `native-ui-restored3`, clean unchanged `8f9423238e47182a50398d277624951fc9675ccf` | Corrected acknowledgement pairing; strict TypeScript passed first. Initial **243 checks / 14 PNGs**, restart **85 checks / 4 PNGs**, both app exits0, stdout24B each/stderr0, no timeout/overflow. Initial 1283.428s; restart78.460s. All eighteen PNGs individually inspected; no observed visible defect in the captured wide/narrow scroll sections. |
+
+These are actual hidden, unfocused WebView2 execution, native IPC and approved
+installed-model results. They are not desktop captures or OS dialog automation.
+Consent, picker and lost-ACK doubles are explicitly synthetic. Live gameplay is
+the synthetic in-memory Host; the isolated comparison's actual Rust histories,
+reports and model recordings are durable. This is not another durable Play
+restart or phone test.
+
+The initial cohort exercised native App lane selection, ordinary verified model
+import without ordinary model load, actual held/denied execution consent,
+cancel/retirement before reservation, one lost start ACK and same-client lookup,
+fresh paired batch1 then explicit resume3, completed read-only resume, independent
+managed read consent, actual receipt/capture/output, Player/Mira/Sable Query2,
+three actor raw-evidence refusals and native generic cleanup. The corrected
+Knowledge oracle actually observed the Player-positive canary and its absence
+from both NPC views at the same original before-cut. Inspections and lens changes
+kept the native execution identity and live story unchanged.
+
+Initial retained three accounted Transport records: one deliberate lost ACK and
+two observed 300s presentation poll expirations, each reconciled through the
+original client's explicit read-only lookup. No automatic start/resume occurred.
+The bounded state history retained96 transitions and reports3 dropped; restart
+retained25/no drops and zero errors. This finite observation history is not a
+complete trace of every poll.
+
+Cold native catalog/open/completed resume/read/close preserved **2072 files /
+22671542 bytes**, independent inventory SHA256
+`9d860a35ba88933f8847333871555d1b526be2f838ceb3f50432a9c523fe9361`.
+The same digest covered completed resume and inspection in the initial process.
+The UI cohort does not instrument an independent asset/reservation call counter;
+no stronger zero-call claim is inferred from the inventory or elapsed time.
+
+One-scene report copy: version3,12 outcomes,22 known real roles,1 physical setup,
+10 expected scenario passes,4 fallbacks, SHA256
+`02fb2a5cc1882998288456d557be40b0957e604d8489f0030c9b6c34e74385d5`.
+Completed copy: 4 scenes,48 outcomes,78 known real roles,2 physical setups,
+41 expected scenario passes,15 fallbacks, SHA256
+`472c4df465d595962cb6604d524d1848a43c22defc82899e9c8247891dd7acee`.
+All role counts were known. Phase counts are36 committed/12 failed; expected
+scenario passes are a different measure. Left/right expected passes were17/24
+and24/24. Failed-row diagnostics include Agency2, UnknownReference4 and one
+without an error category; assertion labels can overlap. This is a small
+controlled developer workload, not general model superiority or quality proof.
+Both copies are retained before/after resume rather than relabelling an
+overwritten partial report. Human-reviewed remains0 and quality-accepted false.
+
+A concrete prose concern is preserved: `courier-01/right` mechanically delivers
+the intended statement but narrates walking through a forest despite the quay
+fixture. Read-only audit matched the actual request, prompt/schema/adapter and
+recording hashes, with no established transport, role or truncation error.
+The sanitized narrator evidence has no scene-location anchor. The model's cause
+is unknown; the finite prose validator accepted this text. An empty automated
+quality-flags list only means no fallback flag, not semantic approval. A local
+eight-sample reading packet supports the separately requested human assessment;
+no human result is invented or written into the immutable report.
+
+GUI executable SHA256 during both processes:
+`eaaf676a0ffe05aa6d737657822fa90fe25864544f4a7fb5dda7c582f67c0c6b`;
+launcher `484e9ddf2056124f34f3fe680d74d4343f458f97f1858a24649eb50f28c3dcdb`.
+The launcher checked executable identity after each app. A later test build
+replaced the target executable; an attempted retention copy refused the
+different hash, so the tested GUI binary itself is not claimed retained.
+Individual eighteen-image review manifest SHA256:
+`3ebcd09a926725aac6b22863039c042daecffd9fc6c3e9d8d1ebcb7d13393130`.
+Native UA reports reduced Chrome/Edge155, DPR1,1280/620px; this is not an exact
+installed WebView2 patch-version query. Rust1.93.1, Node24.22.1, Tauri2.12.5,
+Wry0.57.0, Windows NT10.0.26300 x64, Intel i7-12700K; approved CPU4/context4096/
+350+350-token/repair1 profile unchanged. Caps are not performance measurements.
+
+At the same clean unchanged `8f942323`,
+`cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness
+--locked --offline --jobs 1 --target-dir <external-target> -- --test-threads=1`
+passed **235 / 0 failed / 9 ignored**,940.43s test execution, plus two
+harness-contract tests in0.01s. Total command983.308s including compilation.
+Ignored tests remain the eight explicit installed-asset opt-ins and the Windows
+symlink-privilege test; they are not silently counted as passing. This default
+synthetic suite is separate from the actual approved-model UI cohort above.
+Final normal frontend/native restoration and compatibility checks are recorded
+after this section once executed. Broader D07 human-quality/whole-app resource,
+OS dialog, network-blocked, full accessibility and physical-phone gates remain
+open; this supporting consumer slice does not close the milestone.

@@ -37,6 +37,7 @@ internal class DurableGateway(
     private var serial = 0L
     private var textProvider = TextProvider.UNAVAILABLE
     private var coherentPlayerSnapshot = false
+    private var playerBinding: PlayerSnapshotBinding? = null
     // Order cancellation after a finite native submit, never after generation/prepare.
     private val submissionGate = Mutex()
     private val closed = AtomicBoolean(false)
@@ -171,6 +172,7 @@ internal class DurableGateway(
     }
     private fun attach(data: JSONObject) {
         coherentPlayerSnapshot = false
+        playerBinding = null
         session = data.getString("session")
         scope = data.getJSONObject("scope")
         revision = data.getLong("revision")
@@ -179,16 +181,27 @@ internal class DurableGateway(
     override suspend fun snapshot(): SavedSnapshot {
         coherentPlayerSnapshot = false
         if (session == null) return openLibrary(allowCreate = false)
+        val capturedSession=checkNotNull(session)
+        val capturedScope=checkNotNull(scope)
+        fun currentPlayerScope() {
+            if(closed.get())throw WorkspaceFailure("Closed")
+            if(session!=capturedSession || scope !== capturedScope)throw WorkspaceFailure("Stale")
+        }
         // Open refreshes revision from validated persisted canon before coherent player inspection.
         val opened = call(scoped("open"))
+        currentPlayerScope()
         check(sameScope(opened.getJSONObject("scope"), checkNotNull(scope)))
         revision = opened.getLong("revision")
-        val view = call(scoped("play_snapshot").put("expected_revision", revision))
+        val playerRevision=revision
+        val view = call(scoped("play_snapshot").put("expected_revision", playerRevision))
+        currentPlayerScope()
         check(sameScope(view.getJSONObject("scope"), checkNotNull(scope)))
-        check(view.getLong("revision") == revision)
+        check(view.getLong("revision") == playerRevision)
         val player = view.getJSONObject("player")
-        check(player.getString("observer") == "player" && player.getLong("revision") == revision)
+        check(player.getLong("revision") == playerRevision)
         check(sameScope(player.getJSONObject("scope"), checkNotNull(scope)))
+        val binding=bindPlayerSnapshot(capturedSession,PlayDraftScope(capturedScope.getString("story"),capturedScope.getString("branch")),
+            player.get("observer"),playerBinding)
         val receipts = view.getJSONArray("receipts")
         val messages = mutableListOf<SceneMessage>()
         for (i in 0 until receipts.length()) {
@@ -220,12 +233,15 @@ internal class DurableGateway(
         val current = checkNotNull(timelines.singleOrNull { it.branch == selectedScope.getString("branch") })
         // A concurrent owner can advance between calls. Fail closed and recover a new
         // coherent snapshot rather than attaching a different head's catalog metadata.
-        if (current.revision != revision) throw WorkspaceFailure("Stale")
+        if (current.revision != playerRevision) throw WorkspaceFailure("Stale")
         textProvider = readTextProvider()
         val saved = SavedSnapshot(revision, if (view.getJSONObject("inventory").has("potion")) "You" else "Not in your inventory",
             messages.takeLast(40), workspace.getString("location"), 1, stories,
             SavedStory(current.story, current.branch, root.title, current.revision), current.uncommittedDrafts,
             view.getString("rules"), textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines)
+        currentPlayerScope()
+        if(revision!=playerRevision)throw WorkspaceFailure("Stale")
+        playerBinding = binding
         coherentPlayerSnapshot = true
         return resolvedInitialSelection(saved)
     }
@@ -379,7 +395,7 @@ internal class DurableGateway(
                 if (failure.category != "Closed") throw failure
             }
         }
-        session = null; scope = null; revision = 0
+        session = null; scope = null; revision = 0; playerBinding = null
     }
     private suspend fun release() {
         coherentPlayerSnapshot = false

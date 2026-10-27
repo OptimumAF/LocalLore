@@ -32,7 +32,13 @@ class OriginalStoryMainActivityTest {
         finally { scenario.close() }
     }
     private fun settled() {
-        compose.waitUntil(15000) { model.state.value.let { it.persistent && !it.busy && !it.creationActive } }
+        try { compose.waitUntil(15000) { model.state.value.let { it.persistent && !it.busy && !it.creationActive } } }
+        catch(failure: ComposeTimeoutException) {
+            val s=model.state.value; val c=model.creation.value; val original=c.original
+            throw AssertionError("Story handoff did not settle: persistent=${s.persistent}, busy=${s.busy}, creationActive=${s.creationActive}, " +
+                "recoveryRequired=${s.recoveryRequired}, originalVisible=${original!=null}, originalBusy=${original?.busy}, " +
+                "originalCreating=${original?.creating}, originalClosing=${original?.closing}",failure)
+        }
         compose.waitForIdle(); assertFalse(model.state.value.recoveryRequired)
     }
     private fun tag(name: String): SemanticsNodeInteraction {

@@ -47,17 +47,22 @@ class OriginalStoryWireTest {
         malformed { OriginalStoryWire.capabilities(JSONObject().put("available",true).put("provider","cloud").put("max_tokens",1024)) }
         malformed { OriginalStoryWire.capabilities(JSONObject().put("available",true).put("provider",JSONObject.NULL).put("max_tokens",1024)) }
     }
-    private class Host(val database: File): AutoCloseable {
-        private val handle=NativeWorkspace.open(database.absolutePath).also { check(it>0) }
-        fun data(op: String, configure: (JSONObject)->Unit={}): JSONObject {
-            val command=JSONObject().put("op",op); configure(command)
+    private class Host(val database: File): WorkspaceTransport, AutoCloseable {
+        private var handle=NativeWorkspace.open(database.absolutePath).also { check(it>0) }
+        override suspend fun exchange(command: JSONObject): JSONObject {
+            check(handle>0)
             val bytes=JSONObject().put("version",1).put("command",command).toString().toByteArray(Charsets.UTF_8); check(bytes.size<=24576)
             val raw=NativeWorkspace.call(handle,bytes); check(raw.size in 1..262144)
             val root=JSONObject(raw.toString(Charsets.UTF_8)); assertEquals(1,root.getInt("version"))
+            return root
+        }
+        suspend fun data(op: String, configure: (JSONObject)->Unit={}): JSONObject {
+            val command=JSONObject().put("op",op); configure(command)
+            val root=exchange(command)
             assertEquals("Native $op error=${root.optString("error").take(64)}","ok",root.opt("status"))
             return root.getJSONObject("data")
         }
-        override fun close()=NativeWorkspace.close(handle)
+        override fun close() { val old=handle; handle=0; if(old>0)NativeWorkspace.close(old) }
     }
     private fun database(): File {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
@@ -65,7 +70,7 @@ class OriginalStoryWireTest {
         val root=File(context.cacheDir,"original-wire-${UUID.randomUUID()}"); check(root.mkdir())
         return File(root,"stories.sqlite3")
     }
-    private fun review(host: Host): OriginalReview {
+    private suspend fun review(host: Host): OriginalReview {
         val input=input(); val job=OriginalStoryWire.job(host.data("authoring_begin") { it.put("input",OriginalStoryWire.input(input)) })
         assertEquals("scripted",job.provider)
         val generated=OriginalStoryWire.generated(host.data("authoring_generate") { it.put("job",job.job) })
@@ -104,6 +109,43 @@ class OriginalStoryWireTest {
             assertFalse(retry.getBoolean("created")); assertEquals(scope.toString(),retry.getJSONObject("scope").toString())
             assertEquals(player,host.data("play_snapshot") { it.put("session",retry.getString("session")).put("scope",scope).put("expected_revision",0) }.toString())
             assertEquals(1,host.data("workspace").getJSONArray("stories").length())
+        }
+        Host(file).use { host ->
+            val observer=JSONObject(player).getJSONObject("player").getString("observer")
+            assertNotEquals("player",observer) // Original-world IDs are assigned by Rust, not the bundled fixture.
+            var corruptObserver=false
+            val port=object: WorkspaceTransport {
+                override suspend fun exchange(command: JSONObject): JSONObject=host.exchange(command).also {
+                    // Negative adapter test only: the unmodified JNI result above remains authoritative.
+                    if(corruptObserver && command.optString("op")=="play_snapshot" && it.optString("status")=="ok")
+                        it.getJSONObject("data").getJSONObject("player").put("observer","foreign-observer")
+                }
+                override fun close()=host.close()
+            }
+            val gateway=DurableGateway(port,autoCreateIfEmpty=false,initialScopeHint=PlayDraftScope("original-$id","main"))
+            try {
+                val saved=gateway.initialize()
+                val selected=checkNotNull(saved.selected)
+                assertEquals("original-$id",selected.story); assertEquals("main",selected.branch)
+                assertEquals(review.title,selected.title); assertEquals(0L,saved.revision)
+                assertEquals("narrative_v1",saved.rulesProfile); assertEquals(5,saved.databaseSchemaVersion)
+                assertEquals(saved.selected,gateway.recoverSaved().selected)
+                corruptObserver=true
+                try { gateway.snapshot(); fail("An established native player binding was retargeted") }
+                catch(e: WorkspaceFailure) { assertEquals("Stale",e.category) }
+                assertNull(gateway.forkContext(selected,0,1)) // A refused snapshot cannot lend a coherent player view.
+                corruptObserver=false
+                val recovered=gateway.recoverSaved(); assertEquals(saved.selected,recovered.selected)
+                // These are semantic player lenses, independent of the engine's actual actor ID.
+                assertEquals("player",gateway.forkContext(recovered.selected!!,0,2)!!.observer)
+                val legacy=gateway.createSaved()
+                assertNotEquals(selected.story,legacy.selected!!.story)
+                assertEquals("fantasy_v1",legacy.rulesProfile)
+                // A fresh explicit attachment must not reuse the prior story's opaque observer binding.
+                val returned=gateway.resumeSaved(selected)
+                assertEquals(selected,returned.selected); assertEquals(0L,returned.revision)
+                assertEquals("narrative_v1",returned.rulesProfile)
+            } finally { gateway.close() }
         }
     }
 }

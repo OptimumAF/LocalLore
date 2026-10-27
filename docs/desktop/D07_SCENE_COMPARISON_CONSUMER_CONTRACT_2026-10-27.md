@@ -201,3 +201,41 @@ No production edits or execution accompany this freeze. Next runnable task is
 Root's data-only V4 Core reader implementation against these four tests, followed
 by the typed native/UI read-only slice. Selected3/source4 and new model/human
 qualification remain separate gates; dependencies PR232/237 are still draft.
+
+## Core/Eval facade implementation handoff
+
+Source implementation starts from frozen `a94d53b8508053b5b5c39d2260e701413b245882`
+on isolated branch `impl/d07-v4-reader-facade`. The new public
+`scene_v4::desktop_api` exports exactly the opaque reader and three frozen
+functions above. The only parent source change is its module declaration; the
+four public tests and existing Protocol2/3 APIs are unchanged. This handoff is
+**UNCOMPILED/UNRUN**. The author performed source/API, diff/whitespace and hash
+inspection only; no formatter, compiler, test, native application, model,
+device, desktop or protected-resource execution is claimed.
+
+Opening retains the existing ordinary ancestor/recognized child-directory pins
+and a read-opened existing exclusive run lock. It calls the actual strict V4
+inspector and checkpoint loader, compares report rows against loaded checkpoints
+in index/arm order, refuses duplicate arm/turn identities and binds compact
+typed-manifest/report/normalized-row JSON. The returned report is lossless;
+availability remains phase/artifact presence rather than a quality verdict.
+The summary has the existing 2 MiB cap and explicitly disables Protocol4 selected
+rerun. Its cached snapshot remains immutable, including after an external change;
+it is not fresh source verification.
+
+Evidence first uses the shared grant/raw-observer guard, then checks binding and
+row identity, revalidates the exact manifest and reloads the actual checkpoint
+against its Store source. Every checkpoint field is compared to the retained
+copy before borrowing the shared private EvidenceTurn renderer. Actual Store
+edges/receipt, Query2 observer filtering and bounded raw/evidence checks remain
+owned by existing shared code; no accepted receipt or Engine is deserialized
+from report metadata. The shared evidence envelope retains its 256 KiB cap,
+read-only marker and false generation grant. Hash consistency remains a retained
+diagnostic check, not provider execution or artifact-origin authentication.
+
+Root owns first compilation, the four frozen public cases and reader/producer
+regressions, then native/UI lifecycle integration and lint. No native command,
+frontend decoder/panel, selected execution, provider/runtime ownership or source
+schema/default policy changes accompany this slice. Opening a reader does not
+qualify actual native IPC/WebView rendering, model narration or human quality;
+the original eight-sample needs-improvement assessment is unchanged.

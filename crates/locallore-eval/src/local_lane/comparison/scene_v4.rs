@@ -1,6 +1,7 @@
 //! Protocol4 scene narration comparison over the existing owners.
 //! Native execution requires its trusted lease entry; selected/UI and CLI
 //! native execution remain unavailable pending their separate integration.
+pub mod desktop_api;
 use super::*;
 #[cfg(feature = "local-model")]
 mod native;

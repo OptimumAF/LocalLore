@@ -32,6 +32,16 @@ enforce this after the existing raw/copy/status checks. A fully rebound downgrad
 to historical record1 therefore remains readable as historical evidence but
 cannot qualify a new execution. No timing or successful status is synthesized.
 
+Current external admission and final parent qualification also use
+`_qualified_current_gate`: fully validate the native10 prerequisite with the
+historical reader, then require its exact complete measured-v2 client set.
+The generic `qualified_gate` and `validate_execution` stay readable for original
+historical records. A timingless historical native gate cannot authorize new
+external SDK dispatch, even when its canonical/raw/roster checks still pass.
+There is no runtime downgrade selector. The original seven native-gate
+adversaries retain complete ten-method runner evidence and exercise the real
+worker/parent path; their execution is recorded separately from older tests.
+
 The15-second observer deadline, before/after observation cadence, PID/FILETIME,
 executable/tool hash/launcher/listener pins, session bounds, raw-first capture,
 closed output limits and sticky fail-stop behavior are unchanged. No retry,

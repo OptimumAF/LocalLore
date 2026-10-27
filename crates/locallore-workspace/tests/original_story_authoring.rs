@@ -303,6 +303,57 @@ fn lost_ack_reopen_and_archive_retry_preserve_accepted_history_without_provider(
 }
 
 #[test]
+fn recovered_creation_consumes_matching_live_review_but_preserves_unrelated_draft() {
+    let temp = Temp::new();
+    let live = temp.host();
+    let other = temp.host();
+    let (input, proposal) = fixture(false);
+    let calls = configure(&live, &proposal);
+    configure(&other, &proposal);
+    let (job, hash) = ready(&live, &input, &proposal, "Ashglass");
+    let (other_job, other_hash) = ready(&other, &input, &proposal, "Ashglass");
+    assert_eq!(hash, other_hash);
+    let id = "a".repeat(32);
+    assert_eq!(
+        data(create(&other, &other_job, &hash, &id))["created"],
+        true
+    );
+    let before = temp.snapshot();
+
+    assert_eq!(data(create(&live, &job, &hash, &id))["created"], false);
+    assert_eq!(
+        data(call(&live, json!({"op":"authoring_status","job":job})))["phase"],
+        "created"
+    );
+    assert_eq!(
+        create(&live, &job, &hash, &"b".repeat(32))["error"],
+        "Stale"
+    );
+    assert_eq!(
+        data(call(&live, json!({"op":"authoring_cancel","job":job})))["cancelled"],
+        false
+    );
+    assert_eq!(temp.snapshot(), before);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    let (new_job, new_hash) = ready(&live, &input, &proposal, "Another review");
+    assert_ne!(new_hash, hash);
+    assert_eq!(
+        data(create(&live, "foreign-job", &hash, &id))["created"],
+        false
+    );
+    assert_eq!(
+        data(call(&live, json!({"op":"authoring_status","job":new_job})))["phase"],
+        "reviewed"
+    );
+    assert_eq!(
+        data(create(&live, &new_job, &new_hash, &"c".repeat(32)))["created"],
+        true
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+
+#[test]
 fn edits_invalid_reviews_cancel_and_configuration_changes_revoke_old_creation_consent() {
     let temp = Temp::new();
     let h = temp.host();

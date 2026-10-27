@@ -337,7 +337,21 @@ impl Host {
                     let port = state.persistence.as_mut().ok_or("Unsupported")?;
                     // A completed creation can be recovered without a generation job or model.
                     if let Some(engine) = port.lookup_original(creation_id, review_sha256)? {
-                        return attach_recovered(state, engine, creation_id, review_sha256);
+                        let reply = attach_recovered(state, engine, creation_id, review_sha256)?;
+                        // A lost acknowledgement may recover while this exact review is
+                        // still live. Successful recovery consumes its create consent just
+                        // like the insert path; an unrelated draft remains untouched.
+                        if let Some(current) = state.authoring.job.as_mut().filter(|current| {
+                            &current.id == job
+                                && current.phase == "reviewed"
+                                && current
+                                    .reviewed
+                                    .as_ref()
+                                    .is_some_and(|(_, hash)| hash == review_sha256)
+                        }) {
+                            current.phase = "created";
+                        }
+                        return Ok(reply);
                     }
                     if state.authoring.running.is_some() {
                         return Err("Busy".into());

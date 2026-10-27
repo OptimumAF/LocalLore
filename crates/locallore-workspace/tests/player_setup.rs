@@ -354,10 +354,11 @@ fn instruction_shaped_name_is_only_a_label_not_a_rule_grant_or_world_retcon() {
     );
     assert_eq!(host.live_counts(), counts);
     let mut stored = Store::open_read_only(&temp.path()).unwrap();
-    assert!(matches!(
-        stored.turn_status(&invalid),
-        Err(TurnError::UnknownTurn)
-    ));
+    let observed = stored.turn_status(&invalid);
+    assert!(
+        matches!(&observed, Err(TurnError::UnknownTurn)),
+        "{observed:?}"
+    );
     assert!(stored.drafts(&scope(&created)).unwrap().is_empty());
     assert_eq!(temp.canonical(), catalog_and_archives);
     let after = temp.engine(&scope(&created));

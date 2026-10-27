@@ -470,6 +470,7 @@ enum JobKind {
     Curated,
     ComparisonRead,
     Selected,
+    ComparisonRun,
 }
 struct Job {
     kind: JobKind,
@@ -495,6 +496,7 @@ struct State {
     next: u64,
 }
 pub struct EvaluationManager {
+    full_comparison: Mutex<comparison_run::FullComparisonState>,
     comparison: Mutex<comparison::ComparisonState>,
     curated: Mutex<curated::CuratedState>,
     selected: Mutex<selected::SelectedState>,
@@ -517,10 +519,15 @@ pub struct EvaluationManager {
     hold: std::sync::atomic::AtomicBool,
     #[cfg(any(test, feature = "dev-harness"))]
     curated_lost_ack: std::sync::atomic::AtomicBool,
+    #[cfg(any(test, feature = "dev-harness"))]
+    full_lost_ack: std::sync::atomic::AtomicBool,
+    #[cfg(any(test, feature = "dev-harness"))]
+    full_read_denied: std::sync::atomic::AtomicBool,
 }
 impl EvaluationManager {
     pub fn new(root: PathBuf) -> Self {
         Self {
+            full_comparison: Mutex::new(comparison_run::FullComparisonState::default()),
             comparison: Mutex::new(comparison::ComparisonState::default()),
             curated: Mutex::new(curated::CuratedState::default()),
             selected: Mutex::new(selected::SelectedState::default()),
@@ -541,6 +548,10 @@ impl EvaluationManager {
             hold: std::sync::atomic::AtomicBool::new(false),
             #[cfg(any(test, feature = "dev-harness"))]
             curated_lost_ack: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(any(test, feature = "dev-harness"))]
+            full_lost_ack: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(any(test, feature = "dev-harness"))]
+            full_read_denied: std::sync::atomic::AtomicBool::new(false),
         }
     }
     fn state(&self) -> Result<std::sync::MutexGuard<'_, State>> {
@@ -614,10 +625,17 @@ impl EvaluationManager {
         } else {
             0
         };
+        let full = self.full_comparison_root();
+        let full_bytes = if full.exists() {
+            bytes(&full, &mut 0)?
+        } else {
+            0
+        };
         if free_space(parent)? < 64 * 1024 * 1024
             || builtin_bytes
                 .saturating_add(extra)
                 .saturating_add(selected_bytes)
+                .saturating_add(full_bytes)
                 > ROOT_BYTES
         {
             return Err("EvaluationBudget".into());
@@ -964,6 +982,7 @@ impl EvaluationManager {
         }
     }
     pub fn retire(&self, epoch: u64) {
+        self.full_comparison_retire(epoch);
         self.selected_retire(epoch);
         self.comparison_retire(epoch);
         // No IO/state/lease/worker locks are acquired while holding this slot.
@@ -1007,6 +1026,8 @@ impl EvaluationManager {
             "hold-boundary" => self.hold.store(true, Ordering::SeqCst),
             "release-boundary" => self.hold.store(false, Ordering::SeqCst),
             "lose-curated-start-ack" => self.curated_lost_ack.store(true, Ordering::SeqCst),
+            "lose-comparison-start-ack" => self.full_lost_ack.store(true, Ordering::SeqCst),
+            "deny-comparison-read" => self.full_read_denied.store(true, Ordering::SeqCst),
             _ => return Err("InvalidEvaluationInput".into()),
         }
         Ok(json!({"synthetic":true}))
@@ -1016,14 +1037,26 @@ impl EvaluationManager {
         self.curated_lost_ack
             .swap(false, std::sync::atomic::Ordering::SeqCst)
     }
+    #[cfg(feature = "dev-harness")]
+    pub fn take_full_lost_ack(&self) -> bool {
+        self.full_lost_ack
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+    }
+    #[cfg(feature = "dev-harness")]
+    pub fn take_full_read_denial(&self) -> bool {
+        self.full_read_denied
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+    }
 }
 mod comparison;
+mod comparison_run;
 mod curated;
 #[cfg(test)]
 mod fresh_budget_review;
 mod selected;
 
 pub use comparison::ComparisonEvidenceRequest;
+pub use comparison_run::{FullComparisonNativeResume, FullComparisonStart};
 #[cfg(test)]
 #[path = "evaluation/retirement_review.rs"]
 mod retirement_review;

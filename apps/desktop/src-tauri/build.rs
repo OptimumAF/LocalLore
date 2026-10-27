@@ -40,6 +40,8 @@ fn main() {
                 "evaluation_catalog",
                 "evaluation_curated",
                 "evaluation_comparison",
+                "evaluation_comparison_run",
+                "evaluation_comparison_native",
                 "evaluation_selected",
                 "harness_selected_case",
                 "harness_comparison_reader_case",

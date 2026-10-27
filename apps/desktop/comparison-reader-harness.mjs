@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
+const literalMode = process.env.LOCALLORE_D07_LITERAL_COMPARISON_READER === "1";
 const base = process.env.LOCALLORE_D07_COMPARISON_READER_ARTIFACT_ROOT;
 if (!base || !path.isAbsolute(base))
     throw Error("TrustedTaskArtifactRootRequired");
@@ -175,6 +176,7 @@ for (const stage of ["initial", "restart"]) {
         LOCALLORE_M08_AUTHOR_HARNESS: "0",
         LOCALLORE_TEST_STORAGE_FAILURE: "0",
         LOCALLORE_D07_COMPARISON_READER_HARNESS: "1",
+        LOCALLORE_D07_LITERAL_COMPARISON_READER: literalMode ? "1" : "0",
         LOCALLORE_D02_ARTIFACT_DIR: directory,
         LOCALLORE_TEST_MEMORY: "0",
         LOCALLORE_TEST_WORKSPACE: path.join(folder, "stories-v1.sqlite"),
@@ -204,6 +206,16 @@ for (const stage of ["initial", "restart"]) {
         opened.fixtureInventory &&
             Object.keys(opened.fixtureInventory).length > 0,
         "ActualProducerInventoryRequired",
+    );
+    assert.equal(
+        opened.comparison.source.protocol_version,
+        literalMode ? 3 : 2,
+        "ActualClosedReaderProtocol",
+    );
+    assert.equal(
+        opened.comparison.summaryProjection.report.version,
+        literalMode ? 3 : 2,
+        "ActualReportProtocol",
     );
     const actual = await inventory(path.join(folder, "comparison-fixtures"));
     assert.deepEqual(
@@ -394,6 +406,7 @@ const summary = {
     passed: true,
     sourceRevision: revision,
     sourceClean: true,
+    protocolVersion: literalMode ? 3 : 2,
     synthetic: true,
     nativeIpc: true,
     rendering: "actual-hidden-unfocused-webview2",

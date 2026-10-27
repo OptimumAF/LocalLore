@@ -1,6 +1,9 @@
 # Local model and runtime evaluation
 
-Status: experiment plan, not benchmark results. Prepared 2026-10-22. No physical phone or RAM configuration has been confirmed or tested for this project.
+Status: experiment plan, prepared 2026-10-22. Dated execution evidence and current
+device availability are maintained in [M01 #5](https://github.com/OptimumAF/LocalLore/issues/5).
+The later phone inventory/nonmodel JNI tests do not establish a supported
+physical-model profile or quality acceptance.
 
 ## Selection principle
 
@@ -64,5 +67,11 @@ Report load time, first final-response latency, prefill time, per-role decode ti
 Use the same synthetic tasks, device, output budget, and generation settings for a fair comparison. Evaluate at least naive recent-chat prompting, structured state without long-memory retrieval, and the complete proposed pipeline. Additional embeddings/critics/multiple models need an ablation showing benefit relative to cost.
 
 Human review should evaluate distinct voices, meaningful consequences, repetition, pacing, player agency, and unsupported consequential facts. A local model judge can help find candidate failures but cannot be the only quality authority. Do not use a hosted judge on private player content.
+
+The [private role-review tool](runtime/ROLE_REVIEW_PROTOCOL.md) records bounded,
+source-bound reviewer declarations for retained comparison outputs. Pending and
+unavailable samples remain visible; its summary never authenticates a human or
+sets quality accepted. It reuses the existing evaluation reader and does not
+run inference or change canonical outcomes.
 
 Select a backend/model/profile in an ADR with evidence and rejected alternatives. Publish only verified supported profiles. Include a smaller-model or reduced-context path where feasible, and a clear unsupported-device explanation otherwise. No silent cloud fallback.

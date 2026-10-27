@@ -8,6 +8,11 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
+assert(
+    process.argv.slice(2).every((argument) => argument === "--literal"),
+    "ClosedHarnessArguments",
+);
+const literal = process.argv.includes("--literal");
 const base = process.env.LOCALLORE_D07_SELECTED_ARTIFACT_ROOT;
 if (!base || !path.isAbsolute(base))
     throw Error("TrustedTaskArtifactRootRequired");
@@ -156,6 +161,17 @@ await run(
 );
 // Frozen mandatory captures. Each must be an actual app-owned WebView image.
 const labels = [
+    "selected-resumed",
+    "selected-constructions",
+    "selected-constructions-narrow",
+    ...(literal
+        ? [
+              "selected-literal-capture",
+              "selected-guard-results",
+              "selected-relevant-construction",
+              "selected-literal-proof-narrow",
+          ]
+        : []),
     "selected-prepared",
     "selected-completed",
     "selected-summary",
@@ -189,6 +205,7 @@ for (const stage of ["initial", "restart"]) {
             LOCALLORE_D02_HARNESS: "1",
             LOCALLORE_D07_COMPARISON_READER_HARNESS: "1",
             LOCALLORE_D07_SELECTED_HARNESS: "1",
+            LOCALLORE_D07_LITERAL_COMPARISON_READER: literal ? "1" : "0",
             LOCALLORE_D03_HARNESS: "0",
             LOCALLORE_D04_HARNESS: "0",
             LOCALLORE_D05_HARNESS: "0",
@@ -212,7 +229,8 @@ for (const stage of ["initial", "restart"]) {
             WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:
                 "--disable-background-timer-throttling",
         },
-        660000,
+        // The fixed app watchdog is900s; leave60s for its bounded shutdown.
+        960000,
     );
     const report = JSON.parse(
         await readFile(path.join(directory, "report.json"), "utf8"),
@@ -223,6 +241,21 @@ for (const stage of ["initial", "restart"]) {
         true,
         `Journeys:${stage}:${report.failedCheck}`,
     );
+    assert.equal(
+        report.sourceProtocol,
+        literal ? 3 : 2,
+        `ActualProtocol:${stage}`,
+    );
+    assert.equal(
+        report.selectedVersion,
+        literal ? 2 : 1,
+        `ActualSelectedVersion:${stage}`,
+    );
+    if (stage === "restart")
+        assert(
+            reports[0].report.savedRuns.includes(report.reopenedRun),
+            "ColdOpenIsInitialDurableRun",
+        );
     assert(
         Array.isArray(report.checks) &&
             report.checks.length >= (stage === "restart" ? 160 : 154),
@@ -300,6 +333,8 @@ const qualification = {
     passed: true,
     sourceRevision: revision,
     synthetic: true,
+    sourceProtocol: literal ? 3 : 2,
+    selectedVersion: literal ? 2 : 1,
     nativeIpc: true,
     rendering: "actual-hidden-unfocused-webview2",
     desktopInput: false,

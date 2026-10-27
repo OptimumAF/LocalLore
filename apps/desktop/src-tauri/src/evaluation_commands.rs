@@ -249,10 +249,27 @@ pub async fn harness_evaluation_case(
     manager: tauri::State<'_, Arc<EvaluationManager>>,
     scenario: String,
 ) -> Result<Value, String> {
-    if !crate::harness::active() || std::env::var("LOCALLORE_D07_HARNESS").as_deref() != Ok("1") {
+    let full = std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1");
+    if !crate::harness::active()
+        || (!full && std::env::var("LOCALLORE_D07_HARNESS").as_deref() != Ok("1"))
+    {
         return Err("Forbidden".into());
     }
     execute(window, workspace, manager, move |m, l, e| {
+        if scenario == "full-comparison-inventory" {
+            if !full {
+                return Err("Forbidden".into());
+            }
+            return l.dispatch(e, || m.full_comparison_fixture_inventory());
+        }
+        if !full
+            && matches!(
+                scenario.as_str(),
+                "lose-comparison-start-ack" | "deny-comparison-read"
+            )
+        {
+            return Err("Forbidden".into());
+        }
         l.dispatch(e, || m.test_case(&scenario))
     })
     .await

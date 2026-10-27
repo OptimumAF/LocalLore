@@ -148,6 +148,10 @@ export class SelectedEvaluationController {
     private currentUncertain = false;
     private disposed = false;
     private reporting = false;
+    // Presentation-only freshness hint. An admitted request may consume this
+    // native source even when its acknowledgement is lost. This is not proof
+    // of native consumption or permission; a fresh reader token is required.
+    private lastAttemptedSourceToken: string | null = null;
     private sent = new Set<string>();
     private inFlight = new Map<string, number>();
     private replies = new Map<string, number>();
@@ -160,6 +164,9 @@ export class SelectedEvaluationController {
     ) {}
     get(): Readonly<SelectedEvaluationState> {
         return this.state;
+    }
+    sourceNeedsRefresh(source: SelectedSourceIdentity): boolean {
+        return source.runToken === this.lastAttemptedSourceToken;
     }
     subscribe(listener: () => void): () => void {
         if (!this.disposed) this.listeners.add(listener);
@@ -516,6 +523,8 @@ export class SelectedEvaluationController {
             client,
         };
         ++this.readEpoch;
+        if (action === "prepare")
+            this.lastAttemptedSourceToken = selectedUuid(body.runToken);
         this.patch({
             clientId: client,
             status: null,
@@ -735,6 +744,8 @@ export class SelectedEvaluationController {
             serial: ++this.lifecycleEpoch,
             client,
         };
+        if (action === "resume")
+            this.lastAttemptedSourceToken = selectedUuid(body.sourceToken);
         this.patch({
             evidence: null,
             diagnostics: null,
@@ -912,15 +923,35 @@ export class SelectedEvaluationController {
             };
             const response = await this.call(action, body);
             if (!this.ownsRead(t)) return;
-            if (action === "summary")
-                this.patch({
-                    summary: checkedSelectedSummary(
-                        response,
-                        t.token,
-                        t.binding,
-                    ),
-                });
-            else if (action === "evidence" && summary && request && arm)
+            if (action === "summary") {
+                const next = checkedSelectedSummary(
+                    response,
+                    t.token,
+                    t.binding,
+                );
+                const prepared = this.state.status?.prepared;
+                if (
+                    prepared &&
+                    (next.version !== prepared.version ||
+                        next.lane !== prepared.lane ||
+                        next.selection.turn !== prepared.selection.turn ||
+                        next.selection.clicked_arm !==
+                            prepared.selection.clicked_arm ||
+                        next.selection.index !== prepared.selection.index ||
+                        next.arms.some((arm, index) => {
+                            const before = prepared.arms[index];
+                            return (
+                                !before ||
+                                arm.arm !== before.arm ||
+                                arm.scope.story !== before.scope.story ||
+                                arm.scope.branch !== before.scope.branch ||
+                                arm.before_head !== before.before_head
+                            );
+                        }))
+                )
+                    throw new Error("SelectedEvaluationWire");
+                this.patch({ summary: next });
+            } else if (action === "evidence" && summary && request && arm)
                 this.patch({
                     evidence: checkedSelectedEvidence(
                         response,

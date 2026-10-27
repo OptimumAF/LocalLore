@@ -51,23 +51,28 @@ fn continuation_failed(app: &tauri::AppHandle, ticket: CloseTicket) {
     }
 }
 fn continue_close(app: &tauri::AppHandle, ticket: CloseTicket) {
-    let continuation = app
-        .state::<WorkspaceState>()
-        .close_gate
-        .lock()
-        .ok()
-        .and_then(|mut gate| gate.take_continuation(ticket));
+    let state = app.state::<WorkspaceState>();
+    let continuation = state.close_gate.lock().ok().and_then(|mut gate| {
+        finish_lease(&state, &gate, ticket.epoch());
+        gate.take_continuation(ticket)
+    });
     if let Some(continuation) = continuation {
         let handle = app.clone();
         let scheduled = app.run_on_main_thread(move || match continuation {
             Continuation::DestroyWindow { epoch } => {
+                #[cfg(feature = "dev-harness")]
+                crate::shutdown_harness::phase("destroy_issued", epoch);
                 if let Some(window) = handle.get_webview_window(&format!("main-{epoch}")) {
                     if window.destroy().is_err() {
                         continuation_failed(&handle, ticket);
                     }
                 }
             }
-            Continuation::Exit { code } => handle.exit(code.unwrap_or(0)),
+            Continuation::Exit { code } => {
+                #[cfg(feature = "dev-harness")]
+                crate::shutdown_harness::phase("exit_issued", ticket.epoch());
+                handle.exit(code.unwrap_or(0));
+            }
         });
         if scheduled.is_err() {
             continuation_failed(app, ticket);
@@ -75,18 +80,55 @@ fn continue_close(app: &tauri::AppHandle, ticket: CloseTicket) {
     }
 }
 
+// Hold the coordinator lock while acknowledging this exact lease. A stale
+// continuation must not overwrite the closed marker after a newer epoch opens.
+// No native destroy/exit call is made while either coordination lock is held.
+fn finish_lease(state: &WorkspaceState, gate: &crate::close_gate::CloseGate, epoch: u64) {
+    if gate.can_finish_close(epoch) {
+        if let Some(closed) = epoch.checked_add(1) {
+            state.lease.finish_close(closed, || {});
+            #[cfg(feature = "dev-harness")]
+            crate::shutdown_harness::phase("lease_closed", epoch);
+        }
+    }
+}
+
 /// `label` comes from the actual native window, never a JSON epoch or token.
 pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Result<(), String> {
+    request_inner(app, label, intent, false)
+}
+
+/// Called only by the actual native Destroyed event, never by renderer JSON.
+pub(crate) fn destroyed(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    request_inner(app, label, Intent::Window, true)
+}
+
+fn request_inner(
+    app: &tauri::AppHandle,
+    label: &str,
+    intent: Intent,
+    destroyed: bool,
+) -> Result<(), String> {
     let epoch: u64 = label
         .strip_prefix("main-")
         .and_then(|s| s.parse().ok())
         .ok_or("Closed")?;
     let state = app.state::<WorkspaceState>();
-    let decision = state
-        .close_gate
-        .lock()
-        .map_err(|_| "Cleanup")?
-        .request(epoch, intent)?;
+    let decision = {
+        let mut gate = state.close_gate.lock().map_err(|_| "Cleanup")?;
+        let decision = if destroyed {
+            gate.destroyed(epoch)?
+        } else {
+            gate.request(epoch, intent)?
+        };
+        // A window-only destruction can complete after its worker's proof.
+        // In that case no further continuation is needed, but reopen still
+        // waits for this acknowledgement of BOTH facts.
+        if matches!(decision, Decision::Pending) {
+            finish_lease(&state, &gate, epoch);
+        }
+        decision
+    };
     let ticket = match decision {
         Decision::Pending => return Ok(()),
         Decision::Continue(ticket) => {
@@ -98,7 +140,9 @@ pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Re
     // This is synchronous before scheduling a drain. A retry targets only this
     // gate's captured epoch after its original lease has already been revoked.
     let epoch = ticket.epoch();
-    let closed = state.lease.invalidate(label).unwrap_or(epoch + 1);
+    #[cfg(feature = "dev-harness")]
+    crate::shutdown_harness::phase("cleanup_started", epoch);
+    let _ = state.lease.invalidate(label);
     state.retire_author(epoch);
     app.state::<Arc<crate::capture_exports::CaptureBroker>>()
         .invalidate(epoch);
@@ -119,7 +163,6 @@ pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Re
         .inner()
         .clone();
     let retired = models.retire();
-    let lease = state.lease.clone();
     let host = state.ready();
     let handle = app.clone();
     status(app, "closing");
@@ -138,7 +181,6 @@ pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Re
             status(&handle, "cleanup_required");
             return;
         }
-        lease.finish_close(closed, || {});
         let confirmed = handle
             .state::<WorkspaceState>()
             .close_gate
@@ -146,6 +188,8 @@ pub(crate) fn request(app: &tauri::AppHandle, label: &str, intent: Intent) -> Re
             .map(|mut gate| gate.confirm(ticket))
             .unwrap_or(false);
         if confirmed {
+            #[cfg(feature = "dev-harness")]
+            crate::shutdown_harness::phase("cleanup_confirmed", epoch);
             status(&handle, "closed");
             continue_close(&handle, ticket);
         }
@@ -170,6 +214,8 @@ pub(crate) fn exit_requested(app: &tauri::AppHandle, code: Option<i32>) -> bool 
     let epoch = match state.close_gate.lock() {
         Ok(mut gate) => {
             if gate.consume_exit(code) {
+                #[cfg(feature = "dev-harness")]
+                crate::shutdown_harness::phase("exit_permitted", gate.current_epoch());
                 return true;
             }
             gate.current_epoch()

@@ -9,6 +9,9 @@ import type {
     SelectedSourceIdentity,
     RowId,
     ObserverV2,
+    SelectedPrepared,
+    SelectedSummary,
+    SelectedDiagnostics,
 } from "./selected-evaluation-model";
 import type { ViewV2 } from "./v2-view-model";
 import { structural, type ErrorBuffer } from "./model";
@@ -39,10 +42,34 @@ export async function selectedEvaluationJourneys({
     let consentHeld = false,
         disposalStarted = false;
     const savedRuns: string[] = [];
+    let sourceProtocol: 2 | 3 = 2,
+        selectedVersion: 1 | 2 = 1,
+        constructionIdentity: string | null = null,
+        reopenedRun: string | null = null;
     const check = (condition: unknown, name: string) => {
         failedCheck = name;
         if (!condition) throw Error(name);
         checks.push(name);
+    };
+    const checkVersion = (
+        metadata:
+            | SelectedPrepared
+            | SelectedSummary
+            | SelectedDiagnostics
+            | null
+            | undefined,
+        name: string,
+    ) => {
+        check(
+            metadata?.version === selectedVersion,
+            `${name}-selected-version`,
+        );
+        if (metadata?.version === 2)
+            check(
+                metadata.source_protocol_version === 3 &&
+                    structural(metadata.constructions) === constructionIdentity,
+                `${name}-source3-exact-constructions`,
+            );
     };
     const until = async (condition: () => boolean, name: string) => {
         failedCheck = name;
@@ -98,6 +125,7 @@ export async function selectedEvaluationJourneys({
     };
     const source = async (
         guard = false,
+        forResume = false,
     ): Promise<{ identity: SelectedSourceIdentity; row: RowId }> => {
         await r.close();
         await fixture("choose-paired");
@@ -112,6 +140,25 @@ export async function selectedEvaluationJourneys({
                 current.summary?.report.source_matches === true,
             "fresh-source-native-reader-ready",
         );
+        check(
+            current.source?.protocol_version === sourceProtocol,
+            "actual-native-source-protocol",
+        );
+        if (sourceProtocol === 3) {
+            check(
+                current.summary?.report.version === 3,
+                "actual-typed-literal-source-report",
+            );
+            if (current.summary?.report.version !== 3)
+                throw Error("LiteralSourceRequired");
+            const identity = structural(current.summary.report.arms);
+            check(
+                constructionIdentity === null ||
+                    identity === constructionIdentity,
+                "source-constructions-stable",
+            );
+            constructionIdentity = identity;
+        }
         // courier-05 is the frozen independent Move at original index4. Guards
         // are selected from actual validated report outcomes, not fabricated rows.
         const entry = guard
@@ -147,6 +194,21 @@ export async function selectedEvaluationJourneys({
         )
             throw Error("SelectedSourceRequired");
         r.select(entry.row);
+        await until(
+            () =>
+                [
+                    ...document.querySelectorAll<HTMLButtonElement>(
+                        "#selected-evaluation button",
+                    ),
+                ].some(
+                    (button) =>
+                        button.textContent?.trim() ===
+                            (forResume
+                                ? "Resume / verify with linked source"
+                                : "Prepare selected case") && !button.disabled,
+                ),
+            "actual-app-source-prop-enables-selected-control",
+        );
         return {
             identity: {
                 readerClientId: current.clientId,
@@ -182,11 +244,10 @@ export async function selectedEvaluationJourneys({
             "#selected-evaluation",
         );
         check(panel, `${label}-panel-mounted`);
-        (
-            panel?.querySelector(selector) ??
-            document.querySelector(selector) ??
-            panel
-        )?.scrollIntoView({ block: "start" });
+        const target =
+            panel?.querySelector(selector) ?? document.querySelector(selector);
+        check(target, `${label}-capture-target-present`);
+        target?.scrollIntoView({ block: "start" });
         const timerStarted = performance.now();
         await new Promise((resolve) => setTimeout(resolve, 150));
         const testTimerObservedMs = Math.round(
@@ -281,6 +342,11 @@ export async function selectedEvaluationJourneys({
                 testTimerObservedMs,
                 horizontalOverflow: overflow,
                 nestedOverflow: nested,
+                captureTarget: {
+                    selector,
+                    top: target?.getBoundingClientRect().top,
+                    bottom: target?.getBoundingClientRect().bottom,
+                },
             },
         };
         check(
@@ -320,6 +386,7 @@ export async function selectedEvaluationJourneys({
         if (!id) throw Error("SelectedRunRequired");
         await s.open(id);
         await s.loadSummary();
+        checkVersion(s.get().summary, "opened-summary");
         check(
             !!s.get().summary && !!s.get().status?.run_token,
             "explicit-native-read-consent-and-summary",
@@ -349,11 +416,19 @@ export async function selectedEvaluationJourneys({
             "actual-lab-native-eligibility",
         );
         const preparedFixtures = (await fixture("prepare")) as {
+            protocol_version: number;
             paired_rows: number;
             rollout_rows: number;
             models_executed: boolean;
             fixture_inventory: Record<string, string>;
         };
+        check(
+            preparedFixtures.protocol_version === 2 ||
+                preparedFixtures.protocol_version === 3,
+            "closed-fixture-protocol",
+        );
+        sourceProtocol = preparedFixtures.protocol_version as 2 | 3;
+        selectedVersion = sourceProtocol === 3 ? 2 : 1;
         check(
             preparedFixtures.paired_rows === 24 &&
                 preparedFixtures.rollout_rows === 12 &&
@@ -383,6 +458,8 @@ export async function selectedEvaluationJourneys({
             if (!prior) throw Error("SavedAttemptRequired");
             await s.open(prior.run_id);
             await s.loadSummary();
+            checkVersion(s.get().summary, "cold-reopened-summary");
+            reopenedRun = prior.run_id;
             check(
                 s.get().summary?.selection.turn === accepted.row.turn,
                 "cold-process-reopens-exact-saved-turn",
@@ -391,6 +468,7 @@ export async function selectedEvaluationJourneys({
             await s.close();
         }
         await s.prepare(accepted.identity, accepted.row, "scripted_baseline");
+        checkVersion(s.get().status?.prepared, "prepared-original-case");
         check(
             s.get().status?.phase === "prepared" &&
                 s.get().status?.prepared?.selection.index === 4,
@@ -478,6 +556,24 @@ export async function selectedEvaluationJourneys({
             "[aria-label='Displayed selected evidence']",
         );
         await invoke("harness_viewport", { preset: "wide" });
+        const beforeResume = structural(s.get().summary),
+            oldReadToken = s.get().status?.run_token,
+            resumeRun = s.get().status?.run_id;
+        const linked = await source(false, true);
+        await s.resume(linked.identity);
+        await s.loadSummary();
+        checkVersion(s.get().summary, "explicit-completed-resume");
+        check(
+            s.get().status?.phase === "completed" &&
+                s.get().status?.run_id === resumeRun &&
+                s.get().status?.run_token !== oldReadToken &&
+                structural(s.get().summary) === beforeResume,
+            "explicit-fresh-source-resume-preserves-heads-and-read-binding",
+        );
+        await capture(
+            "selected-resumed",
+            "[aria-label='Selected experiment summary']",
+        );
         await s.readDiagnostics();
         check(
             s.get().diagnostics?.rows.length === 2 &&
@@ -496,6 +592,58 @@ export async function selectedEvaluationJourneys({
                 s.get().diagnostics?.human_reviewed === 0,
             "no-invented-human-quality-acceptance",
         );
+        checkVersion(s.get().diagnostics, "committed-diagnostics");
+        if (selectedVersion === 2) {
+            const diagnostics = s.get().diagnostics;
+            check(
+                diagnostics?.version === 2 &&
+                    diagnostics.rows.every(
+                        (row) =>
+                            row.construction_matches &&
+                            row.fallback === false &&
+                            row.construction_evidence_status ===
+                                (row.arm === "left"
+                                    ? "validated_literal"
+                                    : "validated_relevant") &&
+                            (row.arm === "left"
+                                ? row.literal_source_units !== null &&
+                                  row.literal_selected_units !== null
+                                : row.literal_source_units === null),
+                    ),
+                "actual-recorded-literal-relevant-construction-proof",
+            );
+        }
+        await capture(
+            "selected-constructions",
+            "[aria-label='Selected expected and actual results']",
+        );
+        await invoke("harness_viewport", { preset: "capture-narrow" });
+        await capture(
+            "selected-constructions-narrow",
+            "[aria-label='Selected expected and actual results']",
+        );
+        if (selectedVersion === 2)
+            await capture(
+                "selected-literal-proof-narrow",
+                "[aria-label='Selected expected and actual results'] > .comparison-selected:first-of-type dt:nth-of-type(9)",
+            );
+        await invoke("harness_viewport", { preset: "wide" });
+        if (selectedVersion === 2) {
+            await capture(
+                "selected-relevant-construction",
+                "[aria-label='Selected expected and actual results'] > .comparison-selected:last-of-type",
+            );
+            await inspect("left", "capture");
+            check(
+                s.get().diagnostics === null &&
+                    s.get().evidence?.body.kind === "capture",
+                "literal-capture-replaces-diagnostics",
+            );
+            await capture(
+                "selected-literal-capture",
+                "[aria-label='Displayed selected evidence']",
+            );
+        }
         const identity = {
             client: s.get().clientId,
             operation: s.get().status?.operation_id,
@@ -583,6 +731,7 @@ export async function selectedEvaluationJourneys({
         await s.start();
         await openCurrent();
         await s.readDiagnostics();
+        checkVersion(s.get().diagnostics, "guard-diagnostics");
         check(
             s.get().diagnostics?.rows.length === 2 &&
                 s
@@ -597,6 +746,31 @@ export async function selectedEvaluationJourneys({
                     ),
             "actual-guard-rejections-no-role-calls-or-receipt",
         );
+        if (selectedVersion === 2) {
+            const diagnostics = s.get().diagnostics;
+            check(
+                diagnostics?.version === 2 &&
+                    diagnostics.rows.every(
+                        (row) =>
+                            row.construction_evidence_status ===
+                                "not_applicable_guard" &&
+                            row.literal_source_units === null &&
+                            row.literal_selected_units === null &&
+                            row.fallback === null,
+                    ),
+                "guard-construction-and-privacy-honestly-not-applicable",
+            );
+            await capture(
+                "selected-guard-results",
+                "[aria-label='Selected expected and actual results']",
+            );
+            check(
+                document
+                    .querySelector("#selected-evaluation")
+                    ?.textContent?.includes("Not applicable · engine guard"),
+                "guard-visible-not-applicable-label",
+            );
+        }
         await inspect("left", "receipt");
         const guardEvidence = s.get().evidence;
         check(
@@ -805,6 +979,9 @@ export async function selectedEvaluationJourneys({
                 checks,
                 errors: errors.snapshot(),
                 savedRuns,
+                reopenedRun,
+                sourceProtocol,
+                selectedVersion,
                 sourceInventory,
                 finalSourceInventory: finalInventory,
                 realModelGeneration: false,

@@ -63,32 +63,84 @@ class HostCommitTest(unittest.TestCase):
         self.assertEqual(maximum * 4096, h.snapshot_from_pages(0, maximum, 4096)["commit_limit_bytes"])
 
     def test_capacity_exact_boundaries_for_both_profiles(self):
-        for guest, required in [(2048, 6 * GIB), (8192, 18 * GIB)]:
-            snapshot = h.snapshot_from_pages(3 * GIB, 3 * GIB + required, 1)
-            result = h.require_capacity(snapshot, guest)
-            self.assertEqual(set(snapshot) | {"guest_memory_bytes", "required_commit_bytes", "reserve_bytes"}, set(result))
-            self.assertEqual(guest * 1024 ** 2, result["guest_memory_bytes"])
-            self.assertEqual(required, result["required_commit_bytes"]); self.assertEqual(2 * GIB, result["reserve_bytes"])
-            self.assertEqual(required, result["available_commit_bytes"])
-            short = h.snapshot_from_pages(3 * GIB, 3 * GIB + required - 1, 1)
-            self.refuses("commit_capacity", lambda: h.require_capacity(short, guest))
-            self.assertEqual(required + 1, h.require_capacity(h.snapshot_from_pages(0, required + 1, 1), guest)["available_commit_bytes"])
+        for guest, required in [(2048, 4 * GIB), (8192, 10 * GIB)]:
+            with self.subTest(guest_mib=guest):
+                snapshot = h.snapshot_from_pages(3 * GIB, 3 * GIB + required, 1)
+                result = h.require_capacity(snapshot, guest)
+                self.assertEqual(set(snapshot) | {"guest_memory_bytes", "required_commit_bytes", "reserve_bytes"}, set(result))
+                self.assertEqual(guest * 1024 ** 2, result["guest_memory_bytes"])
+                self.assertEqual(required, result["required_commit_bytes"]); self.assertEqual(2 * GIB, result["reserve_bytes"])
+                self.assertEqual(result["guest_memory_bytes"] + result["reserve_bytes"], result["required_commit_bytes"])
+                self.assertEqual(required, result["available_commit_bytes"])
+                short = h.snapshot_from_pages(3 * GIB, 3 * GIB + required - 1, 1)
+                self.refuses("commit_capacity", lambda: h.require_capacity(short, guest))
+                self.assertEqual(required + 1, h.require_capacity(h.snapshot_from_pages(0, required + 1, 1), guest)["available_commit_bytes"])
 
     def test_policy_is_not_physical_availability_reservation_or_allocation_guarantee(self):
-        recorded = h.snapshot_from_pages(58_004_791_296, 72_694_566_912, 1)
-        self.refuses("commit_capacity", lambda: h.require_capacity(recorded, 8192))
-        self.assertEqual(6 * GIB, h.require_capacity(recorded, 2048)["required_commit_bytes"])
-        result = h.require_capacity(h.snapshot_from_pages(0, 18 * GIB, 1), 8192)
+        # Retained later observations, not the exact failed startup state. Both
+        # were below the HISTORICAL18GiB policy but exceed the revised10GiB gate.
+        for committed, headroom in [(58_004_791_296, 14_689_775_616), (59_226_001_408, 13_468_565_504)]:
+            with self.subTest(commit_total_bytes=committed):
+                recorded = h.snapshot_from_pages(committed, 72_694_566_912, 1)
+                self.assertEqual(headroom, recorded["available_commit_bytes"])
+                self.assertLess(headroom, 18 * GIB)
+                self.assertEqual(10 * GIB, h.require_capacity(recorded, 8192)["required_commit_bytes"])
+                self.assertEqual(4 * GIB, h.require_capacity(recorded, 2048)["required_commit_bytes"])
+        result = h.require_capacity(h.snapshot_from_pages(0, 10 * GIB, 1), 8192)
         for absent in ["physical_available_bytes", "reservation", "allocated", "guaranteed", "pid", "path", "timestamp"]:
             self.assertNotIn(absent, result)
 
     def test_snapshot_and_returned_assessment_are_distinct_plain_dicts(self):
-        snapshot = h.snapshot_from_pages(0, 18 * GIB, 1); original = dict(snapshot)
+        snapshot = h.snapshot_from_pages(0, 10 * GIB, 1); original = dict(snapshot)
         result = h.require_capacity(snapshot, 8192)
         self.assertIs(type(result), dict); self.assertIsNot(snapshot, result); self.assertEqual(original, snapshot)
         result["available_commit_bytes"] = 0; self.assertEqual(original, snapshot)
         snapshot["available_commit_bytes"] = 1
         self.refuses("commit_invalid", lambda: h.require_capacity(snapshot, 8192))
+
+    def test_source_backed_policy_id_attributes_margin_without_changing_record_shape(self):
+        self.assertEqual("guest_plus_reserve_v2", h.POLICY_ID)
+        self.assertEqual(2 * GIB, h.RESERVE_BYTES)
+        snapshot = h.snapshot_from_pages(0, 10 * GIB, 1)
+        result = h.require_capacity(snapshot, 8192)
+        self.assertEqual({"version", "commit_total_bytes", "commit_limit_bytes", "available_commit_bytes"}, set(snapshot))
+        self.assertNotIn("policy_id", result)
+        self.assertEqual(8 * GIB, result["guest_memory_bytes"])
+        self.assertEqual(2 * GIB, result["reserve_bytes"])
+        self.assertEqual(10 * GIB, result["required_commit_bytes"])
+
+    def test_guest_ram_floor_and_chosen_reserve_are_distinct_requirements(self):
+        for guest in (2048, 8192):
+            guest_bytes = guest * 1024 ** 2
+            with self.subTest(guest_mib=guest):
+                # A log reporting less than guest RAM remains insufficient; do
+                # not turn rounded8184.605469MiB into a fictitious exact count.
+                self.refuses("commit_capacity", lambda: h.require_capacity(h.snapshot_from_pages(0, guest_bytes - 1, 1), guest))
+                # Full guest RAM alone still fails this explicit project margin.
+                self.refuses("commit_capacity", lambda: h.require_capacity(h.snapshot_from_pages(0, guest_bytes, 1), guest))
+                result = h.require_capacity(h.snapshot_from_pages(0, guest_bytes + 2 * GIB, 1), guest)
+                self.assertEqual(guest_bytes, result["guest_memory_bytes"])
+                self.assertEqual(guest_bytes + 2 * GIB, result["required_commit_bytes"])
+
+    def test_historical_two_guest_margin_is_not_a_permanent_emulator_floor(self):
+        for guest, historical in [(2048, 6 * GIB), (8192, 18 * GIB)]:
+            with self.subTest(guest_mib=guest):
+                guest_bytes = guest * 1024 ** 2
+                self.assertEqual(2 * guest_bytes + 2 * GIB, historical)
+                available = historical - 1
+                result = h.require_capacity(h.snapshot_from_pages(0, available, 1), guest)
+                self.assertGreaterEqual(available, guest_bytes + 2 * GIB)
+                self.assertEqual(guest_bytes + 2 * GIB, result["required_commit_bytes"])
+                self.assertLess(result["required_commit_bytes"], historical)
+
+    def test_earlier_assessment_never_replaces_a_subsequent_snapshot(self):
+        for guest in (2048, 8192):
+            initial = h.snapshot_from_pages(0, 100 * GIB, 1)
+            assessment = h.require_capacity(initial, guest)
+            later = h.snapshot_from_pages(100 * GIB, 100 * GIB, 1)
+            self.refuses("commit_capacity", lambda: h.require_capacity(later, guest))
+            self.assertEqual(100 * GIB, assessment["available_commit_bytes"])
+            self.assertEqual(0, later["available_commit_bytes"])
 
     def test_guest_is_only_exact_integer_2048_or_8192(self):
         snapshot = h.snapshot_from_pages(0, 100 * GIB, 1)

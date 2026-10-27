@@ -74,6 +74,35 @@ only the held, fully hashed source FD into a fixed local-server
 are rechecked afterward. No giant byte array, download or shell-temp duplicate.
 An unknown cleanup/persistence result stops dispatch and preserves staging.
 
+The Windows byte-input route is explicitly `exec-in`. The shell alternative is
+refused before dispatch: the retained768B original binary control produced only
+the26B prefix ending before0x1A despite client0, consistent with Windows CRT
+text-mode EOF. Opening the parent file as binary does not set a child's CRT
+descriptor mode. No shell fallback, payload escaping or model-byte rewriting is
+allowed. See the separately executable host CRT control in
+[Windows stdin probe](WINDOWS_STDIN_PROBE.md); that mechanism test alone does not
+prove an installed ADB binary's runtime CRT mode.
+
+The model-only staging parent now has an explicit240s envelope instead of180s,
+clipped to the existing aggregate remainder. Actual1GiB controls used58.460s and
+58.107s inside ADB; the prior full-model attempt's parent had already consumed
+part of its180s on authorization/held-FD hashing and cut the client at140.906s.
+This is a declared staging-budget correction under a fresh source-bound grant,
+not a claim that text mode caused the separate `exec-in` timeout or that measured
+throughput guarantees a full model copy. The actual ADB client remains capped
+150s (and parent remaining minus5s), with no retry. The61B preflight parent stays
+180s. Generic `runtime_spike.run_process` stays capped180s.
+
+The fixed model staging uses the existing durable Job supervisor in a fresh
+`model-stream-driver-v2` directory. It retains start/result and bounded private
+stdout/stderr files before interpreting the original at-most4096B stdout-only
+closed summary. Its durable capture has the existing262144B absolute cap;
+oversize output, any stderr, incomplete capture, nonzero worker status, unknown
+cleanup, loss of the parent/lease, retention failure or second dispatch stops
+before import. No larger diagnostic can qualify a result. Source verification,
+identity postchecks, one-shot claim, destination full hash and acceptance receipt
+remain mandatory. SDK/app-phase and candidate870s/outer900s budgets are unchanged.
+
 ADB raw `exec-in` returns client status, not remote shell exit status. Therefore
 client0 is **transfer-only**, with remote exit unknown and destination unverified.
 The app-domain test must independently reject missing/partial/foreign/symlinked
@@ -144,8 +173,9 @@ new/reappearing helpers refuse. This grants no file/runtime authority or claim
 of continuous helper liveness/unobserved PID reuse detection.
 
 The preflight aggregate remains165s/outer180s. The separate candidate aggregate
-is870s/outer900s through the already tested durable-output supervisor; each
-client remains at most180s. Production context4096, director350/narrator220,
+is870s/outer900s through the already tested durable-output supervisor;
+instrumentation clients remain at most180s. The model staging parent is the
+separate240s envelope described above; its ADB client stays150s. Production context4096, director350/narrator220,
 one repair, turn60s and cleanup5s remain unchanged. File guards are unmeasured
 observation bounds and can fail safely; they do not promise model feasibility.
 The explicit8 GiB profile now defaults to a bounded1,800s emulator owner;

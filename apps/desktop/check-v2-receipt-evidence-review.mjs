@@ -29,6 +29,17 @@ const compiled = await build({
     plugins: [{
         name: "capture-actual-receipt-panel-elements",
         setup(plugin) {
+            // V2PlayPanel is client-only: its real hook has no third argument.
+            // Supply only that SSR prerequisite; all real React state/effect/
+            // store hook behavior, panel decisions and JSX handlers stay real.
+            plugin.onResolve({ filter: /^react$/ }, (args) =>
+                /[\\/]V2PlayPanel\.tsx$/.test(args.importer)
+                    ? { path: "client-store-server-snapshot", namespace: "receipt-react-adapter" }
+                    : undefined);
+            plugin.onLoad({ filter: /.*/, namespace: "receipt-react-adapter" }, () => ({
+                contents: 'import {useSyncExternalStore as realUseSyncExternalStore} from "react"; export * from "react"; export function useSyncExternalStore(subscribe,get,serverSnapshot=get){return realUseSyncExternalStore(subscribe,get,serverSnapshot);}',
+                loader: "js", resolveDir: root,
+            }));
             plugin.onResolve({ filter: /^receipt-review-elements$/ }, () => ({ path: "elements", namespace: "receipt-review" }));
             plugin.onLoad({ filter: /.*/, namespace: "receipt-review" }, () => ({
                 contents: 'import {createElement,Fragment} from "react"; export const created=[]; export const __receiptFragment=Fragment; export function __receiptElement(type,props,...children){const element=createElement(type,props,...children);created.push(element);return element;}',
@@ -124,8 +135,10 @@ async function fixture({ multiple = false } = {}) {
     f.select = (patch) => { current = { ...current, ...clone(patch) }; controller.selectedContextChanged(current); };
     f.render = () => {
         created.length = 0;
-        const html = renderToStaticMarkup(createElement(V2PlayPanel, { controller }));
-        return { html, elements: [...created] };
+        try {
+            const html = renderToStaticMarkup(createElement(V2PlayPanel, { controller }));
+            return { html, elements: [...created] };
+        } catch (error) { error.evidence = "fixture-calibration-failure"; throw error; }
     };
     try {
         controller.selectedContextChanged(current);
@@ -169,6 +182,15 @@ async function diff(f) {
 }
 const cases = [], test = (name, kind, run) => cases.push({ name, kind, run });
 
+test("existing client-only panel renders current actual decoded receipt before new-button checks", "existing-ui", async () => {
+    const f = await fixture(), current = f.controller.get().receipt, rendered = f.render();
+    assert.match(rendered.html, /aria-label="Actual native receipt"/);
+    assert.match(rendered.html, /Actual Rust receipt/);
+    assert(rendered.html.includes(current.request.turn));
+    assert(rendered.html.includes(current.narration));
+    assert.equal(f.calls.length, 0, "SSR calibration must not dispatch work or run client effects");
+    f.controller.dispose();
+});
 test("existing actual query decodes historical removed-field rows before new API exists", "existing-api", async () => {
     const f = await fixture(), bound = await diff(f);
     assert.equal(bound.page.rows[0].kind, "change");
@@ -408,12 +430,13 @@ const results = [];
 for (const { name, kind, run } of cases) {
     try { await run(); results.push({ name, kind, passed: true }); }
     catch (error) { results.push({ name, kind, passed: false,
-        classification: error.evidence ?? (kind === "existing-api" ? "behavioral-assertion-failure" : "new-interface-assertion-failure"),
+        classification: error.evidence ?? (kind === "existing-ui" ? "fixture-calibration-failure" : kind === "existing-api" ? "behavioral-assertion-failure" : "new-interface-assertion-failure"),
         error: String(error?.message ?? error).slice(0, 600) }); }
 }
 const report = { version: 1, synthetic: true,
-    execution: "actual V2PlayController, actual V2PlayPanel React SSR and captured real JSX handlers; synthetic Gateway only",
-    nativeIpc: false, rustCoreExecution: false, modelExecution: false, rendering: "React SSR; no browser pixels", desktopInput: false,
+    execution: "actual V2PlayController, actual client-only V2PlayPanel with test server-snapshot adapter, real React SSR and captured real JSX handlers; synthetic Gateway only",
+    reactAdapter: { scope: "only V2PlayPanel react import", change: "supply existing get as missing useSyncExternalStore server snapshot", realReactHook: true, otherHooksReplaced: false },
+    nativeIpc: false, rustCoreExecution: false, modelExecution: false, rendering: "React SSR with test-only server snapshot; no browser pixels", desktopInput: false,
     sourceHashes, checks: results, passed: results.filter((r) => r.passed).length, failed: results.filter((r) => !r.passed).length,
     missingInterface: results.filter((r) => /absent$/.test(r.classification ?? "")).length,
     limitations: ["No Main subscriptions/native grant/Core canonical outcomes/Store/actual IPC/WebView/DOM/clipboard or accessibility proof",

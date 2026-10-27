@@ -94,6 +94,13 @@ scope/head separately from original event scope/sequence and inspected revision.
 The checker compiles the ACTUAL controller and panel. Real React server rendering
 captures the panel's actual JSX-created callback props using the existing archive
 review pattern; production source decisions are not replaced by a test component.
+For this client-only panel, a narrow test import adapter supplies the existing
+getter as the otherwise-missing `useSyncExternalStore` server snapshot to REAL
+React's hook. All other real React exports, state/effect behavior and actual
+panel JSX/handlers remain unchanged. This is an SSR test prerequisite, not a
+production panel fix or proof of client subscriptions. An explicit existing-UI
+calibration case renders the already decoded receipt with no work dispatched
+before any new-button expectation is inspected. The JSON report names this adapter.
 Fixture setup calls the real controller send/status/receipt parser against a
 synthetic Gateway, then tests reads only. The synthetic DTOs do not establish
 accepted Rust outcomes, Store durability, actual native IPC or permission proof.
@@ -129,3 +136,21 @@ owns full TypeScript/frontend checks and the fixed actual author/Domain2 native
 journey, including all generated-image review, current Player Query2 behavior,
 canonical/read invariance and normal-build restoration. No new model, Android,
 screen-reader, full D05/D06, privacy-universality or release claim follows.
+
+## Retained first execution and source-only SSR calibration correction
+
+Root executed frozen `75fd90bd` before production changes: 7 passed/52 failed.
+Eleven failures exercised the existing query/source behavioral assertions;
+33 reported an absent new API, which is not behavioral RED. Eight panel cases
+instead stopped at React SSR's `Missing getServerSnapshot` setup error. Those
+eight are not production-panel defects or evidence about the proposed new UI.
+Original `d05-v2-receipt-frozen-red1*` logs and process records remain local and
+unchanged. These are Root's execution results, not author reruns.
+
+The test-only adapter and one existing-receipt calibration case above correct
+that setup before further production work. All 59 original oracles/expectations
+remain; the calibration adds one case. Rendering exceptions are explicitly
+fixture-calibration failures rather than new-interface failures. No production
+file changed to accommodate SSR, and no assertion/source-membership/dispatch
+guard was weakened. The corrected checker has not been run by its source author;
+Root owns the serial rerun and any subsequent production allocation.

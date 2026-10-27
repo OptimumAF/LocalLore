@@ -102,6 +102,7 @@ export class Controller {
         null;
     private modelReadSequence = 0;
     private providerReadSequence = 0;
+    private providerClosing = false;
     private listeners = new Set<() => void>();
     private drafts = new Map<string, string>();
     private epoch = 0;
@@ -136,7 +137,7 @@ export class Controller {
     // Only the fixed development bootstrap reads this separate Host status.
     // It grants no provider configuration, model ownership or story privilege.
     async refreshFreeTextProvider() {
-        if (!this.scenePermitted() || this.state.disposed) return;
+        if (!this.scenePermitted() || this.state.disposed || this.providerClosing) return;
         const sequence = ++this.providerReadSequence;
         try {
             const value = checkedJsonV2(
@@ -163,7 +164,7 @@ export class Controller {
                 (profile as Record<string, unknown>).id !== dto.provider
             )
                 throw Error("Wire");
-            if (this.state.disposed || sequence !== this.providerReadSequence)
+            if (this.state.disposed || this.providerClosing || sequence !== this.providerReadSequence)
                 return;
             this.patch({
                 freeTextProvider: {
@@ -173,7 +174,7 @@ export class Controller {
                 visibleError: null,
             });
         } catch (error) {
-            if (this.state.disposed || sequence !== this.providerReadSequence)
+            if (this.state.disposed || this.providerClosing || sequence !== this.providerReadSequence)
                 return;
             this.patch({ freeTextProvider: null });
             this.fail(error);
@@ -2141,6 +2142,7 @@ export class Controller {
     }
     async dispose() {
         if (this.state.disposed) return;
+        this.providerClosing = true;
         this.providerReadSequence++;
         this.patch({ freeTextProvider: null });
         await this.invalidate();

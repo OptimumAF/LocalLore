@@ -421,6 +421,12 @@ def worker(request, out):
         require(sum(map(len, sidecars.values())) <= 1048576, "sidecar_total")
         validate_retirement(proof, helpers, sidecars, expected)
     validate_postflight(postflight, proof, uids)
+    copies = {"controller": raw, "read-fixture": fixture, "postflight-processes": postflight,
+              **{"read-" + k: v for k, v in records.items()}, **{"read-helper-" + k: v for k, v in helpers.items()},
+              **{"read-transport-" + k: v for k, v in transports.items()},
+              **{"read-sidecar-" + k[:-5]: v for k, v in sidecars.items()}}
+    validate_clients(out, session.capture.count, copies)
+    driver.require_current_clients(out, session.capture.count)
     session.check()
     environment.create_json(out / "external-v1.json", {"version": 1, "case": request["case"], "run_id": request["run_id"],
         "expected": expected, "uids": uids, "clients": session.capture.count, "clients_clean": True, "reused_installation": reuse,
@@ -445,8 +451,8 @@ def validate_clients(out, count, copies):
         stem = out / "clients" / ("command-%04d" % index)
         expected_files.update((stem.with_suffix(".json").name, stem.with_suffix(".stdout.bin").name))
         row = environment.read_json(stem.with_suffix(".json"))
-        require(type(row) is dict and set(row) == {"version", "index", "label", "status", "returncode", "cleanup_complete", "stdout_bytes", "stdout_sha256", "stderr_bytes"}, "client_shape")
-        require(type(row["version"]) is int and row["version"] == 1 and type(row["index"]) is int and row["index"] == index
+        require(driver.client_record_shape(row), "client_shape")
+        require(type(row["index"]) is int and row["index"] == index
                 and type(row["label"]) is str and re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", row["label"])
                 and row["status"] == "completed" and type(row["returncode"]) is int and row["returncode"] == 0
                 and row["cleanup_complete"] is True and type(row["stderr_bytes"]) is int and row["stderr_bytes"] == 0
@@ -515,6 +521,7 @@ def validate_current_execution(request, out):
     record = validate_execution(request, out)
     proof = driver.bound_json(record["proof"], Path(out) / "proof-v1.json")
     _require_current_proof(proof)
+    driver.require_current_clients(out, record["clients"])
     return record
 
 

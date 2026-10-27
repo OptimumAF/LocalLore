@@ -1,6 +1,11 @@
 """Pinned, fail-stop SDK clients; importing this module performs no observation.
 
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
+
+Client metadata v2 retains the runner's elapsed_ms and the ceil-millisecond
+dispatch budget. Cleanup may overrun that budget. Only the existing synthetic
+spawn_failed/unclean fallback has elapsed_ms=null: no trusted measurement was
+returned. Timing is diagnostic, never a timeout cause or qualification claim.
 """
 from __future__ import annotations
 
@@ -153,6 +158,7 @@ def _listener_json(raw):
 
 def _result(result, cap):
     _require(type(result.status) is str and result.status in STATUSES)
+    _require(type(result.elapsed_ms) is int and 0 <= result.elapsed_ms <= 2**63 - 1)
     _require(type(result.stdout) is bytes and len(result.stdout) <= cap)
     _require(type(result.stderr_bytes) is int and 0 <= result.stderr_bytes <= cap - len(result.stdout))
     _require(type(result.cleanup_complete) is bool)
@@ -264,7 +270,7 @@ class SdkCapture:
                   "connect", "disconnect", "pair", "mdns", "reconnect", "track-devices"})
         return True
 
-    def _persist(self, result, label, stem):
+    def _persist(self, result, label, stem, effective_deadline_ms):
         raw = stem.with_suffix(".stdout.bin")
         with raw.open("xb") as sink:
             remaining = memoryview(result.stdout)
@@ -275,10 +281,11 @@ class SdkCapture:
             sink.flush()
             os.fsync(sink.fileno())
         environment.create_json(stem.with_suffix(".json"), {
-            "version": 1, "index": self.count, "label": label, "status": result.status,
+            "version": 2, "index": self.count, "label": label, "status": result.status,
             "returncode": result.returncode, "cleanup_complete": result.cleanup_complete,
             "stdout_bytes": len(result.stdout), "stdout_sha256": hashlib.sha256(result.stdout).hexdigest(),
-            "stderr_bytes": result.stderr_bytes,
+            "stderr_bytes": result.stderr_bytes, "elapsed_ms": result.elapsed_ms,
+            "effective_deadline_ms": effective_deadline_ms,
         })
         self._directory_guard()
 
@@ -294,16 +301,22 @@ class SdkCapture:
             self._guard()
             remaining = self.until - time.monotonic()
             _require(remaining > 0, "client_deadline")
+            # Preserve the exact dispatched budget; cleanup may make elapsed_ms
+            # exceed this value. Rounding is for metadata only, never dispatch.
+            effective_deadline = min(seconds, remaining)
+            effective_deadline_ms = math.ceil(effective_deadline * 1000)
             self.count += 1
             stem = self.directory / ("command-%04d" % self.count)
             try:
-                result = _result(host.run_process(command, request=b"", deadline=min(seconds, remaining), max_output=cap), cap)
+                result = _result(host.run_process(command, request=b"", deadline=effective_deadline, max_output=cap), cap)
             except BaseException:
                 # No ownership/result proof is available; retain a fixed failure record and stop.
-                result = host.ProcessResult("spawn_failed", 0, cleanup_complete=False)
-                self._persist(result, label, stem)
+                # No trusted measurement exists. Null is distinct from a
+                # genuinely measured zero and remains an unclean failure.
+                result = host.ProcessResult("spawn_failed", None, cleanup_complete=False)
+                self._persist(result, label, stem, effective_deadline_ms)
                 raise ClientRefused("capture_failed") from None
-            self._persist(result, label, stem)
+            self._persist(result, label, stem, effective_deadline_ms)
             _completed(result)
             self._guard()
             if sdk:

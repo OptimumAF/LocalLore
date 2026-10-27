@@ -141,8 +141,9 @@ class AndroidProcessClientTests(unittest.TestCase):
         self.assertTrue(owner.clean)
         self.assertEqual([str(self.adb), "-H", "127.0.0.1", "-P", "5037", "-t", "7", "exec-out", "fixed"],
                          self.runner.call_args_list[1].args[0])
-        expected = {"version", "index", "label", "status", "returncode", "cleanup_complete", "stdout_bytes", "stdout_sha256", "stderr_bytes"}
+        expected = {"version", "index", "label", "status", "returncode", "cleanup_complete", "stdout_bytes", "stdout_sha256", "stderr_bytes", "elapsed_ms", "effective_deadline_ms"}
         self.assertTrue(all(set(r) == expected for r in records))
+        self.assertTrue(all(r["version"] == 2 and r["elapsed_ms"] == 1 and r["effective_deadline_ms"] == 15000 for r in records))
 
     def test_fixed_discovery_is_pinned_and_does_not_choose_target(self):
         owner = self.owner()

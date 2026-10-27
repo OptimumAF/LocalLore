@@ -69,6 +69,24 @@ both candidates and the existing Rust oracle on authorized emulators. It adds
 no production inference dependency; physical-device and reliability gates remain
 open, with failures retained in the dated results.
 
+The [2026-10-25 admission reassessment](docs/native/EMULATOR_COMMIT_REASSESSMENT_VERIFICATION_2026-10-25.md)
+corrects an unsupported 18 GiB host commit cutoff to an explicit 10 GiB project
+budget for the unchanged 8 GiB emulator. Actual startup and 12 preflight checks
+pass without stopping other emulators or changing system settings. Two original
+1 GiB transfer controls pass; an alternate shell path fails its binary prerequisite
+and is refused. A connected Samsung ARM64/4 KiB phone also passes nine actual
+Rust JNI/SQLite tests with fake inference. These establish no new phone model
+performance or playable-scene qualification.
+
+The subsequent [Windows binary staging and scene run](docs/native/WINDOWS_BINARY_TRANSFER_VERIFICATION_2026-10-25.md)
+reproduces the text-mode truncation mechanism and refuses the unsafe Windows
+shell route. A fresh isolated receipt test build passes **122 app checks**:
+full local model import, actual SDK Gift and literal Dialogue validated/committed
+by Rust, inspector/invalid-action guards, and a new-process reopen of both
+receipts without inference. This qualifies the current codec for that original
+emulator fixture; phone model performance and production backend selection
+remain pending. Historical failures are preserved.
+
 Separate [Android model-storage receipt checks](docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md)
 passed four methods on a fresh isolated emulator, including cancellation and
 owned process-death recovery, using a tiny synthetic file. Existing-target

@@ -175,9 +175,9 @@ class EnvironmentTests(unittest.TestCase):
 
     def expected_commit_record(self, memory_mib, snapshot=None):
         snapshot = self.commit_snapshot if snapshot is None else snapshot
-        # The two admitted guest profiles have fixed6GiB/18GiB commit gates.
+        # One guest-sized allocation plus the explicit 2GiB project reserve.
         return dict(snapshot, guest_memory_bytes=memory_mib * 1024 * 1024,
-                    required_commit_bytes={2048: 6 * env.GIB, 8192: 18 * env.GIB}[memory_mib],
+                    required_commit_bytes={2048: 4 * env.GIB, 8192: 10 * env.GIB}[memory_mib],
                     reserve_bytes=2 * env.GIB)
 
     def healthy_resources(self, *, physical=32 * 1024 ** 3, free=100 * 1024 ** 3, cpus=16):
@@ -192,7 +192,7 @@ class EnvironmentTests(unittest.TestCase):
         return stack
 
     def test_commit_gate_accepts_exact_fixed_margin_and_refuses_one_byte_short(self):
-        for guest_mib, required in ((2048, 6 * env.GIB), (8192, 18 * env.GIB)):
+        for guest_mib, required in ((2048, 4 * env.GIB), (8192, 10 * env.GIB)):
             value = dict(self.proposal(), memory_mib=guest_mib,
                          host_available_memory_min=(4 if guest_mib == 2048 else 12) * env.GIB)
             for available in (required, required - 1):
@@ -213,12 +213,26 @@ class EnvironmentTests(unittest.TestCase):
         value = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
         # Synthetic round values reproduce the causal admission distinction,
         # without asserting the earlier emulator's exact allocation requirement.
-        snapshot = {"version": 1, "commit_total_bytes": 58 * env.GIB,
-                    "commit_limit_bytes": 72 * env.GIB, "available_commit_bytes": 14 * env.GIB}
+        snapshot = {"version": 1, "commit_total_bytes": 63 * env.GIB,
+                    "commit_limit_bytes": 72 * env.GIB, "available_commit_bytes": 9 * env.GIB}
         with self.healthy_resources(physical=31 * env.GIB), \
              mock.patch.object(env.commit_capacity, "read_commit", return_value=snapshot):
             with self.assertRaisesRegex(env.EnvironmentRefused, "^host_commit_capacity$"):
                 env.resource_facts(value)
+
+    def test_sufficient_single_guest_headroom_is_not_double_charged(self):
+        value = dict(self.proposal(), memory_mib=8192, host_available_memory_min=12 * env.GIB, cores=4)
+        # Both are retained real observations that the old18GiB policy rejected.
+        for available in (13_468_565_504, 14_689_775_616):
+            snapshot = {"version": 1, "commit_total_bytes": 72 * env.GIB - available,
+                        "commit_limit_bytes": 72 * env.GIB, "available_commit_bytes": available}
+            with self.subTest(available=available), self.healthy_resources(physical=31 * env.GIB), \
+                 mock.patch.object(env.commit_capacity, "read_commit", return_value=snapshot):
+                record = env.resource_facts(value)["commit_capacity"]
+            self.assertEqual(record["guest_memory_bytes"], 8 * env.GIB)
+            self.assertEqual(record["reserve_bytes"], 2 * env.GIB)
+            self.assertEqual(record["required_commit_bytes"], 10 * env.GIB)
+            self.assertLess(available, 18 * env.GIB)
 
     def test_bad_commit_snapshot_maps_to_unavailable_without_raw_values(self):
         original = dict(self.commit_snapshot)

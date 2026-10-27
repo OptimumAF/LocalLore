@@ -6,7 +6,11 @@ import {
     structural,
 } from "./model";
 import type { Action, FakeMode, Gateway, Request, Scope } from "./model";
-import { checkedPageV2, checkedPlaySnapshotV2 } from "./v2-view-model";
+import {
+    checkedJsonV2 as detached,
+    checkedPageV2,
+    checkedPlaySnapshotV2,
+} from "./v2-view-model";
 import type {
     InspectionPageV2,
     InspectionQueryV2,
@@ -187,15 +191,6 @@ function scoped(value: unknown): Scope {
     const r = exact(value, ["story", "branch"]);
     return { story: id(r.story), branch: id(r.branch) };
 }
-function detached(value: unknown, cap: number): unknown {
-    try {
-        const encoded = JSON.stringify(value);
-        if (typeof encoded !== "string" || utf8(encoded) > cap) wire();
-        return JSON.parse(encoded);
-    } catch {
-        return wire();
-    }
-}
 function ids(value: unknown): string[] {
     if (!Array.isArray(value)) wire();
     const result = value.map(id);
@@ -275,6 +270,10 @@ function receipt(value: unknown, request: Request): V2Receipt {
             ...(Object.hasOwn(play, "context_policy")
                 ? ["context_policy"]
                 : []),
+            ...(Object.hasOwn(play, "scene") ? ["scene"] : []),
+            ...(Object.hasOwn(play, "story_presentation")
+                ? ["story_presentation"]
+                : []),
         ]);
         if (integer(play.version) > 65535 || typeof play.fallback !== "boolean")
             wire();
@@ -333,6 +332,18 @@ function receipt(value: unknown, request: Request): V2Receipt {
         // data; it cannot grant coverage, knowledge or canonical validity.
         if (Object.hasOwn(play, "context")) record(play.context);
         if (Object.hasOwn(play, "context_policy")) text(play.context_policy);
+        for (const [field, hash] of [
+            ["scene", "frame_sha256"],
+            ["story_presentation", "presentation_sha256"],
+        ]) {
+            if (!Object.hasOwn(play, field)) continue;
+            const binding = exact(play[field], ["version", hash]);
+            if (
+                binding.version !== 1 ||
+                !/^[a-f0-9]{64}$/.test(text(binding[hash]))
+            )
+                wire();
+        }
     }
     return r as unknown as V2Receipt;
 }

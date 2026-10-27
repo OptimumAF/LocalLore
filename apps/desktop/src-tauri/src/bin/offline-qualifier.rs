@@ -61,11 +61,12 @@ mod win {
                     CreateAppContainerProfile, DeleteAppContainerProfile,
                     DeriveAppContainerSidFromAppContainerName,
                 },
-                TokenAppContainerSid, TokenCapabilities, TokenIsAppContainer, TokenUser,
-                DACL_SECURITY_INFORMATION, LABEL_SECURITY_INFORMATION,
-                PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
-                SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, TOKEN_APPCONTAINER_INFORMATION,
-                TOKEN_INFORMATION_CLASS, TOKEN_QUERY, TOKEN_USER,
+                TokenAppContainerSid, TokenCapabilities, TokenIntegrityLevel, TokenIsAppContainer,
+                TokenRestrictedSids, TokenUser, DACL_SECURITY_INFORMATION,
+                LABEL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
+                PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES,
+                TOKEN_APPCONTAINER_INFORMATION, TOKEN_INFORMATION_CLASS, TOKEN_MANDATORY_LABEL,
+                TOKEN_QUERY, TOKEN_USER,
             },
             System::{
                 Com::CoCreateGuid,
@@ -441,6 +442,21 @@ mod win {
         let token = process_token(unsafe { GetCurrentProcess() })?;
         let user = token_buffer(token.0, TokenUser, size_of::<TOKEN_USER>())?;
         sid_text(unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid })
+    }
+    fn token_diagnostic(process: HANDLE) -> Result<Value> {
+        let token = process_token(process)?;
+        let user = token_buffer(token.0, TokenUser, size_of::<TOKEN_USER>())?;
+        let integrity = token_buffer(
+            token.0,
+            TokenIntegrityLevel,
+            size_of::<TOKEN_MANDATORY_LABEL>(),
+        )?;
+        let restricted = token_buffer(token.0, TokenRestrictedSids, size_of::<u32>())?;
+        Ok(json!({
+            "user_sid":sid_text(unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid })?,
+            "integrity_sid":sid_text(unsafe { (*(integrity.as_ptr().cast::<TOKEN_MANDATORY_LABEL>())).Label.Sid })?,
+            "restricted_sid_count":unsafe { *(restricted.as_ptr().cast::<u32>()) },
+        }))
     }
     fn grant_new_fixture(root: &PinnedDirectory, package: PSID) -> Result<()> {
         // Only the private atomic-create constructor can supply this new object.
@@ -878,6 +894,9 @@ mod win {
             record["phase"] = json!("verify_suspended_token");
             let observed = token_observation(info.hProcess)?;
             record["parent_token"] = observed.clone();
+            record["child_token_diagnostic"] = token_diagnostic(info.hProcess)?;
+            record["qualifier_token_diagnostic"] =
+                token_diagnostic(unsafe { GetCurrentProcess() })?;
             if observed["is_appcontainer"] != package.is_some() || observed["capability_count"] != 0
             {
                 return fail("ActualChildTokenMismatch");
@@ -1073,9 +1092,13 @@ mod win {
         if !metadata.is_dir() || metadata.file_attributes() & 0x400 != 0 {
             return fail("ReparseFixturePath");
         }
-        if read_small(&fixture.join("challenge.txt"))
-            .map_err(|e| format!("CanaryMarkerRead:{e}"))?
-            != challenge_marker(id, &sid_text(sid.0)?, challenge)?
+        if read_small(&fixture.join("challenge.txt")).map_err(|e| {
+            format!(
+                "CanaryMarkerRead:{e}:ChildToken:{}",
+                token_diagnostic(unsafe { GetCurrentProcess() })
+                    .unwrap_or_else(|diagnostic| json!({"diagnostic_error":diagnostic}))
+            )
+        })? != challenge_marker(id, &sid_text(sid.0)?, challenge)?
         {
             return fail("CanaryFixtureBinding");
         }

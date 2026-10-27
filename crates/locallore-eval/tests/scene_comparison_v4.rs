@@ -338,7 +338,6 @@ fn full_checks(dir: &Path, paired: bool) {
                     details_reply: &capture,
                     recordings: &recordings,
                 })
-                .ok()
                 .expect("actual Store receipt and actual collector must pass the separate gate");
                 assert_eq!(
                     r["narrator_prompt_sha256"],

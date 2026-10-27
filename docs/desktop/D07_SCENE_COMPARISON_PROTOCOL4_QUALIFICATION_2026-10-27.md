@@ -25,8 +25,8 @@ reports. Exact arms are literal scene on the left and state-relevant memory
 scene on the right; required nullable keys remain required and unknown keys,
 mixed descriptors and unknown versions refuse. Native construction mapping is
 a private typed match to existing Host selectors. Deserialization does not
-create execution authority. Current binding includes complete source, suite,
-profile/reference and original budget identities.
+create execution authority. The current binding and containing manifest/key
+close source, suite, profile/reference and original budget identities.
 
 `local_lane/comparison/scene_v4.rs` reuses existing actual Host/Store execution,
 collector/recording, checkpoint/settlement and strict evidence helpers. Paired

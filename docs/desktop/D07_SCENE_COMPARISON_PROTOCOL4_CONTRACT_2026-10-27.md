@@ -614,3 +614,33 @@ application/render/device/desktop or protected-resource execution is claimed.
 Root owns prerequisite fixes, meaningful first execution, privacy changes and
 unchanged-oracle reruns. Original failures and the original human eight-sample
 needs-improvement assessment remain unchanged.
+
+## Initial execution and committed-row privacy correction
+
+Root integrated the prerequisite corrections and unchanged additive oracles at
+`2f50cb14`. The feature-enabled test binary compiled successfully in 27.3436488s.
+The first full run then measured **16 passed, 1 failed** in 362.0796843s command
+time (361.27s test time), source clean and unchanged. The failure was the first,
+empty-output variant of the additive privacy test: strict inspection reported
+`CheckpointEvidenceMismatch` instead of reconstructing the required failed
+privacy row. That function stopped before its sentinel variant, which is not
+claimed as a separately measured baseline failure. The original controls and
+the missing/unreadable/hash-invalid evidence refusal test passed.
+
+`5f20344a` changes only the private finite-check observation and failure tags:
+nonempty, length/hash-consistent UTF-8 narrator evidence is required; an observed
+fixed sentinel is distinct from unavailable evidence. The public enum and scene
+input gate remain unchanged. Independent source review found no blocker in this
+committed-row correction. Its unchanged-oracle rerun is still pending here.
+
+Current scope limit: this finite observation requires retained recording,
+capture and an actual receipt. Failed/cancelled attempts without a receipt
+remain evidence-unavailable even if some diagnostic output survives. No privacy
+success is inferred, and this slice does not claim complete classification of
+all noncommitted diagnostic leaks. That remaining D07.04 work must be addressed
+before whole-task acceptance; it is not waived by these supporting results.
+
+The integration also reuses the reviewed Host/capture stack and accepted receipt
+transport main. Formatting alters no intended independent oracle. No model,
+application, WebView, Android/device or human-quality execution follows from
+these producer tests; the original needs-improvement assessment stays immutable.

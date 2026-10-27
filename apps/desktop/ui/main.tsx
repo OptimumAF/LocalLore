@@ -373,7 +373,7 @@ const controller = new Controller(
     gateway,
     errors,
     undefined,
-    (work) => capture.metadataControl(work),
+    (work, closingSession) => capture.metadataControl(work, closingSession),
     !!sceneHarnessModule,
 );
 const archive = new ArchiveController(invoke, () => controller.library());

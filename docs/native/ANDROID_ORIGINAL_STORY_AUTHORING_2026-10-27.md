@@ -167,6 +167,13 @@ output checks, native-linker checks, lints and artifact audits pass. The build
 maps877 compiled inputs; each host gate retains1,998 unchanged tracked inputs.
 Embedded author prompt/schema files are included in the compiled source map.
 JNI cross-compilation covers x86_64/ARM64; this is not ARM64 execution.
+The976 total includes the separately retained108-test Android Rust cohort and
+3 standalone linker tests, in addition to the core/storage/workspace gates.
+An independent file-only audit replays82 build/artifact/output bindings with0
+mismatches. Retained lint reports have0 errors,3 ordinary app/controller
+warnings and10 LiteRT warnings. Some lint analysis tasks are up-to-date;
+neither build is described as forced fresh lint analysis. Both JVM test tasks
+actually execute.
 
 Its first fresh native attempt fails before installation or test collection:
 the existing-server observer times out at its unchanged15-second budget. All21
@@ -192,7 +199,7 @@ Private recovery archives preserve earlier failures separately from success:
 |---|---|---|---|
 | Historical C1–C3 |2157 /3 |`9dcf70959d39b63eee0ccfdd3d5650062b91a87e02f61a3023d31714ef28d8bd` |0 missing/mismatches |
 | C4 UI assertion-order failure |927 /3 |`526e81d3b98fa1fb01b696bf7eadff2659535e79acc6efcb52ac13df215126c4` |0 missing/mismatches |
-| C5 preflight/capture failure |559 /3 |`8ceeb2d583341c6f588cb279c6f27e6e3edc898bd8e9e1cc3f157eae6ba380d0` |Copy/ZIP verifier passed; separate replay pending |
+| C5 preflight/capture failure |559 /3 |`8ceeb2d583341c6f588cb279c6f27e6e3edc898bd8e9e1cc3f157eae6ba380d0` |0 missing/mismatches |
 
 These explicit admitted metadata/helper/report/audited-artifact selections stay
 on C:. They exclude model weights, saves and live guest data. Byte preservation
@@ -208,3 +215,53 @@ Source and reports are committed/pushed during implementation. Private evidence
 and recoveries stay on C:; model weights, saves and private diagnostics stay out
 of GitHub. No unrelated emulator stop, server lifecycle operation, system
 settings change, release, permission administration or merge is performed.
+
+## Reproduction and artifact bindings
+
+The retained commands use Rust1.93.1, Python3.14 and JDK21, with cached
+dependencies and the Android prerequisites in the app README. The following
+are the checked command arguments; evidence/output directories must be new.
+
+```text
+cargo test --locked --offline -p locallore --all-features
+cargo test --locked --offline -p locallore-storage --all-features
+cargo test --locked --offline -p locallore-workspace --all-features --features locallore-storage/development-fixtures
+cargo test --locked --offline -p locallore-android --all-features
+cargo fmt --all -- --check
+cargo clippy --locked --offline -p locallore -p locallore-storage -p locallore-workspace --all-targets --all-features -- -D warnings
+cargo clippy --workspace --exclude locallore-desktop-spike --all-targets --locked --offline -- -D warnings
+cargo run --locked --offline -p locallore --example android_fixtures -- --check
+rustfmt --check --edition 2021 apps/android/native-linker.rs
+rustc --test --edition 2021 apps/android/native-linker.rs -o <new-linker-test-binary>
+<new-linker-test-binary>
+python -B -m unittest discover -s scripts/tests -p test_*.py
+python -B -m unittest discover -s benchmarks -p test_*.py
+python -B -m unittest discover -s benchmarks/spike/litert -p test_*.py
+python -B -m unittest discover -s benchmarks/spike/llama -p test_*.py
+python -B -m unittest discover -s benchmarks/spike/android/litert -p test_*.py
+python -B -m unittest discover -s benchmarks/spike/android/llama -p test_*.py
+python -B benchmarks/android_process_verification.py build --sdk <SDK> --java <JDK21> --out <new-build-evidence>
+```
+
+Frontend checks from `apps/desktop` run `node verify-frontend.mjs` and
+`node node_modules/prettier/bin/prettier.cjs --check "ui/*.{ts,tsx,html,css}" "*.{json,mjs}"`.
+The separate LiteRT Gradle wrapper uses `--offline --no-daemon --no-build-cache
+--max-workers=2 --console=plain --project-cache-dir .gradle-litert-worker`,
+with `localLoreLiteRtVerification=true`, `android.experimental.lint.version=9.4.1`,
+Java installation auto-download and Android SDK download false, and Kotlin
+incremental compilation false. Tasks are `:app:cleanTestDebugUnitTest
+:app:testDebugUnitTest :app:lintDebug :app:auditLiteRtDependencies
+:app:auditLintAnalyzer :app:cleanPackageDebug :app:cleanPackageDebugAndroidTest
+:app:assembleDebug :app:assembleDebugAndroidTest`.
+
+Compiled source-map SHA256 is
+`dabb92be2a7f3b77d6d96d4ff60af03a73c1cd0208cc4d572ab17274786f620a`.
+Later report commits are separate from the historical1,998-file gate maps.
+
+| Artifact | Bytes | SHA256 |
+|---|---:|---|
+| Process-verification app |42452872 |`30233d3f9d3502ce7ce94c40f8906f2bf50874382efcbb7cf503037e343e2746` |
+| Process-verification tests |3185615 |`65f5b8d159505411cc7614cee5e6bccc97ff627d4f62efb431c42e9fa21a257f` |
+| Process controller |55073 |`6ea09f4c5105d62e61498d2bebc05de52ce597e30b9681e4975a323b36ef7693` |
+| LiteRT app |78238576 |`2509c77b40950b5d374ac095592d700c98f655218e3798d7818b1a2625a76eeb` |
+| LiteRT tests |2212547 |`3d1a500b6410d2c0d925b3bfcc6494bb361d1e62724473902cfdb61f6d9f2a36` |

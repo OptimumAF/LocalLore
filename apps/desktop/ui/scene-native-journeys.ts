@@ -367,26 +367,49 @@ export async function sceneNativeJourneys({
                 change.after.story_time === change.before.story_time + 1,
             `${label}-actual-Rust-clock-before-after-boundary`,
         );
-        const beforeValue = change?.kind === "change" && change.before?.kind === "clock"
-            ? String(change.before.story_time) : null;
-        const afterValue = change?.kind === "change" && change.after?.kind === "clock"
-            ? String(change.after.story_time) : null;
-        const mountedTables = () => [
-            ...document.querySelectorAll<HTMLTableElement>('[data-native-kind="change"] table'),
-        ].filter((table) => table.querySelector("caption")?.textContent?.trim() === "Recorded change · Story time");
+        const beforeValue =
+            change?.kind === "change" && change.before?.kind === "clock"
+                ? String(change.before.story_time)
+                : null;
+        const afterValue =
+            change?.kind === "change" && change.after?.kind === "clock"
+                ? String(change.after.story_time)
+                : null;
+        const mountedTables = () =>
+            [
+                ...document.querySelectorAll<HTMLTableElement>(
+                    '[data-native-kind="change"] table',
+                ),
+            ].filter(
+                (table) =>
+                    table.querySelector("caption")?.textContent?.trim() ===
+                    "Recorded change · Story time",
+            );
         const exactMountedValues = () => {
             const tables = mountedTables();
-            if (tables.length !== 1 || beforeValue === null || afterValue === null) return false;
-            const headers = [...tables[0].querySelectorAll("thead th")].map((el) => el.textContent?.trim());
-            const values = [...tables[0].querySelectorAll("tbody td > .record-value")].map((el) => el.textContent?.trim());
-            return structural(headers) === structural([`Before · r${end - 1}`, `After · r${end}`]) &&
-                structural(values) === structural([beforeValue, afterValue]);
+            if (
+                tables.length !== 1 ||
+                beforeValue === null ||
+                afterValue === null
+            )
+                return false;
+            const headers = [...tables[0].querySelectorAll("thead th")].map(
+                (el) => el.textContent?.trim(),
+            );
+            const values = [
+                ...tables[0].querySelectorAll("tbody td > .record-value"),
+            ].map((el) => el.textContent?.trim());
+            return (
+                structural(headers) ===
+                    structural([`Before · r${end - 1}`, `After · r${end}`]) &&
+                structural(values) === structural([beforeValue, afterValue])
+            );
         };
-        await until(
-            exactMountedValues,
-            `${label}-actual-clock-change-mounted`,
+        await until(exactMountedValues, `${label}-actual-clock-change-mounted`);
+        check(
+            exactMountedValues(),
+            `${label}-mounted-before-after-revisions-and-actual-clock-values`,
         );
-        check(exactMountedValues(), `${label}-mounted-before-after-revisions-and-actual-clock-values`);
         clockComparisonTable = mountedTables()[0];
         unchangedCanon(
             before,

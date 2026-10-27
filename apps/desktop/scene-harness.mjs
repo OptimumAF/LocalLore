@@ -212,7 +212,16 @@ async function run(command, args, env = {}) {
                 // later direct-child close cannot qualify descendant drain.
                 unknownDrain("TimeoutDirectChildOnly");
                 grace = setTimeout(
-                    () => finish({ code: null, signal: null, error: "OwnedDrainUnknown", closed: false }, true),
+                    () =>
+                        finish(
+                            {
+                                code: null,
+                                signal: null,
+                                error: "OwnedDrainUnknown",
+                                closed: false,
+                            },
+                            true,
+                        ),
                     5000,
                 );
                 directKillAttempted = true;
@@ -227,12 +236,15 @@ async function run(command, args, env = {}) {
         child.once("error", (error) => {
             if (settled) return;
             if (directPid !== null) unknownDrain("ChildErrorWithPid");
-            finish({
-                code: null,
-                signal: null,
-                error: error.code ?? "SpawnFailure",
-                closed: false,
-            }, directPid !== null);
+            finish(
+                {
+                    code: null,
+                    signal: null,
+                    error: error.code ?? "SpawnFailure",
+                    closed: false,
+                },
+                directPid !== null,
+            );
         });
         child.once("close", (code, signal) => {
             finish({ code, signal, error: null, closed: true });
@@ -517,38 +529,39 @@ try {
             processTreeContained: false,
             unknownOwnedChildren,
         };
-    } else try {
-        await run(process.execPath, ["build.mjs"]);
-        await run("cargo", [
-            "build",
-            "--manifest-path",
-            "src-tauri/Cargo.toml",
-            "--locked",
-            "--offline",
-            "--no-default-features",
-            "--bin",
-            "locallore-desktop-spike",
-            "--jobs",
-            "1",
-            "--target-dir",
-            targetRoot,
-        ]);
-        normalRestoration = {
-            passed: true,
-            launched: false,
-            productSHA256: await currentHashes(["dist/app.js", executable]),
-        };
-    } catch (error) {
-        normalRestoration = {
-            passed: false,
-            launched: false,
-            error: String(error?.message ?? error).slice(0, 500),
-            remainingStepsSkipped: ownedDrainUnknown,
-            processTreeContained: false,
-            unknownOwnedChildren,
-        };
-        originalError ??= error;
-    }
+    } else
+        try {
+            await run(process.execPath, ["build.mjs"]);
+            await run("cargo", [
+                "build",
+                "--manifest-path",
+                "src-tauri/Cargo.toml",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--bin",
+                "locallore-desktop-spike",
+                "--jobs",
+                "1",
+                "--target-dir",
+                targetRoot,
+            ]);
+            normalRestoration = {
+                passed: true,
+                launched: false,
+                productSHA256: await currentHashes(["dist/app.js", executable]),
+            };
+        } catch (error) {
+            normalRestoration = {
+                passed: false,
+                launched: false,
+                error: String(error?.message ?? error).slice(0, 500),
+                remainingStepsSkipped: ownedDrainUnknown,
+                processTreeContained: false,
+                unknownOwnedChildren,
+            };
+            originalError ??= error;
+        }
     await writeFile(
         path.join(folder, "normal-restoration.json"),
         JSON.stringify(normalRestoration, null, 2),
@@ -569,13 +582,21 @@ if (originalError || !candidateSummary || normalRestoration?.passed !== true) {
                 normalRestoration,
                 ownedDrainUnknown,
                 unknownOwnedChildren,
-                terminalSourceRevision: (
-                    ownedDrainUnknown ? null : (await git("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim()
-                ),
-                terminalDirty: (
-                    ownedDrainUnknown ? null : (await git("git", ["status", "--porcelain"], { cwd: root })).stdout.trim()
-                ),
-                terminalSourceObservation: ownedDrainUnknown ? "skipped-owned-drain-unknown" : "observed",
+                terminalSourceRevision: ownedDrainUnknown
+                    ? null
+                    : (
+                          await git("git", ["rev-parse", "HEAD"], { cwd: root })
+                      ).stdout.trim(),
+                terminalDirty: ownedDrainUnknown
+                    ? null
+                    : (
+                          await git("git", ["status", "--porcelain"], {
+                              cwd: root,
+                          })
+                      ).stdout.trim(),
+                terminalSourceObservation: ownedDrainUnknown
+                    ? "skipped-owned-drain-unknown"
+                    : "observed",
                 reports,
                 artifacts,
             },

@@ -513,7 +513,7 @@ mod tests {
         std::fs::create_dir(&root).unwrap();
         let path = root.join("stories-v1.sqlite");
         seed_at(&path).unwrap();
-        let mut store = Store::open(&path).unwrap();
+        let mut store = Store::open(&path, None).unwrap();
         store
             .create_story(
                 "Additional synthetic story",

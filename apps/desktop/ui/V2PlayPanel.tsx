@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { sameScope } from "./model";
 import type { Action, FakeMode } from "./model";
 import type { V2BoundPage, V2PlayController } from "./v2-play-controller";
 import type { RowV2, SourceV2, ViewV2 } from "./v2-view-model";
@@ -47,6 +48,185 @@ function sources(row: RowV2): SourceV2[] {
         ];
     return [];
 }
+function SourceLinks({
+    row,
+    controller,
+    bound,
+}: {
+    row: RowV2;
+    controller: V2PlayController;
+    bound: V2BoundPage;
+}) {
+    return (
+        <div className="source-links">
+            {sources(row).map((source, index) => (
+                <button
+                    key={index}
+                    disabled={source.kind === "withheld"}
+                    onClick={() => void controller.source(source, bound)}
+                >
+                    {source.kind === "scoped_event"
+                        ? `${scopeLabel(source.value.original_scope)} · event ${source.value.sequence}`
+                        : source.kind === "seed"
+                          ? `Seed ${source.value}`
+                          : "Evidence withheld by lens"}
+                </button>
+            ))}
+        </div>
+    );
+}
+function valueLabel(row: RowV2): string {
+    switch (row.kind) {
+        case "field":
+            return `${row.actor} · ${words(row.field)}`;
+        case "relationship":
+            return `${row.from} → ${row.to} · ${row.dimension}`;
+        case "knowledge":
+            return `${row.subject ?? row.id} · ${words(row.origin)}`;
+        case "promise":
+            return `${row.from} → ${row.to} · ${row.id}`;
+        case "clock":
+            return "Story time";
+        case "event":
+            return `Event ${row.event.sequence}`;
+        case "scoped_message":
+            return `Recorded ${words(row.message_kind)}`;
+        case "provenance":
+            return "Permitted provenance";
+        case "change":
+            return "Derived comparison";
+        case "author_correction":
+            return "Timeline correction";
+    }
+}
+function valueText(row: RowV2 | null): string {
+    if (!row) return "Absent";
+    switch (row.kind) {
+        case "field": {
+            const value = row.value;
+            if (value.type === "texts") return value.value.join(", ") || "None";
+            if (value.type === "item")
+                return (
+                    `Quantity ${value.value.quantity} · owner ${value.value.owner}` +
+                    (value.value.return_to
+                        ? ` · return to ${value.value.return_to}`
+                        : "") +
+                    (value.value.healing ? " · healing item" : "")
+                );
+            return String(value.value);
+        }
+        case "relationship":
+            return String(row.value);
+        case "knowledge":
+            return (
+                row.text +
+                (row.confidence ? ` · confidence ${row.confidence}` : "")
+            );
+        case "promise":
+            return `${row.terms} · ${row.status} · deadline ${row.deadline}`;
+        case "clock":
+            return String(row.story_time);
+        case "event":
+            return `${row.event.turn} · ${words(row.event.consequence.effect)}`;
+        case "scoped_message":
+            return row.text;
+        case "provenance":
+            return `${row.sources.length} permitted source(s)`;
+        case "author_correction":
+            return `Timeline correction · r${row.revision}`;
+        case "change":
+            return "Derived comparison";
+    }
+}
+function ChangeEvidence({
+    row,
+    controller,
+    bound,
+}: {
+    row: Extract<RowV2, { kind: "change" }>;
+    controller: V2PlayController;
+    bound: V2BoundPage;
+}) {
+    return (
+        <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+            <table
+                className="query-table"
+                style={{ width: "100%", tableLayout: "fixed" }}
+            >
+                <caption>
+                    Recorded change · {valueLabel((row.after ?? row.before)!)}
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Before · r{row.before_revision}</th>
+                        <th scope="col">After · r{row.after_revision}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <p className="record-value">
+                                {valueText(row.before)}
+                            </p>
+                            {row.before && (
+                                <>
+                                    <p className="muted">
+                                        Prior{" "}
+                                        {row.before.kind === "field"
+                                            ? "field"
+                                            : "value"}{" "}
+                                        provenance · r{row.before_revision}
+                                    </p>
+                                    <SourceLinks
+                                        row={row.before}
+                                        controller={controller}
+                                        bound={bound}
+                                    />
+                                </>
+                            )}
+                        </td>
+                        <td>
+                            <p className="record-value">
+                                {valueText(row.after)}
+                            </p>
+                            {row.after && (
+                                <>
+                                    <p className="muted">
+                                        Value evidence · r{row.after_revision}
+                                    </p>
+                                    <SourceLinks
+                                        row={row.after}
+                                        controller={controller}
+                                        bound={bound}
+                                    />
+                                </>
+                            )}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p className="muted">
+                This is a derived comparison of recorded historical states.
+                Prior value provenance does not identify the cause of a later
+                change.
+            </p>
+            <details>
+                <summary>Exact shared change record</summary>
+                <pre
+                    tabIndex={0}
+                    style={{
+                        maxHeight: "20rem",
+                        overflow: "auto",
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                    }}
+                >
+                    {JSON.stringify(row, null, 2)}
+                </pre>
+            </details>
+        </div>
+    );
+}
 function NativeRow({
     row,
     controller,
@@ -56,6 +236,37 @@ function NativeRow({
     controller: V2PlayController;
     bound: V2BoundPage;
 }) {
+    const rendered = controller.get(),
+        context = rendered.context,
+        snapshot = rendered.snapshot;
+    const recordedTurnEligible =
+        row.kind === "scoped_message" &&
+        row.message_kind === "narration" &&
+        row.origin === "recorded_message" &&
+        !!context &&
+        context.view === "play" &&
+        context.observer.kind === "player" &&
+        !!snapshot &&
+        sameScope(snapshot.scope, context.scope) &&
+        snapshot.revision === context.revision &&
+        snapshot.player.observer === context.player &&
+        (rendered.history === bound || rendered.inspection === bound) &&
+        bound.query.view === "history" &&
+        bound.page.view === "history" &&
+        bound.query.observer.kind === "player" &&
+        bound.page.privacy === "player_visible" &&
+        sameScope(bound.query.scope, context.scope) &&
+        bound.query.expected_head === context.revision &&
+        row.original_scope.story === context.scope.story &&
+        row.event_ids.length > 0 &&
+        row.event_ids.every(
+            (sequence, index, ids) =>
+                Number.isSafeInteger(sequence) &&
+                sequence > 0 &&
+                sequence <= bound.page.revision &&
+                sequence <= context.revision &&
+                (index === 0 || sequence === ids[index - 1] + 1),
+        );
     if (row.kind === "author_correction")
         return (
             <li className="scope" aria-label="Timeline correction">
@@ -78,6 +289,38 @@ function NativeRow({
                         {row.event_ids.join(", ")}
                     </small>
                     <p className="record-value">{row.text}</p>
+                    {recordedTurnEligible && (
+                        <button
+                            disabled={rendered.queryBusy || rendered.readBusy}
+                            onClick={async () => {
+                                const current = controller.get();
+                                if (
+                                    current.context !== context ||
+                                    (current.history !== bound &&
+                                        current.inspection !== bound) ||
+                                    !bound.page.rows.includes(row)
+                                )
+                                    return;
+                                const result =
+                                    await controller.traceRecordedTurn(
+                                        row,
+                                        bound,
+                                    );
+                                const after = controller.get();
+                                if (
+                                    !result ||
+                                    after.context !== context ||
+                                    after.inspection !== result ||
+                                    after.queryBusy
+                                )
+                                    return;
+                                // The panel's existing checked-inspection
+                                // effect owns local view/revision controls.
+                            }}
+                        >
+                            Inspect recorded turn changes
+                        </button>
+                    )}
                 </>
             ) : row.kind === "event" ? (
                 <>
@@ -122,39 +365,19 @@ function NativeRow({
                     <small>Deadline {row.deadline}</small>
                 </>
             ) : row.kind === "change" ? (
-                <>
-                    <strong>
-                        Comparison r{row.before_revision} → r
-                        {row.after_revision}
-                    </strong>
-                    <pre>
-                        {JSON.stringify(
-                            { before: row.before, after: row.after },
-                            null,
-                            2,
-                        )}
-                    </pre>
-                </>
+                <ChangeEvidence
+                    row={row}
+                    controller={controller}
+                    bound={bound}
+                />
             ) : row.kind === "clock" ? (
                 <p>Story time: {row.story_time}</p>
             ) : (
                 <p>Permitted provenance</p>
             )}
-            <div className="source-links">
-                {sources(row).map((source, index) => (
-                    <button
-                        key={index}
-                        disabled={source.kind === "withheld"}
-                        onClick={() => void controller.source(source, bound)}
-                    >
-                        {source.kind === "scoped_event"
-                            ? `${scopeLabel(source.value.original_scope)} · event ${source.value.sequence}`
-                            : source.kind === "seed"
-                              ? `Seed ${source.value}`
-                              : "Evidence withheld by lens"}
-                    </button>
-                ))}
-            </div>
+            {row.kind !== "change" && (
+                <SourceLinks row={row} controller={controller} bound={bound} />
+            )}
         </li>
     );
 }
@@ -198,6 +421,13 @@ export function V2PlayPanel({
         setAt("");
         void controller.refresh(false);
     }, [controller, identity]);
+    useEffect(() => {
+        const query = state.inspection?.query;
+        if (!query) return;
+        setView(query.view);
+        setAt(query.at_revision === null ? "" : String(query.at_revision));
+        setSearch(query.search);
+    }, [state.inspection]);
     if (!c)
         return (
             <section aria-label="V2 play unavailable">
@@ -215,6 +445,7 @@ export function V2PlayPanel({
               ? `Character ${c.observer.id}`
               : words(c.observer.kind);
     const inspection = state.inspection;
+    const displayedReceipt = state.receipt;
     return (
         <section
             className="v2-play"
@@ -248,6 +479,14 @@ export function V2PlayPanel({
                           "idle")}
                 </p>
                 {state.error && <p role="alert">{state.error}</p>}
+                {inspection && (
+                    <p aria-label="Displayed inspection context">
+                        Read-only {words(inspection.query.view)} · selected head
+                        r{inspection.page.head} · inspected r
+                        {inspection.page.revision} ·{" "}
+                        {words(inspection.page.privacy)}
+                    </p>
+                )}
             </header>
             {state.notice && <p role="status">{state.notice}</p>}
             <button
@@ -550,23 +789,54 @@ export function V2PlayPanel({
                     </button>
                 </section>
             )}
-            {c.view === "play" && state.receipt && (
+            {c.view === "play" && displayedReceipt && (
                 <section aria-label="Actual native receipt">
                     <h3>
                         Actual Rust receipt ·{" "}
-                        {scopeLabel(state.receipt.request.scope)}
+                        {scopeLabel(displayedReceipt.request.scope)}
                     </h3>
                     <p>
-                        Turn {state.receipt.request.turn} · r
-                        {state.receipt.request.expected_revision} → r
-                        {state.receipt.events.at(-1)?.sequence}
+                        Turn {displayedReceipt.request.turn} · r
+                        {displayedReceipt.request.expected_revision} → r
+                        {displayedReceipt.events.at(-1)?.sequence}
                     </p>
-                    <p className="record-value">{state.receipt.narration}</p>
+                    <p className="record-value">{displayedReceipt.narration}</p>
+                    <button
+                        disabled={
+                            c.observer.kind !== "player" ||
+                            !state.snapshot ||
+                            state.queryBusy ||
+                            state.readBusy
+                        }
+                        onClick={async () => {
+                            if (
+                                controller.get().context !== c ||
+                                controller.get().receipt !== displayedReceipt
+                            )
+                                return;
+                            const result =
+                                await controller.traceReceipt(displayedReceipt);
+                            const current = controller.get();
+                            if (
+                                !result ||
+                                current.context !== c ||
+                                current.receipt !== displayedReceipt ||
+                                current.inspection !== result ||
+                                current.queryBusy
+                            )
+                                return;
+                            setView("turn_diff");
+                            setAt(String(result.page.revision));
+                            setSearch("");
+                        }}
+                    >
+                        Inspect accepted turn changes
+                    </button>
                     <details>
                         <summary>
                             Request, proposal, accepted events and provenance
                         </summary>
-                        <pre>{JSON.stringify(state.receipt, null, 2)}</pre>
+                        <pre>{JSON.stringify(displayedReceipt, null, 2)}</pre>
                     </details>
                 </section>
             )}

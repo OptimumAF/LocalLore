@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-inspection"
+description = "Enables the memory_inspection command without any pre-configured scope."
+commands.allow = ["memory_inspection"]
+
+[[permission]]
+identifier = "deny-memory-inspection"
+description = "Denies the memory_inspection command without any pre-configured scope."
+commands.deny = ["memory_inspection"]

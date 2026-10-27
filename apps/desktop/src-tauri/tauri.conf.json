@@ -31,6 +31,7 @@
                         "allow-fork-start",
                         "allow-fork-lookup",
                         "allow-memory-maintenance-start",
+                        "allow-memory-inspection",
                         "allow-harness-memory-case",
                         "allow-harness-fork-case",
                         "allow-archive-export-preview",

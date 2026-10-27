@@ -6,6 +6,8 @@ use std::sync::OnceLock;
 pub mod author_correction;
 #[path = "engine/staged_play.rs"]
 pub mod staged_play;
+#[path = "engine/staged_scene_play.rs"]
+pub mod staged_scene_play;
 use author_correction::{CanonicalRecord, KnowledgeProjectionV2};
 
 #[derive(Clone, Debug)]

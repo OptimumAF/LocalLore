@@ -20,6 +20,9 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
     "author-native-history",
     "author-native-observer",
     "author-native-receipt",
+    "author-native-v2-receipt-diff",
+    "author-native-v2-receipt-prior-seed",
+    "author-native-v2-inherited-source",
     "author-native-turn-cancelled",
     "author-native-stale-context",
     "author-native-late-cancel",
@@ -27,6 +30,9 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
     "author-native-recovered",
     "author-native-narrow",
     "author-native-restarted",
+    "author-native-recorded-turn-diff",
+    "author-native-recorded-prior-source",
+    "author-native-recorded-inherited-source",
     "author-native-reopened",
 ];
 
@@ -99,6 +105,22 @@ const COMPARISON_READER_LABELS: &[&str] = &[
 const MAX_PNG: usize = 16 * 1024 * 1024;
 const MAX_CHECKPOINTS: usize = 40;
 const LABELS: &[&str] = &[
+    "memory-inspection-native-empty",
+    "memory-inspection-native-packets",
+    "memory-inspection-native-entries",
+    "memory-inspection-native-source",
+    "memory-inspection-native-mira",
+    "memory-inspection-native-sable",
+    "memory-inspection-native-held-lens",
+    "memory-inspection-native-other-busy",
+    "memory-inspection-native-session-return",
+    "memory-inspection-native-prefix",
+    "memory-inspection-native-narrow",
+    "memory-inspection-native-final",
+    "memory-inspection-native-reopened",
+    "memory-inspection-native-restart-entries",
+    "memory-inspection-native-restart-source",
+    "memory-inspection-native-restart-narrow",
     "memory-native-passive",
     "memory-native-admitted",
     "memory-native-pending",

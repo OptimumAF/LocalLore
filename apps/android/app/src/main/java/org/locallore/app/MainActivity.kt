@@ -152,7 +152,8 @@ open class MainActivity : ComponentActivity() {
                 }
                 model.creationController?.let { controller ->
                     StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
-                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION, onTemplate = controller::chooseTemplate)
+                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION, onTemplate = controller::chooseTemplate,
+                        onPlayerName = controller::editPlayerName, onPlayerReview = controller::reviewPlayerName)
                 }
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)

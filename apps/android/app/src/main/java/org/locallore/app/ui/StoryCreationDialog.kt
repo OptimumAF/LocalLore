@@ -41,6 +41,8 @@ import org.locallore.app.StoryCreationRequest
 import org.locallore.app.StoryTemplateOption
 import org.locallore.app.StoryCreationUiState
 import org.locallore.app.validStoryTitle
+import org.locallore.app.validStoryPlayerName
+import org.locallore.app.hasReviewedPlayerName
 
 /** A starter/title review only. No premise, seed, identity or gameplay editor is exposed. */
 @Composable
@@ -51,6 +53,8 @@ internal fun StoryCreationDialog(
     onConfirm: (StoryCreationRequest) -> Unit,
     exposeTestTags: Boolean = false,
     onTemplate: (StoryCreationRequest, StoryTemplateOption) -> Unit = { _, _ -> },
+    onPlayerName: (StoryCreationRequest, String) -> Unit = { _, _ -> },
+    onPlayerReview: (StoryCreationRequest) -> Unit = {},
 ) {
     if (!state.visible) return
     val window = LocalWindowInfo.current.containerSize
@@ -59,6 +63,7 @@ internal fun StoryCreationDialog(
     val height = with(density) { window.height.toDp() }
     val request = state.review
     val editing = !state.busy && !state.creating && !state.closing
+    val nameValid = request?.preview?.playerSetup == null || validStoryPlayerName(state.playerNameDraft ?: "")
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.widthIn(max = minOf(560.dp, width * 0.94f)).fillMaxWidth()
             .heightIn(max = height * 0.9f).fillMaxHeight().testTag("story-creation-dialog")
@@ -86,13 +91,34 @@ internal fun StoryCreationDialog(
                                         val selected = option.template == request.preview.template
                                         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                             .testTag("story-template-${option.template}")
-                                            .selectable(selected = selected, enabled = editing, role = Role.RadioButton,
+                                            .selectable(selected = selected, enabled = editing && nameValid, role = Role.RadioButton,
                                                 onClick = { onTemplate(request, option) }),
                                             verticalAlignment = Alignment.CenterVertically) {
-                                            RadioButton(selected = selected, enabled = editing, onClick = null)
+                                            RadioButton(selected = selected, enabled = editing && nameValid, onClick = null)
                                             Text("${option.defaultTitle} · ${ruleLabel(option.profile)}")
                                         }
                                     }
+                                }
+                            }
+                        }
+                        if (request.preview.playerSetup != null) {
+                            key(CreationIdentity(request.preview), request.creationId) {
+                                OutlinedTextField(value = state.playerNameDraft ?: request.preview.playerSetup.playerName,
+                                    onValueChange = { onPlayerName(request, it) }, enabled = editing, singleLine = true,
+                                    label = { Text("Player name") }, isError = !nameValid,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-player-name"))
+                            }
+                            if (!nameValid) Text(
+                                "Use 1–64 characters without outer spaces, line breaks or control characters. Fix and review the name before changing starter.",
+                                color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("story-player-name-error"))
+                            else if (!hasReviewedPlayerName(request, state.playerNameDraft)) Text(
+                                "Review changes to update your starting view before creating the story.",
+                                modifier = Modifier.testTag("story-player-review-required"))
+                            key(CreationIdentity(request)) {
+                                OutlinedButton(onClick = { onPlayerReview(request) },
+                                    enabled = editing && nameValid && !hasReviewedPlayerName(request, state.playerNameDraft),
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-player-review")) {
+                                    Text("Review changes")
                                 }
                             }
                         }
@@ -115,7 +141,8 @@ internal fun StoryCreationDialog(
                         // Recreate only the consent button when its rendered object changes. A retained
                         // semantics callback must not route through a mutable replacement onClick.
                         key(CreationIdentity(request)) {
-                            Button(onClick = { onConfirm(request) }, enabled = editing && validStoryTitle(request.title),
+                            Button(onClick = { onConfirm(request) }, enabled = editing && validStoryTitle(request.title) &&
+                                hasReviewedPlayerName(request, state.playerNameDraft),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-creation-confirm")) { Text("Create") }
                         }
                     }

@@ -57,9 +57,30 @@ internal object StoryCreationWire {
         if (!validStoryTitle(request.title)) throw WorkspaceFailure("InvalidTitle")
         if (!validStoryTemplateProfile(request.preview.template, request.preview.profile) || !hash.matches(request.preview.seedSha256) ||
             !creationId.matches(request.creationId)) throw WorkspaceFailure("Malformed")
-        return JSONObject().put("op", "create_named").put("template", request.preview.template)
+        val setup = request.preview.playerSetup
+        if (setup == null) return JSONObject().put("op", "create_named").put("template", request.preview.template)
             .put("seed_sha256", request.preview.seedSha256).put("title", request.title).put("creation_id", request.creationId)
+        if (!validStoryPlayerName(setup.playerName)) throw WorkspaceFailure("InvalidInput")
+        if (!hash.matches(setup.templateSha256) || !hash.matches(setup.setupSha256) ||
+            setup.templateSha256 != request.preview.seedSha256) throw WorkspaceFailure("Malformed")
+        return JSONObject().put("op", "create_configured").put("template", request.preview.template)
+            .put("template_sha256", setup.templateSha256).put("setup_sha256", setup.setupSha256)
+            .put("player_name", setup.playerName).put("title", request.title).put("creation_id", request.creationId)
     }
+    fun setupPreview(data: JSONObject): StoryCreationPreview = try {
+        check(data.toString().toByteArray(Charsets.UTF_8).size <= 16384)
+        fields(data, setOf("version", "template", "template_sha256", "setup_sha256", "default_title",
+            "description", "profile", "player_name", "details"))
+        val templateHash = data.get("template_sha256") as String
+        val setupHash = data.get("setup_sha256") as String
+        val name = data.get("player_name") as String
+        check(hash.matches(templateHash) && hash.matches(setupHash) && validStoryPlayerName(name))
+        // Reuse the closed, bounded old metadata decoder without changing its seven-key wire.
+        val metadata = JSONObject().put("version", data.get("version")).put("template", data.get("template"))
+            .put("seed_sha256", templateHash).put("default_title", data.get("default_title"))
+            .put("description", data.get("description")).put("profile", data.get("profile")).put("details", data.get("details"))
+        preview(metadata).copy(playerSetup = StoryPlayerSetup(templateHash, setupHash, name))
+    } catch (_: Exception) { throw WorkspaceFailure("Malformed") }
     private fun version(data: JSONObject) {
         val version = data.get("version")
         check((version is Int || version is Long) && (version as Number).toLong() == 1L)

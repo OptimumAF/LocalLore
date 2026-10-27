@@ -411,6 +411,16 @@ internal class DurableGateway(
         if (preview.template != template) throw WorkspaceFailure("Malformed")
         return preview
     }
+    override suspend fun setupPreview(template: String, playerName: String?): StoryCreationPreview {
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        if (operation != null) throw WorkspaceFailure("Busy")
+        val data = call(command("story_setup").put("template", template).put("player_name", playerName ?: JSONObject.NULL))
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        val preview = StoryCreationWire.setupPreview(data)
+        if (preview.template != template || (playerName != null && preview.playerSetup?.playerName != playerName))
+            throw WorkspaceFailure("Malformed")
+        return preview
+    }
     override suspend fun create(request: StoryCreationRequest): SavedSnapshot {
         if (closed.get()) throw WorkspaceFailure("Closed")
         if (operation != null) throw WorkspaceFailure("Busy")

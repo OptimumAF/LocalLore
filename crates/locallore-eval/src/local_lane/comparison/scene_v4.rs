@@ -187,8 +187,8 @@ enum FinitePrivacy {
 fn finite_privacy(
     dir: &Path,
     recording: &RecordingFile,
-    capture: &Value,
-    receipt: &Receipt,
+    capture: Option<&Value>,
+    receipt: Option<&Receipt>,
 ) -> FinitePrivacy {
     let forbidden = |text: &str, narrator: bool| {
         EXCLUSIONS.iter().any(|sentinel| text.contains(sentinel))
@@ -197,30 +197,33 @@ fn finite_privacy(
     if recording.forbidden_director_prompt
         || recording.forbidden_narrator_prompt
         || recording.forbidden_narrator_output
-        || forbidden(receipt.narration(), true)
+        || receipt.is_some_and(|receipt| forbidden(receipt.narration(), true))
     {
         return FinitePrivacy::Violation;
     }
-    let Some(artifacts) = capture["data"]["details"]["artifacts"].as_array() else {
-        return FinitePrivacy::Unavailable;
-    };
-    let requests = artifacts
-        .iter()
-        .filter(|a| a["kind"] == "generation_request");
-    let count = requests.clone().count();
-    let mut unavailable = recording.lost || count == 0 || count != recording.captures.len();
-    for artifact in requests {
-        let input = &artifact["value"]["input"];
-        let (Some(prompt), Some(role)) = (input["prompt"].as_str(), input["role"].as_str()) else {
-            unavailable = true;
-            continue;
-        };
-        if !matches!(role, "director" | "narrator") || prompt.is_empty() {
-            unavailable = true;
-            continue;
-        }
-        if forbidden(prompt, role == "narrator") {
-            return FinitePrivacy::Violation;
+    let artifacts = capture.and_then(|capture| capture["data"]["details"]["artifacts"].as_array());
+    // Missing details or a receipt prevent qualification, but must not hide a
+    // positive observation in another available diagnostic channel below.
+    let mut unavailable = recording.lost || receipt.is_none() || artifacts.is_none();
+    if let Some(artifacts) = artifacts {
+        let requests = artifacts
+            .iter()
+            .filter(|a| a["kind"] == "generation_request");
+        let count = requests.clone().count();
+        unavailable |= count == 0 || count != recording.captures.len();
+        for artifact in requests {
+            let input = &artifact["value"]["input"];
+            let (Some(prompt), Some(role)) = (input["prompt"].as_str(), input["role"].as_str()) else {
+                unavailable = true;
+                continue;
+            };
+            if !matches!(role, "director" | "narrator") || prompt.is_empty() {
+                unavailable = true;
+                continue;
+            }
+            if forbidden(prompt, role == "narrator") {
+                return FinitePrivacy::Violation;
+            }
         }
     }
     // These are retained diagnostic observations, not proof of output origin.
@@ -362,11 +365,9 @@ fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
     } else {
         Status::Unavailable
     };
-    let privacy_observation = match (recording, capture, receipt) {
-        (Some(recording), Some(capture), Some(receipt)) => {
-            finite_privacy(dir, recording, capture, receipt)
-        }
-        _ => FinitePrivacy::Unavailable,
+    let privacy_observation = match recording {
+        Some(recording) => finite_privacy(dir, recording, capture, receipt),
+        None => FinitePrivacy::Unavailable,
     };
     let privacy_checked = checked.is_some() && privacy_observation == FinitePrivacy::Checked;
     let privacy_status = if guard_ok {

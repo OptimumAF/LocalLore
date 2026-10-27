@@ -720,3 +720,36 @@ Root owns compilation/fixture calibration, actual execution and integration. No
 actual cancelled SDK/model/desktop workflow, race/death/drain, Domain2, new human
 review or quality acceptance is qualified here. The original human packet and
 needs-improvement assessment remain unchanged.
+
+## Noncommitted diagnostic-classification implementation handoff
+
+The optional-input private seam above is now source-implemented from producer
+`193dd780`, after independently frozen `c050af3a` was cherry-picked as `a6ff0c51`.
+The four frozen cases and original17 producer oracles are unchanged. This
+handoff is **UNCOMPILED/UNRUN**; it adds no measured execution result to the
+earlier evidence. Root owns the four focused cases, unchanged17 producer cases
+and Clippy after the current UI verification cohort.
+
+`finite_privacy` accepts optional capture and receipt inputs. Retained positive
+recorder flags, available forbidden prompt text, an available forbidden receipt
+or consistent retained raw narrator sentinel can still produce Violation when
+another channel is missing. Missing receipt/capture, recording loss, missing or
+malformed requests, absent narrator bytes, or invalid/empty/inconsistent raw
+bytes prevent Checked. Available raw bytes are examined even if capture details
+are absent. The existing bounded raw reader, hash/length/UTF-8 checks and public
+strict missing/corrupt-file inspection behavior are unchanged.
+
+The row builder now invokes that private observer whenever a RecordingFile is
+present, including failed/cancelled attempts without a receipt. No recording
+still means Unavailable. A Violation retains the existing public violation
+failure tag; clean incomplete evidence retains the evidence-unavailable tag.
+The caller still requires the actual checked committed scene input before any
+finite privacy PASS, so optional diagnostics cannot qualify a noncommitted row
+or manufacture a receipt, provenance hash or canonical history.
+
+This is diagnostic classification, not authentication of recorded flags, raw
+output origin or model execution. No public schema, execution policy, provider,
+storage, canonical state, Protocol3 behavior or default selection changes. The
+four-case coverage limits above still apply, including no full producer
+cancellation/settlement journey or new model/native/UI/human-quality claim. The
+original human assessment remains needs improvement.

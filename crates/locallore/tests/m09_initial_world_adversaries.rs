@@ -34,7 +34,7 @@ fn fixture(copper: bool) -> InitialWorldOriginV1 {
                 id: ORIGIN_ONLY.into(), model_sha256: "1".repeat(64),
                 runtime_revision: "2".repeat(40), template_sha256: "3".repeat(64),
                 worker_sha256: "4".repeat(64), profile_manifest_sha256: "5".repeat(64),
-                context_tokens: 4096, director_tokens: 512, narrator_tokens: 256,
+                context_tokens: 4096, director_tokens: 320, narrator_tokens: 256,
                 deadline_ms: 5000, repair_limit: 1,
             },
             prompt_version: "initial-world-v1".into(), schema_version: "initial-world-v1".into(),

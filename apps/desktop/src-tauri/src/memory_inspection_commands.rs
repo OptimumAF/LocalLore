@@ -155,6 +155,33 @@ fn read_owned(host: Arc<Host>, lease: Arc<WindowLease>, epoch: u64, request: Rea
     lease.dispatch(epoch, || Ok(value))
 }
 
+fn initialization_category(error: String) -> String {
+    match error.as_str() {
+        "Closed" => "Closed",
+        "Forbidden" => "Forbidden",
+        "InvalidInput" => "InvalidInput",
+        "Busy" => "Busy",
+        "Full" => "Full",
+        "Io" | "StorageUnavailable" | "Database" => "Database",
+        "FutureVersion" | "SchemaMismatch" | "Unsupported" => "Unsupported",
+        "ForeignDatabase" | "Integrity" => "Integrity",
+        "BackupRequired" | "BackupExists" | "Unavailable" => "Unavailable",
+        _ => "Internal",
+    }.into()
+}
+
+async fn read_current(workspace: &WorkspaceState, epoch: u64, action: &str, raw: &str) -> Result<Value, String> {
+    if !workspace.lease.valid(epoch) { return Err("Closed".into()); }
+    let request = ReadRequest::parse(action, raw)?;
+    let permit = ReadPermit::acquire()?;
+    let initialized = workspace.get(epoch).await;
+    let lease = workspace.lease.clone();
+    if !lease.valid(epoch) { return Err("Closed".into()); }
+    let host = initialized.map_err(initialization_category)?;
+    tauri::async_runtime::spawn_blocking(move || read_owned(host, lease, epoch, request, permit))
+        .await.map_err(|_| "Internal".to_owned())?
+}
+
 #[tauri::command]
 pub async fn memory_inspection(
     window: tauri::WebviewWindow,
@@ -163,13 +190,7 @@ pub async fn memory_inspection(
     request: String,
 ) -> Result<Value, String> {
     let epoch = workspace.lease.capture(window.label()).map_err(str::to_owned)?;
-    let request = ReadRequest::parse(&action, &request)?;
-    let permit = ReadPermit::acquire()?;
-    let host = workspace.get(epoch).await?;
-    let lease = workspace.lease.clone();
-    if !lease.valid(epoch) { return Err("Closed".into()); }
-    tauri::async_runtime::spawn_blocking(move || read_owned(host, lease, epoch, request, permit))
-        .await.map_err(|_| "Internal".to_owned())?
+    read_current(&workspace, epoch, &action, &request).await
 }
 
 #[cfg(test)]

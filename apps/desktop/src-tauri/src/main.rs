@@ -29,6 +29,7 @@ mod exports;
 mod fork_commands;
 mod lease;
 mod memory_maintenance_commands;
+mod memory_inspection_commands;
 mod model_commands;
 mod models;
 mod selected_commands;
@@ -346,6 +347,7 @@ fn main() {
             memory_harness::harness_memory_case,
             author_harness::harness_author_case,
             memory_maintenance_commands::memory_maintenance_start,
+            memory_inspection_commands::memory_inspection,
             archive_commands::archive_export_preview,
             archive_commands::archive_import_preview,
             archive_commands::archive_export,
@@ -409,6 +411,7 @@ fn main() {
         fork_commands::fork_start,
         fork_commands::fork_lookup,
         memory_maintenance_commands::memory_maintenance_start,
+        memory_inspection_commands::memory_inspection,
         archive_commands::archive_export_preview,
         archive_commands::archive_import_preview,
         archive_commands::archive_export,

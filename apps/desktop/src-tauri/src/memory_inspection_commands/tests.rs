@@ -13,6 +13,44 @@ use std::{path::PathBuf, sync::{Mutex, atomic::AtomicU64}};
 
 static SERIAL: Mutex<()> = Mutex::new(());
 static NEXT: AtomicU64 = AtomicU64::new(0);
+
+#[test]
+fn initialization_failures_are_closed_categories_and_release_the_actual_read_slot() {
+    let _serial = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+    for (input, expected) in [
+        ("Io", "Database"), ("StorageUnavailable", "Database"),
+        ("ForeignDatabase", "Integrity"), ("FutureVersion", "Unsupported"),
+        ("SchemaMismatch", "Unsupported"), ("BackupRequired", "Unavailable"),
+        ("BackupExists", "Unavailable"), ("Closed", "Closed"),
+        ("untrusted initialization diagnostic", "Internal"),
+    ] { assert_eq!(initialization_category(input.into()), expected); }
+    let root = std::env::temp_dir().join(format!("locallore-memory-init-review-{}-{}",
+        std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst)));
+    std::fs::create_dir(&root).unwrap();
+    let parent = root.join("ordinary-file-not-a-directory");
+    std::fs::write(&parent, b"synthetic initialization sentinel").unwrap();
+    let lease = Arc::new(WindowLease::default());
+    let epoch = lease.begin().unwrap();
+    let workspace = WorkspaceState {
+        close_gate: Default::default(), incarnation: "synthetic-init-review".into(),
+        path: parent.join("stories-v1.sqlite"), lease: lease.clone(), host: Default::default(),
+        preview_cleanup: Arc::new(Mutex::new(Value::Null)), author: Mutex::new(None),
+    };
+    let result = tauri::async_runtime::block_on(read_current(&workspace, epoch,
+        "packets", &serde_json::to_string(&common()).unwrap()));
+    assert_eq!(result, Err("Database".into()));
+    assert!(workspace.ready().is_none());
+    assert_eq!(std::fs::read(&parent).unwrap(), b"synthetic initialization sentinel");
+    drop(ReadPermit::acquire().unwrap());
+    lease.invalidate(&format!("main-{epoch}")).unwrap();
+    let closed = tauri::async_runtime::block_on(read_current(&workspace, epoch,
+        "packets", &serde_json::to_string(&common()).unwrap()));
+    assert_eq!(closed, Err("Closed".into()));
+    lease.finish_close(epoch + 1, || {});
+    drop(workspace);
+    std::fs::remove_file(parent).unwrap();
+    std::fs::remove_dir(root).unwrap();
+}
 fn common() -> Value {
     json!({"version":1,"session":"session-1","scope":{"story":"synthetic","branch":"main"},"expected_head":6,"observer":{"kind":"player"},"binding":null,"cursor":null,"limit":64})
 }

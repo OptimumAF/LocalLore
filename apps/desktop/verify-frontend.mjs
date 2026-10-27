@@ -48,6 +48,7 @@ for (const args of [
     ["check-fork-callback-review.mjs"],
     ["check-fork-independent-review.mjs"],
     ["check-memory-maintenance-controller.mjs"],
+    ["check-memory-inspection.mjs"],
     ["check-memory-callback-review.mjs"],
     ["check-broker-retention.mjs"],
     ["check-broker-retention-review.mjs"],

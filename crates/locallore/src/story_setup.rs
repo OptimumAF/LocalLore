@@ -1,7 +1,10 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Read-only, player-visible starter review and validated explicit creation input.
 //! A preview is not a world edit, a model request, or an arbitrary seed import.
-use crate::{contracts::Seed, engine::Engine};
+use crate::{
+    contracts::{Confidence, Evidence, Seed},
+    engine::Engine,
+};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -206,6 +209,10 @@ fn configured_seed(template: &str, player_name: Option<&str>) -> Result<Seed, &'
         if !valid_player_name(name) {
             return Err("InvalidInput");
         }
+        let default_name = &seed.actors.get(&seed.player).ok_or("Integrity")?.name;
+        if template == TEMPLATE && name != default_name {
+            neutralize_lantern_player_references(&mut seed)?;
+        }
         seed.actors.get_mut(&seed.player).ok_or("Integrity")?.name = name.into();
     }
     // The bundled default and every configured player must fit the same context boundary.
@@ -214,6 +221,49 @@ fn configured_seed(template: &str, player_name: Option<&str>) -> Result<Seed, &'
     }
     Engine::new(seed.clone()).map_err(|_| "Integrity")?;
     Ok(seed)
+}
+
+/// These two declared initial-seed subjects refer to the player, not an NPC
+/// named by input text. Keep their content and epistemic ownership distinct;
+/// never interpolate a player-controlled display name into facts or beliefs.
+fn neutralize_lantern_player_references(seed: &mut Seed) -> Result<(), &'static str> {
+    if seed.id != TEMPLATE
+        || seed.player != "player"
+        || seed
+            .actors
+            .get(&seed.player)
+            .map(|actor| actor.name.as_str())
+            != Some("Rowan")
+    {
+        return Err("Integrity");
+    }
+    let ancestry = seed.facts.get("ancestry").ok_or("Integrity")?;
+    if ancestry.proposition != "Rowan was born to ordinary quay keepers."
+        || ancestry.discoverable_at.is_some()
+        || ancestry.known_by.len() != 1
+        || !ancestry.known_by.contains("player")
+    {
+        return Err("Integrity");
+    }
+    let mut matches = seed.beliefs.iter().enumerate().filter(|(_, belief)| {
+        belief.believer == "oren" && belief.source == Evidence::Seed(TEMPLATE.into())
+    });
+    let (index, belief) = matches.next().ok_or("Integrity")?;
+    if matches.next().is_some()
+        || belief.proposition != "Rowan may possess the tideglass relic."
+        || belief.source_claim.is_some()
+        || belief.confidence != Confidence::Suspected
+    {
+        return Err("Integrity");
+    }
+    // All declaration checks precede either replacement. Only fresh configured
+    // seeds reach this helper; accepted history and default templates do not.
+    seed.facts
+        .get_mut("ancestry")
+        .ok_or("Integrity")?
+        .proposition = "The player was born to ordinary quay keepers.".into();
+    seed.beliefs[index].proposition = "The player may possess the tideglass relic.".into();
+    Ok(())
 }
 
 fn setup_hash(template_hash: &str, seed: &Seed) -> Result<String, &'static str> {
@@ -225,7 +275,7 @@ fn setup_hash(template_hash: &str, seed: &Seed) -> Result<String, &'static str> 
     Ok(format!("{:x}", hash.finalize()))
 }
 
-/// A player-visible, read-only setup. Only the selected player's display name may differ.
+/// A read-only initial setup with a player name and declared identity-neutral subjects.
 pub fn setup_preview(
     template: &str,
     player_name: Option<&str>,
@@ -347,4 +397,68 @@ fn player_details(seed: &Seed) -> Result<Vec<String>, &'static str> {
         return Err("TooLarge");
     }
     Ok(details)
+}
+
+#[cfg(test)]
+mod reference_tests {
+    use super::*;
+
+    #[test]
+    fn contradictory_template_reference_declarations_refuse_before_any_replacement() {
+        for mutation in [
+            "player",
+            "default_name",
+            "fact_text",
+            "fact_known_by",
+            "fact_discovery",
+            "belief_missing",
+            "belief_duplicate",
+            "belief_text",
+            "belief_source",
+            "belief_claim",
+            "belief_confidence",
+        ] {
+            let mut seed = bundled_seed(TEMPLATE).unwrap();
+            let index = seed
+                .beliefs
+                .iter()
+                .position(|belief| belief.believer == "oren")
+                .unwrap();
+            match mutation {
+                "player" => seed.player = "mira".into(),
+                "default_name" => {
+                    seed.actors.get_mut("player").unwrap().name = "Changed template player".into()
+                }
+                "fact_text" => {
+                    seed.facts.get_mut("ancestry").unwrap().proposition = "Changed ancestry".into()
+                }
+                "fact_known_by" => {
+                    seed.facts
+                        .get_mut("ancestry")
+                        .unwrap()
+                        .known_by
+                        .insert("mira".into());
+                }
+                "fact_discovery" => {
+                    seed.facts.get_mut("ancestry").unwrap().discoverable_at = Some("quay".into())
+                }
+                "belief_missing" => {
+                    seed.beliefs.remove(index);
+                }
+                "belief_duplicate" => seed.beliefs.push(seed.beliefs[index].clone()),
+                "belief_text" => seed.beliefs[index].proposition = "Changed belief".into(),
+                "belief_source" => seed.beliefs[index].source = Evidence::Event(1),
+                "belief_claim" => seed.beliefs[index].source_claim = Some(1),
+                "belief_confidence" => seed.beliefs[index].confidence = Confidence::Believed,
+                _ => unreachable!(),
+            }
+            let before = seed.clone();
+            assert_eq!(
+                neutralize_lantern_player_references(&mut seed),
+                Err("Integrity"),
+                "{mutation}"
+            );
+            assert_eq!(seed, before, "{mutation}");
+        }
+    }
 }

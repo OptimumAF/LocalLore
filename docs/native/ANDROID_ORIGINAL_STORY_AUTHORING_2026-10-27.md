@@ -158,14 +158,48 @@ was unavailable during this check. Actual compilation/public SDK value-object
 tests and a future real author inference run must retain separate attribution.
 Thinking and speculative decoding remain disabled in the current CPU worker.
 
-## Pending current integrated checks
+## Current integrated checks and recovery
 
-Android has8 fixed device methods. The completed input-process build above
-cross-compiles JNI for x86_64/ARM64 and passes host/JVM/lint/artifact checks;
-cross-compilation is not ARM64 execution. The two LiteRT test-only corrections
-require a new frozen build/check cohort. Embedded author prompt/schema files
-are now included in the host driver's compiled source map and independently
-hash-tested. Fresh native10/original-story8 emulator execution remains pending.
+The unchanged executable source at `58e71dde` passes976 Rust tests/11 ignored,
+1,716 Python tests,308 app JVM tests and572 separate LiteRT JVM tests.
+Repository formatting, default/all-feature Clippy, frontend checks, fixture
+output checks, native-linker checks, lints and artifact audits pass. The build
+maps877 compiled inputs; each host gate retains1,998 unchanged tracked inputs.
+Embedded author prompt/schema files are included in the compiled source map.
+JNI cross-compilation covers x86_64/ARM64; this is not ARM64 execution.
+
+Its first fresh native attempt fails before installation or test collection:
+the existing-server observer times out at its unchanged15-second budget. All21
+SDK client records have matching raw lengths/hashes and known cleanup. The
+outer output reader then fails to prove complete capture, so its original
+owner result retains `evidence_failed`, cleanup/capture false and null byte
+counts. It is not a native10 pass. No timeout cause is established.
+
+A separate recovery checks the exact worker identity is absent, all21 closed
+client pairs and the source/request bindings are unchanged, and the fixed
+failure path reaches no later SDK dispatch. This qualifies only SDK-client
+closure; it does not repair the original outer capture or cleanup evidence.
+The unchanged live-owner lease then admits a proposal-bound stop for only that
+owned guest. Its original owner handle actually terminates0; its guest receipt
+records `stop_requested`, worker1, cleanup/capture/closure true and no flush
+claim. An independent file-only audit replays53 recovery bindings with0
+mismatches. A new runtime-only retry uses the unchanged qualified source/APKs;
+native10 and original-story8 remain pending for that retry.
+
+Private recovery archives preserve earlier failures separately from success:
+
+| Selection | Original files / indexed controls | ZIP SHA-256 | Independent replay |
+|---|---|---|---|
+| Historical C1–C3 |2157 /3 |`9dcf70959d39b63eee0ccfdd3d5650062b91a87e02f61a3023d31714ef28d8bd` |0 missing/mismatches |
+| C4 UI assertion-order failure |927 /3 |`526e81d3b98fa1fb01b696bf7eadff2659535e79acc6efcb52ac13df215126c4` |0 missing/mismatches |
+| C5 preflight/capture failure |559 /3 |`8ceeb2d583341c6f588cb279c6f27e6e3edc898bd8e9e1cc3f157eae6ba380d0` |Copy/ZIP verifier passed; separate replay pending |
+
+These explicit admitted metadata/helper/report/audited-artifact selections stay
+on C:. They exclude model weights, saves and live guest data. Byte preservation
+does not qualify a failed feature test; each archive records acceptance false.
+
+Android has8 fixed original-story device methods. Fresh current-source
+native10/original-story8 qualification remains required.
 No real-model compatibility/quality/performance is inferred from SDK value
 objects, injected resources or scripted plumbing. Physical/ARM64, semantic narrative quality, accessibility,
 external process death and joined callback drain remain separate gates.

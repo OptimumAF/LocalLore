@@ -227,10 +227,31 @@ Private recovery archives preserve earlier failures separately from success:
 | Historical C1–C3 |2157 /3 |`9dcf70959d39b63eee0ccfdd3d5650062b91a87e02f61a3023d31714ef28d8bd` |0 missing/mismatches |
 | C4 UI assertion-order failure |927 /3 |`526e81d3b98fa1fb01b696bf7eadff2659535e79acc6efcb52ac13df215126c4` |0 missing/mismatches |
 | C5 preflight/capture failure |559 /3 |`8ceeb2d583341c6f588cb279c6f27e6e3edc898bd8e9e1cc3f157eae6ba380d0` |0 missing/mismatches |
+| Final runtime/source/recovery |442 /4 |`09457cc2442cee5cb6d284dd5aecccf2be98b30276b1658b7480acdcd61668cb` |0 missing/mismatches |
 
 These explicit admitted metadata/helper/report/audited-artifact selections stay
 on C:. They exclude model weights, saves and live guest data. Byte preservation
 does not qualify a failed feature test; each archive records acceptance false.
+
+The final recovery contains446 indexed originals/controls and copies,447 exact
+ZIP members and449 output files,27,652,046 bytes total. Its index SHA256 is
+`c05e1e5a8cdc05b78c07cda4269d06c2b7d3046547fbe33331493921897f9164`;
+the independent streaming verification result SHA256 is
+`205107234dfb43515147a208125f31257a6116bd20d4072504da282e66dc6570`.
+The replay checks all originals/copies/ZIP members and the prior C5 seal,
+including the three exact closed failed-guest metadata files. Unknown payloads
+are refused rather than recursively admitting arbitrary generated folders.
+
+Source history is separately verified at checkpoint `68c9b216`: all1211 named
+Git references match the bundle's1526 heads, including314 additional worktree
+pseudo-heads. The12,557,958-byte bundle SHA256 is
+`d5c824fbe60aeebf476d61ddbf85cecf3542280eba2838efeed5c6e214b9ddf4`.
+The first whole-head comparison refuses because named refs and worktree heads
+are different sets; the next classifier omits `main-worktree/HEAD` and also
+refuses. A read-only corrected collector verifies every named ref with no
+missing/mismatched entry and records both original refusals. No bundle is
+recreated or failed runtime result repaired. This report's later preservation
+metadata commit is separate from that source checkpoint.
 
 Android's8 fixed original-story methods and the native10 prerequisite now
 qualify this bounded scripted API35/x86_64 slice. Full task checkboxes remain

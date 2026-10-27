@@ -194,6 +194,19 @@ fn frame_hash(engine: &Engine, request: &Request, proposal: &Proposal) -> String
         Sha256::digest(serde_json::to_vec(staged.scene_frame()).unwrap())
     )
 }
+#[test]
+fn positive_wait_fixtures_use_existing_explicit_count_grammar() {
+    let engine = Engine::new(seed("scene-wait-grammar-control", false)).unwrap();
+    assert_eq!(
+        locallore::intent_guard::compile_action(&engine, "I wait for one tide tick."),
+        Ok(Command::Wait { ticks: 1 }),
+    );
+    assert_eq!(
+        locallore::intent_guard::compile_action(&engine, "I wait."),
+        Err(Error::ClarificationRequired),
+        "The original underspecified positive controls must remain unsupported",
+    );
+}
 fn fixture(temp: &Temp, presented: bool, arm: Arm) -> (Store, Scope, Receipt, Engine) {
     let mut store = temp.open("source.sqlite");
     let seed = seed("scene-recipe-source", presented);
@@ -506,7 +519,7 @@ fn recomputed_archive_hashes_cannot_forge_scene_frame_recipe_context_or_seed_pre
                 "future-frame",
                 Intent::FreeText {
                     kind: PlayInputKind::Action,
-                    text: "I wait.".into(),
+                    text: "I wait for one tide tick.".into(),
                 },
             );
             let future_proposal = Proposal {
@@ -641,7 +654,7 @@ fn existing_default_and_explicit_literal_records_keep_old_versions_and_omit_scen
                 "legacy-turn",
                 Intent::FreeText {
                     kind: PlayInputKind::Action,
-                    text: "I wait.".into(),
+                    text: "I wait for one tide tick.".into(),
                 },
             );
             let mut provider = Script::wait(1);

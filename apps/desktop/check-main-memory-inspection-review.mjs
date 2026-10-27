@@ -72,7 +72,8 @@ async function fixture({domain=1,player="player",holdMetadata=false}={}){
     globalThis.crypto??=webcrypto;
     globalThis.localStorage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,String(value)),removeItem:key=>saved.delete(key)};
     globalThis.document={getElementById:()=>({})};
-    const model={operation_id:1,resident:false,phase:"unloaded",percent:0,imported:false,loaded:false,error:null,profile:null,available_profile:null};
+    const model={operation_id:1,resident:false,phase:"unloaded",percent:0,imported:false,loaded:false,error:null,profile:null,
+        available_profile:{id:"synthetic",model_bytes:1,model_sha256:"a".repeat(64),runtime_revision:"synthetic",device:"synthetic",qualification:"not-qualified"}};
     const thin=()=>({version:2,domain_version:domain,scope:clone(selectedScope),revision:head,rules:"fantasy_v1",
         player:{observer:player,self_state:{name:"Synthetic",location:"quay",alive:true,energy:2,
             abilities:{},attributes:{},injuries:[],affiliations:[],goals:[]}},inventory:{}});
@@ -114,12 +115,16 @@ async function fixture({domain=1,player="player",holdMetadata=false}={}){
     const main=await imported(mainBuild.outputFiles[0].text,`memory Main ${++incarnation}`);
     await tick();
     const props=globalThis.__D07_MAIN_REVIEW_PROPS;
-    assert(props?.controller,"existing actual Main render hook");
-    assert(props.memoryInspection,"actual Main stable memoryInspection prop");
-    assert.equal(typeof props.memoryInspectionContext,"function","actual Main context callback");
+    try {
+        assert(props?.controller,"existing actual Main render hook");
+        assert(props.memoryInspection,"actual Main stable memoryInspection prop");
+        assert.equal(typeof props.memoryInspectionContext,"function","actual Main context callback");
+        assert(props.controller.selected(),"actual Main selected synthetic persistent story");
+        assert.equal(props.controller.get().visibleError,null);
+    } catch(error) {
+        nativeMetadata.resolve(clone(metadata));await main.dispose();await tick();throw error;
+    }
     const controller=props.controller,inspection=props.memoryInspection;
-    assert(controller.selected(),"actual Main selected synthetic persistent story");
-    assert.equal(controller.get().visibleError,null);
     return{props,controller,inspection,calls,
         async lab(){controller.requestLab();controller.acknowledgeLab(true);controller.setObserver("player");await tick();},
         grant(){nativeMetadata.resolve(clone(metadata));},

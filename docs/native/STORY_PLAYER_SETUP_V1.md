@@ -7,12 +7,40 @@ their legacy operations or accept a replacement seed. Runtime qualification is
 recorded separately from this contract.
 
 The player may edit their character's display name while reviewing a new story.
-Rust derives a candidate from the selected bundled template, changes only
-`seed.actors[seed.player].name`, validates it and supplies the player-visible
-preview. Entity IDs, profile, abilities, inventory, locations, facts, beliefs,
-commitments, NPCs and knowledge eligibility are unchanged. The name is canonical
+Rust derives a candidate from the selected bundled template, changes
+`seed.actors[seed.player].name` and the exact template-declared subject wording
+below, validates it and supplies the player-visible preview. Entity IDs, profile,
+abilities, inventory, locations, commitments, NPC identity and knowledge
+eligibility are unchanged. Truth and belief remain separate typed records with
+their original provenance and epistemic fields. The name is canonical
 initial character state, not a command, ability grant, fact or NPC instruction.
 There is no existing-story rename or backdated author edit.
+
+## Template-declared player references
+
+Lantern Quay contains two seeded strings referring to its original player name:
+the `ancestry` fact, and Oren's seeded suspected belief about the tideglass relic.
+Changing only Actor.name would leave a ghost identity in the new story. For a
+nondefault Lantern player name, the fresh setup derives exactly:
+
+| Typed location | Derived proposition |
+|---|---|
+| Fact `ancestry` |`The player was born to ordinary quay keepers.` |
+| Oren's original seed-sourced suspected belief |`The player may possess the tideglass relic.` |
+
+Rust first validates the exact original declaration: template/player/default
+name, ancestry text/known_by/discoverability, and the unique belief's believer,
+original text, source claim, seed source and confidence. Contradictory or missing
+declarations refuse with `Integrity` before any replacement. No untrusted name
+is interpolated into truth or belief, and no global text search/replace occurs.
+All other fact/belief text and every epistemic field remain unchanged; the NPC
+belief does not become player knowledge or world truth.
+
+Explicit/default/null/omitted Rowan setups keep the exact original Seed and
+legacy preview bytes. Bracken Harbor contains no Aster prose reference and
+changes only the player display name. This is a fresh template derivation
+reviewed before creation, never a rewrite of existing stories. Both known
+propositions are part of the complete derived-seed digest below.
 
 ## Additive Host envelope-v1 operations
 

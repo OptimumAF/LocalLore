@@ -10,10 +10,13 @@ attribution and do not qualify this changed source or its APKs.
 
 The creation review now offers a player-name field. Editing it invalidates old
 Create consent; explicit Review changes obtains a new native preview before
-creation. Rust constructs the selected original starter, changes only the
-player Actor's display name, validates the engine and binds the reviewed setup
-with exact template/derived-seed hashes. Entity IDs, mechanical rules, facts,
-beliefs, NPC state and knowledge eligibility remain unchanged.
+creation. Rust constructs the selected original starter, changes the player
+Actor's display name and the exact template-declared subject references in the
+contract, validates the engine and binds the reviewed setup with exact
+template/derived-seed hashes. Entity IDs, mechanical rules, NPC identity and
+knowledge eligibility remain unchanged. The truth/belief distinction and all
+epistemic fields are preserved. The reference refinement below records why the
+initial name-only implementation is insufficient.
 
 Names are at most64 Unicode scalars/256 UTF-8 bytes with no normalization or
 silent trimming. Source inspection found the existing context compiler's256-byte
@@ -131,6 +134,36 @@ noncommitted workflow keys/status; those records do not become canonical events.
 
 Android build/JVM/lint/artifact and actual emulator qualification remain pending
 at this follow-up. No older834-input runtime result is reused for this source.
+
+## Pre-reference-fix checkpoint and consistency discovery
+
+The first offline Android build subsequently passes253649ms/worker0 with known
+cleanup/capture:274 executed JVM tests/32 XML suites,0 failures/errors/skips,
+both lints0 errors/3 warnings and11 artifact audits. Deep replay verifies841
+mapped inputs,108641-byte before/after maps, SHA256
+`6e16de5f19f72ead0562e91e12f83c965a1e5d291771fd2be9d956b98521323d`.
+These checks actually pass on the initial source; no emulator has run it.
+
+Before runtime admission, direct fixture inspection discovers a consistency
+gap those tests miss: Lantern's ancestry fact and Oren's seed belief still name
+Rowan after a custom name is chosen. The factory contract is refined to derive
+the two exact identity-neutral subject strings, preserving truth/belief types,
+eligibility and provenance. Default/legacy fixture bytes and Bracken's derivation
+are unchanged. There is no arbitrary name interpolation, global replacement,
+accepted-history edit or wire/schema/dependency change. An independent original
+RED case is required before integrating the correction and rerunning affected
+checks/build/runtime on a fresh source cohort.
+
+The initial host/build records are already sealed as a pre-reference-fix
+checkpoint with explicit `feature_acceptance:false`. All266 entries/44904248
+bytes match originals, copies and ZIP members, independently and in Root replay.
+The84191-byte index has SHA256
+`6a0312fc6cf04d4e9b4947097177fbd5df3e5294ebc7868f8f75465146b148bd`;
+the21314185-byte ZIP has SHA256
+`8802b2679fac945bb12f74eb1ddace8653f1848e120c353064b400ec55cc3910`.
+It retains the original expiry, preparation refusal and test-oracle failures.
+Those passed checks remain passed for their exact source; they cannot qualify
+the corrected feature or replace its missing semantic test/runtime evidence.
 
 No dependency is introduced or repinned. Existing locked offline toolchains are
 reused. All requested verification will retain original bounded output and exact

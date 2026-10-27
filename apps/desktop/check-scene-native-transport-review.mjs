@@ -454,6 +454,65 @@ await check("actual native4 View hides captured metadata after context loss and 
     assert.match(recovery, /Refresh cleanup state/); assert.match(recovery, /Retry cleanup/);
 });
 
+// Independent follow-up freeze against 8e047bff's null-protocol owner paths.
+// The original 69 oracles above/below are unchanged. SOURCE ONLY / UNRUN;
+// Root must measure these two additions before changing production.
+await check("lost start ACK matching native4 catalog pins owner before forbidden native3 lookup", async () => {
+    const f = fixture();
+    let client;
+    f.hooks.set("start", (q) => {
+        client = q.clientId;
+        f.setCurrent(status(4, { client_id: client }));
+        throw Error("EvaluationIo"); // Synthetic lost acknowledgement, not known refusal.
+    });
+    await f.c.start("paired", 1);
+    assert.ok(client);
+    assert.equal(f.c.get().error, "EvaluationIo");
+    assert.equal(f.c.get().status, null);
+    assert.equal(f.c.get().uncertain, true);
+    const known = catalog(4);
+    known.runs[0].client_id = client;
+    f.hooks.set("catalog", () => clone(known));
+    await f.c.loadCatalog();
+    assert.equal(f.c.get().catalog?.protocol_version, 4);
+    assert.equal(f.c.get().catalog?.runs[0].client_id, client);
+    assert.equal(f.c.get().catalog?.runs[0].run_id, RUN);
+    f.hooks.set("lookup", () => status(3, { client_id: client }));
+    await f.c.lookup();
+    assert.equal(f.c.get().error, "ComparisonRunWire");
+    assert.equal(f.c.get().status, null, "forbidden native3 metadata must not become the current run");
+    assert.equal(f.c.get().clientId, client);
+    assert.equal(f.c.get().catalog?.protocol_version, 4);
+    assert.equal(f.c.get().uncertain, true);
+    const before = f.calls.length;
+    await f.c.start("paired", 1); await f.c.resume(1);
+    assert.equal(f.calls.length, before, "unknown original ownership still blocks retry/resume");
+    assert.equal(generated(f).length, 1);
+});
+await check("lost cold-open ACK recovery catalog pins native4 before forbidden native3 lookup or close", async () => {
+    const f = fixture();
+    f.hooks.set("open", () => { throw Error("EvaluationIo"); });
+    await f.c.open(RUN);
+    assert.equal(f.c.get().error, "EvaluationIo");
+    assert.equal(f.c.get().status, null);
+    assert.equal(f.c.get().uncertain, true);
+    f.hooks.set("catalog", () => catalog(4));
+    f.hooks.set("lookup", () => status(3));
+    f.hooks.set("close", () => status(3, { phase: "closed" }));
+    f.c.setContext("retired-open-new-context", true);
+    await until(() => f.calls.some((call) => call.action === "lookup"));
+    await f.c.close(); // Await public retirement reconciliation, not private state.
+    assert.equal(f.c.get().context, "retired-open-new-context");
+    assert.equal(f.c.get().status, null);
+    assert.equal(f.c.get().clientId, null);
+    assert.equal(f.c.get().uncertain, true, "wrong-protocol recovery cannot acknowledge the retired owner");
+    assert.equal(f.calls.filter((call) => call.action === "close").length, 0,
+        "forbidden lookup must not mint captured access for a native3 close");
+    await f.c.start("paired", 1);
+    assert.equal(generated(f).length, 0, "retired admission barrier cannot be drained by foreign protocol metadata");
+    assert.equal(f.c.get().uncertain, true);
+});
+
 for (const f of fixtures) f.c.dispose();
 await tick();
 const sourceAfter = await hashes();

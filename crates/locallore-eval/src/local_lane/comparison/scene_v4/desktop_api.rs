@@ -39,9 +39,7 @@ fn snapshot(directory: &Path) -> Result<(Value, Manifest, [Vec<StoredTurn4>; 2])
                 continue;
             };
             // Pair the actual loaded checkpoint with this exact inspector row.
-            if !seen.insert((arm, turn.row.turn.clone()))
-                || reported.next() != Some(&turn.row)
-            {
+            if !seen.insert((arm, turn.row.turn.clone())) || reported.next() != Some(&turn.row) {
                 return Err("SnapshotMismatch".into());
             }
             let mut unavailable = Vec::new();

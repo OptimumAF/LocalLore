@@ -33,7 +33,7 @@ mod win {
             Arc, Mutex,
         },
         thread::{self, JoinHandle},
-        time::Duration,
+        time::{Duration, Instant},
     };
     use windows::{
         core::{PCWSTR, PWSTR},
@@ -783,6 +783,16 @@ mod win {
             })
             .map_err(|_| "PipeReaderThreadUnavailable".into())
     }
+    fn reader_ready<T>(worker: &JoinHandle<T>, deadline: Instant) -> bool {
+        while !worker.is_finished() {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return false;
+            }
+            thread::sleep(remaining.min(Duration::from_millis(10)));
+        }
+        true
+    }
     fn run_child(
         executable: &Path,
         package: Option<PSID>,
@@ -903,6 +913,8 @@ mod win {
             Ok(observed)
         })();
         // Always positively terminate/reap before interpreting child assertions.
+        // One original five-second budget covers process, Job and pipe drain.
+        let cleanup_deadline = Instant::now() + Duration::from_secs(5);
         let mut known = true;
         if let Some(p) = &process {
             if unsafe { WaitForSingleObject(p.0, 0) } != WAIT_OBJECT_0 {
@@ -910,22 +922,44 @@ mod win {
                     let _ = TerminateProcess(p.0, 1);
                 }
             }
-            known = unsafe { WaitForSingleObject(p.0, 5000) } == WAIT_OBJECT_0;
+            let remaining = cleanup_deadline.saturating_duration_since(Instant::now());
+            known = unsafe { WaitForSingleObject(p.0, remaining.as_millis().min(5000) as u32) }
+                == WAIT_OBJECT_0;
+            record["process_reaped"] = json!(known);
         }
         if let Some(j) = &job {
-            let mut count = JOBOBJECT_BASIC_ACCOUNTING_INFORMATION::default();
-            known &= unsafe {
-                QueryInformationJobObject(
-                    Some(j.0),
-                    JobObjectBasicAccountingInformation,
-                    (&mut count as *mut JOBOBJECT_BASIC_ACCOUNTING_INFORMATION).cast(),
-                    size_of_val(&count) as u32,
-                    None,
-                )
+            let mut observations = 0u32;
+            loop {
+                let mut count = JOBOBJECT_BASIC_ACCOUNTING_INFORMATION::default();
+                let observed = unsafe {
+                    QueryInformationJobObject(
+                        Some(j.0),
+                        JobObjectBasicAccountingInformation,
+                        (&mut count as *mut JOBOBJECT_BASIC_ACCOUNTING_INFORMATION).cast(),
+                        size_of_val(&count) as u32,
+                        None,
+                    )
+                };
+                observations += 1;
+                record["job_observations"] = json!(observations);
+                match observed {
+                    Err(error) => {
+                        record["job_query_hresult"] = json!(error.code().0);
+                        known = false;
+                        break;
+                    }
+                    Ok(()) => record["job_active_processes"] = json!(count.ActiveProcesses),
+                }
+                if count.ActiveProcesses == 0 {
+                    break;
+                }
+                let remaining = cleanup_deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    known = false;
+                    break;
+                }
+                thread::sleep(remaining.min(Duration::from_millis(10)));
             }
-            .is_ok()
-                && count.ActiveProcesses == 0;
-            record["job_active_processes"] = json!(count.ActiveProcesses);
         }
         record["cleanup_known"] = json!(known);
         drop(main_thread);
@@ -934,7 +968,10 @@ mod win {
         let mut child_reply = None;
         for (stream, thread) in [("stdout", output), ("stderr", errors)] {
             if let Some(thread) = thread {
-                if !known {
+                // Diagnostic capture remains valuable when Job drain is unknown.
+                // Never turn that capture into cleanup authority or block join
+                // beyond the same finite cleanup observation budget.
+                if !reader_ready(&thread, cleanup_deadline) {
                     record["threads_drained"] = json!(false);
                     std::mem::forget(thread);
                     continue;
@@ -1443,6 +1480,28 @@ mod win {
             assert_eq!(dacl(&outside.file), before);
             assert_eq!(read_small(&sentinel).unwrap(), b"outside-reparse-sentinel");
             assert_eq!(fs::read_dir(&outside.path).unwrap().count(), 1);
+        }
+        #[test]
+        fn actual_pipe_deadline_retains_completed_diagnostics_without_inventing_eof() {
+            let (input, output) = pipe().unwrap();
+            let worker = reader(into_file(input)).unwrap();
+            assert!(
+                !reader_ready(&worker, Instant::now()),
+                "an open empty pipe is not drained"
+            );
+            let mut writer = into_file(output);
+            writer
+                .write_all(b"OfflineQualifierFailed:fixed-synthetic-error")
+                .unwrap();
+            drop(writer);
+            assert!(reader_ready(
+                &worker,
+                Instant::now() + Duration::from_secs(5)
+            ));
+            assert_eq!(
+                worker.join().unwrap().unwrap(),
+                b"OfflineQualifierFailed:fixed-synthetic-error"
+            );
         }
         #[test]
         fn profile_deletion_requires_every_attempted_child_and_all_threads_known_drained() {

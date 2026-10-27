@@ -222,3 +222,33 @@ only the owned parent and join bounded readers; uncertain internal child/profile
 cleanup is recorded as unknown, with no fallback profile deletion.
 The fixed polling deadline rejects late completion even if the parent has exited.
 Process creation itself is explicitly not preempted by that polling deadline.
+
+## First actual attempt and bounded diagnostic correction
+
+At clean `30b2b063` the qualifier builds. Its test-only descriptor helper first
+failed compilation on distinct Win32/UTF16 error types; the corrected helper at
+`72c0c2aa` passes four default safety tests and the separately explicit original
+symlink test. All-target/all-feature Clippy passes after building the isolated
+checkout's missing normal frontend prerequisite. No dependency download or
+privilege/system-setting change was used. The actual outer Python is3.14.7;
+previous historical Python versions do not describe this command.
+
+The first fixed native attempt at unchanged `72c0c2aa` fails its ordinary
+positive control: the baseline child exits1 before a file/network observation.
+The immediate Job snapshot reports one active process despite the signaled child.
+Cleanup remains unknown, so the unique profile is retained and the boxed case is
+unattempted. Original proof, source/image hashes and outer positive parent-reap
+record remain immutable. This is not network-isolation or full-app success.
+The missing child stderr prevents diagnosis of its earlier error; no fixture,
+stdin or token cause is inferred from that absence.
+
+The source correction preserves one five-second total cleanup budget and still
+requires an actual Job count0. It polls the owned Job within the remaining
+budget, and independently waits for each reader's `is_finished()` before joining.
+Completed bounded stdout/stderr is retained even if Job cleanup remains unknown;
+unfinished readers remain unconfirmed. Cleanup success never changes a child
+failure into a passing control. A real anonymous-pipe test covers non-EOF refusal
+and capture of completed synthetic error bytes. This correction and any fresh
+native attempt require their own source-attributed verification. Later cleanup
+of the exact retained profile requires a separate verified ownership/absence
+observation; it cannot repair the original Job/reader measurements.

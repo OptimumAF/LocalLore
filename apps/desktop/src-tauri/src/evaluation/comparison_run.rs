@@ -10,6 +10,9 @@ use locallore_eval::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, io::Read};
+mod versioned;
+pub(crate) use versioned::FullComparisonProtocol;
+use versioned::{Index, Report};
 
 const SAFE: u64 = 9_007_199_254_740_991;
 fn bounded(value: Value, cap: usize) -> Result<Value> {
@@ -39,13 +42,14 @@ pub struct FullComparisonNativeResume {
 enum ComparisonLane {
     Scripted,
     Native,
+    SceneNative,
 }
 impl ComparisonLane {
     fn native(self) -> bool {
-        self == Self::Native
+        matches!(self, Self::Native | Self::SceneNative)
     }
     fn version(self) -> u16 {
-        if self.native() {
+        if self == Self::SceneNative { 3 } else if self.native() {
             2
         } else {
             1
@@ -58,6 +62,7 @@ impl ComparisonLane {
             "scripted_baseline"
         }
     }
+    fn protocol_version(self) -> u16 { if self == Self::SceneNative { 4 } else { 3 } }
 }
 type ExecutionConsent = Box<dyn FnOnce(&Value) -> Result<bool> + Send + 'static>;
 struct NativeExecution {
@@ -67,50 +72,27 @@ struct NativeExecution {
 enum Execution {
     Scripted,
     Native(NativeExecution),
+    SceneNative(NativeExecution),
 }
 impl Execution {
     fn lane(&self) -> ComparisonLane {
         match self {
             Self::Scripted => ComparisonLane::Scripted,
             Self::Native(_) => ComparisonLane::Native,
+            Self::SceneNative(_) => ComparisonLane::SceneNative,
         }
     }
     fn native(self) -> Option<NativeExecution> {
         match self {
             Self::Scripted => None,
-            Self::Native(native) => Some(native),
+            Self::Native(native) | Self::SceneNative(native) => Some(native),
         }
     }
-}
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Index {
-    version: u16,
-    protocol_version: u16,
-    input_lane: String,
-    run_id: String,
-    client_id: String,
-    kind: core::ComparisonKind,
-    initial_batch: usize,
-    created_ms: u64,
-    binding: CurrentBindingV3,
 }
 fn kind_name(kind: core::ComparisonKind) -> &'static str {
     match kind {
         core::ComparisonKind::PairedSnapshots => "paired",
         core::ComparisonKind::ContinuousRollout => "rollout",
-    }
-}
-impl Index {
-    fn lane(&self) -> Result<ComparisonLane> {
-        match (self.version, self.input_lane.as_str(), self.binding.native) {
-            (1, "scripted_baseline", false) => Ok(ComparisonLane::Scripted),
-            (2, "approved_native", true) => Ok(ComparisonLane::Native),
-            _ => Err("EvaluationIntegrity".into()),
-        }
-    }
-    fn metadata(&self) -> Value {
-        json!({"run_id":self.run_id,"client_id":self.client_id,"comparison_kind":kind_name(self.kind),"initial_batch":self.initial_batch,"created_ms":self.created_ms,"protocol_version":3,"input_lane":self.input_lane})
     }
 }
 struct Record {
@@ -125,7 +107,7 @@ struct Record {
 }
 impl Record {
     fn retained(index: Index) -> Self {
-        let batch = index.initial_batch;
+        let batch = index.initial_batch();
         Self {
             index,
             epoch: 0,
@@ -141,7 +123,7 @@ impl Record {
         let lane = self.index.lane()?;
         let visible = self.epoch == epoch;
         let report = self.report.filter(|_| visible && self.phase != "closed");
-        let owned = job.filter(|j| j.kind == JobKind::ComparisonRun && j.run == self.index.run_id);
+        let owned = job.filter(|j| j.kind == JobKind::ComparisonRun && j.run == self.index.run_id());
         let running = owned.is_some_and(|j| j.worker_active && (lane.native() || j.epoch == epoch));
         let cleanup_running = lane.native()
             && owned
@@ -149,9 +131,9 @@ impl Record {
                 .is_some_and(|o| o.cleanup_running);
         let cleanup_required = lane.native()
             && owned.is_some_and(|j| j.selected.is_some() && (!j.worker_active || cleanup_running));
-        let mut value = json!({"version":lane.version(),"kind":"comparison_run","protocol_version":3,"input_lane":lane.name(),
-            "client_id":self.index.client_id,"run_id":self.index.run_id,"run_token":token,
-            "operation_id":if visible{self.operation}else{None},"comparison_kind":kind_name(self.index.kind),"batch":self.batch,
+        let mut value = json!({"version":lane.version(),"kind":"comparison_run","protocol_version":lane.protocol_version(),"input_lane":lane.name(),
+            "client_id":self.index.client_id(),"run_id":self.index.run_id(),"run_token":token,
+            "operation_id":if visible{self.operation}else{None},"comparison_kind":kind_name(self.index.kind()),"batch":self.batch,
             "phase":if visible{self.phase}else{"retained"},"running":running,"error":if visible{self.error.as_ref()}else{None},
             "completed_scenes":report.map_or(0,|r|r.0),"completed":report.is_some_and(|r|r.1),"report_ready":report.is_some() && !running && !cleanup_required && !cleanup_running,
             "source_matches":report.map(|r|r.2)});
@@ -224,11 +206,10 @@ fn validate_manifest(directory: &Path, index: &Index) -> Result<()> {
         return Ok(());
     }
     let manifest = read_json(&path, 128 * 1024)?;
-    if manifest["version"] != 3
-        || manifest["kind"] != serde_json::to_value(index.kind).map_err(|_| "EvaluationInternal")?
-        || manifest["binding"]
-            != serde_json::to_value(&index.binding).map_err(|_| "EvaluationInternal")?
-        || manifest["source_sha256"] != index.binding.source_sha256
+    if manifest["version"] != index.protocol_version()
+        || manifest["kind"] != serde_json::to_value(index.kind()).map_err(|_| "EvaluationInternal")?
+        || manifest["binding"] != index.binding_value()?
+        || manifest["source_sha256"] != index.source_sha256()
     {
         return Err("EvaluationIntegrity".into());
     }
@@ -236,32 +217,14 @@ fn validate_manifest(directory: &Path, index: &Index) -> Result<()> {
 }
 fn read_index(directory: &Path, manifest: bool) -> Result<Index> {
     let value = read_json(&directory.join("desktop.json"), 32 * 1024)?;
-    let index: Index = serde_json::from_value(value).map_err(|_| "EvaluationIntegrity")?;
-    if index.lane().is_err()
-        || index.protocol_version != 3
-        || !valid_id(&index.run_id)
-        || !valid_id(&index.client_id)
-        || directory.file_name().and_then(|x| x.to_str()) != Some(index.run_id.as_str())
-        || !(1..=4).contains(&index.initial_batch)
-        || index.created_ms > SAFE
+    let index = Index::decode(value)?;
+    index.validate_shape()?;
+    if !valid_id(index.run_id())
+        || !valid_id(index.client_id())
+        || directory.file_name().and_then(|x| x.to_str()) != Some(index.run_id())
+        || !(1..=4).contains(&index.initial_batch())
+        || index.created_ms() > SAFE
     {
-        return Err("EvaluationIntegrity".into());
-    }
-    let hash = |value: &str| {
-        value.len() == 64
-            && value
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-    };
-    if !hash(&index.binding.source_sha256) || !hash(&index.binding.suite_sha256) {
-        return Err("EvaluationIntegrity".into());
-    }
-    // Historical hashes are metadata, not a current-source execution grant.
-    // The known protocol's descriptors/budgets remain closed Rust definitions.
-    let mut shape = wire::current_binding(index.binding.native).map_err(failure)?;
-    shape.source_sha256 = index.binding.source_sha256.clone();
-    shape.suite_sha256 = index.binding.suite_sha256.clone();
-    if shape != index.binding {
         return Err("EvaluationIntegrity".into());
     }
     if manifest {
@@ -283,7 +246,7 @@ struct Launch {
     native: Option<NativeExecution>,
 }
 enum PreparedWork {
-    Inspected(Box<ComparisonReportV3>),
+    Inspected(Box<Report>),
     Execute {
         output: PathBuf,
         reference: Option<Box<core::ValidatedReference>>,
@@ -291,7 +254,7 @@ enum PreparedWork {
     },
 }
 struct FullOutcome {
-    result: Result<ComparisonReportV3>,
+    result: Result<Report>,
     retained: Option<(
         crate::models::EvaluationReservation,
         Arc<Mutex<locallore_local_runtime::LocalRuntime>>,
@@ -300,7 +263,7 @@ struct FullOutcome {
     cause: Option<String>,
 }
 impl FullOutcome {
-    fn plain(result: Result<ComparisonReportV3>) -> Self {
+    fn plain(result: Result<Report>) -> Self {
         Self {
             result,
             retained: None,
@@ -466,7 +429,7 @@ impl EvaluationManager {
             }
             let _pins = pin(&entry.path())?;
             let index = read_index(&entry.path(), active.as_deref() != Some(&id))?;
-            if !clients.insert(index.client_id.clone()) {
+            if !clients.insert(index.client_id().to_owned()) {
                 return Err("EvaluationIntegrity".into());
             }
             found.push(index);
@@ -474,14 +437,14 @@ impl EvaluationManager {
         lease.dispatch(epoch,|| {
             let mut state=self.full_lock()?;
             for index in &found {
-                if state.runs.get(&index.run_id).is_some_and(|r|r.index!=*index) { return Err("EvaluationIntegrity".into()); }
+                if state.runs.get(index.run_id()).is_some_and(|r|r.index!=*index) { return Err("EvaluationIntegrity".into()); }
             }
             // Cache contains no read grant or canonical Store. Missing durable
             // metadata never becomes an invented retained run.
-            let ids:BTreeSet<_>=found.iter().map(|x|x.run_id.clone()).collect();
+            let ids:BTreeSet<_>=found.iter().map(|x|x.run_id().to_owned()).collect();
             state.runs.retain(|id,_|ids.contains(id));
-            for index in found { state.runs.entry(index.run_id.clone()).or_insert_with(||Record::retained(index)); }
-            bounded(json!({"version":lane.version(),"kind":"comparison_run_catalog","protocol_version":3,"input_lane":lane.name(),
+            for index in found { state.runs.entry(index.run_id().to_owned()).or_insert_with(||Record::retained(index)); }
+            bounded(json!({"version":lane.version(),"kind":"comparison_run_catalog","protocol_version":lane.protocol_version(),"input_lane":lane.name(),
                 "runs":state.runs.values().filter(|r|r.index.lane().ok()==Some(lane)).map(|r|r.index.metadata()).collect::<Vec<_>>(),"max_new_scenes":4}),64*1024)
         })
     }
@@ -589,8 +552,8 @@ impl EvaluationManager {
             .full_lock()?
             .runs
             .values()
-            .find(|r| r.index.client_id == client)
-            .map(|r| r.index.run_id.clone());
+            .find(|r| r.index.client_id() == client)
+            .map(|r| r.index.run_id().to_owned());
         let id = if let Some(id) = cached {
             id
         } else {
@@ -598,8 +561,8 @@ impl EvaluationManager {
             self.full_lock()?
                 .runs
                 .values()
-                .find(|r| r.index.client_id == client)
-                .map(|r| r.index.run_id.clone())
+                .find(|r| r.index.client_id() == client)
+                .map(|r| r.index.run_id().to_owned())
                 .ok_or("UnknownEvaluationRun")?
         };
         self.full_open_metadata(lease, epoch, &id, lane)
@@ -662,8 +625,7 @@ impl EvaluationManager {
                     .runs
                     .get(existing["run_id"].as_str().ok_or("EvaluationInternal")?)
                     .ok_or("EvaluationInternal")?
-                    .index
-                    .initial_batch
+                    .index.initial_batch()
                     != input.max_new_scenes
             {
                 return Err("InvalidEvaluationInput".into());
@@ -676,7 +638,7 @@ impl EvaluationManager {
             .full_lock()?
             .runs
             .values()
-            .any(|r| r.index.client_id == input.client_id && r.index.lane().ok() != Some(lane))
+            .any(|r| r.index.client_id() == input.client_id && r.index.lane().ok() != Some(lane))
         {
             return Err("InvalidEvaluationInput".into());
         }
@@ -706,8 +668,8 @@ impl EvaluationManager {
                     .runs
                     .get(existing["run_id"].as_str().ok_or("EvaluationInternal")?)
                     .is_some_and(|r| {
-                        r.index.kind == identity.1
-                            && r.index.initial_batch == identity.2
+                        r.index.kind() == identity.1
+                            && r.index.initial_batch() == identity.2
                             && r.index.lane().ok() == Some(lane)
                     });
                 return if same {
@@ -928,10 +890,10 @@ impl EvaluationManager {
                 if let Some(record) = full
                     .runs
                     .values()
-                    .find(|record| record.index.client_id == input.client_id)
+                    .find(|record| record.index.client_id() == input.client_id)
                 {
-                    if record.index.kind != input.kind
-                        || record.index.initial_batch != input.max_new_scenes
+                    if record.index.kind() != input.kind
+                        || record.index.initial_batch() != input.max_new_scenes
                         || record.index.lane()? != lane
                     {
                         return Err("InvalidEvaluationInput".into());
@@ -961,12 +923,12 @@ impl EvaluationManager {
                     if let Some(r) = full
                         .runs
                         .values()
-                        .find(|r| r.index.client_id == input.client_id)
+                        .find(|r| r.index.client_id() == input.client_id)
                     {
                         // Another caller admitted this durable client while we
                         // joined a previous worker. Never allocate a duplicate.
-                        if r.index.kind != input.kind
-                            || r.index.initial_batch != input.max_new_scenes
+                        if r.index.kind() != input.kind
+                            || r.index.initial_batch() != input.max_new_scenes
                             || r.index.lane()? != lane
                         {
                             return Err("InvalidEvaluationInput".into());
@@ -988,17 +950,8 @@ impl EvaluationManager {
                             .as_millis(),
                     )
                     .map_err(|_| "EvaluationBudget")?;
-                    let index = Index {
-                        version: lane.version(),
-                        protocol_version: 3,
-                        input_lane: lane.name().into(),
-                        run_id: id.clone(),
-                        client_id: input.client_id,
-                        kind: input.kind,
-                        initial_batch: input.max_new_scenes,
-                        created_ms,
-                        binding: wire::current_binding(lane.native()).map_err(failure)?,
-                    };
+                    let chosen_batch = input.max_new_scenes;
+                    let index = Index::new(lane, id.clone(), input, created_ms)?;
                     let data = serde_json::to_vec(&index).map_err(|_| "EvaluationInternal")?;
                     if data.len() > 32 * 1024 {
                         return Err("EvaluationBudget".into());
@@ -1011,7 +964,6 @@ impl EvaluationManager {
                     file.write_all(&data)
                         .and_then(|_| file.sync_all())
                         .map_err(|_| "EvaluationIo")?;
-                    let chosen_batch = input.max_new_scenes;
                     full.runs.insert(id.clone(), Record::retained(index));
                     (id, chosen_batch)
                 };
@@ -1169,7 +1121,7 @@ impl EvaluationManager {
         if cancel.is_cancelled() {
             return Err("Cancelled".into());
         }
-        let directory = self.full_comparison_root().join(&expected.run_id);
+        let directory = self.full_comparison_root().join(expected.run_id());
         let _pins = pin(&directory)?;
         let index = read_index(&directory, true)?;
         if index != *expected {
@@ -1177,11 +1129,10 @@ impl EvaluationManager {
         }
         let output = directory.join("work");
         if matches!(work, Work::Open) {
-            return literal_v3::inspect_comparison(&output)
-                .map(|report| PreparedWork::Inspected(Box::new(report)))
-                .map_err(failure);
+            return index.inspect(&output)
+                .map(|report| PreparedWork::Inspected(Box::new(report)));
         }
-        if index.binding != wire::current_binding(index.lane()?.native()).map_err(failure)? {
+        if !index.matches_current()? {
             return Err("EvaluationSourceMismatch".into());
         }
         let resume = matches!(work, Work::Resume);
@@ -1189,8 +1140,8 @@ impl EvaluationManager {
             if !output.join("run.json").exists() {
                 return Err("EvaluationNotReady".into());
             }
-            let report = literal_v3::inspect_comparison(&output).map_err(failure)?;
-            if report.completed {
+            let report = index.inspect(&output)?;
+            if report.completed() {
                 return Ok(PreparedWork::Inspected(Box::new(report)));
             }
         }
@@ -1198,7 +1149,7 @@ impl EvaluationManager {
         // preparing a reference, not after a new canonical scene is committed.
         // Completed resume above remains a read-only verification.
         self.budget(Some(&directory))?;
-        let reference = if index.kind == core::ComparisonKind::PairedSnapshots {
+        let reference = if index.kind() == core::ComparisonKind::PairedSnapshots {
             let path = directory.join("reference-source");
             if !resume {
                 core::prepare_reference(&path, cancel).map_err(failure)?;
@@ -1221,6 +1172,7 @@ impl EvaluationManager {
     }
 }
 mod native;
+mod native_for;
 #[cfg(test)]
 mod native_review_tests;
 #[cfg(test)]

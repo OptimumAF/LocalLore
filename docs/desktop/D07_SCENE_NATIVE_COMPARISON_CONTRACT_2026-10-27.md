@@ -315,3 +315,44 @@ owns this document only; no future API/module is registered. All tests,
 compilation/formatting/builds/native/model/human checks remain UNRUN here.
 No merge/release/settings change or overall D07/phone/offline/security/quality
 acceptance is implied by the design or a future synthetic pass.
+
+## Source implementation handoff (uncompiled/unrun)
+
+The subsequent Rust-only implementation uses the agreed crate-only
+`*_native_for` methods with protocol immediately after granted. Their LiteralV3
+branches call the existing public native wrappers; SceneV4 shares the same
+private worker/lifecycle through `ComparisonLane::SceneNative`. Existing
+`NativeExecution` fields and old admission fixtures stay unchanged.
+
+New private `comparison_run/versioned.rs` holds exact typed IndexWire V3/V4
+variants (Serialize only for the internal union; explicit version/tuple decode
+into each closed type), actual binding shape/current checks and actual report
+dispatch. The existing broker validates every recognized index before filtering
+and uses the existing global run/client namespace, byte/free-space caps and
+protocol-specific lane/token fences. New `native_for.rs` is thin method
+delegation, not another index/owner. The existing native worker retains the exact
+owner payload and dispatches the chosen actual Core runner after the same
+pre-owner consent/reservation closure. Open/complete-resume use typed inspection.
+
+`comparison_native_commands.rs` selects LiteralV3 normally and only accepts
+SceneV4 from the checked development environment, without new action/query keys.
+`comparison_run_native_harness.rs` requires the old fixed workspace/flags and
+the scene flag1, forbids D04 Play-harness overlap, and takes the existing
+launcher-only model-root override with local-disk/ordinary ancestor checks.
+It creates no model directory, imports/copies no weights and offers no fallback.
+`model_commands` refuses import/load before manager calls in any scene request,
+including inconsistent flags. These native path checks do not establish Root's
+publication ownership or perpetual file immutability; the separately recorded
+Root preflight and actual Runtime pin/hash verification remain required.
+
+The only `models.rs` addition is Root-approved `#[cfg(test)]`
+`evaluation_sequence_for_tests()`, reading the existing counter under lock.
+There is no new counter, mutation, runtime fixture or renderer inspection API.
+No existing test/assertion, UI, launcher, Cargo feature, Core provider/Store or
+selected-source4 execution adapter is changed. The independent service freeze
+is separately authored; Root owns its registration/integration and every first
+compile, source calibration, formatter, test, lint, native/model run and review.
+Author checks source/API/callsite/Git/whitespace only. This handoff does not claim
+that the new Rust compiles or that a native4 run, cleanup or completed no-load
+resume has executed. Frontend/harness integration and model/publication gates
+are explicitly separate work, not inferred from the source implementation.

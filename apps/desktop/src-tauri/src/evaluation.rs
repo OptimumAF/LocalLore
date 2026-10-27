@@ -1057,6 +1057,7 @@ mod selected;
 
 pub use comparison::ComparisonEvidenceRequest;
 pub use comparison_run::{FullComparisonNativeResume, FullComparisonStart};
+pub(crate) use comparison_run::FullComparisonProtocol;
 #[cfg(test)]
 #[path = "evaluation/retirement_review.rs"]
 mod retirement_review;

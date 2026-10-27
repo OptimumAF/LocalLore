@@ -1356,8 +1356,10 @@ pub fn execute_traced_with_literal_director_presentation_v1(
         cancel,
         profile,
         sink,
-        DirectorInput::LiteralV1,
-        true,
+        PresentationExecutionInput {
+            director: DirectorInput::LiteralV1,
+            literal_presentation: true,
+        },
     )
 }
 struct MemoryInput<'a> {
@@ -1375,8 +1377,22 @@ fn execute_with_context_input(
     input: DirectorInput<'_>,
 ) -> Result<Receipt, Error> {
     execute_with_presentation_input(
-        engine, request, provider, cancel, profile, sink, input, false,
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
+        PresentationExecutionInput {
+            director: input,
+            literal_presentation: false,
+        },
     )
+}
+
+struct PresentationExecutionInput<'a> {
+    director: DirectorInput<'a>,
+    literal_presentation: bool,
 }
 
 fn execute_with_presentation_input(
@@ -1386,9 +1402,12 @@ fn execute_with_presentation_input(
     cancel: &Cancellation,
     profile: &PlayProfile,
     sink: Option<&mut dyn TraceSink>,
-    input: DirectorInput<'_>,
-    literal_presentation: bool,
+    construction: PresentationExecutionInput<'_>,
 ) -> Result<Receipt, Error> {
+    let PresentationExecutionInput {
+        director: input,
+        literal_presentation,
+    } = construction;
     let literal = matches!(&input, DirectorInput::LiteralV1);
     let presentation = engine.seed().presentation.is_some();
     let mut trace = Trace {

@@ -116,4 +116,16 @@ No service/model clock, deadline or budget changes. Retain at most 96 deduplicat
 scalar controller transitions and the pre-cleanup failure state, with any dropped
 count explicit. This is observational test-only evidence, no execution/debug RPC.
 On a held-consent failure, close the captured controller identity before releasing
-consent, then dispose. Preserve original failure check separately from cleanup.
+consent, then dispose. Independent review tightens this below. Preserve the
+original failure check separately from cleanup.
+
+On failure with held consent, the development-only abort helper first arms
+`deny-execution-consent` and requires its exact version1 closed fixture ACK
+with synthetic=true, Boolean active and held=true. Only that acknowledged denial
+permits attempting captured close and then releasing the hold. A resolved close
+is not proof: controller uncertainty/cleanup errors are conservatively retained.
+Unknown/invalid denial ACK never releases consent; disposal is always attempted.
+No native consent deadline, production owner or model budget changes. This
+failure path has actual-controller/mock-IPC RED/GREEN evidence, separately from
+the successful source960 native initial/restart cohort. It is not an actual
+native-worker failure injection or a new native cleanup proof.

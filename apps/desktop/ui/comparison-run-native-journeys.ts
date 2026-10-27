@@ -63,10 +63,7 @@ export async function comparisonRunNativeJourneys({
             operation: state.status?.operation_id ?? null,
             running: state.status?.running ?? null,
             error: state.error,
-            cause:
-                state.status?.version === 2
-                    ? state.status.cause
-                    : null,
+            cause: state.status?.version === 2 ? state.status.cause : null,
             pending: state.pending?.action ?? null,
             uncertain: state.uncertain,
             cleanup: state.mode === "approved_native" ? state.cleanup : null,

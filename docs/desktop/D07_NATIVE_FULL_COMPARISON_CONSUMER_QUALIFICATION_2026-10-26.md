@@ -28,12 +28,12 @@ All cohorts below recorded a clean source commit and verified the source stayed
 unchanged through the command. Logs and machine-readable process/report files
 are retained locally, outside the checkout; private absolute paths are omitted.
 
-| Cohort/source | Actual result | Interpretation |
-|---|---|---|
-| `baseline1`, `ae4065ce35e7362f4275505ec0fd0ed40b6d820b` | Legacy 56/56; native controller 1/85; native reader 2/22; Main 0/20 | Missing feature APIs/fields. Transpilation succeeded. Main failed setup before exercising twenty mode behaviors. These are not semantic regression reproductions. |
-| `first1`, `c9ade43de19fc14779b5f3cb95233e627c534a86` | Legacy 56/56; native controller 87/88; reader 22/22; Main 20/20 | One semantic failure: closing a sent native start with unknown ACK and no token left current uncertainty set after captured UUID recovery/close settled. |
-| `tsc-first1`, same `c9ade43d` | TypeScript exit 1, one TS2322 | Existing scripted development journey passed the newly widened status union into a V1-only helper. |
-| `tsc-second1`, `1c0fcfb13d91c04596cd048100859f3a8d3cbe3b` | `node node_modules/typescript/bin/tsc --noEmit`, exit 0 | Commit `50f154e3` explicitly narrows actual version 1 status; no V2-to-V1 conversion or cast. Source clean/unchanged. |
+| Cohort/source                                             | Actual result                                                       | Interpretation                                                                                                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseline1`, `ae4065ce35e7362f4275505ec0fd0ed40b6d820b`   | Legacy 56/56; native controller 1/85; native reader 2/22; Main 0/20 | Missing feature APIs/fields. Transpilation succeeded. Main failed setup before exercising twenty mode behaviors. These are not semantic regression reproductions. |
+| `first1`, `c9ade43de19fc14779b5f3cb95233e627c534a86`      | Legacy 56/56; native controller 87/88; reader 22/22; Main 20/20     | One semantic failure: closing a sent native start with unknown ACK and no token left current uncertainty set after captured UUID recovery/close settled.          |
+| `tsc-first1`, same `c9ade43d`                             | TypeScript exit 1, one TS2322                                       | Existing scripted development journey passed the newly widened status union into a V1-only helper.                                                                |
+| `tsc-second1`, `1c0fcfb13d91c04596cd048100859f3a8d3cbe3b` | `node node_modules/typescript/bin/tsc --noEmit`, exit 0             | Commit `50f154e3` explicitly narrows actual version 1 status; no V2-to-V1 conversion or cast. Source clean/unchanged.                                             |
 
 The 88 controller cases include the original frozen packet plus independent
 one-shot cleanup observations after retired running/unknown/cleanup-flag closes
@@ -178,11 +178,11 @@ incremental0, the same external target and the restored isolated Cargo home.
 Strict native Clippy (`--all-targets --all-features -- -D warnings`) passed at
 clean unchanged `d614ca73` in 347.894 seconds after the fresh-cache rebuild.
 
-| Actual native UI cohort | Result and retained limitation |
-|---|---|
-| `native-ui-restored1`, clean unchanged `d614ca73` | Worker/frontend/native builds passed. Actual app exited1 after 157.210s; one wide idle PNG, individually inspected. Fixed 60s observation expired during reference/setup before confirmation. Report read state after disposal, so its null phase/error does not identify the earlier worker state. No generated-report proof was obtained. |
-| `native-ui-restored2`, clean unchanged `b919c49f` | Added bounded transition history, pre-cleanup state, 240s pre-confirmation observation and close-before-consent-release failure cleanup. App exited1 after 270.032s; five PNGs individually inspected. Held/cancelled/denied and lost-ACK recovery passed before the helper mistook a preceding closed presentation for a new asynchronous admission's terminal result. The captured failure state was still the new start's cleanup preflight. |
-| `native-ui-restored3`, clean unchanged `8f9423238e47182a50398d277624951fc9675ccf` | Corrected acknowledgement pairing; strict TypeScript passed first. Initial **243 checks / 14 PNGs**, restart **85 checks / 4 PNGs**, both app exits0, stdout24B each/stderr0, no timeout/overflow. Initial 1283.428s; restart78.460s. All eighteen PNGs individually inspected; no observed visible defect in the captured wide/narrow scroll sections. |
+| Actual native UI cohort                                                           | Result and retained limitation                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `native-ui-restored1`, clean unchanged `d614ca73`                                 | Worker/frontend/native builds passed. Actual app exited1 after 157.210s; one wide idle PNG, individually inspected. Fixed 60s observation expired during reference/setup before confirmation. Report read state after disposal, so its null phase/error does not identify the earlier worker state. No generated-report proof was obtained.                                                                                                     |
+| `native-ui-restored2`, clean unchanged `b919c49f`                                 | Added bounded transition history, pre-cleanup state, 240s pre-confirmation observation and close-before-consent-release failure cleanup. App exited1 after 270.032s; five PNGs individually inspected. Held/cancelled/denied and lost-ACK recovery passed before the helper mistook a preceding closed presentation for a new asynchronous admission's terminal result. The captured failure state was still the new start's cleanup preflight. |
+| `native-ui-restored3`, clean unchanged `8f9423238e47182a50398d277624951fc9675ccf` | Corrected acknowledgement pairing; strict TypeScript passed first. Initial **243 checks / 14 PNGs**, restart **85 checks / 4 PNGs**, both app exits0, stdout24B each/stderr0, no timeout/overflow. Initial 1283.428s; restart78.460s. All eighteen PNGs individually inspected; no observed visible defect in the captured wide/narrow scroll sections.                                                                                         |
 
 These are actual hidden, unfocused WebView2 execution, native IPC and approved
 installed-model results. They are not desktop captures or OS dialog automation.
@@ -270,21 +270,22 @@ open; this supporting consumer slice does not close the milestone.
 At clean unchanged `725aa2454c5d4a34adc6214462fce25757765435` (only the preceding
 qualification documentation differs from native-qualified `8f942323`):
 
-| Check | Actual result |
-|---|---|
-| `node verify-frontend.mjs` | Pass22.360s: strict TypeScript, all wired suites including scripted56/native88/reader22/Main20/admission9/lens5, normal frontend hook exclusion. |
-| Native `cargo clippy --all-targets --all-features --locked --offline --jobs 1 -- -D warnings` | Pass28.14s compiler /30.117s command. |
-| `cargo test -p locallore-android --lib --locked --offline --jobs 1` | 20 passed/0 failed,1.42s tests /32.844s command including compilation. Rust host only; no Android device/JVM/Gradle/ABI cohort. |
-| `cargo tree -p locallore-android --locked --offline --edges normal,build,dev` | Pass; zero local-runtime/eval/llama/LiteRT/Tauri/WebView/Wry dependency hits in the Android Rust host graph. |
-| Rust `cargo fmt ... --all -- --check`; full frontend Prettier | Both pass. |
-| Default native `cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --jobs 1` | Pass20.23s compiler /20.358s command, no dev-harness feature. **Unlaunched**, not a visible native smoke test. |
+| Check                                                                                                      | Actual result                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `node verify-frontend.mjs`                                                                                 | Pass22.360s: strict TypeScript, all wired suites including scripted56/native88/reader22/Main20/admission9/lens5, normal frontend hook exclusion. |
+| Native `cargo clippy --all-targets --all-features --locked --offline --jobs 1 -- -D warnings`              | Pass28.14s compiler /30.117s command.                                                                                                            |
+| `cargo test -p locallore-android --lib --locked --offline --jobs 1`                                        | 20 passed/0 failed,1.42s tests /32.844s command including compilation. Rust host only; no Android device/JVM/Gradle/ABI cohort.                  |
+| `cargo tree -p locallore-android --locked --offline --edges normal,build,dev`                              | Pass; zero local-runtime/eval/llama/LiteRT/Tauri/WebView/Wry dependency hits in the Android Rust host graph.                                     |
+| Rust `cargo fmt ... --all -- --check`; full frontend Prettier                                              | Both pass.                                                                                                                                       |
+| Default native `cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --jobs 1` | Pass20.23s compiler /20.358s command, no dev-harness feature. **Unlaunched**, not a visible native smoke test.                                   |
 
 Normal frontend SHA256:
 `41a8fdefece439d165cecff5bf91b96b4073a78feb652d72d558aa0a1d40f6f8`.
 Normal native executable SHA256:
 `dac9d045e085f1a5f51ca2649d4c0e624c58a19e5e062fc8392a2a0f4fb34166`.
-Source and lock remained unchanged throughout every final command. The final
-publication changes only documentation after this checkpoint. These hashes
+Source and lock remained unchanged throughout every command at this checkpoint.
+The then-final publication `5e428f1d` changed only documentation. Later accepted-main
+reconciliation is separately qualified below. These historical hashes
 identify products, not a new two-path byte-reproducibility comparison.
 
 The former dependency blocker is resolved; the historical unavailable attempts
@@ -292,3 +293,74 @@ and two actual failed UI cohorts remain part of the record. This supporting UI
 consumer is qualified for review with the measured limitations above. Human
 assessment, the demonstrated prose concern, whole-app resource/network and full
 accessibility/package gates stay explicitly separate from this PR's acceptance.
+
+## Accepted-main integration and independent abort review
+
+PR217 was merged externally at `d614ca73` as `65adc874` while the earlier actual
+cohort was running. The focused follow-up is PR220. Its clean integration
+`960902d42bc31b1e86203ff3e35520df30eb8567` includes accepted main `3f75b5d6`,
+including new shared Host/workspace creation and schema additions. The earlier
+source-qualified results above are historical; they do not stand in for this run.
+
+At unchanged clean `960902d4`, the same documented native harness command and
+approved assets passed again. Local run namespace:
+`full-comparison-native-76390762-3c34-4277-8f9b-9b013a98b358`.
+
+| Actual native process | Result                                                                     |
+| --------------------- | -------------------------------------------------------------------------- |
+| Initial               | 243 checks,14 application-owned renders;1313.862s,exit0,stdout24B,stderr0. |
+| Cold restart          | 85 checks,4 renders;90.254s,exit0,stdout24B,stderr0.                       |
+
+UTC intervals were2026-10-27T01:27:37.342–01:49:31.204 and
+01:49:33.491–01:51:03.745 (October26 local). Neither timed out or exceeded output
+bounds. All eighteen images were individually viewed, including the620px output
+view; no layout defect was observed in the captured sections. Final visual-review
+manifest SHA256 `bc390182abcaa6bf6dd3222a5634fc39d291d72e9ca88888a500e51b389ffa19`.
+These are actual hidden/unfocused WebView2/native IPC/model journeys, with the
+same explicit test-only consent/picker/ACK doubles and in-memory live fixture.
+No desktop control or OS dialog automation was used.
+
+The2072-file inventory stayed byte-identical across completed read-only resume,
+inspection and the entire cold process, digest
+`2bcde566f0dd3372864ec564ffb894cad9488015c8e4d3daa030831781160862`.
+Initial bounded errors were one deliberate lost ACK and two observed300s resume
+poll expirations, each recovered by explicit same-client lookup; restart had0.
+Initial transition history retained96/dropped3; restart dropped0.
+
+The preserved one-scene report has12rows/22known roles/1setup,10expected passes,
+4fallbacks; SHA256 `cd549c351cb1710eb0327cf848fab980091430d0f05d122190a67d342e898bc3`.
+The separately preserved complete report has4scenes/48rows/78known roles/2setups,
+41expected passes (left17/24,right24/24),15fallbacks and36committed/12failed phases;
+SHA256 `543266ce3f42ecc9e6a291eadef4b658c7e8f32cdf3c97e07b6f893cdbf85c8f`.
+Six `privacy_passed:false` fields accompany unavailable context evidence on
+expected Inventory/Ability/ClarificationRequired rejections; that Boolean is
+`privacy && evidence_available`, not a count of observed leaks. The actor-query
+canaries/raw-access refusals are separate executed UI checks. Human-reviewed
+remains0/quality-accepted false, and the existing unsupported-forest prose
+concern remains; mechanical expected passes are not narrative-quality acceptance.
+
+The tested GUI executable was copied and hash-verified before later builds:
+SHA256 `7c21bdbd07bedc1447293b3148a80aae1c13e8db3e1155b985ea17c4a072c144`.
+Launcher SHA256 remains `484e9ddf2056124f34f3fe680d74d4343f458f97f1858a24649eb50f28c3dcdb`.
+The full frontend verifier/strict TypeScript/hook exclusions passed at960;
+strict native Clippy passed22.84s compiler, and Android Rust host20/0 passed
+in1.40s tests. No Android device/JVM/Gradle/ABI cohort was executed.
+
+Independent source review then found that failure cleanup could release held
+consent after `close()` resolved while retaining transport uncertainty. The
+success journeys above finished before modifying that failure path. A new
+test-only helper requires a strict acknowledged denial before close/release;
+unknown or malformed denial ACK leaves the hold intact and always attempts
+disposal. It never starts/resumes a run. Its conservative cleanup flag is not
+native cleanup authority. The native `cause` diagnostic now records the distinct
+status cause, rather than relabelling the status error.
+
+The frozen independent actual-controller/mock-IPC abort oracle compiled and
+failed10/10 at clean `40b286cce4cad01921742400c05c156928c8c28f` (0.183s), including
+an actually swallowed close transport error admitting affirmative mock consent.
+After the denial fix, the unchanged oracle passed10/10 at clean
+`006bd49e7debfb958e58f9a788f710942530018d` (0.163s). This is behavioral RED/GREEN,
+not native/model execution. An earlier attempt ran after a wrong-directory
+staging failure with a dirty source; it is retained but is not the clean RED.
+The abort path has not been injected into an actual native worker. Fresh final
+frontend/native-unit/static/normal restoration results follow when executed.

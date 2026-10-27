@@ -130,7 +130,8 @@ export async function sceneNativeJourneys({
             aggregate: { selected: selected!.scope, session: selected!.id,
                 observer: context!.view === "play" ? { kind: "player" } : context!.observer,
                 revision: context!.revision, pending: view.pending ?? view.uncertain,
-                receipt: view.receipt, visibleError, nativeCanonicalHead: native.head },
+                receipt: view.receipt, visibleError,
+                fixtureTarget: { scope: native.scope, head: native.head } },
             v2: view, provider: state.freeTextProvider, oracle: native, checks: [...checks], errors: errors.snapshot(),
             dom: { userAgent: navigator.userAgent, text: (root.textContent ?? "").slice(0, 48000)
                 .replaceAll(location, "<synthetic-workspace>"), viewport: { width: innerWidth, height: innerHeight },

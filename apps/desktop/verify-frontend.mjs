@@ -85,7 +85,7 @@ for (const marker of [
     "harness_checkpoint",
     "harness_scene_oracle",
     "scene-native-pending",
-    "SceneNativeJourneyDeadline",
+    "SceneDeadline:",
     "memory-inspection-native-empty",
     "memory_inspection_fixture",
     "harness_reopen",

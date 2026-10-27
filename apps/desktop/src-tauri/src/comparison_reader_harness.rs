@@ -69,18 +69,39 @@ fn scene_proof(path: &Path, scenes: usize) -> Result<Value, String> {
         PrivacyEvidenceStatusV4 as Privacy,
     };
     let report = comparison::scene_v4::inspect_comparison(path)?;
-    let committed = report.turns.iter().filter(|row| row.phase == "committed").count();
-    let expected_kind = if scenes == 2 { ComparisonKind::PairedSnapshots } else { ComparisonKind::ContinuousRollout };
-    if report.version != 4 || report.arms != v4::arm_descriptors()
-        || report.kind != expected_kind || report.lane != "scripted_scene_literal_relevant_comparison"
-        || report.physical_setups != 0 || report.physical_setup_ms.is_some() || report.native_load.is_some()
-        || !report.source_matches || report.completed_scenes != scenes
-        || report.turns.len() != scenes * 12 || report.human_reviewed != 0
-        || report.human_rubric != "not_reviewed" || report.quality_accepted
+    let committed = report
+        .turns
+        .iter()
+        .filter(|row| row.phase == "committed")
+        .count();
+    let expected_kind = if scenes == 2 {
+        ComparisonKind::PairedSnapshots
+    } else {
+        ComparisonKind::ContinuousRollout
+    };
+    if report.version != 4
+        || report.arms != v4::arm_descriptors()
+        || report.kind != expected_kind
+        || report.lane != "scripted_scene_literal_relevant_comparison"
+        || report.physical_setups != 0
+        || report.physical_setup_ms.is_some()
+        || report.native_load.is_some()
+        || !report.source_matches
+        || report.completed_scenes != scenes
+        || report.turns.len() != scenes * 12
+        || report.human_reviewed != 0
+        || report.human_rubric != "not_reviewed"
+        || report.quality_accepted
         || report.source_bound_committed_rows != committed
-        || report.turns.iter().any(|row| !row.passed || !row.roles_known || row.recovered_without_checkpoint
-            || (row.phase == "committed" && (row.construction_evidence_status != Construction::ValidatedCommittedSceneNarratorV1
-                || row.privacy_evidence_status != Privacy::CheckedFiniteSentinels)))
+        || report.turns.iter().any(|row| {
+            !row.passed
+                || !row.roles_known
+                || row.recovered_without_checkpoint
+                || (row.phase == "committed"
+                    && (row.construction_evidence_status
+                        != Construction::ValidatedCommittedSceneNarratorV1
+                        || row.privacy_evidence_status != Privacy::CheckedFiniteSentinels))
+        })
     {
         return Err("SyntheticSceneProof".into());
     }
@@ -89,14 +110,17 @@ fn scene_proof(path: &Path, scenes: usize) -> Result<Value, String> {
     let reader = comparison::scene_v4::desktop_api::open_read_only(path)?;
     let summary = comparison::scene_v4::desktop_api::summary(&reader, true)?;
     if summary["report"] != serde_json::to_value(&report).map_err(|_| "SyntheticSceneProof")?
-        || summary["read_only"] != true || summary["execution_available"] != false
+        || summary["read_only"] != true
+        || summary["execution_available"] != false
     {
         return Err("SyntheticSceneProof".into());
     }
-    Ok(json!({"rows":report.turns.len(),"kind":report.kind,"lane":report.lane,"source_bound_committed_rows":committed,
+    Ok(
+        json!({"rows":report.turns.len(),"kind":report.kind,"lane":report.lane,"source_bound_committed_rows":committed,
         "human_reviewed":report.human_reviewed,"human_rubric":report.human_rubric,
         "quality_accepted":report.quality_accepted,"source_matches":report.source_matches,
-        "read_only":true,"execution_available":false,"models_executed":false}))
+        "read_only":true,"execution_available":false,"models_executed":false}),
+    )
 }
 pub fn choose(
     workspace: &Path,

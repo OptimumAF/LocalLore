@@ -52,7 +52,7 @@ fn inspect(f: &Fixture, client: &str, status: &Value) -> (Value, Value) {
 #[test]
 fn completed_scripted_resume_refreshes_only_read_grant_and_denial_never_restarts_or_writes() {
     let fixture = Fixture::new();
-    let source_before = inventory(source());
+    let source_before = inventory(fixture.source());
     let client = uuid().unwrap();
     let prepared = fixture.prepare(&client);
     join(&fixture);
@@ -200,7 +200,7 @@ fn completed_scripted_resume_refreshes_only_read_grant_and_denial_never_restarts
     // All actual read capabilities, source plans, workers and pins are now
     // released before the complete file/empty-directory comparison.
     let after = inventory(&run_directory);
-    let source_after = inventory(source());
+    let source_after = inventory(fixture.source());
     let models_clean = fixture.models.cleanup_complete();
     drop(fixture);
 

@@ -76,3 +76,27 @@ controls, then unchanged default-parallel workspace/native normal and
 `dev-harness` commands. Exact commands, counts, timings, toolchain/environment
 and failures must be recorded after execution; source review is not runtime
 qualification. Keep original assertions, all internal race checks and budgets.
+
+## Source implementation handoff
+
+First oracle/contract commit: `4b6647a7`. The second source-only change adds
+`copy_source_template`, a private `Fixture.source` path and its `source()`
+getter. Every existing global-source Reader/input/inventory caller in the four
+owned files now uses its own Fixture's copy; the existing assertion expressions
+otherwise retain their original expectations. The first frozen regression is
+unchanged. The global name is now `source_template`, used only for byte copying
+and regression inventory, never native admission.
+
+Copying follows the bounded inventory pattern already used by the Protocol3
+review tests, with create-new ordinary output files instead of overwrite. Each
+new Fixture copies under its existing fresh UUID root and verifies every copied
+directory and file against the complete original inventory before opening a
+Reader. `inventory` itself and Fixture's Drop lifecycle are unchanged. No
+production, dependency, workflow, budget or other-owner file is modified.
+
+Both source commits remain **UNCOMPILED / UNRUN**. `git diff --check` passes;
+no formatting tool was run. Root's next runnable work is independent source
+review, targeted execution, then the declared default-parallel native CI
+commands (normal and `dev-harness`). Preserve serial controls as separate
+evidence and rerun the complete parallel workspace cohort where appropriate.
+Do not replace a failed parallel result with a serial pass.

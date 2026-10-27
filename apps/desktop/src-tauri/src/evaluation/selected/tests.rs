@@ -44,7 +44,9 @@ fn inventory(root: &Path) -> Inventory {
     walk(root, root, 0, &mut 0, &mut result);
     result
 }
-fn source() -> &'static Path {
+// Closed producer output only. Never pass this template to a native Reader:
+// each Fixture opens its own ordinary byte copy instead.
+fn source_template() -> &'static Path {
     static SOURCE: OnceLock<PathBuf> = OnceLock::new();
     SOURCE
         .get_or_init(|| {
@@ -68,16 +70,39 @@ fn source() -> &'static Path {
         })
         .as_path()
 }
+fn copy_source_template(target: &Path) {
+    use std::io::Write;
+    let files = inventory(source_template());
+    fs::create_dir(target).unwrap();
+    for (relative, bytes) in &files {
+        let path = target.join(relative);
+        match bytes {
+            None => fs::create_dir_all(path).unwrap(),
+            Some(bytes) => {
+                let mut file = fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(path)
+                    .unwrap();
+                file.write_all(bytes).unwrap();
+            }
+        }
+    }
+    assert_eq!(inventory(target), files);
+}
 struct Fixture {
     manager: Arc<EvaluationManager>,
     models: Arc<ModelManager>,
     lease: Arc<WindowLease>,
     epoch: u64,
+    source: PathBuf,
 }
 impl Fixture {
     fn new() -> Self {
         let root = std::env::temp_dir().join(format!("selected-service-{}", uuid().unwrap()));
         fs::create_dir(&root).unwrap();
+        let source = root.join("source");
+        copy_source_template(&source);
         let lease = Arc::new(WindowLease::default());
         let epoch = lease.begin().unwrap();
         let manager = Arc::new(EvaluationManager::new(root.join("evaluations")));
@@ -90,7 +115,11 @@ impl Fixture {
             )),
             lease,
             epoch,
+            source,
         }
+    }
+    fn source(&self) -> &Path {
+        &self.source
     }
     fn status(&self, client: &str) -> Value {
         self.manager
@@ -113,7 +142,7 @@ impl Fixture {
     }
     fn input(&self, client: &str) -> SelectedPrepareInput {
         let reader = uuid().unwrap();
-        let path = source().to_path_buf();
+        let path = self.source().to_path_buf();
         self.manager
             .comparison_pick(&self.lease, self.epoch, true, &reader, move || {
                 Ok(Some(path))
@@ -265,7 +294,7 @@ fn concurrent_fixture_readers_own_distinct_sources_and_close_without_cross_fixtu
 #[test]
 fn denied_native_execution_consent_has_no_plan_target_model_reservation_or_source_write() {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     fixture
         .manager
@@ -304,14 +333,14 @@ fn denied_native_execution_consent_has_no_plan_target_model_reservation_or_sourc
             .reserve_evaluation()
             .expect("consent refusal invokes no assets/reservation"),
     );
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
 }
 
 #[test]
 fn scripted_start_duplicate_and_lost_ack_keep_one_identity_then_explicit_read_grant_uses_real_edges(
 ) {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     let prepared = fixture.prepare(&client);
     let plan = prepared["plan_token"].as_str().unwrap();
@@ -440,13 +469,13 @@ fn scripted_start_duplicate_and_lost_ack_keep_one_identity_then_explicit_read_gr
         .manager
         .selected_close(&fixture.lease, fixture.epoch, &client)
         .unwrap();
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
 }
 
 #[test]
 fn grant_and_foreign_lease_cannot_start_and_retirement_revokes_unused_plan_without_execution() {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     let prepared = fixture.prepare(&client);
     let plan = prepared["plan_token"].as_str().unwrap();
@@ -487,14 +516,14 @@ fn grant_and_foreign_lease_cannot_start_and_retirement_revokes_unused_plan_witho
             .unwrap_err(),
         "Closed"
     );
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
     drop(fixture.models.reserve_evaluation().unwrap());
 }
 
 #[test]
 fn pending_native_consent_cancel_cannot_publish_grant_or_create_an_experiment() {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     let (entered, waiting) = std::sync::mpsc::sync_channel(1);
     let (release, released) = std::sync::mpsc::sync_channel(1);
@@ -529,13 +558,13 @@ fn pending_native_consent_cancel_cannot_publish_grant_or_create_an_experiment() 
     assert_eq!(result["error"], "Cancelled");
     assert_eq!(result["plan_token"], Value::Null);
     assert_eq!(result["run_id"], Value::Null);
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
 }
 
 #[test]
 fn spawn_failure_releases_source_cap_outside_gates_without_creating_work_or_false_grant() {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     let input = fixture.input(&client);
     fixture.manager.fail_spawn.store(true, Ordering::SeqCst);
@@ -556,10 +585,10 @@ fn spawn_failure_releases_source_cap_outside_gates_without_creating_work_or_fals
     let result = fixture.done(&client);
     assert_eq!(result["plan_token"], Value::Null);
     assert_eq!(result["run_id"], Value::Null);
-    let cap = source_reader::open_read_only(source())
+    let cap = source_reader::open_read_only(fixture.source())
         .expect("spawn failure leaves no orphaned source lock");
     drop(cap);
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
 }
 
 #[test]

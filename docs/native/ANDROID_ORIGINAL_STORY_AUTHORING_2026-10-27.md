@@ -5,7 +5,7 @@ on open/unmerged PR #224 at `b6989a38`; no merge is authorized. Full task
 checkboxes remain unchanged. [Contract](ORIGINAL_STORY_AUTHORING_CONTRACT_V1.md)
 and [ADR](../adr/0013-original-story-authoring.md) describe the frozen boundary.
 
-The implementation adds actual original premise/cast inference, bounded native
+The implementation adds a generation path for original premises/casts, bounded native
 world validation, editable typed author review and explicit atomic creation.
 It retains bundled starter choices. World truth, entitled character knowledge,
 private beliefs and initial provenance stay distinct; Kotlin does not become
@@ -29,10 +29,40 @@ they are synthetic samples, not model quality evidence.
 | Independent original-world target | All12 passed;7,264ms,1,978 unchanged inputs; before full configuration refinement |
 | New Host/SQLite target | All7 passed;30,318ms owner/0.60s runner,1,980 unchanged inputs |
 | Android Rust crate/all features |108 passed,0 failed/ignored;46,613ms,1,980 unchanged inputs |
+| Full Rust checks at `c4a2da9c` | Core456/4 ignored, storage239/6 ignored, workspace170/1 ignored, Android108/0 ignored;0 failures |
+| Strict Clippy at `c4a2da9c` | Passed with warnings denied;27,398ms |
+| Python at `c4a2da9c` |1,505 passed,0 failures/errors/skips;178,759ms owner |
+| Frontend at `c4a2da9c` | Verification/format passed;30,770ms |
+| Input-process build at `c4a2da9c` |305 JVM tests/35 suites,0 failures/errors/skips;11 APK audits;2 lints with3 warnings/0 errors |
+| New original-story driver adversaries |12 synthetic cases included in the Python suite; not device proof |
 
 All listed successful owners retain known cleanup/capture and zero owner
 stderr. They do not substitute for future checks after later source edits.
 Original failed attempts remain preserved privately on C:.
+
+The early full core schema mismatch is repaired by regeneration. A later full
+core attempt actually fails7 of12 author adversaries: their synthetic director
+budget512 violates the existing PlayProfile350 cap. The fixture becomes320;
+the provenance canary/hash oracle and production validation remain unchanged.
+An initial strict lint run fails one needless return; the correction passes.
+
+Rapid editor callbacks are also actually reproduced red:12 focused JVM tests,
+2 ComparisonFailures. The first epoch/diff correction passes15 tests. Review
+then identifies an explicit edit returning to the originally rendered value
+that equality inference still loses. Explicit field/choice/toggle intents
+replace that inference; the complete18-controller cohort passes in the305-test
+build. Structural operations retire epochs, and action/review identity remains
+exact. The second counterexample is source-identified, not an executed historical
+red. Review also verifies the current controller already synchronizes reviewed
+cast names from edited characters; no rename-refusal defect is claimed.
+
+The first separate LiteRT build compiles against the pinned public SDK and runs
+569 JVM tests, with2 failures: exact trace-vocabulary assertions still expect
+Director/Narrator without the newly implemented Author tag. Those two closed
+expectations are corrected to include Author; counters, wire versions, bounds
+and production code are unchanged. That failed cohort remains preserved.
+Its subsequent lint/packaging/audits are not claimed as completed. A fresh final
+source freeze and separate corrected LiteRT qualification are pending.
 
 Review identifies a real recovery design race: looking up a completed authored
 seed and then calling insert-or-retry could resurrect it after another Store
@@ -46,6 +76,13 @@ Other actual Store checks cover no canon before explicit Create, distinct
 worlds, invalid/stale/cancelled review, configuration invalidation, provider
 failure, worker release, accepted turn preservation, missing-job recovery after
 restart, and archive import/recovery without another inference call.
+
+A further source review finds successful recovery did not consume a matching
+live review. The corrected eighth Store case uses two actual Hosts/SQLite:
+recovery consumes that exact job, binds creation ID/hash before lookup, refuses
+existing same-origin and absent alternate targets, and retains the binding after
+a refused later review. Exact retries remain read-only; a foreign-job recovery
+does not consume an unrelated draft. All8 pass (16,069ms owner/0.78s runner).
 
 Stored origin now binds all11 validated PlayProfile fields, not merely a
 profile name. The author recipe fixes its own role-specific budget. The worker
@@ -65,11 +102,14 @@ Thinking and speculative decoding remain disabled in the current CPU worker.
 
 ## Pending current integrated checks
 
-Android checkpoints are integrated, including8 device methods and16 new JVM
-cases. Compilation, lints, artifact audits, broader Rust/Python/frontend checks
-and fresh native/original-story emulator execution remain pending. No Android
-test success or real-model compatibility/quality/performance is inferred from
-source presence. Physical/ARM64, semantic narrative quality, accessibility,
+Android has8 fixed device methods. The completed input-process build above
+cross-compiles JNI for x86_64/ARM64 and passes host/JVM/lint/artifact checks;
+cross-compilation is not ARM64 execution. The two LiteRT test-only corrections
+require a new frozen build/check cohort. Embedded author prompt/schema files
+are now included in the host driver's compiled source map and independently
+hash-tested. Fresh native10/original-story8 emulator execution remains pending.
+No real-model compatibility/quality/performance is inferred from SDK value
+objects, injected resources or scripted plumbing. Physical/ARM64, semantic narrative quality, accessibility,
 external process death and joined callback drain remain separate gates.
 
 Source and reports are committed/pushed during implementation. Private evidence

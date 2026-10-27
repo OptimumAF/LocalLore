@@ -58,6 +58,12 @@ it cannot insert. A story deleted between lookup and attachment must not be
 resurrected at revision0. An uncommitted lost draft must be reviewed again;
 missing process-local state never silently regenerates or saves.
 
+Successful recovery also consumes a matching live review. A consumed job binds
+the exact creation ID and origin hash before any later lookup; it cannot retarget
+another existing or new story. Absent/foreign-job recovery remains read-only
+and never consumes an unrelated current draft. A later refused review cannot
+erase the consumed binding.
+
 Current local runtime dependencies and model pins are unchanged. The existing
 LiteRT-LM public JSON-schema path handles non-finite schemas; the finite literal
 codec remains unchanged. A real author turn on the pinned model is a separate

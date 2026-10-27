@@ -47,12 +47,23 @@ review or creation key. An uncertain create triggers coherent library recovery,
 not a blind new key or another model call. Uncommitted draft state is not yet
 durable across app process death.
 
+Ordinary form callbacks identify an explicit text field, absolute choice or
+toggle and apply it to the latest draft in the same editor epoch. This preserves
+rapid edits returning to the rendered value and repeated toggles. Structural
+row edits retire that epoch; generation, review, creation and cancellation also
+fence retained callbacks. Native review and Create retain exact consent checks.
+
 Creation scope is `original-{creation_id}/main`. Root seed/entity identity is
 derived by Rust from the full reviewed origin. A complete exact retry retains
 accepted history. Different hidden content, visibility, beliefs, configuration
 or title cannot overwrite the same creation identity. Whole-story deletion
 forgets that identity under the existing Store policy; recovery alone cannot
 recreate a missing story.
+
+Successful recovery consumes the same live reviewed job, binding its creation
+ID/hash. That consumed job can retry only its exact target, even if another
+stored story has the same initial origin. Recovery by an absent/foreign job
+does not consume an unrelated draft.
 
 The fixed emulator phase `original-story` runs exactly8 methods across
 OriginalStoryWireTest (3), OriginalStoryDialogTest (2) and

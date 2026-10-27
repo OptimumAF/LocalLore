@@ -76,12 +76,14 @@ export async function sceneNativeJourneys({
     let clockComparisonTable: HTMLTableElement | null = null;
     const check = (condition: unknown, label: string) => {
         current = label;
+        gateway.diagnosticPhase = label;
         if (!condition) throw Error(label);
         checks.push(label);
     };
     const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 25));
     const until = async (condition: () => boolean, label: string) => {
         current = label;
+        gateway.diagnosticPhase = label;
         for (let n = 0; n < 800; n++) {
             if (condition()) return;
             await pause();
@@ -295,6 +297,7 @@ export async function sceneNativeJourneys({
                 oracle: native,
                 checks: [...checks],
                 errors: errors.snapshot(),
+                rejectedNativeCalls: gateway.rejectedNativeCalls,
                 dom: {
                     userAgent: navigator.userAgent,
                     text: (root.textContent ?? "")
@@ -793,6 +796,7 @@ export async function sceneNativeJourneys({
                 proofs,
                 finalOracle,
                 errors: records,
+                rejectedNativeCalls: gateway.rejectedNativeCalls,
                 realModelGeneration: false,
                 nativeIpc: true,
                 rendering: "native-webview2",
@@ -820,6 +824,7 @@ export async function sceneNativeJourneys({
                 proofs,
                 v2: v2.get(),
                 errors: errors.snapshot(),
+                rejectedNativeCalls: gateway.rejectedNativeCalls,
                 realModelGeneration: false,
                 desktopControl: false,
             },

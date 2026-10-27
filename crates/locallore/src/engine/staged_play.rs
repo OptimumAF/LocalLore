@@ -86,6 +86,14 @@ pub(super) fn check(cancel: &dyn Fn() -> bool) -> Result<(), Error> {
     }
 }
 
+#[derive(Clone, Copy)]
+enum PlayConstruction {
+    MemoryV25,
+    LiteralV1,
+    PresentationV1,
+    LiteralPresentationV1,
+}
+
 impl Engine {
     /// Literal-v1 target over the same opaque actual candidate/evidence. The
     /// existing V25 commit entry keeps its original strict admission contract.
@@ -104,7 +112,13 @@ impl Engine {
         cancel: &dyn Fn() -> bool,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
-        self.commit_staged_play_history_inner(staged, record, cancel, recorded_history, true)
+        self.commit_staged_play_history_inner(
+            staged,
+            record,
+            cancel,
+            recorded_history,
+            PlayConstruction::LiteralV1,
+        )
     }
     /// Revalidate a consumed native stage against the complete current source.
     /// A recorded exact retry wins before cancellation or source-head checks.
@@ -124,7 +138,61 @@ impl Engine {
         cancel: &dyn Fn() -> bool,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
-        self.commit_staged_play_history_inner(staged, record, cancel, recorded_history, false)
+        self.commit_staged_play_history_inner(
+            staged,
+            record,
+            cancel,
+            recorded_history,
+            PlayConstruction::MemoryV25,
+        )
+    }
+    /// Explicit memory construction with seed-bound narrator presentation.
+    pub fn commit_staged_presentation_play_v1(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Receipt, Error> {
+        self.commit_staged_presentation_play_history_v1(staged, record, cancel, false)
+    }
+    pub(super) fn commit_staged_presentation_play_history_v1(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
+        self.commit_staged_play_history_inner(
+            staged,
+            record,
+            cancel,
+            recorded_history,
+            PlayConstruction::PresentationV1,
+        )
+    }
+    /// Explicit immutable literal-v1 Director plus presentation-v1 narrator.
+    pub fn commit_staged_literal_presentation_play_v1(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Receipt, Error> {
+        self.commit_staged_literal_presentation_play_history_v1(staged, record, cancel, false)
+    }
+    pub(super) fn commit_staged_literal_presentation_play_history_v1(
+        &mut self,
+        staged: StagedPlayV25,
+        record: &crate::play::PlayRecord,
+        cancel: &dyn Fn() -> bool,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
+        self.commit_staged_play_history_inner(
+            staged,
+            record,
+            cancel,
+            recorded_history,
+            PlayConstruction::LiteralPresentationV1,
+        )
     }
     fn commit_staged_play_history_inner(
         &mut self,
@@ -132,7 +200,7 @@ impl Engine {
         record: &crate::play::PlayRecord,
         cancel: &dyn Fn() -> bool,
         recorded_history: bool,
-        literal: bool,
+        construction: PlayConstruction,
     ) -> Result<Receipt, Error> {
         if let Some(receipt) = self.recorded(staged.approved.request())? {
             return Ok(receipt);
@@ -152,24 +220,41 @@ impl Engine {
         {
             return Err(Error::Stale);
         }
-        if literal {
-            crate::play::validate_record_literal_v1(
+        match construction {
+            PlayConstruction::LiteralV1 => crate::play::validate_record_literal_v1(
                 self,
                 &regenerated.approved,
                 &regenerated.evidence,
                 record,
                 recorded_history,
                 cancel,
-            )?;
-        } else {
-            crate::play::validate_record_v25(
+            )?,
+            PlayConstruction::MemoryV25 => crate::play::validate_record_v25(
                 self,
                 &regenerated.approved,
                 &regenerated.evidence,
                 record,
                 recorded_history,
-            )?;
+            )?,
+            PlayConstruction::PresentationV1 => crate::play::validate_record_presentation_v1(
+                self,
+                &regenerated.approved,
+                &regenerated.evidence,
+                record,
+                recorded_history,
+            )?,
+            PlayConstruction::LiteralPresentationV1 => {
+                crate::play::validate_record_literal_presentation_v1(
+                    self,
+                    &regenerated.approved,
+                    &regenerated.evidence,
+                    record,
+                    recorded_history,
+                    cancel,
+                )?
+            }
         }
+        self.validate_story_narration(&record.narration.text)?;
         let mut receipt = regenerated.approved;
         receipt.narration = record.narration.text.clone();
         receipt.play = Some(record.clone());

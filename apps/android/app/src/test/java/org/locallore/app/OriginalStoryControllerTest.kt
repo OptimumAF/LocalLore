@@ -138,4 +138,52 @@ class OriginalStoryControllerTest {
         c.dismiss(); advanceUntilIdle(); assertEquals(listOf(StoryCreationClose(refreshRequired=true)),closed)
         c.dispose()
     }
+    @Test fun sameRenderInputAndCastTextEditsKeepLatestCharactersAndFields()=runTest {
+        val port=Port(proposal); lateinit var s: OriginalStoryUiState
+        val c=OriginalStoryController(port,this,{s=it}){}
+        c.open(OriginalCapabilities(true,"scripted"))
+        c.edit(s,input.copy(cast=listOf(OriginalCast("Tovin","A gardener."))),null,"Orchard")
+        val rendered=s
+        c.edit(rendered,rendered.input.copy(premise="A"),null,rendered.title)
+        c.edit(rendered,rendered.input.copy(premise="AB"),null,rendered.title)
+        c.edit(rendered,rendered.input.copy(playerDescription="A clockmaker."),null,rendered.title)
+        c.edit(rendered,rendered.input.copy(cast=listOf(rendered.input.cast.single().copy(name="Sera"))),null,rendered.title)
+        c.edit(rendered,rendered.input.copy(cast=listOf(rendered.input.cast.single().copy(description="An orchard keeper."))),null,rendered.title)
+        c.edit(rendered,rendered.input,null,"The Frozen Orchard")
+        assertEquals("AB",s.input.premise); assertEquals("A clockmaker.",s.input.playerDescription)
+        assertEquals(OriginalCast("Sera","An orchard keeper."),s.input.cast.single()); assertEquals("The Frozen Orchard",s.title)
+        assertNull(s.review); assertTrue(port.creates.isEmpty()); c.dismiss(); advanceUntilIdle()
+    }
+    @Test fun sameRenderWorldTextAndReferenceChoicesMergeWithoutRollback()=runTest {
+        val world=proposal.copy(locations=proposal.locations+OriginalLocation("Courtyard","An open courtyard."))
+        val port=Port(world); lateinit var s: OriginalStoryUiState
+        val c=OriginalStoryController(port,this,{s=it}){}
+        c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard"); c.generate(s); advanceUntilIdle()
+        val rendered=s; val p=rendered.proposal!!; val character=p.characters.single(); val fact=p.facts.single()
+        c.edit(rendered,rendered.input,p.copy(characters=listOf(character.copy(name="Sera"))),rendered.title)
+        c.edit(rendered,rendered.input,p.copy(characters=listOf(character.copy(description="An orchard keeper."))),rendered.title)
+        c.edit(rendered,rendered.input,p.copy(facts=listOf(fact.copy(text="The gate is open."))),rendered.title)
+        c.edit(rendered,rendered.input,p.copy(facts=listOf(fact.copy(knownBy=listOf(1,0)))),rendered.title)
+        c.edit(rendered,rendered.input,p.copy(facts=listOf(fact.copy(knownBy=emptyList()))),rendered.title)
+        c.edit(rendered,rendered.input,p.copy(routes=listOf(OriginalRoute(0,1))),rendered.title)
+        c.edit(rendered,rendered.input,p.copy(routes=listOf(OriginalRoute(1,0))),rendered.title)
+        assertEquals("Sera",s.proposal!!.characters.single().name); assertEquals("An orchard keeper.",s.proposal!!.characters.single().description)
+        assertEquals("Sera",s.input.cast.single().name); assertEquals("The gate is open.",s.proposal!!.facts.single().text)
+        assertEquals(listOf(0),s.proposal!!.facts.single().knownBy)
+        assertEquals(setOf(OriginalRoute(0,1),OriginalRoute(1,0)),s.proposal!!.routes.toSet())
+        assertNull(s.review); assertTrue(port.creates.isEmpty()); c.dismiss(); advanceUntilIdle()
+    }
+    @Test fun reviewAndStructuralChangesRetireEarlierEditorsAndConsent()=runTest {
+        val port=Port(proposal); lateinit var s: OriginalStoryUiState
+        val c=OriginalStoryController(port,this,{s=it}){}
+        c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard"); c.generate(s); advanceUntilIdle()
+        val old=s; c.review(old); advanceUntilIdle(); val reviewed=s; val consent=s.review!!
+        c.edit(old,old.input.copy(premise="Stale pre-review callback"),old.proposal,old.title)
+        assertSame(reviewed,s); assertSame(consent,s.review)
+        c.edit(reviewed,reviewed.input,reviewed.proposal!!.copy(facts=emptyList()),reviewed.title)
+        val structural=s
+        c.edit(reviewed,reviewed.input,reviewed.proposal.copy(facts=listOf(reviewed.proposal.facts.single().copy(text="Stale removed row"))),reviewed.title)
+        c.confirm(reviewed,consent); c.confirm(s,consent); assertSame(structural,s); assertNull(s.review)
+        assertTrue(s.proposal!!.facts.isEmpty()); assertTrue(port.creates.isEmpty()); c.dismiss(); advanceUntilIdle()
+    }
 }

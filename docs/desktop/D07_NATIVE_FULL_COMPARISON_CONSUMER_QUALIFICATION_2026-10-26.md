@@ -131,6 +131,7 @@ are genuinely generated, with explicit paired batch1 then resume3.
 
 ```powershell
 Set-Location apps/desktop
+$env:CARGO_HOME = '<existing provisioned isolated Cargo cache directory>'
 $env:LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT = '<existing local artifact directory>'
 $env:LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR = '<existing external native target directory>'
 $env:LOCALLORE_D07_NATIVE_MODEL_SOURCE = '<approved installed Qwen3-0.6B-Q8_0.gguf>'
@@ -263,3 +264,31 @@ Final normal frontend/native restoration and compatibility checks are recorded
 after this section once executed. Broader D07 human-quality/whole-app resource,
 OS dialog, network-blocked, full accessibility and physical-phone gates remain
 open; this supporting consumer slice does not close the milestone.
+
+## Final supporting-slice checks and normal restoration
+
+At clean unchanged `725aa2454c5d4a34adc6214462fce25757765435` (only the preceding
+qualification documentation differs from native-qualified `8f942323`):
+
+| Check | Actual result |
+|---|---|
+| `node verify-frontend.mjs` | Pass22.360s: strict TypeScript, all wired suites including scripted56/native88/reader22/Main20/admission9/lens5, normal frontend hook exclusion. |
+| Native `cargo clippy --all-targets --all-features --locked --offline --jobs 1 -- -D warnings` | Pass28.14s compiler /30.117s command. |
+| `cargo test -p locallore-android --lib --locked --offline --jobs 1` | 20 passed/0 failed,1.42s tests /32.844s command including compilation. Rust host only; no Android device/JVM/Gradle/ABI cohort. |
+| `cargo tree -p locallore-android --locked --offline --edges normal,build,dev` | Pass; zero local-runtime/eval/llama/LiteRT/Tauri/WebView/Wry dependency hits in the Android Rust host graph. |
+| Rust `cargo fmt ... --all -- --check`; full frontend Prettier | Both pass. |
+| Default native `cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --jobs 1` | Pass20.23s compiler /20.358s command, no dev-harness feature. **Unlaunched**, not a visible native smoke test. |
+
+Normal frontend SHA256:
+`41a8fdefece439d165cecff5bf91b96b4073a78feb652d72d558aa0a1d40f6f8`.
+Normal native executable SHA256:
+`dac9d045e085f1a5f51ca2649d4c0e624c58a19e5e062fc8392a2a0f4fb34166`.
+Source and lock remained unchanged throughout every final command. The final
+publication changes only documentation after this checkpoint. These hashes
+identify products, not a new two-path byte-reproducibility comparison.
+
+The former dependency blocker is resolved; the historical unavailable attempts
+and two actual failed UI cohorts remain part of the record. This supporting UI
+consumer is qualified for review with the measured limitations above. Human
+assessment, the demonstrated prose concern, whole-app resource/network and full
+accessibility/package gates stay explicitly separate from this PR's acceptance.

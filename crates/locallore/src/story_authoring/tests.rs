@@ -65,6 +65,22 @@ fn proposal() -> InitialWorldProposalV1 {
         }],
     }
 }
+fn configuration() -> InitialModelConfigurationV1 {
+    InitialModelConfigurationV1::from(&crate::play::PlayProfile {
+        id: "synthetic-author-v1".into(),
+        model_sha256: "a".repeat(64),
+        runtime_revision: "b".repeat(40),
+        template_sha256: "c".repeat(64),
+        worker_sha256: "d".repeat(64),
+        profile_manifest_sha256: "e".repeat(64),
+        context_tokens: 4096,
+        director_tokens: 350,
+        narrator_tokens: 350,
+        deadline_ms: 120000,
+        repair_limit: 1,
+    })
+}
+
 fn origin() -> InitialWorldOriginV1 {
     let input = input();
     let proposal = proposal();
@@ -75,6 +91,7 @@ fn origin() -> InitialWorldOriginV1 {
             input: input.clone(),
             proposal: proposal.clone(),
             model_profile: "synthetic-author-v1".into(),
+            model_configuration: configuration(),
             provider: InitialProviderKindV1::Scripted,
             prompt_version: PROMPT_VERSION.into(),
             schema_version: SCHEMA_VERSION.into(),
@@ -383,4 +400,73 @@ fn reserved_native_namespace_refuses_stripped_origin_without_authenticating_lega
     s.beliefs.clear();
     assert_eq!(validate_origin(&s), Ok(()));
     Engine::new(s).unwrap();
+}
+
+#[test]
+fn full_model_configuration_is_required_validated_and_content_bound() {
+    let original = origin();
+    assert_eq!(original.generation.model_configuration.validate(), Ok(()));
+    let mut missing = serde_json::to_value(&original).unwrap();
+    missing["generation"]
+        .as_object_mut()
+        .unwrap()
+        .remove("model_configuration");
+    assert!(serde_json::from_value::<InitialWorldOriginV1>(missing).is_err());
+    let mut extra = serde_json::to_value(&original).unwrap();
+    extra["generation"]["model_configuration"]["untrusted_extra"] = serde_json::json!(true);
+    assert!(serde_json::from_value::<InitialWorldOriginV1>(extra).is_err());
+    let first = origin_hash(&original).unwrap();
+    for field in 0..11 {
+        let mut changed = original.clone();
+        let c = &mut changed.generation.model_configuration;
+        match field {
+            0 => c.id = "synthetic-author-v2".into(),
+            1 => c.model_sha256 = "f".repeat(64),
+            2 => c.runtime_revision = "1".repeat(40),
+            3 => c.template_sha256 = "2".repeat(64),
+            4 => c.worker_sha256 = "3".repeat(64),
+            5 => c.profile_manifest_sha256 = "4".repeat(64),
+            6 => c.context_tokens = 2048,
+            7 => c.director_tokens = 349,
+            8 => c.narrator_tokens = 349,
+            9 => c.deadline_ms = 119999,
+            _ => c.repair_limit = 0,
+        }
+        if field == 0 {
+            assert!(origin_hash(&changed).is_err());
+            changed.generation.model_profile = "synthetic-author-v2".into();
+        }
+        assert_ne!(origin_hash(&changed).unwrap(), first, "field {field}");
+        assert_ne!(
+            materialize(&changed, scope()).unwrap().id,
+            materialize(&original, scope()).unwrap().id
+        );
+    }
+    for field in 0..11 {
+        let mut changed = original.clone();
+        let c = &mut changed.generation.model_configuration;
+        match field {
+            0 => c.id = "../profile".into(),
+            1 => c.model_sha256 = "wrong".into(),
+            2 => c.runtime_revision = "b".repeat(41),
+            3 => c.template_sha256 = "g".repeat(64),
+            4 => c.worker_sha256.clear(),
+            5 => c.profile_manifest_sha256.clear(),
+            6 => c.context_tokens = 511,
+            7 => c.director_tokens = 351,
+            8 => c.narrator_tokens = 0,
+            9 => c.deadline_ms = 0,
+            _ => c.repair_limit = 2,
+        }
+        assert!(origin_hash(&changed).is_err(), "invalid field {field}");
+    }
+    let request = generation_request(
+        &original.reviewed,
+        &original.generation.model_profile,
+        "configuration-test",
+    )
+    .unwrap();
+    assert_eq!(request.budget.max_output_tokens, 1024);
+    assert_eq!(request.budget.deadline_ms, 120000);
+    assert_eq!(original.generation.model_configuration.director_tokens, 350);
 }

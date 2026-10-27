@@ -117,6 +117,61 @@ pub struct InitialWorldProposalV1 {
     pub beliefs: Vec<InitialBeliefV1>,
     pub possessions: Vec<InitialPossessionV1>,
 }
+/// Immutable configuration captured by the native owner, not a model-selected field.
+/// The author role's approved parameters remain fixed by the initial-world-v1 recipe.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "host", derive(schemars::JsonSchema))]
+pub struct InitialModelConfigurationV1 {
+    pub id: String,
+    pub model_sha256: String,
+    pub runtime_revision: String,
+    pub template_sha256: String,
+    pub worker_sha256: String,
+    pub profile_manifest_sha256: String,
+    pub context_tokens: u32,
+    pub director_tokens: u16,
+    pub narrator_tokens: u16,
+    pub deadline_ms: u64,
+    pub repair_limit: u8,
+}
+impl From<&crate::play::PlayProfile> for InitialModelConfigurationV1 {
+    fn from(profile: &crate::play::PlayProfile) -> Self {
+        Self {
+            id: profile.id.clone(),
+            model_sha256: profile.model_sha256.clone(),
+            runtime_revision: profile.runtime_revision.clone(),
+            template_sha256: profile.template_sha256.clone(),
+            worker_sha256: profile.worker_sha256.clone(),
+            profile_manifest_sha256: profile.profile_manifest_sha256.clone(),
+            context_tokens: profile.context_tokens,
+            director_tokens: profile.director_tokens,
+            narrator_tokens: profile.narrator_tokens,
+            deadline_ms: profile.deadline_ms,
+            repair_limit: profile.repair_limit,
+        }
+    }
+}
+impl InitialModelConfigurationV1 {
+    pub fn validate(&self) -> Result<(), String> {
+        crate::play::PlayProfile {
+            id: self.id.clone(),
+            model_sha256: self.model_sha256.clone(),
+            runtime_revision: self.runtime_revision.clone(),
+            template_sha256: self.template_sha256.clone(),
+            worker_sha256: self.worker_sha256.clone(),
+            profile_manifest_sha256: self.profile_manifest_sha256.clone(),
+            context_tokens: self.context_tokens,
+            director_tokens: self.director_tokens,
+            narrator_tokens: self.narrator_tokens,
+            deadline_ms: self.deadline_ms,
+            repair_limit: self.repair_limit,
+        }
+        .validate()
+        .map_err(|_| "InvalidOrigin".to_owned())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "host", derive(schemars::JsonSchema))]
@@ -124,6 +179,7 @@ pub struct InitialGenerationV1 {
     pub input: InitialStoryInputV1,
     pub proposal: InitialWorldProposalV1,
     pub model_profile: String,
+    pub model_configuration: InitialModelConfigurationV1,
     pub provider: InitialProviderKindV1,
     pub prompt_version: String,
     pub schema_version: String,
@@ -331,6 +387,10 @@ fn validate_record(origin: &InitialWorldOriginV1) -> Result<(), String> {
         || origin.generation.response.len() > MAX_PROPOSAL_BYTES
         || origin.generation.response_sha256 != digest(origin.generation.response.as_bytes())
     {
+        return fail("InvalidOrigin");
+    }
+    origin.generation.model_configuration.validate()?;
+    if origin.generation.model_configuration.id != origin.generation.model_profile {
         return fail("InvalidOrigin");
     }
     validate_proposal(&origin.generation.input, &origin.generation.proposal)?;

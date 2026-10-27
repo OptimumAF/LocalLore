@@ -22,6 +22,14 @@ All target commands bind its exact transport, APK hashes, current source map,
 existing server and known client ownership. No server lifecycle operation or
 unrelated emulator control is allowed.
 
+The LiteRT candidate must package the existing `model-provisioning` native
+feature even when the separate setup profile is not selected. The candidate
+APK audit requires its defined public `NativeModelPublication.publishNoReplace`
+JNI export in both packaged ABIs. A successful compile or an embedded symbol
+name does not establish that the import function is callable. The execution
+report retains the original missing-export failure and the corrected build;
+device import and inference still require their own actual checks.
+
 The model remains CandidateLocalModel's exact 2,588,147,712-byte Gemma container,
 SHA256 `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`.
 The SDK remains LiteRT-LM 0.18.1; the existing runtime, worker, manifest and

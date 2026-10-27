@@ -2,7 +2,42 @@
 
 Refs [PR #236](https://github.com/OptimumAF/LocalLore/pull/236), #13 (M09.02/M09.06), #5 (M01.03), and #14 (M10.02/M10.03 support). The [experiment protocol](REAL_ORIGINAL_AUTHOR_MODEL_PROTOCOL_V1.md) defines the intended factory/JNI/model roundtrip and its separate admission gates.
 
-## Result
+## Latest execution and publication fix
+
+A fresh 8 GiB/four-core API35/x86_64 guest moved past the original CRLF refusal. The binary control delivered all 65 bytes with the expected hash. The model's direct binary client completed in 85,672 ms with known capture and the verified full local source identity. Its separate supervisor expired at 180,042 ms before postflight completed. The initial owner closed after 471,075 ms with worker exit1 and known cleanup/capture. That attempt remains failed: its final manually recorded model-stream client lacks the following observer, and its historical manifest remains null.
+
+A separately reviewed continuation first rechecked the same owned guest, exact transport, APKs and UIDs, fixed source roster and absent accepted/proof/workspace namespaces. New read-only checks verified both the 65-byte control and the entire 2,588,147,712-byte model destination against their expected hashes. Storage had 8,565,837,824 bytes free; available memory was 6,700,707,840 bytes. Both unchanged margins passed. No model resend, reinstall, clear or generation retry occurred.
+
+The first production import actually ran **one JUnit method and failed one assertion in 12.354 seconds**. Its retained proof records one open, one close, all model bytes read off Main, `accepted:null`, and `import/checks_failed`. The continuation owner closed after 180,678 ms with worker exit1 and known cleanup/capture. All 93 continuation client/raw pairs are complete and bracketed. AUTHOR, inference, explicit creation and reopening did not run. The caught inner import exception type was not observed.
+
+The continuation also retains an orchestration error: an extra launcher diagnostic requiring 1,000 seconds of headroom refused, but the launcher erroneously dispatched anyway. The unchanged worker independently passed its required 950-second gate before creating its SDK capture. The failed extra diagnostic is recorded as a discrepancy, never as a successful admission; no runtime/resource limit was lowered.
+
+Independent inspection found a necessary packaging defect: both exact original APK libraries omit `Java_org_locallore_app_NativeModelPublication_publishNoReplace`, while retaining their other JNI exports. Native feature selection enabled `model-provisioning` only for the setup profile, whereas the LiteRT-only experiment calls that production import path. This proves a missing prerequisite consistent with the failure; the generic failed import proof does not identify its inner exception.
+
+The fix at executable checkpoint `11f8be70` enables that existing native feature for LiteRT candidate builds as well as setup builds. Its boolean remains a declared native-task input. A read-only configured-task probe reproduces the old selection failure, then passes after the fix; setup stays enabled and the ordinary profile stays disabled. The APK auditor now requires the defined public JNI function in both candidate ABIs. It checks bounded dynamic-symbol/string/section tables and executable file-backed mappings; an embedded name, undefined/local/weak/hidden/object symbol, malformed bounds or one missing ABI refuses. Ordinary auditing retains its existing contract.
+
+Actual fix checks are separate from device inference:
+
+| Check | Actual result |
+| --- | --- |
+| Configured task input | Old `041e3b7f`: LiteRT true/setup false, actual publication false/expected true, Gradle exit1. Fixed `80431b06`: true/true selection, Gradle exit0. Setup control remains true; ordinary control at `11f8be70` remains false. All four bounded owners close with stable per-run sources. |
+| Auditor adversaries | Original negative test gives two ABI subtest failures against the old auditor. Corrected auditor passes 65 focused tests, including nine new tests and existing APK/physical audit modules, zero failures/errors/skips. These are synthetic ELF/ZIP tests. |
+| Actual old APK | The new `audit_zip(..., litert=True)` rejects the retained original product for its missing publication export. No native library is loaded. |
+| Corrected build | Both debug APKs assemble offline; product/dependency/analyzer audits pass. The owner closes in 56,941 ms with worker0, known cleanup/capture, zero stderr and all 2,008 tracked inputs unchanged. The native build task executes; cached Cargo products are not described as wholly fresh compilation. The corresponding compiled-input map has 884 entries. |
+| Focused JVM tests | 31 actually execute again: 27 model-store and four author-worker tests, zero failures/errors/skips. |
+| Lint | Zero errors and ten retained warnings. Main, Android-test, unit analysis and report are all UP-TO-DATE; analyzer32.4.1 records `analysis_did_work:false`. This is reused analysis/report evidence. |
+
+The corrected product APK is 78,235,120 bytes, SHA256 `4db224d6fc79dbe8e3ef02ab30d0339dc7e1f7f7391a3e41388cd669f4ec1e1e`. The test APK remains 2,247,119 bytes, SHA256 `f58fcdd3adc06da4b1e91fdf549cfd6b21f7b0d22c98c1ad160307ee60e235bd`. Both corrected product libraries pass the dynamic-export audit: x86_64 is 9,319,560 bytes/SHA256 `14f48a3a61b7a91c16eda7a01820b1cd380c56ec4bb600507d75159ee7e16ef6`; arm64-v8a is 8,342,304 bytes/SHA256 `0e6e3747905b5fd138f03b94eca4b0159ad7cd811e0aae974e6470cc69d2643d`. These are packaging results, not ARM64 or model execution.
+
+The configured check can be reproduced from `apps/android` with the same offline/toolchain flags used below, adding `--init-script ../../scripts/probe_litert_publication.gradle` and selecting only `:app:inspectLocalLoreModelPublication`. The LiteRT profile uses its reserved `.gradle-litert-worker` cache; the ordinary control omits that property and uses `.gradle`. The focused auditor command from the repository root is `python -B -m unittest scripts.tests.test_audit_apk_publication scripts.tests.test_audit_apk scripts.tests.test_audit_physical_model_apk` (the retained helper records the exact selected modules).
+
+The failed fresh guest subsequently closes through its exact proposal-bound stop: owner `stop_requested`, 1,280,797 ms, worker1, known cleanup/capture/closure and no flush claim. Seven bounded metadata files copy to the host with zero mismatches. One final unchanged-existing-server observation passes with zero device calls and no unrelated-process census. The latest host-only availability capture has zero rows; it establishes no physical phone profile.
+
+Failure preservation is independently replayed: 629 admitted originals, 633 copies, 634 ZIP members and 636 files/6,701,508 bytes, zero missing/mismatched. ZIP SHA256 `8ae7ed179e069a466495761489ace74176a6e9c79b146faada6966edf389f62f`; index `bbcf8bc52056f62dd11b9a2da6f927cc244b916d46c4c7388faf585d71932937`; independent verification `e4d1827835ec22c3aba7302aa4ca476efacdbfa9e7b016614c0680072c076ce3`. All 262 captured SDK2/raw pairs retain their scope: the initial set's missing final bracket is preserved, while the continuation's 93 pairs are complete. Both source cohorts retain their original 2,006/882 maps. This cohort excludes weight/image payloads and references only three small prior sealed controls. Fix-build/source recovery is recorded separately in the ticket handoff.
+
+The corrected APK has **not yet run import or AUTHOR inference**. The next runnable task is fresh target admission and qualification of those exact corrected artifacts. Batch the unchanged read-only transfer-admission facts to avoid spending the fixed copy-owner window on repeated observer calls, while preserving the full checks, 180-second owner and all other limits. Verify the binary control and complete destination before import; do not replace a failed generation or promote any earlier failed attempt.
+
+## First attempt: CRLF parser refusal
 
 The runtime attempt failed during host-side parsing of a resource sample, after the two verification APKs were installed. No model was transferred, imported, loaded, or invoked. Neither individually selected instrumentation method ran. This attempt does not qualify real AUTHOR inference, creation, reopening, a physical phone, or model quality.
 

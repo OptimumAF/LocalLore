@@ -267,8 +267,10 @@ export async function memoryInspectionNativeJourneys({
             `${label}-capture-target-in-viewport`,
         );
         if (sourceFocus) {
-            check(target!.querySelector("pre")?.tabIndex === 0,
-                `${label}-scrollable-source-is-dom-tab-stop`);
+            check(
+                target!.querySelector("pre")?.tabIndex === 0,
+                `${label}-scrollable-source-is-dom-tab-stop`,
+            );
             const quote = target!.querySelector("q"),
                 box = quote?.getBoundingClientRect();
             check(
@@ -328,7 +330,9 @@ export async function memoryInspectionNativeJourneys({
                         .replaceAll(location, "<synthetic-workspace>"),
                     panel: panel!.textContent?.slice(0, 32000),
                     structure: [
-                        ...panel!.querySelectorAll("button,input,[role],dt,dd,summary,pre[tabindex]"),
+                        ...panel!.querySelectorAll(
+                            "button,input,[role],dt,dd,summary,pre[tabindex]",
+                        ),
                     ]
                         .slice(0, 160)
                         .map((element) => ({
@@ -338,7 +342,10 @@ export async function memoryInspectionNativeJourneys({
                                 element.getAttribute("aria-label") ??
                                 element.textContent?.slice(0, 160),
                             disabled: element.hasAttribute("disabled"),
-                            tabIndex: element instanceof HTMLElement ? element.tabIndex : null,
+                            tabIndex:
+                                element instanceof HTMLElement
+                                    ? element.tabIndex
+                                    : null,
                         })),
                 },
             },

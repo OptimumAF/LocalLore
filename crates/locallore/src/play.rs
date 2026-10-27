@@ -1889,10 +1889,13 @@ fn execute_with_presentation_input(
             cancel.is_cancelled()
         })
     });
-    // This additive construction does not turn cancellation into fallback. In
-    // particular, an excluded fallback must not mask cancellation as Narration.
-    if scene_recipe.is_some() && validation == Err(Error::Cancelled) {
-        return Err(Error::Cancelled);
+    // The passive post-validation callback can cancel after validation returned.
+    // Poll before an excluded fallback could mask that cancellation as Narration.
+    if scene_recipe.is_some() {
+        scene_narration::check(&|| cancel.is_cancelled())?;
+        if validation == Err(Error::Cancelled) {
+            return Err(Error::Cancelled);
+        }
     }
     if validation.is_err() {
         record.fallback = true;

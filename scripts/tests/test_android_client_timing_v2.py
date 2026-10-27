@@ -350,6 +350,7 @@ class CurrentTimingCoverageTests(unittest.TestCase):
             paths = [out / "clients" / ("command-%04d.json" % i) for i in (1, 2)]
             for index, path in enumerate(paths, 1):
                 path.write_text(json.dumps(dict(row, index=index)))
+                path.with_suffix(".stdout.bin").write_bytes(b"binary\x00\x1a\xff\r\n")
             driver.require_current_clients(out, 2)
             for bad in (True, 0, -1, 10001, 2.0, "2", None):
                 with self.subTest(count=bad), self.assertRaises(driver.VerificationRefused):
@@ -360,6 +361,67 @@ class CurrentTimingCoverageTests(unittest.TestCase):
                     paths[1].write_text(json.dumps(replacement))
                     with self.assertRaises(driver.VerificationRefused):
                         driver.require_current_clients(out, 2)
+
+    def test_lowered_component_count_cannot_hide_persisted_timingless_row(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            (out / "clients").mkdir()
+            results = []
+            original_raw = {}
+            for index, (name, methods) in enumerate(zip(driver.CLASSES, driver.EXPECTED_METHODS), 1):
+                raw = phase_fixture.synthetic_regression_run(name, methods)
+                (out / (name + ".stdout.raw")).write_bytes(raw)
+                results.append(validate_instrumentation(raw, "org.locallore.app." + name, list(methods)))
+                stem = out / "clients" / ("command-%04d" % index)
+                stem.with_suffix(".stdout.bin").write_bytes(raw)
+                original_raw[stem.with_suffix(".stdout.bin")] = raw
+                row = timed(RecordTimingValidationTests().row(raw), index=index,
+                            label="instrument-" + str(index - 1))
+                # Only the second retained row loses timing. Its original raw,
+                # index, label, completion and digest all remain unchanged.
+                if index == 2:
+                    row["version"] = 1
+                    del row["elapsed_ms"]
+                    del row["effective_deadline_ms"]
+                stem.with_suffix(".json").write_text(json.dumps(row))
+            record = dict(version=1, results=results, clients=1, clients_clean=True,
+                          method_count=10, external_controller_case_executed=False)
+            # Historical behavior stays readable; current coverage cannot use
+            # a lowered count to omit persisted clients from inspection.
+            driver.validate_component_record(record, out)
+            with self.assertRaises(driver.VerificationRefused):
+                driver.require_current_clients(out, record["clients"])
+            for path, raw in original_raw.items():
+                self.assertEqual(raw, path.read_bytes())
+
+    def test_current_client_count_requires_exact_persisted_json_stdout_pairs(self):
+        extras = (("command-0002.json",), ("command-0002.stdout.bin",),
+                  ("command-0002.json", "command-0002.stdout.bin"),
+                  ("command-0003.json", "command-0003.stdout.bin"), ("unexpected.txt",))
+        for names in extras:
+            with self.subTest(extras=names), tempfile.TemporaryDirectory() as temporary:
+                out = Path(temporary)
+                clients = out / "clients"
+                clients.mkdir()
+                raw = b"first original synthetic capture"
+                row = timed(RecordTimingValidationTests().row(raw))
+                (clients / "command-0001.stdout.bin").write_bytes(raw)
+                (clients / "command-0001.json").write_text(json.dumps(row))
+                driver.require_current_clients(out, 1)
+                for name in names:
+                    (clients / name).write_bytes(json.dumps(dict(row, index=2)).encode()
+                                                if name.endswith(".json") else b"extra original capture")
+                with self.assertRaises(driver.VerificationRefused):
+                    driver.require_current_clients(out, 1)
+
+    def test_current_client_metadata_without_its_persisted_raw_is_incomplete(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            (out / "clients").mkdir()
+            row = timed(RecordTimingValidationTests().row())
+            (out / "clients/command-0001.json").write_text(json.dumps(row))
+            with self.assertRaises(driver.VerificationRefused):
+                driver.require_current_clients(out, 1)
 
 
 if __name__ == "__main__":

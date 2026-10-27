@@ -418,15 +418,32 @@ export function ComparisonReaderPanel({
                             className="comparison-selected"
                             aria-label="Selected comparison turn"
                         >
-                            <h3>
-                                {selected.row.turn} · {selected.row.arm}
-                            </h3>
-                            <p>
-                                Source story {selected.source.scope.story} ·
-                                branch {selected.source.scope.branch} · before{" "}
-                                {selected.source.before_head} → after{" "}
-                                {selected.source.after_head} · observer {lens}
-                            </p>
+                            <header
+                                className="comparison-selection-context"
+                                aria-label="Selected report context"
+                            >
+                                <h3>
+                                    {selected.row.turn} · {selected.row.arm}
+                                </h3>
+                                <p>
+                                    Source story {selected.source.scope.story} ·
+                                    branch {selected.source.scope.branch} ·
+                                    before {selected.source.before_head} → after{" "}
+                                    {selected.source.after_head} · observer{" "}
+                                    {lens}
+                                </p>
+                                <p>
+                                    Read-only report ·{" "}
+                                    {s.uncertain
+                                        ? "acknowledgement unavailable"
+                                        : s.busy
+                                          ? "read pending"
+                                          : (s.status?.phase ?? "ready")}
+                                </p>
+                                {s.error && (
+                                    <p role="alert">Comparison: {s.error}</p>
+                                )}
+                            </header>
                             {turn && (
                                 <>
                                     <dl>

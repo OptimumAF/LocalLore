@@ -1213,6 +1213,19 @@ summary {
 #comparison-reader .comparison-table td:nth-child(4) {
     overflow-wrap: normal;
 }
+.comparison-selection-context {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #151917;
+    padding-block: 0.6rem;
+    border-bottom: 1px solid var(--border, #526273);
+    overflow-wrap: anywhere;
+}
+.comparison-selection-context h3,
+.comparison-selection-context p {
+    margin-block: 0.35rem;
+}
 .comparison-reader pre {
     white-space: pre-wrap;
     overflow-wrap: anywhere;

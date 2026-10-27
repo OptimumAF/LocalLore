@@ -1433,6 +1433,9 @@ mod win {
             "token_diagnostic",
             "fixture_binding",
             "rows",
+            "raw_generic_read",
+            "path_diagnostic",
+            "thread_token",
             "measurement_complete",
             "passed",
         ];
@@ -1448,6 +1451,10 @@ mod win {
         use std::os::windows::io::AsRawHandle;
         use windows::Win32::Security::Authorization::{
             ConvertSecurityDescriptorToStringSecurityDescriptorW, GetSecurityInfo,
+        };
+        use windows::Win32::{
+            Storage::FileSystem::{CreateFileW, FILE_FLAG_OPEN_REPARSE_POINT, OPEN_EXISTING},
+            System::Threading::{GetCurrentThread, OpenThreadToken},
         };
         // Fixed WinNT/file access bits. GENERIC_READ intentionally uses the
         // exact existing OpenOptions.read(true) path, not a reduced permission.
@@ -1495,6 +1502,97 @@ mod win {
                 row
             }).collect();
             json!(rows)
+        }
+        fn win32_api_error(error: windows::core::Error) -> Value {
+            // The Windows binding captured GetLastError as an HRESULT. Preserve
+            // both it and the Win32 code only when that conversion is known.
+            let hresult = error.code().0;
+            let code = hresult as u32;
+            let win32 = ((code & 0xffff_0000) == 0x8007_0000).then_some(code & 0xffff);
+            json!({"hresult":hresult,"win32_error":win32})
+        }
+        fn raw_generic_read_observation(path: &Path, expected: &[u8]) -> Value {
+            let mut row = json!({"api":"CreateFileW","desired_access":0x8000_0000u32,
+                "share_mode":1,"creation_disposition":3,"flags_and_attributes":0x0020_0000,
+                "security_attributes":null,"template_handle":null,
+                "rust_comparison":{"read":true,"custom_flags":0x0020_0000,"share_mode":1,
+                    "effective_native_calls_observed_identical":false},
+                "open_succeeded":false,"open_error":null,"identity":null,"identity_error":null,
+                "read_attempted":false,"read_error":null,"read_bytes":0,"read_sha256":null,
+                "over_budget":false,"matches_expected":false});
+            let name = wide(path);
+            let handle = match unsafe {
+                CreateFileW(PCWSTR(name.as_ptr()), 0x8000_0000, FILE_SHARE_READ, None,
+                    OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, None)
+            } {
+                Ok(handle) => Handle(handle),
+                Err(error) => {
+                    row["open_error"] = win32_api_error(error);
+                    return row;
+                }
+            };
+            row["open_succeeded"] = json!(true);
+            let file = into_file(handle);
+            match file_identity(&file) {
+                Ok(identity) => row["identity"] = json!(identity),
+                Err(error) => row["identity_error"] = json!(error),
+            }
+            let mut bytes = vec![];
+            row["read_attempted"] = json!(true);
+            let result = file.take(CAP as u64 + 1).read_to_end(&mut bytes);
+            row["read_bytes"] = json!(bytes.len());
+            row["read_sha256"] = json!(format!("{:x}", Sha256::digest(&bytes)));
+            row["over_budget"] = json!(bytes.len() > CAP);
+            row["matches_expected"] = json!(result.is_ok() && bytes.len() <= CAP && bytes == expected);
+            if let Err(error) = result {
+                row["read_error"] = json!({"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())});
+            }
+            row
+        }
+        fn bounded_diagnostic_path(path: &Path) -> Value {
+            let display = path.to_string_lossy();
+            let mut end = display.len().min(384);
+            while !display.is_char_boundary(end) { end -= 1; }
+            json!({"display":&display[..end],"display_truncated":end < display.len(),
+                "display_utf8_bytes":display.len(),"display_sha256":format!("{:x}",Sha256::digest(display.as_bytes())),
+                "utf16_units":path.as_os_str().encode_wide().count()})
+        }
+        fn path_diagnostic(image: &Path, root: &Path, marker: &Path) -> Value {
+            let cwd = std::env::current_dir().map(|path| bounded_diagnostic_path(&path))
+                .unwrap_or_else(|error| json!({"error":{"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())}}));
+            let metadata = match fs::symlink_metadata(marker) {
+                Ok(metadata) => json!({"attributes":metadata.file_attributes(),"size":metadata.file_size(),
+                    "is_symlink":metadata.file_type().is_symlink(),"error":null}),
+                Err(error) => json!({"attributes":null,"size":null,"is_symlink":null,
+                    "error":{"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())}}),
+            };
+            json!({"current_exe":bounded_diagnostic_path(image),"current_dir":cwd,
+                "derived_fixture":bounded_diagnostic_path(root),"marker":bounded_diagnostic_path(marker),
+                "marker_symlink_metadata":metadata,"metadata_is_identity_proof":false})
+        }
+        fn thread_token_observation() -> Value {
+            let mut raw = HANDLE::default();
+            if let Err(error) = unsafe { OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, true, &mut raw) } {
+                let error = win32_api_error(error);
+                return json!({"status":if error["win32_error"] == 1008 {"absent"} else {"unknown"},
+                    "open_as_self":true,"open_error":error,"diagnostic":null});
+            }
+            let token = Handle(raw);
+            let diagnostic: Result<Value> = (|| {
+                let user = token_buffer(token.0, TokenUser, size_of::<TOKEN_USER>())?;
+                let integrity = token_buffer(token.0, TokenIntegrityLevel, size_of::<TOKEN_MANDATORY_LABEL>())?;
+                let restricted = token_buffer(token.0, TokenRestrictedSids, size_of::<u32>())?;
+                Ok(json!({
+                    "user_sid":sid_text(unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid })?,
+                    "integrity_sid":sid_text(unsafe { (*(integrity.as_ptr().cast::<TOKEN_MANDATORY_LABEL>())).Label.Sid })?,
+                    "restricted_sid_count":unsafe { *(restricted.as_ptr().cast::<u32>()) },
+                }))
+            })();
+            match diagnostic {
+                Ok(diagnostic) => json!({"status":"present","open_as_self":true,"open_error":null,"diagnostic":diagnostic}),
+                Err(error) => json!({"status":"unknown","open_as_self":true,"open_error":null,
+                    "token_opened":true,"diagnostic_error":error,"diagnostic":null}),
+            }
         }
         fn full_read_row(rows: &Value) -> Option<&Value> {
             let rows = rows.as_array()?;
@@ -1564,7 +1662,11 @@ mod win {
                 .unwrap_or_else(|error| json!({"observation_error":error}));
             let diagnostic = token_diagnostic(unsafe { GetCurrentProcess() })
                 .unwrap_or_else(|error| json!({"diagnostic_error":error}));
-            let rows = read_mask_observations(&root.join("challenge.txt"), &expected);
+            let marker = root.join("challenge.txt");
+            let paths = path_diagnostic(&image, &root, &marker);
+            let thread_token = thread_token_observation();
+            let rows = read_mask_observations(&marker, &expected);
+            let raw_generic_read = raw_generic_read_observation(&marker, &expected);
             let passed = full_read_passed(&rows)
                 && token["is_appcontainer"] == false
                 && token["capability_count"] == 0
@@ -1573,7 +1675,8 @@ mod win {
             let report = json!({"version":1,"kind":"low_file_read_probe","case":"low-file-read",
                 "run_id":id,"challenge":challenge,"token":token,"token_diagnostic":diagnostic,
                 "fixture_binding":{"component":format!("fixture-{id}"),"self_image_name":"offline-qualifier.exe"},
-                "rows":rows,"measurement_complete":true,"passed":passed});
+                "rows":rows,"raw_generic_read":raw_generic_read,"path_diagnostic":paths,
+                "thread_token":thread_token,"measurement_complete":true,"passed":passed});
             let encoded = encode(&report).unwrap();
             assert!(
                 encoded.len() <= CAP,

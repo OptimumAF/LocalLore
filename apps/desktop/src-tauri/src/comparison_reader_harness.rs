@@ -33,7 +33,7 @@ fn literal_mode() -> bool {
 fn scene_mode() -> bool {
     active() && std::env::var("LOCALLORE_D07_SCENE_COMPARISON_READER").as_deref() == Ok("1")
 }
-fn root(workspace: &Path) -> Result<PathBuf, String> {
+fn root(workspace: &Path) -> Result<(PathBuf, Vec<std::fs::File>), String> {
     if !active()
         || (literal_mode() && scene_mode())
         || std::env::var_os("LOCALLORE_TEST_WORKSPACE")
@@ -59,8 +59,8 @@ fn root(workspace: &Path) -> Result<PathBuf, String> {
     {
         return Err("SyntheticWorkspaceRequired".into());
     }
-    let _pins = crate::archive::pin(parent)?;
-    Ok(parent.join("comparison-fixtures"))
+    let pins = crate::archive::pin(parent)?;
+    Ok((parent.join("comparison-fixtures"), pins))
 }
 
 fn scene_proof(path: &Path, scenes: usize) -> Result<Value, String> {
@@ -126,7 +126,7 @@ pub fn choose(
     workspace: &Path,
     state: &ComparisonReaderHarness,
 ) -> Result<Option<PathBuf>, String> {
-    let root = root(workspace)?;
+    let (root, _root_pins) = root(workspace)?;
     let started = Instant::now();
     while state.hold.load(Ordering::SeqCst) {
         if started.elapsed() > Duration::from_secs(15) {
@@ -219,7 +219,7 @@ pub async fn harness_comparison_reader_case(
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         lease.dispatch(epoch,||Ok(()))?;
-        let fixtures=root(&workspace_path)?;
+        let (fixtures,_root_pins)=root(&workspace_path)?;
         match scenario.as_str() {
             "prepare" => {
                 if !fixtures.exists() { std::fs::create_dir(&fixtures).map_err(|_|"SyntheticFixtureIo")?; }

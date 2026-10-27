@@ -29,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.CharacterCodingException;
@@ -58,6 +59,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /**
  * A self-targeted, framework-only external oracle. It never instruments the
@@ -70,6 +73,11 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private static final String ACTIVITY = "org.locallore.app.MainActivity";
     private static final String CASE = "restore_non_default";
     private static final String CHILD_CASE = "restore_child_branch";
+    private static final String RETIRED_CASE = "restore_retired_child";
+    private static final String FIXTURE_TEST = PRODUCT + ".test";
+    private static final String HELPER = "org.locallore.app.RetiredSelectionFixtureMain";
+    private static final String HELPER_EXIT = "LL_RETIRED_HELPER_EXIT_V1=";
+    private static final String UNAVAILABLE_NOTICE = "Previously selected timeline is unavailable. Review the library before sending.";
     private static final String RUN_EXTRA = "locallore.process.run_id";
     private static final String PROBE_SCOPE = "locallore_process_verify_v1";
     private static final String FIXTURE_SCOPE = "locallore_process_fixture_v1";
@@ -98,11 +106,11 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private enum Stage { ARGUMENTS, IDENTITY, TRANSPORT, FIXTURE, LAUNCH, CATALOG, PARENT_SEND, FORK_SETUP, EDIT, FIRST_SAVE,
         FIRST_KILL, FIRST_RESTORE, NATIVE_REREAD, SEND, SECOND_SAVE, SECOND_KILL,
-        SECOND_RESTORE, CANONICAL_REREAD, DONE }
+        SECOND_RESTORE, CANONICAL_REREAD, HELPER_LOAD, HELPER_PROBE, HELPER_RETIRE, DONE }
     private enum Reason { NONE, ARGUMENTS, IDENTITY, SIGNATURE, APK, FIXTURE, CATALOG,
         UI, DEADLINE, SHELL_IO, SHELL_TIMEOUT, SHELL_REFUSED, PROBE, SAVED_ACK,
         TASK_NOT_STOPPED, PROCESS, SCOPE, DRAFT, AUTOMATIC_OPERATION, CANONICAL,
-        PROOF_SIZE, INTERNAL }
+        PROOF_SIZE, HELPER, INTERNAL }
     private static final class Refused extends RuntimeException {
         final Reason reason;
         Refused(Reason reason) { super(reason.name()); this.reason = reason; }
@@ -117,9 +125,18 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     private String productSha;
     private boolean reuse;
     private boolean childCase;
+    private boolean retiredCase;
     private String caseName = CASE;
     private Workspace childScope;
     private JSONObject childFixture;
+    private String fixtureTestSha, productApk, fixtureTestApk, librarySha;
+    private int fixtureTestUid;
+    private String lastHelperSha;
+    private Integer lastHelperExit;
+    private Workspace retiredRestoreHint;
+    private JSONObject loadGate;
+    private final JSONArray retirementHelpers = new JSONArray();
+    private final Set<String> helperDispatches = new HashSet<>();
     private int productUid;
     private int controllerUid;
     private String signatureSha;
@@ -167,6 +184,12 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                     && parserControl.head == 0, Reason.CANONICAL);
             checked(workspaceHeadControl(), Reason.CANONICAL);
             checked(stoppedTaskControls(), Reason.TASK_NOT_STOPPED);
+            if (retiredCase) {
+                stage = Stage.HELPER_LOAD;
+                JSONObject loaded = runHelper("load", 0);
+                loadGate = new JSONObject().put("proof_sha256", lastHelperSha).put("pid", loaded.get("pid"))
+                        .put("uid", loaded.get("uid")).put("started_uptime_ms", loaded.get("started_uptime_ms"));
+            }
             stage = Stage.FIXTURE;
             File stored = fixtureFile();
             if (reuse) fixture = readFixture(stored);
@@ -192,7 +215,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             Workspace chosen = select(fixture.b.story);
             checked(chosen.same(fixture.b, 0), Reason.CANONICAL);
             stage = Stage.EDIT;
-            click("play-kind-dialogue");
+            selectDialogue();
             setDraft();
             verifyDraft();
             Probe unsubmitted = latest(initial);
@@ -288,14 +311,22 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private void parseArguments() throws Exception {
-        need(arguments.keySet().equals(new HashSet<>(Arrays.asList("case", "run_id", "product_sha256", "cohort"))), Reason.ARGUMENTS);
         Object c = arguments.get("case"), r = arguments.get("run_id"), h = arguments.get("product_sha256"), group = arguments.get("cohort");
-        need((CASE.equals(c) || CHILD_CASE.equals(c)) && r instanceof String && HEX16.matcher((String) r).matches()
+        Set<String> keys = new HashSet<>(Arrays.asList("case", "run_id", "product_sha256", "cohort"));
+        if (RETIRED_CASE.equals(c)) keys.add("fixture_test_sha256");
+        need(arguments.keySet().equals(keys), Reason.ARGUMENTS);
+        need((CASE.equals(c) || CHILD_CASE.equals(c) || RETIRED_CASE.equals(c)) && r instanceof String && HEX16.matcher((String) r).matches()
                 && h instanceof String && HEX64.matcher((String) h).matches()
                 && ("create".equals(group) || "reuse".equals(group)), Reason.ARGUMENTS);
         runId = (String) r; productSha = (String) h; reuse = "reuse".equals(group);
-        childCase = CHILD_CASE.equals(c); caseName = childCase ? CHILD_CASE : CASE;
+        retiredCase = RETIRED_CASE.equals(c); childCase = CHILD_CASE.equals(c) || retiredCase;
+        caseName = retiredCase ? RETIRED_CASE : childCase ? CHILD_CASE : CASE;
         need(!childCase || !reuse, Reason.ARGUMENTS);
+        if (retiredCase) {
+            Object pin = arguments.get("fixture_test_sha256");
+            need(pin instanceof String && HEX64.matcher((String) pin).matches(), Reason.ARGUMENTS);
+            fixtureTestSha = (String) pin;
+        }
         checked(DIALOGUE.getBytes(StandardCharsets.UTF_8).length < 2048, Reason.ARGUMENTS);
         need(CHILD_DIALOGUE.getBytes(StandardCharsets.UTF_8).length < 2048, Reason.ARGUMENTS);
     }
@@ -340,6 +371,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             need(input.read() == -1, Reason.APK);
         }
         checked(size == apk.length() && modified == apk.lastModified() && hex(sha.digest()).equals(productSha), Reason.APK);
+        if (retiredCase) guardFixtureTest(pm, product, apk, ownSignatures[0]);
     }
 
     private void launch() {
@@ -348,6 +380,151 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                 .setComponent(new ComponentName(PRODUCT, ACTIVITY)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra(RUN_EXTRA, runId);
         getContext().startActivity(intent);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void guardFixtureTest(PackageManager pm, ApplicationInfo product, File apk, Signature signature) throws Exception {
+        checked(Build.VERSION.SDK_INT == 35 && Process.is64Bit() && Build.SUPPORTED_64_BIT_ABIS.length > 0
+                && "x86_64".equals(Build.SUPPORTED_64_BIT_ABIS[0]), Reason.IDENTITY);
+        need((product.flags & ApplicationInfo.FLAG_EXTRACT_NATIVE_LIBS) == 0
+                && new File(product.sourceDir).getAbsoluteFile().equals(apk) && !apk.canWrite(), Reason.APK);
+        ApplicationInfo test = pm.getApplicationInfo(FIXTURE_TEST, 0);
+        need(test.uid >= 10_000 && test.uid < 100_000 && test.uid != productUid && test.uid != controllerUid
+                && (test.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                && (test.splitSourceDirs == null || test.splitSourceDirs.length == 0), Reason.IDENTITY);
+        need(fixtureTestUid == 0 || fixtureTestUid == test.uid, Reason.IDENTITY); fixtureTestUid = test.uid;
+        PackageInfo info = pm.getPackageInfo(FIXTURE_TEST, PackageManager.GET_SIGNATURES);
+        need(pm.checkSignatures(SELF, FIXTURE_TEST) == PackageManager.SIGNATURE_MATCH
+                && info.signatures != null && info.signatures.length == 1 && signature.equals(info.signatures[0]), Reason.SIGNATURE);
+        File testApk = new File(test.sourceDir).getCanonicalFile();
+        need(new File(test.sourceDir).getAbsoluteFile().equals(testApk) && !testApk.canWrite(), Reason.APK);
+        checked(apkHash(testApk).equals(fixtureTestSha), Reason.APK);
+        String appPath = apk.getAbsolutePath(), testPath = testApk.getAbsolutePath();
+        need((productApk == null || productApk.equals(appPath)) && (fixtureTestApk == null || fixtureTestApk.equals(testPath)), Reason.APK);
+        String nativeSha;
+        try (ZipFile zip = new ZipFile(apk)) {
+            ZipEntry entry = zip.getEntry("lib/x86_64/liblocallore_android.so");
+            need(entry != null && !entry.isDirectory() && entry.getMethod() == ZipEntry.STORED
+                    && entry.getSize() > 0 && entry.getSize() <= 128L * 1024 * 1024, Reason.APK);
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            try (InputStream input = zip.getInputStream(entry)) {
+                byte[] block = new byte[1024 * 1024]; long left = entry.getSize();
+                while (left > 0) {
+                    timeLeft(); int n = input.read(block, 0, (int) Math.min(left, block.length));
+                    need(n > 0, Reason.APK); sha.update(block, 0, n); left -= n;
+                }
+                need(input.read() == -1, Reason.APK);
+            }
+            nativeSha = hex(sha.digest());
+        }
+        need(librarySha == null || librarySha.equals(nativeSha), Reason.APK);
+        productApk = appPath; fixtureTestApk = testPath; librarySha = nativeSha;
+    }
+
+    private String apkHash(File file) throws Exception {
+        need(file.isFile() && !Files.isSymbolicLink(file.toPath()) && file.length() > 0
+                && file.length() <= 128L * 1024 * 1024, Reason.APK);
+        long size = file.length(), modified = file.lastModified();
+        MessageDigest sha = MessageDigest.getInstance("SHA-256");
+        try (InputStream input = new FileInputStream(file)) {
+            byte[] block = new byte[1024 * 1024]; long left = size;
+            while (left > 0) {
+                timeLeft(); int n = input.read(block, 0, (int) Math.min(left, block.length));
+                need(n > 0, Reason.APK); sha.update(block, 0, n); left -= n;
+            }
+            need(input.read() == -1, Reason.APK);
+        }
+        need(size == file.length() && modified == file.lastModified(), Reason.APK);
+        return hex(sha.digest());
+    }
+
+    private JSONObject runHelper(String mode, int savedPid) throws Exception {
+        need(retiredCase && Arrays.asList("load", "probe", "retire").contains(mode)
+                && helperDispatches.add(mode), Reason.HELPER);
+        lastHelperExit = null; // This attempt has no observed exit until its exact footer is parsed.
+        need(!anyProductProcess() && (savedPid == 0 || !pidExists(savedPid)), Reason.PROCESS);
+        String a = mode.equals("load") ? "load_a" : fixture.a.story;
+        String b = mode.equals("load") ? "load_b" : fixture.b.story;
+        String parent = mode.equals("load") ? "main" : fixture.b.branch;
+        String child = mode.equals("load") ? "load_child" : childScope.branch;
+        need(mode.equals("load") ? savedPid == 0 : savedPid > 0, Reason.HELPER);
+        String scopeSha = digest(("1\n" + a + "\n" + b + "\n" + parent + "\n" + child + "\n").getBytes(StandardCharsets.UTF_8));
+        String nativePath = productApk + "!/lib/x86_64";
+        File output = helperEvidence(mode);
+        need(!output.exists() && !Files.isSymbolicLink(output.toPath()), Reason.FIXTURE);
+        File transportOutput = new File(output.getParentFile(), mode + "-transport-v1.bin");
+        need(!transportOutput.exists() && !Files.isSymbolicLink(transportOutput.toPath()), Reason.FIXTURE);
+        String[] args = {mode, runId, Integer.toString(productUid), productSha, fixtureTestSha, nativePath,
+                a, b, parent, child, Integer.toString(savedPid)};
+        StringBuilder invocation = new StringBuilder("export CLASSPATH=").append(quote(fixtureTestApk + ":" + productApk))
+                .append("; exec /system/bin/app_process / --nice-name=").append(PRODUCT).append(":retirement-fixture ").append(HELPER);
+        for (String arg : args) invocation.append(' ').append(quote(arg));
+        String command = "( run-as " + PRODUCT + " --user 0 sh -c " + quote(invocation.toString())
+                + " 2>&1; helper_rc=$?; printf '\\n" + HELPER_EXIT + "%d\\n' \"$helper_rc\"; exit 0 )";
+        long began = SystemClock.uptimeMillis();
+        String raw = shell(command, PROBE_CAP + 64, transportOutput);
+        String marker = "\n" + HELPER_EXIT;
+        int footer = raw.indexOf(marker);
+        need(footer >= 0 && footer == raw.lastIndexOf(marker), Reason.HELPER);
+        String body = raw.substring(0, footer), exit = raw.substring(footer + marker.length());
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        need(bytes.length <= PROBE_CAP, Reason.HELPER);
+        persistHelperBytes(output, bytes, PROBE_CAP);
+        lastHelperSha = digest(bytes); // Exact single-line merged body, including its original final LF.
+        need(exit.matches("[0-9]{1,3}\\n"), Reason.HELPER);
+        int observedExit = Integer.parseInt(exit.substring(0, exit.length() - 1));
+        need(observedExit <= 255, Reason.HELPER); lastHelperExit = observedExit;
+        need(observedExit == 0, Reason.HELPER);
+        need(body.endsWith("\n") && body.indexOf('\n') == body.length() - 1 && body.indexOf('\r') < 0, Reason.HELPER);
+        JSONObject proof = strictObject(bytes);
+        exact(proof, "version", "scope", "mode", "run_id", "status", "stage", "pid", "uid", "started_uptime_ms",
+                "product_sha256", "test_sha256", "library_sha256", "scope_sha256", "commit_attempts", "archive_closed", "workspace_closed", "before", "after");
+        String expectedStage = mode.equals("load") ? "LOAD_COMPLETE" : mode.equals("probe") ? "PROBE_CLOSED" : "RETIRED_CLOSED";
+        need(number(proof, "version", 1, 1) == 1 && "locallore_retired_fixture_v1".equals(proof.get("scope"))
+                && mode.equals(proof.get("mode")) && runId.equals(proof.get("run_id")) && "passed".equals(proof.get("status"))
+                && expectedStage.equals(proof.get("stage")) && productSha.equals(proof.get("product_sha256"))
+                && fixtureTestSha.equals(proof.get("test_sha256")) && librarySha.equals(proof.get("library_sha256"))
+                && scopeSha.equals(proof.get("scope_sha256")) && number(proof, "uid", 10_000, 99_999) == productUid
+                && bool(proof, "archive_closed") && bool(proof, "workspace_closed"), Reason.HELPER);
+        int pid = (int) number(proof, "pid", 1, Integer.MAX_VALUE);
+        need(pid != Process.myPid() && pid != savedPid, Reason.PROCESS);
+        // This is the entry clock, not OS process-start attestation.
+        number(proof, "started_uptime_ms", began, SystemClock.uptimeMillis());
+        number(proof, "commit_attempts", mode.equals("retire") ? 1 : 0, mode.equals("retire") ? 1 : 0);
+        if (mode.equals("load")) need(proof.get("before") == JSONObject.NULL && proof.get("after") == JSONObject.NULL, Reason.HELPER);
+        else {
+            helperState(proof.getJSONObject("before"), false);
+            helperState(proof.getJSONObject("after"), mode.equals("retire"));
+        }
+        checked(!pidExists(pid) && !anyProductProcess() && (savedPid == 0 || !pidExists(savedPid)), Reason.PROCESS);
+        if (!mode.equals("load")) retirementHelpers.put(proof);
+        return proof;
+    }
+
+    private File helperEvidence(String mode) throws Exception {
+        File root = fixtureFile().getParentFile();
+        File directory = new File(root, "helpers-" + runId);
+        if (!directory.exists()) Files.createDirectory(directory.toPath());
+        need(!Files.isSymbolicLink(directory.toPath()) && Files.isDirectory(directory.toPath(), LinkOption.NOFOLLOW_LINKS)
+                && directory.getCanonicalFile().getParentFile().equals(root), Reason.FIXTURE);
+        return new File(directory, mode + "-v1.json");
+    }
+
+    private void persistHelperBytes(File output, byte[] bytes, int cap) throws Exception {
+        need(bytes.length <= cap && (cap == PROBE_CAP || cap == PROBE_CAP + 64), Reason.HELPER);
+        try (FileChannel channel = FileChannel.open(output.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+            while (buffer.hasRemaining()) { timeLeft(); channel.write(buffer); }
+            channel.force(true);
+        }
+    }
+
+    private static void helperState(JSONObject state, boolean retired) throws Exception {
+        exact(state, "other_head", "parent_head", "target_head", "target_active");
+        number(state, "other_head", 0, 0); number(state, "parent_head", 1, 1);
+        need(bool(state, "target_active") == !retired, Reason.HELPER);
+        if (retired) need(state.get("target_head") == JSONObject.NULL, Reason.HELPER);
+        else number(state, "target_head", 1, 1);
     }
 
     private void readyProduct() throws Exception {
@@ -422,7 +599,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         checked(fixture != null && fixture.a.story.compareTo(fixture.b.story) < 0, Reason.FIXTURE);
         checked(select(fixture.b.story).same(fixture.b, 0), Reason.CANONICAL);
         stage = Stage.PARENT_SEND;
-        click("play-kind-dialogue");
+        selectDialogue();
         setDraft(DIALOGUE);
         checked(workspace().same(fixture.b, 0), Reason.CANONICAL);
         noGameplay(latest(initial));
@@ -469,7 +646,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         awaitScopeHead(childScope, 1);
         readyProduct();
         stage = Stage.EDIT;
-        click("play-kind-dialogue");
+        selectDialogue();
         setDraft();
         verifyDraft();
         acceptedText("message-body-1", DIALOGUE);
@@ -479,14 +656,17 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         // roots_at_creation records historical observations, not current B's head.
         JSONObject value = fixture.json();
         Object roots = value.remove("stories");
-        value.put("scope", "locallore_child_process_fixture_v1").put("case", CHILD_CASE)
+        value.put("scope", retiredCase ? "locallore_retired_process_fixture_v1" : "locallore_child_process_fixture_v1")
+                .put("case", caseName)
                 .put("roots_at_creation", roots)
                 .put("parent", new Workspace(fixture.b.story, fixture.b.branch, 1).json())
                 .put("child", childScope.json())
                 .put("parent_text_sha256", digest(DIALOGUE.getBytes(StandardCharsets.UTF_8)))
                 .put("child_draft_sha256", digest(CHILD_DIALOGUE.getBytes(StandardCharsets.UTF_8)));
+        if (retiredCase) value.put("fixture_test_sha256", fixtureTestSha);
         writeFixture(stored, value);
         childFixture = value;
+        if (retiredCase) { runRetired(initial); return; }
         stage = Stage.FIRST_SAVE;
         Probe saved = backgroundAndSave(initial, childScope);
         stage = Stage.FIRST_KILL;
@@ -554,6 +734,118 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.same(expected, head); },
                 15_000, Reason.CANONICAL);
         checked(workspace().same(expected, head), Reason.CANONICAL);
+    }
+
+    private void runRetired(Probe initial) throws Exception {
+        retiredRestoreHint = childScope;
+        stage = Stage.FIRST_SAVE;
+        Probe saved = backgroundAndSave(initial, childScope);
+        stage = Stage.FIRST_KILL;
+        killSaved(saved);
+        stage = Stage.HELPER_PROBE;
+        runHelper("probe", saved.pid); // Prepare/close only; a new helper owns the actual commit.
+        stage = Stage.HELPER_RETIRE;
+        runHelper("retire", saved.pid); // Exactly one commit; any uncertainty exits this case.
+        stage = Stage.FIRST_RESTORE;
+        launch();
+        Probe first = awaitCreated(saved, true);
+        observe(first);
+        readyProduct();
+        checked(workspace().same(fixture.a, 0), Reason.SCOPE);
+        checked(label("notice").equals(UNAVAILABLE_NOTICE), Reason.SCOPE);
+        verifyBlank();
+        noAcceptedMessages();
+        Probe fallback = latest(first);
+        checked(fallback.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+        noGameplay(fallback);
+        stage = Stage.NATIVE_REREAD;
+        Probe beforeRead = latest(first);
+        checked(select(fixture.a.story).same(fixture.a, 0), Reason.CANONICAL);
+        noGameplay(awaitReadIncrease(first, beforeRead));
+        readyProduct();
+        checked(!label("notice").equals(UNAVAILABLE_NOTICE), Reason.SCOPE);
+        verifyBlank();
+        noAcceptedMessages();
+        retiredRestoreHint = fixture.a;
+        stage = Stage.SECOND_SAVE;
+        Probe savedAgain = backgroundAndSave(first, fixture.a);
+        stage = Stage.SECOND_KILL;
+        killSaved(savedAgain);
+        stage = Stage.SECOND_RESTORE;
+        launch();
+        Probe second = awaitCreated(savedAgain, true);
+        observe(second);
+        readyProduct();
+        checked(workspace().same(fixture.a, 0), Reason.SCOPE);
+        checked(!label("notice").equals(UNAVAILABLE_NOTICE), Reason.SCOPE);
+        verifyBlank();
+        noAcceptedMessages();
+        Probe reopened = latest(second);
+        checked(reopened.op("create") == 0, Reason.AUTOMATIC_OPERATION);
+        noGameplay(reopened);
+        stage = Stage.CANONICAL_REREAD;
+        checked(catalog().equals(fixture.ids()), Reason.CATALOG);
+        verifyMenuHead(fixture.a.story, 0); verifyMenuHead(fixture.b.story, 1);
+        checked(select(fixture.b.story).same(fixture.b, 1), Reason.CANONICAL);
+        acceptedText("message-body-1", DIALOGUE);
+        openTimelines();
+        checked(timelineIds().equals(Collections.singletonList(fixture.b.branch)), Reason.CATALOG);
+        checked(label("timeline-" + fixture.b.branch).equals(fixture.b.branch + " · original · revision 1 · 0 uncommitted"), Reason.CANONICAL);
+        Probe beforeParent = latest(second);
+        checked(selectTimeline(fixture.b.branch).same(fixture.b, 1), Reason.CANONICAL);
+        noGameplay(awaitReadIncrease(second, beforeParent));
+        readyProduct();
+        acceptedText("message-body-1", DIALOGUE);
+        Probe beforeReturn = latest(second);
+        checked(select(fixture.a.story).same(fixture.a, 0), Reason.CANONICAL);
+        noGameplay(awaitReadIncrease(second, beforeReturn));
+        readyProduct(); verifyBlank(); noAcceptedMessages();
+        checked(!label("notice").equals(UNAVAILABLE_NOTICE), Reason.SCOPE);
+        noGameplay(latest(second));
+        guardInstallation();
+        checked(deaths == 2 && retirementHelpers.length() == 2 && loadGate != null, Reason.PROCESS);
+        stage = Stage.DONE;
+    }
+
+    private void verifyBlank() throws Exception {
+        AccessibilityNodeInfo input = tag("play-input"); input.recycle();
+        waitUntil(() -> {
+            AccessibilityNodeInfo text = find("play-input"), action = find("play-kind-action"), dialogue = find("play-kind-dialogue");
+            try { return text != null && text.isEditable() && text.isEnabled() && nodeText(text).isEmpty()
+                    && action != null && selected(action) && dialogue != null && !selected(dialogue); }
+            finally { if (text != null) text.recycle(); if (action != null) action.recycle(); if (dialogue != null) dialogue.recycle(); }
+        }, 5_000, Reason.DRAFT);
+        checked(true, Reason.DRAFT);
+    }
+
+    private void noAcceptedMessages() throws Exception {
+        // Prove both bounded scroll edges rather than equating a virtualized,
+        // off-screen row with an absent row. Canonical head0 is checked separately.
+        for (int direction : new int[]{AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD, AccessibilityNodeInfo.ACTION_SCROLL_FORWARD}) {
+            boolean edge = false;
+            for (int i = 0; i < 12; i++) {
+                timeLeft(); need(!visibleAcceptedMessage(), Reason.CANONICAL);
+                AccessibilityNodeInfo list = find("story-list"); need(list != null, Reason.UI);
+                boolean moved;
+                try { moved = list.isScrollable() && list.performAction(direction); } finally { list.recycle(); }
+                SystemClock.sleep(Math.min(100, timeLeft()));
+                need(!visibleAcceptedMessage(), Reason.CANONICAL);
+                if (!moved) { edge = true; break; }
+            }
+            need(edge, Reason.UI);
+        }
+        checked(true, Reason.CANONICAL);
+    }
+
+    private boolean visibleAcceptedMessage() throws Exception {
+        List<AccessibilityNodeInfo> nodes = productNodes();
+        try {
+            for (AccessibilityNodeInfo node : nodes) {
+                String id = node.getViewIdResourceName();
+                if (id != null && id.startsWith("message-body-") && node.isVisibleToUser()) return true;
+            }
+            return false;
+        } finally { recycle(nodes); }
     }
 
     private void normalSendGameplay(Probe probe) {
@@ -628,7 +920,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private File fixtureFile() throws Exception {
         File anchor = getContext().getNoBackupFilesDir().getCanonicalFile();
-        File directory = new File(anchor, childCase ? "process-controller-child-v1" : "process-controller-v1");
+        File directory = new File(anchor, retiredCase ? "process-controller-retired-v1"
+                : childCase ? "process-controller-child-v1" : "process-controller-v1");
         if (!directory.exists()) Files.createDirectory(directory.toPath());
         need(!Files.isSymbolicLink(directory.toPath()) && Files.isDirectory(directory.toPath(), LinkOption.NOFOLLOW_LINKS)
                 && directory.getCanonicalFile().getParentFile().equals(anchor), Reason.FIXTURE);
@@ -780,18 +1073,31 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         need(match.matches(), Reason.CANONICAL);
         long head;
         try { head = Long.parseLong(match.group(3)); } catch (NumberFormatException failure) { throw new Refused(Reason.CANONICAL); }
-        need(head <= (childCase ? 2 : 1), Reason.CANONICAL);
+        need(head <= (childCase && !retiredCase ? 2 : 1), Reason.CANONICAL);
         return new Workspace(match.group(1), match.group(2), head);
     }
 
     private boolean workspaceHeadControl() {
-        int limit = childCase ? 2 : 1;
+        int limit = childCase && !retiredCase ? 2 : 1;
         String prefix = "Rules · fantasy_v1 · synthetic_story / main · head ";
         Workspace accepted = decodeWorkspace(prefix + limit);
         boolean refused = false;
         try { decodeWorkspace(prefix + (limit + 1)); }
         catch (Refused failure) { refused = failure.reason == Reason.CANONICAL; }
         return accepted.head == limit && refused;
+    }
+
+    private void selectDialogue() throws Exception {
+        click("play-kind-dialogue"); // Exactly one action; observe the new frame before editing text.
+        waitUntil(() -> {
+            AccessibilityNodeInfo dialogue = null, action = null;
+            try {
+                dialogue = find("play-kind-dialogue"); action = find("play-kind-action");
+                return dialogue != null && action != null && dialogue.isVisibleToUser() && action.isVisibleToUser()
+                        && dialogue.isEnabled() && action.isEnabled() && selected(dialogue) && !selected(action);
+            }
+            finally { if (dialogue != null) dialogue.recycle(); if (action != null) action.recycle(); }
+        }, 5_000, Reason.DRAFT);
     }
 
     private void setDraft() throws Exception {
@@ -836,7 +1142,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
             Probe probe = readProbe("created.json");
             if (probe == null || probe.factory != 1 || !productAlive(probe.pid)) return false;
             if (old != null && (probe.sameProcess(old) || probe.task != old.task)) return false;
-            if (restored && (!probe.restored || !probe.hintPresent || !probe.hint.equals(hint(childCase ? childScope : fixture.b)))) return false;
+            if (restored && (!probe.restored || !probe.hintPresent || !probe.hint.equals(hint(retiredCase ? retiredRestoreHint : childCase ? childScope : fixture.b)))) return false;
             if (!restored && !reuse && probe.restored) return false;
             found[0] = probe; return true;
         }, 10_000, Reason.PROCESS);
@@ -869,7 +1175,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
 
     private Probe backgroundAndSave(Probe identity, Workspace expected) throws Exception {
         Probe before = latest(identity);
-        if (childCase && deaths == 0) setupGameplay(before);
+        if (retiredCase && deaths == 1) noGameplay(before);
+        else if (childCase && deaths == 0) setupGameplay(before);
         else if (deaths == 0) noGameplay(before);
         else {
             need(deaths == 1 && before.op("free_text") == 1 && before.op("submit") == 0
@@ -1021,7 +1328,13 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
     }
 
     private String shell(String command, int cap) throws Exception {
+        return shell(command, cap, null);
+    }
+
+    private String shell(String command, int cap, File helperCapture) throws Exception {
         timeLeft(); need(cap > 0 && cap <= SHELL_CAP, Reason.SHELL_IO);
+        need(helperCapture == null || (retiredCase && cap == PROBE_CAP + 64), Reason.HELPER);
+        final int wireCap = helperCapture == null ? cap + 64 : PROBE_CAP + 64;
         String script = command + "; rc=$?; printf '\\n" + EXIT + "%d\\n' \"$rc\"";
         final String transport = shellTransport(script);
         AtomicReference<ParcelFileDescriptor> owned = new AtomicReference<>();
@@ -1037,7 +1350,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                 try (ParcelFileDescriptor.AutoCloseInputStream input = new ParcelFileDescriptor.AutoCloseInputStream(fd)) {
                     ByteArrayOutputStream output = new ByteArrayOutputStream(); byte[] block = new byte[1024]; int n;
                     while ((n = input.read(block)) != -1) {
-                        need(output.size() + n <= cap + 64, Reason.SHELL_IO); output.write(block, 0, n);
+                        need(output.size() + n <= wireCap, Reason.SHELL_IO); output.write(block, 0, n);
                     }
                     return output.toByteArray();
                 } finally { owned.compareAndSet(fd, null); }
@@ -1045,7 +1358,9 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         });
         try {
             byte[] bytes = future.get(Math.min(10_000, timeLeft()), TimeUnit.MILLISECONDS);
-            String value = utf8(bytes).replace("\r\n", "\n");
+            if (helperCapture != null) persistHelperBytes(helperCapture, bytes, PROBE_CAP + 64);
+            String value = utf8(bytes);
+            if (helperCapture == null) value = value.replace("\r\n", "\n");
             need(value.indexOf('\r') < 0 && value.indexOf('\u000b') < 0 && value.indexOf('\u000c') < 0, Reason.SHELL_IO);
             int index = value.lastIndexOf("\n" + EXIT);
             need(index >= 0 && value.indexOf(EXIT) == index + 1 && value.endsWith("\n"), Reason.SHELL_IO);
@@ -1280,6 +1595,8 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
                 .put("observations", observations).put("terminal_observations", terminalObservations);
         result.put("fixture", childCase ? (childFixture == null ? JSONObject.NULL : childFixture)
                 : (fixture == null ? JSONObject.NULL : fixture.json()));
+        if (retiredCase) result.put("load_gate", loadGate == null ? JSONObject.NULL : loadGate)
+                .put("retirement_helpers", retirementHelpers).put("last_helper_exit", lastHelperExit == null ? JSONObject.NULL : lastHelperExit);
         return result;
     }
 

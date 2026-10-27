@@ -30,6 +30,11 @@ An [active-child follow-up](docs/native/ANDROID_CHILD_PROCESS_RESTORATION_VERIFI
 also exercises the real fork confirmation/resume flow and two child process
 deaths, retaining the parent receipt and draft while a child turn leaves its
 parent unchanged. Its host-verifier correction and remaining limits are recorded.
+The [retired-child follow-up](docs/native/ANDROID_RETIRED_SELECTION_VERIFICATION_2026-10-26.md)
+checks native retirement between save and restore, a visible fallback notice,
+and clearing the unavailable timeline's draft. It also fixes stale editor
+callbacks: rapid kind/text edits preserve both fields, and Send uses the latest
+valid scoped draft. Phone and real-model qualification remain separate.
 
 | Document | Purpose |
 |---|---|

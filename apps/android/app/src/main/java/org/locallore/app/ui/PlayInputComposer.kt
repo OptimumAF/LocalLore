@@ -33,6 +33,8 @@ internal fun PlayInputComposer(
     provider: TextProvider,
     busy: Boolean,
     recoveryRequired: Boolean,
+    onKindChange: (PlayInputKind) -> Unit,
+    onTextChange: (String) -> Unit,
     onInput: (PlayInput) -> Unit,
     onSend: (PlayInput) -> Unit,
     draftNotRestored: Boolean = false,
@@ -69,7 +71,7 @@ internal fun PlayInputComposer(
             PlayInputKind.entries.forEach { kind ->
                 FilterChip(
                     selected = input.kind == kind,
-                    onClick = { onInput(input.copy(kind = kind)) },
+                    onClick = { onKindChange(kind) },
                     enabled = enabled,
                     label = { Text(kind.label) },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
@@ -88,7 +90,7 @@ internal fun PlayInputComposer(
         )
         OutlinedTextField(
             value = input.text,
-            onValueChange = { onInput(input.copy(text = it)) },
+            onValueChange = onTextChange,
             enabled = enabled,
             label = { Text(if (input.kind == PlayInputKind.ACTION) "Your action" else "Your dialogue") },
             minLines = 3,

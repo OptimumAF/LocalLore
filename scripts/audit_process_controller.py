@@ -215,10 +215,14 @@ def audit(badging, xmltree, entries):
     if "android:hasCode" in application:
         require(_boolean(application["android:hasCode"]) is True, "application_flags")
     queries = nodes["queries"]
-    require(not queries["attrs"] and len(queries["children"]) == 1, "queries")
-    query = queries["children"][0]
-    require(query["tag"] == "package" and not query["children"], "queries")
-    require(_string(_attrs(query, ("android:name",))["android:name"]) == PRODUCT, "queries")
+    require(not queries["attrs"] and len(queries["children"]) == 2, "queries")
+    query_packages = set()
+    for query in queries["children"]:
+        require(query["tag"] == "package" and not query["children"], "queries")
+        name = _string(_attrs(query, ("android:name",))["android:name"])
+        require(name not in query_packages, "queries")
+        query_packages.add(name)
+    require(query_packages == {PRODUCT, PRODUCT + ".test"}, "queries")
     instrument = nodes["instrumentation"]
     ia = _attrs(instrument, ("android:name", "android:targetPackage", "android:functionalTest",
         "android:handleProfiling"), ("android:label",))

@@ -34,6 +34,8 @@ mod model_commands;
 mod models;
 mod selected_commands;
 #[cfg(feature = "dev-harness")]
+mod scene_harness;
+#[cfg(feature = "dev-harness")]
 mod selected_harness;
 mod shutdown;
 #[cfg(feature = "dev-harness")]
@@ -89,7 +91,12 @@ impl WorkspaceState {
                         if let Ok(mut value) = cleanup.lock() {
                             *value = report;
                         }
-                        locallore_workspace::open(&path, true).map(Arc::new)
+                        let host = locallore_workspace::open(&path, true)?;
+                        #[cfg(feature = "dev-harness")]
+                        if scene_harness::requested() {
+                            scene_harness::configure(&path, &host)?;
+                        }
+                        Ok(Arc::new(host))
                     })
                 })
                 .await
@@ -354,6 +361,7 @@ fn main() {
             fork_harness::harness_fork_case,
             memory_harness::harness_memory_case,
             author_harness::harness_author_case,
+            scene_harness::harness_scene_oracle,
             memory_maintenance_commands::memory_maintenance_start,
             memory_inspection_commands::memory_inspection,
             archive_commands::archive_export_preview,
@@ -500,6 +508,12 @@ fn main() {
                 && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
             {
                 author_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
+            #[cfg(feature = "dev-harness")]
+            if scene_harness::requested()
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                scene_harness::seed(&path).map_err(std::io::Error::other)?;
             }
             let model_root = path
                 .parent()

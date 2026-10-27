@@ -96,6 +96,19 @@ STARTER_CHOICE_METHODS = (
      "busyCreatingAndClosingStatesDisableStarterSelection"),
     ("explicitNarrativeAndFantasyChoicesRemainSeparateAndReopenWithTheirNativeRules",),
 )
+PLAYER_SETUP_VERSION = 1
+PLAYER_SETUP_CLASSES = ("StoryPlayerSetupWireTest", "StoryPlayerSetupDialogTest",
+                        "StoryPlayerSetupMainActivityTest")
+PLAYER_SETUP_METHODS = (
+    ("configuredPreviewRequiresExactHashesNameAndClosedFields",
+     "configuredCommandsRemainDistinctFromLegacyNamedCreation",
+     "nativeGatewayNeverFallsBackOnConfiguredPreviewFailure"),
+    ("editingNameRequiresExplicitReviewBeforeCreate",
+     "retainedNameReviewAndConfirmActionsKeepTheirOriginalRequest",
+     "invalidNamesAndBusyStatesCannotReviewOrCreate"),
+    ("customNameReviewCancelPreservesTheLibraryAndDraft",
+     "configuredCreationAndOrdinaryReopenRetainTheNativePlayerName"),
+)
 REGRESSION_CLASSES = (
     'InitialNavigationGatewayTest',
     'ProcessVerificationProbeTest',
@@ -666,6 +679,13 @@ def starter_choice_dispatch(index):
             "instrument-" + str(index), 180, 262144)
 
 
+def player_setup_dispatch(index):
+    need(type(index) is int and 0 <= index < len(PLAYER_SETUP_CLASSES), "class_index")
+    return (["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class",
+             "org.locallore.app." + PLAYER_SETUP_CLASSES[index], APP + ".test/androidx.test.runner.AndroidJUnitRunner"],
+            "instrument-" + str(index), 180, 262144)
+
+
 def validate_regression_record(record, out):
     """Revalidate all source-frozen results and their original SDK-client copies."""
     try:
@@ -729,6 +749,18 @@ def validate_starter_choice_record(record, out):
                                      STARTER_CHOICE_CLASSES, STARTER_CHOICE_METHODS, 7)
     except EvidenceRefused:
         raise VerificationRefused("starter_choice_evidence_refused") from None
+
+
+def validate_player_setup_record(record, out):
+    try:
+        from benchmarks.android_instrumentation_evidence import EvidenceRefused
+    except ModuleNotFoundError:
+        from android_instrumentation_evidence import EvidenceRefused
+    try:
+        _validate_fixed_roster_record(record, out, "player-setup", PLAYER_SETUP_VERSION,
+                                     PLAYER_SETUP_CLASSES, PLAYER_SETUP_METHODS, 8)
+    except EvidenceRefused:
+        raise VerificationRefused("player_setup_evidence_refused") from None
 
 
 def _validate_fixed_roster_record(record, out, phase, version, classes, rosters, method_count):
@@ -803,6 +835,10 @@ def starter_choice_worker(request, out):
     return _instrumentation_worker(request, out, "starter-choice")
 
 
+def player_setup_worker(request, out):
+    return _instrumentation_worker(request, out, "player-setup")
+
+
 def _instrumentation_worker(request, out, phase):
     try:
         from benchmarks.android_process_client import SdkCapture
@@ -816,7 +852,8 @@ def _instrumentation_worker(request, out, phase):
                        "retained-ui": (RETAINED_UI_CLASSES, RETAINED_UI_METHODS),
                        "retained-archive": (RETAINED_ARCHIVE_CLASSES, RETAINED_ARCHIVE_METHODS),
                        "story-creation": (STORY_CREATION_CLASSES, STORY_CREATION_METHODS),
-                       "starter-choice": (STARTER_CHOICE_CLASSES, STARTER_CHOICE_METHODS)}[phase]
+                       "starter-choice": (STARTER_CHOICE_CLASSES, STARTER_CHOICE_METHODS),
+                       "player-setup": (PLAYER_SETUP_CLASSES, PLAYER_SETUP_METHODS)}[phase]
     rosters = []
     for name, expected in zip(classes, frozen):
         source = ROOT / "apps/android/app/src/androidTest/java/org/locallore/app" / (name + ".kt")
@@ -882,7 +919,8 @@ def _instrumentation_worker(request, out, phase):
         need(shell(["am", "get-current-user"], "instrument-user").strip() == b"0", "user_zero")
         dispatch = {"components": instrumentation_dispatch, "regression": regression_dispatch,
                     "retained-ui": retained_ui_dispatch, "retained-archive": retained_archive_dispatch,
-                    "story-creation": story_creation_dispatch, "starter-choice": starter_choice_dispatch}[phase]
+                    "story-creation": story_creation_dispatch, "starter-choice": starter_choice_dispatch,
+                    "player-setup": player_setup_dispatch}[phase]
         raw = capture.adb(*dispatch(index))
         own()
         with (out / (name + ".stdout.raw")).open("xb") as stream:
@@ -898,14 +936,16 @@ def _instrumentation_worker(request, out, phase):
     if phase != "components":
         record["version"] = {"regression": REGRESSION_VERSION, "retained-ui": RETAINED_UI_VERSION,
                              "retained-archive": RETAINED_ARCHIVE_VERSION, "story-creation": STORY_CREATION_VERSION,
-                             "starter-choice": STARTER_CHOICE_VERSION}[phase]
+                             "starter-choice": STARTER_CHOICE_VERSION, "player-setup": PLAYER_SETUP_VERSION}[phase]
         record["phase"] = phase
     filename = {"components": "components-v1.json", "regression": "regression-v1.json",
                 "retained-ui": "retained_ui-v1.json", "retained-archive": "retained_archive-v1.json",
-                "story-creation": "story_creation-v1.json", "starter-choice": "starter_choice-v1.json"}[phase]
+                "story-creation": "story_creation-v1.json", "starter-choice": "starter_choice-v1.json",
+                "player-setup": "player_setup-v1.json"}[phase]
     validator = {"components": validate_component_record, "regression": validate_regression_record,
                  "retained-ui": validate_retained_ui_record, "retained-archive": validate_retained_archive_record,
-                 "story-creation": validate_story_creation_record, "starter-choice": validate_starter_choice_record}[phase]
+                 "story-creation": validate_story_creation_record, "starter-choice": validate_starter_choice_record,
+                 "player-setup": validate_player_setup_record}[phase]
     validator(record, out)
     require_current_clients(out, record["clients"])
     own()
@@ -945,7 +985,8 @@ def supervise(request):
     if qualified:
         key = {"build": "artifacts", "components": "components", "regression": "regression",
                "retained-ui": "retained_ui", "retained-archive": "retained_archive",
-               "story-creation": "story_creation", "starter-choice": "starter_choice"}[request["phase"]]
+               "story-creation": "story_creation", "starter-choice": "starter_choice",
+               "player-setup": "player_setup"}[request["phase"]]
         name = key + "-v1.json"
         record[key] = env.binding(out / name)
         try:
@@ -957,7 +998,8 @@ def supervise(request):
                              "retained-ui": validate_retained_ui_record,
                              "retained-archive": validate_retained_archive_record,
                              "story-creation": validate_story_creation_record,
-                             "starter-choice": validate_starter_choice_record}[request["phase"]]
+                             "starter-choice": validate_starter_choice_record,
+                             "player-setup": validate_player_setup_record}[request["phase"]]
                 validator(components, out)
                 require_current_clients(out, components["clients"])
         except (VerificationRefused, env.EnvironmentRefused, OSError, ValueError, KeyError, TypeError, ET.ParseError):
@@ -972,7 +1014,7 @@ def supervise(request):
 def admit_worker(request):
     need(type(request) is dict and set(request) == {"phase", "out", "sdk", "java", "build",
             "running", "proposal", "server", "powershell", "inputs", "sources", "driver_sha256"}, "request_fields")
-    need(request["phase"] in ("build", "components", "regression", "retained-ui", "retained-archive", "story-creation", "starter-choice"), "worker_phase")
+    need(request["phase"] in ("build", "components", "regression", "retained-ui", "retained-archive", "story-creation", "starter-choice", "player-setup"), "worker_phase")
     need(request["driver_sha256"] == env.digest(Path(__file__)), "driver_changed")
     env.check_binding(request["sources"])
     need(env.read_json(request["sources"]["path"]) == source_map(), "source_drift")
@@ -992,12 +1034,13 @@ def main(argv=None):
         need(Path(request["out"]) == path.parent and path.name == "request-v1.json", "request_path")
         {"build": build_worker, "components": component_worker, "regression": regression_worker,
          "retained-ui": retained_ui_worker, "retained-archive": retained_archive_worker,
-         "story-creation": story_creation_worker, "starter-choice": starter_choice_worker}[request["phase"]](request, path.parent)
+         "story-creation": story_creation_worker, "starter-choice": starter_choice_worker,
+         "player-setup": player_setup_worker}[request["phase"]](request, path.parent)
         need(request["inputs"] == input_bindings(request), "input_changed")
         print("worker_completed", flush=True)
         return 0
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("build", "components", "regression", "retained-ui", "retained-archive", "story-creation", "starter-choice", "server"))
+    parser.add_argument("phase", choices=("build", "components", "regression", "retained-ui", "retained-archive", "story-creation", "starter-choice", "player-setup", "server"))
     parser.add_argument("--out", required=True)
     parser.add_argument("--sdk", required=True)
     parser.add_argument("--java")

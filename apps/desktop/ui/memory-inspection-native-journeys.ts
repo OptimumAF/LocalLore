@@ -244,8 +244,39 @@ export async function memoryInspectionNativeJourneys({
                     panel!.textContent?.includes(ORIGINAL),
                 `${label}-actual-source-text-visible`,
             );
-        panel!.scrollIntoView({ block: "start" });
+        const sourceFocus = [
+            "source",
+            "restart-source",
+            "narrow",
+            "restart-narrow",
+        ].includes(suffix);
+        const entryFocus = ["entries", "restart-entries"].includes(suffix);
+        const target = sourceFocus
+            ? panel!.querySelector(
+                  '[aria-label="Actual shared history source"]',
+              )
+            : entryFocus
+              ? panel!.querySelector('[aria-label="Extractive packet entries"]')
+              : panel;
+        check(!!target, `${label}-actual-capture-target-exists`);
+        target!.scrollIntoView({ block: "start" });
         await pause();
+        const targetRect = target!.getBoundingClientRect();
+        check(
+            targetRect.top >= -2 && targetRect.top < innerHeight - 40,
+            `${label}-capture-target-in-viewport`,
+        );
+        if (sourceFocus) {
+            const quote = target!.querySelector("q"),
+                box = quote?.getBoundingClientRect();
+            check(
+                quote?.textContent === ORIGINAL &&
+                    !!box &&
+                    box.top >= 0 &&
+                    box.bottom <= innerHeight,
+                `${label}-actual-original-statement-in-viewport`,
+            );
+        }
         check(
             document.documentElement.scrollWidth <= innerWidth + 2,
             `${label}-no-horizontal-overflow`,
@@ -283,6 +314,11 @@ export async function memoryInspectionNativeJourneys({
                 expectedReadErrors: [...expectedReadErrors],
                 checks: [...checks],
                 dom: {
+                    captureTarget: sourceFocus
+                        ? "source"
+                        : entryFocus
+                          ? "entries"
+                          : "overview",
                     userAgent: navigator.userAgent,
                     viewport: { width: innerWidth, height: innerHeight },
                     text: root!.textContent

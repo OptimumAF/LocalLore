@@ -157,9 +157,18 @@ export function MemoryInspectionPanel({
                                             ? words(value.origin)
                                             : "Observed time span"}
                                     </h4>
-                                    <pre style={inert}>
-                                        {JSON.stringify(value, null, 2)}
-                                    </pre>
+                                    <details>
+                                        <summary>Recorded entry JSON</summary>
+                                        <pre
+                                            style={{
+                                                ...inert,
+                                                maxHeight: "20rem",
+                                                overflow: "auto",
+                                            }}
+                                        >
+                                            {JSON.stringify(value, null, 2)}
+                                        </pre>
+                                    </details>
                                     <ul>
                                         {refs.map((ref) => (
                                             <li
@@ -204,14 +213,29 @@ export function MemoryInspectionPanel({
                         matched an actual returned event.
                     </p>
                     <p>
-                        Selected head {state.source.head}; inspected completed
-                        revision {state.source.page.revision}. Observer: Player
-                        ({state.source.observer}).
+                        Selected story {context.scope.story} /{" "}
+                        {context.scope.branch}. Selected head{" "}
+                        {state.source.head}; inspected completed revision{" "}
+                        {state.source.page.revision}. Observer: Player (
+                        {state.source.observer}).
                     </p>
                     <ol>
                         {state.source.page.rows.map((row, index) => (
                             <li key={`${row.kind}-${index}`}>
-                                <pre style={inert}>
+                                {row.kind === "event" &&
+                                    row.event.consequence.effect === "said" && (
+                                        <p>
+                                            Recorded statement:{" "}
+                                            <q>{row.event.consequence.text}</q>
+                                        </p>
+                                    )}
+                                <pre
+                                    style={{
+                                        ...inert,
+                                        maxHeight: "20rem",
+                                        overflow: "auto",
+                                    }}
+                                >
                                     {JSON.stringify(row, null, 2)}
                                 </pre>
                             </li>

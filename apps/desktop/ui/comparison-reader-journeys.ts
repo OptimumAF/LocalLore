@@ -316,44 +316,20 @@ export async function comparisonReaderJourneys({
                 "actual-native-construction-labels",
             );
             check(
-                text.includes("Protocol 3 selected-case rerun unavailable"),
-                "actual-native-protocol3-rerun-unavailable",
-            );
-            check(
-                document
-                    .querySelector("#selected-evaluation")
-                    ?.textContent?.includes(
-                        "Selected-case reruns are unavailable for this literal/relevant report",
+                text.includes("Read-only Protocol 3 report") &&
+                    text.includes(
+                        "Selected experiments use their separate controls",
                     ),
-                "actual-native-selected-pane-explains-unavailable-source",
+                "actual-native-protocol3-explains-separate-selected-controls",
             );
             const before = r.get().status!;
-            let refusal = "";
-            try {
-                await invoke("evaluation_selected", {
-                    action: "prepare",
-                    request: JSON.stringify({
-                        clientId: "33333333-3333-4333-8333-333333333333",
-                        readerClientId: r.get().clientId,
-                        runToken: before.run_token,
-                        binding: before.binding,
-                        turnId: first.row.turn,
-                        arm: first.row.arm,
-                        lane: "scripted_baseline",
-                    }),
-                });
-            } catch (error) {
-                refusal = String(error);
-            }
-            check(
-                refusal === "NativeUnavailable",
-                "actual-native-protocol3-selected-refusal",
-            );
+            // Source3 now maps to selected2. Its separate selected journeys own
+            // preparation/execution; this read-only journey must not consume it.
             await r.loadSummary();
             check(
                 r.get().status?.run_token === before.run_token &&
                     r.get().summary?.report.version === 3,
-                "rejected-rerun-preserves-native-reader",
+                "read-only-refresh-preserves-native-protocol3-reader",
             );
         }
         r.select(first.row);

@@ -113,7 +113,7 @@ export function ComparisonReaderPanel({
                 {s.source?.protocol_version === 4
                     ? "Protocol 4 selected-case rerun unavailable. This reader only inspects recorded scene experiments."
                     : s.source?.protocol_version === 3
-                      ? "Protocol 3 selected-case rerun unavailable. This reader only inspects recorded literal/relevant experiments."
+                      ? "Read-only Protocol 3 report. Selected experiments use their separate controls."
                       : "Comparison execution unavailable in this reader. Selected experiments use their separate controls."}
             </p>
             <div className="comparison-controls">

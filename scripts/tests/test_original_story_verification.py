@@ -184,7 +184,10 @@ class OriginalStoryVerificationTests(unittest.TestCase):
             original = d.env.read_json(path)
             historical = {k: v for k, v in original.items() if k not in ("elapsed_ms", "effective_deadline_ms")}
             historical["version"] = 1; path.write_text(json.dumps(historical), encoding="utf-8")
-            d.validate_original_story_record(record, out)
+            # This new phase has no historical SDK1 cohort to preserve: both
+            # its phase validator and generic current-run gate must refuse it.
+            with self.assertRaises(d.VerificationRefused):
+                d.validate_original_story_record(record, out)
             with self.assertRaises(d.VerificationRefused): d.require_current_clients(out, 3)
             for delta in ({"elapsed_ms": None}, {"elapsed_ms": True}, {"elapsed_ms": -1},
                 {"elapsed_ms": 1.5}, {"effective_deadline_ms": True}, {"effective_deadline_ms": 180001},

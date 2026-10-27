@@ -1064,6 +1064,23 @@ export async function authorNativeJourneys({
                     v2.get().context?.revision === 3,
                 "actual-prior-seed-navigation-is-not-removal-cause-or-current-inventory",
             );
+            await until(() => {
+                const inspector = document.querySelector(
+                    '[aria-label="Read-only V2 inspector"]',
+                );
+                return (
+                    inspector?.querySelector<HTMLSelectElement>("select")
+                        ?.value === "profiles" &&
+                    inspector?.querySelector<HTMLInputElement>(
+                        'input[type="number"]',
+                    )?.value === "0" &&
+                    document
+                        .querySelector(
+                            '[aria-label="Displayed inspection context"]',
+                        )
+                        ?.textContent?.includes("inspected r0")
+                );
+            }, "mounted-seed-controls-and-pinned-context-show-historical-zero");
             receiptEvidence.push({
                 stage: "initial",
                 available: true,
@@ -1151,6 +1168,26 @@ export async function authorNativeJourneys({
                 v2.get().inspection?.page,
                 "inherited-source-navigation-excludes-private-author-evidence",
             );
+            await until(() => {
+                const inspector = document.querySelector(
+                    '[aria-label="Read-only V2 inspector"]',
+                );
+                return (
+                    inspector?.querySelector<HTMLSelectElement>("select")
+                        ?.value === "history" &&
+                    inspector?.querySelector<HTMLInputElement>(
+                        'input[type="number"]',
+                    )?.value === "3" &&
+                    inspector?.querySelector<HTMLInputElement>(
+                        'input:not([type="number"])',
+                    )?.value === v2.get().inspection?.query.search &&
+                    document
+                        .querySelector(
+                            '[aria-label="Displayed inspection context"]',
+                        )
+                        ?.textContent?.includes("inspected r3")
+                );
+            }, "mounted-original-source-controls-and-pinned-context-match-actual-query");
             receiptEvidence.push({
                 stage: "initial",
                 available: true,

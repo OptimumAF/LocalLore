@@ -289,6 +289,10 @@ try {
     const reports = [],
         checks = new Set(),
         artifacts = {};
+    const captureCount = Object.values(labels).reduce(
+        (total, stage) => total + stage.length,
+        0,
+    );
     const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
     for (const stage of ["initial", "restart"]) {
         const directory = path.join(folder, stage);
@@ -460,7 +464,7 @@ try {
                 sourceRevision,
                 sourceDirty,
                 node: process.version,
-                captures: 17,
+                captures: captureCount,
                 checks: [...checks],
                 reports,
                 inputSHA256,
@@ -472,7 +476,7 @@ try {
         { flag: "wx" },
     );
     console.log(
-        `AUTHOR NATIVE PASS: ${checks.size} distinct assertions,17 app-owned captures; local artifacts: ${folder}`,
+        `AUTHOR NATIVE PASS: ${checks.size} distinct assertions,${captureCount} app-owned captures; local artifacts: ${folder}`,
     );
 } catch (error) {
     await writeFile(

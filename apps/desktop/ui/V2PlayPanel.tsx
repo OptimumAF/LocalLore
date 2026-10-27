@@ -357,6 +357,13 @@ export function V2PlayPanel({
         setAt("");
         void controller.refresh(false);
     }, [controller, identity]);
+    useEffect(() => {
+        const query = state.inspection?.query;
+        if (!query) return;
+        setView(query.view);
+        setAt(query.at_revision === null ? "" : String(query.at_revision));
+        setSearch(query.search);
+    }, [state.inspection]);
     if (!c)
         return (
             <section aria-label="V2 play unavailable">
@@ -408,6 +415,14 @@ export function V2PlayPanel({
                           "idle")}
                 </p>
                 {state.error && <p role="alert">{state.error}</p>}
+                {inspection && (
+                    <p aria-label="Displayed inspection context">
+                        Read-only {words(inspection.query.view)} · selected head
+                        r{inspection.page.head} · inspected r
+                        {inspection.page.revision} ·{" "}
+                        {words(inspection.page.privacy)}
+                    </p>
+                )}
             </header>
             {state.notice && <p role="status">{state.notice}</p>}
             <button

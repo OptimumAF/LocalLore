@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import org.locallore.app.BranchForkInput
 import org.locallore.app.BranchForkOutcome
@@ -45,6 +46,7 @@ internal fun BranchForkPanel(
     onCancel: () -> Unit,
     onClose: () -> Unit,
     onResume: (BranchForkOutcome) -> Unit,
+    exposeTestTags: Boolean = false,
 ) {
     if (!visible) return
     val input = state.input
@@ -54,11 +56,12 @@ internal fun BranchForkPanel(
     val editable = !state.busy && !recoveryPending && !state.lookupOnly && !state.uncertain && state.outcome == null && storageProblem == null
     val requested = boundary.toLongOrNull()?.takeIf { it >= 0 && it <= (input?.expectedParentRevision ?: state.context?.head ?: -1) }
     AlertDialog(
-        modifier = Modifier.testTag("fork-dialog"),
+        modifier = Modifier.testTag("fork-dialog").semantics { testTagsAsResourceId = exposeTestTags },
         onDismissRequest = { if (state.busy) onCancel() else onClose() },
         title = { Text("New timeline / recovery", modifier = Modifier.semantics { heading() }) },
         text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState())
+                .testTag("fork-scroll"),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("A fork preserves the original timeline. Later choices are never automatically replayed.")
                 Text("Author corrections are unavailable. This does not grant abilities, knowledge or edit existing facts.",

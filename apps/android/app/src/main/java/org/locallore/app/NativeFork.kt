@@ -22,7 +22,13 @@ internal object NativeFork {
     external fun lookup(handle: Long, input: ByteArray): ByteArray
 }
 /** Root supplies its existing NativeWorkspaceTransport handle allocator; this class opens nothing. */
-internal class NativeForkGateway(private val workspaceHandle: suspend () -> Long) : BranchForkGateway {
+internal class NativeForkGateway(
+    private val workspaceHandle: suspend () -> Long,
+    private val mutationObserver: (() -> Unit)? = null,
+) : BranchForkGateway {
+    // Preserve existing NativeForkGateway { handle } callers: their trailing
+    // lambda still supplies the required workspace allocator, not the observer.
+    constructor(workspaceHandle: suspend () -> Long) : this(workspaceHandle, null)
     private data class Binding(val owner: Long, val operation: Long, val input: BranchForkInput)
     private val binding = AtomicReference<Binding?>()
     private val epoch = AtomicLong()
@@ -38,6 +44,7 @@ internal class NativeForkGateway(private val workspaceHandle: suspend () -> Long
             val request = JSONObject().put("version", 1).put("session", context.session)
                 .put("input", ForkNativeWire.input(input)).toString().toByteArray(Charsets.UTF_8)
             if (request.size > 4096) throw BranchForkFailure("TooLarge")
+            mutationObserver?.invoke() // Attempt at the JNI boundary, not successful mutation.
             val status = ForkNativeWire.status(NativeFork.register(owner, request, consent), input)
             val recorded = Binding(owner, status.operation, input)
             binding.set(recorded)
@@ -51,7 +58,11 @@ internal class NativeForkGateway(private val workspaceHandle: suspend () -> Long
     private suspend fun nativeOperation(id: Long, run: Boolean): BranchForkStatus = withContext(Dispatchers.IO) {
         val captured = binding.get()?.takeIf { it.operation == id } ?: throw BranchForkFailure("InvalidToken")
         if (closed.get()) throw BranchForkFailure("InvalidHandle")
-        ForkNativeWire.status(if (run) NativeFork.run(captured.owner, id) else NativeFork.status(captured.owner, id), captured.input)
+        val response = if (run) {
+            mutationObserver?.invoke() // Native rejection/cancellation still counts as an attempt.
+            NativeFork.run(captured.owner, id)
+        } else NativeFork.status(captured.owner, id)
+        ForkNativeWire.status(response, captured.input)
             .also { if (it.operation != id) throw BranchForkFailure("InvalidResponse") }
     }
     override suspend fun run(operation: Long) = nativeOperation(operation, true)

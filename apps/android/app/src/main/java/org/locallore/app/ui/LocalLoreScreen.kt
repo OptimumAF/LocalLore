@@ -215,7 +215,8 @@ fun LocalLoreScreen(
                                         Text("Choose timeline · ${state.timelines.size}")
                                     }
                                     DropdownMenu(expanded = timelinesExpanded && canSelect,
-                                        onDismissRequest = { timelinesExpanded = false }) {
+                                        onDismissRequest = { timelinesExpanded = false },
+                                        modifier = Modifier.semantics { testTagsAsResourceId = exposeTestTags }) {
                                         state.timelines.forEach { timeline ->
                                             DropdownMenuItem(text = { Text("${timeline.branch} · " +
                                                 (timeline.parentBranch?.let { "from $it at ${timeline.forkRevision}" } ?: "original") +

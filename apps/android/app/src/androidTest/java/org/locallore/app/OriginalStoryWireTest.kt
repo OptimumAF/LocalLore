@@ -147,5 +147,6 @@ class OriginalStoryWireTest {
                 assertEquals("narrative_v1",returned.rulesProfile)
             } finally { gateway.close() }
         }
+        OriginalPlayerTransportCases.verify()
     }
 }

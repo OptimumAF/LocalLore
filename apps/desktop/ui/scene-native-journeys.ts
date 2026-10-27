@@ -251,6 +251,43 @@ export async function sceneNativeJourneys({
                     ?.textContent?.includes(view.receipt.request.turn),
                 `${label}-same-displayed-receipt`,
             );
+        const originalRequest = (view.pending ?? view.uncertain)?.request;
+        if (originalRequest)
+            check(
+                panel!
+                    .querySelector(
+                        '[aria-label="Active original request scope"]',
+                    )
+                    ?.textContent?.includes(
+                        `${originalRequest.scope.story} / ${originalRequest.scope.branch}`,
+                    ),
+                `${label}-visible-original-request-scope`,
+            );
+        const receiptCapture = [
+            "scene-native-receipt",
+            "scene-native-recovered",
+        ].includes(label);
+        let contentTarget: HTMLElement | null = null;
+        if (receiptCapture) {
+            contentTarget = panel!.querySelector<HTMLElement>(
+                '[aria-label="Actual native receipt"]',
+            );
+            check(
+                contentTarget?.textContent?.includes(view.receipt!.narration),
+                `${label}-actual-receipt-content-capture-target`,
+            );
+        } else if (label === "scene-native-observer") {
+            contentTarget = panel!.querySelector<HTMLElement>(
+                '[aria-label="Read-only V2 inspector"] ol',
+            );
+            check(
+                contentTarget?.textContent?.includes(A) &&
+                    ![B, REASON].some((s) =>
+                        contentTarget!.textContent?.includes(s),
+                    ),
+                `${label}-actual-permitted-knowledge-capture-target`,
+            );
+        }
         const comparisonCapture = [
             "scene-native-receipt-diff",
             "scene-native-recorded-diff",
@@ -262,8 +299,20 @@ export async function sceneNativeJourneys({
                 `${label}-actual-mounted-clock-table-capture-target`,
             );
             clockComparisonTable!.scrollIntoView({ block: "center" });
-        } else panel!.scrollIntoView({ block: "start" });
+        } else if (contentTarget)
+            contentTarget.scrollIntoView({ block: "center" });
+        else panel!.scrollIntoView({ block: "start" });
         await pause();
+        if (contentTarget) {
+            const bounds = contentTarget.getBoundingClientRect();
+            const header = panel!
+                .querySelector("header")!
+                .getBoundingClientRect();
+            check(
+                bounds.top >= header.bottom && bounds.bottom <= innerHeight,
+                `${label}-actual-content-visible-below-scope-header`,
+            );
+        }
         check(
             document.documentElement.scrollWidth <= innerWidth + 2,
             `${label}-no-horizontal-overflow`,

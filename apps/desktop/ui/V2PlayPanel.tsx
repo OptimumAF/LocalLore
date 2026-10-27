@@ -446,6 +446,7 @@ export function V2PlayPanel({
               : words(c.observer.kind);
     const inspection = state.inspection;
     const displayedReceipt = state.receipt;
+    const originalRequest = (state.pending ?? state.uncertain)?.request;
     return (
         <section
             className="v2-play"
@@ -480,6 +481,12 @@ export function V2PlayPanel({
                           state.status?.phase ??
                           "idle")}
                 </p>
+                {originalRequest && (
+                    <p aria-label="Active original request scope">
+                        Original request: {scopeLabel(originalRequest.scope)} ·
+                        from r{originalRequest.expected_revision}
+                    </p>
+                )}
                 {state.error && <p role="alert">{state.error}</p>}
                 {inspection && (
                     <p aria-label="Displayed inspection context">
@@ -490,7 +497,13 @@ export function V2PlayPanel({
                     </p>
                 )}
             </header>
-            {state.notice && <p role="status">{state.notice}</p>}
+            {state.notice && (
+                <p role="status">
+                    {state.status && state.notice === state.status.phase
+                        ? `Last Rust acknowledgement: ${state.notice}`
+                        : state.notice}
+                </p>
+            )}
             <button
                 disabled={state.readBusy}
                 onClick={() => void controller.refresh()}

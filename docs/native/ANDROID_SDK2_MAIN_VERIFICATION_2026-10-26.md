@@ -87,7 +87,18 @@ RED are retained separately; concise full-host evidence uses its loader count,
 actual result summary and final runner frame, not a per-method transcript.
 Live preparation/guest data, models, images and databases are excluded.
 
-Native10, CHILD and retained-parent qualification for this827 map are pending.
+Current827 native10 actually passes three classes/ten methods:81 clean measured-v2
+clients,275410ms/worker0, known cleanup/capture and empty owner stderr. All
+client timestamps are strict measured values; maximum client10429ms and server
+observation3357ms retain their original budgets. These are cohort diagnostics,
+not a timeout-cause fix or a general speed claim. The current client count is
+observed, not a fabricated fixed84 requirement.
+
+Its bound owned stop returns0 and the emulator is actually terminal0. Guest
+owner reports `stop_requested`,388877ms/worker1, cleanup/capture/closure true and
+`guest_flush_claimed:false`. No same-installation continuation is used.
+
+CHILD and retained-parent qualification for this827 map remain pending.
 Each needs its own new standard2GiB/two-CPU API35/x86_64 guest. Existing current
 profile capacity checks apply before preparation and launch; no floor is bypassed.
 Finish all build/integration/preparation work before timed launch, dispatch

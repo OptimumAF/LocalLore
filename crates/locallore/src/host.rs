@@ -89,17 +89,29 @@ pub struct Envelope {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HostCommand {
     AuthoringCapabilities {},
-    AuthoringBegin { input: crate::story_authoring::InitialStoryInputV1 },
-    AuthoringGenerate { job: String },
+    AuthoringBegin {
+        input: crate::story_authoring::InitialStoryInputV1,
+    },
+    AuthoringGenerate {
+        job: String,
+    },
     AuthoringReview {
         job: String,
         input: crate::story_authoring::InitialStoryInputV1,
         proposal: crate::story_authoring::InitialWorldProposalV1,
         title: String,
     },
-    AuthoringCreate { job: String, review_sha256: String, creation_id: String },
-    AuthoringCancel { job: String },
-    AuthoringStatus { job: String },
+    AuthoringCreate {
+        job: String,
+        review_sha256: String,
+        creation_id: String,
+    },
+    AuthoringCancel {
+        job: String,
+    },
+    AuthoringStatus {
+        job: String,
+    },
     Capabilities {},
     Workspace {},
     Branches {
@@ -1384,7 +1396,9 @@ impl Host {
             | HostCommand::AuthoringReview { .. }
             | HostCommand::AuthoringCreate { .. }
             | HostCommand::AuthoringCancel { .. }
-            | HostCommand::AuthoringStatus { .. } => unreachable!("authoring handled before session dispatch"),
+            | HostCommand::AuthoringStatus { .. } => {
+                unreachable!("authoring handled before session dispatch")
+            }
             HostCommand::Workspace {} => {
                 ok(json!({"persistent":false,"location":null,"schema_version":null,"stories":[]}))
             }

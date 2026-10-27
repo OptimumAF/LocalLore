@@ -282,7 +282,10 @@ impl Persistence for Repository {
         if !locallore::story_setup::valid_creation_id(creation_id) {
             return Err("InvalidInput".into());
         }
-        let scope = Scope { story: format!("original-{creation_id}"), branch: "main".into() };
+        let scope = Scope {
+            story: format!("original-{creation_id}"),
+            branch: "main".into(),
+        };
         let seed = match self.store.load_seed(&scope) {
             Ok(seed) => seed,
             Err(StorageError::NotFound) => return Ok(None),

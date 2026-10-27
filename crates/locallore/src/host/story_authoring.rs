@@ -67,23 +67,55 @@ fn hash_shape(value: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
-fn attach_recovered(state: &mut State, captured: Engine, creation_id: &str, hash: &str) -> Result<Value, String> {
-    let scope = Scope { story: format!("original-{creation_id}"), branch: "main".into() };
-    if captured.scope() != &scope { return Err("Integrity".into()); }
+fn attach_recovered(
+    state: &mut State,
+    captured: Engine,
+    creation_id: &str,
+    hash: &str,
+) -> Result<Value, String> {
+    let scope = Scope {
+        story: format!("original-{creation_id}"),
+        branch: "main".into(),
+    };
+    if captured.scope() != &scope {
+        return Err("Integrity".into());
+    }
     // Recheck presence immediately before attachment; this path has NO insert capability.
-    let latest = state.persistence.as_mut().ok_or("Unsupported")?.resume(&scope)?;
+    let latest = state
+        .persistence
+        .as_mut()
+        .ok_or("Unsupported")?
+        .resume(&scope)?;
     if latest.seed() != captured.seed()
-        || latest.seed().initial_world.as_ref().map(core::origin_hash).transpose()?.as_deref() != Some(hash)
-    { return Err("Stale".into()); }
-    let existing = state.sessions.iter().find(|(_, s)| s.engine.scope() == &scope).map(|(id, _)| id.clone());
+        || latest
+            .seed()
+            .initial_world
+            .as_ref()
+            .map(core::origin_hash)
+            .transpose()?
+            .as_deref()
+            != Some(hash)
+    {
+        return Err("Stale".into());
+    }
+    let existing = state
+        .sessions
+        .iter()
+        .find(|(_, s)| s.engine.scope() == &scope)
+        .map(|(id, _)| id.clone());
     let mut reply = if let Some(id) = existing {
-        refresh_session(state, &id, &scope).map_err(|r| r["error"].as_str().unwrap_or("Internal").to_owned())?;
+        refresh_session(state, &id, &scope)
+            .map_err(|r| r["error"].as_str().unwrap_or("Internal").to_owned())?;
         ok(json!({"session":id,"scope":scope,"revision":state.sessions[&id].engine.revision()}))
     } else {
-        if state.sessions.len() >= MAX_SESSIONS { return Err("SessionLimit".into()); }
+        if state.sessions.len() >= MAX_SESSIONS {
+            return Err("SessionLimit".into());
+        }
         attach_engine(state, latest)
     };
-    if reply["status"] != "ok" { return Err(reply["error"].as_str().unwrap_or("Internal").to_owned()); }
+    if reply["status"] != "ok" {
+        return Err(reply["error"].as_str().unwrap_or("Internal").to_owned());
+    }
     reply["data"]["created"] = json!(false);
     Ok(reply)
 }
@@ -180,6 +212,7 @@ impl Host {
                     input: input.clone(),
                     proposal,
                     model_profile: local.profile.id.clone(),
+                    model_configuration: (&local.profile).into(),
                     provider: provider_kind(&local),
                     prompt_version: "initial-world-v1".into(),
                     schema_version: "initial-world-v1".into(),

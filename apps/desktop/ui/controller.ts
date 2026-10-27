@@ -1,7 +1,7 @@
 import { initialTrace, checkedTrace, attemptKey } from "./trace-model";
 import type { TraceQuery } from "./trace-model";
 import { initialQuery, checkedPage } from "./query-model";
-import { checkedPlaySnapshotV2 } from "./v2-view-model";
+import { checkedJsonV2, checkedPlaySnapshotV2 } from "./v2-view-model";
 import type { InspectionQuery, Source, Row } from "./query-model";
 import {
     category,
@@ -41,12 +41,16 @@ interface Operation {
     cancelled: boolean;
     promise: Promise<void>;
 }
+declare const __DEV_HARNESS__: boolean;
+const developmentSceneBuild =
+    typeof __DEV_HARNESS__ !== "undefined" && __DEV_HARNESS__;
 export class Controller {
     private state: State = {
         trace: initialTrace(),
         query: initialQuery(),
         labPending: false,
         model: null,
+        freeTextProvider: null,
         modelBusy: false,
         modelCancelReady: false,
         modelShown: false,
@@ -97,6 +101,7 @@ export class Controller {
     private modelOperation: { baseline: number; id: number | null } | null =
         null;
     private modelReadSequence = 0;
+    private providerReadSequence = 0;
     private listeners = new Set<() => void>();
     private drafts = new Map<string, string>();
     private epoch = 0;
@@ -117,7 +122,46 @@ export class Controller {
         private coordinatePrivateMetadata: (
             work: () => Promise<void>,
         ) => Promise<void> = (work) => work(),
+        private developmentScene = false,
     ) {}
+    private scenePermitted() {
+        return developmentSceneBuild && this.developmentScene;
+    }
+    private freeTextReady() {
+        return !!this.state.model?.loaded ||
+            (this.scenePermitted() && this.state.freeTextProvider !== null);
+    }
+    // Only the fixed development bootstrap reads this separate Host status.
+    // It grants no provider configuration, model ownership or story privilege.
+    async refreshFreeTextProvider() {
+        if (!this.scenePermitted() || this.state.disposed) return;
+        const sequence = ++this.providerReadSequence;
+        try {
+            const value = checkedJsonV2(
+                await this.gateway.call({ op: "model_status" }), 16_384,
+            );
+            if (!value || typeof value !== "object" || Array.isArray(value))
+                throw Error("Wire");
+            const dto = value as Record<string, unknown>;
+            const profile = dto.profile;
+            if (
+                Object.keys(dto).sort().join("\0") !==
+                    ["provider", "real_model", "loaded", "status", "profile"].sort().join("\0") ||
+                dto.provider !== "scene-native-fixture-v1" ||
+                dto.real_model !== false || dto.loaded !== false ||
+                dto.status !== "configured_fixture_owner" ||
+                !profile || typeof profile !== "object" || Array.isArray(profile) ||
+                !Object.hasOwn(profile, "id") ||
+                (profile as Record<string, unknown>).id !== dto.provider
+            ) throw Error("Wire");
+            if (this.state.disposed || sequence !== this.providerReadSequence) return;
+            this.patch({freeTextProvider:{provider:"scene-native-fixture-v1",kind:"synthetic_fixture"},visibleError:null});
+        } catch (error) {
+            if (this.state.disposed || sequence !== this.providerReadSequence) return;
+            this.patch({freeTextProvider:null});
+            this.fail(error);
+        }
+    }
     get = () => this.state;
     subscribe = (listener: () => void) => {
         this.listeners.add(listener);
@@ -706,7 +750,8 @@ export class Controller {
                         return;
                     if (
                         thin.domain_version === 2 ||
-                        thin.player.observer !== "player"
+                        thin.player.observer !== "player" ||
+                        this.scenePermitted()
                     ) {
                         this.clearQuery();
                         this.clearTrace();
@@ -1435,7 +1480,7 @@ export class Controller {
     }
     setPlayMode(playMode: State["playMode"]) {
         if (this.state.pending) return;
-        if (playMode === "local" && !this.state.model?.loaded) {
+        if (playMode === "local" && !this.freeTextReady()) {
             this.fail("ModelUnavailable");
             return;
         }
@@ -1649,7 +1694,7 @@ export class Controller {
             this.fail("SessionRequired");
             return Promise.resolve();
         }
-        if (this.state.playMode === "local" && !this.state.model?.loaded) {
+        if (this.state.playMode === "local" && !this.freeTextReady()) {
             this.fail("ModelUnavailable");
             return Promise.resolve();
         }
@@ -2079,6 +2124,8 @@ export class Controller {
     }
     async dispose() {
         if (this.state.disposed) return;
+        this.providerReadSequence++;
+        this.patch({freeTextProvider:null});
         await this.invalidate();
         const sessions = this.state.sessions;
         this.state = {

@@ -634,3 +634,134 @@ mod native_before_owner {
         // No runtime was created: this is reservation refusal, not measured drain.
     }
 }
+
+// ADDITIVE FIRST PRIVACY FREEZE, cf1e01dc: source-only UNCOMPILED/UNRUN.
+// These are explicitly mutated private retained diagnostics, NOT newly observed
+// provider outputs. Canonical Store receipts and actual narrator inputs stay
+// byte-identical; the narrow gate does not authenticate output origin/causality.
+// Existing producer oracles above are unchanged.
+const PRIVACY_VIOLATION: &str = "observer_or_output_privacy_violation";
+const PRIVACY_UNAVAILABLE: &str = "observer_or_output_privacy_evidence_unavailable";
+
+fn retained_privacy_diagnostic_copy(text: &str, failure: &str) -> (PathBuf, Value) {
+    let dir = copied(&templates().rollout, "privacy-retained-copy");
+    let db_path = database(&dir, "left", 0, false);
+    let db_before = fs::read(&db_path).unwrap();
+    let cp_path = checkpoint(&dir, "left", 0);
+    let mut cp = read(&cp_path);
+    let original_row = cp["row"].clone();
+    assert_eq!(original_row["passed"], true);
+    assert_eq!(original_row["failures"], json!([]));
+    assert_eq!(original_row["privacy_evidence_status"], "checked_finite_sentinels");
+    let recording_path = dir.join("left").join(cp["recording_file"].as_str().unwrap());
+    let original_recording_bytes = fs::read(&recording_path).unwrap();
+    assert_eq!(original_row["recording_sha256"], digest(&original_recording_bytes));
+    let mut recording = read(&recording_path);
+    assert_eq!(recording["forbidden_narrator_output"], false);
+    let narrator_index = recording["raw"].as_array().unwrap().iter()
+        .position(|raw| raw["role"] == "narrator").unwrap();
+    let raw = &recording["raw"][narrator_index];
+    let old_hash = raw["sha256"].as_str().unwrap().to_owned();
+    let old_size = raw["bytes"].as_u64().unwrap();
+    let raw_path = dir.join("left").join(raw["file"].as_str().unwrap());
+    assert!(raw_path.starts_with(&dir));
+    let replacement_hash = digest(text.as_bytes());
+    fs::write(&raw_path, text.as_bytes()).unwrap();
+
+    // RecordingFile is private. Preserve the actual struct-order serialization
+    // instead of hashing a sorted Value or inventing a public recording codec.
+    // The exact RawRef field order is the existing shared serializer's order.
+    let old_fragment = format!("\"sha256\":\"{old_hash}\",\"bytes\":{old_size},\"role\":\"narrator\"");
+    let new_fragment = format!("\"sha256\":\"{replacement_hash}\",\"bytes\":{},\"role\":\"narrator\"", text.len());
+    let original_text = String::from_utf8(original_recording_bytes).unwrap();
+    assert_eq!(original_text.matches(&old_fragment).count(), 1,
+        "source/API serialization calibration, not a privacy outcome");
+    let updated_recording_bytes = original_text.replacen(&old_fragment, &new_fragment, 1).into_bytes();
+    fs::write(&recording_path, &updated_recording_bytes).unwrap();
+    recording["raw"][narrator_index]["sha256"] = json!(replacement_hash);
+    recording["raw"][narrator_index]["bytes"] = json!(text.len());
+    assert_eq!(serde_json::from_slice::<Value>(&updated_recording_bytes).unwrap(), recording);
+    // Keep the original false recorder flag even for a sentinel. The actual
+    // retained bytes must determine the finite observation; a flag is no proof.
+    assert_eq!(recording["forbidden_narrator_output"], false);
+
+    let capture_path = dir.join("left").join(cp["capture_file"].as_str().unwrap());
+    let mut capture = read(&capture_path);
+    let outputs: Vec<_> = capture["data"]["details"]["artifacts"].as_array_mut().unwrap()
+        .iter_mut().filter(|a| a["kind"] == "raw_narrator_output").collect();
+    assert_eq!(outputs.len(), 1);
+    for output in outputs {
+        output["value"] = json!({"encoding":"utf8","bytes":text.len(),
+            "sha256":replacement_hash,"text":text});
+    }
+    save(&capture_path, &capture);
+    cp["row"]["recording_sha256"] = json!(digest(&updated_recording_bytes));
+    cp["row"]["capture_sha256"] = json!(digest(&serde_json::to_vec(&capture).unwrap()));
+    cp["row"]["raw_sha256"] = json!(recording["raw"].as_array().unwrap()
+        .iter().map(|raw| raw["sha256"].clone()).collect::<Vec<_>>());
+    cp["row"]["passed"] = json!(false);
+    cp["row"]["privacy_evidence_status"] = json!("unavailable");
+    cp["row"]["failures"] = json!([failure]);
+    save(&cp_path, &cp);
+    reseal_scene(&dir, 0);
+    assert_eq!(fs::read(db_path).unwrap(), db_before);
+    (dir, original_row)
+}
+
+fn assert_retained_privacy_failure(dir: &Path, original: &Value, expected: &str) -> Value {
+    let files_before = inventory(dir);
+    let report = serde_json::to_value(scene_v4::inspect_comparison(dir)
+        .expect("self-consistent diagnostic must yield a failed privacy report, not a success or an unrelated hash error")).unwrap();
+    let r = row(&report, "courier-01", "left");
+    assert_eq!(r["phase"], "committed");
+    assert_eq!(r["passed"], false);
+    assert_eq!(r["privacy_evidence_status"], "unavailable");
+    assert_eq!(r["failures"], json!([expected]));
+    assert_eq!(r["construction_evidence_status"], "validated_committed_scene_narrator_v1");
+    // The source gate still checks actual prompt/schema/native receipt. It
+    // does not certify that these mutated output bytes caused that receipt.
+    for key in ["narrator_prompt_sha256", "narrator_schema_sha256", "scene_frame_sha256",
+        "actual_receipt_sha256", "narration", "fallback", "repairs"] {
+        assert_eq!(r[key], original[key]);
+    }
+    assert_eq!(report["source_bound_committed_rows"], 42);
+    assert_eq!(report["human_reviewed"], 0);
+    assert_eq!(report["quality_accepted"], false);
+    assert_eq!(inventory(dir), files_before);
+    report
+}
+
+#[test]
+fn retained_empty_narrator_is_unavailable_and_observed_sentinel_is_a_distinct_violation() {
+    let (empty, original_empty) = retained_privacy_diagnostic_copy("", PRIVACY_UNAVAILABLE);
+    let empty_report = assert_retained_privacy_failure(&empty, &original_empty, PRIVACY_UNAVAILABLE);
+    let sentinel = "SYNTHETIC_FORBIDDEN_NARRATOR SECRET-TIDE-731";
+    let (leak, original_leak) = retained_privacy_diagnostic_copy(sentinel, PRIVACY_VIOLATION);
+    let leak_report = assert_retained_privacy_failure(&leak, &original_leak, PRIVACY_VIOLATION);
+    let empty_row = row(&empty_report, "courier-01", "left");
+    let leak_row = row(&leak_report, "courier-01", "left");
+    assert_ne!(empty_row["failures"], leak_row["failures"]);
+    assert!(!empty_row["failures"].as_array().unwrap().contains(&json!(PRIVACY_VIOLATION)));
+    assert!(!leak_row["failures"].as_array().unwrap().contains(&json!(PRIVACY_UNAVAILABLE)));
+}
+
+#[test]
+fn missing_unreadable_and_hash_invalid_narrator_raw_refuse_inspection_without_privacy_pass() {
+    for fault in ["missing", "directory", "hash-invalid"] {
+        let dir = copied(&templates().rollout, "privacy-unreadable-copy");
+        let cp = read(&checkpoint(&dir, "left", 0));
+        let recording = read(&dir.join("left").join(cp["recording_file"].as_str().unwrap()));
+        let raw = recording["raw"].as_array().unwrap().iter().find(|raw| raw["role"] == "narrator").unwrap();
+        let path = dir.join("left").join(raw["file"].as_str().unwrap());
+        assert!(path.starts_with(&dir));
+        if fault == "hash-invalid" {
+            fs::write(&path, b"SYNTHETIC_CHANGED_BYTES_WITHOUT_REHASH").unwrap();
+        } else {
+            fs::remove_file(&path).unwrap();
+            if fault == "directory" { fs::create_dir(&path).unwrap(); }
+        }
+        // Shared load_evidence/validate_recording refuses these before row
+        // reconstruction. Do not invent a tolerant reader or fake failure row.
+        inspect_refusal_unchanged(&dir);
+    }
+}

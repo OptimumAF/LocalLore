@@ -545,3 +545,72 @@ implementation change. Original `cf1` remains UNCOMPILED/UNRUN; source review of
 these prerequisites is not an executed behavioral RED. Root still owns first
 compile, calibration and all verification. Author checks remain source/Git and
 `git diff --check` only.
+
+## Additive first privacy-observation oracles
+
+The independent source-only privacy freeze starts at production `cf1e01dc`.
+It appends exactly two test functions to `scene_comparison_v4.rs`; the original
+13 default and two feature-gated before-owner cases and every existing assertion
+remain unchanged. No production, private hook, canonical receipt, Store SQL,
+provider or runtime change is included. At first handoff these additive cases
+are UNCOMPILED/UNRUN. The existing forwarded-budget Option/u16 incompatibility
+and shared setup writer's version4 refusal are independent prerequisites; their
+presence is not an executed privacy RED.
+
+Keep the closed public `PrivacyEvidenceStatusV4` enum unchanged. A raw narrator
+check that does not pass still reports `Unavailable`. Its row `failures` must
+distinguish these exact finite reasons:
+
+- `observer_or_output_privacy_violation`: an actually inspected retained prompt,
+  output or receipt contains a prohibited fixed sentinel, or the retained
+  recorder reports the corresponding violation.
+- `observer_or_output_privacy_evidence_unavailable`: the finite check cannot be
+  established, including an empty retained narrator output. Absence of content
+  is not a completed finite output check and is not an observed sentinel leak.
+
+These are bounded failure tags, not new prose semantics, a general classifier or
+a claim of output authenticity. An observed fixed sentinel must not be relabeled
+only as missing evidence. Existing aggregate availability notes may remain;
+the public row must expose the distinct cause. No invented quality threshold or
+human acceptance follows from either category.
+
+The first new test copies a genuine completed scripted Host/Store fixture twice.
+It replaces the actual private narrator file with empty bytes in one copy and a
+synthetic prohibited sentinel in the other. These are explicitly test-mutated
+retained diagnostics, not fresh actual provider samples. It updates only the
+matching raw-reference byte count/hash, raw-output capture diagnostic, derived
+checkpoint hashes/failed privacy fields and scene seal. The sentinel copy keeps
+the original false recorder flag deliberately: inspected raw bytes must expose
+the finite observation even when an untrusted diagnostic flag disagrees.
+
+The canonical database, actual receipt, proposal, approved plan and forwarded
+narrator prompt/schema remain unchanged. The source-bound Narrator gate still
+checks those original values and cannot certify that the altered output caused
+the receipt. Both copies must therefore yield a strictly reconstructed **failed
+privacy report**, retaining validated narrator-input provenance and distinct
+failure tags. They must not yield privacy success or fail only because the test
+computed an unrelated serialization hash incorrectly.
+
+RecordingFile is private and its existing digest uses struct-order compact JSON,
+not a generic Value's sorted-key encoding. The helper asserts that the original
+recording file bytes match the original row digest, then preserves those bytes'
+order while replacing one uniquely identified narrator raw-reference hash/count
+fragment. It checks the resulting parsed Value and hashes the actual modified
+file. This is diagnostic fixture calibration, not a public recording constructor,
+new hash authority or alternate codec for canonical state.
+
+The second new test uses separate private copies for a missing narrator file,
+an unreadable file slot occupied by a directory, and bytes inconsistent with the
+declared raw length/hash. Existing shared load_evidence/validate_recording rejects
+these before row reconstruction. Preserve that strict public Result refusal;
+do not add a tolerant reader, fabricate a row or promote corrupt evidence into
+finite privacy success merely to display a tag. Thus empty-but-self-consistent
+evidence has a public unavailable row cause, while malformed/missing required
+files keep their existing inspection failure boundary.
+
+Only source review, append-only diff/whitespace and commit/hash inspection are
+performed by this author. No test/compiler/formatter/Cargo/Node/native/model,
+application/render/device/desktop or protected-resource execution is claimed.
+Root owns prerequisite fixes, meaningful first execution, privacy changes and
+unchanged-oracle reruns. Original failures and the original human eight-sample
+needs-improvement assessment remain unchanged.

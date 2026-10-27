@@ -103,7 +103,10 @@ class OriginalStoryMainActivityTest {
             val session=data(JSONObject().put("op","resume").put("scope",scope)).getString("session")
             val result=data(JSONObject().put("op","play_snapshot").put("session",session).put("scope",scope).put("expected_revision",story.revision))
             assertEquals(setOf("scope","revision","rules","player","inventory","receipts"),result.keys().asSequence().toSet())
-            assertEquals(scope.toString(),result.getJSONObject("scope").toString()); assertEquals(story.revision,result.getLong("revision"))
+            val actualScope=result.getJSONObject("scope")
+            assertEquals(setOf("story","branch"),actualScope.keys().asSequence().toSet())
+            assertEquals(story.story,actualScope.getString("story")); assertEquals(story.branch,actualScope.getString("branch"))
+            assertEquals(story.revision,result.getLong("revision"))
             assertEquals("SYNTHETIC Iris",result.getJSONObject("player").getJSONObject("self_state").getString("name"))
             result
         } finally { NativeWorkspace.close(handle) }

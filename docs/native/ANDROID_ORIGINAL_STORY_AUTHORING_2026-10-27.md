@@ -110,6 +110,18 @@ Wire method gains deferred same-object/same-session reattachment and overlapping
 conflicting-observer cases; the8-method roster and15-second UI wait are unchanged.
 A fresh full build/host and native/original emulator cohort must verify this fix.
 
+The `b9bfaee5` correction compiles and passes976 Rust/11 ignored,1,716 Python,
+308 app JVM and572 LiteRT JVM cases, formatting/lints/audits, and fresh native10.
+Original-story8 again records wire3/dialog2 passed and MainActivity3 failed,
+this time solely in the test helper comparing JSON object serialization order:
+expected `{story,branch}` and native `{branch,story}` contain the same values.
+All3 get past the earlier Create/startup failure. The test now requires exactly
+the2 scope keys and compares story/branch values individually; no scope,
+revision, player or other gameplay assertion is removed. The failed cohort is
+retained. Both exact guests close with known client capture; the independent
+resource postflight again leaves the existing server unchanged. A final fresh
+cohort is pending for this test-only correction; no8-case pass is inferred.
+
 Review identifies a real recovery design race: looking up a completed authored
 seed and then calling insert-or-retry could resurrect it after another Store
 deleted it. Recovery is changed to read-only Engine load/presence/full-seed

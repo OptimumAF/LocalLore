@@ -126,6 +126,16 @@ def qualified_gate(path, build_path):
     return request
 
 
+def _qualified_current_gate(path, build_path):
+    """Keep historical readback separate from mandatory current timing."""
+    request = qualified_gate(path, build_path)
+    path = Path(path)
+    value = environment.read_json(path)
+    components = driver.bound_json(value["components"], path.parent / "components-v1.json")
+    driver.require_current_clients(path.parent, components["clients"])
+    return request
+
+
 class Session:
     def __init__(self, request, out):
         self.request = request
@@ -381,7 +391,7 @@ def claim_value(request):
 def worker(request, out):
     admit(request)
     artifacts = driver.qualified_build(request["build"])
-    gate = qualified_gate(request["gate"], request["build"])
+    gate = _qualified_current_gate(request["gate"], request["build"])
     reuse = reuse_installation(request, gate)
     live = environment.open_live_owner(request["proposal"], request["running"], environment.digest(request["running"]))
     claim = environment.safe_path(Path(live.descriptor["root"]) / CLAIM, exists=False)
@@ -536,6 +546,7 @@ def validate_execution(request, out):
 def validate_current_execution(request, out):
     """Deep original readback plus the fixed current controller-result requirement."""
     record = validate_execution(request, out)
+    _qualified_current_gate(request["gate"], request["build"])
     proof = driver.bound_json(record["proof"], Path(out) / "proof-v1.json")
     _require_current_proof(proof)
     driver.require_current_clients(out, record["clients"])

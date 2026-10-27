@@ -1029,7 +1029,8 @@ mod win {
 
     fn canary() -> Result<()> {
         let mut bytes = vec![];
-        io(std::io::stdin().take(4097).read_to_end(&mut bytes))?;
+        io(std::io::stdin().take(4097).read_to_end(&mut bytes))
+            .map_err(|e| format!("CanaryStdin:{e}"))?;
         if bytes.len() > 4096 {
             return fail("CanaryInputBudget");
         }
@@ -1057,20 +1058,27 @@ mod win {
         let profile = wide(format!("locallore.offline.{id}"));
         let sid = Sid(api(unsafe {
             DeriveAppContainerSidFromAppContainerName(PCWSTR(profile.as_ptr()))
-        })?);
-        let fixture = fixture_from_self(&io(std::env::current_exe())?, id)?;
+        })
+        .map_err(|e| format!("CanarySid:{e}"))?);
+        let fixture = fixture_from_self(
+            &io(std::env::current_exe()).map_err(|e| format!("CanarySelfImage:{e}"))?,
+            id,
+        )?;
         // Parent checked every ancestor before creation/launch. The restricted
         // child only needs access to its own new fixture, not ancestor listing.
-        let metadata = io(fs::symlink_metadata(&fixture))?;
+        let metadata =
+            io(fs::symlink_metadata(&fixture)).map_err(|e| format!("CanaryFixtureMetadata:{e}"))?;
         if !metadata.is_dir() || metadata.file_attributes() & 0x400 != 0 {
             return fail("ReparseFixturePath");
         }
-        if read_small(&fixture.join("challenge.txt"))?
+        if read_small(&fixture.join("challenge.txt"))
+            .map_err(|e| format!("CanaryMarkerRead:{e}"))?
             != challenge_marker(id, &sid_text(sid.0)?, challenge)?
         {
             return fail("CanaryFixtureBinding");
         }
-        let token = token_observation(unsafe { GetCurrentProcess() })?;
+        let token = token_observation(unsafe { GetCurrentProcess() })
+            .map_err(|e| format!("CanaryToken:{e}"))?;
         if token["is_appcontainer"] != (label == "boxed")
             || token["capability_count"] != 0
             || (label == "boxed" && token["package_sid"] != sid_text(sid.0)?)
@@ -1079,9 +1087,10 @@ mod win {
         }
         let marker = format!("{challenge}{}", if label == "baseline" { "B" } else { "X" });
         let file = fixture.join(format!("{label}.txt"));
-        write_new(&file, marker.as_bytes())?;
-        let file_ok = read_small(&file)? == marker.as_bytes();
-        let host_ip = own_address()?;
+        write_new(&file, marker.as_bytes()).map_err(|e| format!("CanaryFileCreate:{e}"))?;
+        let file_ok =
+            read_small(&file).map_err(|e| format!("CanaryFileRead:{e}"))? == marker.as_bytes();
+        let host_ip = own_address().map_err(|e| format!("CanaryAdapters:{e}"))?;
         let address = |key: &str| -> Result<SocketAddr> {
             let addr: SocketAddrV4 = request[key]
                 .as_str()

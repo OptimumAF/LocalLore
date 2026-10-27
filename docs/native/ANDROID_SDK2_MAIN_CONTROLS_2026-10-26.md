@@ -61,6 +61,22 @@ records `stop_requested`,785171ms/worker1, cleanup/capture/closure true and no
 guest-flush claim. Root82/retired139 qualification remains pending; each uses
 a separate fresh guest. Broad success does not substitute for their controls.
 
+On continuation, preparation handle76943 is missing according to the tool's
+actual `Unknown process id` response. Its root proposal and authorization exist,
+but neither the proposed guest target nor an admission/completion receipt exists.
+The attempt is interrupted and unqualified; no preparation outcome, cleanup or
+root test result is reconstructed. Retired preparation was never dispatched.
+
+A separate, create-only interruption observation then checks exactly the two
+original native identities and attempts one observation of the pinned server:
+neither original process identity is present, and server observation refuses.
+It makes zero device calls. These are changed-environment observations, not proof
+of their cause or actions by this chat. No processes are stopped or relaunched.
+Root82 and retired139 now require fresh environment admission with current pins;
+the old pins cannot qualify new execution. The three-closure final-postflight
+helper remains unexecuted because its required root/retired closures do not exist.
+This interruption observation is explicitly not that final postflight.
+
 The actual broad entry point uses the same immutable build:
 
 ```powershell

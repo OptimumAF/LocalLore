@@ -39,16 +39,7 @@ fn inventory(root: &Path) -> Inventory {
             }
         } else {
             assert!(metadata.is_file() && metadata.len() <= 16 * 1024 * 1024);
-            // A live retained reader owns Windows' mandatory advisory lock.
-            // Its zero-length lock file has no evidence payload to read; still
-            // require its exact name, ordinary-file metadata and empty length.
-            // Every other fixture file remains byte-for-byte inventoried.
-            let bytes = if path.file_name() == Some(std::ffi::OsStr::new("run.lock")) {
-                assert_eq!(metadata.len(), 0);
-                Vec::new()
-            } else {
-                fs::read(path).unwrap()
-            };
+            let bytes = fs::read(path).unwrap();
             *total = total.checked_add(bytes.len()).unwrap();
             assert!(*total <= 128 * 1024 * 1024);
             out.insert(relative, Some(bytes));
@@ -533,12 +524,16 @@ fn actual_denied_native4_managed_reader_is_empty_read_only_and_cannot_reconstruc
 
 #[test]
 fn separate_actual_scripted_scene_source_is_raw_readable_but_both_selected_lanes_refuse_before_consent() {
+    // Each prepare transfers its opaque reader capability. Use a fresh actual
+    // fixture/reader per lane, and compare full file bytes only while unlocked.
+    for lane in [SelectedInputLane::ScriptedBaseline, SelectedInputLane::ApprovedNative] {
     let f = Fixture::new();
     let path = f.root.join("actual-scripted-scene");
     let report = scene_v4::run_comparison(&path, false, core::ComparisonKind::ContinuousRollout,
         &Cancellation::default(), 1, LaneFactory::ScriptedBaseline, None).unwrap();
     assert_eq!((report.completed_scenes, report.turns.len()), (1, 12));
     let source_before = inventory(&path);
+    let before = inventory(&f.root);
     let reader = uuid().unwrap();
     let selected = path.clone();
     f.manager.comparison_pick(&f.lease, f.epoch, true, &reader, move || Ok(Some(selected))).unwrap();
@@ -548,9 +543,7 @@ fn separate_actual_scripted_scene_source_is_raw_readable_but_both_selected_lanes
     assert_eq!(summary["snapshot"]["protocol_version"], 4);
     assert_eq!(summary["snapshot"]["report"], serde_json::to_value(&report).unwrap());
     assert_eq!(summary["snapshot"]["unavailable"], json!(["selected_protocol4_rerun_not_implemented"]));
-    for lane in [SelectedInputLane::ScriptedBaseline, SelectedInputLane::ApprovedNative] {
         let client = uuid().unwrap();
-        let before = inventory(&f.root);
         f.manager.selected_prepare(&f.lease, &f.models, f.epoch, true, SelectedPrepareInput {
             client_id: client.clone(), reader_client_id: reader.clone(), run_token: token(&ready).into(),
             binding: ready["binding"].as_str().unwrap().into(), turn_id: "courier-01".into(), arm: Arm::Left, lane,
@@ -563,7 +556,7 @@ fn separate_actual_scripted_scene_source_is_raw_readable_but_both_selected_lanes
         assert!(!f.manager.selected_root().exists());
         assert_eq!(inventory(&f.root), before);
         assert_eq!(f.sequence(), 0);
-    }
     f.manager.comparison_close(&f.lease, f.epoch, &reader, Some(token(&ready))).unwrap();
     assert_eq!(inventory(&path), source_before);
+    }
 }

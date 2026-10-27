@@ -186,14 +186,54 @@ synthetic native workspace. It adds no arbitrary query/file/shell/code execution
 provider or general debugging server. Inspect every resulting image and semantic
 record; a successful launcher alone is not visual review.
 
-## Remaining verification and scope
+## Final regression and normal restoration
 
-At this focused documentation checkpoint, Root's broad shared/native/Android
-host regression sequence is still running. Its partial output is not a completed
-suite. Final full-suite totals, Android dependency graph, format checks, normal
-frontend/native restoration and final PR-head checks must be recorded separately
-when terminal. The normal frontend hook exclusion above does not replace that
-remaining default native build. No new Android device/JVM/Gradle/ABI cohort ran.
+The complete frozen-source sequence at clean unchanged `a1b4838f` is terminal:
+
+| Exact coverage                                                                                                                                                                | Result                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cargo test -p locallore -p locallore-storage -p locallore-workspace --all-features --locked --offline --jobs 1 --target-dir <owned target>`                                  | 796 passed/0 failed/11 ignored,113 result summaries including doctests;444.229s command.                                                                          |
+| Full native `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked --offline --jobs 1 --target-dir <owned target> -- --test-threads=1` | 246 passed/0 failed/9 ignored,883.08s tests; separate harness-contract2 passed/0.01s;912.520s command.                                                            |
+| `cargo test -p locallore-android --locked --offline --jobs 1 --target-dir <owned target>`                                                                                     | 90 passed/0 failed/0 ignored across18 summaries, including20 library unit tests and70 integration/host-oracle cases;29.563s command. Windows host execution only. |
+
+Shared ignores retain their existing historical-capture/explicit-budget/helper/
+privilege/superseded reasons. Native ignores are eight installed-asset opt-ins
+and a Windows symlink-privilege case. None is counted as a pass. No Android
+device, JVM, Gradle or ABI execution is inferred from the Rust host tests.
+
+The final UI-only correction makes bounded scrollable JSON panes DOM tab stops
+and records their actual native DOM structure. It changes no Rust/native IPC,
+provider or lock source from the full-suite source above. At clean unchanged
+`e948a3ff3c9dbcde512a8583474492df69f9e64f`, full frontend verification passed
+again in17.642s, and a fresh actual native initial/restart cohort passed
+**165 distinct assertions/16 renders** (169 initial and55 restart cumulative
+labels). Initial4.248s/restart1.421s; both exit0 with no timeout, truncation or
+unexpected errors. Namespace `memory-native-7b1f49a0-1277-41c5-bbb7-442b99163d53`.
+All sixteen final PNGs were individually viewed with no observed captured
+layout defect. DOM tab-stop checks are not injected keyboard events or actual
+screen-reader/keyboard traversal qualification.
+
+| Final measured artifact                | SHA256                                                             |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| Final cohort summary                   | `5cb8f628ba43c06943ae78c11cf2444a089eee6d4caeb1cfe57562d481966da7` |
+| Final individual image-review manifest | `9a9253cdcf3867908ad2baa474501cce1eea0cdd3fe2e996d8b5409d552a2c50` |
+| Preserved final GUI executable         | `c0b49d3c1e96a4d82af829473fd6ee5d02040e1f39cfc5a3f28a8913de33bdc8` |
+| Final harness frontend                 | `69a76b47d84b003bd4670b6b7e495d69c07e02b13111240df75c79ee3da21d85` |
+
+At the same clean unchanged final code source, declared repository Prettier
+`format:check` globs and Rust `cargo fmt --all -- --check` pass. Android's locked
+normal/build/dev dependency tree has zero local-runtime/eval/llama/LiteRT/Tauri/
+WebView/Wry matches. After preserving the tested GUI executable, normal
+`node build.mjs` and default native `cargo build --manifest-path
+src-tauri/Cargo.toml --locked --offline --jobs 1 --target-dir <owned target>`
+pass (16.94s native compiler/17.438s combined command). The default executable
+is **unlaunched**, not another native UI smoke test. Normal frontend SHA256
+`8cf756f83a8c5ef9060ce43b172301e679a0fa445868250ebcb25beec764f0b6`;
+normal native SHA256
+`2367b02a8891d2be6f9a33808ceded558b1b20757f75411daae6d26abe872fc3`.
+These hashes identify products, not a two-path reproducibility result.
+
+## Remaining scope
 
 The actual UI cohort does not qualify same-head cache replacement, pagination,
 other raw-fallback reasons, Domain 2 rendering, explicit Clear/window-close during

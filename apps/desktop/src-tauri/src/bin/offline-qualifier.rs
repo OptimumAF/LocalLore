@@ -1522,8 +1522,15 @@ mod win {
                 "over_budget":false,"matches_expected":false});
             let name = wide(path);
             let handle = match unsafe {
-                CreateFileW(PCWSTR(name.as_ptr()), 0x8000_0000, FILE_SHARE_READ, None,
-                    OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, None)
+                CreateFileW(
+                    PCWSTR(name.as_ptr()),
+                    0x8000_0000,
+                    FILE_SHARE_READ,
+                    None,
+                    OPEN_EXISTING,
+                    FILE_FLAG_OPEN_REPARSE_POINT,
+                    None,
+                )
             } {
                 Ok(handle) => Handle(handle),
                 Err(error) => {
@@ -1543,16 +1550,20 @@ mod win {
             row["read_bytes"] = json!(bytes.len());
             row["read_sha256"] = json!(format!("{:x}", Sha256::digest(&bytes)));
             row["over_budget"] = json!(bytes.len() > CAP);
-            row["matches_expected"] = json!(result.is_ok() && bytes.len() <= CAP && bytes == expected);
+            row["matches_expected"] =
+                json!(result.is_ok() && bytes.len() <= CAP && bytes == expected);
             if let Err(error) = result {
-                row["read_error"] = json!({"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())});
+                row["read_error"] =
+                    json!({"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())});
             }
             row
         }
         fn bounded_diagnostic_path(path: &Path) -> Value {
             let display = path.to_string_lossy();
             let mut end = display.len().min(384);
-            while !display.is_char_boundary(end) { end -= 1; }
+            while !display.is_char_boundary(end) {
+                end -= 1;
+            }
             json!({"display":&display[..end],"display_truncated":end < display.len(),
                 "display_utf8_bytes":display.len(),"display_sha256":format!("{:x}",Sha256::digest(display.as_bytes())),
                 "utf16_units":path.as_os_str().encode_wide().count()})
@@ -1561,8 +1572,10 @@ mod win {
             let cwd = std::env::current_dir().map(|path| bounded_diagnostic_path(&path))
                 .unwrap_or_else(|error| json!({"error":{"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())}}));
             let metadata = match fs::symlink_metadata(marker) {
-                Ok(metadata) => json!({"attributes":metadata.file_attributes(),"size":metadata.file_size(),
-                    "is_symlink":metadata.file_type().is_symlink(),"error":null}),
+                Ok(metadata) => {
+                    json!({"attributes":metadata.file_attributes(),"size":metadata.file_size(),
+                    "is_symlink":metadata.file_type().is_symlink(),"error":null})
+                }
                 Err(error) => json!({"attributes":null,"size":null,"is_symlink":null,
                     "error":{"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())}}),
             };
@@ -1572,7 +1585,9 @@ mod win {
         }
         fn thread_token_observation() -> Value {
             let mut raw = HANDLE::default();
-            if let Err(error) = unsafe { OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, true, &mut raw) } {
+            if let Err(error) =
+                unsafe { OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, true, &mut raw) }
+            {
                 let error = win32_api_error(error);
                 return json!({"status":if error["win32_error"] == 1008 {"absent"} else {"unknown"},
                     "open_as_self":true,"open_error":error,"diagnostic":null});
@@ -1580,7 +1595,11 @@ mod win {
             let token = Handle(raw);
             let diagnostic: Result<Value> = (|| {
                 let user = token_buffer(token.0, TokenUser, size_of::<TOKEN_USER>())?;
-                let integrity = token_buffer(token.0, TokenIntegrityLevel, size_of::<TOKEN_MANDATORY_LABEL>())?;
+                let integrity = token_buffer(
+                    token.0,
+                    TokenIntegrityLevel,
+                    size_of::<TOKEN_MANDATORY_LABEL>(),
+                )?;
                 let restricted = token_buffer(token.0, TokenRestrictedSids, size_of::<u32>())?;
                 Ok(json!({
                     "user_sid":sid_text(unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid })?,
@@ -1589,7 +1608,9 @@ mod win {
                 }))
             })();
             match diagnostic {
-                Ok(diagnostic) => json!({"status":"present","open_as_self":true,"open_error":null,"diagnostic":diagnostic}),
+                Ok(diagnostic) => {
+                    json!({"status":"present","open_as_self":true,"open_error":null,"diagnostic":diagnostic})
+                }
                 Err(error) => json!({"status":"unknown","open_as_self":true,"open_error":null,
                     "token_opened":true,"diagnostic_error":error,"diagnostic":null}),
             }

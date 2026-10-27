@@ -220,6 +220,64 @@ with the existing server unchanged and0 device calls/server lifecycle actions.
 The fresh protected-process inventory contains0 identities; this is an
 observation, not a claim that another chat's emulator was stopped.
 
+## Subsequent current-source creation and broad regression
+
+The unchanged877-input build is subsequently admitted again with a fresh
+read-only server/protected-process observation,18 host/build gates, the
+separate Android Rust result and the complete native10 prerequisite. Native
+prerequisite clients are rechecked against the pinned service, including every
+adjacent observer bracket. No host test is relabeled as rerun. Two new owned
+API35/x86_64 guests retain the existing resource floors and all runtime caps.
+
+Creation passes19 methods/four classes in315446ms, with100 complete measured
+SDK2 pairs. Its roster is8 wire,5 dialog,4 draft-fence and2 MainActivity tests.
+Broad regression passes89 methods/18 classes in624994ms, with183 SDK2 pairs.
+Both owners return0 with known cleanup/capture and0 stderr. Independent
+file-only audits verify complete start/pass/runner records, exact source
+rosters, every raw/client pair, matching service observers/brackets, all877
+source bindings, the three installed APK hashes and the request/owner inputs.
+
+The actual Main creation journeys use default `create_presented` (default
+player name, plain tone, empty phrase exclusions). The legacy wire cases test
+closed `create_named` encoding, without executing that native API. Broad
+coverage spans navigation, drafts/recreation, schema/catalog admission,
+cancellation, native persistence/transport ownership and fork wiring. These
+phases do not substitute for custom settings, original-world author generation,
+LiteRT cleanup, physical-device execution or external OS process death.
+
+Both exact owned guests stop only after known phase/client closure. Their
+original tool handles terminate0; guest receipts record373443/701882ms,
+`stop_requested`, expected inner worker1, known cleanup/capture/closure and no
+flush claim. Seven metadata files per guest are copied to C: with0 mismatches.
+The independent closing audit verifies those copies and all nine final
+postflight bindings. One final read-only observation finds the existing server
+unchanged, with0 new SDK device calls/server lifecycle actions. The newly
+captured protected inventory contains0 identities; no unrelated stop is inferred.
+
+### Discovered real-compiler prerequisite
+
+A separate actual native probe finds that the original bundled author schema
+compile-refuses under pinned LLGuidance1.3.0:334ms/return2/`case_compile`, known
+cleanup and0 stderr, while all five native controls pass. Both `known_by`
+arrays contain the unsupported `uniqueItems` predicate. Scripted authoring8
+never established this compiler/model compatibility. The old C: developer
+runtime is absent at its inspected paths; the exact existing MIT-licensed code
+wheel is restored after official metadata/hash/license checks, without a new
+version, app dependency, global install or model download.
+
+[Draft portability PR #231](https://github.com/OptimumAF/LocalLore/pull/231)
+separately replaces those predicates with all64/65 ordered unique array choices.
+Its native cross-field rules and author budgets remain unchanged. Executable
+`aa535d94` passes21 focused Rust tests; its exact production schema also passes
+the actual native compiler/byte-mask oracle across162 samples and five controls
+in598ms/return0/known cleanup/0 stderr. These are separate879-input results,
+not a modification or requalification of this877-input Android build. Corrected
+Android embedding and actual SDK/model author generation remain required.
+The actual failed compiler evidence is independently archived with0 missing/
+mismatches, including its fixed source and pinned code wheel. See the
+[portability report](https://github.com/OptimumAF/LocalLore/blob/d09092b5/docs/native/AUTHOR_SCHEMA_PORTABILITY_2026-10-27.md)
+for exact commands, source hashes, preserved test-oracle failure and limits.
+
 Private recovery archives preserve earlier failures separately from success:
 
 | Selection | Original files / indexed controls | ZIP SHA-256 | Independent replay |
@@ -256,8 +314,10 @@ metadata commit is separate from that source checkpoint.
 Android's8 fixed original-story methods and the native10 prerequisite now
 qualify this bounded scripted API35/x86_64 slice. Full task checkboxes remain
 unchecked pending broader criteria and owner acceptance. Current-source legacy
-creation19/broad89 regression is the next runnable supporting verification;
-older-source results are not promoted to this build.
+creation19/broad89 regression now passes at its exact scope above. The next
+runnable implementation gate is corrected879-input Android authoring
+qualification for #231, followed by actual SDK/model author generation under
+fresh device/resource admission. Older-source results are not promoted.
 No real-model compatibility/quality/performance is inferred from SDK value
 objects, injected resources or scripted plumbing. Physical/ARM64, semantic narrative quality, accessibility,
 external process death and joined callback drain remain separate gates.

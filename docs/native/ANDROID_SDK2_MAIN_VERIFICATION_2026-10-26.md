@@ -225,7 +225,10 @@ zero new SDK, OS, device, census or hardware calls. Exact authorized hardware
 identity/admission remains blocked for that capture (#5 claim/release
 6432025516/6432029616).
 
-Broad89/root82/retired-leaf139 have not been newly run on this827 map; their
-older-source results are not promoted. Next runnable validation is the fixed
-current-source broad regression and remaining lifecycle controls. Full task
-acceptance and physical/real-model/ARM64/accessibility/drain gates remain open.
+At this packet's handoff, broad89/root82/retired-leaf139 had not been newly run
+on this827 map; older-source results were not promoted. The separate
+[current-source controls follow-up](ANDROID_SDK2_MAIN_CONTROLS_2026-10-26.md)
+subsequently verifies broad89 and its owned closure. Root preparation is
+interrupted and the original environment pins are no longer available; root82
+and retired-leaf139 need fresh environment admission. Full task acceptance and
+physical/real-model/ARM64/accessibility/drain gates remain open.

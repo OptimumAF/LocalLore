@@ -91,3 +91,28 @@ observing those same identities and one server snapshot. No phone/model/ARM64,
 accessibility, unfamiliar-user, joined-drain, full-world or release claim follows.
 No merge, system setting change, unrelated emulator stop or private-data upload
 is performed by this chat. Original failures remain failures.
+
+## Preservation and independent review
+
+Independent read-only review replays the original runner frames, exact89-method
+roster, complete180 measured-v2 clients, current build and both827-input source
+maps. It confirms the phase and requested guest closure, without executing a
+new SDK, device, build or test operation. No mapped input changed after aa9deaee.
+
+Private C: recovery retains421 originals plus one explicitly derived audit:
+422 entries/977862 bytes. Every original, recovery copy and ZIP member is checked.
+The160489-byte index has SHA256
+`9255faeab1be5a1cbc76ba6bf9f262bd7c3aec44fc69f42bfbcc0929620bb8c7`;
+the354113-byte qualified ZIPv2 has SHA256
+`a67951c6c7f6bb3b8c27ada1865262abcbcd4790b0f291bc4d07ed77c3e956b4`.
+The initial ZIP is retained as an unqualified audit intermediate: its comparison
+used Windows backslashes against ZIP slash names. An append-only normalized
+ZIPv2 and index pass a second full verification; no original or seal is replaced.
+
+The selection includes the original interruption observation and unfinished root
+proposal/authorization with their narrower provenance. It excludes guest images,
+models, databases, private saves and unknown subtrees. Current prerequisite APKs
+remain in the preceding current-source host/build recovery set. Preservation
+does not turn an interrupted attempt into a test result or supply the missing
+three-closure postflight. Next runtime task is fresh environment/server admission,
+then new root82 and retired139 guests under the existing budgets and contracts.

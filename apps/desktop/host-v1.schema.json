@@ -305,6 +305,57 @@
         {
           "additionalProperties": false,
           "properties": {
+            "op": {
+              "const": "story_presentation",
+              "type": "string"
+            },
+            "player_name": {
+              "default": null,
+              "type": ["string", "null"]
+            },
+            "presentation": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StoryPresentationV1"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "template": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "template"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "story_presentation_view",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_revision"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
             "creation_id": {
               "type": "string"
             },
@@ -357,6 +408,47 @@
             "template_sha256",
             "setup_sha256",
             "player_name",
+            "title",
+            "creation_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "creation_id": {
+              "type": "string"
+            },
+            "op": {
+              "const": "create_presented",
+              "type": "string"
+            },
+            "player_name": {
+              "type": "string"
+            },
+            "presentation": {
+              "$ref": "#/$defs/StoryPresentationV1"
+            },
+            "setup_sha256": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            },
+            "template_sha256": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "template",
+            "template_sha256",
+            "setup_sha256",
+            "player_name",
+            "presentation",
             "title",
             "creation_id"
           ],
@@ -1093,6 +1185,32 @@
       },
       "required": ["story", "branch"],
       "type": "object"
+    },
+    "StoryPresentationV1": {
+      "additionalProperties": false,
+      "properties": {
+        "excluded_phrases": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tone": {
+          "$ref": "#/$defs/StoryTone"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["version", "tone", "excluded_phrases"],
+      "type": "object"
+    },
+    "StoryTone": {
+      "enum": ["plain", "warm", "brisk"],
+      "type": "string"
     },
     "View": {
       "enum": [

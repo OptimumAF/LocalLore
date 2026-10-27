@@ -274,8 +274,8 @@ rejects("source2/report3 mismatch", (v) => {
     v.protocol_version = 2;
 });
 rejects("unknown future protocol", (v) => {
-    v.protocol_version = 4;
-    v.report.version = 4;
+    v.protocol_version = 5;
+    v.report.version = 5;
 });
 rejects("report descriptor order cannot swap", (v) => {
     v.report.arms.reverse();

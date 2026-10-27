@@ -165,6 +165,46 @@ It retains the original expiry, preparation refusal and test-oracle failures.
 Those passed checks remain passed for their exact source; they cannot qualify
 the corrected feature or replace its missing semantic test/runtime evidence.
 
+## Corrected-reference host qualification
+
+The independent semantic case actually fails against the name-only constructor:
+0 passes/1 failure/10 filtered cases, owner4524ms/worker1, cleanup/capture true.
+Its original preview contains `Player: Eira` beside the ancestry proposition
+still naming Rowan. This focused RED is not a complete package result and is
+retained unchanged.
+
+The corrected constructor is integrated at `02c91f92`. It validates both exact
+template reference declarations before either replacement, preserves their
+typed epistemic fields and never interpolates the input name into prose. Native
+author checks pass9 player-setup tests plus1 declaration-guard test covering11
+contradictions on their own unchanged841-input map. Independent production
+review and the fresh complete workspace run confirm the new semantic case is
+green, without promoting an NPC belief to player knowledge or world truth.
+
+Fresh complete package results on unchanged1954-file maps are:
+
+| Package | Passed / failed / ignored | Harness summaries | Owner elapsed / worker |
+|---|---|---|---|
+| `locallore` |428 /0 /4 |56 |88548ms /0 |
+| `locallore-storage` |239 /0 /6 |30 |300094ms /0 |
+| `locallore-workspace` |150 /0 /1 |27 |72924ms /0 |
+
+The total is817 passes,0 failures and11 ignored cases across113 summaries.
+All11 new workspace cases pass. These complete all-feature package suites retain
+the same600-second owner ceilings, feature union and unfiltered scope. They do
+not reuse the earlier814-pass checkpoint as corrected-source qualification.
+
+The fresh Python suite passes1485 tests with0 failures/errors/skips,
+owner149807ms/worker0. Frontend/schema/types/controller/format checks pass23434ms,
+and Clippy across all three packages/targets/features with warnings denied
+passes15266ms. All report worker0, known cleanup/capture and unchanged1954-file
+maps within their own execution. The schema/type artifacts stay unchanged: this
+fix changes the configured seed's declared subject wording, not wire shapes.
+
+A new Android build and fresh native/component/player-setup guest cohorts are
+still required. Old APKs, initial checkpoint and original failures retain their
+exact earlier scope and cannot satisfy those gates.
+
 No dependency is introduced or repinned. Existing locked offline toolchains are
 reused. All requested verification will retain original bounded output and exact
 source/APK/owner bindings in create-only private C: evidence; no model weights,

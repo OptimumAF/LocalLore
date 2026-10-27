@@ -77,6 +77,23 @@ Exact production schema SHA256:
 The byte tokenizer loads no model or tokenizer file. Mask acceptance checks
 include EOS/sticky native error state, rather than only wrapping schema text.
 
+Both evidence selections are privately preserved and independently replayed
+with0 missing/mismatched files. The original RED recovery has10 originals plus
+one helper control,11 copies and12 ZIP members; ZIP SHA256 is
+`033d6719a0ea52acb85fbb8c91d20022e7a77d53d8ce9c1df6609f7269f3c454`.
+The successful proof selection has59 new GREEN/native originals plus two small
+RED references,62 indexed copies including its helper and63 ZIP members. It
+retains the actual failed attempt-v1 and successful attempt-v2 separately, and
+checks the old RED archive without duplicating the wheel/runtime. Proof index
+SHA256 is
+`50572eaf9bdf8f275e29d07ed0d3840355d569222d6401965ed0265387495f06`;
+ZIP SHA256 is
+`d58c21f893cb2d88d0f977a847b847664ad34e2f01340c5b75737e128b5fad6a`.
+Independent verification result SHA256 is
+`ef462a39313deccb5a51c42347b7f00502c6ba54258d47ce6d272221d6d6c127`.
+Preservation flags remain false for product qualification: byte retention is
+separate from the test results above and the pending Android/model gates.
+
 ## Reproduction and remaining gates
 
 With Rust1.93.1 and cached dependencies:

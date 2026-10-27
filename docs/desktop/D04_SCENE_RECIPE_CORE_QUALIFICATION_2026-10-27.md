@@ -125,7 +125,7 @@ All commands below run on clean unchanged79a, with one heavy process at a time.
 | Rust formatting | PASS2.450s |
 | Android aarch64 dependency graph | PASS0.460s;0 Tauri/Wry/WebView2/local-runtime/llama hits |
 
-The20 ignored cases are four historical one-shot captures, eight explicit real
+The20 ignored cases are four historical/original-source probes, eight explicit real
 model/asset qualifiers, three Windows symlink-privilege cases, two child-only
 entry points exercised by parent tests, a special96-page SQLite qualifier, an
 expensive explicit16MiB boundary and one superseded Open contract. No ignored

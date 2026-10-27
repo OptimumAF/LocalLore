@@ -65,6 +65,11 @@ ID/hash. That consumed job can retry only its exact target, even if another
 stored story has the same initial origin. Recovery by an absent/foreign job
 does not consume an unrelated draft.
 
+Native `play_snapshot.player.observer` is an actor ID assigned by Rust, not a
+literal `player` constant. The gateway binds that bounded ID to its attachment,
+session and scope, with atomic publication checks after suspended reads. The
+record/fork contracts' semantic `player` lens labels retain their meaning.
+
 The fixed emulator phase `original-story` runs exactly8 methods across
 OriginalStoryWireTest (3), OriginalStoryDialogTest (2) and
 OriginalStoryMainActivityTest (3). It requires a new owned API35/x86_64 guest,

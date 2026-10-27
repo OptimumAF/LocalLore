@@ -572,11 +572,18 @@ def require_current_clients(out, count):
     does not replace the generic completion, raw/hash or source validators.
     """
     need(type(count) is int and 0 < count <= 10000, "current_client_count")
+    directory = env.safe_path(Path(out) / "clients", directory=True)
+    expected_files = {"command-%04d%s" % (index, suffix)
+                      for index in range(1, count + 1) for suffix in (".json", ".stdout.bin")}
+    need({path.name for path in directory.iterdir()} == expected_files, "current_client_files")
     for index in range(1, count + 1):
-        row = env.read_json(Path(out) / "clients" / ("command-%04d.json" % index))
+        stem = directory / ("command-%04d" % index)
+        env.safe_path(stem.with_suffix(".stdout.bin"))
+        row = env.read_json(stem.with_suffix(".json"))
         need(client_record_shape(row) and row["version"] == 2
              and row["elapsed_ms"] is not None and type(row["index"]) is int
              and row["index"] == index, "current_client_timing_required")
+    need({path.name for path in directory.iterdir()} == expected_files, "current_client_files")
 
 
 def validate_component_record(components, out):

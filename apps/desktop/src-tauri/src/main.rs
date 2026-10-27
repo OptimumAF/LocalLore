@@ -32,6 +32,8 @@ mod memory_inspection_commands;
 mod memory_maintenance_commands;
 mod model_commands;
 mod models;
+#[cfg(feature = "dev-harness")]
+mod scene_harness;
 mod selected_commands;
 #[cfg(feature = "dev-harness")]
 mod selected_harness;
@@ -89,7 +91,12 @@ impl WorkspaceState {
                         if let Ok(mut value) = cleanup.lock() {
                             *value = report;
                         }
-                        locallore_workspace::open(&path, true).map(Arc::new)
+                        let host = locallore_workspace::open(&path, true)?;
+                        #[cfg(feature = "dev-harness")]
+                        if scene_harness::requested() {
+                            scene_harness::configure(&path, &host)?;
+                        }
+                        Ok(Arc::new(host))
                     })
                 })
                 .await
@@ -169,7 +176,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},inspectingMemory:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},inspectingMemory:{},authoring:{},sceneCase:'{}',archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -206,6 +213,9 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
                 { false }
             },
             std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1"),
+            match std::env::var("LOCALLORE_D04_SCENE_HARNESS").as_deref() {
+                Ok("literal")=>"literal", Ok("memory")=>"memory", _=>""
+            },
             match std::env::var("LOCALLORE_D08_STAGE").as_deref(){
                 Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",
                 Ok("v3-source")=>"v3-source",Ok("v3-import")=>"v3-import",Ok("v3-restarted")=>"v3-restarted",Ok("v3-uncertain")=>"v3-uncertain",Ok("v3-continued")=>"v3-continued",Ok("v3-continued-restarted")=>"v3-continued-restarted",_=>"source"
@@ -354,6 +364,7 @@ fn main() {
             fork_harness::harness_fork_case,
             memory_harness::harness_memory_case,
             author_harness::harness_author_case,
+            scene_harness::harness_scene_oracle,
             memory_maintenance_commands::memory_maintenance_start,
             memory_inspection_commands::memory_inspection,
             archive_commands::archive_export_preview,
@@ -500,6 +511,12 @@ fn main() {
                 && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
             {
                 author_harness::seed(&path).map_err(std::io::Error::other)?;
+            }
+            #[cfg(feature = "dev-harness")]
+            if scene_harness::requested()
+                && std::env::var("LOCALLORE_TEST_RESTART").as_deref() != Ok("1")
+            {
+                scene_harness::seed(&path).map_err(std::io::Error::other)?;
             }
             let model_root = path
                 .parent()

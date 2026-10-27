@@ -18,6 +18,7 @@ fn main() {
                 "author_lookup_start",
                 "author_preview_discard",
                 "harness_author_case",
+                "harness_scene_oracle",
                 "capture_preview",
                 "capture_save",
                 "capture_revoke",

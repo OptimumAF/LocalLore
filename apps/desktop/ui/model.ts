@@ -139,6 +139,10 @@ export interface State {
     query: QueryState;
     labPending: boolean;
     model: ModelState | null;
+    freeTextProvider: null | {
+        provider: "scene-native-fixture-v1";
+        kind: "synthetic_fixture";
+    };
     modelBusy: boolean;
     modelCancelReady: boolean;
     modelShown: boolean;

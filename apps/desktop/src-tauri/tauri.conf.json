@@ -23,6 +23,7 @@
                         "allow-author-lookup-start",
                         "allow-author-preview-discard",
                         "allow-harness-author-case",
+                        "allow-harness-scene-oracle",
                         "allow-capture-preview",
                         "allow-capture-save",
                         "allow-capture-revoke",

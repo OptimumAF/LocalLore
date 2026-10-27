@@ -81,13 +81,24 @@ versions before running a package suite.
 
 That workspace run actually reaches the ten new persistence tests:9 pass and1
 fails. The instruction-shaped-name test incorrectly expects an unlearned ability
-submission to queue before failing preparation. The existing engine instead
-rejects it immediately with `Ability`, matching the preflight contract. Its
+submission to return a queued phase before failing preparation. Submit instead
+returns `Ability` while retaining a terminal failed-turn ledger entry. Its
 owner records35859ms/worker1, cleanup/capture true and unchanged1954-file maps;
-the original failed Cargo/result/streams remain failed. The test oracle must
-assert immediate refusal and unchanged canonical/catalog/receipt/turn state;
-the engine's stronger preflight is not weakened to satisfy the test. Full
-workspace qualification remains pending that correction and a fresh run.
+the original failed Cargo/result/streams remain failed. A first test correction
+incorrectly expects no stored turn and also fails9/10, owner36434ms/worker1 with
+known cleanup/capture. A separate one-test diagnostic (nine filtered out, not a
+full-suite result) then exposes the actual `Failed` record and no receipt;
+owner4580ms/worker1, known cleanup/capture. Those original failed records remain
+unchanged.
+
+Source inspection confirms the distinction: Store preflight checks request
+shape and bounds before staging; Host then runs mechanical preview, records
+terminal failure and rejects the ability without inference or canonical commit.
+The corrected test asserts exact `Ability` rejection, a matching terminal failed
+ledger entry with no receipt, no drafts, unchanged host resource counts/catalog,
+and unchanged canonical engine/accepted receipts. It does not mistake normal
+failure bookkeeping for accepted history or weaken production validation.
+Full package qualification requires a fresh complete run after this correction.
 
 No dependency is introduced or repinned. Existing locked offline toolchains are
 reused. All requested verification will retain original bounded output and exact

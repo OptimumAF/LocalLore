@@ -8,7 +8,7 @@ use locallore::{
     host::{Host, WorkspaceForkRequest, MAX_SESSIONS},
     inspection::sha256,
 };
-use locallore_storage::{validate_archive, Store, TurnError};
+use locallore_storage::{validate_archive, Store, TurnPhase};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
@@ -332,7 +332,7 @@ fn instruction_shaped_name_is_only_a_label_not_a_rule_grant_or_world_retcon() {
     );
     assert_eq!(engine.seed().facts, expected_seed(QUAY, None).facts);
     let canonical = engine.canonical_bytes();
-    let catalog_and_archives = temp.canonical();
+    let catalog = temp.canonical()["catalog"].clone();
     let counts = host.live_counts();
     let invalid = Request {
         version: 1,
@@ -343,8 +343,8 @@ fn instruction_shaped_name_is_only_a_label_not_a_rule_grant_or_world_retcon() {
             ability: "blink".into(),
         }]),
     };
-    // Store::begin_turn_inner runs native preflight before INSERT INTO turns.
-    // An unlearned ability is rejected at Submit, without a queued draft to prepare.
+    // Submit records the intent, then native preview rejects the unlearned ability.
+    // The terminal failed ledger entry is not accepted history or a queued draft.
     assert_eq!(
         call(
             &host,
@@ -354,13 +354,12 @@ fn instruction_shaped_name_is_only_a_label_not_a_rule_grant_or_world_retcon() {
     );
     assert_eq!(host.live_counts(), counts);
     let mut stored = Store::open_read_only(&temp.path()).unwrap();
-    let observed = stored.turn_status(&invalid);
-    assert!(
-        matches!(&observed, Err(TurnError::UnknownTurn)),
-        "{observed:?}"
-    );
+    let observed = stored.turn_status(&invalid).unwrap();
+    assert_eq!(observed.request, invalid);
+    assert_eq!(observed.phase, TurnPhase::Failed);
+    assert!(observed.receipt.is_none());
     assert!(stored.drafts(&scope(&created)).unwrap().is_empty());
-    assert_eq!(temp.canonical(), catalog_and_archives);
+    assert_eq!(temp.canonical()["catalog"], catalog);
     let after = temp.engine(&scope(&created));
     assert_eq!(after.canonical_bytes(), canonical);
     assert!(after.receipts().is_empty());

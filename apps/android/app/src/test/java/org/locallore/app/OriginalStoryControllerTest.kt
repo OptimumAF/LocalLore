@@ -71,10 +71,11 @@ class OriginalStoryControllerTest {
         val port=Port(proposal); val values=mutableListOf<OriginalStoryUiState>()
         val gate=CompletableDeferred<OriginalGenerated>(); port.generate={withContext(NonCancellable){gate.await()}}
         val c=OriginalStoryController(port,this,values::add){}
-        c.open(OriginalCapabilities(true,"scripted")); val old=values.last(); c.edit(old,input,null,"Orchard")
+        c.open(OriginalCapabilities(true,"scripted")); val old=values.last()
+        c.edit(old,input.copy(cast=listOf(OriginalCast("Tovin","An orchard keeper."))),null,"Orchard") // Adding a row retires old indices.
         val edited=values.last(); c.edit(old,input.copy(premise="Stale"),null,"Stale"); assertSame(edited,values.last())
         c.generate(edited); runCurrent(); c.dispose(); val count=values.size
-        gate.complete(OriginalGenerated("job-1",input,proposal,"scripted")); advanceUntilIdle()
+        gate.complete(OriginalGenerated("job-1",port.input,proposal,"scripted")); advanceUntilIdle()
         c.generate(edited); c.edit(edited,input,null,"Late"); assertEquals(count,values.size); assertTrue(port.creates.isEmpty())
     }
     @Test fun nestedDraftsAreCopiedAndCastNamesTrackReviewedCharacters()=runTest {
@@ -114,6 +115,8 @@ class OriginalStoryControllerTest {
         c.open(OriginalCapabilities(true,"scripted")); c.edit(values.last(),input,null,"Orchard")
         c.generate(values.last()); advanceUntilIdle(); c.review(values.last()); advanceUntilIdle()
         val ready=values.last(); c.confirm(ready,ready.review!!); runCurrent(); assertTrue(values.last().creating)
+        val creating=values.last(); c.edit(ready,ready.input.copy(playerName="Late"),ready.proposal,"Late")
+        assertSame(creating,values.last())
         c.dispose(); val count=values.size; gate.complete(Unit); advanceUntilIdle()
         assertEquals(1,port.creates.size); assertEquals(count,values.size); assertTrue(closed.isEmpty())
         // A late commit may exist. Cancelling the UI never asserts rollback or authorizes another Create.
@@ -185,5 +188,49 @@ class OriginalStoryControllerTest {
         c.edit(reviewed,reviewed.input,reviewed.proposal.copy(facts=listOf(reviewed.proposal.facts.single().copy(text="Stale removed row"))),reviewed.title)
         c.confirm(reviewed,consent); c.confirm(s,consent); assertSame(structural,s); assertNull(s.review)
         assertTrue(s.proposal!!.facts.isEmpty()); assertTrue(port.creates.isEmpty()); c.dismiss(); advanceUntilIdle()
+    }
+    @Test fun structuralCastInsertionRemovalAndReorderRetireOldRowIndices()=runTest {
+        val port=Port(proposal); lateinit var s: OriginalStoryUiState
+        val c=OriginalStoryController(port,this,{s=it}){}
+        c.open(OriginalCapabilities(true,"scripted"))
+        c.edit(s,input.copy(cast=listOf(OriginalCast("One","First."),OriginalCast("Two","Second."))),null,"Orchard")
+        val first=s
+        c.edit(first,first.input.copy(cast=first.input.cast.reversed()),null,first.title)
+        val reordered=s; assertNotSame(first.editorEpoch,s.editorEpoch); assertEquals("Two",s.input.cast.first().name)
+        c.edit(first,first.input.copy(cast=listOf(OriginalCast("Wrong","Late."))),null,first.title); assertSame(reordered,s)
+        c.edit(reordered,reordered.input.copy(cast=reordered.input.cast.take(1)),null,reordered.title)
+        val removed=s; assertNotSame(reordered.editorEpoch,s.editorEpoch)
+        c.edit(reordered,reordered.input.copy(playerDescription="Late removed-row frame"),null,reordered.title); assertSame(removed,s)
+        c.edit(removed,removed.input.copy(cast=removed.input.cast+OriginalCast("Three","Third.")),null,removed.title)
+        val added=s; assertNotSame(removed.editorEpoch,s.editorEpoch)
+        c.edit(removed,removed.input.copy(playerName="Late"),null,removed.title); assertSame(added,s)
+        assertEquals(listOf("Two","Three"),s.input.cast.map { it.name }); assertNull(s.review); c.dismiss(); advanceUntilIdle()
+    }
+    @Test fun ambiguousDuplicateRowRemovalCannotDiscardAConcurrentTextEdit()=runTest {
+        val world=proposal.copy(facts=listOf(proposal.facts.single(),proposal.facts.single()))
+        val port=Port(world); lateinit var s: OriginalStoryUiState
+        val c=OriginalStoryController(port,this,{s=it}){}
+        c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard"); c.generate(s); advanceUntilIdle()
+        val rendered=s; val p=s.proposal!!
+        c.edit(rendered,rendered.input,p.copy(facts=listOf(p.facts[0].copy(text="Keep this edit."),p.facts[1])),rendered.title)
+        c.edit(rendered,rendered.input,p.copy(facts=p.facts.take(1)),rendered.title)
+        assertEquals(2,s.proposal!!.facts.size); assertEquals("Keep this edit.",s.proposal!!.facts[0].text)
+        assertNotSame(rendered.editorEpoch,s.editorEpoch); assertNull(s.review)
+        val fresh=s
+        c.edit(fresh,fresh.input,fresh.proposal!!.copy(facts=fresh.proposal.facts.take(1)),fresh.title)
+        assertEquals(listOf("Keep this edit."),s.proposal!!.facts.map { it.text }); c.dismiss(); advanceUntilIdle()
+    }
+    @Test fun generationAndCancelRetireOldAndBusyEditorCallbacks()=runTest {
+        val port=Port(proposal); lateinit var s: OriginalStoryUiState; val closed=mutableListOf<StoryCreationClose>()
+        val c=OriginalStoryController(port,this,{s=it},closed::add)
+        c.open(OriginalCapabilities(true,"scripted")); c.edit(s,input,null,"Orchard")
+        val before=s; c.generate(before); val generating=s; advanceUntilIdle(); val ready=s
+        assertNotSame(before.editorEpoch,ready.editorEpoch); assertNotSame(generating.editorEpoch,ready.editorEpoch)
+        c.edit(before,before.input.copy(premise="Before generation"),null,before.title)
+        c.edit(generating,generating.input.copy(premise="During generation"),generating.proposal,generating.title)
+        assertSame(ready,s)
+        c.dismiss(); val closing=s; assertNotSame(ready.editorEpoch,closing.editorEpoch)
+        c.edit(ready,ready.input.copy(playerName="Late"),ready.proposal,ready.title); assertSame(closing,s)
+        advanceUntilIdle(); assertEquals(listOf(StoryCreationClose()),closed); assertTrue(port.creates.isEmpty())
     }
 }

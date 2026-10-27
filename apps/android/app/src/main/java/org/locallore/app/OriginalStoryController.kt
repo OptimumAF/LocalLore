@@ -13,7 +13,8 @@ import kotlinx.coroutines.withContext
 
 internal data class OriginalStoryUiState(val input: OriginalInput = OriginalInput(), val proposal: OriginalProposal? = null,
     val title: String = "Original story", val provider: String, val job: String? = null, val review: OriginalReview? = null,
-    val busy: Boolean = false, val creating: Boolean = false, val closing: Boolean = false, val notice: String? = null)
+    val busy: Boolean = false, val creating: Boolean = false, val closing: Boolean = false, val notice: String? = null,
+    val editorEpoch: Any = Any())
 
 /** Drafts are inert author intent. Only an exact, explicitly reviewed native capability can create. */
 internal class OriginalStoryController(private val gateway: OriginalStoryGateway, private val scope: CoroutineScope,
@@ -31,19 +32,30 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
     private fun update(value: OriginalStoryUiState) { state=value; if(!disposed) publish(value) }
     private fun editable(expected: OriginalStoryUiState) = !disposed && state === expected && !expected.busy && !expected.closing && !createStarted
     fun edit(expected: OriginalStoryUiState, input: OriginalInput, proposal: OriginalProposal?, title: String) {
-        if (!editable(expected)) return
+        val before=state ?: return
+        if(disposed || before.editorEpoch !== expected.editorEpoch || expected.busy || expected.creating || expected.closing ||
+            before.busy || before.creating || before.closing || createStarted) return
+        if((expected.proposal==null)!=(proposal==null) || (before.proposal==null)!=(proposal==null))return
         // Every field intent revokes captured consent, even an equal-value edit.
         generation++
-        val captured = proposal?.frozen()
-        val reviewedInput = if(captured == null) input.frozen() else input.copy(
+        val merged: OriginalInput
+        val captured: OriginalProposal?
+        try {
+            merged=mergeOriginalInput(expected.input,input,before.input,mergeCast=proposal==null)
+            captured=if(proposal==null)null else mergeOriginalWorld(checkNotNull(expected.proposal),proposal,checkNotNull(before.proposal)).frozen()
+        } catch (_: OriginalEditConflict) {
+            update(before.copy(editorEpoch=Any(),review=null,notice="The draft changed. Check the latest rows and try again.")); return
+        }
+        val reviewedInput = if(captured == null) merged.frozen() else merged.copy(
             cast=captured.characters.map { OriginalCast(it.name,it.description) }).frozen()
-        update(expected.copy(input=reviewedInput,proposal=captured,title=title,review=null,
+        update(before.copy(input=reviewedInput,proposal=captured,title=mergeOriginalTitle(expected.title,title,before.title),review=null,
+            editorEpoch=if(originalStructureChanged(expected.input,input,expected.proposal,proposal))Any() else before.editorEpoch,
             notice="Review all changes before creating. Nothing is saved yet."))
     }
     fun generate(expected: OriginalStoryUiState) {
         if(!editable(expected) || !validOriginalInput(expected.input)) return
         val ticket=++generation; val input=expected.input.frozen()
-        update(expected.copy(busy=true,review=null,notice=if(expected.provider=="local") "Generating a draft locally…" else "Generating a synthetic scripted draft…"))
+        update(expected.copy(busy=true,review=null,editorEpoch=Any(),notice=if(expected.provider=="local") "Generating a draft locally…" else "Generating a synthetic scripted draft…"))
         run(ticket) {
             var begun: String? = null
             try {
@@ -54,7 +66,7 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
                 val generated=gateway.generateOriginal(job.job)
                 check(generated.job==job.job && generated.provider==job.provider && generated.input==input)
                 val proposal=generated.proposal.frozen()
-                if(current(ticket)) update(checkNotNull(state).copy(input=input,proposal=proposal,review=null,
+                if(current(ticket)) update(checkNotNull(state).copy(input=input,proposal=proposal,review=null,editorEpoch=Any(),
                     notice="Edit the cast and world, then choose Review changes. World truth and private beliefs are separate."))
             } finally {
                 if(!current(ticket) && begun!=null) withContext(NonCancellable) { gateway.cancelOriginal(checkNotNull(begun)) }
@@ -65,18 +77,18 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
         val proposal=expected.proposal ?: return; val job=expected.job ?: return
         if(!editable(expected) || !validStoryTitle(expected.title) || !validOriginalDraft(expected.input,proposal)) return
         val ticket=++generation; val input=expected.input.frozen(); val captured=proposal.frozen(); val title=expected.title
-        update(expected.copy(busy=true,review=null,notice="Reviewing the starting world…"))
+        update(expected.copy(busy=true,review=null,editorEpoch=Any(),notice="Reviewing the starting world…"))
         run(ticket) {
             val result=gateway.reviewOriginal(job,input,captured,title).frozen()
             check(result.job==job && result.input==input && result.proposal==captured && result.title==title)
-            if(current(ticket)) update(checkNotNull(state).copy(review=result,notice="Read the accepted starting world. Only Create saves it."))
+            if(current(ticket)) update(checkNotNull(state).copy(review=result,editorEpoch=Any(),notice="Read the accepted starting world. Only Create saves it."))
         }
     }
     fun confirm(expected: OriginalStoryUiState, review: OriginalReview) {
         if(!editable(expected) || expected.review !== review || review.job!=expected.job || review.input!=expected.input ||
             review.proposal!=expected.proposal || review.title!=expected.title) return
         createStarted=true; val ticket=++generation
-        update(expected.copy(review=null,busy=true,creating=true,notice="Creating the reviewed story. If stopped, refresh the library before trying again."))
+        update(expected.copy(review=null,busy=true,creating=true,editorEpoch=Any(),notice="Creating the reviewed story. If stopped, refresh the library before trying again."))
         run(ticket) { val saved=gateway.createOriginal(review,creationId)
             if(current(ticket)) { generation++; state=null; closed(StoryCreationClose(saved=saved)) } }
     }
@@ -84,7 +96,7 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
         val before=state ?: return
         if(disposed || before.closing) return
         val ticket=++generation; val previous=active
-        update(before.copy(review=null,closing=true,busy=true,notice="Finishing owned local work…"))
+        update(before.copy(review=null,closing=true,busy=true,editorEpoch=Any(),notice="Finishing local work…"))
         active=scope.launch(start=CoroutineStart.LAZY) {
             previous?.join()
             try {

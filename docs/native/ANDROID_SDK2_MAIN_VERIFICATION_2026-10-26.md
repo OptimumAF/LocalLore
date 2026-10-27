@@ -144,7 +144,21 @@ guest is prepared for the same CHILD case using the changed continuous
 readiness/dispatch protocol. It has new authorization/proposal/claim/outputs,
 not a new output directory on a failed guest. No source or runtime bound changes.
 
-CHILD requalification for this827 map remains pending.
+The new `child-ready` cohort actually **passes**:503115ms/worker0, known
+cleanup/capture and stderr0,96 clean measured-v2 client records, result2/DONE,
+123 checks and two process deaths. Frame2239 bytes/proof2184 bytes stay within
+unchanged caps. Both terminal creation maps retain first0/2 and second0/0.
+Source-pinned controller/native assertions check inherited parent receipts,
+unsent child draft, explicit child Send and unchanged parent scope. CHILD does
+not export the retained-parent case's independent four canonical sidecars, and
+no hidden-world equality is inferred. Kernel worker creation is approximately
+5.749 seconds after owner start under the new continuous tool protocol.
+
+Bound stop and emulator return0; its owner is `stop_requested`,546634ms/worker1,
+cleanup/capture/closure true and no guest-flush claim. The original refused
+`child-v1` stays failed with all original missing files absent. The scheduling
+change permits the fresh experiment; it does not retroactively identify or
+repair that attempt's generic error.
 Each needs its own new standard2GiB/two-CPU API35/x86_64 guest. Existing current
 profile capacity checks apply before preparation and launch; no floor is bypassed.
 Finish all build/integration/preparation work before timed launch, dispatch
@@ -156,9 +170,11 @@ summarized away, or promoted from old-source cohorts. Existing earlier failed
 CHILD/retained attempts remain failed and unqualified.
 
 The recorded unrelated process identities pass the new selected preflight,
-with zero device calls. The new final selected postflight requires actual closure
-of all four exact owned guests, including failed CHILD and fresh child-ready.
-The original three-guest helper stays unexecuted with its output absent. No
+with zero device calls. The new final selected postflight actually passes after
+strict proposal-bound closure of all four owned guests, including failed CHILD
+and fresh child-ready: both original native process identities and original
+server match, exactly one listener observation, zero new device calls. The
+original three-guest helper stays unexecuted with its output absent. No
 system setting change, unrelated emulator stop,
 merge, release or private-data/model upload is performed by this chat. Full
 customization, real phone/model/accessibility/joined-drain and the inherited

@@ -169,7 +169,7 @@ fn create(h: &Host, presented: bool) -> (String, Scope) {
             h,
             json!({"op":"create_presented","template":review["template"],"template_sha256":review["template_sha256"],
         "setup_sha256":review["setup_sha256"],"player_name":review["player_name"],"presentation":review["presentation"],
-        "title":"Synthetic presented Host scene","creation_id":"scene-presented-creation"}),
+        "title":"Synthetic presented Host scene","creation_id":"0123456789abcdef0123456789abcdef"}),
         ))
     } else {
         ok(call(h, json!({"op":"create","seed":"lantern-quay-v1"})))
@@ -179,6 +179,15 @@ fn create(h: &Host, presented: bool) -> (String, Scope) {
         data["session"].as_str().unwrap().into(),
         serde_json::from_value(data["scope"].clone()).unwrap(),
     )
+}
+#[test]
+fn presented_fixture_creation_id_matches_existing_public_native_contract() {
+    assert!(locallore::story_setup::valid_creation_id(
+        "0123456789abcdef0123456789abcdef"
+    ));
+    assert!(!locallore::story_setup::valid_creation_id(
+        "scene-presented-creation"
+    ));
 }
 fn resume(h: &Host, scope: &Scope) -> String {
     let data = ok(call(h, json!({"op":"resume","scope":scope})));

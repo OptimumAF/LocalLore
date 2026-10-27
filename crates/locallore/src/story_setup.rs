@@ -7,6 +7,8 @@ use sha2::{Digest, Sha256};
 
 pub const TEMPLATE: &str = "lantern-quay-v1";
 pub const MAX_TITLE_SCALARS: usize = 80;
+pub const MAX_PLAYER_NAME_SCALARS: usize = 64;
+pub const MAX_PLAYER_NAME_BYTES: usize = 256;
 pub const NARRATIVE_TEMPLATE: &str = "bracken-harbor-v1";
 struct Template {
     id: &'static str,
@@ -54,6 +56,19 @@ pub struct StoryTemplatePreviewV1 {
     pub details: Vec<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct StorySetupPreviewV1 {
+    pub version: u16,
+    pub template: String,
+    pub template_sha256: String,
+    pub setup_sha256: String,
+    pub default_title: String,
+    pub description: String,
+    pub profile: String,
+    pub player_name: String,
+    pub details: Vec<String>,
+}
+
 /// Constructed only after the closed named-creation input passes native validation.
 /// This has no serde implementation: callers cannot deserialize a replacement Seed.
 pub struct NamedStarter {
@@ -73,6 +88,12 @@ pub fn valid_title(title: &str) -> bool {
     !title.is_empty() && title.trim() == title && title.chars().count() <= MAX_TITLE_SCALARS &&
         title.len() <= 320 && !title.chars().any(|c| c.is_control() ||
             matches!(c, '\u{2028}' | '\u{2029}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+}
+
+pub fn valid_player_name(name: &str) -> bool {
+    valid_title(name)
+        && name.chars().count() <= MAX_PLAYER_NAME_SCALARS
+        && name.len() <= MAX_PLAYER_NAME_BYTES
 }
 
 fn definition(template: &str) -> Result<&'static Template, &'static str> {
@@ -131,10 +152,18 @@ pub fn prepare_named(
     title: &str,
     creation_id: &str,
 ) -> Result<NamedStarter, &'static str> {
-    let mut seed = bundled_seed(template)?;
+    let seed = bundled_seed(template)?;
     if expected_hash != seed_hash(template)? {
         return Err("Stale");
     }
+    prepare_seed(seed, title, creation_id)
+}
+
+fn prepare_seed(
+    mut seed: Seed,
+    title: &str,
+    creation_id: &str,
+) -> Result<NamedStarter, &'static str> {
     if !valid_title(title) {
         return Err("InvalidTitle");
     }
@@ -156,6 +185,94 @@ pub fn prepare_named(
 pub fn template_preview(template: &str) -> Result<StoryTemplatePreviewV1, &'static str> {
     let definition = definition(template)?;
     let seed = bundled_seed(template)?;
+    let preview = StoryTemplatePreviewV1 {
+        version: 1,
+        template: template.into(),
+        seed_sha256: seed_hash(template)?,
+        default_title: definition.title.into(),
+        description: definition.description.into(),
+        profile: profile_name(&seed.profile).into(),
+        details: player_details(&seed)?,
+    };
+    if serde_json::to_vec(&preview).map_err(|_| "Integrity")?.len() > 16384 {
+        return Err("TooLarge");
+    }
+    Ok(preview)
+}
+
+fn configured_seed(template: &str, player_name: Option<&str>) -> Result<Seed, &'static str> {
+    let mut seed = bundled_seed(template)?;
+    if let Some(name) = player_name {
+        if !valid_player_name(name) {
+            return Err("InvalidInput");
+        }
+        seed.actors.get_mut(&seed.player).ok_or("Integrity")?.name = name.into();
+    }
+    // The bundled default and every configured player must fit the same context boundary.
+    if !valid_player_name(&seed.actors.get(&seed.player).ok_or("Integrity")?.name) {
+        return Err("Integrity");
+    }
+    Engine::new(seed.clone()).map_err(|_| "Integrity")?;
+    Ok(seed)
+}
+
+fn setup_hash(template_hash: &str, seed: &Seed) -> Result<String, &'static str> {
+    let mut hash = Sha256::new();
+    hash.update(b"locallore/player-setup/v1\0");
+    hash.update(template_hash.as_bytes());
+    hash.update(b"\0");
+    hash.update(serde_json::to_vec(seed).map_err(|_| "Integrity")?);
+    Ok(format!("{:x}", hash.finalize()))
+}
+
+/// A player-visible, read-only setup. Only the selected player's display name may differ.
+pub fn setup_preview(
+    template: &str,
+    player_name: Option<&str>,
+) -> Result<StorySetupPreviewV1, &'static str> {
+    let definition = definition(template)?;
+    let seed = configured_seed(template, player_name)?;
+    let template_sha256 = seed_hash(template)?;
+    let preview = StorySetupPreviewV1 {
+        version: 1,
+        template: template.into(),
+        setup_sha256: setup_hash(&template_sha256, &seed)?,
+        template_sha256,
+        default_title: definition.title.into(),
+        description: definition.description.into(),
+        profile: profile_name(&seed.profile).into(),
+        player_name: seed
+            .actors
+            .get(&seed.player)
+            .ok_or("Integrity")?
+            .name
+            .clone(),
+        details: player_details(&seed)?,
+    };
+    if serde_json::to_vec(&preview).map_err(|_| "Integrity")?.len() > 16384 {
+        return Err("TooLarge");
+    }
+    Ok(preview)
+}
+
+pub fn prepare_configured(
+    template: &str,
+    template_sha256: &str,
+    setup_sha256: &str,
+    player_name: &str,
+    title: &str,
+    creation_id: &str,
+) -> Result<NamedStarter, &'static str> {
+    let seed = configured_seed(template, Some(player_name))?;
+    let expected_template = seed_hash(template)?;
+    let expected_setup = setup_hash(&expected_template, &seed)?;
+    if template_sha256 != expected_template || setup_sha256 != expected_setup {
+        return Err("Stale");
+    }
+    prepare_seed(seed, title, creation_id)
+}
+
+fn player_details(seed: &Seed) -> Result<Vec<String>, &'static str> {
     let engine = Engine::new(seed.clone()).map_err(|_| "Integrity")?;
     let visible = engine
         .character_context(&seed.player, engine.scope(), 0)
@@ -226,20 +343,8 @@ pub fn template_preview(template: &str) -> Result<StoryTemplatePreviewV1, &'stat
             ));
         }
     }
-    let preview = StoryTemplatePreviewV1 {
-        version: 1,
-        template: template.into(),
-        seed_sha256: seed_hash(template)?,
-        default_title: definition.title.into(),
-        description: definition.description.into(),
-        profile: profile_name(&seed.profile).into(),
-        details,
-    };
-    if preview.details.len() > 64
-        || preview.details.iter().any(|line| line.len() > 2048)
-        || serde_json::to_vec(&preview).map_err(|_| "Integrity")?.len() > 16384
-    {
+    if details.len() > 64 || details.iter().any(|line| line.len() > 2048) {
         return Err("TooLarge");
     }
-    Ok(preview)
+    Ok(details)
 }

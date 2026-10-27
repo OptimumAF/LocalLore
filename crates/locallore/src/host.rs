@@ -5,6 +5,8 @@ use crate::turn_trace::{
     Provenance, Reader, Revision, RingSink, Selection, Stage, StageTimer, TraceOwner, TraceRing,
 };
 #[cfg(test)]
+mod player_setup_tests;
+#[cfg(test)]
 mod starter_catalog_tests;
 #[cfg(test)]
 mod story_creation_tests;
@@ -100,9 +102,22 @@ pub enum HostCommand {
     StoryTemplate {
         template: String,
     },
+    StorySetup {
+        template: String,
+        #[serde(default)]
+        player_name: Option<String>,
+    },
     CreateNamed {
         template: String,
         seed_sha256: String,
+        title: String,
+        creation_id: String,
+    },
+    CreateConfigured {
+        template: String,
+        template_sha256: String,
+        setup_sha256: String,
+        player_name: String,
         title: String,
         creation_id: String,
     },
@@ -1336,7 +1351,16 @@ impl Host {
                     Err(error) => reject(error),
                 }
             }
-            HostCommand::CreateNamed { .. } => reject("Unsupported"),
+            HostCommand::StorySetup {
+                template,
+                player_name,
+            } => match crate::story_setup::setup_preview(&template, player_name.as_deref()) {
+                Ok(preview) => ok(json!(preview)),
+                Err(error) => reject(error),
+            },
+            HostCommand::CreateNamed { .. } | HostCommand::CreateConfigured { .. } => {
+                reject("Unsupported")
+            }
             HostCommand::Create { seed } => {
                 if seed != "lantern-quay-v1" {
                     return reject("UnsupportedSeed");
@@ -1711,6 +1735,14 @@ impl Host {
                 HostCommand::StoryTemplate { template } => Ok(ok(json!(
                     crate::story_setup::template_preview(template).map_err(reject)?
                 ))),
+                HostCommand::StorySetup {
+                    template,
+                    player_name,
+                } => Ok(ok(json!(crate::story_setup::setup_preview(
+                    template,
+                    player_name.as_deref()
+                )
+                .map_err(reject)?))),
                 HostCommand::CreateNamed {
                     template,
                     seed_sha256,
@@ -1724,47 +1756,26 @@ impl Host {
                         creation_id,
                     )
                     .map_err(reject)?;
-                    let scope = starter.seed().scope.clone();
-                    let existing = state
-                        .sessions
-                        .iter()
-                        .find(|(_, s)| s.engine.scope() == &scope)
-                        .map(|(id, _)| id.clone());
-                    if existing.is_none() {
-                        if state.sessions.len() >= MAX_SESSIONS {
-                            return Err(reject("SessionLimit"));
-                        }
-                        if state.next.checked_add(1).is_none() {
-                            return Err(reject("IdExhausted"));
-                        }
-                    }
-                    let (engine, created) = state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .create_named(&starter)
-                        .map_err(reject)?;
-                    if engine.scope() != &scope {
-                        return Err(reject("Integrity"));
-                    }
-                    if engine.seed() != starter.seed() {
-                        return Err(reject("Stale"));
-                    }
-                    let mut reply = if let Some(id) = existing {
-                        // The exact Store identity was checked above; still retain the existing
-                        // accepted-prefix fence instead of replacing a cached authority.
-                        refresh_session(state, &id, &scope)?;
-                        ok(
-                            json!({"session":id,"scope":scope,"revision":state.sessions[&id].engine.revision()}),
-                        )
-                    } else {
-                        attach_engine(state, engine)
-                    };
-                    if reply["status"] != "ok" {
-                        return Err(reply);
-                    }
-                    reply["data"]["created"] = json!(created);
-                    Ok(reply)
+                    attach_named_starter(state, &starter)
+                }
+                HostCommand::CreateConfigured {
+                    template,
+                    template_sha256,
+                    setup_sha256,
+                    player_name,
+                    title,
+                    creation_id,
+                } => {
+                    let starter = crate::story_setup::prepare_configured(
+                        template,
+                        template_sha256,
+                        setup_sha256,
+                        player_name,
+                        title,
+                        creation_id,
+                    )
+                    .map_err(reject)?;
+                    attach_named_starter(state, &starter)
                 }
                 HostCommand::Create { seed } => {
                     if seed != "lantern-quay-v1" {
@@ -2846,6 +2857,50 @@ fn selected_turn_status(
         None => port.status(scope, turn)?.request,
     };
     port.status_bound(&request, &basis)
+}
+fn attach_named_starter(
+    state: &mut State,
+    starter: &crate::story_setup::NamedStarter,
+) -> Result<Value, Value> {
+    let scope = starter.seed().scope.clone();
+    let existing = state
+        .sessions
+        .iter()
+        .find(|(_, s)| s.engine.scope() == &scope)
+        .map(|(id, _)| id.clone());
+    if existing.is_none() {
+        if state.sessions.len() >= MAX_SESSIONS {
+            return Err(reject("SessionLimit"));
+        }
+        if state.next.checked_add(1).is_none() {
+            return Err(reject("IdExhausted"));
+        }
+    }
+    let (engine, created) = state
+        .persistence
+        .as_mut()
+        .unwrap()
+        .create_named(starter)
+        .map_err(reject)?;
+    if engine.scope() != &scope {
+        return Err(reject("Integrity"));
+    }
+    if engine.seed() != starter.seed() {
+        return Err(reject("Stale"));
+    }
+    let mut reply = if let Some(id) = existing {
+        // The exact Store identity was checked above; still retain the existing
+        // accepted-prefix fence instead of replacing a cached authority.
+        refresh_session(state, &id, &scope)?;
+        ok(json!({"session":id,"scope":scope,"revision":state.sessions[&id].engine.revision()}))
+    } else {
+        attach_engine(state, engine)
+    };
+    if reply["status"] != "ok" {
+        return Err(reply);
+    }
+    reply["data"]["created"] = json!(created);
+    Ok(reply)
 }
 fn attach_engine(state: &mut State, engine: Engine) -> Value {
     let Some(next) = state.next.checked_add(1) else {

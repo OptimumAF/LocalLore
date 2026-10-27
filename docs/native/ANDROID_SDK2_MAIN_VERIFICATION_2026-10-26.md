@@ -121,9 +121,10 @@ waits on the same actual live owner session, recognizes exact readiness, then
 immediately invokes the existing external CLI without a model turn. The source,
 all gate checks and all bounds remain unchanged. It creates its coordination
 observation exclusively and labels it derived, not runtime proof. Kernel records
-show this worker starts8.563755 seconds after the owner; actual SDK clients are
+show this worker starts approximately8.564 seconds after the owner; actual SDK clients are
 created. This improves dispatch latency, not proof of earlier timeout causation
-or a reserved completion window. Runtime qualification is still pending.
+or a reserved completion window. Qualification was pending at that initial
+observation; the terminal result follows.
 
 The current retained-parent case actually **passes**:619065ms/worker0, known
 cleanup/capture and stderr0,126 clean measured-v2 clients, result2/DONE and202

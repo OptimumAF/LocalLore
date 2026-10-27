@@ -174,37 +174,42 @@ fn expected_recipe(arm: ComparisonArmV4) -> locallore::play::scene_narration::Sc
 }
 // Finite sentinel checks require actual available calls and output. An absent
 // diagnostic cannot turn into a privacy success through a vacuous all().
-fn finite_privacy(dir: &Path, recording: &RecordingFile, capture: &Value, receipt: &Receipt) -> bool {
-    if recording.lost || recording.forbidden_director_prompt
-        || recording.forbidden_narrator_prompt || recording.forbidden_narrator_output {
-        return false;
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FinitePrivacy { Checked, Unavailable, Violation }
+fn finite_privacy(dir: &Path, recording: &RecordingFile, capture: &Value, receipt: &Receipt) -> FinitePrivacy {
+    let forbidden = |text: &str, narrator: bool| EXCLUSIONS.iter().any(|sentinel| text.contains(sentinel))
+        || (narrator && text.contains("SECRET-TIDE-731"));
+    if recording.forbidden_director_prompt || recording.forbidden_narrator_prompt
+        || recording.forbidden_narrator_output || forbidden(receipt.narration(), true) {
+        return FinitePrivacy::Violation;
     }
-    let Some(artifacts) = capture["data"]["details"]["artifacts"].as_array() else { return false; };
-    let requests: Vec<_> = artifacts.iter().filter(|a| a["kind"] == "generation_request").collect();
-    if requests.is_empty() || requests.len() != recording.captures.len() { return false; }
-    let prompts_clean = requests.into_iter().all(|artifact| {
+    let Some(artifacts) = capture["data"]["details"]["artifacts"].as_array() else { return FinitePrivacy::Unavailable; };
+    let requests = artifacts.iter().filter(|a| a["kind"] == "generation_request");
+    let count = requests.clone().count();
+    let mut unavailable = recording.lost || count == 0 || count != recording.captures.len();
+    for artifact in requests {
         let input = &artifact["value"]["input"];
-        let Some(prompt) = input["prompt"].as_str() else { return false; };
-        let Some(role) = input["role"].as_str() else { return false; };
-        matches!(role, "director" | "narrator")
-            && !EXCLUSIONS.iter().any(|sentinel| prompt.contains(sentinel))
-            && (role != "narrator" || !prompt.contains("SECRET-TIDE-731"))
-    });
-    // Re-read actual bounded raw narrator bytes, rather than treating a stored
-    // recorder flag as authenticated evidence. Empty output is not a check.
+        let (Some(prompt), Some(role)) = (input["prompt"].as_str(), input["role"].as_str()) else {
+            unavailable = true; continue;
+        };
+        if !matches!(role, "director" | "narrator") || prompt.is_empty() {
+            unavailable = true; continue;
+        }
+        if forbidden(prompt, role == "narrator") { return FinitePrivacy::Violation; }
+    }
+    // These are retained diagnostic observations, not proof of output origin.
+    // Empty, unreadable, malformed or inconsistent bytes cannot complete a check.
     let mut narrator_seen = false;
-    let raw_clean = recording.raw.iter().all(|raw| {
-        if raw.role != "narrator" { return true; }
+    for raw in recording.raw.iter().filter(|raw| raw.role == "narrator") {
         narrator_seen = true;
-        read(&dir.join(&raw.file), 16_384).is_ok_and(|bytes| {
-            bytes.len() == raw.bytes && digest(&bytes) == raw.sha256
-                && !EXCLUSIONS.iter().chain(std::iter::once(&"SECRET-TIDE-731"))
-                    .any(|sentinel| String::from_utf8_lossy(&bytes).contains(sentinel))
-        })
-    });
-    prompts_clean && narrator_seen && raw_clean
-        && !EXCLUSIONS.iter().chain(std::iter::once(&"SECRET-TIDE-731"))
-        .any(|sentinel| receipt.narration().contains(sentinel))
+        let Ok(bytes) = read(&dir.join(&raw.file), 16_384) else { unavailable = true; continue; };
+        if bytes.is_empty() || bytes.len() != raw.bytes || digest(&bytes) != raw.sha256 {
+            unavailable = true; continue;
+        }
+        let Ok(text) = std::str::from_utf8(&bytes) else { unavailable = true; continue; };
+        if forbidden(text, true) { return FinitePrivacy::Violation; }
+    }
+    if unavailable || !narrator_seen { FinitePrivacy::Unavailable } else { FinitePrivacy::Checked }
 }
 fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
     use crate::memory_comparison_v4::PrivacyEvidenceStatusV4 as Privacy;
@@ -261,10 +266,11 @@ fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
         else if phase == "not_run_dependency" { Status::NotApplicableDependency }
         else if checked.is_some() { Status::ValidatedCommittedSceneNarratorV1 }
         else { Status::Unavailable };
-    let privacy_checked = checked.is_some() && match (recording, capture, receipt) {
+    let privacy_observation = match (recording, capture, receipt) {
         (Some(recording), Some(capture), Some(receipt)) => finite_privacy(dir, recording, capture, receipt),
-        _ => false,
+        _ => FinitePrivacy::Unavailable,
     };
+    let privacy_checked = checked.is_some() && privacy_observation == FinitePrivacy::Checked;
     let privacy_status = if guard_ok { Privacy::NotApplicableGuard }
         else if privacy_checked { Privacy::CheckedFiniteSentinels }
         else { Privacy::Unavailable };
@@ -279,7 +285,10 @@ fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
     }
     if !construction_matches && !guard_ok { failures.push("no_matching_construction_receipt".into()); }
     if !evidence_ok { failures.push("scene_capture_unavailable".into()); }
-    if !guard_ok && !privacy_checked { failures.push("observer_or_output_privacy_unavailable".into()); }
+    if !guard_ok && !privacy_checked { failures.push(match privacy_observation {
+        FinitePrivacy::Violation => "observer_or_output_privacy_violation",
+        _ => "observer_or_output_privacy_evidence_unavailable",
+    }.into()); }
     if recovered { failures.push("unknown_historical_calls_and_checkpoint".into()); }
     if recording.is_some_and(|r| r.lost) { failures.push("recording_loss".into()); }
     let source_fallback_reason = record.and_then(|r| r.context.as_ref())

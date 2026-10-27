@@ -169,75 +169,147 @@ fn expected_recipe(arm: ComparisonArmV4) -> locallore::play::scene_narration::Sc
     use locallore::play::scene_narration::SceneRecipeV1;
     match arm {
         ComparisonArmV4::LiteralSceneV1 => SceneRecipeV1::LiteralV1,
-        ComparisonArmV4::RelevantMemorySceneV1 => SceneRecipeV1::Memory(ContextPolicy::StateRelevantMemoryV1),
+        ComparisonArmV4::RelevantMemorySceneV1 => {
+            SceneRecipeV1::Memory(ContextPolicy::StateRelevantMemoryV1)
+        }
     }
 }
 // Finite sentinel checks require actual available calls and output. An absent
 // diagnostic cannot turn into a privacy success through a vacuous all().
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum FinitePrivacy { Checked, Unavailable, Violation }
-fn finite_privacy(dir: &Path, recording: &RecordingFile, capture: &Value, receipt: &Receipt) -> FinitePrivacy {
-    let forbidden = |text: &str, narrator: bool| EXCLUSIONS.iter().any(|sentinel| text.contains(sentinel))
-        || (narrator && text.contains("SECRET-TIDE-731"));
-    if recording.forbidden_director_prompt || recording.forbidden_narrator_prompt
-        || recording.forbidden_narrator_output || forbidden(receipt.narration(), true) {
+enum FinitePrivacy {
+    Checked,
+    Unavailable,
+    Violation,
+}
+fn finite_privacy(
+    dir: &Path,
+    recording: &RecordingFile,
+    capture: &Value,
+    receipt: &Receipt,
+) -> FinitePrivacy {
+    let forbidden = |text: &str, narrator: bool| {
+        EXCLUSIONS.iter().any(|sentinel| text.contains(sentinel))
+            || (narrator && text.contains("SECRET-TIDE-731"))
+    };
+    if recording.forbidden_director_prompt
+        || recording.forbidden_narrator_prompt
+        || recording.forbidden_narrator_output
+        || forbidden(receipt.narration(), true)
+    {
         return FinitePrivacy::Violation;
     }
-    let Some(artifacts) = capture["data"]["details"]["artifacts"].as_array() else { return FinitePrivacy::Unavailable; };
-    let requests = artifacts.iter().filter(|a| a["kind"] == "generation_request");
+    let Some(artifacts) = capture["data"]["details"]["artifacts"].as_array() else {
+        return FinitePrivacy::Unavailable;
+    };
+    let requests = artifacts
+        .iter()
+        .filter(|a| a["kind"] == "generation_request");
     let count = requests.clone().count();
     let mut unavailable = recording.lost || count == 0 || count != recording.captures.len();
     for artifact in requests {
         let input = &artifact["value"]["input"];
         let (Some(prompt), Some(role)) = (input["prompt"].as_str(), input["role"].as_str()) else {
-            unavailable = true; continue;
+            unavailable = true;
+            continue;
         };
         if !matches!(role, "director" | "narrator") || prompt.is_empty() {
-            unavailable = true; continue;
+            unavailable = true;
+            continue;
         }
-        if forbidden(prompt, role == "narrator") { return FinitePrivacy::Violation; }
+        if forbidden(prompt, role == "narrator") {
+            return FinitePrivacy::Violation;
+        }
     }
     // These are retained diagnostic observations, not proof of output origin.
     // Empty, unreadable, malformed or inconsistent bytes cannot complete a check.
     let mut narrator_seen = false;
     for raw in recording.raw.iter().filter(|raw| raw.role == "narrator") {
         narrator_seen = true;
-        let Ok(bytes) = read(&dir.join(&raw.file), 16_384) else { unavailable = true; continue; };
+        let Ok(bytes) = read(&dir.join(&raw.file), 16_384) else {
+            unavailable = true;
+            continue;
+        };
         if bytes.is_empty() || bytes.len() != raw.bytes || digest(&bytes) != raw.sha256 {
-            unavailable = true; continue;
+            unavailable = true;
+            continue;
         }
-        let Ok(text) = std::str::from_utf8(&bytes) else { unavailable = true; continue; };
-        if forbidden(text, true) { return FinitePrivacy::Violation; }
+        let Ok(text) = std::str::from_utf8(&bytes) else {
+            unavailable = true;
+            continue;
+        };
+        if forbidden(text, true) {
+            return FinitePrivacy::Violation;
+        }
     }
-    if unavailable || !narrator_seen { FinitePrivacy::Unavailable } else { FinitePrivacy::Checked }
+    if unavailable || !narrator_seen {
+        FinitePrivacy::Unavailable
+    } else {
+        FinitePrivacy::Checked
+    }
 }
 fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
     use crate::memory_comparison_v4::PrivacyEvidenceStatusV4 as Privacy;
     use crate::scene_capture_v1::{check_committed_scene_capture_v1, SceneCaptureInputV1};
     use locallore::play::scene_narration::SCENE_NARRATION_POLICY_V1;
-    let Observation4 { dir, step, arm, construction, before, after, phase, error, receipt,
-        recording, capture, trace, admission, elapsed_ms, first_final_response_ms,
-        commit_elapsed_ms, profile, recovered } = o;
+    let Observation4 {
+        dir,
+        step,
+        arm,
+        construction,
+        before,
+        after,
+        phase,
+        error,
+        receipt,
+        recording,
+        capture,
+        trace,
+        admission,
+        elapsed_ms,
+        first_final_response_ms,
+        commit_elapsed_ms,
+        profile,
+        recovered,
+    } = o;
     let request = step.request(before);
     let roles = recording.map_or(0, |r| r.roles);
-    let assessment = turn_execution::assess_outcome(before, after, step, phase,
-        error.as_deref(), receipt, roles)?;
+    let assessment = turn_execution::assess_outcome(
+        before,
+        after,
+        step,
+        phase,
+        error.as_deref(),
+        receipt,
+        roles,
+    )?;
     let guard_ok = assessment.guard && assessment.expected_ok && roles == 0 && !recovered;
     let record = receipt.and_then(Receipt::play);
     let construction_matches = record.map_or(guard_ok, |p| {
-        p.version == locallore::play::PLAY_VERSION && p.policy == SCENE_NARRATION_POLICY_V1
-            && p.profile == *profile && p.prompt_version == descriptor(construction).prompt_version
-            && p.scene.as_ref().is_some_and(|s| s.version == 1 && hex(&s.frame_sha256))
+        p.version == locallore::play::PLAY_VERSION
+            && p.policy == SCENE_NARRATION_POLICY_V1
+            && p.profile == *profile
+            && p.prompt_version == descriptor(construction).prompt_version
+            && p.scene
+                .as_ref()
+                .is_some_and(|s| s.version == 1 && hex(&s.frame_sha256))
             && match construction {
-                ComparisonArmV4::LiteralSceneV1 => p.context.is_none() && p.context_policy.is_none(),
+                ComparisonArmV4::LiteralSceneV1 => {
+                    p.context.is_none() && p.context_policy.is_none()
+                }
                 ComparisonArmV4::RelevantMemorySceneV1 => {
                     p.context_policy == Some(ContextPolicy::StateRelevantMemoryV1)
-                        && p.context.as_ref().is_some_and(|c| c.version == 2 && c.compiler_version == 2)
+                        && p.context
+                            .as_ref()
+                            .is_some_and(|c| c.version == 2 && c.compiler_version == 2)
                 }
             }
     });
     let (checked, reason) = if recovered {
-        (None, Some("recovered_without_original_checkpoint_and_calls".into()))
+        (
+            None,
+            Some("recovered_without_original_checkpoint_and_calls".into()),
+        )
     } else if guard_ok || phase == "not_run_dependency" {
         (None, None)
     } else if phase != "committed" || receipt.is_none() {
@@ -246,85 +318,168 @@ fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
         (None, Some("recording_loss".into()))
     } else if let (Some(recording), Some(capture)) = (recording, capture) {
         if let Some(attempt) = capture["data"]["details"]["identity"]["attempt"]
-            .as_u64().and_then(|n| u32::try_from(n).ok()) {
+            .as_u64()
+            .and_then(|n| u32::try_from(n).ok())
+        {
             match check_committed_scene_capture_v1(SceneCaptureInputV1 {
-                before, after, request: &request, expected_recipe: expected_recipe(construction),
-                expected_profile: profile, attempt, details_reply: capture,
+                before,
+                after,
+                request: &request,
+                expected_recipe: expected_recipe(construction),
+                expected_profile: profile,
+                attempt,
+                details_reply: capture,
                 recordings: &recording.captures,
             }) {
                 Ok(value) => (Some(value), None),
                 Err(error) => (None, Some(format!("scene_capture:{error:?}"))),
             }
-        } else { (None, Some("capture_attempt_unavailable".into())) }
-    } else { (None, Some("capture_or_recording_unavailable".into())) };
-    let actual_receipt_sha256 = receipt.map(|r| encode(r).map(|bytes| digest(&bytes))).transpose()?;
-    if checked.as_ref().is_some_and(|value| Some(value.receipt_sha256()) != actual_receipt_sha256.as_deref()) {
+        } else {
+            (None, Some("capture_attempt_unavailable".into()))
+        }
+    } else {
+        (None, Some("capture_or_recording_unavailable".into()))
+    };
+    let actual_receipt_sha256 = receipt
+        .map(|r| encode(r).map(|bytes| digest(&bytes)))
+        .transpose()?;
+    if checked
+        .as_ref()
+        .is_some_and(|value| Some(value.receipt_sha256()) != actual_receipt_sha256.as_deref())
+    {
         return Err("CaptureReceiptBinding".into());
     }
-    let evidence_status = if recovered { Status::Unavailable }
-        else if guard_ok { Status::NotApplicableGuard }
-        else if phase == "not_run_dependency" { Status::NotApplicableDependency }
-        else if checked.is_some() { Status::ValidatedCommittedSceneNarratorV1 }
-        else { Status::Unavailable };
+    let evidence_status = if recovered {
+        Status::Unavailable
+    } else if guard_ok {
+        Status::NotApplicableGuard
+    } else if phase == "not_run_dependency" {
+        Status::NotApplicableDependency
+    } else if checked.is_some() {
+        Status::ValidatedCommittedSceneNarratorV1
+    } else {
+        Status::Unavailable
+    };
     let privacy_observation = match (recording, capture, receipt) {
-        (Some(recording), Some(capture), Some(receipt)) => finite_privacy(dir, recording, capture, receipt),
+        (Some(recording), Some(capture), Some(receipt)) => {
+            finite_privacy(dir, recording, capture, receipt)
+        }
         _ => FinitePrivacy::Unavailable,
     };
     let privacy_checked = checked.is_some() && privacy_observation == FinitePrivacy::Checked;
-    let privacy_status = if guard_ok { Privacy::NotApplicableGuard }
-        else if privacy_checked { Privacy::CheckedFiniteSentinels }
-        else { Privacy::Unavailable };
+    let privacy_status = if guard_ok {
+        Privacy::NotApplicableGuard
+    } else if privacy_checked {
+        Privacy::CheckedFiniteSentinels
+    } else {
+        Privacy::Unavailable
+    };
     let evidence_ok = guard_ok || checked.is_some();
     let mut failures = Vec::new();
     if !assessment.expected_ok {
-        failures.push(match error.as_deref() {
-            Some("Agency") => "player_agency", Some("Stale" | "Scope") => "stale_source",
-            Some("Malformed" | "Provider" | "TooLarge") => "provider_or_parse",
-            _ if phase == "not_run_dependency" => "not_run_dependency", _ => "scenario_outcome",
-        }.into());
+        failures.push(
+            match error.as_deref() {
+                Some("Agency") => "player_agency",
+                Some("Stale" | "Scope") => "stale_source",
+                Some("Malformed" | "Provider" | "TooLarge") => "provider_or_parse",
+                _ if phase == "not_run_dependency" => "not_run_dependency",
+                _ => "scenario_outcome",
+            }
+            .into(),
+        );
     }
-    if !construction_matches && !guard_ok { failures.push("no_matching_construction_receipt".into()); }
-    if !evidence_ok { failures.push("scene_capture_unavailable".into()); }
-    if !guard_ok && !privacy_checked { failures.push(match privacy_observation {
-        FinitePrivacy::Violation => "observer_or_output_privacy_violation",
-        _ => "observer_or_output_privacy_evidence_unavailable",
-    }.into()); }
-    if recovered { failures.push("unknown_historical_calls_and_checkpoint".into()); }
-    if recording.is_some_and(|r| r.lost) { failures.push("recording_loss".into()); }
-    let source_fallback_reason = record.and_then(|r| r.context.as_ref())
+    if !construction_matches && !guard_ok {
+        failures.push("no_matching_construction_receipt".into());
+    }
+    if !evidence_ok {
+        failures.push("scene_capture_unavailable".into());
+    }
+    if !guard_ok && !privacy_checked {
+        failures.push(
+            match privacy_observation {
+                FinitePrivacy::Violation => "observer_or_output_privacy_violation",
+                _ => "observer_or_output_privacy_evidence_unavailable",
+            }
+            .into(),
+        );
+    }
+    if recovered {
+        failures.push("unknown_historical_calls_and_checkpoint".into());
+    }
+    if recording.is_some_and(|r| r.lost) {
+        failures.push("recording_loss".into());
+    }
+    let source_fallback_reason = record
+        .and_then(|r| r.context.as_ref())
         .and_then(|c| serde_json::to_value(c.source_fallback_reason).ok())
         .and_then(|v| v.as_str().map(str::to_owned));
-    let compiler_fallback_reason = record.and_then(|r| r.context.as_ref())
+    let compiler_fallback_reason = record
+        .and_then(|r| r.context.as_ref())
         .and_then(|c| serde_json::to_value(c.coverage.set_fallback_reason).ok())
         .and_then(|v| v.as_str().map(str::to_owned));
     Ok(TurnReportV4 {
-        turn: step.id().into(), scene: step.scene(), arm: arm.into(), construction: descriptor(construction),
-        phase: phase.into(), error, expected: serde_json::to_string(step.expected()).map_err(|_| "Encoding")?,
-        passed: assessment.expected_ok && construction_matches && evidence_ok
-            && (guard_ok || privacy_checked) && !recovered && recording.is_none_or(|r| !r.lost),
-        failures, quality_flags: if record.is_some_and(|r| r.fallback) {
+        turn: step.id().into(),
+        scene: step.scene(),
+        arm: arm.into(),
+        construction: descriptor(construction),
+        phase: phase.into(),
+        error,
+        expected: serde_json::to_string(step.expected()).map_err(|_| "Encoding")?,
+        passed: assessment.expected_ok
+            && construction_matches
+            && evidence_ok
+            && (guard_ok || privacy_checked)
+            && !recovered
+            && recording.is_none_or(|r| !r.lost),
+        failures,
+        quality_flags: if record.is_some_and(|r| r.fallback) {
             vec!["narration_fallback_no_quality_acceptance".into()]
-        } else { vec![] },
-        roles, roles_known: !recovered, recovered_without_checkpoint: recovered,
-        admission, elapsed_ms, first_final_response_ms, commit_elapsed_ms,
+        } else {
+            vec![]
+        },
+        roles,
+        roles_known: !recovered,
+        recovered_without_checkpoint: recovered,
+        admission,
+        elapsed_ms,
+        first_final_response_ms,
+        commit_elapsed_ms,
         input_semantic_sha256: v2::semantic_input(before, &request)?,
-        output_semantic_sha256: v2::semantic_output(after)?, mechanical_sha256: v2::mechanical_output(after)?,
-        construction_matches, construction_evidence_status: evidence_status,
+        output_semantic_sha256: v2::semantic_output(after)?,
+        mechanical_sha256: v2::mechanical_output(after)?,
+        construction_matches,
+        construction_evidence_status: evidence_status,
         construction_evidence_reason: reason,
         narrator_prompt_sha256: checked.as_ref().map(|c| c.narrator_prompt_sha256().into()),
         narrator_schema_sha256: checked.as_ref().map(|c| c.narrator_schema_sha256().into()),
-        scene_frame_sha256: checked.as_ref().and_then(|_| record.and_then(|r| r.scene.as_ref()))
+        scene_frame_sha256: checked
+            .as_ref()
+            .and_then(|_| record.and_then(|r| r.scene.as_ref()))
             .map(|s| s.frame_sha256.clone()),
-        actual_receipt_sha256, privacy_evidence_status: privacy_status,
-        fallback: record.map(|r| r.fallback), repairs: record.map(|r| r.repairs),
+        actual_receipt_sha256,
+        privacy_evidence_status: privacy_status,
+        fallback: record.map(|r| r.fallback),
+        repairs: record.map(|r| r.repairs),
         narration: receipt.map(|r| r.narration().to_owned()),
-        capture_sha256: capture.map(|c| encode(c).map(|bytes| digest(&bytes))).transpose()?,
-        recording_sha256: recording.map(|r| encode(r).map(|bytes| digest(&bytes))).transpose()?,
-        raw_sha256: recording.map_or_else(Vec::new, |r| r.raw.iter().map(|r| r.sha256.clone()).collect()),
-        role_metrics: recording.and_then(|r| r.role_metrics.clone()), trace,
-        stages: record.map_or_else(Vec::new, |r| r.stages.iter()
-            .filter_map(|s| serde_json::to_value(s).ok()).collect()),
-        source_fallback_reason, compiler_fallback_reason,
+        capture_sha256: capture
+            .map(|c| encode(c).map(|bytes| digest(&bytes)))
+            .transpose()?,
+        recording_sha256: recording
+            .map(|r| encode(r).map(|bytes| digest(&bytes)))
+            .transpose()?,
+        raw_sha256: recording.map_or_else(Vec::new, |r| {
+            r.raw.iter().map(|r| r.sha256.clone()).collect()
+        }),
+        role_metrics: recording.and_then(|r| r.role_metrics.clone()),
+        trace,
+        stages: record.map_or_else(Vec::new, |r| {
+            r.stages
+                .iter()
+                .filter_map(|s| serde_json::to_value(s).ok())
+                .collect()
+        }),
+        source_fallback_reason,
+        compiler_fallback_reason,
     })
 }
 struct ReadyJob4<'a> {
@@ -895,7 +1050,10 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV4> {
                     ));
                 }
                 if turn.row.privacy_evidence_status == v4::PrivacyEvidenceStatusV4::Unavailable {
-                    unavailable.push(format!("{}:{}:finite_privacy_unavailable", ARM_NAMES[arm], turn.row.turn));
+                    unavailable.push(format!(
+                        "{}:{}:finite_privacy_unavailable",
+                        ARM_NAMES[arm], turn.row.turn
+                    ));
                 }
                 if !turn.row.roles_known {
                     unavailable.push(format!(
@@ -1046,10 +1204,13 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV4> {
     } else {
         "scripted_scene_literal_relevant_comparison"
     };
-    let source_bound_committed_rows = rows.iter().filter(|row| {
-        row.phase == "committed"
-            && row.construction_evidence_status == Status::ValidatedCommittedSceneNarratorV1
-    }).count();
+    let source_bound_committed_rows = rows
+        .iter()
+        .filter(|row| {
+            row.phase == "committed"
+                && row.construction_evidence_status == Status::ValidatedCommittedSceneNarratorV1
+        })
+        .count();
     Ok(ComparisonReportV4 { version:4, arms:v4::arm_descriptors(), kind:manifest.kind, lane:lane.into(),
         source_matches:manifest.source_matches()?,completed:completed_scenes==4,completed_scenes,turns:rows,
         human_reviewed:0,human_rubric:"not_reviewed".into(),quality_accepted:false,physical_setups:native_loads.len(),physical_setup_ms:native_preparation_ms,native_load:if native_loads.is_empty() {None} else {Some(json!(native_loads))},

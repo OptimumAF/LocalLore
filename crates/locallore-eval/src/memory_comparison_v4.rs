@@ -1,14 +1,20 @@
 //! Closed scene-comparison metadata. Deserialization grants no native authority.
+pub(crate) use crate::memory_comparison_v3::required_nullable;
 use crate::Result;
-use locallore::{context_compiler::ContextPolicy, play::{scene_narration, PlayProfile}};
+use locallore::{
+    context_compiler::ContextPolicy,
+    play::{scene_narration, PlayProfile},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-pub(crate) use crate::memory_comparison_v3::required_nullable;
 
 pub const VERSION: u16 = 4;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ComparisonArmV4 { LiteralSceneV1, RelevantMemorySceneV1 }
+pub enum ComparisonArmV4 {
+    LiteralSceneV1,
+    RelevantMemorySceneV1,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -44,10 +50,16 @@ pub fn arm_descriptors() -> [ArmDescriptorV4; 2] {
             narration_policy: scene_narration::SCENE_NARRATION_POLICY_V1.into(),
             director_schema_id: "locallore-director-literal-v1".into(),
             narrator_schema_id: "locallore-narrator-v2".into(),
-            context_policy: None, compiler_version: None, context_version: None,
-            literal_source_version: Some(1), literal_render_version: Some(1),
-            literal_schema_version: Some(1), literal_packing_version: Some(1),
-            forwarded_budget_version: 1, scene_frame_version: 1, scene_capture_gate_version: 1,
+            context_policy: None,
+            compiler_version: None,
+            context_version: None,
+            literal_source_version: Some(1),
+            literal_render_version: Some(1),
+            literal_schema_version: Some(1),
+            literal_packing_version: Some(1),
+            forwarded_budget_version: 1,
+            scene_frame_version: 1,
+            scene_capture_gate_version: 1,
         },
         ArmDescriptorV4 {
             arm: ComparisonArmV4::RelevantMemorySceneV1,
@@ -56,17 +68,24 @@ pub fn arm_descriptors() -> [ArmDescriptorV4; 2] {
             director_schema_id: "locallore-director-v2".into(),
             narrator_schema_id: "locallore-narrator-v2".into(),
             context_policy: Some(ContextPolicy::StateRelevantMemoryV1),
-            compiler_version: Some(2), context_version: Some(2),
-            literal_source_version: None, literal_render_version: None,
-            literal_schema_version: None, literal_packing_version: None,
-            forwarded_budget_version: 1, scene_frame_version: 1, scene_capture_gate_version: 1,
+            compiler_version: Some(2),
+            context_version: Some(2),
+            literal_source_version: None,
+            literal_render_version: None,
+            literal_schema_version: None,
+            literal_packing_version: None,
+            forwarded_budget_version: 1,
+            scene_frame_version: 1,
+            scene_capture_gate_version: 1,
         },
     ]
 }
 impl ArmDescriptorV4 {
     pub fn validate(&self) -> Result<()> {
         let index = usize::from(self.arm == ComparisonArmV4::RelevantMemorySceneV1);
-        if *self != arm_descriptors()[index] { return Err("ArmDescriptorBinding".into()); }
+        if *self != arm_descriptors()[index] {
+            return Err("ArmDescriptorBinding".into());
+        }
         Ok(())
     }
 }
@@ -89,23 +108,35 @@ pub struct CurrentBindingV4 {
 pub fn current_binding(native: bool) -> Result<CurrentBindingV4> {
     let existing = crate::memory_comparison_v2::current_binding(native)?;
     Ok(CurrentBindingV4 {
-        protocol_version: VERSION, arms: arm_descriptors(),
-        source_sha256: existing.source_sha256, suite_sha256: existing.suite_sha256,
+        protocol_version: VERSION,
+        arms: arm_descriptors(),
+        source_sha256: existing.source_sha256,
+        suite_sha256: existing.suite_sha256,
         forwarded_budget_version: 1,
-        max_admissions: existing.max_admissions, max_roles: existing.max_roles,
-        max_active_ms: existing.max_active_ms, attempts: existing.attempts,
+        max_admissions: existing.max_admissions,
+        max_roles: existing.max_roles,
+        max_active_ms: existing.max_active_ms,
+        attempts: existing.attempts,
         expected_accepted: existing.expected_accepted,
-        expected_guard_only: existing.expected_guard_only, native,
+        expected_guard_only: existing.expected_guard_only,
+        native,
     })
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConstructionEvidenceStatusV4 {
-    ValidatedCommittedSceneNarratorV1, NotApplicableGuard, NotApplicableDependency, Unavailable,
+    ValidatedCommittedSceneNarratorV1,
+    NotApplicableGuard,
+    NotApplicableDependency,
+    Unavailable,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PrivacyEvidenceStatusV4 { CheckedFiniteSentinels, NotApplicableGuard, Unavailable }
+pub enum PrivacyEvidenceStatusV4 {
+    CheckedFiniteSentinels,
+    NotApplicableGuard,
+    Unavailable,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

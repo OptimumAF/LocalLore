@@ -349,3 +349,96 @@ and joined-drain gates remain open. Next runnable verification: current841
 legacy creation19 and broad89 in fresh owned guests; then the corresponding
 current-source lifecycle controls. No merge, release, persistent setting change,
 unrelated-emulator stop or private upload is performed.
+
+## Existing creation and broad regressions — 2026-10-27
+
+The next packet qualifies the pending existing creation and broad suites on the
+same corrected executable02c91f92/841-input map. Root claims #13/6436375720 and
+supporting #14/6436375986 before work. Fresh deep readback validates the retained
+build-v2 and native10 prerequisites, including their actual APK/source/owner/raw
+bindings and all90 measured SDK2 pairs. Host/build tests are not rerun, and no
+earlier834-input outcomes are substituted. Independent file-only replay also
+finds all host196/runtime451/source239 recovery bindings intact.
+
+Two new standard2GiB/two-CPU API35 Google APIs/x86_64 guests are prepared and
+planned before either launch. They run serially under unchanged fixed rosters,
+source guards and time/output limits. Continuous same-tool readiness-to-dispatch
+uses the actual live owner handles. Both fixed CLI phases actually pass:
+
+| Fixed phase | Classes / methods | Complete measured SDK2 pairs | Owner elapsed / worker | Maximum SDK / observer elapsed |
+|---|---|---|---|---|
+| `story-creation` |4 /19 |100 (32 SDK,68 observers) |286815ms /0 |16291ms /2002ms |
+| `regression` |18 /89 |183 (60 SDK,123 observers) |560203ms /0 |44379ms /2095ms |
+
+Both actual verification handles terminate0. Their original owners have known
+cleanup/capture,18 stdout bytes and0 stderr bytes. Worker, parent and independent
+readback validate all283 complete metadata/raw pairs, exact source method
+rosters, original runner frames, SDK raw copies, requests/start records, source
+maps and current build/APKs. The timings are diagnostics, not physical-device
+performance or a general timeout-cause claim.
+
+### Coverage attribution
+
+The existing MainActivity creation journey retains its historical named-creation
+test name, but the current production UI now obtains `story_setup` and dispatches
+default-name `create_configured`. Its success qualifies those default configured
+UI workflows, including two-story/gift/reopen behavior. It is not evidence of a
+direct legacy `create_named` native invocation. Legacy wire fixtures and exact
+default cross-API retry remain separately covered in retained host/JVM tests.
+
+Creation19 does not edit the player name or select narrative rules. Broad89
+exercises its selected navigation/editor/lifecycle, cancellation, native resource,
+fork and fallback suites. Its probe test checks the existing fourteen keys and
+`story_templates` behavior; the new `story_setup` read-only and configured-create
+counter assertions belong to the separately executed player-setup8 phase.
+Neither new result replaces that custom-name phase, current-source chooser7,
+archive2, external OS-death, real-model, physical/ARM64, accessibility or joined
+drain qualification. No acceptance criterion is removed or weakened.
+
+### Closure and recovery
+
+Root requests each exact proposal-bound STOP only after known terminal client
+cleanup/capture. Both stop helpers and original owned guest handles actually
+terminate0. Guest owners record `stop_requested`,worker1,cleanup/capture/closure
+true and no guest-flush claim, elapsed318240/587440ms. Original stdout/stderr
+9418/1086 bytes and9410/1083 bytes are retained separately from the verification
+owners'0-byte stderr. The second guest launches only after the first closes.
+
+The reviewed final helper executes once after both actual closures. It passes
+one matching observation of the existing server,0 device calls and no server
+lifecycle operation. The newly captured, raw-bound preflight has0 protected
+identities; no earlier process pins or old-two comparison are adopted. The
+server remains available. Final-postflight2829-byte SHA256:
+`02b3545c4a3680d7b8a235623e1ea986298bd90dcdf594a6d785b87de9b5d98e`.
+
+Independent audit creates a new private recovery set with668 existing originals
+plus1 derived assessment:669 entries/1773825 bytes. Independent second replay
+and Root replay verify every original/copy/ZIP member, with0 missing files or
+mismatches. Index229136-byte SHA256:
+`48a98e3930505e4e3805fba2838c968e20e7366162748495a8354f28041400d9`.
+ZIP600242-byte SHA256:
+`793764468d12bdc2a63de408e31d4407bf3e188f4c13a7e679080417e83d68f3`.
+All three referenced prior index/ZIP-or-bundle pairs remain unchanged. The new
+seal copies only those indices, avoiding duplicate APK, model, image, DB, save
+or prior archive payloads. Public source/tests/contracts/report are committed;
+raw machine evidence remains in the private C: recovery folders.
+
+The latest complete existing creation and broad device-list captures each show
+one authorized explicit SDK-emulator profile and no potential physical candidate.
+Creation's earlier empty boot-time snapshot is not used for availability wording.
+These file-only assessments make no new hardware call and establish neither
+fresh physical admission nor absolute phone absence. M01.01/M01.02 retain their
+fresh eligible-physical-identity/performance gates.
+
+Actual commands are the fixed `python -I -B
+benchmarks/android_process_verification.py story-creation` and `regression`
+phases, each with its exact current build/proposal/running/server bindings;
+private requests and captures retain full arguments. Versions, corrected APKs
+and841-input SHA remain those recorded above. Source/dependencies/rosters,
+SDK850/owner900/class180/guest1200-second limits and full checkboxes are unchanged.
+M09.06/M10.02 supporting qualification and the M09.02 slice remain in review.
+Broader authoring is still required; this verification packet does not complete
+the product. Current-source lifecycle/chooser/archive, physical/model/ARM64,
+accessibility and joined drain remain separate gates. No merge, release,
+persistent system-setting change, unrelated-emulator stop or private upload is
+performed.

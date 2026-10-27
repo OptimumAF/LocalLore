@@ -1078,7 +1078,7 @@ export async function authorNativeJourneys({
                         .querySelector(
                             '[aria-label="Displayed inspection context"]',
                         )
-                        ?.textContent?.includes("inspected r0")
+                        ?.textContent?.includes("inspected r0") === true
                 );
             }, "mounted-seed-controls-and-pinned-context-show-historical-zero");
             receiptEvidence.push({
@@ -1185,7 +1185,7 @@ export async function authorNativeJourneys({
                         .querySelector(
                             '[aria-label="Displayed inspection context"]',
                         )
-                        ?.textContent?.includes("inspected r3")
+                        ?.textContent?.includes("inspected r3") === true
                 );
             }, "mounted-original-source-controls-and-pinned-context-match-actual-query");
             receiptEvidence.push({

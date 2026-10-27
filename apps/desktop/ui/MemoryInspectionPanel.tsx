@@ -160,6 +160,7 @@ export function MemoryInspectionPanel({
                                     <details>
                                         <summary>Recorded entry JSON</summary>
                                         <pre
+                                            tabIndex={0}
                                             style={{
                                                 ...inert,
                                                 maxHeight: "20rem",
@@ -230,6 +231,7 @@ export function MemoryInspectionPanel({
                                         </p>
                                     )}
                                 <pre
+                                    tabIndex={0}
                                     style={{
                                         ...inert,
                                         maxHeight: "20rem",

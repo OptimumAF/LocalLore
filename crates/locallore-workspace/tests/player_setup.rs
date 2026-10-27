@@ -2,11 +2,12 @@
 //! Independent configured-player adversaries through the actual Host/Store owner.
 //! Expected Seeds/hashes use bundled bytes and public serde, never setup production helpers.
 use locallore::{
-    context_compiler::{self, Budget, CompileError, CompileRequest, Payload, Role},
+    context_compiler::{self, Budget, CompileError, CompileRequest, Kind, Payload, Role},
     contracts::{Command, Intent, Request, Scope, Seed},
     engine::Engine,
     host::{Host, WorkspaceForkRequest, MAX_SESSIONS},
     inspection::sha256,
+    inspection_query::{Row, ValueOrigin},
 };
 use locallore_storage::{validate_archive, Store, TurnPhase};
 use serde_json::{json, Value};
@@ -113,7 +114,20 @@ fn fixture_bytes(template: &str) -> &'static [u8] {
 fn expected_seed(template: &str, name: Option<&str>) -> Seed {
     let mut seed: Seed = serde_json::from_slice(fixture_bytes(template)).unwrap();
     if let Some(name) = name {
+        let bundled_name = seed.actors[&seed.player].name.clone();
         seed.actors.get_mut(&seed.player).unwrap().name = name.into();
+        if template == QUAY && name != bundled_name {
+            seed.facts.get_mut("ancestry").unwrap().proposition =
+                "The player was born to ordinary quay keepers.".into();
+            seed.beliefs
+                .iter_mut()
+                .find(|belief| {
+                    belief.believer == "oren"
+                        && belief.proposition == "Rowan may possess the tideglass relic."
+                })
+                .unwrap()
+                .proposition = "The player may possess the tideglass relic.".into();
+        }
     }
     seed
 }
@@ -308,6 +322,94 @@ fn setup_preview_uses_independent_domain_hash_and_preserves_every_existing_story
 }
 
 #[test]
+fn custom_lantern_subject_references_follow_player_identity_without_promoting_npc_beliefs() {
+    let temp = Temp::new();
+    let host = temp.host();
+    let preview = setup(&host, QUAY, Some("Eira"));
+    let public_preview = serde_json::to_string(&preview).unwrap();
+    let ancestry = "The player was born to ordinary quay keepers.";
+    let suspicion = "The player may possess the tideglass relic.";
+    let false_belief = "The tideglass relic is in old-ruins.";
+    assert!(public_preview.contains(ancestry), "{public_preview}");
+    assert!(!public_preview.contains("Rowan"));
+    assert!(!public_preview.contains(suspicion) && !public_preview.contains(false_belief));
+
+    let created = data(call(
+        &host,
+        creation(&preview, "Eira at the quay", &"a1".repeat(16)),
+    ));
+    let engine = temp.engine(&scope(&created));
+    let mut expected = expected_seed(QUAY, Some("Eira"));
+    expected.scope = scope(&created);
+    assert_eq!(engine.seed(), &expected);
+    let bundled = expected_seed(QUAY, None);
+    let actual_fact = &engine.seed().facts["ancestry"];
+    assert_eq!(actual_fact.proposition, ancestry);
+    assert_eq!(actual_fact.known_by, bundled.facts["ancestry"].known_by);
+    assert_eq!(
+        actual_fact.discoverable_at,
+        bundled.facts["ancestry"].discoverable_at
+    );
+    let original_oren = bundled
+        .beliefs
+        .iter()
+        .find(|belief| belief.believer == "oren")
+        .unwrap();
+    let actual_oren = engine
+        .seed()
+        .beliefs
+        .iter()
+        .find(|belief| belief.believer == "oren")
+        .unwrap();
+    let mut neutral_oren = original_oren.clone();
+    neutral_oren.proposition = suspicion.into();
+    assert_eq!(actual_oren, &neutral_oren); // source, confidence and believer remain seed belief metadata.
+
+    let canonical = engine.canonical_bytes();
+    let player = engine
+        .character_context("player", engine.scope(), 0)
+        .unwrap();
+    assert_eq!(player.facts["ancestry"], ancestry);
+    assert!(player.beliefs.is_empty());
+    let compiled = context_compiler::compile(
+        &engine,
+        &context_request(&engine, "Eira", vec!["player".into()]),
+    )
+    .unwrap();
+    assert!(compiled.records.iter().any(|selected| {
+        selected.kind == Kind::Truth
+            && matches!(&selected.payload,
+            Payload::Record(row) if matches!(row.as_ref(), Row::Knowledge {
+                id, text, origin: ValueOrigin::CanonicalTruth, ..
+            } if id == "ancestry" && text == ancestry))
+    }));
+    let player_wire = serde_json::to_string(&compiled).unwrap();
+    assert!(!player_wire.contains("Rowan"));
+    assert!(!player_wire.contains(suspicion) && !player_wire.contains(false_belief));
+
+    for (observer, proposition) in [("oren", suspicion), ("mira", false_belief)] {
+        let mut request = context_request(&engine, "tideglass", vec![observer.into()]);
+        request.observer = observer.into();
+        let compiled = context_compiler::compile(&engine, &request).unwrap();
+        assert!(compiled.records.iter().any(|selected| {
+            selected.kind == Kind::Belief
+                && matches!(&selected.payload,
+                Payload::Record(row) if matches!(row.as_ref(), Row::Knowledge {
+                    subject: Some(subject), text, origin: ValueOrigin::SubjectiveBelief, ..
+                } if subject == observer && text == proposition))
+        }));
+        assert!(!compiled.records.iter().any(|selected| {
+            selected.kind == Kind::Truth && matches!(&selected.payload,
+                Payload::Record(row) if matches!(row.as_ref(), Row::Knowledge { text, .. } if text == proposition))
+        }));
+        let wire = serde_json::to_string(&compiled).unwrap();
+        assert!(!wire.contains("Rowan") && !wire.contains("SECRET-TIDE-731"));
+    }
+    assert_eq!(engine.canonical_bytes(), canonical);
+    assert!(engine.receipts().is_empty());
+}
+
+#[test]
 fn instruction_shaped_name_is_only_a_label_not_a_rule_grant_or_world_retcon() {
     let temp = Temp::new();
     let host = temp.host();
@@ -330,7 +432,19 @@ fn instruction_shaped_name_is_only_a_label_not_a_rule_grant_or_world_retcon() {
         engine.state().items["brass-key"].return_to.as_deref(),
         Some("oren")
     );
-    assert_eq!(engine.seed().facts, expected_seed(QUAY, None).facts);
+    // Exactly the two declared subject references change; labels cannot enter truth or beliefs.
+    assert_eq!(engine.seed().facts, expected.facts);
+    assert_eq!(engine.seed().beliefs, expected.beliefs);
+    assert!(engine
+        .seed()
+        .facts
+        .values()
+        .all(|fact| !fact.proposition.contains(name)));
+    assert!(engine
+        .seed()
+        .beliefs
+        .iter()
+        .all(|belief| !belief.proposition.contains(name)));
     let canonical = engine.canonical_bytes();
     let catalog = temp.canonical()["catalog"].clone();
     let counts = host.live_counts();

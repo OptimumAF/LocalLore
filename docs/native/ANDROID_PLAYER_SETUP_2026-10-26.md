@@ -53,6 +53,24 @@ cover wire bounds, exact retained consent, review cancellation and actual native
 state after ordinary Activity reopen. At this checkpoint those integrated tests
 are authored, not yet executed; compilation and source review are insufficient.
 
+The integrated Python discovery subsequently passes all1485 tests,0 failures,
+errors or skips, owner269478ms/worker0 with cleanup/capture true and1954 tracked
+inputs unchanged. This includes the new parent-path timingless-pair, rebound-raw
+and unknown-ownership refusal tests. Rustfmt also returns0.
+
+The first combined three-package Rust owner expires at600015ms before the full
+suite finishes. Cleanup/capture are known true, tracked inputs remain unchanged,
+and the original record stays `passed:false`. Partial successful frames are not
+promoted to a complete Rust result; its raw streams and missing final Cargo
+command receipt are preserved without reconstruction.
+
+The next verification runs each complete package suite under a separate existing
+600-second owner, serially. All-feature tests and examples remain included;
+the workspace command explicitly enables `locallore-storage/development-fixtures`
+to preserve the original package union's host feature. No test filter, timeout
+increase or emulator budget change is used. Those package results are pending
+until actually executed and read back.
+
 No dependency is introduced or repinned. Existing locked offline toolchains are
 reused. All requested verification will retain original bounded output and exact
 source/APK/owner bindings in create-only private C: evidence; no model weights,

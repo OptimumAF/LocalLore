@@ -42,7 +42,9 @@ and features with Rust1.93.1, locked/offline dependencies; it is not a test run.
 
 Native author focused checks subsequently pass17 cases on their own1957-input
 source:6 new presentation cases and11 existing literal/exact-byte checks,
-owner9990ms/worker0 with retained command/streams/maps. The original first
+command9990ms/exit0 with retained command/streams/maps. This author wrapper proves
+terminal child/closed captures, not Root job cleanup, and is not a current gate.
+The original first
 compilation failure used a host-feature-gated hashing helper. It remains failed;
 using existing sha2 corrects it without adding a dependency. Author checks do
 not establish integrated Host replay or Android qualification.
@@ -76,3 +78,84 @@ evidence is written on C:, with original failures preserved; no private model,
 save, DB, image or raw device evidence is uploaded. No dependency is introduced
 or repinned. Existing offline toolchains are reused. No merge, release, system
 setting change, unrelated-emulator stop or server lifecycle action is performed.
+
+## Complete checks, Clippy correction and corrected build
+
+The first complete package and Android checks actually pass on the initial
+presentation source:835 native tests/11 ignored,1493 Python tests, frontend and
+282 JVM tests/33 suites, both lints0 errors/3 warnings and11 artifact audits.
+They retain their exact earlier source and are not relabeled as failures.
+
+Clippy-v1 then actually fails8468ms/worker1 because the new private executor has
+eight arguments. The original error/output stays failed. Root groups the same
+director construction and literal-presentation flag into a private named input
+at2512f357; no lint suppression, policy/version change or new dependency occurs.
+Fresh complete current-source checks then pass under the unchanged600-second
+owners:
+
+| Package/check | Actual result | Owner elapsed / worker |
+|---|---|---|
+| Core all features/targets |434 pass/0 fail/4 ignored,57 summaries |99330ms /0 |
+| Storage all features |239 pass/0 fail/6 ignored,30 summaries |400740ms /0 |
+| Workspace all features +storage development fixtures |162 pass/0 fail/1 ignored,28 summaries |88606ms /0 |
+| Python full discovery |1493 pass/0 failures/errors/skips |167201ms /0 |
+| Frontend/schema/types/controller/format |Pass |31973ms /0 |
+| Clippy three packages/all targets/features/`-D warnings` |Pass |21153ms /0 |
+
+The native total is835 passes/0 failures/11 ignored/0 filtered across115 harness
+summaries. Every current gate retains1967 before/after tracked inputs unchanged,
+known cleanup/capture and0 owner stderr. Ordinary compiler/test stderr remains
+separate in the original command captures. The actual commands retain locked,
+offline Rust1.93.1 executables, full package feature union and two build jobs.
+No tests are filtered from the complete package suites.
+
+Corrected build-v2 passes171687ms/worker0 with known cleanup/capture:
+282 executed JVM cases/33 XML suites,0 failures/errors/skips, both lints0 errors/
+3 existing warnings and11 artifact audits. Deep replay checks identical850-input
+maps,109862 bytes, SHA256
+`8c5ec5248836f0b2311338d0e0f81dc08ecb74e421b4e1442955b998402cc7c0`.
+Product32849224-byte SHA256:
+`ecfe277defb378fde2623fab16528afe56800b54a3d6cf69ef63da43b4f4a9ff`.
+Test3140100-byte SHA256:
+`6f73d784e89bb777e8c01085107e6be49bc5345cea35d49b31660eed2c1b8d29`.
+Controller55073-byte SHA256:
+`6ea09f4c5105d62e61498d2bebc05de52ce597e30b9681e4975a323b36ef7693`.
+The earlier map245acbd6…/product759d70b5… remains a pre-refactor checkpoint.
+ARM64 compilation/auditing does not establish ARM64 execution.
+
+The same fixed8-method Android roster now includes real MainActivity free-text
+Gift to native A1, potion and receipt conservation, explicit2.7 presentation
+policy/hash binding, another story remainingA0 and fresh Host/ordinary Activity
+reopen. That body is compiled in the corrected test APK; it is still unexecuted
+at this checkpoint. Older methods and all850 current compiled inputs remain
+frozen before runtime. These actual pending checks cannot be inferred from
+source review, JVM tests or the core fake-provider passes.
+
+## Verified host/build preservation
+
+Independent file-only audit seals464 originals plus1 derived assessment,
+465 entries/86644523 bytes. Independent second replay and Root replay verify
+all original/copy/ZIP members,0 missing files or mismatches. Index152578-byte
+SHA256:
+`1f644aeccf4816ce544538b094c44c6328158ebd5d18292a7a40c4f9fb73b7f9`.
+ZIP41477737-byte SHA256:
+`4a24d602c0f2ba26f8c248db6ea989c1a0ac4bb8a8db33ad23e1eca79b750134`.
+Both complete builds and all earlier failures/scopes remain original. Historical
+build readback substitutes only its own source map and records the sole later
+private-play refactor; it never qualifies current execution. Early changed tool
+versions stay bound to their own original source maps, not falsely rehashed as
+current bytes. Author-focused records and the five old prepared/unexecuted
+runtime helper sources are explicitly not current gates. Three prior recovery
+seals remain unchanged and are referenced by index without duplicate payloads.
+Mutable public reports are excluded from this seal; the final source bundle
+will retain their exact committed blobs.
+
+Fresh read-only runtime admission validates all six current gates and corrected
+build850 source/APK bindings, then captures a new protected-process inventory
+and verifies the existing server without a device call/lifecycle change. No old
+process pins or old841 qualification are adopted. Standard fresh native10 and
+presentation8 guests are prepared/planned separately before serial execution.
+Runtime qualification remains pending until actual original results and exact
+requested closures are retained. Current executable source is2512f357; later
+README/report edits do not alter the850 mapped inputs. No merge/release/settings
+change, unrelated-emulator stop, private upload or model-performance claim.

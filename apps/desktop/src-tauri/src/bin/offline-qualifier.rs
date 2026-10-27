@@ -114,6 +114,12 @@ mod win {
     const CAP: usize = 8192;
     const CHILD_MS: u32 = 20_000;
     const IO_WAIT: Duration = Duration::from_secs(2);
+    #[derive(Clone, Copy)]
+    enum ChildMode {
+        Canary,
+        #[cfg(test)]
+        LowFileReadProbe,
+    }
     fn fail<T>(name: &str) -> Result<T> {
         Err(name.into())
     }
@@ -818,7 +824,21 @@ mod win {
         evidence: &Path,
         label: &str,
     ) -> Value {
+        run_child_fixed(executable, package, request, evidence, label, ChildMode::Canary)
+    }
+    fn run_child_fixed(
+        executable: &Path,
+        package: Option<PSID>,
+        request: &Value,
+        evidence: &Path,
+        label: &str,
+        mode: ChildMode,
+    ) -> Value {
         let mut record = json!({"case":label,"phase":"prepare","passed":false,"child_created":false,"cleanup_known":true,"threads_drained":true});
+        #[cfg(test)]
+        if matches!(mode, ChildMode::LowFileReadProbe) {
+            record["child_mode"] = json!("unit-test-low-file-read-probe");
+        }
         let mut process: Option<Handle> = None;
         let mut main_thread: Option<Handle> = None;
         let mut job: Option<Handle> = None;
@@ -863,7 +883,11 @@ mod win {
             startup.StartupInfo.hStdError = child_err.0;
             startup.lpAttributeList = attributes.list;
             let name = wide(executable);
-            let mut command = wide(format!("\"{}\" --self-canary", executable.display()));
+            let mut command = wide(match mode {
+                ChildMode::Canary => format!("\"{}\" --self-canary", executable.display()),
+                #[cfg(test)]
+                ChildMode::LowFileReadProbe => format!("\"{}\" --exact win::tests::low_integrity_file_probe_child --ignored --nocapture --test-threads=1", executable.display()),
+            });
             let cwd = wide(executable.parent().ok_or("FixtureParent")?);
             let mut info = PROCESS_INFORMATION::default();
             record["phase"] = json!("create_suspended");
@@ -1011,7 +1035,11 @@ mod win {
                             record["capture_error"] = json!(true);
                             record["capture_truncated"] = json!(true);
                         } else if stream == "stdout" {
-                            child_reply = serde_json::from_slice::<Value>(&bytes).ok();
+                            child_reply = match mode {
+                                ChildMode::Canary => serde_json::from_slice::<Value>(&bytes).ok(),
+                                #[cfg(test)]
+                                ChildMode::LowFileReadProbe => decode_low_file_probe_reply(&bytes).ok(),
+                            };
                         } else if !bytes.is_empty() {
                             record["unexpected_stderr"] = json!(true);
                         }
@@ -1024,7 +1052,8 @@ mod win {
             record["error"] = json!(error);
         }
         if let Some(reply) = child_reply {
-            let coherent = result
+            let coherent = match mode {
+                ChildMode::Canary => result
                 .as_ref()
                 .is_ok_and(|parent| reply["token"] == *parent)
                 && reply["version"] == 1
@@ -1032,7 +1061,14 @@ mod win {
                 && reply["case"] == label
                 && reply["challenge"] == request["challenge"]
                 && reply["file_roundtrip"] == true
-                && reply["passed"] == true;
+                && reply["passed"] == true,
+                #[cfg(test)]
+                ChildMode::LowFileReadProbe => result.as_ref().is_ok_and(|parent| reply["token"] == *parent)
+                    && reply["version"] == 1 && reply["kind"] == "low_file_read_probe"
+                    && reply["case"] == label && reply["run_id"] == request["run_id"]
+                    && reply["challenge"] == request["challenge"]
+                    && reply["measurement_complete"] == true && reply["passed"] == true,
+            };
             record["reply"] = reply;
             record["passed"] = json!(
                 coherent
@@ -1348,8 +1384,28 @@ mod win {
         Ok(())
     }
 
-    // Frozen before the identity-pinning correction. These exercise Windows
-    // filesystem/ACL ownership only, never a child/model/network/WebView.
+    // Unit-test-only fixed child protocol; production canary replies remain
+    // raw JSON and never use this libtest marker decoder.
+    #[cfg(test)]
+    const LOW_FILE_PROBE_MARKER: &str = "LOCALLORE_LOW_FILE_PROBE_JSON=";
+    #[cfg(test)]
+    fn decode_low_file_probe_reply(bytes: &[u8]) -> Result<Value> {
+        if bytes.len() > CAP { return fail("LowFileProbeReplyBudget"); }
+        let text = std::str::from_utf8(bytes).map_err(|_| "LowFileProbeReplyEncoding")?;
+        // libtest --nocapture may prefix the marker with its fixed test roster.
+        // Retain its original bytes; accept exactly one complete diagnostic line.
+        let mut lines = text.lines().filter_map(|line| line.split_once(LOW_FILE_PROBE_MARKER).map(|(_, value)| value));
+        let value = lines.next().ok_or("LowFileProbeReplyMissing")?;
+        if lines.next().is_some() { return fail("LowFileProbeReplyDuplicate"); }
+        let reply: Value = serde_json::from_str(value).map_err(|_| "LowFileProbeReplyEncoding")?;
+        let keys = ["version", "kind", "case", "run_id", "challenge", "token", "token_diagnostic",
+            "fixture_binding", "rows", "measurement_complete", "passed"];
+        let object = reply.as_object().ok_or("LowFileProbeReplyShape")?;
+        if object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str())) {
+            return fail("LowFileProbeReplyShape");
+        }
+        Ok(reply)
+    }
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -1357,6 +1413,161 @@ mod win {
         use windows::Win32::Security::Authorization::{
             ConvertSecurityDescriptorToStringSecurityDescriptorW, GetSecurityInfo,
         };
+        // Fixed WinNT/file access bits. GENERIC_READ intentionally uses the
+        // exact existing OpenOptions.read(true) path, not a reduced permission.
+        const READ_MASKS: [(&str, u32); 5] = [
+            ("FILE_READ_ATTRIBUTES", 0x0000_0080),
+            ("FILE_READ_DATA|SYNCHRONIZE", 0x0010_0001),
+            ("READ_CONTROL", 0x0002_0000),
+            ("FILE_READ_EA", 0x0000_0008),
+            ("GENERIC_READ", 0x8000_0000),
+        ];
+        fn read_mask_observations(path: &Path, expected: &[u8]) -> Value {
+            let rows: Vec<Value> = READ_MASKS.into_iter().map(|(name, mask)| {
+                let mut row = json!({"name":name,"access_mask":mask,"open_succeeded":false,
+                    "open_error":null,"identity":null,"identity_error":null,
+                    "read_attempted":false,"read_error":null,"read_bytes":0,
+                    "read_sha256":null,"over_budget":false,"matches_expected":false});
+                let mut options = OpenOptions::new();
+                options.custom_flags(0x00200000).share_mode(1);
+                if name == "GENERIC_READ" { options.read(true); }
+                else { options.access_mode(mask); }
+                let file = match options.open(path) {
+                    Ok(file) => file,
+                    Err(error) => {
+                        row["open_error"] = json!({"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())});
+                        return row;
+                    }
+                };
+                row["open_succeeded"] = json!(true);
+                match file_identity(&file) {
+                    Ok(identity) => row["identity"] = json!(identity),
+                    Err(error) => row["identity_error"] = json!(error),
+                }
+                // Observe read denial even for a handle opened only for
+                // metadata/control. Identity failure never hides read evidence.
+                let mut bytes = vec![];
+                row["read_attempted"] = json!(true);
+                let result = file.take(CAP as u64 + 1).read_to_end(&mut bytes);
+                row["read_bytes"] = json!(bytes.len());
+                row["read_sha256"] = json!(format!("{:x}", Sha256::digest(&bytes)));
+                row["over_budget"] = json!(bytes.len() > CAP);
+                row["matches_expected"] = json!(result.is_ok() && bytes.len() <= CAP && bytes == expected);
+                if let Err(error) = result {
+                    row["read_error"] = json!({"os_error":error.raw_os_error(),"kind":format!("{:?}",error.kind())});
+                }
+                row
+            }).collect();
+            json!(rows)
+        }
+        fn full_read_row(rows: &Value) -> Option<&Value> {
+            let rows = rows.as_array()?;
+            if rows.len() != READ_MASKS.len() || rows.iter().zip(READ_MASKS).any(|(row, (name, mask))|
+                row["name"] != name || row["access_mask"] != mask) { return None; }
+            rows.last()
+        }
+        fn full_read_passed(rows: &Value) -> bool {
+            full_read_row(rows).is_some_and(|row| row["open_succeeded"] == true &&
+                row["open_error"].is_null() && !row["identity"].is_null() && row["identity_error"].is_null() &&
+                row["read_attempted"] == true && row["read_error"].is_null() &&
+                row["over_budget"] == false && row["matches_expected"] == true)
+        }
+        fn low_file_probe_request() -> Result<Value> {
+            let mut bytes = vec![];
+            io(std::io::stdin().take(4097).read_to_end(&mut bytes))?;
+            if bytes.len() > 4096 { return fail("LowFileProbeInputBudget"); }
+            let request: Value = serde_json::from_slice(&bytes).map_err(|_| "LowFileProbeInputEncoding")?;
+            let keys = ["version", "kind", "case", "run_id", "challenge"];
+            let object = request.as_object().ok_or("LowFileProbeInputShape")?;
+            if object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str())) ||
+                request["version"] != 1 || request["kind"] != "low_file_read_probe" || request["case"] != "low-file-read" ||
+                !request["run_id"].as_str().is_some_and(valid_id) || !request["challenge"].as_str().is_some_and(valid_id) ||
+                encode(&request)? != bytes { return fail("LowFileProbeInputShape"); }
+            Ok(request)
+        }
+        #[test]
+        #[ignore = "fixed child only; Root runs the ignored parent diagnostic, never this without its owned bounded stdin"]
+        fn low_integrity_file_probe_child() {
+            let request = low_file_probe_request().unwrap();
+            let id = request["run_id"].as_str().unwrap();
+            let challenge = request["challenge"].as_str().unwrap();
+            let image = std::env::current_exe().unwrap();
+            let root = fixture_from_self(&image, id).unwrap();
+            let moniker = wide(format!("locallore.offline.{id}"));
+            // Derive only: no managed profile creation/deletion/storage access.
+            let package = Sid(unsafe { DeriveAppContainerSidFromAppContainerName(PCWSTR(moniker.as_ptr())) }.unwrap());
+            let package_sid = sid_text(package.0).unwrap();
+            let expected = challenge_marker(id, &package_sid, challenge).unwrap();
+            let token = token_observation(unsafe { GetCurrentProcess() }).unwrap_or_else(|error| json!({"observation_error":error}));
+            let diagnostic = token_diagnostic(unsafe { GetCurrentProcess() }).unwrap_or_else(|error| json!({"diagnostic_error":error}));
+            let rows = read_mask_observations(&root.join("challenge.txt"), &expected);
+            let passed = full_read_passed(&rows) && token["is_appcontainer"] == true &&
+                token["capability_count"] == 0 && token["package_sid"] == package_sid &&
+                diagnostic["integrity_sid"] == "S-1-16-4096";
+            let report = json!({"version":1,"kind":"low_file_read_probe","case":"low-file-read",
+                "run_id":id,"challenge":challenge,"token":token,"token_diagnostic":diagnostic,
+                "fixture_binding":{"component":format!("fixture-{id}"),"self_image_name":"offline-qualifier.exe"},
+                "rows":rows,"measurement_complete":true,"passed":passed});
+            let encoded = encode(&report).unwrap();
+            assert!(encoded.len() <= CAP, "fixed diagnostic output must remain bounded");
+            // Always preserve all five mask results before asserting the
+            // unchanged required full GENERIC_READ result or token condition.
+            println!("{LOW_FILE_PROBE_MARKER}{}", std::str::from_utf8(&encoded).unwrap());
+            std::io::stdout().flush().unwrap();
+            assert!(passed, "Required low-token GENERIC_READ failed; five-mask diagnostic was emitted before this assertion");
+        }
+        #[test]
+        #[ignore = "explicit Root-only owned child diagnostic; no profile/network; requires prior source review and serial execution slot"]
+        fn low_integrity_file_read_mask_diagnostic() {
+            let id = guid().unwrap();
+            let challenge = guid().unwrap();
+            let temporary = std::env::temp_dir();
+            let evidence = create_owned_directory(&temporary, &format!("locallore-offline-proof-{id}")).unwrap();
+            let root = create_owned_directory(&temporary, &format!("fixture-{id}")).unwrap();
+            eprintln!("LOCALLORE_LOW_FILE_READ_ARTIFACT={}", evidence.path.display());
+            let moniker = wide(format!("locallore.offline.{id}"));
+            let package = Sid(unsafe { DeriveAppContainerSidFromAppContainerName(PCWSTR(moniker.as_ptr())) }.unwrap());
+            grant_new_fixture(&root, package.0).unwrap();
+            let image = copy_self_to_new(&root).unwrap(); // The unit-test self image, never an arbitrary executable.
+            let marker = challenge_marker(&id, &sid_text(package.0).unwrap(), &challenge).unwrap();
+            let marker_path = root.path.join("challenge.txt");
+            write_new(&marker_path, &marker).unwrap();
+            // Not inheritable and absent from the fixed three-pipe handle list.
+            // Pin original bytes/native identity without sharing writes/deletes.
+            let marker_pin = OpenOptions::new().read(true).custom_flags(0x00200000).share_mode(1).open(&marker_path).unwrap();
+            let identity = file_identity(&marker_pin).unwrap();
+            let medium_rows = read_mask_observations(&marker_path, &marker);
+            let medium_token = token_observation(unsafe { GetCurrentProcess() }).unwrap_or_else(|error| json!({"observation_error":error}));
+            let medium_diagnostic = token_diagnostic(unsafe { GetCurrentProcess() }).unwrap_or_else(|error| json!({"diagnostic_error":error}));
+            let medium_passed = full_read_passed(&medium_rows) && medium_token["is_appcontainer"] == false &&
+                medium_diagnostic["integrity_sid"] == "S-1-16-8192" &&
+                full_read_row(&medium_rows).is_some_and(|row| row["identity"] == json!(identity));
+            write_new(&evidence.path.join("medium-control.json"), &encode(&json!({"version":1,
+                "kind":"medium_file_read_control","run_id":id,"token":medium_token,"token_diagnostic":medium_diagnostic,
+                "rows":medium_rows,"passed":medium_passed,"profile_created":false,"network_tested":false})).unwrap()).unwrap();
+            assert!(medium_passed, "Original medium GENERIC_READ control failed; original evidence retained before any child launch");
+            let request = json!({"version":1,"kind":"low_file_read_probe","case":"low-file-read","run_id":id,"challenge":challenge});
+            let child = run_child_fixed(&image.path, Some(package.0), &request, &evidence.path, "low-file-read", ChildMode::LowFileReadProbe);
+            write_new(&evidence.path.join("child-process.json"), &encode(&child).unwrap()).unwrap();
+            let low_rows = &child["reply"]["rows"];
+            let same_identity = full_read_row(low_rows).is_some_and(|row| row["identity"] == json!(identity));
+            let passed = medium_passed && child["passed"] == true && child["cleanup_known"] == true &&
+                child["threads_drained"] == true && full_read_passed(low_rows) && same_identity;
+            write_new(&evidence.path.join("summary.json"), &encode(&json!({"version":1,"kind":"low_file_read_mask_diagnostic",
+                "run_id":id,"passed":passed,"medium_control_passed":medium_passed,"required_generic_read_passed":full_read_passed(low_rows),
+                "same_marker_identity":same_identity,"marker_identity":identity,
+                "marker_identity_fields":["volume_serial","file_index_high","file_index_low"],
+                "self_image_sha256":image.sha256,"marker_sha256":format!("{:x}",Sha256::digest(&marker)),
+                "child_cleanup_known":child["cleanup_known"],"child_threads_drained":child["threads_drained"],
+                "profile_created":false,"profile_deleted":false,"network_tested":false,"inherited_marker_handle":false,
+                "production_canary_executed":false,"webview_executed":false,"model_executed":false})).unwrap()).unwrap();
+            // Child failure is diagnostic evidence, never an expected-pass waiver.
+            // Keep all directory/image/marker guards through final evidence.
+            assert!(passed, "Required unchanged GENERIC_READ/identity/token/cleanup failed; retained five-mask diagnostic does not waive it");
+        }
+        // Frozen filesystem/ACL ownership tests below never launch a child,
+        // model, network request, or WebView. The ignored diagnostic above
+        // launches only its fixed unit-test child after explicit review.
         fn fixture() -> PinnedDirectory {
             let root = create_owned_directory(
                 &std::env::temp_dir(),

@@ -33,7 +33,13 @@ fn fixture() -> Engine {
 }
 
 fn request(source: &Engine, key: &str, kind: PlayInputKind, text: &str) -> Request {
-    source.request(key, Intent::FreeText { kind, text: text.into() })
+    source.request(
+        key,
+        Intent::FreeText {
+            kind,
+            text: text.into(),
+        },
+    )
 }
 
 fn proposal(request: &Request, command: Command) -> Proposal {
@@ -84,39 +90,73 @@ fn actual_candidate(source: &Engine, request: &Request, proposal: &Proposal) -> 
     };
     let mut candidate = source.clone();
     let receipt = play::execute(
-        &mut candidate, request, &mut script, &Cancellation::default(), &profile,
-    ).unwrap();
-    assert_eq!(script.calls, 2, "actual existing Director/narrator path required");
+        &mut candidate,
+        request,
+        &mut script,
+        &Cancellation::default(),
+        &profile,
+    )
+    .unwrap();
+    assert_eq!(
+        script.calls, 2,
+        "actual existing Director/narrator path required"
+    );
     assert!(script.replies.is_empty());
     assert_eq!(receipt.request(), request);
     assert_eq!(receipt.proposal(), proposal);
-    assert!(receipt.play().unwrap().fallback, "malformed synthetic narrator must use exact mechanical fallback");
-    assert_eq!(receipt.play().unwrap().prompt_version, "locallore-play-v2.5");
+    assert!(
+        receipt.play().unwrap().fallback,
+        "malformed synthetic narrator must use exact mechanical fallback"
+    );
+    assert_eq!(
+        receipt.play().unwrap().prompt_version,
+        "locallore-play-v2.5"
+    );
     candidate
 }
 
 fn player_location(candidate: &Engine) -> String {
-    let context = candidate.character_context_v2(
-        &candidate.seed().player, candidate.scope(), candidate.revision(),
-    ).unwrap();
-    let page = inspection_query::query(candidate, &Query {
-        version: 2,
-        scope: candidate.scope().clone(),
-        expected_head: candidate.revision(),
-        at_revision: None,
-        observer: Observer::Player,
-        view: View::Profiles,
-        cursor: None,
-        limit: 64,
-        search: String::new(),
-    }, false).unwrap();
+    let context = candidate
+        .character_context_v2(
+            &candidate.seed().player,
+            candidate.scope(),
+            candidate.revision(),
+        )
+        .unwrap();
+    let page = inspection_query::query(
+        candidate,
+        &Query {
+            version: 2,
+            scope: candidate.scope().clone(),
+            expected_head: candidate.revision(),
+            at_revision: None,
+            observer: Observer::Player,
+            view: View::Profiles,
+            cursor: None,
+            limit: 64,
+            search: String::new(),
+        },
+        false,
+    )
+    .unwrap();
     assert_eq!(page.privacy, Privacy::PlayerVisible);
-    assert!(page.next_cursor.is_none(), "fixture must expose the complete actual Player profile");
-    let locations: Vec<_> = page.rows.into_iter().filter_map(|row| match row {
-        Row::Field { actor, field, value: FieldValue::Text(value), .. }
-            if actor == candidate.seed().player && field == "location" => Some(value),
-        _ => None,
-    }).collect();
+    assert!(
+        page.next_cursor.is_none(),
+        "fixture must expose the complete actual Player profile"
+    );
+    let locations: Vec<_> = page
+        .rows
+        .into_iter()
+        .filter_map(|row| match row {
+            Row::Field {
+                actor,
+                field,
+                value: FieldValue::Text(value),
+                ..
+            } if actor == candidate.seed().player && field == "location" => Some(value),
+            _ => None,
+        })
+        .collect();
     assert_eq!(locations, vec![context.self_state.location.clone()]);
     context.self_state.location
 }
@@ -125,7 +165,10 @@ fn unchanged(source: &Engine, before: &Engine) {
     assert_eq!(source.seed(), before.seed());
     assert_eq!(source.canonical_bytes(), before.canonical_bytes());
     assert_eq!(source.canonical_records(), before.canonical_records());
-    assert_eq!(source.accepted_history_basis().unwrap(), before.accepted_history_basis().unwrap());
+    assert_eq!(
+        source.accepted_history_basis().unwrap(),
+        before.accepted_history_basis().unwrap()
+    );
 }
 
 fn assert_frame(source: &Engine, candidate: &Engine, frame: &NarratorSceneFrameV1) {
@@ -138,26 +181,36 @@ fn assert_frame(source: &Engine, candidate: &Engine, frame: &NarratorSceneFrameV
     assert_eq!(frame.location(), location);
     // Equality freezes exactly SIX fields, not a list of forbidden-key guesses.
     // This separately encoded actual Player self value is the location oracle.
-    assert_eq!(serde_json::to_value(frame).unwrap(), json!({
-        "version":1,
-        "scope":source.scope(),
-        "before_revision":source.revision(),
-        "after_revision":candidate.revision(),
-        "player":source.seed().player,
-        "location":location,
-    }));
+    assert_eq!(
+        serde_json::to_value(frame).unwrap(),
+        json!({
+            "version":1,
+            "scope":source.scope(),
+            "before_revision":source.revision(),
+            "after_revision":candidate.revision(),
+            "player":source.seed().player,
+            "location":location,
+        })
+    );
 }
 
 fn assert_prepared(
-    source: &Engine, request: &Request, proposal: &Proposal,
+    source: &Engine,
+    request: &Request,
+    proposal: &Proposal,
 ) -> (StagedScenePlayV1, Engine) {
     let before = source.clone();
     let existing = source.stage_play_v25(request, proposal, &|| false).unwrap();
     let candidate = actual_candidate(source, request, proposal);
-    let scene = source.stage_scene_play_v1(request, proposal, &|| false).unwrap();
+    let scene = source
+        .stage_scene_play_v1(request, proposal, &|| false)
+        .unwrap();
     assert_eq!(scene.approved(), existing.approved());
     assert_eq!(scene.narrator_evidence(), existing.narrator_evidence());
-    assert_eq!(scene.approved().events(), candidate.receipts().last().unwrap().events());
+    assert_eq!(
+        scene.approved().events(),
+        candidate.receipts().last().unwrap().events()
+    );
     assert_frame(source, &candidate, scene.scene_frame());
     unchanged(source, &before);
     (scene, candidate)
@@ -169,11 +222,21 @@ fn calibration_existing_stage_actual_play_candidate_and_player_profile_agree() {
     // whole file; do not report this calibration as executed until Cargo runs it.
     let source = fixture();
     let before = source.clone();
-    let request = request(&source, "calibration", PlayInputKind::Action, "I wait for one tide tick.");
+    let request = request(
+        &source,
+        "calibration",
+        PlayInputKind::Action,
+        "I wait for one tide tick.",
+    );
     let proposal = proposal(&request, Command::Wait { ticks: 1 });
-    let existing = source.stage_play_v25(&request, &proposal, &|| false).unwrap();
+    let existing = source
+        .stage_play_v25(&request, &proposal, &|| false)
+        .unwrap();
     let candidate = actual_candidate(&source, &request, &proposal);
-    assert_eq!(existing.approved().events(), candidate.receipts().last().unwrap().events());
+    assert_eq!(
+        existing.approved().events(),
+        candidate.receipts().last().unwrap().events()
+    );
     assert_eq!(player_location(&candidate), "quay");
     assert_eq!(candidate.revision(), 1);
     unchanged(&source, &before);
@@ -183,13 +246,30 @@ fn calibration_existing_stage_actual_play_candidate_and_player_profile_agree() {
 fn say_give_and_use_keep_actual_postcandidate_player_location_without_source_mutation() {
     let speech = "PRIVATE_PLAYER_WORDS are only a statement.";
     let cases = [
-        (PlayInputKind::Dialogue, speech, Command::Say {
-            text: speech.into(), audience: ["mira".into()].into(),
-        }),
-        (PlayInputKind::Action, "I give potion to mira.", Command::Give {
-            item: "potion".into(), to: "mira".into(), quantity: 1,
-        }),
-        (PlayInputKind::Action, "I use steady.", Command::UseAbility { ability: "steady".into() }),
+        (
+            PlayInputKind::Dialogue,
+            speech,
+            Command::Say {
+                text: speech.into(),
+                audience: ["mira".into()].into(),
+            },
+        ),
+        (
+            PlayInputKind::Action,
+            "I give potion to mira.",
+            Command::Give {
+                item: "potion".into(),
+                to: "mira".into(),
+                quantity: 1,
+            },
+        ),
+        (
+            PlayInputKind::Action,
+            "I use steady.",
+            Command::UseAbility {
+                ability: "steady".into(),
+            },
+        ),
     ];
     for (kind, text, command) in cases {
         let source = fixture();
@@ -199,7 +279,10 @@ fn say_give_and_use_keep_actual_postcandidate_player_location_without_source_mut
         assert_eq!(scene.scene_frame().location(), "quay");
         assert_eq!(player_location(&candidate), player_location(&source));
         let evidence = serde_json::to_string(scene.narrator_evidence()).unwrap();
-        assert!(!evidence.contains(speech), "a delivered statement must stay sanitized");
+        assert!(
+            !evidence.contains(speech),
+            "a delivered statement must stay sanitized"
+        );
     }
 }
 
@@ -218,10 +301,21 @@ fn accepted_move_anchors_validated_destination_not_before_location() {
 fn invalid_route_returns_no_frame_and_preserves_original_source() {
     let source = fixture();
     let before = source.clone();
-    let request = request(&source, "invalid-route", PlayInputKind::Action, "I move to tower.");
+    let request = request(
+        &source,
+        "invalid-route",
+        PlayInputKind::Action,
+        "I move to tower.",
+    );
     let proposal = proposal(&request, Command::Move { to: "tower".into() });
-    assert!(matches!(source.stage_play_v25(&request, &proposal, &|| false), Err(Error::Location)));
-    assert!(matches!(source.stage_scene_play_v1(&request, &proposal, &|| false), Err(Error::Location)));
+    assert!(matches!(
+        source.stage_play_v25(&request, &proposal, &|| false),
+        Err(Error::Location)
+    ));
+    assert!(matches!(
+        source.stage_scene_play_v1(&request, &proposal, &|| false),
+        Err(Error::Location)
+    ));
     unchanged(&source, &before);
 }
 
@@ -231,46 +325,83 @@ fn immediate_and_midpreparation_cancel_return_no_frame_and_preserve_source() {
     let before = source.clone();
     let request = request(&source, "cancel", PlayInputKind::Action, "I move to pier.");
     let proposal = proposal(&request, Command::Move { to: "pier".into() });
-    assert!(matches!(source.stage_scene_play_v1(&request, &proposal, &|| true), Err(Error::Cancelled)));
+    assert!(matches!(
+        source.stage_scene_play_v1(&request, &proposal, &|| true),
+        Err(Error::Cancelled)
+    ));
     unchanged(&source, &before);
     let calls = Cell::new(0);
     let cancelled = || {
         calls.set(calls.get() + 1);
         calls.get() >= 4
     };
-    assert!(matches!(source.stage_scene_play_v1(&request, &proposal, &cancelled), Err(Error::Cancelled)));
-    assert!(calls.get() >= 4, "cancellation must occur after preparation has begun");
+    assert!(matches!(
+        source.stage_scene_play_v1(&request, &proposal, &cancelled),
+        Err(Error::Cancelled)
+    ));
+    assert!(
+        calls.get() >= 4,
+        "cancellation must occur after preparation has begun"
+    );
     unchanged(&source, &before);
 }
 
 #[test]
 fn corrected_child_preserves_scope_location_and_observed_a_until_actual_new_discovery_b() {
     let mut parent = fixture();
-    let discovery = parent.request("observed-a", Intent::Actions(vec![Command::Discover {
-        fact: "relic-location".into(),
-    }]));
+    let discovery = parent.request(
+        "observed-a",
+        Intent::Actions(vec![Command::Discover {
+            fact: "relic-location".into(),
+        }]),
+    );
     let initial_proposal = Engine::proposal(&discovery).unwrap();
     let receipt = parent.preview(&discovery, &initial_proposal).unwrap();
     parent.commit_prepared(&receipt).unwrap();
-    let plan = parent.prepare_author_correction(&AuthorCorrectionInputV1 {
-        version: 1,
-        parent: parent.scope().clone(),
-        expected_parent_revision: parent.revision(),
-        fork_revision: parent.revision(),
-        child_branch: "corrected-scene".into(),
-        operation: AuthorCorrectionOperationV1::ReplaceFactProposition {
-            fact: "relic-location".into(), expected_proposition: A.into(), replacement: B.into(),
-        },
-        reason: REASON.into(),
-    }, &|| false).unwrap();
-    let child = parent.apply_author_correction(&plan, &|| false).unwrap().engine;
+    let plan = parent
+        .prepare_author_correction(
+            &AuthorCorrectionInputV1 {
+                version: 1,
+                parent: parent.scope().clone(),
+                expected_parent_revision: parent.revision(),
+                fork_revision: parent.revision(),
+                child_branch: "corrected-scene".into(),
+                operation: AuthorCorrectionOperationV1::ReplaceFactProposition {
+                    fact: "relic-location".into(),
+                    expected_proposition: A.into(),
+                    replacement: B.into(),
+                },
+                reason: REASON.into(),
+            },
+            &|| false,
+        )
+        .unwrap();
+    let child = parent
+        .apply_author_correction(&plan, &|| false)
+        .unwrap()
+        .engine;
     assert_eq!(child.domain_version(), 2);
     assert_eq!(child.revision(), 2);
-    assert_eq!(child.effective_fact("relic-location").unwrap().proposition, B);
-    assert_eq!(child.character_context_v2("player", child.scope(), child.revision()).unwrap().facts["relic-location"].proposition, A);
+    assert_eq!(
+        child.effective_fact("relic-location").unwrap().proposition,
+        B
+    );
+    assert_eq!(
+        child
+            .character_context_v2("player", child.scope(), child.revision())
+            .unwrap()
+            .facts["relic-location"]
+            .proposition,
+        A
+    );
     for discover in [false, true] {
         let (text, command) = if discover {
-            ("I discover relic-location.", Command::Discover { fact: "relic-location".into() })
+            (
+                "I discover relic-location.",
+                Command::Discover {
+                    fact: "relic-location".into(),
+                },
+            )
         } else {
             ("I wait for one tide tick.", Command::Wait { ticks: 1 })
         };
@@ -279,9 +410,21 @@ fn corrected_child_preserves_scope_location_and_observed_a_until_actual_new_disc
         let (scene, candidate) = assert_prepared(&child, &request, &proposal);
         assert_eq!(scene.scene_frame().scope().branch, "corrected-scene");
         assert_ne!(scene.scene_frame().scope(), parent.scope());
-        let observed = candidate.character_context_v2("player", candidate.scope(), candidate.revision()).unwrap();
-        assert_eq!(observed.facts["relic-location"].proposition, if discover { B } else { A });
-        assert_eq!(candidate.character_context_v2("mira", candidate.scope(), candidate.revision()).unwrap().facts["relic-location"].proposition, A);
+        let observed = candidate
+            .character_context_v2("player", candidate.scope(), candidate.revision())
+            .unwrap();
+        assert_eq!(
+            observed.facts["relic-location"].proposition,
+            if discover { B } else { A }
+        );
+        assert_eq!(
+            candidate
+                .character_context_v2("mira", candidate.scope(), candidate.revision())
+                .unwrap()
+                .facts["relic-location"]
+                .proposition,
+            A
+        );
         let observations = scene.narrator_evidence().observations();
         if discover {
             assert_eq!(observations.len(), 1);
@@ -290,13 +433,30 @@ fn corrected_child_preserves_scope_location_and_observed_a_until_actual_new_disc
             assert_eq!(observations[0].proposition(), B);
             assert_eq!(observations[0].event_id(), candidate.revision());
         } else {
-            assert!(observations.is_empty(), "old observed A must not become a new discovery");
-            assert!(!serde_json::to_string(scene.narrator_evidence()).unwrap().contains(B));
+            assert!(
+                observations.is_empty(),
+                "old observed A must not become a new discovery"
+            );
+            assert!(!serde_json::to_string(scene.narrator_evidence())
+                .unwrap()
+                .contains(B));
         }
         let frame: Value = serde_json::to_value(scene.scene_frame()).unwrap();
         let bytes = serde_json::to_string(&frame).unwrap();
-        for private in [A, B, REASON, "PRIVATE_SABLE_NAME", "mira", "sable", "tower", "director"] {
-            assert!(!bytes.contains(private), "frame leaked private/unrelated fixture material {private}");
+        for private in [
+            A,
+            B,
+            REASON,
+            "PRIVATE_SABLE_NAME",
+            "mira",
+            "sable",
+            "tower",
+            "director",
+        ] {
+            assert!(
+                !bytes.contains(private),
+                "frame leaked private/unrelated fixture material {private}"
+            );
         }
     }
 }

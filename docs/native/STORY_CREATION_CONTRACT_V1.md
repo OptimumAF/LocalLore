@@ -3,10 +3,12 @@
 M09.02 supporting slice, stacked on draft PR #212. This is an implementation
 contract, not executed evidence or acceptance of full story customization.
 
-The first available starter remains original `lantern-quay-v1`, fantasy rules,
-Rowan and the existing seed. Premise/tone/boundaries/player editing are not
-advertised as available. Gameplay remains local; this API does not invoke a
-model, accept arbitrary seeds or alter existing canon.
+The original starter remains `lantern-quay-v1`, fantasy rules, Rowan and the
+existing seed. The additive [original starter catalog](STORY_STARTER_CATALOG_V1.md)
+adds explicit selection of an original narrative-rules starter while retaining
+this wire format and Lantern compatibility. Premise/tone/boundaries/player
+editing are not advertised as available. Gameplay remains local; this API does
+not invoke a model, accept arbitrary seeds or alter existing canon.
 
 Two new closed Host envelope-v1 operations:
 

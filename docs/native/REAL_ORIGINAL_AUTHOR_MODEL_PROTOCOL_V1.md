@@ -173,6 +173,23 @@ path, generated prose or private diagnostic becomes a public failure message.
 
 ## Evidence and limits
 
+The pure read-only transfer recipe/decoder lives in
+`benchmarks/original_author_stream_admission.py`; its 14 original adversaries
+live in `scripts/tests/test_original_author_stream_admission.py`. One measured
+batch binds both expected package UIDs, safe distinct installed paths, exact
+APK hashes, API35/x86_64/qemu/user0 and resource facts. It rejects malformed
+frames, duplicate/extra fields, bare CR and oversized numeric strings before
+integer conversion. Batching does not change the resource floors or owner
+budgets. The held binary source and complete destination still need independent
+byte-count/hash verification. Pure tests do not qualify a device or model.
+
+A rejected generation remains failed even when SDK completion is observed.
+The current refused proof retains the native envelope and bounded traces, but
+not the original rejected model text or a granular semantic-validation code.
+Do not infer the precise rejected rule or post-failure workspace conservation
+from missing artifacts. A later diagnostic experiment must preserve original
+output without changing validation or replacing the rejected outcome.
+
 Host proof validation is pure bounded metadata/provenance validation, not a
 second engine. Meaningful negative tests must reject changed bindings, missing
 observations, forged success, extra fields, scripted-provider substitution,

@@ -2,7 +2,30 @@
 
 Refs [PR #236](https://github.com/OptimumAF/LocalLore/pull/236), #13 (M09.02/M09.06), #5 (M01.03), and #14 (M10.02/M10.03 support). The [experiment protocol](REAL_ORIGINAL_AUTHOR_MODEL_PROTOCOL_V1.md) defines the intended factory/JNI/model roundtrip and its separate admission gates.
 
-## Latest execution and publication fix
+## Corrected APK: import passes; original proposal is rejected
+
+The exact corrected APKs now ran in a fresh owned 8 GiB/four-core API35/x86_64 guest. Runtime checkpoint `a63c95e9` has 2,008 tracked inputs and the same 884 compiled inputs as build checkpoint `11f8be70`; only the two existing protocol/report documents changed. The product/test APK hashes remain `4db224d6fc79dbe8e3ef02ab30d0339dc7e1f7f7391a3e41388cd669f4ec1e1e` / `f58fcdd3adc06da4b1e91fdf549cfd6b21f7b0d22c98c1ad160307ee60e235bd`. No rebuild, dependency change or model download is substituted for this admission.
+
+| Check | Actual result |
+| --- | --- |
+| Binary control | All 65 destination bytes and SHA256 match. Its child closes after 46,777 ms with worker0 and known cleanup/capture. |
+| Existing local model copy | Full held-source identity/hash and full 2,588,147,712-byte destination identity/hash match. The binary client completes in 85,472 ms; its child closes in 135,872 ms with worker0, known capture/cleanup and no stderr, within the unchanged 180-second owner. Direct `exec-in` still has no independent remote-exit-status claim. |
+| Production import | One selected JUnit method passes in 24.461 seconds. The retained proof records 24,393 ms, one open, one close, all model bytes read off Main and the exact accepted-model hash. The strict host import validator passes. |
+| Real AUTHOR | One selected JUnit method fails in 41.376 seconds at `generate/checks_failed`. The exact returned native envelope is `status:rejected`, `error:InvalidProposal`. Review, explicit creation, archive and reopen do not run. |
+| Retained SDK traces | One real default-factory AUTHOR request, context4096/output-budget1024, one JSON_OBJECT send, 353 output chunks/765 output bytes and one DONE; no SDK error callback. Conversation and engine close are recorded known, with no UNCERTAIN count. These are trace observations, not a hardware callback-drain qualification. |
+| Runtime owner | `child_exited`, 625,298 ms, worker1, known cleanup and complete capture, 1,414 stderr bytes retained. The overall result remains failed; source/compiled maps are unchanged and the parent manifest is complete. |
+
+The captured `InvalidProposal` comes from native semantic validation after response deserialization. The precise violated rule is unknown: this harness retains the rejection envelope and trace counts but not the original rejected response or a granular validation code. Only four pre-review records and four traces accompany the refused proof. The post-generation workspace observation is also absent because the harness stops at the rejection. No generated output was replaced, repaired or retried to obtain a pass. Import and real SDK completion are established; the complete factory/JNI/create/reopen roundtrip is not.
+
+The unchanged read-only transfer admission is now reviewable in `benchmarks/original_author_stream_admission.py`, with 14 original synthetic adversaries in `scripts/tests/test_original_author_stream_admission.py`. The public module is byte-identical to the private module used by this runtime (5,711 bytes, SHA256 `64899c1552e1472f7aaba476eb1b52523a095cc483e3f4e3608d07a2455f6faf`). Both private and public executions pass the same 14 methods, zero failures/errors/skips; these are two executions of the same cases. The public promotion owner closes in 5,746 ms with worker0, known capture/cleanup and 2,010 unchanged inputs. No SDK executes in those tests. The single read-only batch retains both UIDs, installed APK hashes, safe distinct paths, profile/user, exact framing, bounded decimal parsing and the original storage/memory floors. Parent, child, direct-stream, JUnit and guest budgets remain unchanged.
+
+Source review found and fixed an undefined transfer UID argument before runtime execution; its earlier drafts remain unexecuted. The original malformed-CR test draft and pre-decimal-bound sources also remain unexecuted, not fabricated failing test runs. Two closure drafts were superseded during source review; the executed closure keeps successful partial phase evidence distinct from a failed overall owner result.
+
+The exact guest closes through its proposal-bound stop: 696,269 ms, worker1, known cleanup/capture/closure and no flush claim. Seven fixed metadata files copy to C: with zero mismatches. The final existing-server observation passes with zero device calls and no unrelated-process census. No other emulator is stopped, no system setting changes, and no model or private diagnostic is uploaded. The initial bounded availability capture has zero rows; no physical-phone profile is established by it.
+
+The next runnable task is bounded native refusal diagnostics and original-response preservation for the synthetic AUTHOR experiment, followed by a fresh admitted run without weakening semantic validation. Keep the failed proposal as historical evidence; a new diagnostic run cannot retroactively qualify it. Full M09.02/M09.06, phone/ARM64, cancellation, narrative quality, performance and milestone acceptance remain open.
+
+## Earlier import failure and publication fix
 
 A fresh 8 GiB/four-core API35/x86_64 guest moved past the original CRLF refusal. The binary control delivered all 65 bytes with the expected hash. The model's direct binary client completed in 85,672 ms with known capture and the verified full local source identity. Its separate supervisor expired at 180,042 ms before postflight completed. The initial owner closed after 471,075 ms with worker exit1 and known cleanup/capture. That attempt remains failed: its final manually recorded model-stream client lacks the following observer, and its historical manifest remains null.
 
@@ -35,7 +58,7 @@ The failed fresh guest subsequently closes through its exact proposal-bound stop
 
 Failure preservation is independently replayed: 629 admitted originals, 633 copies, 634 ZIP members and 636 files/6,701,508 bytes, zero missing/mismatched. ZIP SHA256 `8ae7ed179e069a466495761489ace74176a6e9c79b146faada6966edf389f62f`; index `bbcf8bc52056f62dd11b9a2da6f927cc244b916d46c4c7388faf585d71932937`; independent verification `e4d1827835ec22c3aba7302aa4ca476efacdbfa9e7b016614c0680072c076ce3`. All 262 captured SDK2/raw pairs retain their scope: the initial set's missing final bracket is preserved, while the continuation's 93 pairs are complete. Both source cohorts retain their original 2,006/882 maps. This cohort excludes weight/image payloads and references only three small prior sealed controls. Fix-build/source recovery is recorded separately in the ticket handoff.
 
-The corrected APK has **not yet run import or AUTHOR inference**. The next runnable task is fresh target admission and qualification of those exact corrected artifacts. Batch the unchanged read-only transfer-admission facts to avoid spending the fixed copy-owner window on repeated observer calls, while preserving the full checks, 180-second owner and all other limits. Verify the binary control and complete destination before import; do not replace a failed generation or promote any earlier failed attempt.
+At that earlier checkpoint the corrected APK had not run import or AUTHOR inference. The later experiment above batches the unchanged read-only admission facts, preserves the limits and verifies both destinations before import. It establishes successful import and SDK completion, while retaining its original rejected proposal as a failed roundtrip.
 
 ## First attempt: CRLF parser refusal
 
@@ -114,4 +137,4 @@ The included source bundle preserves checkpoint `42e231782769678ae695590efca44e2
 
 ## Next runnable task
 
-Admit a fresh owned guest with the unchanged full resource and lease margins. Execute the binary transfer control and independently verify it before any model copy, then run the two individually selected methods under the existing protocol. A phone run instead requires fresh authorized identity/resource admission; the earlier empty host-only census established no phone profile. Preserve any refusal without editing its generated outcome or weakening admission. M09.02/M09.06 and M10.02/M10.03 supporting implementation is in review; actual real-model verification and full task acceptance remain pending.
+Add bounded diagnostic evidence for the native semantic rejection, preserve the exact original synthetic response, then admit a fresh owned guest for a new run with the same resource and lease margins. A phone run requires fresh authorized identity/resource admission; the empty captured census established no phone profile. Preserve the original refusal without editing its outcome or weakening validation. M09.02/M09.06 and M10.02/M10.03 supporting implementation is in review; full real-model roundtrip and task acceptance remain pending.

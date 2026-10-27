@@ -36,6 +36,8 @@ export interface Receipt {
         repairs: number;
         profile: Record<string, Json>;
         stages: { stage: string; elapsed_ms: number }[];
+        scene?: { version: 1; frame_sha256: string };
+        story_presentation?: { version: 1; presentation_sha256: string };
     };
     request: Request;
     proposal: Json;

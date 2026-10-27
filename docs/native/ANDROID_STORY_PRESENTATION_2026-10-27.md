@@ -267,3 +267,47 @@ destination, retains the original failure with explicit attribution, and must
 pass actual terminal/replay checks before the ticket handoff claims success.
 No source is changed after that final bundle. Full milestone checkboxes remain
 unchecked pending their remaining criteria and owner acceptance.
+
+## Current-source regression follow-up: initial capacity refusal
+
+The next M09.06/M10.02 supporting packet claims creation19 and broad89 on the
+same850 compiled inputs, not the earlier841 source. Fresh read-only admission
+actually revalidates all six host gates, corrected build/APKs, current native10
+with94 measured SDK2 records and the three existing host/runtime/source-v2
+recovery pairs. Its new raw-bound protected-process inventory is empty, and one
+observation matches the existing server; no device call or lifecycle action is
+performed. This admission does not qualify a subsequent runtime phase.
+
+Creation preparation and its run proposal complete. Broad preparation then
+actually refuses its final `host_capacity` check after the AVD-manager child
+has completed. Its197-byte refusal record SHA256 is
+`b6040744fb4a98f6a1d1e884f409fd30e25dbb2aae034691f3a0efc9ee78dcef`.
+Preparation-child cleanup/closure are known; no prepared receipt is published
+for broad and neither guest boots. Both original87-byte AVD-manager stdout
+captures are retained. Their645-byte stderr is only a reported count, not a
+retained raw stderr stream. Preparation closure is not emulator-runtime closure.
+No original cohort is retried or relabeled as successful.
+
+A single separate post-refusal snapshot observes37153828864 available memory
+bytes against the4294967296-byte floor; C: has40213446656 free bytes against
+42949672960 required, while D: has718023782400 free bytes. Thus the observed
+current failed condition is C: disk space, with RAM passing. The snapshot is
+not the failure instant or proof of its exclusive cause, and cannot authorize a
+favorable retry. Its660-byte SHA256 is
+`8c2920bc5f0a73c57e9db66c89bf7af91e712c84f40391001db01aa0423744b8`.
+
+The revised operational plan preserves the failed guest's exact unused8GiB
+generated SD-card file in a bounded, independently verified compressed private
+backup before reclaiming only that recoverable file. Then run the already
+prepared, unused creation guest; after its actual client and owned guest closure,
+preserve/reclaim only its cold generated card before preparing a distinct new
+broad guest. Serial preparation avoids holding two additional8GiB files at once.
+The40GiB disk/4GiB memory floors, commit headroom, source/APK admission, fixed
+19/89 rosters and all SDK/owner/class budgets remain unchanged. No unrelated
+emulator, model, save, source, D: payload or system setting is changed.
+
+All initially prepared success-only audit/postflight/source-recovery helpers
+remain unexecuted and cannot qualify this refused preparation. The original
+small records and generated INIs remain private and unchanged. Actual archive,
+reclamation, new runtime and closure evidence must be recorded before claiming
+the follow-up tests pass. Full task checkboxes and outstanding gates are unchanged.

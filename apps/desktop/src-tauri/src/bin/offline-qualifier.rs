@@ -489,4 +489,97 @@ mod win {
         println!("AppContainerSelfCanaryFeasibilityPassed;NoWebViewOrModelQualification");
         Ok(())
     }
+
+    // Frozen before the identity-pinning correction. These exercise Windows
+    // filesystem/ACL ownership only, never a child/model/network/WebView.
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::os::windows::io::AsRawHandle;
+        use windows::Win32::Security::Authorization::{
+            GetSecurityInfo, ConvertSecurityDescriptorToStringSecurityDescriptorW,
+        };
+        fn fixture() -> PinnedDirectory {
+            let root = create_owned_directory(&std::env::temp_dir(), &format!("fixture-{}", guid().unwrap())).unwrap();
+            eprintln!("LOCALLORE_OFFLINE_PIN_REVIEW_ARTIFACT={}", root.path.display());
+            root // Retain tiny synthetic evidence on success/failure; no cleanup of computed roots.
+        }
+        fn dacl(file: &File) -> String {
+            let mut security = PSECURITY_DESCRIPTOR::default();
+            unsafe { GetSecurityInfo(HANDLE(file.as_raw_handle()), SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION, None, None, None, None, Some(&mut security)).ok() }.unwrap();
+            let mut text = PWSTR::null();
+            let converted = unsafe { ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                security, SDDL_REVISION_1, DACL_SECURITY_INFORMATION, &mut text, None) };
+            let result = converted.and_then(|()| unsafe { text.to_string() });
+            unsafe { LocalFree(Some(HLOCAL(security.0))); }
+            if !text.is_null() { unsafe { LocalFree(Some(HLOCAL(text.0.cast()))); } }
+            result.unwrap()
+        }
+        #[test]
+        fn held_new_root_cannot_redirect_acl_and_outside_sentinel_stays_exact() {
+            let parent = fixture();
+            let outside = create_owned_directory(&parent.path, &format!("fixture-{}", guid().unwrap())).unwrap();
+            let sentinel = outside.path.join("sentinel.txt");
+            write_new(&sentinel, b"outside-owned-sentinel").unwrap();
+            let outside_acl = dacl(&outside.file);
+            let name = format!("fixture-{}", guid().unwrap());
+            let owned = create_owned_directory(&parent.path, &name).unwrap();
+            assert!(fs::rename(&owned.path, parent.path.join("renamed" )).is_err(), "live no-delete handle blocks root replacement");
+            let moniker = wide(format!("locallore.offline.{}", guid().unwrap()));
+            let package = Sid(unsafe { DeriveAppContainerSidFromAppContainerName(PCWSTR(moniker.as_ptr())) }.unwrap());
+            grant_new_fixture(&owned, package.0).unwrap();
+            assert_eq!(dacl(&outside.file), outside_acl);
+            assert_eq!(read_small(&sentinel).unwrap(), b"outside-owned-sentinel");
+            assert!(create_owned_directory(&parent.path, &name).is_err(), "collision never adopts the existing object");
+            assert_eq!(dacl(&outside.file), outside_acl);
+        }
+        #[test]
+        fn existing_destination_never_overwrites_or_changes_bytes_or_acl() {
+            let root = fixture();
+            let target = root.path.join("offline-qualifier.exe");
+            write_new(&target, b"existing-object-not-a-canary").unwrap();
+            let before = io(File::open(&target)).unwrap();
+            let acl = dacl(&before);
+            assert!(copy_self_to_new(&root).is_err());
+            assert_eq!(read_small(&target).unwrap(), b"existing-object-not-a-canary");
+            assert_eq!(dacl(&before), acl);
+        }
+        #[test]
+        #[ignore = "explicit Windows symbolic-link privilege required; opt-in must create the real link"]
+        fn existing_reparse_parent_and_collision_never_touch_outside_acl_or_bytes() {
+            let parent = fixture();
+            let outside = create_owned_directory(&parent.path, &format!("fixture-{}", guid().unwrap())).unwrap();
+            let sentinel = outside.path.join("sentinel.txt");
+            write_new(&sentinel, b"outside-reparse-sentinel").unwrap();
+            let before = dacl(&outside.file);
+            let name = format!("fixture-{}", guid().unwrap());
+            let link = parent.path.join(&name);
+            std::os::windows::fs::symlink_dir(&outside.path, &link).expect("actual reparse setup; never silent skip");
+            assert!(create_owned_directory(&parent.path, &name).is_err());
+            assert!(create_owned_directory(&link, &format!("fixture-{}", guid().unwrap())).is_err());
+            assert_eq!(dacl(&outside.file), before);
+            assert_eq!(read_small(&sentinel).unwrap(), b"outside-reparse-sentinel");
+            assert_eq!(fs::read_dir(&outside.path).unwrap().count(), 1);
+        }
+        #[test]
+        fn profile_deletion_requires_every_attempted_child_and_all_threads_known_drained() {
+            let proof = json!({"profile_created":true,"child_cleanup_known":true,"listener_threads_drained":true,
+                "baseline":{"cleanup_known":true,"threads_drained":true},
+                "boxed":{"cleanup_known":true,"threads_drained":true}});
+            assert!(profile_delete_allowed(&proof));
+            for child in ["baseline", "boxed"] {
+                for field in ["cleanup_known", "threads_drained"] {
+                    let mut bad = proof.clone(); bad[child][field] = json!(false);
+                    assert!(!profile_delete_allowed(&bad), "positive process cleanup cannot mask undrained pipes");
+                    bad[child].as_object_mut().unwrap().remove(field);
+                    assert!(!profile_delete_allowed(&bad), "missing proof is not success");
+                }
+            }
+            for field in ["child_cleanup_known", "listener_threads_drained", "profile_created"] {
+                let mut bad = proof.clone(); bad[field] = json!(false);
+                assert!(!profile_delete_allowed(&bad));
+            }
+        }
+    }
 }

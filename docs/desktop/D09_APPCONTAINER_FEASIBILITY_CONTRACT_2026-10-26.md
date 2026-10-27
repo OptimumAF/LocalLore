@@ -100,3 +100,48 @@ Primary sources checked during design: [AppContainer launch](https://learn.micro
 [legacy Win32 children](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-for-legacy-applications-),
 [profile creation](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-createappcontainerprofile),
 [profile deletion](https://learn.microsoft.com/en-us/windows/win32/api/userenv/nf-userenv-deleteappcontainerprofile).
+
+## Pre-execution correction: pinned identity and complete drain
+
+Independent source review of `d8389418` found that metadata-only path checks
+did not pin identity across path-based ACL/copy/launch, and profile deletion
+did not explicitly require each child's pipe threads to have drained. No
+qualifier execution was authorized or performed before this correction.
+
+The replacement private `create_owned_directory` pins ordinary ancestors
+without delete sharing, then atomically creates ONE generated component relative
+to the pinned parent with cached `NtCreateFile`: FILE_CREATE, directory,
+open-reparse-point and synchronous mode. Both return status and IO_STATUS_BLOCK
+must report successful new creation. The returned handle must identify an
+ordinary directory. Existing directory/file/reparse collisions refuse; no
+existing object is adopted. ACL uses SetSecurityInfo on this exact new handle.
+No path-named ACL mutation remains. WDK/System_IO feature forwarding stays
+inside dev-harness, using the same windows0.62.2 package and unchanged lock.
+
+The source executable is opened through ordinary pinned ancestors, read-only,
+without write/delete sharing. Its sole copied destination is create_new. A
+metadata-only no-delete identity guard spans closing the writer and obtaining
+the final read-only no-write/delete pin. Matching native file identity plus
+bounded full SHA256 comparison with the still-pinned self image is required
+before launch. Writer interference, replacement or existing destination fails.
+Self image is capped at256MiB; this admits no model/worker-copy input.
+
+All ancestor/root/source/executable pins remain held through launch, child/job
+and pipe/listener drain, profile-deletion attempt and final create-only evidence
+write. Evidence has its own atomic new pinned directory outside the profile;
+its final write never follows an unpinned root. Existing parent ACLs are never
+changed. If holding pins prevents the Windows profile-deletion API, that remains
+a measured failure; this source adds no permissive drop/retry fallback.
+
+Deletion eligibility explicitly checks every attempted child's positive known
+process cleanup AND threads_drained, as well as listener drain. False/unknown
+flags preserve profile/evidence. A terminated process alone does not prove pipe
+drain. No profile enumeration or computed recursive deletion is introduced.
+
+The separately frozen Windows source tests use only new synthetic fixture
+directories: held-root rename refusal; create collision with outside ACL/byte
+sentinel unchanged; existing reparse-parent refusal (explicit opt-in symbolic
+link privilege, never a silent pass); self-copy collision preservation; and
+pipe/listener/child deletion decision negatives. They are UNCOMPILED/UNRUN.
+Root must independently re-review, compile and qualify these before the fixed
+self-canary runs. A source test is not an actual race/ACL/network measurement.

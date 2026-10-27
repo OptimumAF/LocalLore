@@ -431,8 +431,13 @@ class RegressionPhaseTests(unittest.TestCase):
             with self.subTest(failure=failure):
                 self.run_mock_worker(early_failure=failure)
 
-    def run_mock_worker(self, existing=None, early_failure=None):
+    def run_mock_worker(self, existing=None, early_failure=None, phase="regression"):
         from benchmarks import android_process_client as client
+        classes, methods, dispatch, worker, filename, count = (
+            (driver.REGRESSION_CLASSES, driver.REGRESSION_METHODS, driver.regression_dispatch,
+             driver.regression_worker, "regression-v1.json", 89) if phase == "regression" else
+            (driver.RETAINED_UI_CLASSES, driver.RETAINED_UI_METHODS, driver.retained_ui_dispatch,
+             driver.retained_ui_worker, "retained_ui-v1.json", 2))
         calls = []
         with tempfile.TemporaryDirectory() as root:
             out = Path(root)
@@ -466,7 +471,7 @@ class RegressionPhaseTests(unittest.TestCase):
                     calls.append(("adb", args, label, seconds, cap))
                     if args[0] == "install": return b"Success\n"
                     index = int(label.split("-")[1])
-                    return synthetic_regression_run(driver.REGRESSION_CLASSES[index], driver.REGRESSION_METHODS[index])
+                    return synthetic_regression_run(classes[index], methods[index])
             request = dict(build="build", running=str(out / "running"), proposal="proposal", sdk=str(out),
                            powershell=str(out / "powershell.exe"), server="server", sources={"path": "sources"})
             digest = driver.env.digest
@@ -477,21 +482,21 @@ class RegressionPhaseTests(unittest.TestCase):
                  patch.object(driver, "source_map", return_value={"changed": True} if early_failure == "source" else {}), \
                  patch.object(client, "SdkCapture", FakeCapture):
                 if existing or early_failure:
-                    with self.assertRaises(driver.VerificationRefused): driver.regression_worker(request, out)
+                    with self.assertRaises(driver.VerificationRefused): worker(request, out)
                 else:
-                    driver.regression_worker(request, out)
+                    worker(request, out)
             adb = [c for c in calls if c[0] == "adb"]
             if existing or early_failure:
                 self.assertEqual(adb, [])
                 if early_failure: self.assertEqual(calls, [])
-                self.assertFalse((out / "regression-v1.json").exists())
+                self.assertFalse((out / filename).exists())
             else:
                 self.assertEqual(calls[0], ("construct", 850))
                 self.assertEqual([c[1][0] for c in adb[:3]], ["install"] * 3)
-                self.assertEqual(len(adb), 21)
-                for index, call in enumerate(adb[3:]): self.assertEqual(call[1:], driver.regression_dispatch(index))
-                result = json.loads((out / "regression-v1.json").read_text())
-                self.assertEqual((result["phase"], result["method_count"], len(result["results"])), ("regression", 89, 18))
+                self.assertEqual(len(adb), 3 + len(classes))
+                for index, call in enumerate(adb[3:]): self.assertEqual(call[1:], dispatch(index))
+                result = json.loads((out / filename).read_text())
+                self.assertEqual((result["phase"], result["method_count"], len(result["results"])), (phase, count, len(classes)))
                 self.assertFalse((out / "components-v1.json").exists())
                 absent = [c[1][-1] for c in calls if c[0] == "shell" and c[1][:4] == ["cmd", "package", "list", "packages"]]
                 self.assertEqual(absent, list(driver.PACKAGES))
@@ -555,6 +560,130 @@ class RegressionPhaseTests(unittest.TestCase):
                 self.assertNotIn("components", result)
                 self.assertNotIn("artifacts", result)
                 if known: self.assertEqual(result["regression"]["path"], str(out / "regression-v1.json"))
+
+
+class RetainedUiPhaseTests(unittest.TestCase):
+    def fixture(self, out):
+        from benchmarks.android_instrumentation_evidence import validate_instrumentation
+        (out / "clients").mkdir()
+        name, methods = driver.RETAINED_UI_CLASSES[0], driver.RETAINED_UI_METHODS[0]
+        raw = synthetic_regression_run(name, methods)
+        (out / (name + ".stdout.raw")).write_bytes(raw)
+        captures = (("adb-server", b"synthetic server\r\n"), ("instrument-user", b"0\r\n"),
+                    ("adb-server", b"synthetic server\r\n"), ("instrument-0", raw),
+                    ("adb-server", b"synthetic server\r\n"))
+        for index, (label, data) in enumerate(captures, 1):
+            path = out / "clients" / ("command-%04d" % index)
+            path.with_suffix(".stdout.bin").write_bytes(data)
+            driver.env.create_json(path.with_suffix(".json"), dict(version=1, index=index, label=label,
+                status="completed", returncode=0, cleanup_complete=True, stdout_bytes=len(data),
+                stdout_sha256=hashlib.sha256(data).hexdigest(), stderr_bytes=0))
+        return dict(version=1, phase="retained-ui", results=[validate_instrumentation(raw,
+            "org.locallore.app." + name, list(methods))], clients=len(captures), clients_clean=True,
+            method_count=2, external_controller_case_executed=False)
+
+    def test_frozen_ui_roster_is_distinct_from_component_and_broad_gates(self):
+        from benchmarks.android_instrumentation_evidence import test_roster
+        self.assertEqual(driver.RETAINED_UI_VERSION, 1)
+        self.assertEqual(driver.RETAINED_UI_CLASSES, ("RetainedParentDeletionUiTest",))
+        self.assertEqual(driver.RETAINED_UI_METHODS, ((
+            "cancelThenConfirmRetainedParentDeletionPreservesChildHistory",
+            "staleParentPreviewCannotDeleteChangedHistory"),))
+        self.assertTrue(set(driver.RETAINED_UI_CLASSES).isdisjoint(driver.CLASSES + driver.REGRESSION_CLASSES))
+        source = driver.ROOT / "apps/android/app/src/androidTest/java/org/locallore/app/RetainedParentDeletionUiTest.kt"
+        self.assertEqual(test_roster(source), list(driver.RETAINED_UI_METHODS[0]))
+        self.assertEqual(sum(map(len, driver.EXPECTED_METHODS)), 10)
+        self.assertEqual(sum(map(len, driver.REGRESSION_METHODS)), 89)
+
+    def test_dispatch_and_cli_have_no_class_method_or_profile_selector(self):
+        command, label, seconds, cap = driver.retained_ui_dispatch(0)
+        self.assertEqual(command, ["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class",
+            "org.locallore.app.RetainedParentDeletionUiTest", driver.APP + ".test/androidx.test.runner.AndroidJUnitRunner"])
+        self.assertEqual((label, seconds, cap), ("instrument-0", 180, 262144))
+        for value in (-1, 1, True, 0.0, "0", None):
+            with self.subTest(value=value), self.assertRaises(driver.VerificationRefused):
+                driver.retained_ui_dispatch(value)
+        args = ["retained-ui", "--out", "unused", "--sdk", "sdk", "--build", "build", "--running", "running",
+                "--proposal", "proposal", "--server", "server", "--powershell", "powershell"]
+        with patch.object(driver, "supervise") as run, patch("sys.stdout", io.StringIO()):
+            self.assertEqual(driver.main(args), 0)
+        self.assertEqual(run.call_args.args[0]["phase"], "retained-ui")
+        for extra in (["--class", "Other"], ["--test", "method"], ["--profile", "phone"]):
+            with patch.object(driver, "supervise") as run, patch("sys.stderr", io.StringIO()), self.assertRaises(SystemExit):
+                driver.main(args + extra)
+            run.assert_not_called()
+
+    def test_interleaved_original_evidence_cannot_substitute_either_old_gate(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root); record = self.fixture(out); before = copy.deepcopy(record)
+            driver.validate_retained_ui_record(record, out)
+            self.assertEqual(record, before)
+            for validate in (driver.validate_component_record, driver.validate_regression_record):
+                with self.assertRaises(driver.VerificationRefused): validate(record, out)
+            for delta in ({"phase": "regression"}, {"version": True}, {"method_count": True}, {"method_count": 1},
+                          {"clients_clean": False}, {"external_controller_case_executed": True}, {"extra": 0}):
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_retained_ui_record(dict(record, **delta), out)
+            incomplete = copy.deepcopy(record)
+            incomplete["results"][0]["methods"].pop()
+            with self.assertRaises(driver.VerificationRefused): driver.validate_retained_ui_record(incomplete, out)
+
+    def test_partial_skipped_extra_raw_and_changed_client_bytes_refuse(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root); record = self.fixture(out)
+            name, methods = driver.RETAINED_UI_CLASSES[0], driver.RETAINED_UI_METHODS[0]
+            path = out / (name + ".stdout.raw"); raw = path.read_bytes()
+            for data in (synthetic_regression_run(name, methods[:1]), raw + b"INSTRUMENTATION_CODE: -1\n",
+                         raw.replace(b"STATUS_CODE: 0", b"STATUS_CODE: -3", 1)):
+                path.write_bytes(data)
+                with self.assertRaises(driver.VerificationRefused): driver.validate_retained_ui_record(record, out)
+            path.write_bytes(raw)
+            user = out / "clients/command-0002.stdout.bin"; user.write_bytes(b"1\r\n")
+            with self.assertRaisesRegex(driver.VerificationRefused, "client_raw"):
+                driver.validate_retained_ui_record(record, out)
+            user.write_bytes(b"0\r\n")
+            path = out / "clients/command-0004.json"; original = driver.env.read_json(path)
+            for delta in ({"label": "instrument-1"}, {"label": "instrument-user"}, {"returncode": False},
+                          {"cleanup_complete": False}, {"stderr_bytes": 1}, {"stdout_sha256": "0" * 64}):
+                path.write_text(json.dumps(dict(original, **delta)))
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_retained_ui_record(record, out)
+            path.write_text(json.dumps(original))
+            driver.validate_retained_ui_record(record, out)
+
+    def test_new_worker_requires_fresh_guest_and_fixed_single_dispatch(self):
+        RegressionPhaseTests().run_mock_worker(phase="retained-ui")
+        for package in driver.PACKAGES:
+            with self.subTest(package=package):
+                RegressionPhaseTests().run_mock_worker(existing=package, phase="retained-ui")
+        for failure in ("owner", "source"):
+            with self.subTest(failure=failure):
+                RegressionPhaseTests().run_mock_worker(early_failure=failure, phase="retained-ui")
+
+    @unittest.skipUnless(os.name == "nt", "Windows supervisor entry")
+    def test_parent_persists_owner_and_refuses_bad_new_phase_before_success(self):
+        for known in (True, False):
+            with self.subTest(known=known), tempfile.TemporaryDirectory() as root:
+                out = Path(root) / "fresh"
+                request = dict(phase="retained-ui", out=str(out), sdk=root, java=None, build="build",
+                               running="running", proposal="proposal", server="server", powershell="powershell")
+                owner = dict(status="child_exited", worker_returncode=0, cleanup_complete=known,
+                    output_capture_complete=True, elapsed_ms=1, stdout_bytes=0, stderr_bytes=0)
+                def supervise(*_):
+                    driver.env.create_json(out / "retained_ui-v1.json", {"not": "qualified"}); return owner
+                def validate(*_):
+                    self.assertEqual(driver.env.read_json(out / "owner-result-v1.json"), owner)
+                    raise driver.VerificationRefused("bad_ui_raw")
+                with patch.object(driver, "input_bindings", return_value=[]), \
+                     patch.object(driver, "source_map", return_value={"same": "source"}), \
+                     patch.object(driver.env, "supervise", side_effect=supervise), \
+                     patch.object(driver, "validate_retained_ui_record", side_effect=validate) as deep:
+                    with self.assertRaises(driver.VerificationRefused): driver.supervise(request)
+                self.assertEqual(deep.call_count, int(known))
+                result = driver.env.read_json(out / "result-v1.json")
+                self.assertFalse(result["passed"])
+                self.assertNotIn("components", result); self.assertNotIn("regression", result)
+                if known: self.assertEqual(result["retained_ui"]["path"], str(out / "retained_ui-v1.json"))
 
 
 if __name__ == "__main__":

@@ -124,3 +124,15 @@ There is no arbitrary class selector. A regression result cannot substitute
 for the original ten-method component gate or an external two-death case.
 Host synthetic tests establish parser/orchestration behavior only; actual
 Android regression qualification remains pending until its raw run is retained.
+
+## Separate retained-parent deletion UI phase
+
+The fixed `retained-ui` phase runs only `RetainedParentDeletionUiTest` and its
+two original cancel/confirmation and stale-preview methods. It uses a fresh
+owned guest and the same admission, installation, original-output and resource
+bounds; it cannot adopt a completed external fixture. Its separate closed
+`retained_ui-v1.json` requires both exact methods and all client copies.
+It does not replace native10, broad89 or an external two-death result.
+See the [fixed protocol and command](ANDROID_RETAINED_PARENT_UI_PROTOCOL.md)
+and [dated verification](ANDROID_RETAINED_PARENT_UI_VERIFICATION_2026-10-26.md)
+for actual execution status and source attribution.

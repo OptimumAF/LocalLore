@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [retained-parent deletion UI qualification](docs/native/ANDROID_RETAINED_PARENT_UI_VERIFICATION_2026-10-26.md)
+passes real Compose Cancel, explicit native deletion preserving a child's
+original history, and stale-preview refusal after an independent parent turn.
+The fixed two-method UI phase is separate from native component and lifecycle
+checks. It uses scripted inference on API35/x86_64; phone/model gates remain separate.
+
 The [current external restoration execution](docs/native/ANDROID_EXTERNAL_PROCESS_EXECUTION_2026-10-26.md)
 passes the real scripted Compose/JNI/Rust root, active-child, retired-leaf and
 selected-parent controls across two saved-task process deaths per case. Four original

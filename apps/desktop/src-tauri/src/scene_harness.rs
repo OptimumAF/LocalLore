@@ -218,9 +218,17 @@ impl InferenceProvider for Script {
         if request.scope != self.0 {
             return Poll::Ready(Err(Error::Scope));
         }
-        let Input::Structured { role, .. } = &request.input else {
+        let Input::Structured { role, prompt, .. } = &request.input else {
             return Poll::Ready(Err(Error::Provider));
         };
+        // Finite synthetic sentinels: inspection must never feed author truth,
+        // author reasons or another story into either actual role request.
+        if [B, REASON, "SCENE_OTHER_ONLY"]
+            .iter()
+            .any(|marker| prompt.contains(marker))
+        {
+            return Poll::Ready(Err(Error::Knowledge));
+        }
         let value = match role.as_str() {
             "director" => json!({"commands":[{"op":"wait","ticks":1}]}),
             "narrator" => {
@@ -450,6 +458,42 @@ mod tests {
                 if choice == Case::Literal { 1 } else { 2 }
             );
             assert_eq!(result["observer_isolated"], true);
+            let selected = Store::open_read_only(&path)
+                .unwrap()
+                .resume(&choice.scope())
+                .unwrap()
+                .engine;
+            let request = selected.request(
+                "scene-native-unit-wait",
+                Intent::FreeText {
+                    kind: PlayInputKind::Action,
+                    text: TEXT.into(),
+                },
+            );
+            let call = |command: Value| {
+                host.call(&serde_json::to_vec(&json!({"version":1,"command":command})).unwrap())
+            };
+            let attached = call(json!({"op":"resume","scope":choice.scope()}));
+            assert_eq!(attached["status"], "ok");
+            let selected_session = attached["data"]["session"].as_str().unwrap();
+            assert_eq!(
+                call(json!({"op":"free_text","session":selected_session,"request":request}))
+                    ["data"]["phase"],
+                "queued"
+            );
+            assert_eq!(
+                call(
+                    json!({"op":"prepare","session":selected_session,"scope":choice.scope(),"turn":request.turn})
+                )["data"]["phase"],
+                "ready"
+            );
+            assert_eq!(
+                call(
+                    json!({"op":"commit","session":selected_session,"scope":choice.scope(),"turn":request.turn})
+                )["data"]["phase"],
+                "committed"
+            );
+            assert_eq!(proof(&path, choice).unwrap()["new_commits"], 1);
             let other = Engine::new(fixture_seed(OTHER).unwrap()).unwrap();
             let request = other.request(
                 "scene-foreign-refusal",

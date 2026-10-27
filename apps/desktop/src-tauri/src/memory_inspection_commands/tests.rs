@@ -582,6 +582,12 @@ struct ClosingPort {
     epoch: u64,
 }
 impl Persistence for ClosingPort {
+    fn location(&self) -> &str {
+        "synthetic-closing-port"
+    }
+    fn list(&mut self) -> Result<Vec<locallore::host::WorkspaceSummary>, String> {
+        Err("Unsupported".into())
+    }
     fn create(&mut self) -> Result<Engine, String> {
         Err("Unsupported".into())
     }

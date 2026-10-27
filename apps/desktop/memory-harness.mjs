@@ -94,6 +94,21 @@ const base = process.env.LOCALLORE_M07_MEMORY_ARTIFACT_ROOT;
 if (!base) throw new Error("TrustedTaskArtifactRootRequired");
 const folder = path.join(base, `memory-native-${randomUUID()}`);
 await mkdir(folder, { recursive: true });
+if (inspecting)
+    await writeFile(
+        path.join(folder, "inspection-source-start.json"),
+        JSON.stringify(
+            {
+                sourceRevision,
+                sourceDirty,
+                started: new Date().toISOString(),
+                inputSHA256: inspectionStart,
+            },
+            null,
+            2,
+        ),
+        { flag: "wx" },
+    );
 const db = path.join(folder, "stories-v1.sqlite");
 console.log(`MEMORY native local artifacts: ${folder}`);
 if ((process.env.LIBSQLITE3_FLAGS ?? "").trim())
@@ -150,7 +165,8 @@ async function run(command, args, env = {}) {
         );
         child.once("error", (error) => {
             clearTimeout(timer);
-            reject(error);
+            // close follows spawn errors; preserve its bounded outcome there.
+            bounded.stderr = Buffer.from(String(error.message).slice(0, 1000));
         });
         child.once("close", async (code, signal) => {
             try {
@@ -200,179 +216,215 @@ async function run(command, args, env = {}) {
         });
     });
 }
-await run(process.execPath, ["build.mjs", "--harness"]);
-await run("cargo", [
-    "build",
-    "--manifest-path",
-    "src-tauri/Cargo.toml",
-    "--locked",
-    "--offline",
-    "--features",
-    "dev-harness",
-    "--target-dir",
-    target,
-]);
-const builtHashes = inspecting
-    ? await hashesFor(["dist/app.js", executable])
-    : null;
-const reports = [];
-let captures = 0;
-let checks = [];
-for (const stage of ["initial", "restart"]) {
-    if (
-        inspecting &&
-        JSON.stringify(await hashesFor(["dist/app.js", executable])) !==
-            JSON.stringify(builtHashes)
-    )
-        throw Error("InspectionProductChanged");
-    const directory = path.join(folder, stage);
-    await run(executable, [], {
-        LOCALLORE_D02_HARNESS: "1",
-        LOCALLORE_M07_MEMORY_HARNESS: "1",
-        ...(inspecting ? { LOCALLORE_D05_MEMORY_INSPECTION_HARNESS: "1" } : {}),
-        LOCALLORE_D02_ARTIFACT_DIR: directory,
-        LOCALLORE_TEST_MEMORY: "0",
-        LOCALLORE_TEST_WORKSPACE: db,
-        LOCALLORE_TEST_RESTART: stage === "restart" ? "1" : "0",
-    });
-    const report = JSON.parse(
-        await readFile(path.join(directory, "report.json"), "utf8"),
-    );
-    if (!report.passed)
-        throw new Error(
-            `MemoryJourneysFailed:${stage}:${report.failedCheck}:${report.error}`,
+try {
+    await run(process.execPath, ["build.mjs", "--harness"]);
+    await run("cargo", [
+        "build",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--locked",
+        "--offline",
+        "--features",
+        "dev-harness",
+        "--target-dir",
+        target,
+    ]);
+    const builtHashes = inspecting
+        ? await hashesFor(["dist/app.js", executable])
+        : null;
+    if (inspecting)
+        await writeFile(
+            path.join(folder, "inspection-products-start.json"),
+            JSON.stringify(
+                { sourceRevision, productSHA256: builtHashes },
+                null,
+                2,
+            ),
+            { flag: "wx" },
         );
-    reports.push({ stage, report });
-    checks.push(...report.checks);
-    for (const file of await readdir(directory))
-        if (file.endsWith(".json") && !file.endsWith(".capture.json")) {
-            const snapshot = JSON.parse(
-                await readFile(path.join(directory, file), "utf8"),
-            );
-            checks.push(...(snapshot.checks ?? []));
-        }
-    const stageCaptures = (await readdir(directory)).filter((f) =>
-        f.endsWith(".png"),
-    ).length;
-    if (stageCaptures !== (stage === "initial" ? 12 : inspecting ? 4 : 2))
-        throw new Error(`NativeCaptureCount:${stage}`);
-    if (inspecting) {
-        const labels =
-            stage === "initial"
-                ? [
-                      "empty",
-                      "packets",
-                      "entries",
-                      "source",
-                      "mira",
-                      "sable",
-                      "held-lens",
-                      "other-busy",
-                      "session-return",
-                      "prefix",
-                      "narrow",
-                      "final",
-                  ]
-                : [
-                      "reopened",
-                      "restart-entries",
-                      "restart-source",
-                      "restart-narrow",
-                  ];
-        const actual = (await readdir(directory))
-            .filter((file) => file.endsWith(".png"))
-            .sort();
-        const expected = labels
-            .map((label) => `memory-inspection-native-${label}.png`)
-            .sort();
-        if (JSON.stringify(actual) !== JSON.stringify(expected))
-            throw Error(`InspectionCaptureLabels:${stage}`);
+    const reports = [];
+    let captures = 0;
+    let checks = [];
+    for (const stage of ["initial", "restart"]) {
         if (
+            inspecting &&
             JSON.stringify(await hashesFor(["dist/app.js", executable])) !==
-            JSON.stringify(builtHashes)
+                JSON.stringify(builtHashes)
         )
             throw Error("InspectionProductChanged");
+        const directory = path.join(folder, stage);
+        await run(executable, [], {
+            LOCALLORE_D02_HARNESS: "1",
+            LOCALLORE_M07_MEMORY_HARNESS: "1",
+            LOCALLORE_D05_MEMORY_INSPECTION_HARNESS: inspecting ? "1" : "0",
+            LOCALLORE_D02_ARTIFACT_DIR: directory,
+            LOCALLORE_TEST_MEMORY: "0",
+            LOCALLORE_TEST_WORKSPACE: db,
+            LOCALLORE_TEST_RESTART: stage === "restart" ? "1" : "0",
+        });
+        const report = JSON.parse(
+            await readFile(path.join(directory, "report.json"), "utf8"),
+        );
+        if (!report.passed)
+            throw new Error(
+                `MemoryJourneysFailed:${stage}:${report.failedCheck}:${report.error}`,
+            );
+        reports.push({ stage, report });
+        checks.push(...report.checks);
+        for (const file of await readdir(directory))
+            if (file.endsWith(".json") && !file.endsWith(".capture.json")) {
+                const snapshot = JSON.parse(
+                    await readFile(path.join(directory, file), "utf8"),
+                );
+                checks.push(...(snapshot.checks ?? []));
+            }
+        const stageCaptures = (await readdir(directory)).filter((f) =>
+            f.endsWith(".png"),
+        ).length;
+        if (stageCaptures !== (stage === "initial" ? 12 : inspecting ? 4 : 2))
+            throw new Error(`NativeCaptureCount:${stage}`);
+        if (inspecting) {
+            const labels =
+                stage === "initial"
+                    ? [
+                          "empty",
+                          "packets",
+                          "entries",
+                          "source",
+                          "mira",
+                          "sable",
+                          "held-lens",
+                          "other-busy",
+                          "session-return",
+                          "prefix",
+                          "narrow",
+                          "final",
+                      ]
+                    : [
+                          "reopened",
+                          "restart-entries",
+                          "restart-source",
+                          "restart-narrow",
+                      ];
+            const actual = (await readdir(directory))
+                .filter((file) => file.endsWith(".png"))
+                .sort();
+            const expected = labels
+                .map((label) => `memory-inspection-native-${label}.png`)
+                .sort();
+            if (JSON.stringify(actual) !== JSON.stringify(expected))
+                throw Error(`InspectionCaptureLabels:${stage}`);
+            if (
+                JSON.stringify(await hashesFor(["dist/app.js", executable])) !==
+                JSON.stringify(builtHashes)
+            )
+                throw Error("InspectionProductChanged");
+        }
+        captures += stageCaptures;
     }
-    captures += stageCaptures;
+    const files = [
+        "ui/memory-maintenance-controller.ts",
+        "ui/MemoryMaintenancePanel.tsx",
+        "ui/memory-context.ts",
+        "ui/broker-retention.ts",
+        "ui/BrokerRetentionPanel.tsx",
+        "ui/memory-native-journeys.ts",
+        "ui/controller.ts",
+        "ui/App.tsx",
+        "ui/main.tsx",
+        "ui/style.css",
+        "dist/app.js",
+        "src-tauri/src/main.rs",
+        "src-tauri/src/harness.rs",
+        "src-tauri/src/memory_harness.rs",
+        "src-tauri/src/memory_maintenance_commands.rs",
+        "src-tauri/src/memory_maintenance_command_tests.rs",
+        "src-tauri/src/archive.rs",
+        "src-tauri/src/lease.rs",
+        "src-tauri/build.rs",
+        "src-tauri/tauri.conf.json",
+        "src-tauri/Cargo.toml",
+        "../../Cargo.lock",
+        "memory-harness.mjs",
+        "check-memory-maintenance-controller.mjs",
+        "check-memory-callback-review.mjs",
+        "check-broker-retention.mjs",
+        "verify-frontend.mjs",
+        "../../crates/locallore/src/host.rs",
+        "../../crates/locallore/src/engine.rs",
+        "../../crates/locallore/src/host/memory_maintenance.rs",
+        "../../crates/locallore-workspace/src/lib.rs",
+        "../../crates/locallore-workspace/src/maintenance.rs",
+        "../../crates/locallore-storage/src/memory_jobs.rs",
+    ];
+    const hashes = Object.fromEntries(
+        await Promise.all(
+            files.map(async (f) => [
+                f,
+                createHash("sha256")
+                    .update(await readFile(path.join(root, f)))
+                    .digest("hex"),
+            ]),
+        ),
+    );
+    await checkInspectionHashes();
+    hashes["<native-target>/debug/locallore-desktop-spike.exe"] = createHash(
+        "sha256",
+    )
+        .update(await readFile(executable))
+        .digest("hex");
+    checks = [...new Set(checks)];
+    await writeFile(
+        path.join(folder, "summary.json"),
+        JSON.stringify(
+            {
+                synthetic: true,
+                passed: true,
+                backend: "native",
+                desktopControl: false,
+                actualProcessRestart: true,
+                realModelGeneration: false,
+                sourceRevision,
+                sourceDirty,
+                mode: inspecting ? "inspection" : "maintenance",
+                inspectionStartSHA256: inspectionStart,
+                inspectionFinalSHA256: inspecting
+                    ? await hashesFor(inspectionFiles)
+                    : null,
+                captures,
+                checks,
+                reports,
+                inputSHA256: hashes,
+            },
+            null,
+            2,
+        ),
+    );
+    console.log(
+        `MEMORY NATIVE PASS: ${checks.length} distinct assertions, ${captures} captures. Local artifacts: ${folder}`,
+    );
+} catch (error) {
+    if (inspecting) {
+        const observed = await hashesFor(inspectionFiles).catch((e) => ({
+            observationError: String(e.message).slice(0, 160),
+        }));
+        await writeFile(
+            path.join(folder, "inspection-failure.json"),
+            JSON.stringify(
+                {
+                    sourceRevision,
+                    passed: false,
+                    ended: new Date().toISOString(),
+                    error: String(error.message).slice(0, 500),
+                    terminalSourceRevision: await git(["rev-parse", "HEAD"]),
+                    terminalDirty: await git(["status", "--porcelain"]),
+                    terminalInputSHA256: observed,
+                },
+                null,
+                2,
+            ),
+            { flag: "wx" },
+        );
+    }
+    throw error;
 }
-const files = [
-    "ui/memory-maintenance-controller.ts",
-    "ui/MemoryMaintenancePanel.tsx",
-    "ui/memory-context.ts",
-    "ui/broker-retention.ts",
-    "ui/BrokerRetentionPanel.tsx",
-    "ui/memory-native-journeys.ts",
-    "ui/controller.ts",
-    "ui/App.tsx",
-    "ui/main.tsx",
-    "ui/style.css",
-    "dist/app.js",
-    "src-tauri/src/main.rs",
-    "src-tauri/src/harness.rs",
-    "src-tauri/src/memory_harness.rs",
-    "src-tauri/src/memory_maintenance_commands.rs",
-    "src-tauri/src/memory_maintenance_command_tests.rs",
-    "src-tauri/src/archive.rs",
-    "src-tauri/src/lease.rs",
-    "src-tauri/build.rs",
-    "src-tauri/tauri.conf.json",
-    "src-tauri/Cargo.toml",
-    "../../Cargo.lock",
-    "memory-harness.mjs",
-    "check-memory-maintenance-controller.mjs",
-    "check-memory-callback-review.mjs",
-    "check-broker-retention.mjs",
-    "verify-frontend.mjs",
-    "../../crates/locallore/src/host.rs",
-    "../../crates/locallore/src/engine.rs",
-    "../../crates/locallore/src/host/memory_maintenance.rs",
-    "../../crates/locallore-workspace/src/lib.rs",
-    "../../crates/locallore-workspace/src/maintenance.rs",
-    "../../crates/locallore-storage/src/memory_jobs.rs",
-];
-const hashes = Object.fromEntries(
-    await Promise.all(
-        files.map(async (f) => [
-            f,
-            createHash("sha256")
-                .update(await readFile(path.join(root, f)))
-                .digest("hex"),
-        ]),
-    ),
-);
-await checkInspectionHashes();
-hashes["<native-target>/debug/locallore-desktop-spike.exe"] = createHash(
-    "sha256",
-)
-    .update(await readFile(executable))
-    .digest("hex");
-checks = [...new Set(checks)];
-await writeFile(
-    path.join(folder, "summary.json"),
-    JSON.stringify(
-        {
-            synthetic: true,
-            passed: true,
-            backend: "native",
-            desktopControl: false,
-            actualProcessRestart: true,
-            realModelGeneration: false,
-            sourceRevision,
-            sourceDirty,
-            mode: inspecting ? "inspection" : "maintenance",
-            inspectionStartSHA256: inspectionStart,
-            inspectionFinalSHA256: inspecting
-                ? await hashesFor(inspectionFiles)
-                : null,
-            captures,
-            checks,
-            reports,
-            inputSHA256: hashes,
-        },
-        null,
-        2,
-    ),
-);
-console.log(
-    `MEMORY NATIVE PASS: ${checks.length} distinct assertions, ${captures} captures. Local artifacts: ${folder}`,
-);

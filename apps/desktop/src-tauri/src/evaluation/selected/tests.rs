@@ -217,7 +217,8 @@ impl Drop for Fixture {
 }
 
 #[test]
-fn concurrent_fixture_readers_own_distinct_sources_and_close_without_cross_fixture_lock_interference() {
+fn concurrent_fixture_readers_own_distinct_sources_and_close_without_cross_fixture_lock_interference(
+) {
     // FIRST source-only oracle freeze. Fixture.source/source_template are the
     // planned copy-helper prerequisites; their absence is not behavioral RED.
     // Actual scripted producer and native Reader, not IPC/model/WebView proof.
@@ -246,45 +247,72 @@ fn concurrent_fixture_readers_own_distinct_sources_and_close_without_cross_fixtu
         (first_open.join().unwrap(), second_open.join().unwrap())
     });
     let inspect = |fixture: &Fixture, input: &SelectedPrepareInput| {
-        let metadata = fixture.manager.comparison_source(
-            &fixture.lease, fixture.epoch, true, &input.run_token,
-        ).unwrap();
+        let metadata = fixture
+            .manager
+            .comparison_source(&fixture.lease, fixture.epoch, true, &input.run_token)
+            .unwrap();
         assert_eq!(metadata["source"]["binding"], input.binding);
         assert_eq!(metadata["source"]["read_only"], true);
-        let evidence = fixture.manager.comparison_evidence(
-            &fixture.lease, fixture.epoch, true,
-            crate::evaluation::ComparisonEvidenceRequest {
-                token: input.run_token.clone(),
-                binding: input.binding.clone(),
-                row: source_reader::RowId {
-                    turn: input.turn_id.clone(), arm: Arm::Left,
+        let evidence = fixture
+            .manager
+            .comparison_evidence(
+                &fixture.lease,
+                fixture.epoch,
+                true,
+                crate::evaluation::ComparisonEvidenceRequest {
+                    token: input.run_token.clone(),
+                    binding: input.binding.clone(),
+                    row: source_reader::RowId {
+                        turn: input.turn_id.clone(),
+                        arm: Arm::Left,
+                    },
+                    request: EvidenceRequest::Query {
+                        edge: Edge::After,
+                        observer: Observer::Player,
+                        view: View::History,
+                    },
                 },
-                request: EvidenceRequest::Query {
-                    edge: Edge::After, observer: Observer::Player, view: View::History,
-                },
-            },
-        ).unwrap();
+            )
+            .unwrap();
         assert_eq!(evidence["evidence"]["body"]["kind"], "query");
         assert_eq!(evidence["evidence"]["generation_grant"], false);
     };
     inspect(&first, &first_input);
     inspect(&second, &second_input);
-    assert!(matches!(source_reader::open_read_only(first.source()), Err(error) if error == "RunBusy"));
-    assert!(matches!(source_reader::open_read_only(second.source()), Err(error) if error == "RunBusy"));
+    assert!(
+        matches!(source_reader::open_read_only(first.source()), Err(error) if error == "RunBusy")
+    );
+    assert!(
+        matches!(source_reader::open_read_only(second.source()), Err(error) if error == "RunBusy")
+    );
     // Template bytes remain readable while both real private locks are held.
     assert_eq!(inventory(source_template()), template_before);
 
-    first.manager.comparison_close(
-        &first.lease, first.epoch, &first_input.reader_client_id, Some(&first_input.run_token),
-    ).unwrap();
+    first
+        .manager
+        .comparison_close(
+            &first.lease,
+            first.epoch,
+            &first_input.reader_client_id,
+            Some(&first_input.run_token),
+        )
+        .unwrap();
     drop(source_reader::open_read_only(first.source()).expect("first actual lock released"));
     assert_eq!(inventory(first.source()), first_before);
     inspect(&second, &second_input);
-    assert!(matches!(source_reader::open_read_only(second.source()), Err(error) if error == "RunBusy"));
+    assert!(
+        matches!(source_reader::open_read_only(second.source()), Err(error) if error == "RunBusy")
+    );
 
-    second.manager.comparison_close(
-        &second.lease, second.epoch, &second_input.reader_client_id, Some(&second_input.run_token),
-    ).unwrap();
+    second
+        .manager
+        .comparison_close(
+            &second.lease,
+            second.epoch,
+            &second_input.reader_client_id,
+            Some(&second_input.run_token),
+        )
+        .unwrap();
     drop(source_reader::open_read_only(second.source()).expect("second actual lock released"));
     assert_eq!(inventory(first.source()), first_before);
     assert_eq!(inventory(second.source()), second_before);

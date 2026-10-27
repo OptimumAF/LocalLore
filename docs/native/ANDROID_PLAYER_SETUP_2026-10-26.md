@@ -216,3 +216,33 @@ editing remain required M09.02 work. Full journeys, accessibility, joined drain,
 current-source external OS-death, real-model, physical-phone and ARM64 execution
 remain separate gates. Full milestone checkboxes stay unchanged. No merge,
 release, persistent setting change or unrelated emulator stop is performed.
+
+## Corrected Android build and preservation checkpoint
+
+The corrected offline Android build now actually passes: owner148240ms/worker0,
+known cleanup/capture and stderr0;274 executed JVM tests across32 XML suites,
+0 failures/errors/skips; both lints0 errors/3 existing warnings;11 artifact
+audits. Deep readback verifies all841 inputs and identical108641-byte source
+maps, SHA256
+`b0b1dc2d2ffcbdc44bf7463101ae5c4077fb432258eb980fb5bd434af5dbe802`.
+The product APK is32770328 bytes, SHA256
+`9e31dfa15c3309a756d1553df61e4600f847afd085f095fcf2fcb9acca9fbb24`;
+the test APK is3110123 bytes, SHA256
+`4e74892a23aa9fe3dc9c1b9519ff60995762c015bf364daa23b4a43d2b0e30f1`.
+These corrected APKs supersede the earlier build for new runtime qualification.
+ARM64 compilation/auditing does not establish ARM64 execution.
+
+In response to the owner's preservation request, the corrected host/build
+records are sealed in a separate create-only C: recovery set. Independent fresh
+replay checks195 original files,196 copies and196 ZIP members,41691046 bytes,
+with0 missing files or mismatches. Its62515-byte index has SHA256
+`d20a0ce5581c69b7f33d3b20629a7ceab483906ae5092596ec9fc90e393252fb`;
+the20085998-byte ZIP has SHA256
+`bd26820bd0718c727ec4666c0686b005d2553578669574dd99698e6b7a5c8f05`.
+The seal retains the failed semantic RED and references the earlier266-entry
+checkpoint without rewriting it. Public source, original tests, contracts and
+reports are committed/pushed; private evidence, weights, saves and guest images
+are excluded from public Git. A fresh read-only runtime admission verifies the
+corrected host/build/source bindings and the existing server without changing
+its lifecycle. No new emulator instrumentation or model result is claimed at
+this checkpoint; the fixed native10 and player-setup8 phases remain pending.

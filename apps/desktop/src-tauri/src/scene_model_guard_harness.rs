@@ -213,6 +213,11 @@ mod tests {
             let root=PathBuf::from(std::env::var_os("LOCALLORE_D04_MODEL_ROOT").unwrap());
             if !root.to_string_lossy().contains('~') {println!("8.3-alias-unavailable:ordinary-nested-control-only");}
         }
+        if matches!(case.as_str(),"case-alias"|"short-alias") {
+            let root=PathBuf::from(std::env::var_os("LOCALLORE_D04_MODEL_ROOT").unwrap());
+            assert!(root.is_dir(),"alias fixture must resolve, not pass by being missing");
+            assert_eq!(fs::canonicalize(&root).unwrap(),fs::canonicalize(parent.join("NestedModelPublication")).unwrap(),"actual ordinary alias is the owned nested directory");
+        }
         assert!(native::model_root(&workspace).is_err(),"actual root helper must refuse {case}");
         assert_eq!(native::approved_model_source(&workspace).unwrap_err(),"Forbidden");
     }

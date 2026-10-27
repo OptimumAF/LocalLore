@@ -822,6 +822,8 @@ def validate_original_story_record(record, out):
     try:
         _validate_fixed_roster_record(record, out, "original-story", ORIGINAL_STORY_VERSION,
                                      ORIGINAL_STORY_CLASSES, ORIGINAL_STORY_METHODS, 8)
+        # This new phase has no historical unmeasured client format to preserve.
+        require_current_clients(out, record["clients"])
     except EvidenceRefused:
         raise VerificationRefused("original_story_evidence_refused") from None
 

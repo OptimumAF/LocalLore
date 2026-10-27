@@ -536,36 +536,74 @@ await test("default Controller without capture integration closes normally witho
 // original four cases above remain unchanged. Author UNRUN.
 await test("throwing matching-retirement listener cannot permanently fence the still-open session", async () => {
     const f = await fixture();
-    let armed = true, throws = 0;
+    let armed = true,
+        throws = 0;
     const remove = f.capture.subscribe(() => {
         // Initial invalidate/selection updates preserve permission. Throw once
         // only at explicit matching-owner retirement, then permit error display.
         if (armed && f.capture.get().permitted === false) {
-            armed = false; throws++;
+            armed = false;
+            throws++;
             throw Error("synthetic-close-retirement-listener");
         }
     });
     try {
         await f.controller.closeSession();
         remove();
-        assert.equal(throws, 1, "matching retirement actually hit the injected listener failure");
-        assert.equal(start(f.transport.events, "close", a.id), -1, "Host close cannot run after retirement throws");
+        assert.equal(
+            throws,
+            1,
+            "matching retirement actually hit the injected listener failure",
+        );
+        assert.equal(
+            start(f.transport.events, "close", a.id),
+            -1,
+            "Host close cannot run after retirement throws",
+        );
         assert.equal(f.transport.open.has(a.id), true);
         assert.equal(f.controller.selected()?.id, a.id);
-        assert.equal(f.controller.get().visibleError, "Transport", "original listener failure remains an honest Controller error");
-        assert.ok(f.errors.snapshot().some((e) => e.source === "frontend" && e.category === "Transport"));
-        assert.equal(f.capture.get().reply, null); assert.equal(f.capture.get().preview, null);
-        await f.controller.refresh(); await f.controller.showTrace();
-        await until(() => !f.capture.get().controlBusy, "normal context recovery after listener removal settles");
-        assert.equal(f.capture.get().permitted, true, "failed retirement released its private closing identity");
-        await f.capture.configure(true); await f.capture.read();
-        assert.ok(f.capture.get().reply, "explicit fresh consent/read is usable after failed retirement");
+        assert.equal(
+            f.controller.get().visibleError,
+            "Transport",
+            "original listener failure remains an honest Controller error",
+        );
+        assert.ok(
+            f.errors
+                .snapshot()
+                .some(
+                    (e) =>
+                        e.source === "frontend" && e.category === "Transport",
+                ),
+        );
+        assert.equal(f.capture.get().reply, null);
+        assert.equal(f.capture.get().preview, null);
+        await f.controller.refresh();
+        await f.controller.showTrace();
+        await until(
+            () => !f.capture.get().controlBusy,
+            "normal context recovery after listener removal settles",
+        );
+        assert.equal(
+            f.capture.get().permitted,
+            true,
+            "failed retirement released its private closing identity",
+        );
+        await f.capture.configure(true);
+        await f.capture.read();
+        assert.ok(
+            f.capture.get().reply,
+            "explicit fresh consent/read is usable after failed retirement",
+        );
         f.transport.events.length = 0;
-        await f.controller.closeSession(); await drain();
+        await f.controller.closeSession();
+        await drain();
         noPostCloseHost(f.transport.events, a.id);
         assert.equal(f.controller.selected(), null);
         assert.ok(!f.errors.snapshot().some((e) => e.category === "Closed"));
-    } finally { remove(); await f.cleanup(); }
+    } finally {
+        remove();
+        await f.cleanup();
+    }
 });
 const result = {
     version: 1,

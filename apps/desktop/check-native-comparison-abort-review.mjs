@@ -95,7 +95,11 @@ async function fixture(options = {}) {
                 assert.equal(args.query.runToken, TOKEN);
                 if (options.closeNotDelivered) throw Error("EvaluationIo");
                 backendClosed = true;
-                return status({ phase: "closed", report_ready: false });
+                return status({
+                    phase: "closed",
+                    report_ready: false,
+                    ...options.closeStatus,
+                });
             }
             throw Error(`UnexpectedSyntheticNativeAction:${args.action}`);
         },
@@ -313,6 +317,51 @@ for (const [name, mutate] of [
             assert.equal(f.observation().disposed, 1);
             assert(!f.events.includes("release"));
             noGeneration(f);
+        } finally {
+            await f.finish();
+        }
+    });
+}
+
+for (const [name, closeStatus] of [
+    ["running service drain", { running: true }],
+    [
+        "run cleanup required and running",
+        { cleanup_required: true, cleanup_running: true },
+    ],
+]) {
+    test(`closed presentation with ${name} remains cleanup-unconfirmed despite actual generic clean observation`, async () => {
+        const f = await fixture({ closeStatus });
+        try {
+            const result = await abortHeldNativeComparisonConsent(f);
+            resultShape(result);
+            const beforeDispose = f.disposalStates[0];
+            assert(beforeDispose, "actual disposal captured controller state");
+            assert.equal(beforeDispose.mode, "approved_native");
+            assert.equal(beforeDispose.status?.version, 2);
+            assert.equal(beforeDispose.status?.phase, "closed");
+            for (const [field, value] of Object.entries(closeStatus))
+                assert.equal(beforeDispose.status[field], value, `actual controller retained ${field}`);
+            assert.deepEqual(beforeDispose.cleanup, {
+                version: 1,
+                kind: "selected_cleanup",
+                cleanup_required: false,
+                running: false,
+                error: null,
+            }, "one actual generic status reply remains separate from run flags");
+            assert.equal(
+                f.nativeCalls.filter((call) => call.action === "cleanup_status").length,
+                1,
+                "actual close performs its bounded independent cleanup observation",
+            );
+            assert.equal(beforeDispose.uncertain, false, "closed identity acknowledgement is not service quiescence");
+            assert.equal(beforeDispose.error, null);
+            assert.equal(result.released, true);
+            assert.equal(f.observation().disposed, 1);
+            assert.equal(f.observation().released, 1);
+            assert.deepEqual(f.events, ["deny", "close-rpc", "release", "dispose"]);
+            noGeneration(f);
+            assert.equal(result.cleanupUnconfirmed, true, "positive run drain/cleanup flags cannot be hidden by a clean generic DTO");
         } finally {
             await f.finish();
         }

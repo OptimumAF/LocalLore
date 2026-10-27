@@ -318,6 +318,12 @@ fn recovered_creation_consumes_matching_live_review_but_preserves_unrelated_draf
         data(create(&other, &other_job, &hash, &id))["created"],
         true
     );
+    let (duplicate_job, duplicate_hash) = ready(&other, &input, &proposal, "Ashglass");
+    assert_eq!(duplicate_hash, hash);
+    assert_eq!(
+        data(create(&other, &duplicate_job, &hash, &"b".repeat(32)))["created"],
+        true
+    );
     let before = temp.snapshot();
 
     assert_eq!(data(create(&live, &job, &hash, &id))["created"], false);
@@ -329,6 +335,22 @@ fn recovered_creation_consumes_matching_live_review_but_preserves_unrelated_draf
         create(&live, &job, &hash, &"b".repeat(32))["error"],
         "Stale"
     );
+    assert_eq!(
+        create(&live, &job, &hash, &"d".repeat(32))["error"],
+        "Stale"
+    );
+    assert_eq!(
+        call(
+            &live,
+            json!({"op":"authoring_review","job":job,"input":input,"proposal":proposal,"title":"Changed"})
+        )["error"],
+        "Stale"
+    );
+    assert_eq!(
+        create(&live, &job, &hash, &"b".repeat(32))["error"],
+        "Stale"
+    );
+    assert_eq!(data(create(&live, &job, &hash, &id))["created"], false);
     assert_eq!(
         data(call(&live, json!({"op":"authoring_cancel","job":job})))["cancelled"],
         false

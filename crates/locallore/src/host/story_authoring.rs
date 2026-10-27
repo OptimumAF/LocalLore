@@ -21,6 +21,7 @@ struct Job {
     error: Option<String>,
     generation: Option<InitialGenerationV1>,
     reviewed: Option<(InitialWorldOriginV1, String)>,
+    created: Option<(String, String)>,
 }
 impl AuthoringState {
     pub(super) fn cancel_current(&mut self) {
@@ -281,6 +282,7 @@ impl Host {
                         error: None,
                         generation: None,
                         reviewed: None,
+                        created: None,
                     });
                     Ok(ok(
                         json!({"job":id,"input_sha256":input_sha256,"provider":provider}),
@@ -334,6 +336,17 @@ impl Host {
                     {
                         return Err("InvalidInput".into());
                     }
+                    if let Some((created_id, created_hash)) = state
+                        .authoring
+                        .job
+                        .as_ref()
+                        .filter(|current| &current.id == job)
+                        .and_then(|current| current.created.as_ref())
+                    {
+                        if created_id != creation_id || created_hash != review_sha256 {
+                            return Err("Stale".into());
+                        }
+                    }
                     let port = state.persistence.as_mut().ok_or("Unsupported")?;
                     // A completed creation can be recovered without a generation job or model.
                     if let Some(engine) = port.lookup_original(creation_id, review_sha256)? {
@@ -350,6 +363,7 @@ impl Host {
                                     .is_some_and(|(_, hash)| hash == review_sha256)
                         }) {
                             current.phase = "created";
+                            current.created = Some((creation_id.clone(), review_sha256.clone()));
                         }
                         return Ok(reply);
                     }
@@ -379,6 +393,7 @@ impl Host {
                     // The Store commit won; a later cancellation cannot undo it.
                     if let Some(current) = state.authoring.job.as_mut() {
                         current.phase = "created";
+                        current.created = Some((creation_id.clone(), review_sha256.clone()));
                     }
                     Ok(reply)
                 }

@@ -1,7 +1,7 @@
 //! Fixed synthetic read gate; declared only by the development harness.
 //! No packet builder, source mutation, provider, job or caller-supplied path.
 use crate::WindowLease;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::{
     path::{Component, Path, PathBuf},
     sync::atomic::{AtomicU8, Ordering},
@@ -30,7 +30,9 @@ fn workspace_path() -> Result<PathBuf, String> {
         .and_then(|name| name.strip_prefix("memory-native-"))
         .ok_or("SyntheticWorkspaceRequired")?;
     if !path.is_absolute()
-        || path.components().any(|part| matches!(part, Component::CurDir | Component::ParentDir))
+        || path
+            .components()
+            .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
         || path.file_name().and_then(|name| name.to_str()) != Some("stories-v1.sqlite")
         || !crate::archive::valid_id(suffix)
         || suffix != suffix.to_ascii_lowercase()
@@ -60,7 +62,7 @@ pub fn case(path: &Path, action: &str) -> Result<Value, String> {
                 .map_err(|_| "Busy".to_owned())?;
         }
         "release-read" => GATE.store(0, Ordering::SeqCst),
-        "read-state" => {},
+        "read-state" => {}
         _ => return Err("InvalidMemoryFixture".into()),
     }
     Ok(state())
@@ -84,7 +86,10 @@ pub fn before_read(lease: &WindowLease, epoch: u64) -> Result<(), String> {
     if !lease.valid(epoch) {
         return Err("Closed".into());
     }
-    if GATE.compare_exchange(1, 2, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+    if GATE
+        .compare_exchange(1, 2, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
         return Ok(());
     }
     let _entered = Entered;

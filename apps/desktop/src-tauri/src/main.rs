@@ -28,8 +28,8 @@ mod export_commands;
 mod exports;
 mod fork_commands;
 mod lease;
-mod memory_maintenance_commands;
 mod memory_inspection_commands;
+mod memory_maintenance_commands;
 mod model_commands;
 mod models;
 mod selected_commands;
@@ -45,6 +45,8 @@ mod fork_harness;
 mod harness;
 #[cfg(feature = "dev-harness")]
 mod memory_harness;
+#[cfg(feature = "dev-harness")]
+mod memory_inspection_harness;
 #[cfg(feature = "dev-harness")]
 mod test_bridge;
 #[cfg(feature = "dev-harness")]
@@ -167,7 +169,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},inspectingMemory:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -197,6 +199,12 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_M07_MEMORY_HARNESS").as_deref() == Ok("1"),
+            {
+                #[cfg(feature = "dev-harness")]
+                { memory_inspection_harness::active() }
+                #[cfg(not(feature = "dev-harness"))]
+                { false }
+            },
             std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1"),
             match std::env::var("LOCALLORE_D08_STAGE").as_deref(){
                 Ok("import")=>"import",Ok("uncertain")=>"uncertain",Ok("retire")=>"retire",Ok("restarted")=>"restarted",

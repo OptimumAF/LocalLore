@@ -6,6 +6,90 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID, createHash } from "node:crypto";
 const root = fileURLToPath(new URL(".", import.meta.url));
+const arguments_ = process.argv.slice(2);
+if (arguments_.length > 1 || arguments_.some((value) => value !== "--inspect"))
+    throw Error("FixedMemoryHarnessModeRequired");
+const inspecting = arguments_[0] === "--inspect";
+const git = async (args) =>
+    (await promisify(execFile)("git", args, { cwd: root })).stdout.trim();
+const sourceRevision = await git(["rev-parse", "HEAD"]);
+const sourceDirty = (await git(["status", "--porcelain"])).length > 0;
+if (inspecting && sourceDirty)
+    throw Error("CleanCommittedInspectionSourceRequired");
+async function checkSource() {
+    if (
+        inspecting &&
+        ((await git(["rev-parse", "HEAD"])) !== sourceRevision ||
+            (await git(["status", "--porcelain"])).length > 0)
+    )
+        throw Error("InspectionSourceChanged");
+}
+// Fixed source closure; generated frontend/native products are added after build.
+const inspectionFiles = [
+    "ui/memory-inspection-model.ts",
+    "ui/memory-inspection-controller.ts",
+    "ui/memory-inspection-context.ts",
+    "ui/MemoryInspectionPanel.tsx",
+    "ui/memory-inspection-native-journeys.ts",
+    "ui/memory-maintenance-controller.ts",
+    "ui/memory-context.ts",
+    "ui/controller.ts",
+    "ui/App.tsx",
+    "ui/main.tsx",
+    "ui/style.css",
+    "src-tauri/src/main.rs",
+    "src-tauri/src/harness.rs",
+    "src-tauri/src/memory_harness.rs",
+    "src-tauri/src/memory_inspection_harness.rs",
+    "src-tauri/src/memory_inspection_commands.rs",
+    "src-tauri/src/memory_inspection_commands/tests.rs",
+    "src-tauri/src/memory_maintenance_commands.rs",
+    "src-tauri/src/archive.rs",
+    "src-tauri/src/lease.rs",
+    "src-tauri/build.rs",
+    "src-tauri/tauri.conf.json",
+    "src-tauri/Cargo.toml",
+    "../../Cargo.lock",
+    "memory-harness.mjs",
+    "build.mjs",
+    "verify-frontend.mjs",
+    "check-memory-inspection.mjs",
+    "check-main-memory-inspection-review.mjs",
+    "../../crates/locallore/src/host.rs",
+    "../../crates/locallore/src/host/memory_inspection.rs",
+    "../../crates/locallore/src/engine.rs",
+    "../../crates/locallore-workspace/src/lib.rs",
+    "../../crates/locallore-workspace/src/maintenance.rs",
+    "../../crates/locallore-storage/src/memory_jobs.rs",
+];
+async function hashesFor(files) {
+    return Object.fromEntries(
+        await Promise.all(
+            files.map(async (file) => [
+                file,
+                createHash("sha256")
+                    .update(
+                        await readFile(
+                            path.isAbsolute(file)
+                                ? file
+                                : path.join(root, file),
+                        ),
+                    )
+                    .digest("hex"),
+            ]),
+        ),
+    );
+}
+const inspectionStart = inspecting ? await hashesFor(inspectionFiles) : null;
+async function checkInspectionHashes() {
+    await checkSource();
+    if (
+        inspecting &&
+        JSON.stringify(await hashesFor(inspectionFiles)) !==
+            JSON.stringify(inspectionStart)
+    )
+        throw Error("InspectionInputChanged");
+}
 const base = process.env.LOCALLORE_M07_MEMORY_ARTIFACT_ROOT;
 if (!base) throw new Error("TrustedTaskArtifactRootRequired");
 const folder = path.join(base, `memory-native-${randomUUID()}`);
@@ -24,16 +108,28 @@ const target =
 const executable = path.join(target, "debug", "locallore-desktop-spike.exe");
 let runNumber = 0;
 async function run(command, args, env = {}) {
+    await checkInspectionHashes();
     const logName = `run-${++runNumber}`;
     const bounded = { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
     let truncated = false;
+    let timedOut = false;
+    const started = new Date().toISOString();
+    const inherited = { ...process.env };
+    if (inspecting) {
+        for (const key of Object.keys(inherited))
+            if (
+                key.startsWith("LOCALLORE_") &&
+                /HARNESS|TEST_|ARTIFACT_DIR/.test(key)
+            )
+                delete inherited[key];
+    }
     await new Promise((resolve, reject) => {
         const child = spawn(command, args, {
             cwd: root,
             stdio: ["ignore", "pipe", "pipe"],
             windowsHide: true,
             shell: false,
-            env: { ...process.env, ...env },
+            env: { ...inherited, ...env },
         });
         for (const channel of ["stdout", "stderr"])
             child[channel].on("data", (chunk) => {
@@ -46,26 +142,61 @@ async function run(command, args, env = {}) {
                     ]);
             });
         const timer = setTimeout(
-            () => child.kill(),
+            () => {
+                timedOut = true;
+                child.kill();
+            },
             command === "cargo" ? 900000 : 240000,
         );
         child.once("error", (error) => {
             clearTimeout(timer);
             reject(error);
         });
-        child.once("exit", async (code) => {
-            clearTimeout(timer);
-            for (const channel of ["stdout", "stderr"])
+        child.once("close", async (code, signal) => {
+            try {
+                clearTimeout(timer);
+                for (const channel of ["stdout", "stderr"])
+                    await writeFile(
+                        path.join(folder, `${logName}-${channel}.log`),
+                        bounded[channel],
+                    );
                 await writeFile(
-                    path.join(folder, `${logName}-${channel}.log`),
-                    bounded[channel],
+                    path.join(folder, `${logName}-process.json`),
+                    JSON.stringify(
+                        {
+                            command:
+                                command === executable
+                                    ? "owned-native-app"
+                                    : command,
+                            args,
+                            code,
+                            signal,
+                            truncated,
+                            timedOut,
+                            started,
+                            ended: new Date().toISOString(),
+                            sourceRevision,
+                        },
+                        null,
+                        2,
+                    ),
                 );
-            await writeFile(
-                path.join(folder, `${logName}-process.json`),
-                JSON.stringify({ code, truncated }, null, 2),
-            );
-            console.log(`${logName}: exit ${code}, bounded logs retained`);
-            code === 0 ? resolve() : reject(new Error(`ChildExit${code}`));
+                console.log(`${logName}: exit ${code}, bounded logs retained`);
+                await checkInspectionHashes();
+                code === 0 && !timedOut && (!inspecting || !truncated)
+                    ? resolve()
+                    : reject(
+                          new Error(
+                              timedOut
+                                  ? "ChildDeadline"
+                                  : truncated && inspecting
+                                    ? "ChildOutputOverflow"
+                                    : `ChildExit${code}`,
+                          ),
+                      );
+            } catch (error) {
+                reject(error);
+            }
         });
     });
 }
@@ -81,23 +212,24 @@ await run("cargo", [
     "--target-dir",
     target,
 ]);
-const sourceRevision = (
-    await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: root })
-).stdout.trim();
-const sourceDirty =
-    (
-        await promisify(execFile)("git", ["status", "--porcelain"], {
-            cwd: root,
-        })
-    ).stdout.trim().length > 0;
+const builtHashes = inspecting
+    ? await hashesFor(["dist/app.js", executable])
+    : null;
 const reports = [];
 let captures = 0;
 let checks = [];
 for (const stage of ["initial", "restart"]) {
+    if (
+        inspecting &&
+        JSON.stringify(await hashesFor(["dist/app.js", executable])) !==
+            JSON.stringify(builtHashes)
+    )
+        throw Error("InspectionProductChanged");
     const directory = path.join(folder, stage);
     await run(executable, [], {
         LOCALLORE_D02_HARNESS: "1",
         LOCALLORE_M07_MEMORY_HARNESS: "1",
+        ...(inspecting ? { LOCALLORE_D05_MEMORY_INSPECTION_HARNESS: "1" } : {}),
         LOCALLORE_D02_ARTIFACT_DIR: directory,
         LOCALLORE_TEST_MEMORY: "0",
         LOCALLORE_TEST_WORKSPACE: db,
@@ -122,8 +254,45 @@ for (const stage of ["initial", "restart"]) {
     const stageCaptures = (await readdir(directory)).filter((f) =>
         f.endsWith(".png"),
     ).length;
-    if (stageCaptures !== (stage === "initial" ? 12 : 2))
+    if (stageCaptures !== (stage === "initial" ? 12 : inspecting ? 4 : 2))
         throw new Error(`NativeCaptureCount:${stage}`);
+    if (inspecting) {
+        const labels =
+            stage === "initial"
+                ? [
+                      "empty",
+                      "packets",
+                      "entries",
+                      "source",
+                      "mira",
+                      "sable",
+                      "held-lens",
+                      "other-busy",
+                      "session-return",
+                      "prefix",
+                      "narrow",
+                      "final",
+                  ]
+                : [
+                      "reopened",
+                      "restart-entries",
+                      "restart-source",
+                      "restart-narrow",
+                  ];
+        const actual = (await readdir(directory))
+            .filter((file) => file.endsWith(".png"))
+            .sort();
+        const expected = labels
+            .map((label) => `memory-inspection-native-${label}.png`)
+            .sort();
+        if (JSON.stringify(actual) !== JSON.stringify(expected))
+            throw Error(`InspectionCaptureLabels:${stage}`);
+        if (
+            JSON.stringify(await hashesFor(["dist/app.js", executable])) !==
+            JSON.stringify(builtHashes)
+        )
+            throw Error("InspectionProductChanged");
+    }
     captures += stageCaptures;
 }
 const files = [
@@ -171,6 +340,7 @@ const hashes = Object.fromEntries(
         ]),
     ),
 );
+await checkInspectionHashes();
 hashes["<native-target>/debug/locallore-desktop-spike.exe"] = createHash(
     "sha256",
 )
@@ -189,6 +359,11 @@ await writeFile(
             realModelGeneration: false,
             sourceRevision,
             sourceDirty,
+            mode: inspecting ? "inspection" : "maintenance",
+            inspectionStartSHA256: inspectionStart,
+            inspectionFinalSHA256: inspecting
+                ? await hashesFor(inspectionFiles)
+                : null,
             captures,
             checks,
             reports,

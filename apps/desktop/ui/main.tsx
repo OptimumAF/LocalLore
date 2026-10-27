@@ -68,6 +68,7 @@ declare global {
             timelining?: boolean;
             forking?: boolean;
             maintaining?: boolean;
+            inspectingMemory?: boolean;
             authoring?: boolean;
             archiveStage?:
                 | "source"
@@ -720,18 +721,34 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             transport: authorTransport,
         });
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.maintaining) {
-        const { memoryNativeJourneys } =
-            await import("./memory-native-journeys");
-        await memoryNativeJourneys({
-            controller,
-            maintenance,
-            brokerRetention,
-            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
-            errors,
-            invoke,
-            dispose,
-            config: window.__LOCALLORE_TEST__,
-        });
+        if (window.__LOCALLORE_TEST__.inspectingMemory) {
+            const { memoryInspectionNativeJourneys } =
+                await import("./memory-inspection-native-journeys");
+            await memoryInspectionNativeJourneys({
+                controller,
+                maintenance,
+                inspection: memoryInspection,
+                brokerRetention,
+                gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+                errors,
+                invoke,
+                dispose,
+                config: window.__LOCALLORE_TEST__,
+            });
+        } else {
+            const { memoryNativeJourneys } =
+                await import("./memory-native-journeys");
+            await memoryNativeJourneys({
+                controller,
+                maintenance,
+                brokerRetention,
+                gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+                errors,
+                invoke,
+                dispose,
+                config: window.__LOCALLORE_TEST__,
+            });
+        }
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.forking) {
         const { forkNativeJourneys } = await import("./fork-native-journeys");
         await forkNativeJourneys({

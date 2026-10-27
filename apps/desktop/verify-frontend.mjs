@@ -49,6 +49,7 @@ for (const args of [
     ["check-fork-independent-review.mjs"],
     ["check-memory-maintenance-controller.mjs"],
     ["check-memory-inspection.mjs"],
+    ["check-main-memory-inspection-review.mjs"],
     ["check-memory-callback-review.mjs"],
     ["check-broker-retention.mjs"],
     ["check-broker-retention-review.mjs"],
@@ -76,6 +77,8 @@ for (const args of [
 const normal = await readFile(new URL("dist/app.js", root), "utf8");
 for (const marker of [
     "harness_checkpoint",
+    "memory-inspection-native-empty",
+    "memory_inspection_fixture",
     "harness_reopen",
     "harness_finish",
     "NativeComparisonPortPhaseInvalid",

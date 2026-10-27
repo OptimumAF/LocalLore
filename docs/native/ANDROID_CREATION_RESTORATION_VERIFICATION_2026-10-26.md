@@ -198,6 +198,7 @@ Additional create-only recovery sets are independently copied and rehashed:
 | Failed child originals |214/522218|187599|`5278fca7653777ef2582a7b3a992161a5efbe32b146620654ccaa3d7653adb94`|
 | Phone/postflight supplement |13/207613|72743|`c2cd199926d4ba391b44ee1a0f410e117d1968dae40dc14e668a39398b660525`|
 | Retired-leaf result2 |274/687047|258708|`4b3f5685108381c2dc5da611a7f2a6b80b6df94851626e86cad06e7ce03dd3e9`|
+| Failed retained/final postflight |250/556094|211062|`3306fbab8c63be977819a634eec73028887ff93dd50e4369cfb02186d15a1bd2`|
 
 Each has its own immutable index and original/copy/member verification. Prior
 seals are rechecked; counts across overlapping sets are not unique coverage.
@@ -205,6 +206,11 @@ The child failure's missing outputs stay missing. Its append-only supplement
 does not change its failed flag, and guest payloads/private saves/weights remain
 excluded. The retired-leaf index is81326 bytes SHA256
 `c7e9e41bab6285e4efe51f3b9d0f27caf88187bdd1771d0b405e715452d0cfbc`.
+The failed retained index is75807 bytes SHA256
+`ecf569178a795e87ab2ef3a28af3264db77803596ae4ded41baa79373108fdbc`;
+it explicitly records all ten uncreated leaves. Final selected postflight is1581
+bytes SHA256 `170bcdefd91c2e8ada4475584025f1743c6a91dee310ba8b730a4fe90957d552`.
+All nine earlier index/ZIP pairs are rechecked unchanged during this seal.
 
 ## Limits and handoff
 

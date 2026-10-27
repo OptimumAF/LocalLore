@@ -7,6 +7,7 @@ mod literal_control_oracle_tests;
 #[cfg(test)]
 mod literal_producer_legacy_tests;
 pub mod literal_v3;
+pub mod scene_v4;
 #[cfg(feature = "local-model")]
 mod native_selected_workflow;
 #[cfg(feature = "local-model")]

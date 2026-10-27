@@ -447,3 +447,81 @@ cargo test --manifest-path crates/locallore-eval/Cargo.toml --features local-mod
 Neither command was run by this source author. No installed model/worker is
 opened by the proposed before-owner cases. No quality threshold, human result,
 Protocol3 gate, private original packet or native execution approval is changed.
+
+## Source implementation handoff, October27
+
+This later section updates implementation status only: **source prepared,
+UNCOMPILED / UNRUN**, not qualified. The initial proposal/freeze status above
+is preserved as history. Branch `impl/d07-scene-comparison-v4` starts at reviewed
+`232ad379`; original contract `650ccdb1` is cherry-picked as `4bc251b2` and the
+independent `d1fce2ea` tests as `332054cf`. All original test bytes/assertions
+remain unchanged. Source author used no formatter, Cargo, Node, test, model,
+native application, device, desktop control or protected resource.
+
+Exact source scope is new `memory_comparison_v4.rs`, new
+`local_lane/comparison/scene_v4.rs` and `scene_v4/native.rs`, additive module
+declarations in `lib.rs`/`comparison.rs`, and this appended handoff. No existing
+Protocol3, source3, selected2, CLI, desktop, worker, dependency/lock or runtime
+source is modified. Claims are
+[#29](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6451853729) and
+[#25](https://github.com/OptimumAF/LocalLore/issues/25#issuecomment-6451854135).
+
+The metadata module implements the exact 15-field arm descriptors, required
+nullable members, closed evidence statuses, current binding and report shapes.
+Prompt/policy strings come from Core constants; resource/suite/source identities
+come from the existing current binding. Descriptors remain metadata and have no
+conversion to execution authority. Private native arm matching selects only the
+two frozen Host scene constructions.
+
+The separate producer follows the established protocol-specific manifest,
+checkpoint, scene-seal, setup and report shell. It reuses the actual shared
+`turn_execution` execution, recovered-commit/dependency assessment, evidence
+loading, durable checkpoint/settlement, paired-ledger and invocation helpers.
+It reuses the existing reference producer/reader, database/source validators,
+locks, ordinary-path checks, file caps and bounded escaped HTML report. Native
+setup uses the existing strict load decoder with expected envelope version4;
+shared reservation/settlement/raw/capture formats keep their original versions.
+Cold inspection regenerates rows from actual Store prefixes/receipts and retained
+evidence and compares them with checkpoints, without repair or provider access.
+
+Only a fresh committed Domain1 row with its original non-lost recording and
+capture calls `check_committed_scene_capture_v1` using actual before/after
+Engines, request, profile, attempt and ordered recordings. The checked receipt
+hash must equal the actual Store receipt hash. Narrator prompt/schema hashes
+come from that result; the scene frame hash comes from the same actual receipt.
+Only this validated status increments `source_bound_committed_rows`. This does
+not authenticate provider execution, output origin or Director/compiler work.
+
+Finite privacy additionally requires the real non-lost recorder, nonempty
+generation-request artifacts matching its call count, the fixed role-specific
+sentinel checks, nonempty bounded raw narrator output with verified length/hash
+and actual receipt narration. Cold checks read those output bytes instead of
+treating a retained recorder flag as authenticated evidence. Missing evidence cannot pass
+through an empty universal predicate. Exact expected zero-role unchanged-state
+guards have separate not-applicable statuses. Dependency skips remain failures
+for expected accepted steps. Recovered committed rows keep their actual receipt
+but have unknown historical roles, unavailable construction/privacy evidence,
+and null narrator/frame proof hashes; no missing calls are reconstructed or
+charged as newly observed inference. Failed/cancelled or lost evidence remains
+unavailable with bounded reasons. Completion alone does not imply passing rows.
+
+The native module is an adapter over `native_startup`, the existing
+`SelectedNativeReservation` and `native_owner::finish_owner`. Both durable
+invocations precede asset access/startup. It keeps existing preparation,
+watchdog, active-time and cleanup budgets. Synchronous Host/watchdog ownership
+drains before runtime finish; uncertain ownership returns the established actual
+retained pair without settlement, refund, replacement or success publication.
+Current completed native resume returns before reserve/assets. No model/worker
+path, download, ownership implementation or native CLI is added.
+
+Every report retains human_reviewed0, human_rubric `not_reviewed`,
+quality_acceptedfalse, the original needs-improvement assessment and explicit
+finite-gate limitations. No model quality, UI/IPC/WebView/selected4 integration,
+Android/device, offline or release claim follows from this implementation.
+
+Author verification is source inspection and `git diff --check` only. Root owns
+independent source review, formatting, first compile/fixture calibration and all
+actual execution with these frozen oracles. Missing APIs or fixture/setup errors
+are not behavioral RED. First runnable checks are the frozen public scripted
+suite, then feature-enabled before-owner cases and existing Protocol3/shared
+owner/accounting regressions; native/model/UI gates require separate allocation.

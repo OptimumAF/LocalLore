@@ -11,10 +11,18 @@ use std::{
 };
 
 const SCENE_LABELS: &[&str] = &[
-    "scene-native-ready", "scene-native-receipt", "scene-native-receipt-diff",
-    "scene-native-pending", "scene-native-cancelled", "scene-native-unknown",
-    "scene-native-recovered", "scene-native-switched", "scene-native-observer",
-    "scene-native-enlarged", "scene-native-restarted", "scene-native-recorded-diff",
+    "scene-native-ready",
+    "scene-native-receipt",
+    "scene-native-receipt-diff",
+    "scene-native-pending",
+    "scene-native-cancelled",
+    "scene-native-unknown",
+    "scene-native-recovered",
+    "scene-native-switched",
+    "scene-native-observer",
+    "scene-native-enlarged",
+    "scene-native-restarted",
+    "scene-native-recorded-diff",
 ];
 
 pub(crate) const AUTHOR_LABELS: &[&str] = &[
@@ -341,7 +349,10 @@ impl HarnessState {
     fn reserve(&self, label: &str) -> Result<(), &'static str> {
         if !(LABELS.contains(&label)
             || (active()
-                && matches!(std::env::var("LOCALLORE_D04_SCENE_HARNESS").as_deref(), Ok("literal" | "memory"))
+                && matches!(
+                    std::env::var("LOCALLORE_D04_SCENE_HARNESS").as_deref(),
+                    Ok("literal" | "memory")
+                )
                 && SCENE_LABELS.contains(&label))
             || (author_active() && AUTHOR_LABELS.contains(&label))
             || (active()

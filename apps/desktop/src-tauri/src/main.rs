@@ -32,9 +32,9 @@ mod memory_inspection_commands;
 mod memory_maintenance_commands;
 mod model_commands;
 mod models;
-mod selected_commands;
 #[cfg(feature = "dev-harness")]
 mod scene_harness;
+mod selected_commands;
 #[cfg(feature = "dev-harness")]
 mod selected_harness;
 mod shutdown;

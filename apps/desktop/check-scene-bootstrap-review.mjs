@@ -733,7 +733,11 @@ test("dispose-called-same-tick-admits-no-new-provider-status-read", async () => 
         reading = c.refreshFreeTextProvider();
         const admittedCalls = providerCalls(g).length - beforeCalls;
         await Promise.all([reading, closing]);
-        assert.equal(admittedCalls, 0, "disposal admission must close synchronously before invalidate() yields");
+        assert.equal(
+            admittedCalls,
+            0,
+            "disposal admission must close synchronously before invalidate() yields",
+        );
         assert.equal(c.get().freeTextProvider, null);
         assert.equal(c.get().disposed, true);
         assert.deepEqual(c.errors.snapshot(), beforeErrors);
@@ -774,17 +778,37 @@ test("held-legacy-cancel-disposal-window-cannot-resurrect-provider-readiness-or-
             c.setDraft("I wait for one tide tick.");
             sending = c.send();
             await drain();
-            assert.equal(preparationEntered, true, "actual legacy send must enter its held prepare");
+            assert.equal(
+                preparationEntered,
+                true,
+                "actual legacy send must enter its held prepare",
+            );
             assert.equal(g.submitted.length, 1);
             closing = c.dispose();
             void closing.then(
-                () => { closingSettled = true; },
-                () => { closingSettled = true; },
+                () => {
+                    closingSettled = true;
+                },
+                () => {
+                    closingSettled = true;
+                },
             );
             await drain();
-            assert.equal(cancellationEntered, true, "actual invalidate must cancel the original admitted request");
-            assert.equal(closingSettled, false, "the held legacy cancel keeps actual disposal in flight");
-            assert.equal(c.get().disposed, false, "preserve existing legacy cancellation before terminal disposal");
+            assert.equal(
+                cancellationEntered,
+                true,
+                "actual invalidate must cancel the original admitted request",
+            );
+            assert.equal(
+                closingSettled,
+                false,
+                "the held legacy cancel keeps actual disposal in flight",
+            );
+            assert.equal(
+                c.get().disposed,
+                false,
+                "preserve existing legacy cancellation before terminal disposal",
+            );
             assert.equal(c.get().freeTextProvider, null);
             const beforeCalls = providerCalls(g).length;
             const beforeErrors = c.errors.snapshot();
@@ -806,14 +830,21 @@ test("held-legacy-cancel-disposal-window-cannot-resurrect-provider-readiness-or-
             // Release every held actual Gateway call even when an assertion
             // fails. Both returns keep the original scope/turn/revision.
             const request = g.submitted.at(-1)?.request;
-            const cancelled = request ? {
-                scope: clone(request.scope), turn: request.turn,
-                expected_revision: request.expected_revision,
-                phase: "cancelled", error: null, receipt: null,
-            } : null;
+            const cancelled = request
+                ? {
+                      scope: clone(request.scope),
+                      turn: request.turn,
+                      expected_revision: request.expected_revision,
+                      phase: "cancelled",
+                      error: null,
+                      receipt: null,
+                  }
+                : null;
             cancel.resolve(cancelled);
             prepare.resolve(cancelled);
-            await Promise.allSettled([reading, sending, closing].filter(Boolean));
+            await Promise.allSettled(
+                [reading, sending, closing].filter(Boolean),
+            );
             await c.dispose();
         }
         assert.equal(c.get().freeTextProvider, null);
@@ -821,9 +852,21 @@ test("held-legacy-cancel-disposal-window-cannot-resurrect-provider-readiness-or-
     }
     assert.equal(observations.length, 2);
     for (const observation of observations) {
-        assert.equal(observation.admittedCalls, 0, `${observation.reply}: no Host metadata admission after dispose-called`);
-        assert.equal(observation.readiness, null, `${observation.reply}: no readiness resurrection during legacy cancellation`);
-        assert.deepEqual(observation.errors, observation.beforeErrors, `${observation.reply}: no obsolete error evidence`);
+        assert.equal(
+            observation.admittedCalls,
+            0,
+            `${observation.reply}: no Host metadata admission after dispose-called`,
+        );
+        assert.equal(
+            observation.readiness,
+            null,
+            `${observation.reply}: no readiness resurrection during legacy cancellation`,
+        );
+        assert.deepEqual(
+            observation.errors,
+            observation.beforeErrors,
+            `${observation.reply}: no obsolete error evidence`,
+        );
         assert.equal(observation.visibleError, observation.beforeVisibleError);
         assert.equal(observation.loaded, false);
     }
@@ -831,8 +874,17 @@ test("held-legacy-cancel-disposal-window-cannot-resurrect-provider-readiness-or-
 
 const disposalFailures = [];
 for (const { name, run } of tests.slice(disposalCaseStart)) {
-    try { await run(); }
-    catch (error) { disposalFailures.push(`${name}: ${String(error?.message ?? error)}`); }
+    try {
+        await run();
+    } catch (error) {
+        disposalFailures.push(`${name}: ${String(error?.message ?? error)}`);
+    }
 }
-assert.deepEqual(disposalFailures, [], "additive dispose-called provider admission fences");
-console.log(`PASS ${tests.length - disposalCaseStart} additive Controller disposal-window cases; synthetic Gateway only.`);
+assert.deepEqual(
+    disposalFailures,
+    [],
+    "additive dispose-called provider admission fences",
+);
+console.log(
+    `PASS ${tests.length - disposalCaseStart} additive Controller disposal-window cases; synthetic Gateway only.`,
+);

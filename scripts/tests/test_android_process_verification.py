@@ -3,6 +3,7 @@
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import hashlib
+import copy
 import io
 import json
 import os
@@ -225,6 +226,335 @@ class DriverTests(unittest.TestCase):
                 result = json.loads((out / "result-v1.json").read_text())
                 self.assertFalse(result["passed"])
                 self.assertNotIn("artifacts", result)
+
+
+def synthetic_regression_run(name, methods):
+    """Original synthetic AndroidJUnitRunner bytes, never an execution receipt."""
+    cls = "org.locallore.app." + name
+    parts = []
+    for index, method in enumerate(methods, 1):
+        for code in (1, 0):
+            parts.append(f"INSTRUMENTATION_STATUS: class={cls}\nINSTRUMENTATION_STATUS: test={method}\n"
+                         f"INSTRUMENTATION_STATUS: current={index}\nINSTRUMENTATION_STATUS: numtests={len(methods)}\n"
+                         f"INSTRUMENTATION_STATUS_CODE: {code}\n")
+    noun = "test" if len(methods) == 1 else "tests"
+    parts.append(f"INSTRUMENTATION_RESULT: stream=\n\nTime: 1.0\n\nOK ({len(methods)} {noun})\n\nINSTRUMENTATION_CODE: -1\n")
+    return "".join(parts).encode()
+
+
+class RegressionPhaseTests(unittest.TestCase):
+    def fixture(self, out, interleaved=False):
+        from benchmarks.android_instrumentation_evidence import validate_instrumentation
+        (out / "clients").mkdir()
+        results = []
+        clients = 0
+        def client(label, raw):
+            nonlocal clients
+            clients += 1
+            stem = out / "clients" / ("command-%04d" % clients)
+            stem.with_suffix(".stdout.bin").write_bytes(raw)
+            driver.env.create_json(stem.with_suffix(".json"), {"version": 1, "index": clients,
+                "label": label, "status": "completed", "returncode": 0,
+                "cleanup_complete": True, "stdout_bytes": len(raw), "stdout_sha256": hashlib.sha256(raw).hexdigest(),
+                "stderr_bytes": 0})
+        for index, (name, methods) in enumerate(zip(driver.REGRESSION_CLASSES, driver.REGRESSION_METHODS), 1):
+            raw = synthetic_regression_run(name, methods)
+            (out / (name + ".stdout.raw")).write_bytes(raw)
+            results.append(validate_instrumentation(raw, "org.locallore.app." + name, list(methods)))
+            if interleaved:
+                # Source SdkCapture brackets each SDK call with its host server checks.
+                client("adb-server", b'{"synthetic_server":true}\r\n')
+                client("instrument-user", b"0\r\n")
+                client("adb-server", b'{"synthetic_server":true}\r\n')
+                client("adb-server", b'{"synthetic_server":true}\r\n')
+            client("instrument-" + str(index - 1), raw)
+            if interleaved:
+                client("adb-server", b'{"synthetic_server":true}\r\n')
+        return {"version": 1, "phase": "regression", "results": results, "clients": clients,
+                "clients_clean": True, "method_count": 89, "external_controller_case_executed": False}
+
+    def test_interleaved_user_server_and_class_captures_preserve_exact_numbered_roster(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out, interleaved=True)
+            self.assertEqual(record["clients"], 108)
+            self.assertEqual(driver.env.read_json(out / "clients/command-0002.json")["label"], "instrument-user")
+            driver.validate_regression_record(record, out)
+
+    def test_interleaved_user_still_requires_original_raw_hash_and_clean_exact_client(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out, interleaved=True)
+            driver.validate_regression_record(record, out)
+            path = out / "clients/command-0002.json"
+            original = driver.env.read_json(path)
+            raw_path = path.with_suffix(".stdout.bin")
+            raw_path.write_bytes(b"1\r\n")
+            with self.assertRaisesRegex(driver.VerificationRefused, "regression_client_raw"):
+                driver.validate_regression_record(record, out)
+            raw_path.write_bytes(b"0\r\n")
+            for delta in ({"stdout_sha256": "0" * 64}, {"stdout_bytes": 2}, {"returncode": False},
+                          {"cleanup_complete": False}, {"status": "timed_out"}, {"stderr_bytes": 1}, {"extra": 0}):
+                path.write_text(json.dumps(dict(original, **delta)))
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_regression_record(record, out)
+            path.write_text(json.dumps(original))
+            driver.validate_regression_record(record, out)
+
+    def test_interleaving_does_not_admit_unknown_extra_numeric_or_duplicate_class_labels(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out, interleaved=True)
+            driver.validate_regression_record(record, out)
+            path = out / "clients/command-0005.json"
+            original = driver.env.read_json(path)
+            for label in ("instrument-user-other", "instrument-18", "instrument-01", "instrument-0extra", "instrument-1"):
+                path.write_text(json.dumps(dict(original, label=label)))
+                with self.subTest(label=label), self.assertRaisesRegex(driver.VerificationRefused, "regression_client_copy|regression_client_order"):
+                    driver.validate_regression_record(record, out)
+            path.write_text(json.dumps(original))
+            driver.validate_regression_record(record, out)
+
+    def test_frozen_broad_roster_matches_actual_sources_without_component_substitution(self):
+        from benchmarks.android_instrumentation_evidence import test_roster
+        self.assertEqual(driver.REGRESSION_VERSION, 1)
+        self.assertEqual(len(driver.REGRESSION_CLASSES), 18)
+        self.assertEqual(tuple(map(len, driver.REGRESSION_METHODS)), (12, 1, 10, 1, 2, 6, 8, 5, 9, 8, 7, 5, 2, 3, 3, 2, 2, 3))
+        self.assertEqual(sum(map(len, driver.REGRESSION_METHODS)), 89)
+        self.assertEqual(len(set(driver.REGRESSION_CLASSES)), 18)
+        self.assertTrue(set(driver.CLASSES).isdisjoint(driver.REGRESSION_CLASSES))
+        self.assertEqual(sum(map(len, driver.EXPECTED_METHODS)), 10)
+        for name, methods in zip(driver.REGRESSION_CLASSES, driver.REGRESSION_METHODS):
+            path = driver.ROOT / "apps/android/app/src/androidTest/java/org/locallore/app" / (name + ".kt")
+            self.assertEqual(test_roster(path), list(methods), name)
+
+    def test_all_eighteen_dispatches_are_fixed_classes_with_unchanged_bounds(self):
+        for index, name in enumerate(driver.REGRESSION_CLASSES):
+            command, label, seconds, cap = driver.regression_dispatch(index)
+            self.assertEqual(command, ["exec-out", "am", "instrument", "--user", "0", "-w", "-r", "-e", "class",
+                "org.locallore.app." + name, driver.APP + ".test/androidx.test.runner.AndroidJUnitRunner"])
+            self.assertEqual((label, seconds, cap), ("instrument-" + str(index), 180, 262144))
+        for bad in (-1, 18, True, 1.0, "1", None):
+            with self.subTest(bad=bad), self.assertRaises(driver.VerificationRefused):
+                driver.regression_dispatch(bad)
+
+    def test_complete_synthetic_regression_requires_both_raw_copies(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out)
+            before = copy.deepcopy(record)
+            driver.validate_regression_record(record, out)
+            self.assertEqual(record, before)
+            with self.assertRaises(driver.VerificationRefused):
+                driver.validate_component_record(record, out)
+
+    def test_closed_version_phase_counts_types_and_exact_order(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out)
+            variants = []
+            for key, value in (("version", True), ("version", 2), ("phase", "components"), ("method_count", True),
+                               ("method_count", 88), ("clients", True), ("clients_clean", False),
+                               ("external_controller_case_executed", True), ("results", {})):
+                variants.append(dict(record, **{key: value}))
+            variants += [dict(record, extra=True), {k: v for k, v in record.items() if k != "phase"}]
+            for mutation in ("drop", "extra", "reorder", "method", "class"):
+                changed = copy.deepcopy(record)
+                if mutation == "drop": changed["results"].pop()
+                if mutation == "extra": changed["results"].append(changed["results"][0])
+                if mutation == "reorder": changed["results"].reverse()
+                if mutation == "method": changed["results"][0]["methods"].reverse()
+                if mutation == "class": changed["results"][0]["class"] = "org.locallore.app.OtherTest"
+                variants.append(changed)
+            for changed in variants:
+                with self.subTest(changed={k: v for k, v in changed.items() if k != "results"}), \
+                     self.assertRaises(driver.VerificationRefused):
+                    driver.validate_regression_record(changed, out)
+
+    def test_bad_partial_extra_skipped_or_foreign_raw_cannot_be_hidden_by_passed_summary(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out)
+            name, methods = driver.REGRESSION_CLASSES[0], driver.REGRESSION_METHODS[0]
+            path = out / (name + ".stdout.raw")
+            raw = path.read_bytes()
+            variants = [synthetic_regression_run(name, methods[:-1]), synthetic_regression_run(name, (*methods, "unselected")),
+                synthetic_regression_run(name, (methods[0], *methods[:-1])),
+                raw.replace(b"STATUS_CODE: 0", b"STATUS_CODE: -3", 1),
+                raw.replace(name.encode(), b"OtherTest", 1), raw + b"INSTRUMENTATION_CODE: -1\n"]
+            for changed in variants:
+                path.write_bytes(changed)
+                with self.assertRaises(driver.VerificationRefused):
+                    driver.validate_regression_record(record, out)
+            path.write_bytes(raw)
+            driver.validate_regression_record(record, out)
+
+    def test_valid_but_different_client_copy_duplicate_missing_order_or_unknown_client_refuses(self):
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            record = self.fixture(out)
+            path = out / "clients/command-0001.json"
+            original = driver.env.read_json(path)
+            raw_path = path.with_suffix(".stdout.bin")
+            raw = raw_path.read_bytes()
+            # A valid alternative LF/CRLF rendering independently parses, but is not the retained class copy.
+            changed = raw.replace(b"\n", b"\r\n")
+            raw_path.write_bytes(changed)
+            path.write_text(json.dumps(dict(original, stdout_bytes=len(changed), stdout_sha256=hashlib.sha256(changed).hexdigest())))
+            with self.assertRaisesRegex(driver.VerificationRefused, "client_copy"):
+                driver.validate_regression_record(record, out)
+            raw_path.write_bytes(raw)
+            for change in ({"label": "instrument-1"}, {"label": "unselected-client"}, {"returncode": False},
+                           {"cleanup_complete": False}, {"stderr_bytes": 1}, {"stdout_sha256": "0" * 64}, {"extra": 1}):
+                path.write_text(json.dumps(dict(original, **change)))
+                with self.subTest(change=change), self.assertRaises(driver.VerificationRefused):
+                    driver.validate_regression_record(record, out)
+            path.write_text(json.dumps(original))
+            extra = out / "clients/unlisted.json"
+            extra.write_bytes(b"{}")
+            with self.assertRaisesRegex(driver.VerificationRefused, "client_extra"):
+                driver.validate_regression_record(record, out)
+            extra.unlink()
+            with self.assertRaisesRegex(driver.VerificationRefused, "client_order"):
+                driver.validate_regression_record(dict(record, clients=17), out)
+
+    def test_regression_worker_reuses_fresh_guest_admission_and_fixed_eighteen_calls(self):
+        self.run_mock_worker()
+
+    def test_existing_package_refuses_before_any_install_or_instrumentation(self):
+        for package in driver.PACKAGES:
+            with self.subTest(package=package):
+                self.run_mock_worker(existing=package)
+
+    def test_lease_failure_or_source_drift_stops_before_sdk_instantiation(self):
+        for failure in ("owner", "source"):
+            with self.subTest(failure=failure):
+                self.run_mock_worker(early_failure=failure)
+
+    def run_mock_worker(self, existing=None, early_failure=None):
+        from benchmarks import android_process_client as client
+        calls = []
+        with tempfile.TemporaryDirectory() as root:
+            out = Path(root)
+            apks = []
+            for index, package in enumerate(driver.PACKAGES):
+                path = out / (str(index) + ".apk")
+                path.write_bytes(bytes([index]))
+                apks.append(dict(driver.env.binding(path), package=package))
+            live = SimpleNamespace(descriptor=dict(avd_name=driver.env.NAME, serial="emulator-5592", console_port=5592,
+                guest_boot_verified=False, launcher={}), check=lambda: None)
+            if early_failure == "owner":
+                def broken(): raise driver.VerificationRefused("owner_closed")
+                live.check = broken
+            class FakeCapture:
+                count, clean = 0, True
+                def __init__(self, *args): calls.append(("construct", args[1]))
+                def check_server(self): pass
+                def capture(self, *args): return b"emulator-5592 device transport_id:7\n"
+                def shell(self, args, label, seconds, cap):
+                    calls.append(("shell", args))
+                    if args == ["getprop", "sys.boot_completed"]: return b"1\n"
+                    if args == ["getprop", "ro.build.version.sdk"]: return b"35\n"
+                    if args == ["getprop", "ro.product.cpu.abi"]: return b"x86_64\n"
+                    if args == ["am", "get-current-user"]: return b"0\n"
+                    if args[:4] == ["cmd", "package", "list", "packages"]:
+                        return b"package:present\n" if args[-1] == existing else b""
+                    if args[:3] == ["cmd", "package", "path"]: return ("package:/data/app/" + str(driver.PACKAGES.index(args[-1])) + "/base.apk\n").encode()
+                    if args[0] == "sha256sum": return (apks[int(args[1].split("/")[-2])]["sha256"] + "  base.apk\n").encode()
+                    raise AssertionError(args)
+                def adb(self, args, label, seconds, cap=131072):
+                    calls.append(("adb", args, label, seconds, cap))
+                    if args[0] == "install": return b"Success\n"
+                    index = int(label.split("-")[1])
+                    return synthetic_regression_run(driver.REGRESSION_CLASSES[index], driver.REGRESSION_METHODS[index])
+            request = dict(build="build", running=str(out / "running"), proposal="proposal", sdk=str(out),
+                           powershell=str(out / "powershell.exe"), server="server", sources={"path": "sources"})
+            digest = driver.env.digest
+            with patch.object(driver, "qualified_build", return_value={"apks": apks}), \
+                 patch.object(driver.env, "open_live_owner", return_value=live), \
+                 patch.object(driver.env, "digest", side_effect=lambda path: "hash" if str(path) == request["running"] else digest(path)), \
+                 patch.object(driver.env, "read_json", return_value={}), \
+                 patch.object(driver, "source_map", return_value={"changed": True} if early_failure == "source" else {}), \
+                 patch.object(client, "SdkCapture", FakeCapture):
+                if existing or early_failure:
+                    with self.assertRaises(driver.VerificationRefused): driver.regression_worker(request, out)
+                else:
+                    driver.regression_worker(request, out)
+            adb = [c for c in calls if c[0] == "adb"]
+            if existing or early_failure:
+                self.assertEqual(adb, [])
+                if early_failure: self.assertEqual(calls, [])
+                self.assertFalse((out / "regression-v1.json").exists())
+            else:
+                self.assertEqual(calls[0], ("construct", 850))
+                self.assertEqual([c[1][0] for c in adb[:3]], ["install"] * 3)
+                self.assertEqual(len(adb), 21)
+                for index, call in enumerate(adb[3:]): self.assertEqual(call[1:], driver.regression_dispatch(index))
+                result = json.loads((out / "regression-v1.json").read_text())
+                self.assertEqual((result["phase"], result["method_count"], len(result["results"])), ("regression", 89, 18))
+                self.assertFalse((out / "components-v1.json").exists())
+                absent = [c[1][-1] for c in calls if c[0] == "shell" and c[1][:4] == ["cmd", "package", "list", "packages"]]
+                self.assertEqual(absent, list(driver.PACKAGES))
+
+    def test_cli_only_closed_phase_accepts_regression_without_selector(self):
+        args = ["regression", "--out", "unused", "--sdk", "sdk", "--build", "build", "--running", "running",
+                "--proposal", "proposal", "--server", "server", "--powershell", "powershell"]
+        with patch.object(driver, "supervise") as run, patch("sys.stdout", io.StringIO()):
+            self.assertEqual(driver.main(args), 0)
+        self.assertEqual(run.call_args.args[0]["phase"], "regression")
+        for extra in (["--class", "OtherTest"], ["--test", "method"]):
+            with patch.object(driver, "supervise") as run, patch("sys.stderr", io.StringIO()), self.assertRaises(SystemExit):
+                driver.main(args + extra)
+            run.assert_not_called()
+
+    def test_worker_admission_is_closed_and_preserves_source_input_guards(self):
+        request = dict(phase="regression", out="out", sdk="sdk", java=None, build="build", running="running",
+            proposal="proposal", server="server", powershell="powershell", inputs=["bound"], sources={"path": "sources"},
+            driver_sha256="hash")
+        with patch.object(driver.env, "digest", return_value="hash"), patch.object(driver.env, "check_binding"), \
+             patch.object(driver.env, "read_json", return_value={"source": "same"}), \
+             patch.object(driver, "source_map", return_value={"source": "same"}), \
+             patch.object(driver, "input_bindings", return_value=["bound"]):
+            driver.admit_worker(request)
+            for delta in ({"phase": "regression-v2"}, {"class": "unselected"}, {"driver_sha256": "changed"},
+                          {"inputs": []}, {"sources": {"path": "sources"}, "phase": "server"}):
+                with self.subTest(delta=delta), self.assertRaises(driver.VerificationRefused):
+                    driver.admit_worker(dict(request, **delta))
+
+    def test_external_gate_refuses_regression_even_if_passed(self):
+        from benchmarks import android_external_controller as external
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "result-v1.json"
+            path.write_text(json.dumps(dict(version=1, phase="regression", passed=True, owner={}, owner_record={},
+                request={}, sources_before={}, sources_after={}, regression={})))
+            with self.assertRaises(external.ExternalRefused): external.qualified_gate(path, "build")
+
+    @unittest.skipUnless(os.name == "nt", "Windows supervisor entry")
+    def test_regression_parent_persists_owner_before_deep_validation_and_rejects_unknown_cleanup(self):
+        for known in (True, False):
+            with self.subTest(known=known), tempfile.TemporaryDirectory() as root:
+                out = Path(root) / "fresh"
+                request = dict(phase="regression", out=str(out), sdk=root, java=None, build="build",
+                               running="running", proposal="proposal", server="server", powershell="powershell")
+                owner = dict(status="child_exited", worker_returncode=0, cleanup_complete=known,
+                             output_capture_complete=True, elapsed_ms=1, stdout_bytes=0, stderr_bytes=0)
+                def supervise(*_args):
+                    driver.env.create_json(out / "regression-v1.json", {"not": "qualified"})
+                    return owner
+                def validate(*_args):
+                    self.assertEqual(json.loads((out / "owner-result-v1.json").read_text()), owner)
+                    raise driver.VerificationRefused("bad_raw_copy")
+                with patch.object(driver, "input_bindings", return_value=[]), \
+                     patch.object(driver, "source_map", return_value={"input": "same"}), \
+                     patch.object(driver.env, "supervise", side_effect=supervise), \
+                     patch.object(driver, "validate_regression_record", side_effect=validate) as deep:
+                    with self.assertRaises(driver.VerificationRefused): driver.supervise(request)
+                self.assertEqual(deep.call_count, int(known))
+                result = json.loads((out / "result-v1.json").read_text())
+                self.assertFalse(result["passed"])
+                self.assertNotIn("components", result)
+                self.assertNotIn("artifacts", result)
+                if known: self.assertEqual(result["regression"]["path"], str(out / "regression-v1.json"))
 
 
 if __name__ == "__main__":

@@ -103,3 +103,24 @@ Host regressions:
 ```powershell
 python -B -m unittest scripts.tests.test_android_process_verification scripts.tests.test_android_process_client scripts.tests.test_android_instrumentation_evidence
 ```
+
+## Separate broad regression phase
+
+The fixed `regression` phase runs89 original methods across18 source-pinned
+classes in its own fresh owned guest. It covers the selected navigation,
+editor/lifecycle, cancellation, native resource ownership, fork and fallback
+suites. Other provider/profile/paired-process suites are outside this roster.
+All three packages must be absent; a completed external fixture cannot be
+adopted or treated as pristine, because these tests may modify its workspace.
+
+```powershell
+python -I -B benchmarks/android_process_verification.py regression --out "$evidence/regression" --sdk "$sdk" --powershell "$powershell" --build "$evidence/build/result-v1.json" --proposal "$regressionProposal" --running "$regressionRunning" --server "$evidence/server/server-v1.json"
+```
+
+The original850-second client-session,900-second owner and180-second individual
+client bounds remain. `regression-v1.json` and its distinct result binding require
+all89 original methods, complete runner frames and exact raw/client copies.
+There is no arbitrary class selector. A regression result cannot substitute
+for the original ten-method component gate or an external two-death case.
+Host synthetic tests establish parser/orchestration behavior only; actual
+Android regression qualification remains pending until its raw run is retained.

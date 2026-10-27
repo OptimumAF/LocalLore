@@ -21,6 +21,14 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [current external restoration execution](docs/native/ANDROID_EXTERNAL_PROCESS_EXECUTION_2026-10-26.md)
+passes the real scripted Compose/JNI/Rust root, active-child, retired-leaf and
+selected-parent controls across two saved-task process deaths per case. Four original
+snapshots preserve the retained child's inherited receipts and exclude the
+parent's later tail. The report retains the failed setup attempt, the explicit
+fork-recovery consent correction, host-validator correction and current verification.
+This is API35/x86_64 evidence; phone and real-model qualification remain separate.
+
 The [Android saved-task restoration check](docs/native/ANDROID_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md)
 exercises the real Compose screen and Rust storage across background process
 death, including a selected second story and an unsent draft. It uses scripted
@@ -41,8 +49,8 @@ earlier retired-child index. Source is preserved; the new lifecycle case
 requires a fresh owned run.
 The [versioned host driver](docs/native/ANDROID_PROCESS_HOST_DRIVER.md) and its
 [component verification](docs/native/ANDROID_PROCESS_HOST_DRIVER_VERIFICATION_2026-10-26.md)
-retain fresh build, host and ten-method native component evidence. The external
-retained-parent process-death case remains a separate pending gate.
+retain fresh build, host and ten-method native component evidence. The current
+external execution above records the separately qualified lifecycle scope.
 The [external evidence validators](docs/native/ANDROID_EXTERNAL_CONTROLLER_HOST.md)
 check original controller, producer and retirement records with synthetic host
 regressions; their tests do not establish a new Android lifecycle result.

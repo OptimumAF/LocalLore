@@ -761,6 +761,7 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         acceptedText("message-body-1", DIALOGUE);
         normalSendGameplay(latest(initial));
         retainedParent = forkThroughUi(fixture.b, 1);
+        forgetConfirmedForkThroughUi(fixture.b, retainedParent, initial);
         stage = Stage.SEND;
         selectDialogue(); setDraft(RETAINED_PREFIX);
         click("play-send");
@@ -809,6 +810,34 @@ public final class ProcessRestoreInstrumentation extends Instrumentation {
         waitUntil(() -> { Workspace w = maybeRevealedWorkspace(); return w != null && w.same(expected, head); },
                 15_000, Reason.CANONICAL);
         checked(workspace().same(expected, head), Reason.CANONICAL);
+    }
+
+    /** Forget only the exact confirmed recovery hint, with its separate consent. */
+    private void forgetConfirmedForkThroughUi(Workspace parent, Workspace child, Probe initial) throws Exception {
+        Probe before = latest(initial);
+        setupGameplay(before);
+        click("fork-timeline");
+        waitUntil(() -> findAndRecycle("fork-dialog") && findAndRecycle("fork-lookup-only"), 5_000, Reason.UI);
+        checked(label("fork-parent").equals("Requested parent: " + parent.story + " / " + parent.branch), Reason.SCOPE);
+        checked(label("fork-child").equals("Fixed child ID: " + child.branch), Reason.SCOPE);
+        click("fork-forget-consent");
+        waitUntil(() -> {
+            AccessibilityNodeInfo node = find("fork-forget-consent");
+            if (node == null) return false;
+            try { return node.isCheckable() && node.isChecked(); } finally { node.recycle(); }
+        }, 5_000, Reason.UI);
+        click("fork-forget");
+        waitUntil(() -> findAndRecycle("fork-boundary") && findAndRecycle("fork-review-boundary")
+                && !findAndRecycle("fork-lookup-only") && !findAndRecycle("fork-forget"), 5_000, Reason.UI);
+        checked(label("fork-review-boundary").equals("Prepare new request"), Reason.UI);
+        click("fork-close");
+        waitUntil(() -> !findAndRecycle("fork-dialog"), 5_000, Reason.UI);
+        readyProduct();
+        checked(workspace().same(child, 1), Reason.CANONICAL);
+        acceptedText("message-body-1", DIALOGUE);
+        Probe after = latest(initial);
+        checked(sameGame(before, after) && after.op("create") == before.op("create"), Reason.AUTOMATIC_OPERATION);
+        setupGameplay(after);
     }
 
     /** Only the two source-fixed fixture boundaries are permitted; no boundary edit. */

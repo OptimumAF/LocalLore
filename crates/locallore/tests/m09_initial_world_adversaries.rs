@@ -4,7 +4,8 @@ use locallore::{
     contracts::*,
     engine::Engine,
     inference::Input,
-    story_authoring::{self, InitialConfidenceV1, InitialGenerationV1, InitialProviderKindV1, InitialStoryInputV1,
+    story_authoring::{self, InitialConfidenceV1, InitialGenerationV1, InitialModelConfigurationV1,
+        InitialProviderKindV1, InitialStoryInputV1,
         InitialWorldOriginV1, InitialWorldProposalV1},
 };
 use serde_json::{json, Value};
@@ -29,6 +30,13 @@ fn fixture(copper: bool) -> InitialWorldOriginV1 {
         version: 1,
         generation: InitialGenerationV1 { input: input.clone(), proposal: proposal.clone(),
             model_profile: ORIGIN_ONLY.into(), provider: InitialProviderKindV1::Scripted,
+            model_configuration: InitialModelConfigurationV1 {
+                id: ORIGIN_ONLY.into(), model_sha256: "1".repeat(64),
+                runtime_revision: "2".repeat(40), template_sha256: "3".repeat(64),
+                worker_sha256: "4".repeat(64), profile_manifest_sha256: "5".repeat(64),
+                context_tokens: 4096, director_tokens: 512, narrator_tokens: 256,
+                deadline_ms: 5000, repair_limit: 1,
+            },
             prompt_version: "initial-world-v1".into(), schema_version: "initial-world-v1".into(),
             response: response.into(), response_sha256: sha(response.as_bytes()) },
         reviewed: input, accepted: proposal, title: title.into(),
@@ -163,7 +171,8 @@ fn full_origin_hash_covers_hidden_review_fields_and_exact_raw_response_but_not_s
     let mut belief = origin.clone(); belief.accepted.beliefs[0].text.push('!'); changes.push(belief);
     let mut confidence = origin.clone(); confidence.accepted.beliefs[0].confidence = InitialConfidenceV1::Believed;
     changes.push(confidence);
-    let mut metadata = origin.clone(); metadata.generation.model_profile = "different-private-profile".into(); changes.push(metadata);
+    let mut metadata = origin.clone(); metadata.generation.model_profile = "different-private-profile".into();
+    metadata.generation.model_configuration.id = metadata.generation.model_profile.clone(); changes.push(metadata);
     let mut raw = origin.clone(); raw.generation.response.push(' ');
     raw.generation.response_sha256 = sha(raw.generation.response.as_bytes()); changes.push(raw);
     for changed in changes {

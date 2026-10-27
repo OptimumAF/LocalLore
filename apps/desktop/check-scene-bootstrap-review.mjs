@@ -714,3 +714,125 @@ assert.deepEqual(
 console.log(
     `PASS ${tests.length} Controller-only scene bootstrap cases; synthetic Gateway, no native/model/render evidence.`,
 );
+
+// ADDITIVE FIRST DISPOSAL-WINDOW FREEZE: SOURCE ONLY / UNRUN at handoff.
+// Preserve the original 43 cases/runner above. These public Controller checks
+// start after dispose() is CALLED, not only after its Promise has completed.
+const disposalCaseStart = tests.length;
+
+test("dispose-called-same-tick-admits-no-new-provider-status-read", async () => {
+    const { controller: c, gateway: g } = await attached();
+    let closing, reading;
+    try {
+        await c.refreshFreeTextProvider();
+        assert.deepEqual(c.get().freeTextProvider, ready());
+        const beforeCalls = providerCalls(g).length;
+        const beforeErrors = c.errors.snapshot();
+        closing = c.dispose();
+        // Intentionally no await/drain between these public calls.
+        reading = c.refreshFreeTextProvider();
+        const admittedCalls = providerCalls(g).length - beforeCalls;
+        await Promise.all([reading, closing]);
+        assert.equal(admittedCalls, 0, "disposal admission must close synchronously before invalidate() yields");
+        assert.equal(c.get().freeTextProvider, null);
+        assert.equal(c.get().disposed, true);
+        assert.deepEqual(c.errors.snapshot(), beforeErrors);
+        assert.equal(writes(g).length, 0);
+    } finally {
+        await Promise.allSettled([reading, closing].filter(Boolean));
+        await c.dispose();
+    }
+});
+
+test("held-legacy-cancel-disposal-window-cannot-resurrect-provider-readiness-or-errors", async () => {
+    const observations = [];
+    for (const reply of ["valid", "malformed"]) {
+        const { controller: c, gateway: g } = await attached();
+        const prepare = deferred();
+        const cancel = deferred();
+        let preparationEntered = false;
+        let cancellationEntered = false;
+        let closingSettled = false;
+        let sending, closing, reading;
+        const ordinaryCall = g.call.bind(g);
+        g.call = async (command) => {
+            if (command.op === "prepare") {
+                g.calls.push(clone(command));
+                preparationEntered = true;
+                return prepare.promise;
+            }
+            if (command.op === "cancel") {
+                g.calls.push(clone(command));
+                cancellationEntered = true;
+                return cancel.promise;
+            }
+            return ordinaryCall(command);
+        };
+        try {
+            await c.refreshFreeTextProvider();
+            c.setPlayMode("local");
+            c.setDraft("I wait for one tide tick.");
+            sending = c.send();
+            await drain();
+            assert.equal(preparationEntered, true, "actual legacy send must enter its held prepare");
+            assert.equal(g.submitted.length, 1);
+            closing = c.dispose();
+            void closing.then(
+                () => { closingSettled = true; },
+                () => { closingSettled = true; },
+            );
+            await drain();
+            assert.equal(cancellationEntered, true, "actual invalidate must cancel the original admitted request");
+            assert.equal(closingSettled, false, "the held legacy cancel keeps actual disposal in flight");
+            assert.equal(c.get().disposed, false, "preserve existing legacy cancellation before terminal disposal");
+            assert.equal(c.get().freeTextProvider, null);
+            const beforeCalls = providerCalls(g).length;
+            const beforeErrors = c.errors.snapshot();
+            const beforeVisibleError = c.get().visibleError;
+            g.response = reply === "valid" ? metadata() : null;
+            reading = c.refreshFreeTextProvider();
+            await reading;
+            observations.push({
+                reply,
+                admittedCalls: providerCalls(g).length - beforeCalls,
+                readiness: c.get().freeTextProvider,
+                errors: c.errors.snapshot(),
+                beforeErrors,
+                visibleError: c.get().visibleError,
+                beforeVisibleError,
+                loaded: c.get().model.loaded,
+            });
+        } finally {
+            // Release every held actual Gateway call even when an assertion
+            // fails. Both returns keep the original scope/turn/revision.
+            const request = g.submitted.at(-1)?.request;
+            const cancelled = request ? {
+                scope: clone(request.scope), turn: request.turn,
+                expected_revision: request.expected_revision,
+                phase: "cancelled", error: null, receipt: null,
+            } : null;
+            cancel.resolve(cancelled);
+            prepare.resolve(cancelled);
+            await Promise.allSettled([reading, sending, closing].filter(Boolean));
+            await c.dispose();
+        }
+        assert.equal(c.get().freeTextProvider, null);
+        assert.equal(c.get().disposed, true);
+    }
+    assert.equal(observations.length, 2);
+    for (const observation of observations) {
+        assert.equal(observation.admittedCalls, 0, `${observation.reply}: no Host metadata admission after dispose-called`);
+        assert.equal(observation.readiness, null, `${observation.reply}: no readiness resurrection during legacy cancellation`);
+        assert.deepEqual(observation.errors, observation.beforeErrors, `${observation.reply}: no obsolete error evidence`);
+        assert.equal(observation.visibleError, observation.beforeVisibleError);
+        assert.equal(observation.loaded, false);
+    }
+});
+
+const disposalFailures = [];
+for (const { name, run } of tests.slice(disposalCaseStart)) {
+    try { await run(); }
+    catch (error) { disposalFailures.push(`${name}: ${String(error?.message ?? error)}`); }
+}
+assert.deepEqual(disposalFailures, [], "additive dispose-called provider admission fences");
+console.log(`PASS ${tests.length - disposalCaseStart} additive Controller disposal-window cases; synthetic Gateway only.`);

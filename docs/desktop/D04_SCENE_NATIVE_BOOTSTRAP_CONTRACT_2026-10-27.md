@@ -158,3 +158,45 @@ New model samples and human assessment remain separate; the original human
 eight-sample needs-improvement judgment is unchanged. No desktop control,
 protected chat/resource access, arbitrary execution or new runtime approval is
 authorized by this source-only contract.
+
+## Additive first dispose-called admission oracles
+
+This source-only freeze appends two cases after the unchanged original 43 cases
+and runner, based on Root production `d105cbdb`. No existing assertion or
+production path is edited. A separate additive runner executes only the two
+newly registered cases, so the original suite remains intact and neither group
+is accidentally skipped or run twice. At author handoff these additions are
+UNRUN; Root owns the meaningful unchanged-production baseline, private closing
+fence and unchanged rerun. A source finding is not an executed behavioral RED.
+
+The provider-metadata admission boundary starts synchronously when `dispose()`
+is **called**, before that Promise finishes. Invalidating existing reads is
+insufficient if `state.disposed` remains false while `invalidate()` awaits export
+or admitted legacy-turn cancellation. During that interval no new Host
+`model_status` query, readiness publication or metadata-error evidence may be
+admitted. This requires no new public API, fake disposed state or early change
+to the existing legacy cancellation ordering. Root can use a private synchronous
+provider-closing fence checked at read entry and settlement.
+
+The first new case calls actual public `dispose()` and immediately calls
+`refreshFreeTextProvider()` in the same JavaScript turn, without an intervening
+await. It records whether the actual Gateway was called, then awaits both
+operations and checks no readiness/error resurrection or gameplay write.
+
+The second uses actual legacy send, its real scoped free_text admission and
+held prepare/cancel Gateway Promises. After public disposal reaches its genuine
+legacy-cancel await, it tries valid and malformed provider replies separately.
+Both attempts must dispatch zero new Host metadata calls and retain null
+readiness and unchanged visible/buffered errors while cancellation is pending.
+The ordinary model.loaded value stays false. All held Promises are released in
+finally using the original request's scope, turn and revision, before awaiting
+send/disposal settlement; no actual native worker or canonical receipt is used.
+
+Only this module's existing bounded synthetic Gateway and public Controller
+methods are reused. These oracles do not inject private Controller state, add a
+test hook, bypass cancel or measure Rust/native process drain. Normal builds and
+default permits retain their original 43 controls. The existing command remains
+`node check-scene-bootstrap-review.mjs`; it was not run by this author. Source,
+append-only/whitespace and commit/hash inspection are the only author checks.
+No formatter/Node/Cargo/compiler/test/model/app/native/render/device/desktop or
+protected-resource work was performed, and no human quality result changes.

@@ -437,3 +437,46 @@ created only after this report's final clean/pushed head is frozen; its actual
 verification/hashes and claim release belong in the ticket handoff to avoid a
 self-referential report hash. No merge, release, dependency/system-setting change,
 server lifecycle operation or unrelated-emulator stop is performed.
+
+### Subsequent choice pass and retained-archive failures
+
+The subsequent current850 UI run uses the same source/APK cohort described
+above, separate fresh API35/x86_64 guests, and unchanged limits. `starter-choice`
+passes all7 methods/3 classes with93 complete measured SDK2 pairs. The actual
+MainActivity journey selects narrative/fantasy rules through `story_presentation`
+and `create_presented`, retains cancellation and isolation checks, and reopens
+the created stories. This uses default presentation settings, without a model.
+
+`retained-archive` runs both methods together and **fails both assertions** in
+31.911 seconds. The phase owner terminates1 in233152ms with complete capture/
+cleanup,80 SDK2 pairs and10188-byte original JUnit output. The first test imports
+and exports exact retained bytes but fails its existing negative URI assertion:
+the selected import URI has WRITE permission (0), where DENIED (-1) is required.
+The second fails when its catalog snapshot resumes a branch: expected `ok`,
+received `rejected`. Its original assertion omits the error category. Source
+inspection independently finds that the fixture resumes every branch through
+one Host without releasing sessions; the fifth distinct scope exceeds the
+existing four-session limit. This explains a plausible rejection, but the
+captured output does not establish the discarded error category.
+
+Both exact owned guests are subsequently stopped through their proposal-bound
+STOPs; their original handles terminate0, with requested closure/worker1 and
+known capture/cleanup/closure. The final read-only existing-server postflight
+passes in1989ms with0 new device calls. This environment result does not qualify
+the failed archive phase. The existing server and unrelated emulators are left
+alone; no system setting or dependency changes occur.
+
+Before fixes, a create-only C: recovery copies442 bounded metadata/helper/raw
+files (1367175 bytes) and verifies every original, copy and ZIP member. No model,
+save, card or APK payload is copied or uploaded. The index is122931 bytes,
+SHA256 `1252178e748bda60320f80b40b54f1e3e2f963df8949d9814a055be924054579`;
+ZIP494439 bytes, SHA256
+`f491ac63e6d1df663c4b898ba3b52c36f904537f3a7d55096f16b79a5659eb03`.
+Its explicit scope is `private_failed_presentation_ui_metadata_recovery`, with
+`qualified=false`. Success-only qualification helpers remain unexecuted.
+
+M08.04/M08.06/M09.06/M10.02 remain in progress for a focused follow-up: consume
+imports through a one-shot read contract while preserving all accepted MIME
+types, and give passive snapshot reads dedicated owned native handles. Keep
+the WRITE-denied assertion, canonical comparisons, two-method roster, session
+limit and existing runtime budgets. Rebuild and rerun before claiming a fix.

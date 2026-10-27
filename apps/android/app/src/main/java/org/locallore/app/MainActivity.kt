@@ -43,7 +43,7 @@ open class MainActivity : ComponentActivity() {
     private lateinit var model: ShellViewModel
     private var pendingNavigationHint: PlayDraftScope? = null
     private var processVerificationRun: String? = null
-    private val archiveImportPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    private val archiveImportPicker = registerForActivityResult(ArchiveImportContract()) { uri ->
         if (::model.isInitialized) {
             if (uri == null) model.completeArchiveImport(null)
             else {
@@ -174,7 +174,7 @@ open class MainActivity : ComponentActivity() {
                     ArchiveDialog(archive, controller::dismiss, controller::cancel, controller::prepareExport,
                         onImportPicker = {
                             if (model.beginArchiveImportPicker()) {
-                                try { archiveImportPicker.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }
+                                try { archiveImportPicker.launch("*/*") }
                                 catch (_: Exception) { model.archiveImportPickerFailed() }
                             }
                         },

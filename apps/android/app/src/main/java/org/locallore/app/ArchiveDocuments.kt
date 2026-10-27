@@ -2,10 +2,13 @@
 package org.locallore.app
 
 import android.content.ContentResolver
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.system.OsConstants
+import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -13,6 +16,15 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+
+/** One copy of openable archive content; no request for durable document access or source editing. */
+internal class ArchiveImportContract : ActivityResultContracts.GetContent() {
+    override fun createIntent(context: Context, input: String): Intent {
+        require(input == "*/*")
+        return super.createIntent(context, input).putExtra(Intent.EXTRA_MIME_TYPES,
+            arrayOf("application/json", "application/octet-stream", "text/plain"))
+    }
+}
 
 /** SAF content only. No filename authority, broad storage access, or persisted URI permission. */
 internal suspend fun readArchiveDocument(resolver: ContentResolver, uri: Uri): ByteArray = withContext(Dispatchers.IO) {

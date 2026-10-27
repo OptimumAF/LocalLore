@@ -763,12 +763,36 @@ export async function sceneNativeJourneys({
             );
         }
         const records = errors.snapshot();
+        const refusals = gateway.rejectedNativeCalls;
+        // The fifth commit is already durable while its acknowledgement is held.
+        // Switching the inspection lens must refuse its old revision read.
+        const heldCommitReadFence =
+            config.stage === "initial" &&
+            finalOracle.head === baseline + 5 &&
+            finalOracle.new_commits === 5 &&
+            refusals.length === 1 &&
+            refusals[0].op === "play_snapshot_v2" &&
+            refusals[0].category === "Stale" &&
+            refusals[0].phase === "actual-commit-held-before-lens-switch" &&
+            structural(refusals[0].scope) === structural(scope) &&
+            refusals[0].expectedRevision === baseline + 4 &&
+            refusals[0].turn === null &&
+            records.filter(
+                (r) => r.source === "native" && r.category === "Stale",
+            ).length === 1;
+        check(
+            config.stage === "restart"
+                ? refusals.length === 0
+                : heldCommitReadFence,
+            "only-exact-held-commit-read-revision-is-refused-by-native",
+        );
         check(
             records.length <= 8 &&
                 records.every(
                     (r) =>
                         r.source === "native" &&
-                        ["Transport", "Cancelled"].includes(r.category),
+                        (["Transport", "Cancelled"].includes(r.category) ||
+                            (heldCommitReadFence && r.category === "Stale")),
                 ),
             "bounded-errors-contain-only-explicit-fault-or-cancel-categories",
         );

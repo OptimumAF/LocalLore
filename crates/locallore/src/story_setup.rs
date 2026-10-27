@@ -101,6 +101,25 @@ impl NamedStarter {
     }
 }
 
+/// Native reviewed initial-world factory. No replacement Seed is accepted on the wire.
+pub fn prepare_original(
+    origin: &crate::story_authoring::InitialWorldOriginV1,
+    creation_id: &str,
+) -> Result<NamedStarter, String> {
+    if !valid_creation_id(creation_id) {
+        return Err("InvalidInput".into());
+    }
+    let seed = crate::story_authoring::materialize(origin, crate::contracts::Scope {
+        story: format!("original-{creation_id}"), branch: "main".into(),
+    })?;
+    Engine::new(seed.clone()).map_err(|_| "InvalidInput".to_owned())?;
+    Ok(NamedStarter { seed, title: origin.title.clone() })
+}
+
+pub fn valid_creation_id(value: &str) -> bool {
+    value.len() == 32 && value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 pub fn valid_title(title: &str) -> bool {
     !title.is_empty() && title.trim() == title && title.chars().count() <= MAX_TITLE_SCALARS &&
         title.len() <= 320 && !title.chars().any(|c| c.is_control() ||

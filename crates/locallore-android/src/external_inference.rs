@@ -173,6 +173,12 @@ impl Packet {
         let cap = match role.as_str() {
             "director" => profile.director_tokens,
             "narrator" => profile.narrator_tokens,
+            "author" if request.schema == "initial-world-v1"
+                && request.revision == 0
+                && request.scope.branch == "draft"
+                && request.scope.story == format!("author-draft-{}", request.turn)
+                && request.budget.max_output_bytes <= 8192
+                && request.budget.deadline_ms <= 120_000 => 1024,
             _ => return Err(Error::Provider),
         };
         if request.budget.max_output_tokens == 0

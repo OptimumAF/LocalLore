@@ -48,7 +48,7 @@ impl Lease {
         // completion; neither cancel nor disposal waits for the fake or future model provider.
         let prepare = serde_json::from_slice::<Value>(bytes)
             .ok()
-            .is_some_and(|value| value["command"]["op"] == "prepare");
+            .is_some_and(|value| matches!(value["command"]["op"].as_str(), Some("prepare" | "authoring_generate")));
         if prepare {
             if self.closed.load(Ordering::SeqCst) {
                 return rejected("InvalidHandle");
@@ -156,7 +156,7 @@ impl WorkspaceRegistry {
             // invalidation; submit/commit/resume/open cannot cross a deletion transaction.
             let prepare = serde_json::from_slice::<Value>(bytes)
                 .ok()
-                .is_some_and(|value| value["command"]["op"] == "prepare");
+                .is_some_and(|value| matches!(value["command"]["op"].as_str(), Some("prepare" | "authoring_generate")));
             let _mutation = if prepare {
                 None
             } else {

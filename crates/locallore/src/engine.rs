@@ -858,6 +858,7 @@ pub(crate) fn valid_id(id: &str) -> bool {
 }
 
 fn validate_seed(seed: &Seed) -> Result<(), Error> {
+    crate::story_authoring::validate_origin(seed).map_err(|_| Error::Rule)?;
     if seed
         .presentation
         .as_ref()

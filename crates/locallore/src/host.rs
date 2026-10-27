@@ -25,6 +25,7 @@ use std::{
 
 pub const HOST_VERSION: u16 = 1;
 mod author_port;
+mod story_authoring;
 pub use author_port::{HostAuthorPreparation, NativeAuthorPreparation, WorkspaceAuthorOutcomeV1};
 pub mod memory_maintenance;
 pub const MAX_INPUT: usize = 24_576;
@@ -87,6 +88,18 @@ pub struct Envelope {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HostCommand {
+    AuthoringCapabilities {},
+    AuthoringBegin { input: crate::story_authoring::InitialStoryInputV1 },
+    AuthoringGenerate { job: String },
+    AuthoringReview {
+        job: String,
+        input: crate::story_authoring::InitialStoryInputV1,
+        proposal: crate::story_authoring::InitialWorldProposalV1,
+        title: String,
+    },
+    AuthoringCreate { job: String, review_sha256: String, creation_id: String },
+    AuthoringCancel { job: String },
+    AuthoringStatus { job: String },
     Capabilities {},
     Workspace {},
     Branches {
@@ -311,6 +324,7 @@ struct State {
     sessions: BTreeMap<String, Session>,
     persistence: Option<Box<dyn Persistence>>,
     local_play: Option<LocalPlay>,
+    authoring: story_authoring::AuthoringState,
 }
 
 pub type ProviderFactory = Arc<dyn Fn() -> Box<dyn InferenceProvider + Send> + Send + Sync>;
@@ -548,6 +562,15 @@ pub trait Persistence: Send {
     ) -> Result<(Engine, bool), String> {
         Err("Unsupported".into())
     }
+    /// Read-only recovery for an exact authored creation after a lost acknowledgement.
+    /// An absent process-local job must never cause regeneration or a fresh write.
+    fn lookup_original(
+        &mut self,
+        _creation_id: &str,
+        _review_sha256: &str,
+    ) -> Result<Option<crate::story_setup::NamedStarter>, String> {
+        Err("Unsupported".into())
+    }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String>;
     fn generation_snapshot(
         &mut self,
@@ -675,10 +698,9 @@ impl Host {
         construction: HostPlayConstructionV1,
     ) -> Result<(), String> {
         profile.validate().map_err(|e| e.to_string())?;
-        self.state
-            .lock()
-            .map_err(|_| "Internal".to_owned())?
-            .local_play = Some(LocalPlay {
+        let mut state = self.state.lock().map_err(|_| "Internal".to_owned())?;
+        state.authoring.cancel_current();
+        state.local_play = Some(LocalPlay {
             profile,
             provider,
             real_model,
@@ -689,6 +711,7 @@ impl Host {
     pub fn disable_local_provider(&self) {
         if let Ok(mut state) = self.state.lock() {
             state.local_play = None;
+            state.authoring.cancel_current();
             for session in state.sessions.values() {
                 for turn in session.turns.values() {
                     if matches!(turn.request.intent, Intent::FreeText { .. }) {
@@ -923,6 +946,9 @@ impl Host {
             if envelope.version != HOST_VERSION {
                 return reject("Version");
             }
+            if let HostCommand::AuthoringGenerate { job } = &envelope.command {
+                return self.generate_initial_world(job);
+            }
             if let HostCommand::Prepare {
                 session,
                 scope,
@@ -968,6 +994,7 @@ impl Host {
             // Cleanup must revoke leases even if gameplay previously poisoned
             // State. Do not clear poison or resume gameplay with this guard.
             let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+            state.authoring.cancel_current();
             for session in state.sessions.values() {
                 session.trace_owner.retire();
                 for turn in session.turns.values() {
@@ -1342,12 +1369,22 @@ impl Host {
         reply
     }
     fn dispatch(&self, state: &mut State, command: HostCommand) -> Value {
+        if let Some(reply) = self.dispatch_authoring(state, &command) {
+            return reply;
+        }
         if state.persistence.is_some() {
             if let Some(reply) = self.dispatch_durable(state, &command) {
                 return reply;
             }
         }
         match command {
+            HostCommand::AuthoringCapabilities { .. }
+            | HostCommand::AuthoringBegin { .. }
+            | HostCommand::AuthoringGenerate { .. }
+            | HostCommand::AuthoringReview { .. }
+            | HostCommand::AuthoringCreate { .. }
+            | HostCommand::AuthoringCancel { .. }
+            | HostCommand::AuthoringStatus { .. } => unreachable!("authoring handled before session dispatch"),
             HostCommand::Workspace {} => {
                 ok(json!({"persistent":false,"location":null,"schema_version":null,"stories":[]}))
             }

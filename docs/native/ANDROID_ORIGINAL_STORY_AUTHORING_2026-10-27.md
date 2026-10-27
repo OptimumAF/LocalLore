@@ -286,6 +286,7 @@ Private recovery archives preserve earlier failures separately from success:
 | C4 UI assertion-order failure |927 /3 |`526e81d3b98fa1fb01b696bf7eadff2659535e79acc6efcb52ac13df215126c4` |0 missing/mismatches |
 | C5 preflight/capture failure |559 /3 |`8ceeb2d583341c6f588cb279c6f27e6e3edc898bd8e9e1cc3f157eae6ba380d0` |0 missing/mismatches |
 | Final runtime/source/recovery |442 /4 |`09457cc2442cee5cb6d284dd5aecccf2be98b30276b1658b7480acdcd61668cb` |0 missing/mismatches |
+| Current877 creation/broad/source |654 /4 |`cde6080b1fd6d883e734997aa21ff4290270c1bbaaeb4b6e1985e77092f63bfb` |0 missing/mismatches |
 
 These explicit admitted metadata/helper/report/audited-artifact selections stay
 on C:. They exclude model weights, saves and live guest data. Byte preservation
@@ -310,6 +311,21 @@ refuses. A read-only corrected collector verifies every named ref with no
 missing/mismatched entry and records both original refusals. No bundle is
 recreated or failed runtime result repaired. This report's later preservation
 metadata commit is separate from that source checkpoint.
+
+The subsequent current877 regression recovery has658 indexed originals/
+controls and copies,659 exact ZIP members and661 output files,28638167 bytes
+total. Index SHA256:
+`0ce3ceb52cf617c2d854788d664278a21a4ce2e543634ee2334bbcf0679c1c74`.
+Independent streaming replay checks every original/copy/ZIP member and all six
+prior C5/final-runtime artifact pins, with0 missing/mismatches. Verification
+result SHA256:
+`c89d707ded81a4cc9fa2140765fcb62188d4cc3948961dda162618e0b1613ff5`.
+Source checkpoint `08959548` preserves all1222 named references among1537
+bundle heads. The12643008-byte bundle SHA256 is
+`61f376d1d1512ce2a0a04a699b8bbbe6b24b5eefca95d32f90dcf6e13fe1f313`.
+That source snapshot also contains the separate committed portability work;
+this later seal-metadata commit is outside the checkpoint. No old seal is
+changed, and no model/save/guest userdata is recopied into the new selection.
 
 Android's8 fixed original-story methods and the native10 prerequisite now
 qualify this bounded scripted API35/x86_64 slice. Full task checkboxes remain

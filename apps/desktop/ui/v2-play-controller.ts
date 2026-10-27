@@ -403,7 +403,11 @@ function context(value: V2PlayContext): V2PlayContext {
     else if (!["player", "omniscient"].includes(c.observer.kind)) wire();
     if (c.freeTextProvider !== undefined && c.freeTextProvider !== null) {
         const provider = exact(c.freeTextProvider, ["provider", "kind"]);
-        if (provider.provider !== "scene-native-fixture-v1" || provider.kind !== "synthetic_fixture") wire();
+        if (
+            provider.provider !== "scene-native-fixture-v1" ||
+            provider.kind !== "synthetic_fixture"
+        )
+            wire();
     }
     return c;
 }

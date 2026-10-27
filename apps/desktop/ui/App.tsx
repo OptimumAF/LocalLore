@@ -415,7 +415,9 @@ export function App({
                 <span className="limitation">
                     Local Rust |{" "}
                     {s.playMode === "local"
-                        ? syntheticFreeText ? "Synthetic scene fixture · no model loaded" : "Experimental local CPU"
+                        ? syntheticFreeText
+                            ? "Synthetic scene fixture · no model loaded"
+                            : "Experimental local CPU"
                         : "Fake fixture inference"}{" "}
                     |{" "}
                     {s.workspace
@@ -628,9 +630,11 @@ export function App({
                             <span>
                                 Provider:{" "}
                                 {s.playMode === "local"
-                                    ? syntheticFreeText ? "Synthetic scene fixture · no model loaded" : s.model?.loaded
-                                        ? "Qwen3 local CPU (experimental)"
-                                        : "Local model unavailable"
+                                    ? syntheticFreeText
+                                        ? "Synthetic scene fixture · no model loaded"
+                                        : s.model?.loaded
+                                          ? "Qwen3 local CPU (experimental)"
+                                          : "Local model unavailable"
                                     : "deterministic fake v1"}
                             </span>
                             <span>
@@ -994,9 +998,14 @@ export function App({
                                         </option>
                                         <option
                                             value="local"
-                                            disabled={!s.model?.loaded && !syntheticFreeText}
+                                            disabled={
+                                                !s.model?.loaded &&
+                                                !syntheticFreeText
+                                            }
                                         >
-                                            {syntheticFreeText ? "Synthetic scene fixture (free text)" : "Experimental local Qwen CPU"}
+                                            {syntheticFreeText
+                                                ? "Synthetic scene fixture (free text)"
+                                                : "Experimental local Qwen CPU"}
                                         </option>
                                     </select>
                                 </label>
@@ -1367,7 +1376,9 @@ export function App({
             <footer className="footer">
                 <span>
                     {s.playMode === "local"
-                        ? syntheticFreeText ? "Synthetic scene fixture · no model loaded" : "Experimental local CPU"
+                        ? syntheticFreeText
+                            ? "Synthetic scene fixture · no model loaded"
+                            : "Experimental local CPU"
                         : "Fake fixture inference"}{" "}
                     |{" "}
                     {s.workspace
@@ -1380,8 +1391,8 @@ export function App({
                     {syntheticFreeText
                         ? "No model loaded · scripted scene fixture configured"
                         : s.model?.loaded
-                        ? "One local model loaded; no cloud fallback"
-                        : "No model loaded; fake fixtures require explicit selection"}
+                          ? "One local model loaded; no cloud fallback"
+                          : "No model loaded; fake fixtures require explicit selection"}
                 </span>
             </footer>
         </div>

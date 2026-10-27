@@ -128,8 +128,10 @@ export class Controller {
         return developmentSceneBuild && this.developmentScene;
     }
     private freeTextReady() {
-        return !!this.state.model?.loaded ||
-            (this.scenePermitted() && this.state.freeTextProvider !== null);
+        return (
+            !!this.state.model?.loaded ||
+            (this.scenePermitted() && this.state.freeTextProvider !== null)
+        );
     }
     // Only the fixed development bootstrap reads this separate Host status.
     // It grants no provider configuration, model ownership or story privilege.
@@ -138,7 +140,8 @@ export class Controller {
         const sequence = ++this.providerReadSequence;
         try {
             const value = checkedJsonV2(
-                await this.gateway.call({ op: "model_status" }), 16_384,
+                await this.gateway.call({ op: "model_status" }),
+                16_384,
             );
             if (!value || typeof value !== "object" || Array.isArray(value))
                 throw Error("Wire");
@@ -146,19 +149,33 @@ export class Controller {
             const profile = dto.profile;
             if (
                 Object.keys(dto).sort().join("\0") !==
-                    ["provider", "real_model", "loaded", "status", "profile"].sort().join("\0") ||
+                    ["provider", "real_model", "loaded", "status", "profile"]
+                        .sort()
+                        .join("\0") ||
                 dto.provider !== "scene-native-fixture-v1" ||
-                dto.real_model !== false || dto.loaded !== false ||
+                dto.real_model !== false ||
+                dto.loaded !== false ||
                 dto.status !== "configured_fixture_owner" ||
-                !profile || typeof profile !== "object" || Array.isArray(profile) ||
+                !profile ||
+                typeof profile !== "object" ||
+                Array.isArray(profile) ||
                 !Object.hasOwn(profile, "id") ||
                 (profile as Record<string, unknown>).id !== dto.provider
-            ) throw Error("Wire");
-            if (this.state.disposed || sequence !== this.providerReadSequence) return;
-            this.patch({freeTextProvider:{provider:"scene-native-fixture-v1",kind:"synthetic_fixture"},visibleError:null});
+            )
+                throw Error("Wire");
+            if (this.state.disposed || sequence !== this.providerReadSequence)
+                return;
+            this.patch({
+                freeTextProvider: {
+                    provider: "scene-native-fixture-v1",
+                    kind: "synthetic_fixture",
+                },
+                visibleError: null,
+            });
         } catch (error) {
-            if (this.state.disposed || sequence !== this.providerReadSequence) return;
-            this.patch({freeTextProvider:null});
+            if (this.state.disposed || sequence !== this.providerReadSequence)
+                return;
+            this.patch({ freeTextProvider: null });
             this.fail(error);
         }
     }
@@ -2125,7 +2142,7 @@ export class Controller {
     async dispose() {
         if (this.state.disposed) return;
         this.providerReadSequence++;
-        this.patch({freeTextProvider:null});
+        this.patch({ freeTextProvider: null });
         await this.invalidate();
         const sessions = this.state.sessions;
         this.state = {

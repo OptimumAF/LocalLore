@@ -125,7 +125,25 @@ show this worker starts8.563755 seconds after the owner; actual SDK clients are
 created. This improves dispatch latency, not proof of earlier timeout causation
 or a reserved completion window. Runtime qualification is still pending.
 
-CHILD requalification and retained-parent qualification for this827 map remain pending.
+The current retained-parent case actually **passes**:619065ms/worker0, known
+cleanup/capture and stderr0,126 clean measured-v2 clients, result2/DONE and202
+observed diagnostic checks across two process deaths. The check count is not a
+new golden constant. Frame3137 bytes and parsed proof3082 bytes remain within
+unchanged caps. Both first-old saved/command creation maps are legacy0/named2;
+both second-old maps are zeros. All three original native bodies and their
+quiet transport footers plus four original12174-byte canonical sidecars are
+collected and deeply validated. The preserved prefix receipts remain original,
+the unreachable parent tail is excluded, and final fallback performs no
+automatic creation/gameplay. These are the exact scripted fixture's guarantees.
+
+Its bound stop returns0; emulator actual terminal0, guest `stop_requested`,
+715922ms/worker1, cleanup/capture/closure true, no guest-flush claim. The earlier
+failed CHILD attempt remains unchanged. A separately named new `child-ready`
+guest is prepared for the same CHILD case using the changed continuous
+readiness/dispatch protocol. It has new authorization/proposal/claim/outputs,
+not a new output directory on a failed guest. No source or runtime bound changes.
+
+CHILD requalification for this827 map remains pending.
 Each needs its own new standard2GiB/two-CPU API35/x86_64 guest. Existing current
 profile capacity checks apply before preparation and launch; no floor is bypassed.
 Finish all build/integration/preparation work before timed launch, dispatch
@@ -137,8 +155,10 @@ summarized away, or promoted from old-source cohorts. Existing earlier failed
 CHILD/retained attempts remain failed and unqualified.
 
 The recorded unrelated process identities pass the new selected preflight,
-with zero device calls. Final selected postflight requires actual closure of
-all three exact owned guests. No system setting change, unrelated emulator stop,
+with zero device calls. The new final selected postflight requires actual closure
+of all four exact owned guests, including failed CHILD and fresh child-ready.
+The original three-guest helper stays unexecuted with its output absent. No
+system setting change, unrelated emulator stop,
 merge, release or private-data/model upload is performed by this chat. Full
 customization, real phone/model/accessibility/joined-drain and the inherited
 desktop dependency advisory remain separate open gates.

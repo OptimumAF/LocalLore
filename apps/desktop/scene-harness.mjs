@@ -135,7 +135,10 @@ Object.assign(process.env, {
     CARGO_INCREMENTAL: "0",
 });
 let runNumber = 0;
+let ownedDrainUnknown = false;
+const unknownOwnedChildren = [];
 async function run(command, args, env = {}) {
+    if (ownedDrainUnknown) throw Error("SceneOwnedDrainUnknown");
     await unchangedSource();
     if (command === executable) {
         if (args.length) throw Error("ClosedNativeArgumentsRequired");
@@ -152,7 +155,11 @@ async function run(command, args, env = {}) {
         )
             delete inherited[key];
     let timedOut = false,
-        truncated = false;
+        truncated = false,
+        directPid = null,
+        directKillAttempted = false,
+        directKillReturned = null,
+        directKillError = null;
     const result = await new Promise((resolve) => {
         const child = spawn(command, args, {
             cwd: root,
@@ -161,6 +168,33 @@ async function run(command, args, env = {}) {
             shell: false,
             env: { ...inherited, ...env },
         });
+        directPid = child.pid ?? null;
+        let settled = false,
+            grace = null;
+        const unknownDrain = (reason) => {
+            if (!ownedDrainUnknown)
+                unknownOwnedChildren.push({
+                    run: log,
+                    pid: directPid,
+                    reason,
+                    processTreeContained: false,
+                });
+            ownedDrainUnknown = true;
+        };
+        const finish = (value, detach = false) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            if (grace !== null) clearTimeout(grace);
+            if (detach) {
+                // Stop only our pipes/listener ownership. This is not a reap or
+                // evidence that the direct child or its descendants have exited.
+                child.stdout.destroy();
+                child.stderr.destroy();
+                child.unref();
+            }
+            resolve(value);
+        };
         for (const channel of ["stdout", "stderr"])
             child[channel].on("data", (chunk) => {
                 const available = 262144 - bounded[channel].length;
@@ -174,21 +208,34 @@ async function run(command, args, env = {}) {
         const timer = setTimeout(
             () => {
                 timedOut = true;
-                child.kill();
+                // No Job/process-tree containment is provided here. Even a
+                // later direct-child close cannot qualify descendant drain.
+                unknownDrain("TimeoutDirectChildOnly");
+                grace = setTimeout(
+                    () => finish({ code: null, signal: null, error: "OwnedDrainUnknown", closed: false }, true),
+                    5000,
+                );
+                directKillAttempted = true;
+                try {
+                    directKillReturned = child.kill();
+                } catch (error) {
+                    directKillError = error?.code ?? "KillFailure";
+                }
             },
             command === "cargo" ? 900000 : 240000,
         );
         child.once("error", (error) => {
-            clearTimeout(timer);
-            resolve({
+            if (settled) return;
+            if (directPid !== null) unknownDrain("ChildErrorWithPid");
+            finish({
                 code: null,
                 signal: null,
                 error: error.code ?? "SpawnFailure",
-            });
+                closed: false,
+            }, directPid !== null);
         });
         child.once("close", (code, signal) => {
-            clearTimeout(timer);
-            resolve({ code, signal, error: null });
+            finish({ code, signal, error: null, closed: true });
         });
     });
     for (const channel of ["stdout", "stderr"])
@@ -204,6 +251,13 @@ async function run(command, args, env = {}) {
                 ...result,
                 timedOut,
                 truncated,
+                directPid,
+                directKillAttempted,
+                directKillReturned,
+                directKillError,
+                ownedDrainUnknown,
+                unknownOwnedChildren,
+                processTreeContained: false,
                 command:
                     command === executable
                         ? "<owned-target>/debug/locallore-desktop-spike.exe"
@@ -218,6 +272,8 @@ async function run(command, args, env = {}) {
         ),
         { flag: "wx" },
     );
+    // A timeout/error with a PID fails closed before another command can run.
+    if (ownedDrainUnknown) throw Error(`SceneOwnedDrainUnknown:${log}`);
     await unchangedSource();
     if (command === executable) await unchangedProducts();
     if (result.code !== 0 || timedOut || truncated)
@@ -444,14 +500,24 @@ try {
             "fixed synthetic Wait-only scene fixture",
             "no real-model quality or human assessment",
             "no offline/device qualification",
+            "no Job/process-tree containment or timeout-drain qualification",
         ],
     };
 } catch (error) {
     originalError = error;
 } finally {
-    // Restore exactly the normal frontend/app without launching that image,
-    // including after failed setup, journey, artifact or product checks.
-    try {
+    // Restore only after ordinary known-closed runs. An uncertain owned child
+    // may still have descendants, so no normal build may overlap that failure.
+    if (ownedDrainUnknown) {
+        normalRestoration = {
+            passed: false,
+            launched: false,
+            skipped: true,
+            error: "OwnedDrainUnknown",
+            processTreeContained: false,
+            unknownOwnedChildren,
+        };
+    } else try {
         await run(process.execPath, ["build.mjs"]);
         await run("cargo", [
             "build",
@@ -477,6 +543,9 @@ try {
             passed: false,
             launched: false,
             error: String(error?.message ?? error).slice(0, 500),
+            remainingStepsSkipped: ownedDrainUnknown,
+            processTreeContained: false,
+            unknownOwnedChildren,
         };
         originalError ??= error;
     }
@@ -498,12 +567,15 @@ if (originalError || !candidateSummary || normalRestoration?.passed !== true) {
                     originalError?.message ?? "SceneIncomplete",
                 ).slice(0, 500),
                 normalRestoration,
+                ownedDrainUnknown,
+                unknownOwnedChildren,
                 terminalSourceRevision: (
-                    await git("git", ["rev-parse", "HEAD"], { cwd: root })
-                ).stdout.trim(),
+                    ownedDrainUnknown ? null : (await git("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim()
+                ),
                 terminalDirty: (
-                    await git("git", ["status", "--porcelain"], { cwd: root })
-                ).stdout.trim(),
+                    ownedDrainUnknown ? null : (await git("git", ["status", "--porcelain"], { cwd: root })).stdout.trim()
+                ),
+                terminalSourceObservation: ownedDrainUnknown ? "skipped-owned-drain-unknown" : "observed",
                 reports,
                 artifacts,
             },

@@ -73,6 +73,7 @@ export async function sceneNativeJourneys({
             ? "locallore-play-v2.10-literal-director-v1-scene-frame-v1"
             : "locallore-play-v2.9-scene-frame-v1";
     let current = "scene-start";
+    let clockComparisonTable: HTMLTableElement | null = null;
     const check = (condition: unknown, label: string) => {
         current = label;
         if (!condition) throw Error(label);
@@ -248,7 +249,18 @@ export async function sceneNativeJourneys({
                     ?.textContent?.includes(view.receipt.request.turn),
                 `${label}-same-displayed-receipt`,
             );
-        panel!.scrollIntoView({ block: "start" });
+        const comparisonCapture = [
+            "scene-native-receipt-diff",
+            "scene-native-recorded-diff",
+        ].includes(label);
+        if (comparisonCapture) {
+            check(
+                clockComparisonTable?.isConnected &&
+                    panel!.contains(clockComparisonTable),
+                `${label}-actual-mounted-clock-table-capture-target`,
+            );
+            clockComparisonTable!.scrollIntoView({ block: "center" });
+        } else panel!.scrollIntoView({ block: "start" });
         await pause();
         check(
             document.documentElement.scrollWidth <= innerWidth + 2,
@@ -355,17 +367,27 @@ export async function sceneNativeJourneys({
                 change.after.story_time === change.before.story_time + 1,
             `${label}-actual-Rust-clock-before-after-boundary`,
         );
+        const beforeValue = change?.kind === "change" && change.before?.kind === "clock"
+            ? String(change.before.story_time) : null;
+        const afterValue = change?.kind === "change" && change.after?.kind === "clock"
+            ? String(change.after.story_time) : null;
+        const mountedTables = () => [
+            ...document.querySelectorAll<HTMLTableElement>('[data-native-kind="change"] table'),
+        ].filter((table) => table.querySelector("caption")?.textContent?.trim() === "Recorded change · Story time");
+        const exactMountedValues = () => {
+            const tables = mountedTables();
+            if (tables.length !== 1 || beforeValue === null || afterValue === null) return false;
+            const headers = [...tables[0].querySelectorAll("thead th")].map((el) => el.textContent?.trim());
+            const values = [...tables[0].querySelectorAll("tbody td > .record-value")].map((el) => el.textContent?.trim());
+            return structural(headers) === structural([`Before · r${end - 1}`, `After · r${end}`]) &&
+                structural(values) === structural([beforeValue, afterValue]);
+        };
         await until(
-            () =>
-                [
-                    ...document.querySelectorAll('[data-native-kind="change"]'),
-                ].some((row) =>
-                    row
-                        .querySelector("caption")
-                        ?.textContent?.includes("Story time"),
-                ),
+            exactMountedValues,
             `${label}-actual-clock-change-mounted`,
         );
+        check(exactMountedValues(), `${label}-mounted-before-after-revisions-and-actual-clock-values`);
+        clockComparisonTable = mountedTables()[0];
         unchangedCanon(
             before,
             await oracle(`${label}-after`),

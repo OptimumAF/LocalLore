@@ -3,6 +3,21 @@ import type { Controller } from "./controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import { structural, type ErrorBuffer } from "./model";
 import type { ViewV2 } from "./v2-view-model";
+type FixtureProof = {
+    source_gate: string;
+    paired: {
+        rows: number;
+        source_bound_committed_rows: number;
+        human_reviewed: number;
+        quality_accepted: boolean;
+    };
+    rollout: {
+        rows: number;
+        source_bound_committed_rows: number;
+        human_reviewed: number;
+        quality_accepted: boolean;
+    };
+};
 export async function comparisonReaderJourneys({
     controller: c,
     comparison: r,
@@ -23,21 +38,7 @@ export async function comparisonReaderJourneys({
     let failureCategory: string | null = null;
     let fixtureInventory: Record<string, string> | null = null;
     let protocolVersion: 2 | 3 | 4 = 2;
-    let fixtureProof: {
-        source_gate: string;
-        paired: {
-            rows: number;
-            source_bound_committed_rows: number;
-            human_reviewed: number;
-            quality_accepted: boolean;
-        };
-        rollout: {
-            rows: number;
-            source_bound_committed_rows: number;
-            human_reviewed: number;
-            quality_accepted: boolean;
-        };
-    } | null = null;
+    let fixtureProof: FixtureProof | null = null;
     const check = (value: unknown, label: string) => {
         failedCheck = label;
         if (!value) throw Error(label);
@@ -556,7 +557,7 @@ export async function comparisonReaderJourneys({
             rollout_rows: number;
             fixture_inventory: Record<string, string>;
             models_executed: boolean;
-            scene_proof: typeof fixtureProof;
+            scene_proof: FixtureProof | null;
         };
         protocolVersion = prepared.protocol_version;
         fixtureProof = prepared.scene_proof;

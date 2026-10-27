@@ -75,6 +75,7 @@ class CurrentCreationExecutionTests(unittest.TestCase):
         # retirement transports, canonical sidecars and client validators run.
         with patch.object(external, "admit"), patch.object(external.driver, "qualified_build", return_value={}), \
              patch.object(external, "qualified_gate", return_value=fixture.gate), \
+             patch.object(external, "_qualified_current_gate", return_value=fixture.gate), \
              patch.object(external, "expected_pins", return_value=fixture.expected):
             validator = external.validate_current_execution if current else external.validate_execution
             return validator(fixture.request, fixture.out)

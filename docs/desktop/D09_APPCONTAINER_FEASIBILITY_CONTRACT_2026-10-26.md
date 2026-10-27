@@ -108,13 +108,18 @@ did not pin identity across path-based ACL/copy/launch, and profile deletion
 did not explicitly require each child's pipe threads to have drained. No
 qualifier execution was authorized or performed before this correction.
 
-The replacement private `create_owned_directory` pins ordinary ancestors
-without delete sharing, then atomically creates ONE generated component relative
+The replacement private `create_owned_directory` pins ordinary local-disk
+ancestors without write/delete sharing, then atomically creates ONE generated component relative
 to the pinned parent with cached `NtCreateFile`: FILE_CREATE, directory,
 open-reparse-point and synchronous mode. Both return status and IO_STATUS_BLOCK
 must report successful new creation. The returned handle must identify an
 ordinary directory. Existing directory/file/reparse collisions refuse; no
 existing object is adopted. ACL uses SetSecurityInfo on this exact new handle.
+Existing ancestor handles request read-attributes/traverse/synchronize only;
+no ACL or data mutation occurs there. Writable directory handles already held by
+another process conservatively refuse; no relaxed-sharing fallback or UNC path
+is used. The newly created root also denies later writable directory opens,
+including the access needed to replace its reparse data.
 No path-named ACL mutation remains. WDK/System_IO feature forwarding stays
 inside dev-harness, using the same windows0.62.2 package and unchanged lock.
 

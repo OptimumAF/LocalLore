@@ -16,13 +16,14 @@ fn main() {
 #[cfg(windows)]
 mod win {
     use serde_json::{json, Value};
+    use sha2::{Digest, Sha256};
     use std::{
         fs::{self, File, OpenOptions},
-        io::{Read, Write},
+        io::{Read, Seek, SeekFrom, Write},
         mem::{size_of, size_of_val},
         net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream, UdpSocket},
-        os::windows::{ffi::OsStrExt, io::FromRawHandle},
-        path::{Component, Path, PathBuf},
+        os::windows::{ffi::OsStrExt, fs::{MetadataExt, OpenOptionsExt}, io::{AsRawHandle, FromRawHandle}},
+        path::{Component, Path, PathBuf, Prefix},
         sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex},
         thread::{self, JoinHandle},
         time::Duration,
@@ -31,8 +32,18 @@ mod win {
         Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree, SetHandleInformation, HANDLE_FLAGS, WAIT_OBJECT_0},
         NetworkManagement::{IpHelper::{GetAdaptersAddresses, GAA_FLAG_SKIP_ANYCAST, GAA_FLAG_SKIP_MULTICAST, GAA_FLAG_SKIP_DNS_SERVER, IP_ADAPTER_ADDRESSES_LH}, Ndis::IfOperStatusUp},
         Networking::WinSock::{AF_INET, SOCKADDR_IN},
-        Security::{self, Authorization::{ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, SetNamedSecurityInfoW, SE_FILE_OBJECT, SDDL_REVISION_1}, Isolation::{CreateAppContainerProfile, DeleteAppContainerProfile, DeriveAppContainerSidFromAppContainerName, GetAppContainerFolderPath}, GetTokenInformation, TOKEN_INFORMATION_CLASS, TOKEN_QUERY, TOKEN_USER, TOKEN_APPCONTAINER_INFORMATION, TokenIsAppContainer, TokenCapabilities, TokenAppContainerSid, TokenUser, PSID, PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, DACL_SECURITY_INFORMATION, LABEL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION},
+        Security::{self, Authorization::{ConvertSidToStringSidW, ConvertStringSecurityDescriptorToSecurityDescriptorW, SE_FILE_OBJECT, SDDL_REVISION_1}, Isolation::{CreateAppContainerProfile, DeleteAppContainerProfile, DeriveAppContainerSidFromAppContainerName, GetAppContainerFolderPath}, GetTokenInformation, TOKEN_INFORMATION_CLASS, TOKEN_QUERY, TOKEN_USER, TOKEN_APPCONTAINER_INFORMATION, TokenIsAppContainer, TokenCapabilities, TokenAppContainerSid, TokenUser, PSID, PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, DACL_SECURITY_INFORMATION, LABEL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION},
         System::{Com::{CoCreateGuid, CoTaskMemFree}, JobObjects::{CreateJobObjectW, AssignProcessToJobObject, SetInformationJobObject, QueryInformationJobObject, JobObjectExtendedLimitInformation, JobObjectBasicAccountingInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE}, Pipes::CreatePipe, Threading::{GetCurrentProcess, OpenProcessToken, CreateProcessW, InitializeProcThreadAttributeList, DeleteProcThreadAttributeList, UpdateProcThreadAttribute, LPPROC_THREAD_ATTRIBUTE_LIST, STARTUPINFOEXW, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, EXTENDED_STARTUPINFO_PRESENT, CREATE_SUSPENDED, CREATE_NO_WINDOW, STARTF_USESTDHANDLES, ResumeThread, WaitForSingleObject, GetExitCodeProcess, TerminateProcess}},
+    }};
+    use windows::{Wdk::{Foundation::OBJECT_ATTRIBUTES, Storage::FileSystem::{
+        NtCreateFile, FILE_CREATE, FILE_DIRECTORY_FILE, FILE_OPEN_REPARSE_POINT,
+        FILE_SYNCHRONOUS_IO_NONALERT,
+    }}, Win32::{Foundation::{OBJ_CASE_INSENSITIVE, UNICODE_STRING},
+        Security::Authorization::SetSecurityInfo,
+        Storage::FileSystem::{GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+            FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_READ_ATTRIBUTES, FILE_TRAVERSE,
+            FILE_SHARE_READ, SYNCHRONIZE, WRITE_DAC, WRITE_OWNER},
+        System::IO::IO_STATUS_BLOCK,
     }};
 
     type Result<T> = std::result::Result<T, String>;
@@ -65,13 +76,98 @@ mod win {
         unsafe { CoTaskMemFree(Some(folder.0.cast())); }
         value
     }
-    fn ordinary_chain(path: &Path) -> Result<()> {
-        use std::os::windows::fs::MetadataExt;
-        if !path.is_absolute() || path.components().any(|p| matches!(p, Component::ParentDir | Component::CurDir)) { return fail("UnsafeFixturePath"); }
-        for ancestor in path.ancestors() {
-            if io(fs::symlink_metadata(ancestor))?.file_attributes() & 0x400 != 0 { return fail("ReparseFixturePath"); }
+    fn pin_directory(path: &Path) -> Result<Vec<File>> {
+        if !path.is_absolute() || path.components().any(|p| matches!(p, Component::ParentDir | Component::CurDir))
+            || !matches!(path.components().next(), Some(Component::Prefix(p)) if matches!(p.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_))) {
+            return fail("LocalOrdinaryPathRequired");
         }
-        Ok(())
+        let mut pins = vec![];
+        let mut current = PathBuf::new();
+        for component in path.components() {
+            current.push(component.as_os_str());
+            if matches!(component, Component::Prefix(_)) { continue; }
+            let file = io(OpenOptions::new().access_mode(FILE_READ_ATTRIBUTES.0 | FILE_TRAVERSE.0 | SYNCHRONIZE.0)
+                .custom_flags(0x02000000 | 0x00200000).share_mode(1).open(&current))?;
+            let metadata = io(file.metadata())?;
+            if !metadata.is_dir() || metadata.file_attributes() & 0x400 != 0 { return fail("ReparseFixturePath"); }
+            pins.push(file); // No write/delete sharing: reparse mutation and replacement refuse.
+        }
+        if pins.is_empty() { return fail("PinnedParentMissing"); }
+        Ok(pins)
+    }
+    struct PinnedDirectory { path: PathBuf, file: File, _parents: Vec<File> }
+    fn create_owned_directory(parent: &Path, name: &str) -> Result<PinnedDirectory> {
+        if !name.strip_prefix("fixture-").or_else(||name.strip_prefix("locallore-offline-proof-"))
+            .is_some_and(valid_id) { return fail("GeneratedComponentRequired"); }
+        let parents = pin_directory(parent)?;
+        let root = HANDLE(parents.last().ok_or("PinnedParentMissing")?.as_raw_handle());
+        let mut name_wide = wide(name);
+        let length = u16::try_from((name_wide.len() - 1) * 2).map_err(|_|"GeneratedComponentRequired")?;
+        let text = UNICODE_STRING { Length:length, MaximumLength:length + 2, Buffer:PWSTR(name_wide.as_mut_ptr()) };
+        let attributes = OBJECT_ATTRIBUTES { Length:size_of::<OBJECT_ATTRIBUTES>() as u32,
+            RootDirectory:root, ObjectName:&text, Attributes:OBJ_CASE_INSENSITIVE, ..Default::default() };
+        let mut status = IO_STATUS_BLOCK::default();
+        let mut raw = HANDLE::default();
+        let returned = unsafe { NtCreateFile(&mut raw,
+            FILE_GENERIC_READ | WRITE_DAC | WRITE_OWNER | SYNCHRONIZE, &attributes,
+            &mut status, None, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ,
+            FILE_CREATE, FILE_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, None, 0) };
+        // FILE_CREATED=2 is the documented IO_STATUS_BLOCK.Information result.
+        // Even an informational/pending return is not adopted as owned creation.
+        if returned.0 != 0 || unsafe { status.Anonymous.Status }.0 != 0 || status.Information != 2 || raw.is_invalid() {
+            if !raw.is_invalid() { unsafe { let _ = CloseHandle(raw); } }
+            return Err(format!("CreateOwnedDirectory:{:08x}", returned.0 as u32));
+        }
+        let file = into_file(Handle(raw));
+        let metadata = io(file.metadata())?;
+        if !metadata.is_dir() || metadata.file_attributes() & 0x400 != 0 { return fail("CreatedDirectoryIdentity"); }
+        Ok(PinnedDirectory { path:parent.join(name), file, _parents:parents })
+    }
+    fn file_identity(file: &File) -> Result<(u32, u32, u32)> {
+        let mut info = BY_HANDLE_FILE_INFORMATION::default();
+        api(unsafe { GetFileInformationByHandle(HANDLE(file.as_raw_handle()), &mut info) })?;
+        if info.dwFileAttributes & (0x400 | 0x10) != 0 || info.nNumberOfLinks == 0
+            || (info.nFileIndexHigh == 0 && info.nFileIndexLow == 0) { return fail("OrdinaryFileRequired"); }
+        Ok((info.dwVolumeSerialNumber, info.nFileIndexHigh, info.nFileIndexLow))
+    }
+    fn hash_image(file: &mut File) -> Result<String> {
+        const MAX_IMAGE: u64 = 256 * 1024 * 1024;
+        let expected = io(file.metadata())?.len();
+        if expected == 0 || expected > MAX_IMAGE { return fail("SelfImageBudget"); }
+        io(file.seek(SeekFrom::Start(0)))?;
+        let mut hash = Sha256::new(); let mut total = 0u64; let mut bytes = [0u8; 65536];
+        loop {
+            let read = io(file.read(&mut bytes))?;
+            if read == 0 { break; }
+            total = total.checked_add(read as u64).filter(|n|*n <= MAX_IMAGE).ok_or("SelfImageBudget")?;
+            hash.update(&bytes[..read]);
+        }
+        if total != expected { return fail("SelfImageChanged"); }
+        io(file.seek(SeekFrom::Start(0)))?;
+        Ok(format!("{:x}", hash.finalize()))
+    }
+    struct PinnedExecutable { path: PathBuf, sha256: String, _pins: Vec<File> }
+    fn copy_self_to_new(root: &PinnedDirectory) -> Result<PinnedExecutable> {
+        let source_path = io(std::env::current_exe())?;
+        let mut pins = pin_directory(source_path.parent().ok_or("SelfImageParent")?)?;
+        let mut source = io(OpenOptions::new().read(true).custom_flags(0x00200000).share_mode(1).open(&source_path))?;
+        file_identity(&source)?;
+        let expected = hash_image(&mut source)?;
+        let path = root.path.join("offline-qualifier.exe");
+        let mut writer = io(OpenOptions::new().read(true).write(true).create_new(true)
+            .custom_flags(0x00200000).share_mode(3).open(&path))?;
+        let identity = file_identity(&writer)?;
+        io(std::io::copy(&mut source, &mut writer))?; io(writer.sync_all())?;
+        // Attribute-only guard preserves name/object identity without retaining
+        // write access during the transition to a loader-compatible read pin.
+        let guard = io(OpenOptions::new().access_mode(FILE_READ_ATTRIBUTES.0)
+            .custom_flags(0x00200000).share_mode(3).open(&path))?;
+        if file_identity(&guard)? != identity { return fail("SelfImageIdentity"); }
+        drop(writer);
+        let mut destination = io(OpenOptions::new().read(true).custom_flags(0x00200000).share_mode(1).open(&path))?;
+        if file_identity(&destination)? != identity || hash_image(&mut destination)? != expected { return fail("SelfImageChanged"); }
+        pins.extend([source, guard, destination]);
+        Ok(PinnedExecutable { path, sha256:expected, _pins:pins })
     }
     fn token_buffer(token: HANDLE, class: TOKEN_INFORMATION_CLASS, minimum: usize) -> Result<Vec<usize>> {
         let mut bytes = 0;
@@ -106,8 +202,8 @@ mod win {
         let user = token_buffer(token.0, TokenUser, size_of::<TOKEN_USER>())?;
         sid_text(unsafe { (*(user.as_ptr().cast::<TOKEN_USER>())).User.Sid })
     }
-    fn grant_new_fixture(path: &Path, package: PSID) -> Result<()> {
-        // Caller has just create_dir'd this directory. Never called on an ancestor.
+    fn grant_new_fixture(root: &PinnedDirectory, package: PSID) -> Result<()> {
+        // Only the private atomic-create constructor can supply this new object.
         let descriptor = wide(format!("D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;{})(A;OICI;FA;;;{})S:(ML;OICI;NW;;;LW)", current_user()?, sid_text(package)?));
         let mut security = PSECURITY_DESCRIPTOR::default();
         api(unsafe { ConvertStringSecurityDescriptorToSecurityDescriptorW(PCWSTR(descriptor.as_ptr()), SDDL_REVISION_1, &mut security, None) })?;
@@ -118,22 +214,23 @@ mod win {
             if !present.as_bool() { return fail("MissingFixtureDacl"); }
             api(unsafe { Security::GetSecurityDescriptorSacl(security, &mut present, &mut sacl, &mut defaulted) })?;
             if !present.as_bool() { return fail("MissingFixtureLabel"); }
-            let name = wide(path);
-            api(unsafe { SetNamedSecurityInfoW(PCWSTR(name.as_ptr()), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, None, None, Some(dacl), Some(sacl)).ok() })
+            api(unsafe { SetSecurityInfo(HANDLE(root.file.as_raw_handle()), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | LABEL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, None, None, Some(dacl), Some(sacl)).ok() })
         })();
         unsafe { LocalFree(Some(HLOCAL(security.0))); }
         result
     }
     fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
         if bytes.len() > CAP { return fail("EvidenceSize"); }
-        let mut file = io(OpenOptions::new().write(true).create_new(true).open(path))?;
+        let mut file = io(OpenOptions::new().write(true).create_new(true).custom_flags(0x00200000).share_mode(1).open(path))?;
         io(file.write_all(bytes))?;
         io(file.sync_all())
     }
     fn encode(value: &Value) -> Result<Vec<u8>> { serde_json::to_vec(value).map_err(|_| "Encoding".into()) }
     fn read_small(path: &Path) -> Result<Vec<u8>> {
         let mut bytes = vec![];
-        io(io(File::open(path))?.take(CAP as u64 + 1).read_to_end(&mut bytes))?;
+        let file = io(OpenOptions::new().read(true).custom_flags(0x00200000).share_mode(1).open(path))?;
+        file_identity(&file)?;
+        io(file.take(CAP as u64 + 1).read_to_end(&mut bytes))?;
         if bytes.len() > CAP { return fail("FixtureReadBudget"); }
         Ok(bytes)
     }
@@ -367,7 +464,6 @@ mod win {
     }
 
     fn canary() -> Result<()> {
-        use std::os::windows::fs::MetadataExt;
         let mut bytes = vec![]; io(std::io::stdin().take(4097).read_to_end(&mut bytes))?;
         if bytes.len() > 4096 { return fail("CanaryInputBudget"); }
         let request: Value = serde_json::from_slice(&bytes).map_err(|_| "CanaryInputEncoding")?;
@@ -416,17 +512,22 @@ mod win {
         Ok(())
     }
 
+    fn profile_delete_allowed(proof: &Value) -> bool {
+        proof["profile_created"] == true && proof["child_cleanup_known"] == true
+            && proof["listener_threads_drained"] == true
+            && ["baseline", "boxed"].into_iter().all(|case| proof.get(case).is_none_or(|child|
+                child["cleanup_known"] == true && child["threads_drained"] == true))
+    }
     pub fn entry() -> Result<()> {
         let args: Vec<_> = std::env::args_os().skip(1).collect();
         if args.len() == 1 && args[0] == "--self-canary" { return canary(); }
         if !args.is_empty() { return fail("ClosedArgumentsRequired"); }
         let id = guid()?; let challenge = guid()?;
-        let evidence = std::env::temp_dir().join(format!("locallore-offline-proof-{id}"));
-        io(fs::create_dir(&evidence))?; ordinary_chain(&evidence)?;
-        eprintln!("LOCALLORE_OFFLINE_FEASIBILITY_ARTIFACT={}", evidence.display());
+        let evidence = create_owned_directory(&std::env::temp_dir(), &format!("locallore-offline-proof-{id}"))?;
+        eprintln!("LOCALLORE_OFFLINE_FEASIBILITY_ARTIFACT={}", evidence.path.display());
         let mut proof = json!({"version":1,"kind":"appcontainer_feasibility","phase":"profile_create","passed":false,"run_id":id,"profile_created":false,"profile_deleted":false,"child_cleanup_known":true,"listener_threads_drained":true,"webview_executed":false,"native_ipc_executed":false,"approved_worker_executed":false,"model_executed":false,"ipv6_tested":false,"dns_tested":false});
         let name = wide(format!("locallore.offline.{id}"));
-        let mut sid = None; let mut listeners = None; let mut fixture = None;
+        let mut sid = None; let mut listeners = None; let mut fixture = None; let mut executable_pins = vec![];
         let result: Result<()> = (|| {
             // Never derive/adopt on AlreadyExists. Only this success owns deletion.
             let package = Sid(api(unsafe { CreateAppContainerProfile(PCWSTR(name.as_ptr()), PCWSTR(name.as_ptr()), PCWSTR(name.as_ptr()), None) })?);
@@ -434,21 +535,23 @@ mod win {
             let package = sid.as_ref().ok_or("ProfileMissing")?.0;
             proof["package_sid"] = json!(sid_text(package)?);
             proof["phase"] = json!("fixture_prepare");
-            let root = profile_folder(package)?.join(format!("fixture-{id}"));
-            io(fs::create_dir(&root))?; fixture = Some(root.clone()); ordinary_chain(&root)?; grant_new_fixture(&root, package)?;
-            let executable = root.join("offline-qualifier.exe");
-            io(fs::copy(io(std::env::current_exe())?, &executable))?;
-            write_new(&root.join("challenge.txt"), challenge.as_bytes())?;
+            fixture = Some(create_owned_directory(&profile_folder(package)?, &format!("fixture-{id}"))?);
+            let root = fixture.as_ref().ok_or("FixtureMissing")?;
+            grant_new_fixture(root, package)?;
+            executable_pins.push(copy_self_to_new(root)?);
+            let executable = executable_pins.last().ok_or("SelfImageMissing")?;
+            proof["copied_self_sha256"] = json!(executable.sha256);
+            write_new(&root.path.join("challenge.txt"), challenge.as_bytes())?;
             proof["phase"] = json!("listener_prepare");
             listeners = Some(Listeners::start(&challenge)?);
             let server = listeners.as_ref().ok_or("ListenersMissing")?;
             let request = |label: &str| json!({"version":1,"run_id":id,"case":label,"challenge":challenge,"tcp":server.tcp.to_string(),"udp":server.udp.to_string()});
             proof["phase"] = json!("baseline");
-            let baseline = run_child(&executable, None, &request("baseline"), &evidence, "baseline");
+            let baseline = run_child(&executable.path, None, &request("baseline"), &evidence.path, "baseline");
             proof["child_cleanup_known"] = baseline["cleanup_known"].clone(); proof["baseline"] = baseline;
             if proof["baseline"]["passed"] != true { return fail("PositiveControlFailed"); }
             proof["phase"] = json!("boxed");
-            let boxed = run_child(&executable, Some(package), &request("boxed"), &evidence, "boxed");
+            let boxed = run_child(&executable.path, Some(package), &request("boxed"), &evidence.path, "boxed");
             proof["child_cleanup_known"] = boxed["cleanup_known"].clone(); proof["boxed"] = boxed;
             if proof["boxed"]["passed"] != true { return fail("ExplicitNetworkDenialFailed"); }
             Ok(())
@@ -459,22 +562,23 @@ mod win {
                 Err(e) => { proof["listener_threads_drained"]=json!(false); proof["listener_error"]=json!(e); },
             }
         }
-        if let Some(root) = fixture {
+        if let Some(root) = fixture.as_ref() {
             for label in ["baseline", "boxed"] {
-                let path = root.join(format!("{label}.txt"));
+                let path = root.path.join(format!("{label}.txt"));
                 match read_small(&path) {
                     Ok(bytes) => {
                         let suffix = if label == "baseline" { "B" } else { "X" };
                         let matches = bytes == format!("{challenge}{suffix}").as_bytes();
-                        let captured = write_new(&evidence.join(format!("{label}.file-proof.bin")), &bytes).is_ok();
+                        let captured = write_new(&evidence.path.join(format!("{label}.file-proof.bin")), &bytes).is_ok();
                         proof[format!("{label}_parent_file_readback")] = json!(matches && captured);
                     }
                     Err(_) => { proof[format!("{label}_parent_file_readback")] = json!(false); }
                 }
             }
         }
+        proof["profile_delete_eligible"] = json!(profile_delete_allowed(&proof));
         if let Some(package) = sid {
-            if proof["child_cleanup_known"] == true && proof["listener_threads_drained"] == true {
+            if profile_delete_allowed(&proof) {
                 match unsafe { DeleteAppContainerProfile(PCWSTR(name.as_ptr())) } {
                     Ok(()) => proof["profile_deleted"]=json!(true),
                     Err(e) => proof["profile_delete_hresult"]=json!(e.code().0),
@@ -484,7 +588,10 @@ mod win {
         }
         if let Err(error) = result { proof["error"]=json!(error); }
         proof["passed"]=json!(proof.get("error").is_none() && proof["baseline"]["passed"]==true && proof["boxed"]["passed"]==true && proof["baseline_parent_file_readback"]==true && proof["boxed_parent_file_readback"]==true && proof["listener_expected_only"]==true && proof["child_cleanup_known"]==true && proof["listener_threads_drained"]==true && proof["profile_deleted"]==true);
-        write_new(&evidence.join("proof.json"), &encode(&proof)?)?;
+        // Evidence and all fixture/image identity pins are still live here,
+        // including across the profile deletion attempt. Never follow a root
+        // after releasing its ownership guard merely to write a final outcome.
+        write_new(&evidence.path.join("proof.json"), &encode(&proof)?)?;
         if proof["passed"] != true { return fail("FeasibilityNotEstablished"); }
         println!("AppContainerSelfCanaryFeasibilityPassed;NoWebViewOrModelQualification");
         Ok(())
@@ -526,6 +633,8 @@ mod win {
             let name = format!("fixture-{}", guid().unwrap());
             let owned = create_owned_directory(&parent.path, &name).unwrap();
             assert!(fs::rename(&owned.path, parent.path.join("renamed" )).is_err(), "live no-delete handle blocks root replacement");
+            let write_attempt = OpenOptions::new().write(true).custom_flags(0x02000000 | 0x00200000).share_mode(3).open(&owned.path);
+            assert!(matches!(write_attempt, Err(error) if error.raw_os_error() == Some(32)), "live no-write-sharing root rejects the handle needed for reparse mutation");
             let moniker = wide(format!("locallore.offline.{}", guid().unwrap()));
             let package = Sid(unsafe { DeriveAppContainerSidFromAppContainerName(PCWSTR(moniker.as_ptr())) }.unwrap());
             grant_new_fixture(&owned, package.0).unwrap();

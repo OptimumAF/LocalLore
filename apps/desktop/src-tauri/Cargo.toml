@@ -29,6 +29,9 @@ dev-harness = [
     "windows/Win32_NetworkManagement_IpHelper",
     "windows/Win32_NetworkManagement_Ndis",
     "windows/Win32_Networking_WinSock",
+    "windows/Wdk_Foundation",
+    "windows/Wdk_Storage_FileSystem",
+    "windows/Win32_System_IO",
 ]
 
 [[bin]]

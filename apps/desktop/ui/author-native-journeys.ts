@@ -336,58 +336,61 @@ export async function authorNativeJourneys({
             root.querySelector(".author-panel") ??
             root.querySelector(".v2-play") ??
             root;
-        const focus =
-            label === "author-native-v2-receipt-diff"
-                ? [
-                      ...root.querySelectorAll('[data-native-kind="change"]'),
-                  ].find((row) =>
+        const focus = [
+            "author-native-v2-receipt-diff",
+            "author-native-recorded-turn-diff",
+        ].includes(label)
+            ? [...root.querySelectorAll('[data-native-kind="change"]')].find(
+                  (row) =>
                       row
                           .querySelector("caption")
                           ?.textContent?.includes("item/potion"),
+              )
+            : [
+                    "author-native-v2-receipt-prior-seed",
+                    "author-native-recorded-prior-source",
+                ].includes(label)
+              ? [
+                    ...root.querySelectorAll(
+                        '[aria-label="Read-only V2 inspector"] [data-native-kind="field"]',
+                    ),
+                ].find((row) => row.textContent?.includes("item/potion"))
+              : [
+                      "author-native-v2-inherited-source",
+                      "author-native-recorded-inherited-source",
+                  ].includes(label)
+                ? root.querySelector(
+                      '[aria-label="Read-only V2 inspector"] [data-native-kind="event"]',
                   )
-                : label === "author-native-v2-receipt-prior-seed"
-                  ? [
-                        ...root.querySelectorAll(
-                            '[aria-label="Read-only V2 inspector"] [data-native-kind="field"]',
-                        ),
-                    ].find((row) => row.textContent?.includes("item/potion"))
-                  : label === "author-native-v2-inherited-source"
-                    ? root.querySelector(
-                          '[aria-label="Read-only V2 inspector"] [data-native-kind="event"]',
-                      )
-                    : label === "author-native-observer"
-                      ? (root.querySelector(
-                            '[data-native-kind="knowledge"][data-native-origin="known_as_observed"]',
-                        ) ??
-                        root.querySelector(
-                            '[aria-label="Read-only V2 inspector"]',
-                        ))
-                      : label === "author-native-receipt"
-                        ? root.querySelector(
-                              '[aria-label="Actual native receipt"]',
-                          )
-                        : label === "author-native-turn-cancelled"
-                          ? root.querySelector(
-                                '[aria-label="Original turn status"]',
-                            )
-                          : label === "author-native-preview"
-                            ? root.querySelector("#author-impact-preview")
+                : label === "author-native-observer"
+                  ? (root.querySelector(
+                        '[data-native-kind="knowledge"][data-native-origin="known_as_observed"]',
+                    ) ??
+                    root.querySelector('[aria-label="Read-only V2 inspector"]'))
+                  : label === "author-native-receipt"
+                    ? root.querySelector('[aria-label="Actual native receipt"]')
+                    : label === "author-native-turn-cancelled"
+                      ? root.querySelector(
+                            '[aria-label="Original turn status"]',
+                        )
+                      : label === "author-native-preview"
+                        ? root.querySelector("#author-impact-preview")
+                        : [
+                                "author-native-consent",
+                                "author-native-rejected",
+                                "author-native-cancelled",
+                            ].includes(label)
+                          ? root.querySelector("#author-visible-error")
+                          : label === "author-native-pending"
+                            ? root.querySelector("#author-operation-notice")
                             : [
-                                    "author-native-consent",
-                                    "author-native-rejected",
-                                    "author-native-cancelled",
+                                    "author-native-saved",
+                                    "author-native-late-cancel",
+                                    "author-native-recovered",
+                                    "author-native-narrow",
                                 ].includes(label)
-                              ? root.querySelector("#author-visible-error")
-                              : label === "author-native-pending"
-                                ? root.querySelector("#author-operation-notice")
-                                : [
-                                        "author-native-saved",
-                                        "author-native-late-cancel",
-                                        "author-native-recovered",
-                                        "author-native-narrow",
-                                    ].includes(label)
-                                  ? root.querySelector("#author-outcome-title")
-                                  : null;
+                              ? root.querySelector("#author-outcome-title")
+                              : null;
         (focus ?? panel).scrollIntoView({ block: "start" });
         await pause();
         check(
@@ -681,7 +684,436 @@ export async function authorNativeJourneys({
                 });
             }
             await capture("author-native-restarted");
+            await until(
+                () => !v2.get().readBusy && !v2.get().queryBusy,
+                "cold-recorded-turn-current-reads-settled",
+            );
+            const coldContext = v2.get().context,
+                coldBound = v2.get().history!,
+                coldSnapshot = structural(v2.get().snapshot),
+                coldHistory = structural(coldBound),
+                coldRootSnapshot = structural(c.get().playV2),
+                coldOracle = structural(await oracle());
+            check(
+                v2.get().receipt === null &&
+                    coldContext?.view === "play" &&
+                    coldContext.observer.kind === "player" &&
+                    coldContext.scope.story === parent.story &&
+                    coldContext.scope.branch === "author-saved" &&
+                    coldContext.revision === 3 &&
+                    v2.get().snapshot?.revision === 3 &&
+                    v2.get().snapshot?.player.observer === coldContext.player &&
+                    coldBound.query.view === "history" &&
+                    coldBound.page.head === 3 &&
+                    coldBound.page.revision === 3 &&
+                    coldBound.page.privacy === "player_visible",
+                "cold-recorded-turn-actual-reopened-Player-head3-history-without-raw-receipt",
+            );
+            const coldGift = coldBound.page.rows.find(
+                (row): row is Extract<RowV2, { kind: "event" }> =>
+                    row.kind === "event" &&
+                    row.event.scope.story === parent.story &&
+                    row.event.scope.branch === "author-saved" &&
+                    row.event.sequence === 3 &&
+                    row.event.consequence.effect === "given" &&
+                    row.event.consequence.item === "potion" &&
+                    row.event.consequence.from === coldContext!.player &&
+                    row.event.consequence.to === "mira",
+            );
+            const coldNarration = coldBound.page.rows.find(
+                (row): row is Extract<RowV2, { kind: "scoped_message" }> =>
+                    row.kind === "scoped_message" &&
+                    row.message_kind === "narration" &&
+                    row.origin === "recorded_message" &&
+                    row.original_scope.story === parent.story &&
+                    row.original_scope.branch === "author-saved" &&
+                    row.turn === coldGift?.event.turn &&
+                    structural(row.event_ids) === structural([3]),
+            );
+            check(
+                !!coldGift && !!coldNarration && !!coldNarration.text,
+                "cold-recorded-turn-actual-persisted-Gift-event-and-own-narration-identities",
+            );
+            if (!coldGift || !coldNarration)
+                throw Error("ColdRecordedGiftUnavailable");
+            const coldReadOnly = async (label: string) => {
+                check(
+                    v2.get().context === coldContext &&
+                        v2.get().receipt === null &&
+                        structural(v2.get().snapshot) === coldSnapshot &&
+                        structural(v2.get().history) === coldHistory &&
+                        structural(c.get().playV2) === coldRootSnapshot &&
+                        structural(await oracle()) === coldOracle,
+                    label,
+                );
+            };
+            const coldNarrationRows = () =>
+                [
+                    ...document.querySelectorAll<HTMLElement>(
+                        '[aria-label="Accepted scoped history"] [data-native-kind="scoped_message"]',
+                    ),
+                ].filter(
+                    (row) =>
+                        row
+                            .querySelector("small")
+                            ?.textContent?.includes(coldNarration.turn) &&
+                        row.querySelector(".record-value")?.textContent ===
+                            coldNarration.text &&
+                        [...row.querySelectorAll("button")].some(
+                            (button) =>
+                                button.textContent?.trim() ===
+                                    "Inspect recorded turn changes" &&
+                                !button.disabled,
+                        ),
+                );
+            await until(
+                () => coldNarrationRows().length === 1,
+                "cold-recorded-turn-own-actual-mounted-narration-row-button-ready",
+            );
+            const coldAttempts = transport.inspectionDispatches,
+                coldOldInspection = v2.get().inspection;
+            namedButton(
+                coldNarrationRows()[0],
+                "Inspect recorded turn changes",
+            ).click();
+            await until(() => {
+                const state = v2.get(),
+                    inspector = document.querySelector(
+                        '[aria-label="Read-only V2 inspector"]',
+                    );
+                return (
+                    !!state.inspection &&
+                    state.inspection !== coldOldInspection &&
+                    !state.queryBusy &&
+                    state.inspection.query.view === "turn_diff" &&
+                    state.inspection.page.revision === 3 &&
+                    inspector?.querySelector<HTMLSelectElement>("select")
+                        ?.value === "turn_diff" &&
+                    inspector?.querySelector<HTMLInputElement>(
+                        'input[type="number"]',
+                    )?.value === "3" &&
+                    inspector?.querySelector<HTMLInputElement>(
+                        'input:not([type="number"])',
+                    )?.value === "" &&
+                    document
+                        .querySelector(
+                            '[aria-label="Displayed inspection context"]',
+                        )
+                        ?.textContent?.includes(
+                            "selected head r3 · inspected r3",
+                        ) === true
+                );
+            }, "cold-recorded-turn-mounted-callback-opens-diff-and-synchronizes-controls");
+            const coldDiff = v2.get().inspection!;
+            check(
+                transport.inspectionDispatches === coldAttempts + 1 &&
+                    coldDiff.query.version === 2 &&
+                    coldDiff.query.expected_head === 3 &&
+                    coldDiff.query.at_revision === 3 &&
+                    coldDiff.query.search === "" &&
+                    coldDiff.query.observer.kind === "player" &&
+                    coldDiff.page.head === 3 &&
+                    coldDiff.page.privacy === "player_visible" &&
+                    structural(coldDiff.query.scope) ===
+                        structural(coldContext!.scope) &&
+                    c.get().view === "play" &&
+                    v2.get().receipt === null,
+                "cold-recorded-turn-actual-Player-Query2-selected-child-head3-no-receipt-reconstruction",
+            );
+            const coldRemoved = coldDiff.page.rows.find(
+                (row): row is Extract<RowV2, { kind: "change" }> =>
+                    row.kind === "change" &&
+                    row.before?.kind === "field" &&
+                    row.before.field === "item/potion" &&
+                    row.after === null,
+            );
+            check(
+                coldRemoved?.before_revision === 2 &&
+                    coldRemoved.after_revision === 3 &&
+                    coldRemoved.before?.kind === "field" &&
+                    coldRemoved.before.value.type === "item" &&
+                    coldRemoved.before.value.value.owner ===
+                        coldContext!.player &&
+                    coldRemoved.before.source.kind === "seed",
+                "cold-recorded-turn-actual-before2-after3-potion-absence-and-prior-seed",
+            );
+            if (
+                !coldRemoved ||
+                coldRemoved.before?.kind !== "field" ||
+                coldRemoved.before.source.kind !== "seed"
+            )
+                throw Error("ColdPriorSeedUnavailable");
+            const coldChangeRows = () =>
+                [
+                    ...document.querySelectorAll<HTMLElement>(
+                        '[aria-label="Read-only V2 inspector"] [data-native-kind="change"]',
+                    ),
+                ].filter((row) =>
+                    row
+                        .querySelector("caption")
+                        ?.textContent?.includes("item/potion"),
+                );
+            await until(
+                () => coldChangeRows().length === 1,
+                "cold-recorded-turn-actual-readable-change-table-mounted",
+            );
+            const coldChangeRecord = coldChangeRows()[0],
+                coldHeaders = [...coldChangeRecord.querySelectorAll("th")].map(
+                    (cell) => cell.textContent ?? "",
+                ),
+                coldCells = [...coldChangeRecord.querySelectorAll("tbody td")];
+            check(
+                coldHeaders.length === 2 &&
+                    /Before\s*·\s*r2/.test(coldHeaders[0]) &&
+                    /After\s*·\s*r3/.test(coldHeaders[1]) &&
+                    coldCells.length === 2 &&
+                    coldCells[0].textContent?.includes(
+                        "Prior field provenance",
+                    ) &&
+                    coldCells[1].textContent?.trim() === "Absent" &&
+                    !/caused the removal|removed by event/i.test(
+                        coldChangeRecord.textContent ?? "",
+                    ),
+                "cold-recorded-turn-mounted-before-after-table-does-not-invent-removal-cause",
+            );
+            noPrivateAuthor(
+                coldDiff.page,
+                "cold-recorded-turn-Player-diff-excludes-private-author-evidence",
+            );
+            await coldReadOnly(
+                "cold-recorded-turn-diff-preserves-native-oracle-player-snapshot-history-and-null-receipt",
+            );
+            receiptEvidence.push({
+                stage: "restart",
+                available: true,
+                kind: "recorded-turn-route-available",
+                selected: coldContext!.scope,
+                head: 3,
+                historicalRevision: 3,
+                originalScope: coldNarration.original_scope,
+                originalTurn: coldNarration.turn,
+                eventIds: coldNarration.event_ids,
+                rawReceiptAvailable: false,
+                route: "actual-mounted-recorded-narration-to-Player-Query2-turn-diff",
+                detachedCallbackClaim: false,
+            });
+            await capture("author-native-recorded-turn-diff");
+            const coldSeed = coldRemoved.before.source,
+                coldSeedAttempts = transport.inspectionDispatches;
+            namedButton(coldCells[0], `Seed ${coldSeed.value}`).click();
+            await until(() => {
+                const state = v2.get(),
+                    inspector = document.querySelector(
+                        '[aria-label="Read-only V2 inspector"]',
+                    );
+                return (
+                    !state.queryBusy &&
+                    state.inspection?.query.view === "profiles" &&
+                    state.inspection.page.revision === 0 &&
+                    inspector?.querySelector<HTMLSelectElement>("select")
+                        ?.value === "profiles" &&
+                    inspector?.querySelector<HTMLInputElement>(
+                        'input[type="number"]',
+                    )?.value === "0" &&
+                    document
+                        .querySelector(
+                            '[aria-label="Displayed inspection context"]',
+                        )
+                        ?.textContent?.includes(
+                            "selected head r3 · inspected r0",
+                        ) === true
+                );
+            }, "cold-recorded-prior-seed-actual-per-side-mounted-source-updates-profiles0-controls");
+            const coldResolvedSeed = v2.get().source;
+            check(
+                transport.inspectionDispatches === coldSeedAttempts + 1 &&
+                    coldResolvedSeed?.kind === "seed" &&
+                    coldResolvedSeed.value === coldSeed.value &&
+                    v2.get().sourceMatched === false &&
+                    v2.get().notice.includes("Seed-era profiles") &&
+                    v2.get().inspection?.query.expected_head === 3 &&
+                    v2.get().inspection?.query.at_revision === 0 &&
+                    v2.get().inspection?.page.head === 3 &&
+                    v2.get().inspection?.page.privacy === "player_visible" &&
+                    v2.get().inspection?.query.observer.kind === "player" &&
+                    structural(v2.get().inspection?.query.scope) ===
+                        structural(coldContext!.scope) &&
+                    v2
+                        .get()
+                        .inspection?.page.rows.some(
+                            (row) =>
+                                row.kind === "field" &&
+                                row.field === "item/potion" &&
+                                row.value.type === "item" &&
+                                row.value.value.owner === coldContext!.player,
+                        ),
+                "cold-recorded-prior-seed-is-actual-historical-profile-not-current-inventory-or-removal-cause",
+            );
+            noPrivateAuthor(
+                v2.get().inspection?.page,
+                "cold-recorded-prior-seed-excludes-private-author-evidence",
+            );
+            await coldReadOnly(
+                "cold-recorded-prior-source-preserves-native-oracle-snapshot-history-and-null-receipt",
+            );
+            receiptEvidence.push({
+                stage: "restart",
+                available: true,
+                kind: "recorded-turn-prior-seed-source",
+                selectedHead: 3,
+                inspectedRevision: 0,
+                originalSource: coldSeed,
+                rawReceiptAvailable: false,
+                exactEventMatchClaim: false,
+            });
+            await capture("author-native-recorded-prior-source");
+            const coldInheritedPage = await v2.readQuery({
+                view: "history",
+                atRevision: 3,
+                search: "",
+            });
+            check(
+                !!coldInheritedPage &&
+                    coldInheritedPage === v2.get().inspection,
+                "cold-recorded-inherited-actual-current-checked-history-bound",
+            );
+            const coldInherited = coldInheritedPage?.page.rows.find(
+                (row) =>
+                    row.kind === "event" &&
+                    row.event.scope.story === parent.story &&
+                    row.event.scope.branch === "main" &&
+                    row.event.sequence === 1 &&
+                    row.event.turn === "author-parent-message",
+            );
+            check(
+                coldInherited?.kind === "event",
+                "cold-recorded-inherited-event1-retains-actual-original-main-scope",
+            );
+            const coldInheritedRows = () =>
+                [
+                    ...document.querySelectorAll<HTMLElement>(
+                        '[aria-label="Read-only V2 inspector"] [data-native-kind="event"]',
+                    ),
+                ].filter((row) =>
+                    row
+                        .querySelector("strong")
+                        ?.textContent?.includes(
+                            `Event 1 · ${parent.story} / main`,
+                        ),
+                );
+            await until(
+                () => coldInheritedRows().length === 1,
+                "cold-recorded-inherited-actual-own-mounted-event-source-row-ready",
+            );
+            const coldInheritedAttempts = transport.inspectionDispatches;
+            namedButton(
+                coldInheritedRows()[0],
+                `${parent.story} / main · event 1`,
+            ).click();
+            await until(() => {
+                const state = v2.get(),
+                    inspector = document.querySelector(
+                        '[aria-label="Read-only V2 inspector"]',
+                    );
+                return (
+                    !state.queryBusy &&
+                    state.sourceMatched === true &&
+                    state.source?.kind === "scoped_event" &&
+                    state.inspection?.query.view === "history" &&
+                    state.inspection.page.revision === 3 &&
+                    inspector?.querySelector<HTMLSelectElement>("select")
+                        ?.value === "history" &&
+                    inspector?.querySelector<HTMLInputElement>(
+                        'input[type="number"]',
+                    )?.value === "3" &&
+                    inspector?.querySelector<HTMLInputElement>(
+                        'input:not([type="number"])',
+                    )?.value === state.inspection.query.search &&
+                    document
+                        .querySelector(
+                            '[aria-label="Displayed inspection context"]',
+                        )
+                        ?.textContent?.includes(
+                            "selected head r3 · inspected r3",
+                        ) === true
+                );
+            }, "cold-recorded-inherited-source-matches-original-event-and-actual-local-controls");
+            const coldOriginalSource = v2.get().source;
+            check(
+                transport.inspectionDispatches === coldInheritedAttempts + 1 &&
+                    coldOriginalSource?.kind === "scoped_event" &&
+                    structural(coldOriginalSource.value.original_scope) ===
+                        structural(parent) &&
+                    coldOriginalSource.value.sequence === 1 &&
+                    v2.get().inspection?.page.head === 3 &&
+                    v2.get().inspection?.page.privacy === "player_visible" &&
+                    v2.get().inspection?.query.observer.kind === "player" &&
+                    structural(v2.get().inspection?.query.scope) ===
+                        structural(coldContext!.scope) &&
+                    v2
+                        .get()
+                        .inspection?.page.rows.some(
+                            (row) =>
+                                row.kind === "event" &&
+                                row.event.sequence === 1 &&
+                                structural(row.event.scope) ===
+                                    structural(parent) &&
+                                row.event.consequence.effect === "said" &&
+                                row.event.consequence.text ===
+                                    "AUTHOR_PARENT_MIRA_ONLY",
+                        ),
+                "cold-recorded-inherited-source-is-actual-main-event1-within-selected-Player-child-head3",
+            );
+            noPrivateAuthor(
+                v2.get().inspection?.page,
+                "cold-recorded-inherited-source-excludes-private-author-evidence",
+            );
+            await coldReadOnly(
+                "cold-recorded-inherited-source-preserves-native-oracle-snapshot-history-and-null-receipt",
+            );
+            receiptEvidence.push({
+                stage: "restart",
+                available: true,
+                kind: "recorded-turn-inherited-original-source",
+                selectedHead: 3,
+                inspectedRevision: 3,
+                originalSource: coldOriginalSource,
+                rawReceiptAvailable: false,
+                detachedCallbackClaim: false,
+            });
+            await capture("author-native-recorded-inherited-source");
             await lab();
+            await until(
+                () =>
+                    v2.get().context?.view === "lab" &&
+                    v2.get().context?.observer.kind === "omniscient" &&
+                    !!v2.get().snapshot &&
+                    !!v2.get().history &&
+                    !v2.get().readBusy &&
+                    !v2.get().queryBusy,
+                "cold-recorded-restart-Lab-context-and-native-reads-settled",
+            );
+            const retiredRecordedAttempts = transport.inspectionDispatches;
+            const retiredRecordedResult = await v2.traceRecordedTurn(
+                coldNarration,
+                coldBound,
+            );
+            check(
+                retiredRecordedResult === null &&
+                    transport.inspectionDispatches ===
+                        retiredRecordedAttempts &&
+                    v2.get().receipt === null &&
+                    structural(await oracle()) === coldOracle,
+                "cold-recorded-retired-Player-row-direct-method-refuses-Lab-without-native-bridge-attempt",
+            );
+            receiptEvidence.push({
+                stage: "restart",
+                kind: "retired-recorded-row-controller-refusal",
+                available: false,
+                nativeBridgeAttempts:
+                    transport.inspectionDispatches - retiredRecordedAttempts,
+                detachedCallbackClaim: false,
+            });
             check(
                 a.get().input === null &&
                     a.get().preview === null &&

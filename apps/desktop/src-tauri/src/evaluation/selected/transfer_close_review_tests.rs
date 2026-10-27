@@ -23,7 +23,7 @@ fn reader_done(fixture: &Fixture, client: &str) -> Value {
 #[test]
 fn transferred_empty_reader_close_is_harmless_but_old_token_cannot_close_new_epoch_capability() {
     let mut fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let selected_client = uuid().unwrap();
     let input = fixture.input(&selected_client);
     let reader = input.reader_client_id.clone();
@@ -57,7 +57,7 @@ fn transferred_empty_reader_close_is_harmless_but_old_token_cannot_close_new_epo
         .unwrap();
     let invoked = Arc::new(AtomicBool::new(false));
     let observed = invoked.clone();
-    let source_path = source().to_path_buf();
+    let source_path = fixture.source().to_path_buf();
     let same_epoch_pick =
         fixture
             .manager
@@ -82,7 +82,7 @@ fn transferred_empty_reader_close_is_harmless_but_old_token_cannot_close_new_epo
     );
     fixture.lease.finish_close(closed, || {});
     fixture.epoch = fixture.lease.begin().unwrap();
-    let source_path = source().to_path_buf();
+    let source_path = fixture.source().to_path_buf();
     fixture
         .manager
         .comparison_pick(&fixture.lease, fixture.epoch, true, &reader, move || {
@@ -143,7 +143,7 @@ fn transferred_empty_reader_close_is_harmless_but_old_token_cannot_close_new_epo
         Some(&fresh_token),
     );
     fixture.manager.drain(fixture.epoch);
-    let after = inventory(source());
+    let after = inventory(fixture.source());
     drop(fixture);
 
     assert_eq!(

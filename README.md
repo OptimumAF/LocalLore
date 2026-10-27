@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [original starter choice](docs/native/ANDROID_STARTER_CHOICE_2026-10-26.md)
+adds explicit selection of Lantern Quay fantasy rules or the original Bracken
+Harbor narrative rules, with a native-owned preview before Create. Its report
+separates host/build checks from pending Android and physical-model execution.
+
 The [explicit starter review and named creation](docs/native/ANDROID_STORY_CREATION_VERIFICATION_2026-10-26.md)
 adds a Rust-owned preview, an editable title and explicit Create/Cancel to the
 persistent Android shell. The report records exact host/build/device evidence

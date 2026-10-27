@@ -5,8 +5,9 @@ unmerged PR#222 at07ec1e2f. Full milestone checklists remain unchanged.
 
 Current result: draft PR#223 implements the initial presentation slice. Complete
 current-source host/build checks and fresh native10/presentation8 Android phases
-pass. Both requested owned guest closures and the final existing-server
-postflight pass. Earlier checkpoint failures and pending statements below retain
+pass, followed by current850 creation19/broad89 qualification. Each packet's
+requested owned guest closures and final existing-server postflight pass.
+Earlier checkpoint failures and pending statements below retain
 their original dates/scopes; final runtime and recovery evidence follows them.
 
 ## Implemented behavior and authority
@@ -224,8 +225,9 @@ premise generation, broader character/semantic content setup, accessibility,
 complete current-source journeys/chooser/archive/OS-death and joined drain,
 physical-phone/real-model/ARM64 qualification and the inherited desktop advisory
 remain open. No new physical-profile assessment is performed in this packet.
-Next runnable supporting verification is current850 creation19 and broad89 in
-fresh admitted owned guests; their earlier841 results cannot qualify this source.
+The next supporting verification at that checkpoint was current850 creation19
+and broad89 in fresh admitted owned guests; earlier841 results could not qualify
+this source. Their subsequent actual results are recorded below.
 
 ## Verified runtime preservation and source handoff
 
@@ -311,3 +313,127 @@ remain unexecuted and cannot qualify this refused preparation. The original
 small records and generated INIs remain private and unchanged. Actual archive,
 reclamation, new runtime and closure evidence must be recorded before claiming
 the follow-up tests pass. Full task checkboxes and outstanding gates are unchanged.
+
+## Actual current850 creation and broad regression qualification
+
+The capacity adjustment is now executed and retained, without changing source,
+dependencies or admission thresholds. Root archives only the exact unused
+failed-broad generated card, under a180-second owned worker. Actual owner passes
+42589ms/worker0, known cleanup/capture,40-byte stdout/0-byte stderr. A separate
+full original/ZIP streaming replay passes before exact single-file reclamation.
+The original8GiB bytes remain recoverable from the83006708-byte private ZIP:
+`c120554d99007701e955b3e5d12f73b67973d26efacc4545cd57a830217595f3`.
+Decompressed/original SHA256:
+`07870af523de0a94e5d20708c63ba7df77f772c9bfd71ad43d5dc7ca359b5e71`.
+Archive index2050-byte SHA256:
+`d17d0c26a3f85a51faf8dc6f4bd4ea80db1251f7472b69074819c38d0f7fe4b4`.
+Exclusive before/after reclamation receipts retain original logical size,
+current free space and0 other paths removed; logical size is not a claim of
+identical physical-space gain. C: then reports48600571904 available bytes.
+
+Before any launch, a bounded refusal snapshot preserves50 originals plus1
+derived assessment,51 ZIP entries/1038156 bytes. Independent original/copy/ZIP
+replay finds0 missing/mismatched files. Its no-runtime statement is expressly
+as-of-snapshot, not a later absence claim. Index17440-byte SHA256:
+`5d322494f6ecf638fde7674b4a4696744622981cea676843684766eb1d5d0c68`.
+ZIP223264-byte SHA256:
+`69a14ef4cb49d44bd629225d92b37cebee1202e5657ddbb70a74215e0ce4055d`.
+Raw cards/APKs are excluded. The original refusal, preparation's reported645-byte
+stderr count without retained raw stderr, and prepared/unexecuted helpers keep
+their original status.
+
+Creation uses its already prepared but unused C: guest. Continuous same-tool
+readiness-to-dispatch starts the fixed phase without a model turn between them.
+After its actual successful phase and requested guest closure, the exact cold
+creation card is archived separately: owner47278ms/worker0, known cleanup/capture,
+39-byte stdout/0-byte stderr. Separate full original/ZIP replay passes before
+single-file reclamation. Its bytes and compressed ZIP are identical to those
+above; its distinct archive index2067-byte SHA256 is
+`ecc16c25afc4aaaadbd9c4c7d85501440f495be819600ab9b52f6d98c95e8167`.
+Synthetic story userdata, source, models and other files are not removed.
+
+Root then selects a new, explicit D: guest root to avoid a further C: userdata
+peak. The existing implementation already defines D-root floors of D:40GiB and
+C:16GiB; selecting that supported path changes no threshold or system setting.
+The standard2GiB/two-CPU/API35/x86_64 profile,4GiB host-memory floor and all
+850/900/180/1200-second SDK/phase/class/guest budgets remain. The new broad
+preparation first deeply requires the actual current850 creation19 pass and its
+exact requested closure. Preparation and planning actually complete, with nine
+small original preparation/configuration files copied and verified on C: before
+launch. The new D: directory is dedicated to this guest; no existing D: file is
+moved or removed. Proposals, phase captures, reports and backups stay on C:.
+
+The original V1 broad launch and V2 C-root helper set remain unexecuted. Pre-execution review
+finds an undefined guest-path variable in the first V3 launch draft; that exact
+draft is preserved and the literal declaration is added before any launch. A
+fresh independent review confirms the correction. No guest is launched by the
+defective draft, and no failed runtime result is rewritten.
+
+| Fixed phase | Actual methods/classes | Measured SDK2 pairs (SDK/observer) | Phase elapsed / worker | SDK/observer maxima |
+|---|---|---|---|---|
+| `story-creation`, original unused C: guest |19 /4 |99 (32/67) |289997ms /0 |15637/2240ms |
+| `regression`, new D: guest |89 /18 |183 (60/123) |562433ms /0 |44363/2078ms |
+
+Both phase owners retain known cleanup/capture,18-byte stdout and0-byte stderr.
+Independent deep readback validates all282 complete measured SDK2 metadata/raw
+pairs, observer brackets/listener bytes, exact source rosters and runner frames,
+parent raw copies, request/start/owner bindings and unchanged850-input maps.
+The corrected build/APKs and earlier native10 prerequisite revalidate; no earlier
+841 result is promoted. Timings are bounded diagnostics, not physical-device
+performance or a general timeout-cause claim.
+
+### Coverage and closures
+
+The MainActivity creation journey's historical method name includes "Named",
+but current production reviews default player/presentation settings and sends
+`create_presented`. The result qualifies those default reviewed creation/cancel,
+library/draft-preservation, actual free-text Gift/A1 and independent second-story
+A0/native-reopen workflows. It does not prove a direct native `create_named`
+invocation, edited player name, nondefault tone/phrase settings or narrative-rule
+selection. Legacy wire cases retain seven-field/five-command serialization
+coverage; presentation-specific assertions remain in the separately executed8.
+Broad89 covers its fixed navigation/editor/cancellation/native ownership/fork/
+fallback suites. Its existing probe case checks the fourteen-key legacy counter
+shape and template/named calls, not new presentation gateway/boundary assertions.
+These source-pinned assertions are not new canonical sidecars or OS-death proof.
+
+Root requests each exact proposal-bound STOP after actual phase termination and
+known client cleanup/capture. Both stop helpers and original owned guest handles
+terminate0. Guest owners record requested closure/worker1/known cleanup/capture/
+closure/no-flush:315185ms for creation and649584ms for broad. Original guest
+stdout/stderr9371/1958 and9284/1039 bytes are retained separately from the phase
+owners' zero stderr. A single final read-only existing-server postflight then
+passes in2015ms, with both exact closure/STOP/proposal bindings, the unchanged
+server,0 device calls and no lifecycle action. Its protected count is0 from the
+new raw-bound preflight; no older process pins or all-time absence claim is used.
+
+### Qualified metadata recovery and remaining gates
+
+The reviewed file-only mixed audit executes once after both actual closures and
+postflight. Independent second replay and Root replay verify713 originals plus1
+derived assessment:714 copies/ZIP members,2277123 bytes,0 missing or mismatches.
+Index237859-byte SHA256:
+`72a9260dd203868eef54e47c89cede5751f57202e74fa6cba1c2cdb65fb51a95`.
+ZIP713529-byte SHA256:
+`8fa50cebf738cdcc833097e894cab88b58f70d369f47ed758baad3c242e0172b`.
+All six earlier index/artifact pairs remain unchanged: host/build, initial
+native/presentation runtime, prior final source, refusal snapshot and both card
+recoveries. Only indices and small recovery records are copied, without APK,
+card, model, DB or save payload duplication. Prepared/draft helper sources are
+retained with their status. No private raw evidence is uploaded.
+
+The latest complete existing creation/broad device-list captures each show one
+authorized explicit SDK-emulator profile and no potential authorized physical
+candidate in that capture. File-only assessment performs no new hardware call
+and proves neither fresh physical admission nor absolute phone absence.
+
+M09.06/M10.02 supporting qualification and the M09.02 slice remain in review;
+full checkboxes and owner acceptance are unchanged. Full premise/character/
+semantic-content authoring, accessibility, physical/model/ARM64, current-source
+external OS-death and joined drain remain required. Next runnable supporting
+verification is current850 `starter-choice`7 and `retained-archive`2 in new
+admitted owned guests. A final all-ref source bundle and exact public blobs are
+created only after this report's final clean/pushed head is frozen; its actual
+verification/hashes and claim release belong in the ticket handoff to avoid a
+self-referential report hash. No merge, release, dependency/system-setting change,
+server lifecycle operation or unrelated-emulator stop is performed.

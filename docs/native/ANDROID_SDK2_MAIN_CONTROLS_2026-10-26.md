@@ -116,3 +116,45 @@ remain in the preceding current-source host/build recovery set. Preservation
 does not turn an interrupted attempt into a test result or supply the missing
 three-closure postflight. Next runtime task is fresh environment/server admission,
 then new root82 and retired139 guests under the existing budgets and contracts.
+
+## Resumed root and retired-leaf controls
+
+The interrupted preparation above remains unqualified. This follow-up uses a
+new private namespace and two fresh standard2GiB/two-CPU guests. Both preparations
+and run proposals complete before launch. The existing827-input build-v2 and
+measured-native components-v1 pass deep replay, including the current-only gate;
+the newer #221/834-input outcomes are not substituted. Executable inputs remain
+aa9deaee with the same3077cc60 source-map digest. No unchanged host/build suite,
+dependency, model, deadline, proof cap or gameplay code changes.
+
+A new bounded host process-inventory capture contains zero protected emulator
+identities; its original stdout and clean child metadata are retained. The
+existing local debug server is observed and pinned afresh, matching its native
+identity from the preceding setup. No server lifecycle operation is performed.
+This admission supplies no comparison with the two identities that disappeared
+in the earlier packet.
+
+Root `restore_non_default` actually passes result2/DONE/NONE with82 checks and
+two recorded OS process deaths. The phase owner records381380ms/worker0,
+cleanup/capture true, stderr0 and99 clean measured-SDK2 pairs. The controller
+frame is1844 bytes/proof1789 bytes, within unchanged caps. Three distinct product
+process identities retain the task and one factory each. Saved/command creation
+maps agree: first legacy0/named2, second zeros. Gameplay maps agree: first all
+zeros, second free_text1/prepare1/commit1 and submit/cancel/other0. Helper,
+transport and sidecar maps are empty. Maximum client28641ms/observer2783ms are
+observations within their original bounds, not a timing guarantee.
+
+The root bound stop returns0 and its guest handle is actually terminal0.
+Guest owner status is `stop_requested`,512652ms/worker1, cleanup/capture/closure
+true and no guest-flush claim. Independent original-record readback confirms
+the current build/native prerequisite, request, source, owner, exact raw proof,
+product records and all99 client pairs. These executed assertions are not an
+independent full-canonical-state sidecar comparison.
+
+The separate retired-leaf guest and verification are now live. No retired result
+is inferred from partial files. The reviewed final helper remains unexecuted
+until both exact proposal-bound requested closures; it will observe only the
+new server once, with zero protected-process observations and no device call.
+Full milestone acceptance, physical/model/ARM64 and joined-drain gates remain
+separate. No merge, settings change, unrelated emulator stop or private upload
+is performed by this follow-up.

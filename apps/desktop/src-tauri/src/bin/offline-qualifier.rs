@@ -525,9 +525,11 @@ mod win {
             .read(true)
             .custom_flags(0x00200000)
             .share_mode(1)
-            .open(path))?;
+            .open(path))
+        .map_err(|e| format!("ReadSmallOpen:{e}"))?;
         file_identity(&file)?;
-        io(file.take(CAP as u64 + 1).read_to_end(&mut bytes))?;
+        io(file.take(CAP as u64 + 1).read_to_end(&mut bytes))
+            .map_err(|e| format!("ReadSmallData:{e}"))?;
         if bytes.len() > CAP {
             return fail("FixtureReadBudget");
         }
@@ -1215,6 +1217,12 @@ mod win {
                 &root.path.join("challenge.txt"),
                 &challenge_marker(&id, &sid_text(package)?, &challenge)?,
             )?;
+            if read_small(&root.path.join("challenge.txt"))?
+                != challenge_marker(&id, &sid_text(package)?, &challenge)?
+            {
+                return fail("ParentChallengeReadback");
+            }
+            proof["parent_challenge_readback"] = json!(true);
             proof["phase"] = json!("listener_prepare");
             listeners = Some(Listeners::start(&challenge)?);
             let server = listeners.as_ref().ok_or("ListenersMissing")?;
@@ -1503,6 +1511,11 @@ mod win {
             let marker = root.path.join("challenge.txt");
             write_new(&marker, b"fixed-synthetic-challenge").unwrap();
             assert_eq!(read_small(&marker).unwrap(), b"fixed-synthetic-challenge");
+            let verbatim = fs::canonicalize(&marker).unwrap();
+            assert!(
+                matches!(verbatim.components().next(), Some(Component::Prefix(p)) if matches!(p.kind(), Prefix::VerbatimDisk(_)))
+            );
+            assert_eq!(read_small(&verbatim).unwrap(), b"fixed-synthetic-challenge");
         }
         #[test]
         fn actual_pipe_deadline_retains_completed_diagnostics_without_inventing_eof() {

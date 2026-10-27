@@ -205,7 +205,7 @@ fn profile() -> PlayProfile {
         repair_limit: 1,
     }
 }
-struct Script;
+struct Script(Scope);
 impl InferenceProvider for Script {
     fn poll(
         &mut self,
@@ -214,6 +214,9 @@ impl InferenceProvider for Script {
     ) -> Poll<Result<Vec<u8>, Error>> {
         if cancel.is_cancelled() {
             return Poll::Ready(Err(Error::Cancelled));
+        }
+        if request.scope != self.0 {
+            return Poll::Ready(Err(Error::Scope));
         }
         let Input::Structured { role, .. } = &request.input else {
             return Poll::Ready(Err(Error::Provider));
@@ -230,11 +233,12 @@ impl InferenceProvider for Script {
     }
 }
 fn configure_case(host: &Host, choice: Case) -> Result<(), String> {
+    let scope = choice.scope();
     host.configure_fixture_provider_with_construction(
         profile(),
-        Arc::new(|| {
+        Arc::new(move || {
             FACTORIES.fetch_add(1, Ordering::SeqCst);
-            Box::new(Script)
+            Box::new(Script(scope.clone()))
         }),
         choice.construction(),
     )
@@ -244,7 +248,13 @@ pub(crate) fn configure(path: &Path, host: &Host) -> Result<(), String> {
     if workspace_path()? != path {
         return Err("SceneWorkspaceRequired".into());
     }
-    configure_case(host, case()?)
+    configure_validated(path, host, case()?)
+}
+fn configure_validated(path: &Path, host: &Host, choice: Case) -> Result<(), String> {
+    // Restart must validate the actual fixed synthetic history before installing
+    // even a scripted owner. A matching directory name alone is insufficient.
+    proof(path, choice)?;
+    configure_case(host, choice)
 }
 fn proof(path: &Path, choice: Case) -> Result<Value, String> {
     let _pins = crate::archive::pin(path)?;
@@ -338,6 +348,7 @@ fn proof(path: &Path, choice: Case) -> Result<Value, String> {
         let text = std::str::from_utf8(&bytes).map_err(|_| "SceneObserverUtf8")?;
         if text.contains(B)
             || text.contains(REASON)
+            || (observer != "sable" && !text.contains(A))
             || (observer == "sable" && [A, PRIVATE].iter().any(|v| text.contains(v)))
         {
             return Err("SceneObserverLeak".into());
@@ -398,7 +409,7 @@ mod tests {
             let path = root.join("stories-v1.sqlite");
             seed_at(&path).unwrap();
             let host = locallore_workspace::open(&path, true).unwrap();
-            configure_case(&host, choice).unwrap();
+            configure_validated(&path, &host, choice).unwrap();
             let status = host.call(br#"{"version":1,"command":{"op":"model_status"}}"#);
             assert_eq!(status["data"]["provider"], "scene-native-fixture-v1");
             assert_eq!(status["data"]["real_model"], false);
@@ -411,9 +422,58 @@ mod tests {
                 if choice == Case::Literal { 1 } else { 2 }
             );
             assert_eq!(result["observer_isolated"], true);
+            let other = Engine::new(fixture_seed(OTHER).unwrap()).unwrap();
+            let request = other.request(
+                "scene-foreign-refusal",
+                Intent::FreeText {
+                    kind: PlayInputKind::Action,
+                    text: TEXT.into(),
+                },
+            );
+            let call = |command: Value| {
+                host.call(&serde_json::to_vec(&json!({"version":1,"command":command})).unwrap())
+            };
+            let resumed = call(json!({"op":"resume","scope":other.scope()}));
+            assert_eq!(resumed["status"], "ok");
+            let session = resumed["data"]["session"].as_str().unwrap();
+            assert_eq!(
+                call(json!({"op":"free_text","session":session,"request":request}))["data"]
+                    ["phase"],
+                "queued"
+            );
+            let refused = call(
+                json!({"op":"prepare","session":session,"scope":other.scope(),"turn":request.turn}),
+            );
+            assert_eq!(refused["data"]["phase"], "failed");
+            assert_eq!(refused["data"]["error"], "Scope");
+            assert_eq!(proof(&path, choice).unwrap()["other_preserved"], true);
             host.close_all();
             drop(host);
             // Evidence is retained locally; never delete a computed fixture root.
         }
+    }
+    #[test]
+    fn foreign_existing_database_never_receives_a_fixture_owner() {
+        let root = std::env::temp_dir().join(format!(
+            "scene-native-{}",
+            crate::exports::identifier().unwrap()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("stories-v1.sqlite");
+        let mut store = Store::create_new_pinned(&path).unwrap();
+        store
+            .create_story("Other synthetic", fixture_seed(OTHER).unwrap())
+            .unwrap();
+        drop(store);
+        let before = std::fs::read(&path).unwrap();
+        let host = locallore_workspace::open(&path, true).unwrap();
+        assert!(configure_validated(&path, &host, Case::Literal).is_err());
+        assert_eq!(
+            host.call(br#"{"version":1,"command":{"op":"model_status"}}"#)["data"]["provider"],
+            "deterministic-fake-v1"
+        );
+        host.close_all();
+        drop(host);
+        assert_eq!(std::fs::read(path).unwrap(), before);
     }
 }

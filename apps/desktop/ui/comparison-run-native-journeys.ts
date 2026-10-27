@@ -108,15 +108,26 @@ export async function comparisonRunNativeJourneys({
         until(
             () => {
                 const state = f.get();
+                if (state.error && !state.uncertain)
+                    throw Error("NativeConfirmationTerminalBeforeEntry");
+                // A fresh start admits asynchronously. A preceding closed
+                // status is not an acknowledgement of its new client.
+                if (
+                    !state.clientId ||
+                    state.status?.client_id !== state.clientId
+                )
+                    return false;
                 if (
                     state.status?.error ||
-                    (state.error && !state.uncertain) ||
                     (state.status &&
                         !state.status.running &&
                         state.status.phase !== "awaiting_confirmation")
                 )
                     throw Error("NativeConfirmationTerminalBeforeEntry");
-                return state.status?.phase === "awaiting_confirmation";
+                return (
+                    !state.uncertain &&
+                    state.status?.phase === "awaiting_confirmation"
+                );
             },
             name,
             240_000,

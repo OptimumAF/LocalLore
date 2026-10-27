@@ -562,7 +562,7 @@ pub(super) fn record_setup(ledgers: &mut [Ledger; 2], setup: Setup<'_>) -> Resul
         status,
         load,
     } = setup;
-    if !matches!(version, 2 | 3 | 4) {
+    if !matches!(version, 2..=4) {
         return Err("SetupIntegrity".into());
     }
     let record = SetupRecord {

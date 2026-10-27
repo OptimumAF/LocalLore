@@ -19,7 +19,22 @@ tokio = { version = "=1.54.1", features = ["sync", "time"] }
 
 [features]
 default = []
-dev-harness = ["dep:webview2-com"]
+dev-harness = [
+    "dep:webview2-com",
+    "windows/Win32_Security_Isolation",
+    "windows/Win32_Security_Authorization",
+    "windows/Win32_System_Threading",
+    "windows/Win32_System_JobObjects",
+    "windows/Win32_System_Pipes",
+    "windows/Win32_NetworkManagement_IpHelper",
+    "windows/Win32_NetworkManagement_Ndis",
+    "windows/Win32_Networking_WinSock",
+]
+
+[[bin]]
+name = "offline-qualifier"
+path = "src/bin/offline-qualifier.rs"
+required-features = ["dev-harness"]
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = { version = "=0.39.1", optional = true }

@@ -574,3 +574,45 @@ fn original_default_25_literal26_presentation27_28_and_historical21_24_keep_old_
         }
     }
 }
+
+#[test]
+fn every_old_validator_family_refuses_scene_some_on_otherwise_valid_original_records() {
+    let provenance = json!({"version":1,"frame_sha256":"a".repeat(64)});
+    for (tone, literal) in [
+        (None, false), (None, true),
+        (Some(StoryTone::Warm), false), (Some(StoryTone::Warm), true),
+    ] {
+        let source = fixture(tone, &[]);
+        let mut actual = source.clone();
+        let request = make_request(&source, "old-scene-injection", "I wait for one tide tick.");
+        let mut script = Script::new(Command::Wait { ticks: 1 }, PROSE, 1);
+        let receipt = if literal && tone.is_some() {
+            play::execute_traced_with_literal_director_presentation_v1(&mut actual, &request, &mut script, &Cancellation::default(), &profile(), None)
+        } else if literal {
+            play::execute_traced_with_literal_director_v1(&mut actual, &request, &mut script, &Cancellation::default(), &profile(), None)
+        } else {
+            play::execute(&mut actual, &request, &mut script, &Cancellation::default(), &profile())
+        }.unwrap();
+        let mut wire = serde_json::to_value(receipt.play().unwrap()).unwrap();
+        assert!(wire.get("scene").is_none(), "old record must calibrate before injection");
+        wire["scene"] = provenance.clone();
+        let forged: play::PlayRecord = serde_json::from_value(wire).unwrap();
+        let mut target = source.clone();
+        assert!(target.commit_play(receipt.request(), receipt.proposal(), &forged).is_err(),
+            "new optional provenance cannot be ignored by old memory/literal/presentation admission");
+        unchanged(&target, &source);
+    }
+    for text in [
+        include_str!("fixtures/accepted_play_v2_1.json"), include_str!("fixtures/accepted_play_v2_2.json"),
+        include_str!("fixtures/accepted_play_v2_3.json"), include_str!("fixtures/accepted_play_v2_4.json"),
+    ] {
+        let fixture: Value = serde_json::from_str(text).unwrap();
+        let seed: Seed = serde_json::from_value(fixture["seed"].clone()).unwrap();
+        let valid = Engine::restore(seed.clone(), &[fixture["receipt"].to_string()]).unwrap();
+        assert_eq!(serde_json::to_value(&valid.receipts()[0]).unwrap(), fixture["receipt"]);
+        let mut forged = fixture["receipt"].clone();
+        forged["play"]["scene"] = provenance.clone();
+        assert!(Engine::restore(seed, &[forged.to_string()]).is_err(),
+            "history-only legacy admission must also reject new scene provenance");
+    }
+}

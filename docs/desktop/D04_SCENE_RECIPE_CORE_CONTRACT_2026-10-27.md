@@ -119,3 +119,16 @@ authenticate an arbitrary rehashed diagnostic capture. A distinct Eval/Host
 gate remains required before model work; existing Protocol3 contracts/reports
 stay immutable. Native rendering, physical Android, accessibility and human
 quality remain separate. The owner's needs-improvement assessment is unchanged.
+
+## Additive old-validator provenance oracle
+
+After FIRST freeze `5722c9b3`, the author adds one fifteenth source-only oracle
+without changing any first-fourteen assertion. Actual original 2.5/2.6/2.7/2.8
+records calibrate through their existing production entry points, then receive a
+closed, deserializable `scene:Some` value through JSON. Fresh old-policy commit
+must refuse without source mutation. Original 2.1–2.4 fixtures similarly
+calibrate first, then history restoration must refuse the same injected field.
+This tests all existing validator families, rather than relying on a new record
+with an already-invalid old tuple. Exact recorded retry remains a separate
+positive fast path. The additive oracle is also UNCOMPILED/UNRUN; no execution,
+formatter or production changes were performed by its author.

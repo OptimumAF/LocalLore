@@ -72,7 +72,7 @@ fn denied_failed_and_cancelled_open_never_resurrect_the_replaced_execution_plan(
 // cancellation arrives while consent is held. All use real existing run B.
 fn replacement_case(outcome: u8) {
     let f = Fixture::new();
-    let source_before = inventory(source());
+    let source_before = inventory(f.source());
     let run = existing_run(&f);
     let (target, pins) = f.manager.selected_work_path(&run).unwrap();
     drop(pins);
@@ -114,7 +114,7 @@ fn replacement_case(outcome: u8) {
     let registration_free = f.manager.registration.try_lock().is_ok();
     let parent_free = f.manager.state.try_lock().is_ok();
     let selected_free = f.manager.selected.try_lock().is_ok();
-    let source_reopened = source_reader::open_read_only(source()).is_ok();
+    let source_reopened = source_reader::open_read_only(f.source()).is_ok();
     let cancellation = if outcome == 3 {
         Some(f.manager.selected_cancel(
             &f.lease,
@@ -141,7 +141,7 @@ fn replacement_case(outcome: u8) {
     f.manager
         .selected_close(&f.lease, f.epoch, &client)
         .unwrap();
-    let source_after = inventory(source());
+    let source_after = inventory(f.source());
     let target_after = inventory(&target);
     assert!(entered.is_ok(), "read consent was actually entered");
     assert!(
@@ -193,7 +193,7 @@ fn replacement_case(outcome: u8) {
 #[test]
 fn concurrent_exact_start_rechecks_consumed_identity_after_first_execution_finishes() {
     let f = Fixture::new();
-    let source_before = inventory(source());
+    let source_before = inventory(f.source());
     let client = uuid().unwrap();
     let prepared = f.prepare(&client);
     join_finished(&f);
@@ -249,7 +249,7 @@ fn concurrent_exact_start_rechecks_consumed_identity_after_first_execution_finis
     f.manager
         .selected_close(&f.lease, f.epoch, &client)
         .unwrap();
-    let source_after = inventory(source());
+    let source_after = inventory(f.source());
     let catalog = f.manager.selected_catalog(&f.lease, f.epoch, true).unwrap();
     assert!(entered.is_ok());
     let admitted = a.unwrap();

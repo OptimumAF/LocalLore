@@ -12,6 +12,7 @@ import type {
     InspectionQueryV2,
     ObserverV2,
     PlaySnapshotV2,
+    RowV2,
     SourceV2,
     ViewV2,
 } from "./v2-view-model";
@@ -68,6 +69,38 @@ export interface V2TurnStatus {
 export interface V2BoundPage {
     query: InspectionQueryV2;
     page: InspectionPageV2;
+}
+// Only typed provenance slots can establish a displayed source link. Values,
+// statement text and embedded JSON are never searched for source-shaped objects.
+function containsSource(row: RowV2, wanted: SourceV2, nested = false): boolean {
+    const matches = (source: SourceV2) => {
+        if (wanted.kind === "seed")
+            return source.kind === "seed" && source.value === wanted.value;
+        return wanted.kind === "scoped_event" && source.kind === "scoped_event" &&
+            source.value.sequence === wanted.value.sequence &&
+            sameScope(source.value.original_scope, wanted.value.original_scope);
+    };
+    switch (row.kind) {
+        case "clock":
+        case "field":
+        case "relationship":
+            return matches(row.source);
+        case "knowledge":
+        case "promise":
+        case "provenance":
+            return row.sources.some(matches);
+        case "event":
+            return matches({ kind: "scoped_event", value: { original_scope: row.event.scope, sequence: row.event.sequence } });
+        case "scoped_message":
+            return wanted.kind === "scoped_event" &&
+                sameScope(row.original_scope, wanted.value.original_scope) &&
+                row.event_ids.includes(wanted.value.sequence);
+        case "change":
+            // checkedPageV2 rejects nested changes; keep that bound here too.
+            return !nested && [row.before, row.after].some((side) => side !== null && containsSource(side, wanted, true));
+        case "author_correction":
+            return false;
+    }
 }
 export interface V2RetainedTurn {
     session: string;
@@ -561,6 +594,8 @@ export class V2PlayController {
             channel === "history"
                 ? ++this.historySequence
                 : ++this.querySequence;
+        const owns = () => this.current(key) && this.state.context === c &&
+            sequence === (channel === "history" ? this.historySequence : this.querySequence);
         const query: InspectionQueryV2 = {
             version: 2,
             scope: { ...c.scope },
@@ -579,46 +614,39 @@ export class V2PlayController {
                 source: null,
                 sourceMatched: null,
             });
+        let result: V2BoundPage | null = null;
         try {
+            // Pending notification can synchronously navigate, dispose or start
+            // a newer read. Retire before dispatch, not only after its reply.
+            if (!owns()) return null;
             const value = await this.gateway.call({
                 op: "inspection_query",
                 session: c.session,
                 query,
             });
+            if (!owns()) return null;
             const page = checkedPageV2(value, query, c.player);
-            if (
-                !this.current(key) ||
-                sequence !==
-                    (channel === "history"
-                        ? this.historySequence
-                        : this.querySequence)
-            )
-                return null;
-            const result = { query, page };
+            if (!owns()) return null;
+            result = { query, page };
             this.patch(
                 channel === "history"
                     ? { history: result }
                     : { inspection: result },
             );
-            return result;
+            // Result notification may retire this page before a caller uses it.
+            if (!owns()) return null;
         } catch (error) {
-            if (
-                this.current(key) &&
-                sequence ===
-                    (channel === "history"
-                        ? this.historySequence
-                        : this.querySequence)
-            )
-                this.patch({ error: category(error) });
+            if (owns()) this.patch({ error: category(error) });
             return null;
         } finally {
-            if (
-                channel === "inspection" &&
-                this.current(key) &&
-                sequence === this.querySequence
-            )
+            if (channel === "inspection" && owns())
                 this.patch({ queryBusy: false });
         }
+        // The final busy notification is synchronous too. Never return a page
+        // retired there even when its earlier result notification was current.
+        return result && owns() &&
+            (channel === "history" ? this.state.history : this.state.inspection) === result
+            ? result : null;
     }
     readQuery(options: {
         view: ViewV2;
@@ -626,6 +654,34 @@ export class V2PlayController {
         search: string;
     }) {
         return this.query(options, "inspection");
+    }
+    async traceReceipt(candidate: V2Receipt): Promise<V2BoundPage | null> {
+        const c = this.state.context, snapshot = this.state.snapshot, key = this.key;
+        if (!c || !snapshot || this.disposed || !candidate || candidate !== this.state.receipt ||
+            c.view !== "play" || c.observer.kind !== "player") return null;
+        let end: number;
+        try {
+            // Validate the existing current snapshot and receipt transports;
+            // canonical acceptance and historical boundaries remain Rust's job.
+            if (structural(c) !== key) return null;
+            const native = checkedPlaySnapshotV2(snapshot, c.scope, c.revision);
+            if (native.player.observer !== c.player) return null;
+            const request = candidate.request;
+            if (request.version !== 1 || !sameScope(scoped(request.scope), c.scope)) return null;
+            id(request.turn);
+            const base = integer(request.expected_revision);
+            const checked = receipt(candidate, request);
+            end = integer(checked.events.at(-1)!.sequence);
+            if (end === 0 || end <= base || end > c.revision) return null;
+        } catch {
+            return null;
+        }
+        const pending = this.query({ view: "turn_diff", atRevision: end, search: "" }, "inspection");
+        const sequence = this.querySequence;
+        const result = await pending;
+        return result && this.current(key) && this.state.context === c &&
+            this.state.receipt === candidate && sequence === this.querySequence &&
+            this.state.inspection === result ? result : null;
     }
     page(cursor: string, channel: "history" | "inspection" = "inspection") {
         const bound =
@@ -648,11 +704,8 @@ export class V2PlayController {
         const c = this.state.context,
             key = this.key;
         if (!c || source.kind === "withheld") return;
-        if (
-            from &&
-            from !== this.state.history &&
-            from !== this.state.inspection
-        ) {
+        if (from && ((from !== this.state.history && from !== this.state.inspection) ||
+            !from.page.rows.some((row) => containsSource(row, source)))) {
             this.patch({ error: "Scope" });
             return;
         }

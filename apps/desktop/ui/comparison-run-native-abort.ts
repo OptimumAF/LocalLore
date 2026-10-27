@@ -43,12 +43,18 @@ export async function abortHeldNativeComparisonConsent({
             if (
                 state.uncertain ||
                 state.error ||
+                state.busy ||
+                state.pending ||
+                state.status?.running ||
                 (state.mode === "approved_native" &&
                     (state.cleanupUncertain ||
                         state.cleanupError ||
                         state.cleanupPending ||
                         state.cleanup?.cleanup_required ||
-                        state.cleanup?.running))
+                        state.cleanup?.running ||
+                        (state.status?.version === 2 &&
+                            (state.status.cleanup_required ||
+                                state.status.cleanup_running))))
             )
                 cleanupUnconfirmed = true;
         } catch {

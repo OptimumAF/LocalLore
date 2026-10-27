@@ -115,3 +115,44 @@ emulator stop, system-setting change, merge or release is performed by this
 packet. Next runnable Android gate is fresh environment/server admission,
 current native10 and the separate fixed starter-choice7 in fresh owned guests.
 Original root/retired controls and full UI/physical/model gates remain separate.
+
+## Fresh runtime follow-up
+
+The follow-up reuses the exact834-input build after a successful deep replay;
+no host/build suite or older Android outcome is relabeled. Executable source
+remains `0016435e`. Fresh standard guests use2GiB RAM/two CPUs, the existing
+1200-second guest ceiling and850-second SDK/900-second verification budgets.
+Both guests are prepared and their proposals planned before the first launch.
+
+A fresh preflight observes no ADB/emulator processes and no listener on5037.
+Setup then launches the installed ADB binary with
+`-L tcp:localhost:5037 server nodaemon`, hidden, with private console logs.
+The installed help and [official AOSP command-line implementation](https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/client/commandline.cpp)
+confirm the direct server mode (source blob `5cd3ab66dd0a7ba0173b01f954fbe76c21269483`).
+The new server pin must match the exact launched native PID, creation FILETIME,
+executable and hash. Existing-server replacement, kill and reconnect commands
+are not used. The new service is deliberately left running. This is local
+development setup, with no persistent setting or dependency change.
+
+The completed native component phase passes all10 methods across3 classes,
+with87 complete measured-SDK2 client pairs. Its owner records287808ms/worker0,
+cleanup/capture true and stderr0. The maximum recorded client is11110ms;
+maximum server observer3890ms. Independent deep readback verifies the original
+runner frames, source/build/request/owner bindings and every client/raw pair.
+These observations do not establish physical-device or general timing guarantees.
+
+The bound stop returns0 and the native guest handle is actually terminal0.
+Its owner records `stop_requested`,353068ms/worker1, cleanup/capture/closure
+true and no guest-flush claim. Emulator warning streams are retained separately
+from the clean verification-owner stderr.
+
+The separate chooser guest and seven-method verification are now running;
+no chooser result is inferred from partial files. The final one-shot postflight
+will require both exact proposal-bound requested closures before observing the
+new server. The new preflight contains zero protected processes, so it supplies
+no comparison with the two processes that disappeared in the earlier packet.
+
+One complete device-list capture from the native phase contains one authorized
+SDK-emulator profile and no physical-profile candidate. Assessment reads only
+that original bound capture and makes no new SDK, OS or hardware call. It does
+not establish absolute phone absence or fresh physical-device admission.

@@ -154,6 +154,7 @@ function SelectedExperiment({
             source={source}
             row={snapshot.selected}
             observer={snapshot.observer}
+            sourceUnavailable={snapshot.source?.protocol_version === 4}
         />
     );
 }

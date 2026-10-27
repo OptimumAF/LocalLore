@@ -44,7 +44,9 @@ fn inventory(root: &Path) -> Inventory {
     walk(root, root, 0, &mut 0, &mut result);
     result
 }
-fn source() -> &'static Path {
+// Closed producer output only. Never pass this template to a native Reader:
+// each Fixture opens its own ordinary byte copy instead.
+fn source_template() -> &'static Path {
     static SOURCE: OnceLock<PathBuf> = OnceLock::new();
     SOURCE
         .get_or_init(|| {
@@ -68,16 +70,39 @@ fn source() -> &'static Path {
         })
         .as_path()
 }
+fn copy_source_template(target: &Path) {
+    use std::io::Write;
+    let files = inventory(source_template());
+    fs::create_dir(target).unwrap();
+    for (relative, bytes) in &files {
+        let path = target.join(relative);
+        match bytes {
+            None => fs::create_dir_all(path).unwrap(),
+            Some(bytes) => {
+                let mut file = fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(path)
+                    .unwrap();
+                file.write_all(bytes).unwrap();
+            }
+        }
+    }
+    assert_eq!(inventory(target), files);
+}
 struct Fixture {
     manager: Arc<EvaluationManager>,
     models: Arc<ModelManager>,
     lease: Arc<WindowLease>,
     epoch: u64,
+    source: PathBuf,
 }
 impl Fixture {
     fn new() -> Self {
         let root = std::env::temp_dir().join(format!("selected-service-{}", uuid().unwrap()));
         fs::create_dir(&root).unwrap();
+        let source = root.join("source");
+        copy_source_template(&source);
         let lease = Arc::new(WindowLease::default());
         let epoch = lease.begin().unwrap();
         let manager = Arc::new(EvaluationManager::new(root.join("evaluations")));
@@ -90,7 +115,11 @@ impl Fixture {
             )),
             lease,
             epoch,
+            source,
         }
+    }
+    fn source(&self) -> &Path {
+        &self.source
     }
     fn status(&self, client: &str) -> Value {
         self.manager
@@ -113,7 +142,7 @@ impl Fixture {
     }
     fn input(&self, client: &str) -> SelectedPrepareInput {
         let reader = uuid().unwrap();
-        let path = source().to_path_buf();
+        let path = self.source().to_path_buf();
         self.manager
             .comparison_pick(&self.lease, self.epoch, true, &reader, move || {
                 Ok(Some(path))
@@ -188,9 +217,112 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn concurrent_fixture_readers_own_distinct_sources_and_close_without_cross_fixture_lock_interference(
+) {
+    // FIRST source-only oracle freeze. Fixture.source/source_template are the
+    // planned copy-helper prerequisites; their absence is not behavioral RED.
+    // Actual scripted producer and native Reader, not IPC/model/WebView proof.
+    let template_before = inventory(source_template());
+    assert!(template_before.contains_key(Path::new("run.lock")));
+    let first = Fixture::new();
+    let second = Fixture::new();
+    assert_ne!(first.source(), second.source());
+    assert_ne!(first.source(), source_template());
+    assert_ne!(second.source(), source_template());
+    let first_before = inventory(first.source());
+    let second_before = inventory(second.source());
+    assert_eq!(first_before, template_before);
+    assert_eq!(second_before, template_before);
+
+    let barrier = std::sync::Barrier::new(2);
+    let (first_input, second_input) = std::thread::scope(|scope| {
+        let first_open = scope.spawn(|| {
+            barrier.wait();
+            first.input(&uuid().unwrap())
+        });
+        let second_open = scope.spawn(|| {
+            barrier.wait();
+            second.input(&uuid().unwrap())
+        });
+        (first_open.join().unwrap(), second_open.join().unwrap())
+    });
+    let inspect = |fixture: &Fixture, input: &SelectedPrepareInput| {
+        let metadata = fixture
+            .manager
+            .comparison_source(&fixture.lease, fixture.epoch, true, &input.run_token)
+            .unwrap();
+        assert_eq!(metadata["source"]["binding"], input.binding);
+        assert_eq!(metadata["source"]["read_only"], true);
+        let evidence = fixture
+            .manager
+            .comparison_evidence(
+                &fixture.lease,
+                fixture.epoch,
+                true,
+                crate::evaluation::ComparisonEvidenceRequest {
+                    token: input.run_token.clone(),
+                    binding: input.binding.clone(),
+                    row: source_reader::RowId {
+                        turn: input.turn_id.clone(),
+                        arm: Arm::Left,
+                    },
+                    request: EvidenceRequest::Query {
+                        edge: Edge::After,
+                        observer: Observer::Player,
+                        view: View::History,
+                    },
+                },
+            )
+            .unwrap();
+        assert_eq!(evidence["evidence"]["body"]["kind"], "query");
+        assert_eq!(evidence["evidence"]["generation_grant"], false);
+    };
+    inspect(&first, &first_input);
+    inspect(&second, &second_input);
+    assert!(
+        matches!(source_reader::open_read_only(first.source()), Err(error) if error == "RunBusy")
+    );
+    assert!(
+        matches!(source_reader::open_read_only(second.source()), Err(error) if error == "RunBusy")
+    );
+    // Template bytes remain readable while both real private locks are held.
+    assert_eq!(inventory(source_template()), template_before);
+
+    first
+        .manager
+        .comparison_close(
+            &first.lease,
+            first.epoch,
+            &first_input.reader_client_id,
+            Some(&first_input.run_token),
+        )
+        .unwrap();
+    drop(source_reader::open_read_only(first.source()).expect("first actual lock released"));
+    assert_eq!(inventory(first.source()), first_before);
+    inspect(&second, &second_input);
+    assert!(
+        matches!(source_reader::open_read_only(second.source()), Err(error) if error == "RunBusy")
+    );
+
+    second
+        .manager
+        .comparison_close(
+            &second.lease,
+            second.epoch,
+            &second_input.reader_client_id,
+            Some(&second_input.run_token),
+        )
+        .unwrap();
+    drop(source_reader::open_read_only(second.source()).expect("second actual lock released"));
+    assert_eq!(inventory(first.source()), first_before);
+    assert_eq!(inventory(second.source()), second_before);
+    assert_eq!(inventory(source_template()), template_before);
+}
+
+#[test]
 fn denied_native_execution_consent_has_no_plan_target_model_reservation_or_source_write() {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     fixture
         .manager
@@ -229,14 +361,14 @@ fn denied_native_execution_consent_has_no_plan_target_model_reservation_or_sourc
             .reserve_evaluation()
             .expect("consent refusal invokes no assets/reservation"),
     );
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
 }
 
 #[test]
 fn scripted_start_duplicate_and_lost_ack_keep_one_identity_then_explicit_read_grant_uses_real_edges(
 ) {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     let prepared = fixture.prepare(&client);
     let plan = prepared["plan_token"].as_str().unwrap();
@@ -365,13 +497,13 @@ fn scripted_start_duplicate_and_lost_ack_keep_one_identity_then_explicit_read_gr
         .manager
         .selected_close(&fixture.lease, fixture.epoch, &client)
         .unwrap();
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
 }
 
 #[test]
 fn grant_and_foreign_lease_cannot_start_and_retirement_revokes_unused_plan_without_execution() {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     let prepared = fixture.prepare(&client);
     let plan = prepared["plan_token"].as_str().unwrap();
@@ -412,14 +544,14 @@ fn grant_and_foreign_lease_cannot_start_and_retirement_revokes_unused_plan_witho
             .unwrap_err(),
         "Closed"
     );
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
     drop(fixture.models.reserve_evaluation().unwrap());
 }
 
 #[test]
 fn pending_native_consent_cancel_cannot_publish_grant_or_create_an_experiment() {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     let (entered, waiting) = std::sync::mpsc::sync_channel(1);
     let (release, released) = std::sync::mpsc::sync_channel(1);
@@ -454,13 +586,13 @@ fn pending_native_consent_cancel_cannot_publish_grant_or_create_an_experiment() 
     assert_eq!(result["error"], "Cancelled");
     assert_eq!(result["plan_token"], Value::Null);
     assert_eq!(result["run_id"], Value::Null);
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
 }
 
 #[test]
 fn spawn_failure_releases_source_cap_outside_gates_without_creating_work_or_false_grant() {
     let fixture = Fixture::new();
-    let before = inventory(source());
+    let before = inventory(fixture.source());
     let client = uuid().unwrap();
     let input = fixture.input(&client);
     fixture.manager.fail_spawn.store(true, Ordering::SeqCst);
@@ -481,10 +613,10 @@ fn spawn_failure_releases_source_cap_outside_gates_without_creating_work_or_fals
     let result = fixture.done(&client);
     assert_eq!(result["plan_token"], Value::Null);
     assert_eq!(result["run_id"], Value::Null);
-    let cap = source_reader::open_read_only(source())
+    let cap = source_reader::open_read_only(fixture.source())
         .expect("spawn failure leaves no orphaned source lock");
     drop(cap);
-    assert_eq!(inventory(source()), before);
+    assert_eq!(inventory(fixture.source()), before);
 }
 
 #[test]

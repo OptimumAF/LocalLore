@@ -1,6 +1,7 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app
 
+import com.google.ai.edge.litertlm.ResponseFormat
 import java.io.File
 import java.security.MessageDigest
 import kotlinx.coroutines.runBlocking
@@ -63,5 +64,17 @@ class OriginalAuthorWorkerTest {
         val trace=LiteRtCallbackTrace(); trace.begin(LiteRtCallbackRole.AUTHOR,4096,1024,10,2)
         try { trace.begin(LiteRtCallbackRole.NARRATOR,4096,1024,10,2); fail() } catch (_: IllegalArgumentException) {}
         assertEquals(1,trace.snapshot().requests)
+    }
+    @Test fun actualInitialWorldSchemaKeepsTheExactPublicJsonSchemaRoute() {
+        val project=generateSequence(File(System.getProperty("user.dir")).canonicalFile) { it.parentFile }
+            .first { File(it,"Cargo.toml").isFile && File(it,"prompts/initial-world-v1.schema.json").isFile }
+        val file=File(project,"prompts/initial-world-v1.schema.json")
+        val bytes=file.readBytes(); assertTrue(bytes.size in 2..32768)
+        val schema=localText(bytes,32768)
+        assertNull(finiteSchemaRegex(schema)) // Real open descriptive strings/arrays/nullable indices, not a finite literal schema.
+        val argument=liteRtResponseFormat(schema)
+        assertEquals(ResponseFormat.Type.JSON_OBJECT,argument.type); assertEquals(2,argument.type.value)
+        assertEquals(schema,argument.schemaOrPattern); assertArrayEquals(bytes,localUtf8(argument.schemaOrPattern))
+        // Public audited SDK argument construction only; no native engine/model decoding is exercised here.
     }
 }

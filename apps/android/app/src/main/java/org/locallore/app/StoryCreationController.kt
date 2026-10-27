@@ -43,7 +43,8 @@ internal class StoryCreationController(
     private var originalController: OriginalStoryController? = null
     fun chooseOriginal(expected: StoryCreationRequest) {
         val before=mutable.value
-        if(disposed || !before.visible || before.busy || before.closing || before.review !== expected || before.original!=null) return
+        if(disposed || !before.visible || before.busy || before.creating || before.closing || createStarted ||
+            before.review !== expected || before.original!=null) return
         val capabilities=before.originalCapabilities ?: return
         val port=gateway.originalStories() ?: return
         if(!capabilities.available)return

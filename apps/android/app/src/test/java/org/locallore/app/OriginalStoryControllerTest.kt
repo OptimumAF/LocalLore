@@ -118,4 +118,24 @@ class OriginalStoryControllerTest {
         assertEquals(1,port.creates.size); assertEquals(count,values.size); assertTrue(closed.isEmpty())
         // A late commit may exist. Cancelling the UI never asserts rollback or authorizes another Create.
     }
+    @Test fun uncertainTemplateCreateCannotSwitchToOriginalOrLoseRequiredLibraryRefresh()=runTest {
+        val port=Port(proposal); var writes=0; val closed=mutableListOf<StoryCreationClose>()
+        val preview=StoryCreationPreview(DEFAULT_STORY_TEMPLATE,"a".repeat(64),"Lantern Quay","A built-in starter.","fantasy_v1",listOf("Player: Rowan"))
+        val gateway=object: StoryCreationGateway {
+            override fun originalStories(): OriginalStoryGateway=port
+            override suspend fun preview()=preview
+            override suspend fun create(request: StoryCreationRequest): SavedSnapshot {
+                writes++; throw WorkspaceFailure("Io") // A native commit may have won before acknowledgement was lost.
+            }
+        }
+        val c=StoryCreationController(gateway,this,closed::add)
+        c.open(); advanceUntilIdle(); val rendered=c.state.value.review!!
+        assertTrue(c.state.value.originalCapabilities!!.available)
+        c.confirm(rendered); c.chooseOriginal(rendered); advanceUntilIdle()
+        assertFalse(c.state.value.busy); assertNull(c.state.value.review); assertNull(c.state.value.original)
+        c.chooseOriginal(rendered); c.confirm(rendered); advanceUntilIdle()
+        assertNull(c.state.value.original); assertTrue(port.creates.isEmpty()); assertEquals(1,writes)
+        c.dismiss(); advanceUntilIdle(); assertEquals(listOf(StoryCreationClose(refreshRequired=true)),closed)
+        c.dispose()
+    }
 }

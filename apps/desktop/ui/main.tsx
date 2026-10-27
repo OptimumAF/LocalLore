@@ -452,6 +452,7 @@ function syncV2Context() {
                   pending: !!s.pending,
                   blocked: author.get().busy || sharedBrokerBlocked(),
                   playMode: s.playMode,
+                  freeTextProvider: s.freeTextProvider,
                   inputKind: s.inputKind,
                   action: s.action,
                   fakeMode: s.fakeMode,

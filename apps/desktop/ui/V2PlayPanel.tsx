@@ -468,7 +468,9 @@ export function V2PlayPanel({
                     ·{" "}
                     {c.playMode === "fixture"
                         ? "Fixture inference · synthetic responses"
-                        : "Local model · availability is checked by Rust"}
+                        : c.freeTextProvider?.kind === "synthetic_fixture"
+                          ? "Synthetic scene fixture · no model loaded"
+                          : "Free-text request · provider availability is checked"}
                 </p>
                 <p>
                     Operation:{" "}
@@ -624,7 +626,7 @@ export function V2PlayPanel({
                             }
                         >
                             <option value="fixture">Fixture · synthetic</option>
-                            <option value="local">Local model</option>
+                            <option value="local">{c.freeTextProvider?.kind === "synthetic_fixture" ? "Synthetic scene fixture (free text)" : "Local model"}</option>
                         </select>
                     </label>
                     {c.playMode === "fixture" ? (

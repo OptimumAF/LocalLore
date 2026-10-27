@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "locations": [
+    {"name": "Summit court", "description": "A dry stone court stands above the cloudline."},
+    {"name": "Cistern stairs", "description": "A narrow stair descends beside a water tank."},
+    {"name": "Signal room", "description": "Copper wires lead from a shuttered observation room."}
+  ],
+  "player_location": 0,
+  "characters": [
+    {"name": "Sel", "description": "Sel keeps an emergency valve key (ASHGLASS-NPC-319).", "location": 1, "known_by": [1]},
+    {"name": "Marn", "description": "Marn records the changing pressure on a slate.", "location": 2, "known_by": [0, 1, 2]}
+  ],
+  "routes": [{"from": 0, "to": 1}, {"from": 1, "to": 2}, {"from": 2, "to": 0}],
+  "facts": [
+    {"text": "The warning bells are checked at sunset.", "known_by": [0, 1, 2], "discoverable_at": null},
+    {"text": "The isolation valve is beneath the cistern stairs (ASHGLASS-VALVE-701).", "known_by": [1], "discoverable_at": 1}
+  ],
+  "beliefs": [
+    {"believer": 2, "text": "The brass shim was melted yesterday (ASHGLASS-RUMOR-622).", "confidence": "suspected"}
+  ],
+  "possessions": [
+    {"name": "Brass shim", "description": "A thin brass wedge used to steady a bell contact.", "owner": 0, "return_to": null},
+    {"name": "Borrowed gauge", "description": "Marn's small pressure gauge is on loan.", "owner": 0, "return_to": 2}
+  ]
+}

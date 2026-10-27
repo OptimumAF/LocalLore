@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "premise": "A subterranean orchard cooperative must pollinate its copper-leaf trees while a flood gate is inspected.",
+  "player_name": "Lin",
+  "player_description": "An apprentice grower arriving for the evening shift.",
+  "cast": [
+    {"name": "Evi", "description": "An irrigation keeper carrying a chalk ledger."},
+    {"name": "Tor", "description": "A seed buyer who waits near the vault."}
+  ],
+  "profile": "narrative_v1",
+  "presentation": {"version": 1, "tone": "plain", "excluded_phrases": []}
+}

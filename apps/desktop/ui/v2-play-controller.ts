@@ -731,6 +731,78 @@ export class V2PlayController {
             ? result
             : null;
     }
+    async traceRecordedTurn(
+        row: Extract<RowV2, { kind: "scoped_message" }>,
+        from: V2BoundPage,
+    ): Promise<V2BoundPage | null> {
+        const c = this.state.context,
+            snapshot = this.state.snapshot,
+            key = this.key;
+        if (
+            !c ||
+            !snapshot ||
+            this.disposed ||
+            !row ||
+            !from ||
+            c.view !== "play" ||
+            c.observer.kind !== "player" ||
+            (from !== this.state.history && from !== this.state.inspection)
+        )
+            return null;
+        let end: number;
+        try {
+            if (structural(c) !== key) return null;
+            const native = checkedPlaySnapshotV2(snapshot, c.scope, c.revision);
+            if (native.player.observer !== c.player) return null;
+            const index = from.page.rows.indexOf(row);
+            if (
+                index < 0 ||
+                from.query.view !== "history" ||
+                from.page.view !== "history" ||
+                from.query.observer.kind !== "player" ||
+                from.page.privacy !== "player_visible" ||
+                !sameScope(scoped(from.query.scope), c.scope) ||
+                from.query.expected_head !== c.revision
+            )
+                return null;
+            // Recheck mutable transports, retaining actual object membership.
+            // Query2 owns completed boundaries and original ancestor branches;
+            // no base revision or receipt is reconstructed from this row.
+            const page = checkedPageV2(from.page, from.query, c.player);
+            const recorded = page.rows[index];
+            if (
+                recorded.kind !== "scoped_message" ||
+                recorded.message_kind !== "narration" ||
+                recorded.origin !== "recorded_message" ||
+                recorded.original_scope.story !== c.scope.story ||
+                recorded.event_ids.length === 0 ||
+                recorded.event_ids.some(
+                    (sequence, index, ids) =>
+                        !Number.isSafeInteger(sequence) ||
+                        sequence < 1 ||
+                        (index > 0 && sequence !== ids[index - 1] + 1),
+                )
+            )
+                return null;
+            end = recorded.event_ids.at(-1)!;
+            if (end > page.revision || end > c.revision) return null;
+        } catch {
+            return null;
+        }
+        const pending = this.query(
+            { view: "turn_diff", atRevision: end, search: "" },
+            "inspection",
+        );
+        const sequence = this.querySequence;
+        const result = await pending;
+        return result &&
+            this.current(key) &&
+            this.state.context === c &&
+            sequence === this.querySequence &&
+            this.state.inspection === result
+            ? result
+            : null;
+    }
     page(cursor: string, channel: "history" | "inspection" = "inspection") {
         const bound =
             channel === "history" ? this.state.history : this.state.inspection;

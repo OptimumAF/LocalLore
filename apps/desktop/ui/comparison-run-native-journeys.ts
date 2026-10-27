@@ -7,6 +7,7 @@ import { checkedNativeComparisonRunStatus } from "./comparison-run-model";
 import type { EvidenceRequest, ObserverV2 } from "./comparison-reader-model";
 import { sameReaderObserver } from "./comparison-reader-model";
 import { structural, type ErrorBuffer } from "./model";
+import { abortHeldNativeComparisonConsent } from "./comparison-run-native-abort";
 
 export async function comparisonRunNativeJourneys({
     controller: c,
@@ -1265,12 +1266,17 @@ export async function comparisonRunNativeJourneys({
                 : "FullComparisonJourneyFailed";
         try {
             if (held) {
-                try {
-                    await f.close();
-                } catch {
+                const aborted = await abortHeldNativeComparisonConsent({
+                    full: f,
+                    invoke,
+                    dispose: async () => {
+                        disposalStarted = true;
+                        await dispose();
+                    },
+                });
+                held = !aborted.released;
+                if (aborted.cleanupUnconfirmed)
                     failureCategory = "HarnessCleanupUnconfirmed";
-                }
-                await release();
             }
             if (!disposalStarted) {
                 disposalStarted = true;

@@ -91,7 +91,7 @@ pub fn current_binding(native: bool) -> Result<CurrentBindingV4> {
     Ok(CurrentBindingV4 {
         protocol_version: VERSION, arms: arm_descriptors(),
         source_sha256: existing.source_sha256, suite_sha256: existing.suite_sha256,
-        forwarded_budget_version: existing.forwarded_budget_version,
+        forwarded_budget_version: 1,
         max_admissions: existing.max_admissions, max_roles: existing.max_roles,
         max_active_ms: existing.max_active_ms, attempts: existing.attempts,
         expected_accepted: existing.expected_accepted,

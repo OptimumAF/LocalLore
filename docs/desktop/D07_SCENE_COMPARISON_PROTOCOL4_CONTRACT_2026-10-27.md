@@ -525,3 +525,23 @@ actual execution with these frozen oracles. Missing APIs or fixture/setup errors
 are not behavioral RED. First runnable checks are the frozen public scripted
 suite, then feature-enabled before-owner cases and existing Protocol3/shared
 owner/accounting regressions; native/model/UI gates require separate allocation.
+
+### Source-review prerequisite corrections
+
+Independent source review of `cf1e01dc` found two prerequisites before first
+compilation/execution. The V2 binding's forwarded-budget member is an
+`Option<u16>`, while the frozen V4 field is `u16`; the V4 binding now uses exact
+version1, following the existing V3 convention. The shared
+`turn_execution::record_setup` previously admitted only envelopes2/3; its one
+predicate now also admits4. All setup serialization, shared-time accounting,
+limits and version2/3 behavior remain unchanged.
+
+This narrow additional shared-path allocation is explicitly claimed on
+[#29](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6452179285) and
+[#25](https://github.com/OptimumAF/LocalLore/issues/25#issuecomment-6452179662).
+No scene producer/privacy code or frozen test is changed in this correction.
+Independent privacy oracles are being frozen separately before any privacy
+implementation change. Original `cf1` remains UNCOMPILED/UNRUN; source review of
+these prerequisites is not an executed behavioral RED. Root still owns first
+compile, calibration and all verification. Author checks remain source/Git and
+`git diff --check` only.

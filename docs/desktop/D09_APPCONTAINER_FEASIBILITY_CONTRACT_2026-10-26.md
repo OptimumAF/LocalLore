@@ -252,3 +252,102 @@ and capture of completed synthetic error bytes. This correction and any fresh
 native attempt require their own source-attributed verification. Later cleanup
 of the exact retained profile requires a separate verified ownership/absence
 observation; it cannot repair the original Job/reader measurements.
+
+## Subsequent actual failures and profile-free diagnosis, October27
+
+These are failed feasibility measurements, not an offline qualification. The
+branch now includes accepted main6f6608bf. Production renderer/default handlers,
+engine, provider, storage and lock behavior are unchanged by the required-feature
+qualifier. The package's explicit default-run preserves the existing app CLI.
+
+The bounded cleanup correction atfee3cb74 captures the second baseline's actual
+`Io:5` error. It positively observes Job0 after two polls, process reap and reader
+drain; profile deletion reports API success. The boxed case is unattempted.
+Fixed stage labels at7b34a898 narrow the same failure to reading the challenge.
+At403e18cf actual parent challenge readback passes, but the child fails
+`CanaryMarkerRead:ReadSmallOpen:Io:5`. No permission or sharing flags were relaxed.
+Atc4f3ee3b private process-token observations show the same user, zero restricted
+SIDs, medium parent integrity and low ordinary-child integrity. That attempt
+also confirms drain/API deletion and never reaches the boxed case.
+
+The six default file/ACL/pipe/deletion safety tests pass. The original real
+symlink test separately passes when explicitly selected; one mistyped filter
+selected zero tests and is preserved as noncoverage. A file-only ordinary and
+verbatim-path challenge test passes without creating a profile or child.
+Strict qualifier Clippy and binary builds pass at their separately recorded
+source revisions. Compiler success is not a successful feasibility control.
+
+An independently reviewed fixed read-only observer verifies original proof,
+marker and full copied-image hashes before querying labels/DACLs through pinned
+handles. The old fixture/image/marker have low no-write-up labels; ancestors
+have no explicit mandatory label. User/system/package allow rules and ordinary
+nonencrypted file attributes are observed. These facts do not explain or waive
+the low child's access denial. Private user SIDs/absolute paths are not published.
+Windows documents that a new process uses the lesser of caller and executable
+integrity; this explains the low executable's process level, not the failed
+marker access. [MIC](https://learn.microsoft.com/en-us/windows/win32/secauthz/mandatory-integrity-control),
+[label query rights](https://learn.microsoft.com/en-us/windows/win32/secauthz/security-information).
+
+### Fixed test-only ordinary low-integrity probe
+
+The ignored unit-test parent copies only its own test executable to a new pinned
+fixture. It derives a SID for the fixture ACL/marker but creates no profile.
+Its only child argv selects one fixed ignored libtest case. The child derives
+its fixture from its own exact image/UUID and canonical bounded stdin. The
+production argv/parser/positive-control criteria remain unchanged. Parent and
+child use the same suspended/Job/token/positive-drain ownership path.
+
+The first source draft selected an AppContainer token. Independent review
+identified the mismatch with the measured ordinary baseline; that draft was
+corrected before execution. A successful measurement collection cannot waive
+full-read failure. Missing native identity is null, not a claimed mismatch.
+
+At clean0cb46320, default safety tests pass6 with3 ignored cases (real symlink,
+probe parent, probe child). The explicitly selected probe actually **fails**:
+medium full-read control passes; ordinary low child fails all five opens with
+error5: attributes, data+synchronize, read-control, extended attributes and the
+unchanged Rust generic read. Actual Job0/process reap/pipe drain are confirmed.
+All raw rows and the failed summary are retained before the parent assertion.
+
+At clean40432862 a final discriminating cohort again **fails**. Direct read-only
+`CreateFileW` with explicit generic-read/read-sharing/open-existing/open-reparse
+flags also returns Win32 error5. It does not establish identical effective Rust
+calls or a Rust defect. Actual image/CWD/fixture/marker paths agree; marker
+metadata is denied too. Read-only `OpenThreadToken` reports ERROR_NO_TOKEN1008,
+so there is no observed thread impersonation token. Process and pipe cleanup
+are confirmed. No ACL, token state, privilege, sharing or system-setting change
+was made. There is no raw-open success fallback. No profile, network, app,
+WebView, worker or model was used in either unit-test cohort.
+
+Reproducer after explicit source review, from repository root:
+
+```powershell
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --bin offline-qualifier --locked --offline --jobs 1 --target-dir $ownedTarget win::tests::low_integrity_file_read_mask_diagnostic -- --exact --ignored --nocapture --test-threads=1
+```
+
+Use the existing isolated cache and task-owned TEMP/TMP; serialize heavy work.
+Do not directly select the child test without its owned bounded stdin. Preserve
+the actual nonzero result. Further unchanged canary attempts are stopped while
+independent desktop work continues. The cause of the file denial remains
+unresolved, and whole-app offline/renderer/worker/network gates remain open.
+
+### Separate cleanup of the original retained profile
+
+Root reviewed a fixed create-only one-shot helper against the original four
+artifact hashes, full copied-image hash, run/source/SID binding and positive
+outer parent-reap evidence. Fresh read-only process enumeration confirms the
+historical PID and exact original fixture image absent, with no unresolved
+qualifier candidates. SID derivation matches the recorded package. Exactly one
+`DeleteAppContainerProfile` call returns HRESULT0. No profile creation/adoption,
+process control, recursive deletion, unrelated cleanup or retry occurs.
+
+The separate cleanup record does not rewrite the original unknown-cleanup proof,
+recover an old Job0 observation, or qualify offline operation. Managed profile
+storage absence remains unchecked. Original fixtures and evidence are retained.
+
+Fresh package-tool checks at403e18cf pass30 package tests,1 actual cached notice
+attribution test,20 synthetic reproducibility-comparator tests and the workflow
+policy checker. These do not qualify a current package, new two-path build,
+installation, worker/UI execution, independent license review or distribution.
+Python3.14.7, Node24.22.1 and Rust/Cargo1.93.1 are the actual command versions.
+All raw diagnostics stay local; no model, user story or private path is uploaded.

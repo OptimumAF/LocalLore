@@ -22,6 +22,12 @@ export async function comparisonReaderJourneys({
     let failedCheck = "comparison-start";
     let failureCategory: string | null = null;
     let fixtureInventory: Record<string, string> | null = null;
+    let protocolVersion: 2 | 3 | 4 = 2;
+    let fixtureProof: {
+        source_gate: string;
+        paired: { rows: number; source_bound_committed_rows: number; human_reviewed: number; quality_accepted: boolean };
+        rollout: { rows: number; source_bound_committed_rows: number; human_reviewed: number; quality_accepted: boolean };
+    } | null = null;
     const check = (value: unknown, label: string) => {
         failedCheck = label;
         if (!value) throw Error(label);
@@ -38,12 +44,58 @@ export async function comparisonReaderJourneys({
         failedCheck = `native-fixture-${name}`;
         return invoke("harness_comparison_reader_case", { scenario: name });
     };
+    const button = (label: string) => {
+        const matches = [...document.querySelectorAll<HTMLButtonElement>("#comparison-reader button")]
+            .filter(node => node.textContent?.trim() === label);
+        check(matches.length === 1 && !matches[0].disabled, `actual-mounted-button-${label}`);
+        return matches[0];
+    };
+    const open = async () => {
+        if (protocolVersion !== 4) return r.pick();
+        button("Choose comparison report folder").click();
+        await until(() => !r.get().busy && !r.get().status?.running);
+        check(r.get().status?.phase === "ready" && !!r.get().source, "mounted-picker-actual-native-ready");
+    };
+    const summary = async () => {
+        if (protocolVersion !== 4) return r.loadSummary();
+        if (!r.get().summary) {
+            button("Show private report").click();
+            await until(() => !r.get().busy);
+        }
+        check(r.get().summary?.report.version === 4, "mounted-private-summary-keeps-protocol4");
+    };
+    const selectRow = async (row: { turn: string; arm: string }) => {
+        if (protocolVersion !== 4) { r.select(row as Parameters<typeof r.select>[0]); return; }
+        const value = `Inspect ${row.arm} ${row.turn}`;
+        const matches = [...document.querySelectorAll<HTMLButtonElement>("#comparison-reader button")]
+            .filter(node => node.getAttribute("aria-label") === value);
+        check(matches.length === 1 && !matches[0].disabled, "actual-mounted-source-row-control");
+        matches[0].click();
+        await until(() => r.get().selected?.turn === row.turn && r.get().selected?.arm === row.arm);
+    };
     const inspect = async (
         kind: "query" | "receipt" | "capture" | "outputs",
         edge: "before" | "after" = "after",
         view: ViewV2 = "knowledge",
     ) => {
         failedCheck = `comparison-inspect-${kind}-${edge}`;
+        if (protocolVersion === 4) {
+            if (kind === "query") {
+                const selects = [...document.querySelectorAll<HTMLSelectElement>(".comparison-selected .comparison-controls select")];
+                check(selects.length === 2, "actual-mounted-query-edge-and-view-controls");
+                for (const [control, value] of [[selects[0], edge], [selects[1], view]] as const) {
+                    control.value = value;
+                    control.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+                await until(() => r.get().querySelection.edge === edge && r.get().querySelection.view === view);
+            }
+            const previous = r.get().evidence;
+            const label = kind === "query" ? "Inspect filtered state" : kind === "receipt" ? "Inspect accepted receipt"
+                : kind === "capture" ? "Inspect actual context capture" : "Inspect recorded role outputs";
+            button(label).click();
+            await until(() => !r.get().busy && r.get().evidence !== previous && r.get().evidence !== null);
+            return;
+        }
         if (kind === "query")
             await r.inspect({
                 kind,
@@ -59,7 +111,55 @@ export async function comparisonReaderJourneys({
         includeSummary = false,
     ) => {
         failedCheck = `${label}-capture`;
-        document.querySelector(selector)?.scrollIntoView({ block: "start" });
+        let target = document.querySelector<HTMLElement>(selector);
+        let requireSelectedContext = false;
+        let hashRange: Range | null = null;
+        if (protocolVersion === 4) {
+            if (["comparison-receipt", "comparison-capture", "comparison-outputs", "comparison-mira", "comparison-sable", "comparison-guard"].includes(label)) {
+                target = document.querySelector<HTMLElement>(".comparison-evidence pre, .comparison-evidence");
+                // Prefer the actual bounded content, not only its outer heading.
+                target = target?.querySelector<HTMLElement>("pre") ?? target;
+                requireSelectedContext = true;
+                if (target?.tagName === "PRE") {
+                    const needle = label === "comparison-receipt" || label === "comparison-mira"
+                        ? "The pennant I carry has an amber stitch."
+                        : label === "comparison-capture" ? "generation_request"
+                        : label === "comparison-outputs" ? '"director"' : '"rows"';
+                    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+                    let node: Node | null;
+                    let located = false;
+                    while ((node = walker.nextNode())) {
+                        const at = node.textContent?.indexOf(needle) ?? -1;
+                        if (at < 0) continue;
+                        const range = document.createRange();
+                        range.setStart(node, at); range.setEnd(node, at + needle.length);
+                        target.scrollTop += range.getBoundingClientRect().top - target.getBoundingClientRect().top - 48;
+                        located = true; break;
+                    }
+                    check(located, `${label}-actual-target-content-present`);
+                }
+            } else if (label === "comparison-narrow") {
+                const terms = [...document.querySelectorAll<HTMLElement>(".comparison-selected dt")];
+                const first = terms.find(node => node.textContent?.trim() === "Construction evidence");
+                const last = terms.find(node => node.textContent?.trim() === "Scene frame hash")?.nextElementSibling;
+                check(first && last, "actual-protocol4-status-hash-fields-mounted");
+                hashRange = document.createRange();
+                hashRange.setStartBefore(first!); hashRange.setEndAfter(last!);
+                target = first!;
+                requireSelectedContext = true;
+            } else if (includeSummary) {
+                target = document.querySelector<HTMLElement>("#comparison-reader .comparison-table");
+                check(!!target?.querySelector("thead"), `${label}-actual-report-table-mounted`);
+                check(structural([...target!.querySelectorAll("thead th")].map(node => node.textContent?.trim())) ===
+                    structural(["Turn", "Arm", "Revision", "Result", "Roles", "Inspect"]), `${label}-actual-report-table-headers`);
+            }
+        }
+        check(target, `${label}-actual-capture-target-present`);
+        target!.scrollIntoView({ block: protocolVersion === 4 ? "center" : "start" });
+        if (hashRange) {
+            const bounds = hashRange.getBoundingClientRect();
+            window.scrollBy(0, (bounds.top + bounds.bottom) / 2 - innerHeight / 2);
+        }
         await new Promise((resolve) => setTimeout(resolve, 150));
         const state = r.get(),
             panel = document.querySelector<HTMLElement>("#comparison-reader");
@@ -70,6 +170,25 @@ export async function comparisonReaderJourneys({
         );
         const overflow = document.documentElement.scrollWidth > innerWidth + 2;
         const nested = !!panel && panel.scrollWidth > panel.clientWidth + 2;
+        if (protocolVersion === 4) {
+            const rectangle = hashRange?.getBoundingClientRect() ?? target!.getBoundingClientRect();
+            if (requireSelectedContext) {
+                const header = document.querySelector<HTMLElement>(".comparison-selection-context");
+                check(!!header && !!selected && header.textContent?.includes(selected.source.scope.story) &&
+                    header.textContent?.includes(selected.source.scope.branch) &&
+                    header.textContent?.includes(`before ${selected.source.before_head}`) &&
+                    header.textContent?.includes(`after ${selected.source.after_head}`), `${label}-actual-selected-scope-header`);
+                const context = header!.getBoundingClientRect();
+                check(context.top >= -2 && context.bottom < innerHeight && rectangle.top >= context.bottom - 2 &&
+                    rectangle.bottom <= innerHeight + 2, `${label}-actual-content-visible-below-context-header`);
+            } else if (includeSummary) {
+                const header = document.querySelector<HTMLElement>(".comparison-report-context");
+                check(!selected && !!header && header.textContent?.includes("Protocol 4"), `${label}-actual-unselected-report-context`);
+                const context = header!.getBoundingClientRect();
+                check(context.top >= -2 && rectangle.top >= context.bottom - 2 && rectangle.bottom <= innerHeight + 2,
+                    `${label}-actual-report-table-within-viewport`);
+            }
+        }
         const evidence = state.evidence;
         const inspectedRevision = evidence
             ? evidence.body.kind === "query"
@@ -179,6 +298,7 @@ export async function comparisonReaderJourneys({
                     checks: [...checks],
                     errors: errors.snapshot(),
                     fixtureInventory: includeSummary ? fixtureInventory : null,
+                    fixtureProof: includeSummary ? fixtureProof : null,
                     selectedStory: selected?.source.scope ?? null,
                     selectedReport: state.status?.run_token ?? null,
                     observer: state.observer,
@@ -227,6 +347,11 @@ export async function comparisonReaderJourneys({
                         devicePixelRatio,
                         horizontalOverflow: overflow,
                         nestedOverflow: nested,
+                        captureTarget: protocolVersion === 4 ? {
+                            text: target?.textContent?.slice(0, 2048),
+                            scrollTop: target?.scrollTop ?? null,
+                            context: document.querySelector(".comparison-selection-context")?.textContent?.slice(0, 2048) ?? null,
+                        } : null,
                     },
                 },
             });
@@ -261,24 +386,36 @@ export async function comparisonReaderJourneys({
         c.acknowledgeLab(true);
         await until(() => r.get().allowed);
         const prepared = (await scenario("prepare")) as {
-            protocol_version: 2 | 3;
+            protocol_version: 2 | 3 | 4;
             paired_rows: number;
             rollout_rows: number;
             fixture_inventory: Record<string, string>;
+            models_executed: boolean;
+            scene_proof: typeof fixtureProof;
         };
+        protocolVersion = prepared.protocol_version;
+        fixtureProof = prepared.scene_proof;
         fixtureInventory = prepared.fixture_inventory;
         check(
-            prepared.protocol_version === 2 || prepared.protocol_version === 3,
+            [2, 3, 4].includes(prepared.protocol_version),
             "closed-comparison-protocol",
         );
+        check(prepared.models_executed === false, "native-fixture-is-scripted-not-model-execution");
         check(
             prepared.paired_rows === 24 && prepared.rollout_rows === 12,
             "actual-scripted-paired-and-rollout-fixtures",
         );
+        if (protocolVersion === 4) {
+            await scenario("cancel-picker");
+            await r.pick();
+            check(r.get().status?.phase === "cancelled" && r.get().source === null && r.get().summary === null,
+                "actual-cancelled-picker-never-opens-a-report");
+            await r.close();
+        }
         await scenario("choose-paired");
         failedCheck = "native-comparison-pick";
-        await r.pick();
-        await r.loadSummary();
+        await open();
+        await summary();
         check(
             r.get().status?.phase === "ready" &&
                 r.get().source?.rows.length === 24 &&
@@ -306,6 +443,23 @@ export async function comparisonReaderJourneys({
             .get()
             .source!.rows.find((row) => row.receipt_available)!;
         check(first, "real-accepted-turn-source-present");
+        if (prepared.protocol_version === 4) {
+            const report = r.get().summary!.report;
+            check(report.version === 4, "actual-protocol4-report-discriminant");
+            if (report.version !== 4) throw Error("SceneReportRequired");
+            check(fixtureProof?.source_gate === "fresh_domain1_committed_narrator_input_only" &&
+                fixtureProof.paired.rows === 24 && fixtureProof.rollout.rows === 12 &&
+                report.source_bound_committed_rows === fixtureProof.paired.source_bound_committed_rows,
+                "actual-native-producer-and-Core-reader-source-count-preserved");
+            check(report.human_reviewed === 0 && report.human_rubric === "not_reviewed" && report.quality_accepted === false,
+                "actual-protocol4-human-and-quality-not-invented");
+            check(report.turns.every(row => row.construction.scene_capture_gate_version === 1 && row.construction.scene_frame_version === 1),
+                "actual-protocol4-scene-descriptors-preserved");
+            const text = document.querySelector<HTMLElement>("#comparison-reader")?.innerText ?? "";
+            check(text.includes("Literal scene") && text.includes("Relevant memory scene") &&
+                text.includes("committed narrator inputs checked") && text.includes("needs improvement") &&
+                text.includes("Protocol 4 selected-case rerun unavailable"), "actual-protocol4-visible-scope-and-limits");
+        }
         if (prepared.protocol_version === 3) {
             const text =
                 document.querySelector<HTMLElement>("#comparison-reader")
@@ -332,12 +486,22 @@ export async function comparisonReaderJourneys({
                 "read-only-refresh-preserves-native-protocol3-reader",
             );
         }
-        r.select(first.row);
+        await selectRow(first.row);
         await inspect("receipt");
         check(
             r.get().evidence?.body.kind === "receipt",
             "actual-rust-accepted-receipt",
         );
+        if (protocolVersion === 4) {
+            const turn = r.get().summary!.report.turns.find(row => row.turn === first.row.turn && row.arm === first.row.arm)!;
+            check("narrator_prompt_sha256" in turn && turn.construction_evidence_status === "validated_committed_scene_narrator_v1" &&
+                /^[a-f0-9]{64}$/.test(turn.narrator_prompt_sha256 ?? "") && /^[a-f0-9]{64}$/.test(turn.narrator_schema_sha256 ?? "") &&
+                /^[a-f0-9]{64}$/.test(turn.scene_frame_sha256 ?? "") && /^[a-f0-9]{64}$/.test(turn.actual_receipt_sha256 ?? ""),
+                "actual-source-bound-protocol4-status-and-hashes");
+            const selectedButton = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Prepare selected experiment"] button')]
+                .find(node => node.textContent?.trim() === "Prepare selected case");
+            check(!!selectedButton?.disabled, "protocol4-mounted-selected-admission-remains-disabled");
+        }
         await capture("comparison-receipt", ".comparison-selected");
         await inspect("capture");
         check(
@@ -397,6 +561,26 @@ export async function comparisonReaderJourneys({
             denial = String(error);
         }
         check(denial === "Forbidden", "actual-native-raw-actor-denial");
+        if (protocolVersion === 4) {
+            let early = "";
+            try {
+                await invoke("evaluation_comparison", { action: "evidence", query: {
+                    runToken: status.run_token, binding: "0".repeat(64), turnId: "not-an-actual-row", arm: "left",
+                    request: { kind: "outputs", observer: { kind: "character", id: "sable" } },
+                } });
+            } catch (error) { early = String(error); }
+            check(early === "Forbidden", "actual-native-actor-raw-denial-precedes-binding-and-row-probes");
+            const originalEvidence = structural(r.get().evidence);
+            let mismatch = "";
+            try {
+                await invoke("evaluation_comparison", { action: "evidence", query: {
+                    runToken: status.run_token, binding: "0".repeat(64), turnId: first.row.turn, arm: first.row.arm,
+                    request: { kind: "receipt", observer: { kind: "omniscient" } },
+                } });
+            } catch (error) { mismatch = String(error); }
+            check(mismatch === "EvaluationIntegrity" && structural(r.get().evidence) === originalEvidence,
+                "actual-native-stale-binding-refused-without-changing-current-evidence");
+        }
         r.setObserver({ kind: "player" });
         await inspect("query", "before");
         check(
@@ -409,13 +593,13 @@ export async function comparisonReaderJourneys({
             .get()
             .source!.rows.find((row) => !row.receipt_available)!;
         check(guard, "real-guard-only-turn-present");
-        r.select(guard.row);
+        await selectRow(guard.row);
         await inspect("receipt");
         check(
             r.get().evidence?.body.kind === "missing",
             "guard-does-not-invent-receipt",
         );
-        if (prepared.protocol_version === 3) {
+        if (prepared.protocol_version === 3 || prepared.protocol_version === 4) {
             const text =
                 document.querySelector<HTMLElement>(".comparison-selected")
                     ?.innerText ?? "";
@@ -465,14 +649,29 @@ export async function comparisonReaderJourneys({
         await capture("comparison-recovered");
         await r.close();
         await scenario("choose-rollout");
-        await r.pick();
-        await r.loadSummary();
+        await open();
+        await summary();
         check(
             r.get().source?.rows.length === 12 &&
                 r.get().summary?.report.kind === "continuous_rollout",
             "separate-actual-rollout-source",
         );
         await capture("comparison-rollout", "#comparison-reader", true);
+        if (protocolVersion === 4) {
+            const session = c.selected()!;
+            await c.closeSession();
+            await until(() => r.get().source === null);
+            check(r.get().summary === null && r.get().evidence === null,
+                "actual-gameplay-session-close-retires-all-private-reader-data");
+            await c.resume(session.scope);
+            check(c.selected()?.id !== session.id && structural(c.selected()?.scope) === structural(session.scope),
+                "actual-new-Host-session-same-canonical-story");
+            await until(() => r.get().allowed);
+            await scenario("choose-rollout");
+            await open();
+            await summary();
+            check(r.get().source?.protocol_version === 4, "new-session-can-open-same-read-only-scene-report");
+        }
         c.returnToPlay();
         await until(() => r.get().source === null);
         check(
@@ -502,21 +701,29 @@ export async function comparisonReaderJourneys({
                 synthetic: true,
                 passed: true,
                 stage: config.stage,
+                protocolVersion,
                 checks,
                 errors: errors.snapshot(),
                 realModelGeneration: false,
+                nativeIpc: true,
                 desktopInput: false,
                 rendering: "native-webview2",
                 nativeDialogsAutomated: false,
             },
         });
     } catch {
+        const originalFailedCheck = failedCheck;
+        try {
+            await invoke("harness_comparison_reader_case", { scenario: "release-picker" });
+            await dispose();
+        } catch { /* Preserve the original failure; never label cleanup as success. */ }
         await invoke("harness_finish", {
             report: {
                 synthetic: true,
                 passed: false,
                 stage: config.stage,
-                failedCheck,
+                protocolVersion,
+                failedCheck: originalFailedCheck,
                 failureCategory,
                 checks,
                 errors: errors.snapshot(),

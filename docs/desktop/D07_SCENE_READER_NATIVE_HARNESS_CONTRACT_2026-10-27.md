@@ -84,3 +84,33 @@ individual inspection of every produced PNG. Frontend/headless checks, native
 Rust tests and native IPC/WebView execution remain separately attributed.
 No model, offline, device, accessibility, human-quality or whole-D07 approval
 follows from source authoring or later synthetic native success.
+
+## Source implementation handoff boundary
+
+The scene prepare branch now also opens/drops the actual strict Core facade and
+compares its report before returning finite native fixture proof. Existing
+scenario commands and15 labels are reused, so no bootstrap/allowlist/API change
+is required. Mode4 uses actual mounted picker/summary/row/query/raw-evidence
+controls, plus existing public controllers for held-close/lost-ack races. It
+checks cancelled picker, exact actor-raw denial before bad binding/row probes,
+actual stale-binding refusal, same-story Host session close/reopen retirement,
+separate lens retirement and byte-invariant cold fixture reads. Native selected
+execution refusal remains separately owned by the existing eight native cases;
+this journey additionally checks the actual mounted disabled admission control.
+
+Captures depend on Root-owned production presentation seams926f94d8/a0e7ed2d:
+`.comparison-selection-context` above selected evidence, and
+`.comparison-report-context` above an unselected whole-report table. The
+harness adds no CSS/label mock. Unselected scope stays null, with actual report
+protocol/binding recorded; selected evidence retains actual scope/heads/observer.
+Target data, sticky-context nonoverlap and table/status/hash bounds are strict
+and remain unrun. Long preformatted evidence scrolls within its actual bounded
+element to the fixed original content; no evidence is replaced or rewritten.
+
+Launcher guards include frontend JS/CSS/HTML and executable products, actual
+source inputs, complete original fixture file hashes and exact per-stage artifact
+rosters/hashes. Normal builds restore in finally only after known-closed runs;
+unknown owned drain remains failed/unqualified. All implementation, compilation,
+timeout, lifecycle and render checks are **UNRUN at author handoff**. Root must
+merge the presentation seams and separately reviewed source3 label calibration
+before first serial verification; original failures must remain attributable.

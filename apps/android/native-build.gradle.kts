@@ -5,7 +5,9 @@ import java.util.Properties
 val nativeNdkVersion = "29.0.14206865"
 val nativeRustToolchain = "1.93.1"
 val nativeMinSdk = 26
-val nativeModelProvisioning = providers.gradleProperty("localLoreModelSetupVerification").orNull == "true"
+val nativeModelProvisioning =
+    providers.gradleProperty("localLoreModelSetupVerification").orNull == "true" ||
+    providers.gradleProperty("localLoreLiteRtVerification").orNull == "true"
 val archiveCapacityFixture = providers.gradleProperty("localLoreArchiveCapacityVerification").orNull == "true"
 val nativeCapacityTest = project.extra["localloreCapacityTest"] as Boolean
 val nativeCapacityPages = project.extra["localloreCapacityPages"] as Int

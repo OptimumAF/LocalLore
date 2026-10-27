@@ -13,7 +13,10 @@ source/Git/documentation only. After independent review, Root's separate planned
 checks are default qualifier unit tests with ignored cases remaining ignored,
 strict lint, and normal app/qualifier builds **without launching either image**.
 No new profile, socket, canary, opt-in probe or application execution is planned.
-Full D09 acceptance and offline/security qualification remain open.
+Full D09 acceptance and offline/security qualification remain open. A later
+[default-check and unlaunched-build handoff](D09_FEASIBILITY_BUILD_HANDOFF_2026-10-27.md)
+reconciles accepted main d5a6e84c and records the limited new results separately;
+it does not rerun or qualify this stopped workflow.
 
 Refs #31 D09.02/.05/.06. Base accepted `3f75b5d6`. SOURCE ONLY at freeze;
 no compile, child, network, profile or ACL operation has been executed by author.

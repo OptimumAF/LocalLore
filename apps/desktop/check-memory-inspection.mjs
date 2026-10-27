@@ -327,8 +327,12 @@ await check(
 await check("source false/foreign/missing exact match rejected", () => {
     for (const change of [
         (v) => (v.matched = false),
-        (v) => (v.source.scope.branch = "foreign"),
-        (v) => (v.page.rows[0].event.scope.branch = "foreign"),
+        (v) => (v.source.scope = { ...v.source.scope, branch: "foreign" }),
+        (v) =>
+            (v.page.rows[0].event.scope = {
+                ...v.page.rows[0].event.scope,
+                branch: "foreign",
+            }),
         (v) => (v.page.rows = []),
     ]) {
         const v = clone(source);
@@ -339,9 +343,16 @@ await check("source false/foreign/missing exact match rejected", () => {
 await check("inherited same-story original source branch is preserved", () => {
     const v = clone(source),
         r = clone(readSource);
-    v.source.scope.branch = "ancestor";
-    v.page.rows[0].event.scope.branch = "ancestor";
-    r.source.scope.branch = "ancestor";
+    // structuredClone preserves aliases inside each fixture. Replace the source
+    // scopes so this case cannot also mutate the selected Page2/envelope scope.
+    v.source.scope = { ...v.source.scope, branch: "ancestor" };
+    v.page.rows[0].event.scope = {
+        ...v.page.rows[0].event.scope,
+        branch: "ancestor",
+    };
+    r.source.scope = { ...r.source.scope, branch: "ancestor" };
+    assert.deepEqual(v.scope, context.scope);
+    assert.deepEqual(v.page.scope, context.scope);
     assert.equal(
         m.checkedMemoryInspection(v, context, r).source.scope.branch,
         "ancestor",

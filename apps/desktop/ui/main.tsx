@@ -1,5 +1,6 @@
 import { EvaluationController } from "./evaluation-controller";
 import { ComparisonReaderController } from "./comparison-reader-controller";
+import { ComparisonRunController } from "./comparison-run-controller";
 import { SelectedEvaluationController } from "./selected-evaluation-controller";
 import { NativeCloseController } from "./native-close-controller";
 import { ArchiveController } from "./archive-controller";
@@ -55,6 +56,8 @@ declare global {
             curated?: boolean;
             comparisonReading?: boolean;
             selectedEvaluating?: boolean;
+            fullComparing?: boolean;
+            nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
             forking?: boolean;
@@ -330,6 +333,9 @@ const evaluation = new EvaluationController(invoke, (code) =>
 const comparison = new ComparisonReaderController(invoke, (code) =>
     errors.add("native", code),
 );
+const comparisonRun = new ComparisonRunController(invoke, (code) =>
+    errors.add("native", code),
+);
 const selectedEvaluation = new SelectedEvaluationController(invoke, (code) =>
     errors.add("native", code),
 );
@@ -494,6 +500,18 @@ const syncEvaluationContext = () => {
     );
     // The observer is a read lens. It never changes an experiment's execution
     // identity, admission, cancellation or generation permissions.
+    comparisonRun.setContext(
+        JSON.stringify([
+            authorNativeContext?.root ?? null,
+            authorNativeContext?.granted ?? false,
+            s.selectedId,
+            play?.scope ?? null,
+            play?.revision ?? null,
+            s.view,
+            s.disposed,
+        ]),
+        !!authorNativeContext?.granted && s.view === "lab" && !s.disposed,
+    );
     selectedEvaluation.setContext(
         JSON.stringify([
             authorNativeContext?.root ?? null,
@@ -581,6 +599,7 @@ root.render(
         evaluation={evaluation}
         comparison={comparison}
         selectedEvaluation={selectedEvaluation}
+        comparisonRun={comparisonRun}
         nativeClose={nativeClose}
         archive={archive}
         capture={capture}
@@ -607,6 +626,7 @@ const dispose = async () => {
     evaluation.dispose();
     comparison.dispose();
     selectedEvaluation.dispose();
+    comparisonRun.dispose();
     releaseNativeClose?.();
     archive.dispose();
     timeline.dispose();
@@ -704,6 +724,22 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             invoke,
             dispose,
             config: window.__LOCALLORE_TEST__,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.fullComparing) {
+        const { comparisonRunJourneys } =
+            await import("./comparison-run-journeys");
+        await comparisonRunJourneys({
+            controller,
+            comparison,
+            full: comparisonRun,
+            errors,
+            invoke,
+            dispose,
+            config: {
+                stage: window.__LOCALLORE_TEST__.stage,
+                nativeGrantDenied:
+                    window.__LOCALLORE_TEST__.nativeComparisonDenied === true,
+            },
         });
     } else if (
         __DEV_HARNESS__ &&

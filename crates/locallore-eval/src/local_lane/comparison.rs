@@ -5,8 +5,16 @@ pub mod desktop_api;
 #[cfg(test)]
 mod literal_control_oracle_tests;
 #[cfg(test)]
+mod literal_producer_legacy_tests;
+pub mod literal_v3;
+#[cfg(feature = "local-model")]
+mod native_selected_workflow;
+#[cfg(feature = "local-model")]
+mod native_startup;
+#[cfg(test)]
 mod outcome_review_tests;
 pub mod selected;
+mod turn_execution;
 use super::*;
 pub use crate::memory_comparison_v2::{ComparisonKind, ComparisonReportV2};
 use crate::{
@@ -384,26 +392,20 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
         forwarded_budget_version,
     } = observation;
     let request = step.request(before);
-    let same = before.accepted_history_basis().map_err(|_| "Source")?
-        == after.accepted_history_basis().map_err(|_| "Source")?;
     let roles = recording.map_or(0, |r| r.roles);
-    let guard = matches!(step.expected(), protocol::Expected::GuardRejected(_));
-    let mut expected_ok = false;
+    let outcome = turn_execution::assess_outcome(
+        before,
+        after,
+        step,
+        phase,
+        error.as_deref(),
+        receipt,
+        roles,
+    )?;
+    let guard = outcome.guard;
+    let expected_ok = outcome.expected_ok;
     let mut policy_matches = guard && roles == 0;
     if let Some(receipt) = receipt {
-        if receipt.request() != &request {
-            return Err("ReceiptBinding".into());
-        }
-        let mut replay = before.clone();
-        replay
-            .commit_prepared(receipt)
-            .map_err(|_| "ReceiptReplay")?;
-        if replay.accepted_history_basis().map_err(|_| "Source")?
-            != after.accepted_history_basis().map_err(|_| "Source")?
-        {
-            return Err("ReceiptReplay".into());
-        }
-        expected_ok = matches!(step.expected(),protocol::Expected::Accepted(c) if receipt.proposal().commands.as_slice()==std::slice::from_ref(c));
         policy_matches = receipt.play().is_some_and(|p| {
             p.prompt_version == PROMPT_VERSION
                 && p.policy == NARRATION_POLICY
@@ -413,16 +415,6 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
                     .as_ref()
                     .is_some_and(|c| c.compiler_version == 2 && c.version == 2)
         });
-    } else if let protocol::Expected::GuardRejected(g) = step.expected() {
-        expected_ok = error.as_deref() == Some(format!("{g:?}").as_str()) && same && roles == 0;
-    }
-    if phase == "not_run_dependency"
-        && (!same
-            || !matches!(step.expected(), protocol::Expected::Accepted(_))
-            || protocol::reference_proposal(before, step).is_ok()
-            || roles != 0)
-    {
-        return Err("DependencyOracle".into());
     }
     let applicable = roles > 0;
     let checked = match (recording, capture) {
@@ -647,27 +639,12 @@ fn recover_committed_turn(job: RecoveryJob<'_>) -> Result<Option<StoredTurn>> {
         step,
         profile,
     } = job;
-    if full.domain_version() != 1 {
-        return Err("UnsupportedDomain".into());
-    }
-    if full
-        .receipts()
-        .iter()
-        .any(|r| r.request().turn == step.id())
-    {
-        // Actual durable lookup, before admission/provider construction. Unknown
-        // historical roles/capture are never manufactured from the receipt.
-        let actual = Store::open_read_only(path)
-            .map_err(|_| "Workspace")?
-            .lookup_turn(full.scope(), step.id())
-            .map_err(|_| "Lookup")?;
-        let receipt = actual.receipt.ok_or("Lookup")?;
-        let before = full
-            .at_revision(receipt.request().expected_revision)
-            .map_err(|_| "Replay")?;
-        let after = full
-            .at_revision(receipt.events().last().ok_or("ReceiptBinding")?.sequence())
-            .map_err(|_| "Replay")?;
+    if let Some(actual) = turn_execution::recover_actual(path, full, step)? {
+        let turn_execution::RecoveredTurn {
+            before,
+            after,
+            receipt,
+        } = actual;
         let row = make_row(Observation {
             step,
             arm,
@@ -726,11 +703,8 @@ fn dependency_turn(job: DependencyJob<'_>) -> Result<Option<StoredTurn>> {
         step,
         profile,
     } = job;
-    profile.validate().map_err(|_| "Profile")?;
     let request = step.request(before);
-    if matches!(step.expected(), protocol::Expected::Accepted(_))
-        && protocol::reference_proposal(before, step).is_err()
-    {
+    if turn_execution::dependency_missing(before, step, profile)? {
         let row = make_row(Observation {
             step,
             arm,
@@ -804,7 +778,6 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
         .ok_or_else(|| "Lookup".into());
     }
     let before = full;
-    let request = step.request(&before);
     let profile = factory.profile()?;
     if let Some(turn) = dependency_turn(DependencyJob {
         full: &before,
@@ -817,201 +790,37 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
     })? {
         return Ok(turn);
     }
-    if cancel.is_cancelled() {
-        return Err("Interrupted".into());
-    }
-    let admission = ledger.admit(&format!("scene-{}", step.scene()), step.id())?;
-    let started = Instant::now();
-    let host = Arc::new(locallore_workspace::open(path, true).map_err(|_| "Workspace")?);
-    let _owned = OwnedHost(host.clone());
-    let session = resume_session(&host, before.scope())?;
-    for command in [
-        json!({"op":"trace_configure","session":session,"scope":before.scope(),"expected_head":before.revision(),"enabled":true}),
-        json!({"op":"trace_capture_configure","session":session,"scope":before.scope(),"expected_head":before.revision(),"enabled":true,"consent":true}),
-    ] {
-        if call(&host, command)["status"] != "ok" {
-            return Err("CaptureConsent".into());
-        }
-    }
-    let proposal = protocol::reference_proposal(&before, step).ok();
-    let commands = match step.expected() {
-        protocol::Expected::Accepted(command) => vec![command.clone()],
-        protocol::Expected::GuardRejected(_) => vec![],
-    };
-    let narration = proposal
-        .as_ref()
-        .and_then(|p| before.preview(&request, p).ok())
-        .map_or_else(|| "No outcome.".into(), |p| p.narration().to_owned());
-    let spec = LocalStep {
-        id: step.id().into(),
-        branch: before.scope().branch.clone(),
-        kind: step.kind(),
-        text: step.text().into(),
-        error: None,
-        commands,
-        narration,
-        prohibited_narration: vec!["SECRET-TIDE-731".into()],
-        cancel: false,
-        prompt_targets: vec![],
-        assertions: vec![],
-    };
-    let recording = Arc::new(Recording::default());
-    let make = factory.clone();
-    let observed = recording.clone();
-    let director = EXCLUSIONS.iter().map(|s| (*s).into()).collect::<Vec<_>>();
-    let mut narrator = director.clone();
-    narrator.push("SECRET-TIDE-731".into());
-    let forbidden = ForbiddenByRole { director, narrator };
-    let provider = Arc::new(move || make.provider(&spec, observed.clone(), forbidden.clone()));
-    if factory.native() {
-        host.configure_local_provider_with_policy(profile.clone(), provider, policy)
-    } else {
-        host.configure_fixture_provider_with_policy(profile.clone(), provider, policy)
-    }
-    .map_err(|_| "Profile")?;
-    let mut reply = call(
-        &host,
-        json!({"op":"free_text","session":session,"request":request}),
-    );
-    let active_remaining = MAX_ACTIVE_MS.saturating_sub(
-        ledger
-            .charged_ms
-            .saturating_sub(TURN_MS)
-            .max(ledger.prior_ms.saturating_add(ledger.elapsed())),
-    );
-    let deadline = turn_deadline(started, Instant::now(), active_remaining);
-    let (stop, stopped) = std::sync::mpsc::sync_channel(1);
-    let watch_host = host.clone();
-    let sid = session.clone();
-    let watch = request.clone();
-    let external = cancel.clone();
-    let watchdog = DeadlineGuard {
-        stop,
-        worker: Some(
-            std::thread::Builder::new()
-                .name("locallore-comparison-deadline".into())
-                .spawn(move || loop {
-                    if external.is_cancelled() || Instant::now() >= deadline {
-                        op(&watch_host, &sid, &watch.scope, &watch.turn, "cancel");
-                        break;
-                    }
-                    match stopped.recv_timeout(Duration::from_millis(5)) {
-                        Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
-                        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-                    }
-                })
-                .map_err(|_| "Watchdog")?,
-        ),
-    };
-    if reply["data"]["phase"] == "queued" {
-        // A slow prelude cannot admit a model role after the absolute deadline.
-        reply = op(
-            &host,
-            &session,
-            before.scope(),
-            step.id(),
-            if cancel.is_cancelled() || Instant::now() >= deadline {
-                "cancel"
-            } else {
-                "prepare"
-            },
-        );
-    }
-    if cancel.is_cancelled() || Instant::now() >= deadline {
-        reply = op(&host, &session, before.scope(), step.id(), "cancel");
-    }
-    let (capture, trace) = private_read(&host, &session, &before, &request);
-    let recorded = captured_recording(dir, admission, &recording)?;
-    validate_recording(dir, admission, &recorded)?;
-    let capture_file = capture
-        .as_ref()
-        .map(|capture| -> Result<String> {
-            let name = evidence_name(index, admission, "capture");
-            saved(&dir.join(&name), capture, v2::MAX_PRIVATE_CAPTURE + 4096)?;
-            Ok(name)
-        })
-        .transpose()?;
-    let recording_file = evidence_name(index, admission, "recording");
-    saved(&dir.join(&recording_file), &recorded, 64 * 1024)?;
-    if cancel.is_cancelled() || Instant::now() >= deadline {
-        reply = op(&host, &session, before.scope(), step.id(), "cancel");
-    }
-    let mut commit_elapsed_ms = None;
-    if reply["data"]["phase"] == "ready" {
-        let committed = Instant::now();
-        reply = op(&host, &session, before.scope(), step.id(), "commit");
-        commit_elapsed_ms = Some(committed.elapsed().as_millis().min(u64::MAX as u128) as u64);
-    }
-    let response_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
-    watchdog.finish()?;
-    // Exact durable outcome wins over an acknowledgment error or late cancel.
-    let mut actual = Store::open_read_only(path).map_err(|_| "Workspace")?;
-    let stored = actual.lookup_turn(before.scope(), step.id()).ok();
-    let receipt = stored.as_ref().and_then(|s| s.receipt.as_ref());
-    let after = actual.resume(before.scope()).map_err(|_| "Replay")?.engine;
-    let phase = if receipt.is_some() {
-        "committed".to_owned()
-    } else if reply["status"] == "rejected" {
-        "rejected".into()
-    } else {
-        reply["data"]["phase"]
-            .as_str()
-            .ok_or("TransportUnknown")?
-            .to_owned()
-    };
-    let error = if receipt.is_some() {
-        None
-    } else if reply["status"] == "rejected" {
-        reply["error"].as_str().map(str::to_owned)
-    } else {
-        reply["data"]["error"].as_str().map(str::to_owned)
-    };
-    if !matches!(
-        phase.as_str(),
-        "committed" | "failed" | "cancelled" | "rejected" | "stale"
-    ) {
-        return Err("TransportUnknown".into());
-    }
-    let first_final_response_ms = Some(
-        if reply["data"]["phase"] == "committed"
-            || reply["status"] == "rejected"
-            || matches!(
-                reply["data"]["phase"].as_str(),
-                Some("failed" | "cancelled" | "stale")
-            )
-        {
-            response_ms
-        } else {
-            started.elapsed().as_millis().min(u64::MAX as u128) as u64
+    let actual = turn_execution::execute(
+        turn_execution::LiveTurnJob {
+            dir,
+            path,
+            index,
+            step,
+            factory,
+            cancel,
+            construction: locallore::host::HostPlayConstructionV1::Memory(policy),
+            before,
+            profile,
         },
-    );
-    let committed_trace = call(
-        &host,
-        json!({"op":"trace_read","session":session,"scope":request.scope,"expected_head":after.revision(),"base_revision":request.expected_revision,"observer":{"kind":"player"},"turn":request.turn,"attempt":null}),
-    );
-    let trace = if committed_trace["status"] == "ok" {
-        Some(committed_trace["data"]["snapshot"].clone())
-    } else {
-        trace
-    };
-    let elapsed = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+        ledger,
+    )?;
     let row = make_row(Observation {
         step,
         arm,
         policy,
-        before: &before,
-        after: &after,
-        phase: &phase,
-        error,
-        receipt,
-        recording: Some(&recorded),
-        capture: capture.as_ref(),
-        trace,
-        admission: Some(admission),
-        elapsed_ms: elapsed,
-        first_final_response_ms,
-        commit_elapsed_ms,
-        profile: &profile,
+        before: &actual.before,
+        after: &actual.after,
+        phase: &actual.phase,
+        error: actual.error.clone(),
+        receipt: actual.receipt.as_ref(),
+        recording: Some(&actual.recording),
+        capture: actual.capture.as_ref(),
+        trace: actual.trace.clone(),
+        admission: Some(actual.admission),
+        elapsed_ms: actual.elapsed_ms,
+        first_final_response_ms: actual.first_final_response_ms,
+        commit_elapsed_ms: actual.commit_elapsed_ms,
+        profile: &actual.profile,
         recovered: false,
         forwarded_budget_version: Some(1),
     })?;
@@ -1020,26 +829,14 @@ fn execute_turn(job: TurnJob<'_>, ledger: &mut Ledger) -> Result<StoredTurn> {
         binding: binding.into(),
         index,
         arm: arm.into(),
-        request,
-        before_head: before.revision(),
-        after_head: after.revision(),
+        request: actual.request.clone(),
+        before_head: actual.before.revision(),
+        after_head: actual.after.revision(),
         row,
-        capture_file,
-        recording_file: Some(recording_file),
+        capture_file: actual.capture_file.clone(),
+        recording_file: Some(actual.recording_file.clone()),
     };
-    // The canonical/known-terminal checkpoint is durable before reducing reservations.
-    saved(&checkpoint_path(dir, index), &result, 256 * 1024)?;
-    if matches!(
-        phase.as_str(),
-        "committed" | "failed" | "cancelled" | "rejected" | "stale"
-    ) {
-        ledger.settle(admission, elapsed, recorded.roles)?;
-    }
-    call(
-        &host,
-        json!({"op":"trace_capture_revoke","session":session,"scope":before.scope()}),
-    );
-    host.close_all();
+    actual.checkpoint_and_settle(dir, index, &result, ledger)?;
     Ok(result)
 }
 
@@ -1059,111 +856,33 @@ fn load_turn(
     if stored.version != 2 || stored.index != index || stored.arm != arm || stored.binding != key {
         return Err("CheckpointMismatch".into());
     }
-    let full = engine(path, &corpus.seed().scope)?;
-    let before = full.at_revision(stored.before_head).map_err(|_| "Replay")?;
-    let after = full.at_revision(stored.after_head).map_err(|_| "Replay")?;
-    if stored.request != step.request(&before) {
-        return Err("CheckpointMismatch".into());
-    }
-    if let Some(admission) = stored.row.admission {
-        if admission >= MAX_ADMISSIONS {
-            return Err("LedgerIntegrity".into());
-        }
-        let reservation: Reservation =
-            decode(&dir.join(format!("admission-{admission:02}.json")), 4096)?;
-        if reservation.version != 1
-            || reservation.binding != key
-            || reservation.index != admission
-            || reservation.story != format!("scene-{}", step.scene())
-            || reservation.turn != step.id()
-            || reservation.ms != TURN_MS
-            || reservation.roles != 3
-        {
-            return Err("LedgerIntegrity".into());
-        }
-        let path = dir.join(format!("admission-{admission:02}-settled.json"));
-        ordinary(&path)?;
-        if path.exists() {
-            let settled: Settlement = decode(&path, 4096)?;
-            if settled.version != 1
-                || settled.binding != key
-                || settled.index != admission
-                || settled.ms != stored.row.elapsed_ms
-                || !stored.row.roles_known
-                || settled.roles != stored.row.roles
-            {
-                return Err("LedgerIntegrity".into());
-            }
-        }
-    } else if stored.recording_file.is_some() || stored.capture_file.is_some() {
-        return Err("LedgerIntegrity".into());
-    }
-    // A diagnostic checkpoint cannot hide a real commit or relabel the Store's
-    // terminal result. This validator is shared by source and selected readers.
-    let actual = match Store::open_read_only(path)
-        .map_err(|_| "Workspace")?
-        .lookup_turn(before.scope(), step.id())
-    {
-        Ok(record) => Some(record),
-        Err(locallore_storage::TurnError::UnknownTurn) => None,
-        Err(_) => return Err("Lookup".into()),
-    };
-    let phase_agrees = match actual.as_ref().map(|record| record.phase) {
-        Some(locallore_storage::TurnPhase::Committed) => stored.row.phase == "committed",
-        Some(locallore_storage::TurnPhase::Failed) => {
-            matches!(stored.row.phase.as_str(), "failed" | "rejected")
-        }
-        Some(locallore_storage::TurnPhase::Cancelled) => stored.row.phase == "cancelled",
-        Some(locallore_storage::TurnPhase::Stale) => stored.row.phase == "stale",
-        Some(locallore_storage::TurnPhase::Draft) => false,
-        None => matches!(
-            stored.row.phase.as_str(),
-            "failed" | "rejected" | "cancelled" | "stale" | "not_run_dependency"
-        ),
-    };
-    if !phase_agrees
-        || actual
-            .as_ref()
-            .is_some_and(|record| record.request != stored.request)
-        || (stored.row.phase != "committed" && stored.before_head != stored.after_head)
-    {
-        return Err("CheckpointOutcomeMismatch".into());
-    }
-    let receipt = actual.and_then(|record| record.receipt);
-    if stored.row.phase == "committed" {
-        let receipt = receipt.as_ref().ok_or("Lookup")?;
-        if receipt.request().expected_revision != stored.before_head
-            || receipt.events().last().map(|event| event.sequence()) != Some(stored.after_head)
-        {
-            return Err("CheckpointOutcomeMismatch".into());
-        }
-    } else if receipt.is_some() {
-        return Err("CheckpointOutcomeMismatch".into());
-    }
-    let recording = stored
-        .recording_file
-        .as_ref()
-        .map(|name| -> Result<RecordingFile> {
-            let a = stored.row.admission.ok_or("RecordingIntegrity")?;
-            if a >= MAX_ADMISSIONS || *name != evidence_name(index, a, "recording") {
-                return Err("RecordingIntegrity".into());
-            }
-            let r: RecordingFile = decode(&dir.join(name), 64 * 1024)?;
-            validate_recording(dir, a, &r)?;
-            Ok(r)
-        })
-        .transpose()?;
-    let capture = stored
-        .capture_file
-        .as_ref()
-        .map(|name| -> Result<Value> {
-            let a = stored.row.admission.ok_or("CaptureBinding")?;
-            if a >= MAX_ADMISSIONS || *name != evidence_name(index, a, "capture") {
-                return Err("CaptureBinding".into());
-            }
-            decode(&dir.join(name), v2::MAX_PRIVATE_CAPTURE + 4096)
-        })
-        .transpose()?;
+    let evidence = turn_execution::load_evidence(
+        dir,
+        path,
+        index,
+        key,
+        &turn_execution::CheckpointMeta {
+            request: stored.request.clone(),
+            before_head: stored.before_head,
+            after_head: stored.after_head,
+            capture_file: stored.capture_file.clone(),
+            recording_file: stored.recording_file.clone(),
+            row: turn_execution::CheckpointRowMeta {
+                admission: stored.row.admission,
+                elapsed_ms: stored.row.elapsed_ms,
+                roles_known: stored.row.roles_known,
+                roles: stored.row.roles,
+                phase: stored.row.phase.clone(),
+            },
+        },
+    )?;
+    let turn_execution::CheckpointEvidence {
+        before,
+        after,
+        receipt,
+        recording,
+        capture,
+    } = evidence;
     let actual = make_row(Observation {
         step,
         arm,
@@ -1576,14 +1295,7 @@ impl ComparisonSession {
         Ok(report)
     }
     fn finish_ledgers(&mut self) -> Result<()> {
-        for arm in 0..2 {
-            let began = Instant::now();
-            self.ledgers[arm].finish()?;
-            self.ledgers[1 - arm].exclude_measured_interval(
-                began.elapsed().as_millis().min(u64::MAX as u128) as u64,
-            )?;
-        }
-        Ok(())
+        turn_execution::finish_pair(&mut self.ledgers)
     }
     fn open_at(
         dir: &Path,
@@ -1643,18 +1355,7 @@ impl ComparisonSession {
                 }
             }
         }
-        let mut ledgers = [
-            Ledger::load(&dir.join("left"), &key)?,
-            Ledger::load(&dir.join("right"), &key)?,
-        ];
-        // Include this invocation's preflight/reference/canonical replay. Only
-        // the other arm's measured work and the physical setup share are excluded.
-        for ledger in &mut ledgers {
-            ledger.started = started;
-        }
-        // Both reservations are durable before any asset/provider initialization.
-        ledgers[0].begin_invocation()?;
-        ledgers[1].begin_invocation()?;
+        let ledgers = turn_execution::begin_pair(dir, &key, started)?;
         Ok(Self {
             dir: dir.into(),
             manifest: expected,
@@ -1672,27 +1373,18 @@ impl ComparisonSession {
         status: &str,
         load: Option<Value>,
     ) -> Result<()> {
-        let record = SetupRecord {
-            version: 2,
-            binding: self.key.clone(),
-            left_invocation: self.ledgers[0].invocation,
-            right_invocation: self.ledgers[1].invocation,
-            native,
-            physical_ms,
-            status: status.into(),
-            load,
-        };
-        saved(
-            &self
-                .dir
-                .join(format!("setup-{:02}.json", record.left_invocation)),
-            &record,
-            64 * 1024,
-        )?;
-        let (left, right) = shared_setup_shares(physical_ms);
-        self.ledgers[0].record_shared_setup(physical_ms, left)?;
-        self.ledgers[1].record_shared_setup(physical_ms, right)?;
-        Ok(())
+        turn_execution::record_setup(
+            &mut self.ledgers,
+            turn_execution::Setup {
+                version: 2,
+                dir: &self.dir,
+                key: &self.key,
+                native,
+                physical_ms,
+                status,
+                load,
+            },
+        )
     }
     fn execute(
         mut self,

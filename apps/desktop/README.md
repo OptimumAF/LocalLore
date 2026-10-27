@@ -1,5 +1,13 @@
 # Desktop Play & Story Lab
 
+The [bounded native shutdown qualification](../../docs/desktop/D09_DESTROYED_EXIT_QUALIFICATION_2026-10-26.md)
+records destruction-before-exit and early-destruction/reopen checks through the
+existing app-owned harness. Reproduce with `node shutdown-harness.mjs zero`,
+`seven` or `window` using the documented external output/target environment.
+The native gate requires both confirmed cleanup and an actual current-window
+Destroyed event. SDK diagnostics and full D09 packaging/privacy gates remain
+separate; the source-bound record retains failures and remaining limitations.
+
 A native Windows shell over the shared Rust engine. The original Lantern Quay
 fixture supports giving the last potion to Mira, waiting, attempting an
 unlearned ability and explicit typed dialogue. Finalized Rust receipts populate
@@ -189,7 +197,7 @@ This is headless React markup, not native IPC, WebView pixels or a model run;
 `verify-frontend.mjs` includes this check in the normal frontend verification.
 
 Story Lab also provides a dedicated [memory comparison reader](../../docs/desktop/D07_COMPARISON_READER.md)
-for actual version2 paired/rollout cohorts. The app's native picker explicitly
+for actual protocol2/3 paired/rollout cohorts. The app's native picker explicitly
 asks to inspect private evidence. Rust retains source validation, actual Query2
 observer filtering and read-only locks; valid historical reports stay viewable.
 The reader shows actual source revisions, expected/actual results, accepted
@@ -231,8 +239,8 @@ runs, including supported native history without loading assets. Its
 records source-specific checks. It never exposes the full report as an actor
 summary, repairs missing checkpoints or grants execution.
 
-The [desktop consumer qualification](../../docs/desktop/D07_SELECTED_CASE_DESKTOP_CONSUMER_QUALIFICATION_2026-10-25.md)
-records actual hidden/unfocused WebView2 and native IPC:154 initial checks/20
+The earlier [selected1 desktop consumer qualification](../../docs/desktop/D07_SELECTED_CASE_DESKTOP_CONSUMER_QUALIFICATION_2026-10-25.md)
+records its source-bound hidden/unfocused WebView2 and native IPC:154 initial checks/20
 app-owned images, then160 checks/21 images in a new process reopening the same
 workspace. These runs use scripted fake inference and fixed consent/picker
 doubles. All41 images were inspected. The panel separates execution and private
@@ -245,16 +253,99 @@ From `apps/desktop`, with already provisioned dependencies, an absolute local
 `LOCALLORE_D07_SELECTED_TARGET_DIR`, run `node selected-evaluation-harness.mjs`.
 It uses only app-owned hidden WebViews and fixed development-only hooks; no
 desktop input, activation, screenshot, debugging server or model is needed.
-Explicit UI resume, native-model UI execution, real OS dialogs, human story
-quality, whole-app performance and physical-phone parity remain unqualified.
+Paused/incomplete UI resume, native-model UI execution, real OS dialogs, human
+story quality, whole-app performance and physical-phone parity remain unqualified.
 The guide distinguishes service tests, mock transport and native execution,
 preserves earlier failures and provides commands for restoring normal builds.
 
 The [literal conversation control definition and oracles](../../docs/desktop/D07_LITERAL_CONTROL_CONTRACT_2026-10-25.md)
-make a separate limit explicit: both current comparison policies include state;
+make a separate limit explicit: both existing v2 comparison policies include state;
 `ScriptedBaseline` names the fake provider lane. It is not a transcript-only
 memory policy. The first model-free input-channel tests and genuine historical
-read checks do not enable a literal control, new execution grant or quality claim.
+read checks alone do not enable a literal control or establish quality.
+
+A separate [scripted protocol3 developer CLI](../../docs/desktop/D07_LITERAL_COMPARISON_PRODUCER_QUALIFICATION_2026-10-25.md)
+now runs the actual literal-player/Relevant pair through the shared Host and
+durable Store, with bounded scenes, cold inspection and resume. Its literal
+metrics remain separate from memory metrics. This CLI uses fake inference.
+The [trusted native Rust entry](../../docs/desktop/D07_LITERAL_NATIVE_OWNER_QUALIFICATION_2026-10-25.md)
+now has model-free ownership/cancellation/cleanup qualification using the
+existing resource port. [Approved-model paired and rollout qualification](../../docs/desktop/D07_LITERAL_NATIVE_MODEL_QUALIFICATION_2026-10-25.md)
+now records 96 outcomes, 153 actual role calls, cold reads and zero-reservation
+completed-native resume using the desktop manager. Failures and 28 narration
+fallbacks remain visible; no human quality acceptance. Native3 CLI and
+full-comparison native-model GUI execution remain unqualified; the shared full native
+comparison Rust producer is separately qualified.
+Accepted [PR202 scripted selected2](https://github.com/OptimumAF/LocalLore/pull/202),
+[PR204 native selected2](https://github.com/OptimumAF/LocalLore/pull/204) and
+[PR205 selected2 read capability](https://github.com/OptimumAF/LocalLore/pull/205)
+provide the typed shared execution and inspection paths for protocol3 sources.
+Their source-bound records separate actual native-model Rust evidence from
+scripted plumbing and desktop rendering.
+The [protocol3 Rust read capability](../../docs/desktop/D07_LITERAL_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
+now validates cold report/receipt/capture/state reads with observer restrictions,
+including retained real-model data without the optional runtime. The
+[desktop protocol3 reader qualification](../../docs/desktop/D07_LITERAL_DESKTOP_UI_QUALIFICATION_2026-10-26.md)
+adds actual controller/native IPC,30 inspected app-owned WebView images and
+restart/observer/refusal/recovery checks using synthetic inference. That earlier
+reader-only cohort refused protocol3 source transfer without consuming its
+capability; this is historical evidence, not the current selected-case limit.
+
+The current selected-case panel routes protocol2 sources to selected1 and
+protocol3 sources to the actual typed selected2 Rust plan/read capability. It
+supports explicit prepare/start, separate consent to read results and completed
+verification/resume with a freshly chosen matching source. A locally attempted
+source token stays unavailable in the controls until a fresh reader token is
+supplied, including after an unknown acknowledgement. Rust remains authoritative
+for both source prefixes/requests, observer filtering, plan bindings and worker
+ownership; this presentation fence is not proof of native source consumption.
+
+The [current literal selected desktop qualification](../../docs/desktop/D07_LITERAL_SELECTED_DESKTOP_QUALIFICATION_2026-10-26.md)
+tracks final coordinator gates. At clean source `6a195f85`, Root reported the
+scripted protocol3/selected2 UI cohort passing 252 initial and 261 restart check
+entries, with 27 initial and 28 restart actual hidden/unfocused app-owned
+WebView2 CapturePreview images. Root inspected all 55 images with no further
+visible layout findings; all 626 source fixture files remained byte-identical
+in each stage. Each stage retained exactly one deliberate Transport-buffer error
+from the lost-acknowledgement journey.
+The cohort uses the normal
+controllers/native IPC and fixed picker/consent doubles, with fake inference
+and no desktop input. These counts do not establish independent quality claims.
+From `apps/desktop`, use `node selected-evaluation-harness.mjs --literal` with
+the same task-owned output/target environment above to reproduce that path.
+Legacy compatibility, native tests/lint/format, frontend checks, Android Rust
+host/graph checks and normal-build restoration passed at the same source; exact
+counts, commands and retained failures are in the linked record. SDK shutdown error
+1412 remains observed and tracked separately in [D09 #31](https://github.com/OptimumAF/LocalLore/issues/31);
+this is not a clean-SDK-exit, RAM, performance, human-quality or phone claim.
+Native-model UI execution, real OS dialogs and selected-case paused/incomplete
+UI resume remain unqualified.
+
+Story Lab also provides **Run full comparison** for the fixed scripted fake
+inference lane. Choose paired snapshots or separate-arm rollout, then 1–4 new
+scenes per chunk. Resume is explicit; lookup, status and saved-run opening never
+start inference. Saved output is durable; window capabilities and progress
+presentation are in memory. **Inspect report** asks for separate native read
+consent and opens the existing observer-filtered reader. Close that reader before
+resuming its run. These comparisons use isolated shared Rust histories and do not
+modify live stories or establish model quality.
+
+The separate [native full-comparison Rust service](../../docs/desktop/D07_NATIVE_FULL_COMPARISON_SERVICE_QUALIFICATION_2026-10-26.md)
+uses the installed model and existing shared producer/owner. Its measured paired,
+rollout and durable-resume checks retain failed scenarios and narration fallbacks;
+human quality is unreviewed. The ordinary form above remains scripted. The closed
+native command is a prerequisite for a later UI consumer, with no fake fallback.
+
+The [full scripted desktop qualification](../../docs/desktop/D07_FULL_COMPARISON_DESKTOP_QUALIFICATION_2026-10-26.md)
+separates service tests, frontend doubles and actual hidden WebView/native IPC
+execution. From `apps/desktop`, run `node comparison-run-harness.mjs` with existing
+absolute `LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT` and
+`LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR` directories; the target must be outside
+the checkout. The closed synthetic denial/initial/restart journey uses no CLI arguments,
+desktop control, model downloads or model execution. Exact commands, versions,
+retained failures and unavailable gates are in the qualification record.
+The denial app uses a fixed development-only Host without a Story Lab grant;
+Play/Lab presentation selection does not mutate that native construction grant.
 
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:

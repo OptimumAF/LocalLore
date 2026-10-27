@@ -31,7 +31,31 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
 ];
 
 const MAX_JSON: usize = 256 * 1024;
+const FULL_COMPARISON_LABELS: &[&str] = &[
+    "full-idle",
+    "full-running",
+    "full-partial",
+    "full-completed",
+    "full-reader",
+    "full-mira",
+    "full-sable",
+    "full-receipt",
+    "full-narrow",
+    "full-denied",
+    "full-unknown",
+    "full-cancelled",
+    "full-switched",
+    "full-restarted",
+    "full-finished",
+];
 const SELECTED_LABELS: &[&str] = &[
+    "selected-resumed",
+    "selected-relevant-construction",
+    "selected-literal-proof-narrow",
+    "selected-constructions",
+    "selected-constructions-narrow",
+    "selected-literal-capture",
+    "selected-guard-results",
     "selected-prepared",
     "selected-completed",
     "selected-summary",
@@ -224,6 +248,14 @@ pub fn active() -> bool {
     std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1")
 }
 
+/// Fixed denial-only fixture. It cannot grant production or renderer authority.
+pub(crate) fn native_comparison_denied() -> bool {
+    active()
+        && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_NATIVE_DENIED_GRANT").as_deref() == Ok("1")
+}
+
 pub(crate) fn author_active() -> bool {
     active() && std::env::var("LOCALLORE_M08_AUTHOR_HARNESS").as_deref() == Ok("1")
 }
@@ -283,7 +315,10 @@ impl HarnessState {
             || (active()
                 && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
                 && SELECTED_LABELS.contains(&label))
-            || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label)))
+            || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label))
+            || (active()
+                && std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1")
+                && FULL_COMPARISON_LABELS.contains(&label)))
         {
             return Err("CheckpointInvalid");
         }
@@ -393,6 +428,12 @@ pub fn harness_finish(
     }
     state.write("report.json", &bytes)?;
     println!("D02_NATIVE_HARNESS {}", if pass { "PASS" } else { "FAIL" });
+    // The standalone artifact-contract test compiles this module without app
+    // managers. Actual dev applications compile and exercise this fixed hook.
+    #[cfg(not(test))]
+    if pass && crate::shutdown_harness::finish(&app, &window) {
+        return Ok(());
+    }
     app.exit(if pass { 0 } else { 1 });
     Ok(())
 }

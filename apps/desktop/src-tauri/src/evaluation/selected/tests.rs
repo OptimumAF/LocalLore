@@ -687,3 +687,5 @@ fn owned_curated_job_with_borrowed_handle_remains_active_then_unknown_without_pr
     let job = fixture.manager.state().unwrap().job.take();
     drop(job);
 }
+#[path = "literal_selected_review.rs"]
+mod literal_selected_review;

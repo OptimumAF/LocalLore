@@ -16,8 +16,10 @@ mod author_ipc_review;
 mod capture_exports;
 mod close_gate;
 mod comparison_commands;
+mod comparison_native_commands;
 #[cfg(feature = "dev-harness")]
 mod comparison_reader_harness;
+mod comparison_run_commands;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;
@@ -31,6 +33,8 @@ mod selected_commands;
 #[cfg(feature = "dev-harness")]
 mod selected_harness;
 mod shutdown;
+#[cfg(feature = "dev-harness")]
+mod shutdown_harness;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
 mod fork_harness;
@@ -69,7 +73,7 @@ impl WorkspaceState {
                         if harness::active()
                             && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
                         {
-                            return Ok(Arc::new(Host::new(true)));
+                            return Ok(Arc::new(Host::new(!harness::native_comparison_denied())));
                         }
                         let parent = path.parent().ok_or_else(|| "InvalidInput".to_owned())?;
                         std::fs::create_dir_all(parent).map_err(|_| "Io".to_owned())?;
@@ -160,7 +164,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},authoring:{},archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -173,6 +177,13 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             std::env::var("LOCALLORE_D07_CURATED_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1"),
+            std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1"),
+            {
+                #[cfg(feature = "dev-harness")]
+                { harness::native_comparison_denied() }
+                #[cfg(not(feature = "dev-harness"))]
+                { false }
+            },
             std::env::var("LOCALLORE_D08_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_TIMELINE_HARNESS").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"),
@@ -222,6 +233,8 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
         .initialization_script(script)
         .build()?;
+    #[cfg(feature = "dev-harness")]
+    shutdown_harness::phase("window_created", epoch);
     Ok(())
 }
 #[cfg(feature = "dev-harness")]
@@ -337,6 +350,8 @@ fn main() {
             evaluation_commands::evaluation_catalog,
             evaluation_commands::evaluation_curated,
             comparison_commands::evaluation_comparison,
+            comparison_run_commands::evaluation_comparison_run,
+            comparison_native_commands::evaluation_comparison_native,
             selected_commands::evaluation_selected,
             selected_harness::harness_selected_case,
             comparison_reader_harness::harness_comparison_reader_case,
@@ -395,6 +410,8 @@ fn main() {
         evaluation_commands::evaluation_catalog,
         evaluation_commands::evaluation_curated,
         comparison_commands::evaluation_comparison,
+        comparison_run_commands::evaluation_comparison_run,
+        comparison_native_commands::evaluation_comparison_native,
         selected_commands::evaluation_selected,
         evaluation_commands::evaluation_start,
         evaluation_commands::evaluation_open,
@@ -502,10 +519,13 @@ fn main() {
                             900
                         } else if std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref()
                             == Ok("1")
+                            || std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref()
+                                == Ok("1")
                         {
                             // Serial real SQLite fixtures, read revalidation and
-                            // 20+ app-owned render checkpoints; not a turn SLA.
-                            600
+                            // 27+ app-owned render checkpoints and an explicit
+                            // fresh-source resume; not a turn latency SLA.
+                            900
                         } else {
                             180
                         },
@@ -526,12 +546,16 @@ fn main() {
                     close_gate::Intent::Window,
                 );
             } else if matches!(event, tauri::WindowEvent::Destroyed) {
+                #[cfg(feature = "dev-harness")]
+                if let Some(epoch) = window
+                    .label()
+                    .strip_prefix("main-")
+                    .and_then(|s| s.parse().ok())
+                {
+                    shutdown_harness::phase("native_destroyed", epoch);
+                }
                 // Also fence direct destruction in the app-owned dev harness.
-                let _ = shutdown::request(
-                    window.app_handle(),
-                    window.label(),
-                    close_gate::Intent::Window,
-                );
+                let _ = shutdown::destroyed(window.app_handle(), window.label());
             }
         })
         .build(tauri::generate_context!())
@@ -539,7 +563,7 @@ fn main() {
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
                 #[cfg(feature = "dev-harness")]
-                if harness::active() && code.is_none() {
+                if harness::active() && code.is_none() && !shutdown_harness::finishing() {
                     api.prevent_exit();
                     return;
                 }

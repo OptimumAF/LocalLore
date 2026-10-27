@@ -34,6 +34,14 @@ require(modelVolume != "true" || modelPicker != "true") { "Model volume and pick
 val modelReceipt = providers.gradleProperty("localLoreModelReceiptVerification").orNull
 require(modelReceipt == null || modelReceipt == "true") { "Model receipt verification must be explicitly true or absent." }
 require(modelReceipt != "true" || modelVolume == "true") { "Model receipt verification requires the explicit model volume, setup and LiteRT profiles." }
+val physicalModel = providers.gradleProperty("localLorePhysicalModelVerification").orNull
+require(physicalModel == null || physicalModel == "true") { "Physical model verification must be explicitly true or absent." }
+require(physicalModel != "true" || (liteRt == "true" && modelSetup == "true")) {
+    "Physical model verification requires the explicit LiteRT and setup profiles."
+}
+require(physicalModel != "true" || listOf(modelVolume, modelReceipt, modelPicker).none { it == "true" }) {
+    "Physical internal-storage verification is separate from volume, receipt and picker installations."
+}
 if (liteRt == "true") {
     val finiteCodecBytes = file("src/litert/java/org/locallore/app/FiniteSchemaRegex.kt").readText()
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
@@ -74,8 +82,13 @@ require((inputDraftVerification == "true") == (selectedProjectCache == rootProje
 require(inputDraftVerification != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
     "Input draft verification is for local debug verification only."
 }
-require((liteRt == "true") == (selectedProjectCache == rootProject.file(".gradle-litert-worker").canonicalFile)) {
-    "LiteRT worker verification requires its exclusive .gradle-litert-worker project cache."
+val physicalProjectCache = rootProject.file(".gradle-physical-model").canonicalFile
+require((physicalModel == "true") == (selectedProjectCache == physicalProjectCache)) {
+    "Physical model verification requires its exclusive .gradle-physical-model project cache."
+}
+val liteRtProjectCache = if (physicalModel == "true") physicalProjectCache else rootProject.file(".gradle-litert-worker").canonicalFile
+require((liteRt == "true") == (selectedProjectCache == liteRtProjectCache)) {
+    "LiteRT verification requires its exclusive selected project cache."
 }
 require(liteRt != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
     "LiteRT worker verification is for local debug verification only."
@@ -124,6 +137,7 @@ require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.c
 }
 if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir(when {
+        physicalModel == "true" -> "build-physical-model"
         modelReceipt == "true" -> "build-model-receipt"
         modelVolume == "true" -> "build-model-volume"
         modelPicker == "true" -> "build-model-picker"
@@ -147,6 +161,7 @@ if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-input-draft"))
 }
 val verificationSuffix = when {
+    physicalModel == "true" -> ".phoneverify"
     modelVolume == "true" -> ".modelvolumeverify"
     modelPicker == "true" -> ".modelpickerverify"
     modelSetup == "true" -> ".modelverify"
@@ -240,7 +255,8 @@ android {
 
     defaultConfig {
         buildConfigField("boolean", "MODEL_VOLUME_VERIFICATION", (modelVolume == "true").toString())
-        buildConfigField("boolean", "MODEL_RECEIPT_VERIFICATION", (modelReceipt == "true").toString())
+        buildConfigField("boolean", "MODEL_RECEIPT_VERIFICATION", (modelReceipt == "true" || physicalModel == "true").toString())
+        buildConfigField("boolean", "PHYSICAL_MODEL_VERIFICATION", (physicalModel == "true").toString())
         applicationId = when {
             capacityTest -> "org.locallore.app.capacityv4"
             reliefFaultTest -> "org.locallore.app.capacityfaultsv4"
@@ -270,8 +286,14 @@ android {
         packaging { jniLibs.keepDebugSymbols += "**/liblitertlm_jni.so" }
         sourceSets["main"].java.srcDir("src/litert/java")
         if (modelSetup == "true") sourceSets["debug"].manifest.srcFile("src/litert/AndroidManifest.xml")
+        if (physicalModel == "true") {
+            sourceSets["debug"].manifest.srcFile("src/physicalModel/AndroidManifest.xml")
+            sourceSets["debug"].java.srcDir("src/physicalModel/java")
+            sourceSets["test"].java.srcDir("src/physicalModelTest/java")
+            sourceSets["androidTest"].java.srcDir("src/physicalModelAndroidTest/java")
+        }
         sourceSets["test"].java.srcDir("src/litertTest/java")
-        sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
+        if (physicalModel != "true") sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
         if (modelVolume == "true") {
             sourceSets["debug"].java.srcDir("src/modelVolume/java")
             sourceSets["debug"].manifest.srcFile("src/modelVolume/AndroidManifest.xml")

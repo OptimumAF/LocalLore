@@ -1,5 +1,7 @@
 import { EvaluationPanel } from "./EvaluationPanel";
 import { ComparisonReaderPanel } from "./ComparisonReaderPanel";
+import { ComparisonRunView } from "./comparison-run-view";
+import type { ComparisonRunController } from "./comparison-run-controller";
 import { SelectedEvaluationView } from "./selected-evaluation-view";
 import type { SelectedEvaluationController } from "./selected-evaluation-controller";
 import type { NativeCloseController } from "./native-close-controller";
@@ -97,7 +99,11 @@ function SelectedExperiment({
         () => comparison.get(),
     );
     const source =
-        snapshot.clientId && snapshot.status?.run_token && snapshot.source
+        snapshot.clientId &&
+        snapshot.status?.run_token &&
+        snapshot.source &&
+        (snapshot.source.protocol_version === 2 ||
+            snapshot.source.protocol_version === 3)
             ? {
                   readerClientId: snapshot.clientId,
                   runToken: snapshot.status.run_token,
@@ -161,6 +167,7 @@ export function App({
     evaluation,
     comparison,
     selectedEvaluation,
+    comparisonRun,
     nativeClose,
     archive,
     timeline,
@@ -177,6 +184,7 @@ export function App({
     evaluation?: EvaluationController;
     comparison?: ComparisonReaderController;
     selectedEvaluation?: SelectedEvaluationController;
+    comparisonRun?: ComparisonRunController;
     nativeClose?: NativeCloseController;
     archive?: ArchiveController;
     timeline?: TimelineController;
@@ -546,6 +554,23 @@ export function App({
                             controller={evaluation}
                             context={`${s.selectedId}|${s.view}|${s.observer}`}
                             allowed={s.view === "lab"}
+                        />
+                    )}
+                    {comparisonRun && comparison && s.view === "lab" && (
+                        <ComparisonRunView
+                            controller={comparisonRun}
+                            onInspect={async (runId) => {
+                                await comparison.close();
+                                const current = comparisonRun.get();
+                                if (
+                                    current.allowed &&
+                                    !current.busy &&
+                                    current.status?.run_id === runId &&
+                                    current.status.report_ready
+                                ) {
+                                    await comparison.pick(runId);
+                                }
+                            }}
                         />
                     )}
                     {comparison && (

@@ -10,6 +10,7 @@ import sys
 
 UINT64_MAX = (1 << 64) - 1
 RESERVE_BYTES = 2 * 1024 * 1024 * 1024
+POLICY_ID = "guest_plus_reserve_v2"
 _SNAPSHOT_KEYS = {"version", "commit_total_bytes", "commit_limit_bytes", "available_commit_bytes"}
 _REASONS = ("commit_unavailable", "commit_invalid", "commit_capacity")
 DWORD = ctypes.c_uint32
@@ -77,7 +78,13 @@ def read_commit():
 
 
 def require_capacity(snapshot, guest_mib):
-    """Require2x guest bytes+2GiB reserve; policy only, not Android's promise."""
+    """Guest-sized allocation plus a separate project reserve, not a guarantee.
+
+    The selected emulator's version-matched source attempts one guest-sized
+    VirtualAlloc. Its 20% check is a diagnostic after allocation failure, not
+    a requirement to retain two guest allocations. The extra 2GiB is our margin.
+    https://android.googlesource.com/platform/external/qemu/+/2c0f5b1ca0468e8f18e33f7ea6cb573c5a50ab7a/util/oslib-win32.c
+    """
     _require(type(snapshot) is dict and set(snapshot) == _SNAPSHOT_KEYS)
     _require(type(snapshot["version"]) is int and snapshot["version"] == 1)
     for key in ("commit_total_bytes", "commit_limit_bytes", "available_commit_bytes"):
@@ -87,7 +94,7 @@ def require_capacity(snapshot, guest_mib):
     _require(limit > 0 and total <= limit and available == limit - total)
     _require(type(guest_mib) is int and guest_mib in (2048, 8192))
     guest_bytes = guest_mib * 1024 * 1024
-    required = 2 * guest_bytes + RESERVE_BYTES
+    required = guest_bytes + RESERVE_BYTES
     if available < required:
         raise HostCommitRefused("commit_capacity")
     return dict(snapshot, guest_memory_bytes=guest_bytes, required_commit_bytes=required,

@@ -78,7 +78,12 @@ fn valid_load(load: &Value) -> bool {
         && fields["output_tokens"].as_u64().is_some_and(|value| value <= 350)
 }
 
-fn invocation(dir: &Path, binding: &str, index: usize, minimum_share: u64) -> Result<()> {
+pub(in crate::local_lane::comparison) fn invocation(
+    dir: &Path,
+    binding: &str,
+    index: usize,
+    minimum_share: u64,
+) -> Result<()> {
     let path = dir.join(format!("invocation-{index:02}.json"));
     let reservation: Reservation = decode(&path, 4096).map_err(|_| "SetupIntegrity")?;
     if reservation.version != 1
@@ -113,6 +118,35 @@ fn invocation(dir: &Path, binding: &str, index: usize, minimum_share: u64) -> Re
         return Err("SetupIntegrity".into());
     }
     Ok(())
+}
+
+pub(in crate::local_lane::comparison) fn decode_native(
+    bytes: &[u8],
+    binding: &str,
+    index: usize,
+    version: u16,
+) -> Result<SetupRecord> {
+    if bytes.len() > 64 * 1024 {
+        return Err("SetupIntegrity".into());
+    }
+    let setup: SetupRecord = serde_json::from_slice(bytes).map_err(|_| "SetupIntegrity")?;
+    let strict: LoadField = serde_json::from_slice(bytes).map_err(|_| "SetupIntegrity")?;
+    if setup.version != version
+        || setup.binding != binding
+        || setup.left_invocation != index
+        || setup.right_invocation >= 32
+        || !setup.native
+        || !matches!(setup.status.as_str(), "loaded" | "failed")
+        || (setup.status == "loaded" && setup.load.is_none())
+        || (setup.status == "loaded" && setup.physical_ms > PREPARATION_MS)
+        || strict
+            .load
+            .as_ref()
+            .is_some_and(|load| !valid_load(&load.0))
+    {
+        return Err("SetupIntegrity".into());
+    }
+    Ok(setup)
 }
 
 pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec<SetupRecord>> {
@@ -155,25 +189,8 @@ pub(super) fn read_setups(dir: &Path, binding: &str, native: bool) -> Result<Vec
             return Err("SetupIntegrity".into());
         }
         let bytes = read(&entry.path(), 64 * 1024).map_err(|_| "SetupIntegrity")?;
-        // The first typed decoder rejects unknown/duplicate root fields. The
-        // second requires the nullable load field and raw metric uniqueness
-        // from the SAME bounded bytes, before any Value interpretation.
-        let setup: SetupRecord = serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
-        let strict: LoadField = serde_json::from_slice(&bytes).map_err(|_| "SetupIntegrity")?;
-        if setup.version != 2
-            || setup.binding != binding
-            || setup.left_invocation != index
-            || setup.right_invocation >= 32
-            || !setup.native
-            || !matches!(setup.status.as_str(), "loaded" | "failed")
-            || (setup.status == "loaded" && setup.load.is_none())
-            || (setup.status == "loaded" && setup.physical_ms > PREPARATION_MS)
-            || strict
-                .load
-                .as_ref()
-                .is_some_and(|load| !valid_load(&load.0))
-            || !right_ids.insert(setup.right_invocation)
-        {
+        let setup = decode_native(&bytes, binding, index, 2)?;
+        if !right_ids.insert(setup.right_invocation) {
             return Err("SetupIntegrity".into());
         }
         let (left_share, right_share) = shared_setup_shares(setup.physical_ms);

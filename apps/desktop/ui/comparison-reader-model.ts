@@ -69,7 +69,7 @@ export type RowAvailability = {
 };
 export type ReaderSource = {
     binding: string;
-    protocol_version: 2;
+    protocol_version: 2 | 3;
     rows: RowAvailability[];
     read_only: true;
     execution_available: false;
@@ -85,7 +85,7 @@ export type ForwardedEstimate = {
     template_reserve_tokens: number;
     estimated_total_tokens: number;
 };
-export type ComparisonTurn = {
+export type ComparisonTurnV2 = {
     turn: string;
     scene: number;
     arm: "left" | "right";
@@ -129,6 +129,40 @@ export type ComparisonTurn = {
     estimated_context_tokens: number | null;
     forwarded_director_estimates?: ForwardedEstimate[];
 };
+export type ComparisonArmDescriptorV3 = {
+    arm: "literal_player_v1" | "relevant_memory_v1";
+    prompt_version: string;
+    narration_policy: "grounded-prose-v2.2";
+    director_schema_id:
+        "locallore-director-literal-v1" | "locallore-director-v2";
+    context_policy: "state_relevant_memory_v1" | null;
+    compiler_version: 2 | null;
+    context_version: 2 | null;
+    literal_source_version: 1 | null;
+    literal_render_version: 1 | null;
+    literal_schema_version: 1 | null;
+    literal_packing_version: 1 | null;
+    forwarded_budget_version: 1;
+};
+export type ConstructionEvidenceStatusV3 =
+    | "validated_literal"
+    | "validated_relevant"
+    | "not_applicable_guard"
+    | "not_applicable_dependency"
+    | "unavailable";
+export type ComparisonTurnV3 = Omit<
+    ComparisonTurnV2,
+    "policy" | "policy_matches" | "forwarded_director_estimates"
+> & {
+    construction: ComparisonArmDescriptorV3;
+    construction_matches: boolean;
+    construction_evidence_status: ConstructionEvidenceStatusV3;
+    literal_source_units: number | null;
+    literal_selected_start: number | null;
+    literal_selected_units: number | null;
+    forwarded_director_estimates: ForwardedEstimate[] | null;
+};
+export type ComparisonTurn = ComparisonTurnV2 | ComparisonTurnV3;
 export type ComparisonProfile = {
     id: string;
     model_sha256: string;
@@ -142,14 +176,14 @@ export type ComparisonProfile = {
     deadline_ms: number;
     repair_limit: number;
 };
-export type ComparisonReport = {
+export type ComparisonReportV2 = {
     version: 2;
     kind: "paired_snapshots" | "continuous_rollout";
     lane: string;
     source_matches: boolean;
     completed: boolean;
     completed_scenes: number;
-    turns: ComparisonTurn[];
+    turns: ComparisonTurnV2[];
     human_reviewed: number;
     human_rubric: string;
     quality_accepted: boolean;
@@ -170,6 +204,15 @@ export type ComparisonReport = {
     reference_sha256: string | null;
     limitations: string[];
 };
+export type ComparisonReportV3 = Omit<
+    ComparisonReportV2,
+    "version" | "turns"
+> & {
+    version: 3;
+    arms: ComparisonArmDescriptorV3[];
+    turns: ComparisonTurnV3[];
+};
+export type ComparisonReport = ComparisonReportV2 | ComparisonReportV3;
 export type ReaderSummary = ReaderSource & {
     version: 1;
     report: ComparisonReport;
@@ -328,6 +371,7 @@ export function readerRowKey(v: RowId): string {
 export function sameReaderSource(a: ReaderSource, b: ReaderSource): boolean {
     return (
         a.binding === b.binding &&
+        a.protocol_version === b.protocol_version &&
         a.rows.length === b.rows.length &&
         a.rows.every((row, index) => {
             const other = b.rows[index],
@@ -573,7 +617,10 @@ function sourceValue(v: unknown, binding: string): ReaderSource {
         "execution_available",
     ]);
     hash(o.binding);
-    wire(o.binding === binding && o.protocol_version === 2);
+    wire(
+        o.binding === binding &&
+            (o.protocol_version === 2 || o.protocol_version === 3),
+    );
     readonly(o);
     rows(o.rows);
     return o as ReaderSource;
@@ -629,14 +676,79 @@ function estimate(v: unknown): void {
     wire(o.version === 1);
     keys.slice(1).forEach((k) => integer(o[k]));
 }
-function turn(v: unknown): void {
+// Mirrors the closed metadata tuples from memory_comparison_v3::arm_descriptors.
+// These descriptions grant neither a Host policy nor an execution capability.
+const constructionValues = [
+    {
+        arm: "literal_player_v1",
+        prompt_version: "locallore-play-v2.6-literal-director-v1",
+        narration_policy: "grounded-prose-v2.2",
+        director_schema_id: "locallore-director-literal-v1",
+        context_policy: null,
+        compiler_version: null,
+        context_version: null,
+        literal_source_version: 1,
+        literal_render_version: 1,
+        literal_schema_version: 1,
+        literal_packing_version: 1,
+        forwarded_budget_version: 1,
+    },
+    {
+        arm: "relevant_memory_v1",
+        prompt_version: "locallore-play-v2.5",
+        narration_policy: "grounded-prose-v2.2",
+        director_schema_id: "locallore-director-v2",
+        context_policy: "state_relevant_memory_v1",
+        compiler_version: 2,
+        context_version: 2,
+        literal_source_version: null,
+        literal_render_version: null,
+        literal_schema_version: null,
+        literal_packing_version: null,
+        forwarded_budget_version: 1,
+    },
+] as const;
+function construction(
+    v: unknown,
+    physicalArm?: unknown,
+): ComparisonArmDescriptorV3 {
+    const o = exact(v, Object.keys(constructionValues[0]));
+    choices(o.arm, ["literal_player_v1", "relevant_memory_v1"]);
+    const index = o.arm === "literal_player_v1" ? 0 : 1;
+    if (physicalArm !== undefined)
+        wire(physicalArm === (index === 0 ? "left" : "right"));
+    wire(
+        Object.entries(constructionValues[index]).every(
+            ([key, value]) => o[key] === value,
+        ),
+    );
+    return o as ComparisonArmDescriptorV3;
+}
+// Shared closed transport tuple only; no policy, execution or inspection grant.
+export function checkedReaderConstruction(
+    v: unknown,
+    physicalArm?: unknown,
+): ComparisonArmDescriptorV3 {
+    return construction(v, physicalArm);
+}
+function turn(v: unknown, protocol: 2 | 3 = 2): void {
     const o = exact(
         v,
         [
             "turn",
             "scene",
             "arm",
-            "policy",
+            ...(protocol === 2
+                ? ["policy"]
+                : [
+                      "construction",
+                      "construction_matches",
+                      "construction_evidence_status",
+                      "literal_source_units",
+                      "literal_selected_start",
+                      "literal_selected_units",
+                      "forwarded_director_estimates",
+                  ]),
             "phase",
             "error",
             "expected",
@@ -653,7 +765,7 @@ function turn(v: unknown): void {
             "input_semantic_sha256",
             "output_semantic_sha256",
             "mechanical_sha256",
-            "policy_matches",
+            ...(protocol === 2 ? ["policy_matches"] : []),
             "context_evidence_available",
             "context_requirement",
             "privacy_passed",
@@ -675,15 +787,55 @@ function turn(v: unknown): void {
             "selected_context_bytes",
             "estimated_context_tokens",
         ],
-        ["forwarded_director_estimates"],
+        protocol === 2 ? ["forwarded_director_estimates"] : [],
     );
     id(o.turn);
     integer(o.scene, 0, 255);
     choices(o.arm, ["left", "right"]);
-    choices(o.policy, [
-        "state_recent_transcript_v1",
-        "state_relevant_memory_v1",
-    ]);
+    if (protocol === 2) {
+        choices(o.policy, [
+            "state_recent_transcript_v1",
+            "state_relevant_memory_v1",
+        ]);
+        bool(o.policy_matches);
+    } else {
+        const descriptor = construction(o.construction, o.arm);
+        bool(o.construction_matches);
+        const status = choices(o.construction_evidence_status, [
+            "validated_literal",
+            "validated_relevant",
+            "not_applicable_guard",
+            "not_applicable_dependency",
+            "unavailable",
+        ]);
+        [
+            o.literal_source_units,
+            o.literal_selected_start,
+            o.literal_selected_units,
+        ].forEach((v) => nullable(v, (v) => integer(v)));
+        const literal = descriptor.arm === "literal_player_v1";
+        wire(status !== (literal ? "validated_relevant" : "validated_literal"));
+        if (status === "validated_literal") {
+            const total = integer(o.literal_source_units),
+                start = integer(o.literal_selected_start),
+                count = integer(o.literal_selected_units);
+            wire(start <= total && count <= total - start);
+        } else
+            wire(
+                o.literal_source_units === null &&
+                    o.literal_selected_start === null &&
+                    o.literal_selected_units === null,
+            );
+        if (literal)
+            [
+                o.mandatory_sha256,
+                o.optional_detail_selected,
+                o.source_fallback_reason,
+                o.compiler_fallback_reason,
+                o.selected_context_bytes,
+                o.estimated_context_tokens,
+            ].forEach((v) => wire(v === null));
+    }
     [o.phase, o.expected, o.context_requirement].forEach(text);
     [
         o.error,
@@ -695,7 +847,6 @@ function turn(v: unknown): void {
         o.passed,
         o.roles_known,
         o.recovered_without_checkpoint,
-        o.policy_matches,
         o.context_evidence_available,
         o.privacy_passed,
     ].forEach(bool);
@@ -727,12 +878,17 @@ function turn(v: unknown): void {
     ].forEach((v) => nullable(v, hash));
     list(o.raw_sha256, hash);
     list(o.stages, () => {});
-    if (Object.hasOwn(o, "forwarded_director_estimates"))
+    if (protocol === 3)
+        nullable(o.forwarded_director_estimates, (v) => list(v, estimate));
+    else if (Object.hasOwn(o, "forwarded_director_estimates"))
         list(o.forwarded_director_estimates, estimate);
 }
 function report(v: unknown): ComparisonReport {
+    const version = object(v).version;
+    wire(version === 2 || version === 3);
     const o = exact(v, [
         "version",
+        ...(version === 3 ? ["arms"] : []),
         "kind",
         "lane",
         "source_matches",
@@ -759,7 +915,17 @@ function report(v: unknown): ComparisonReport {
         "reference_sha256",
         "limitations",
     ]);
-    wire(o.version === 2);
+    let descriptors: ComparisonArmDescriptorV3[] = [];
+    if (version === 3) {
+        descriptors = list(
+            o.arms,
+            (v) => construction(v),
+            2,
+        ) as ComparisonArmDescriptorV3[];
+        wire(descriptors.length === 2);
+        construction(descriptors[0], "left");
+        construction(descriptors[1], "right");
+    }
     choices(o.kind, ["paired_snapshots", "continuous_rollout"]);
     text(o.lane);
     [o.source_matches, o.completed, o.quality_accepted].forEach(bool);
@@ -783,8 +949,24 @@ function report(v: unknown): ComparisonReport {
     hash(o.suite_sha256);
     hash(o.source_sha256);
     nullable(o.reference_sha256, hash);
-    const turns = list(o.turns, turn, 48) as ComparisonTurn[];
+    const turns = list(
+        o.turns,
+        (value) => turn(value, version),
+        48,
+    ) as ComparisonTurn[];
     wire(new Set(turns.map(readerRowKey)).size === turns.length);
+    if (version === 3)
+        turns.forEach((value) => {
+            wire("construction" in value);
+            const expected = descriptors[value.arm === "left" ? 0 : 1];
+            wire(
+                Object.keys(expected).every(
+                    (key) =>
+                        object(value.construction)[key] ===
+                        object(expected)[key],
+                ),
+            );
+        });
     return o as ComparisonReport;
 }
 export function checkedReaderSummary(
@@ -804,14 +986,14 @@ export function checkedReaderSummary(
     ]);
     wire(
         o.version === 1 &&
-            o.protocol_version === 2 &&
+            (o.protocol_version === 2 || o.protocol_version === 3) &&
             hash(o.binding) === binding,
     );
     readonly(o);
     strings(o.unavailable);
     const entries = rows(o.rows),
         r = report(o.report);
-    wire(entries.length === r.turns.length);
+    wire(o.protocol_version === r.version && entries.length === r.turns.length);
     entries.forEach((entry, index) => {
         const t = r.turns[index];
         wire(

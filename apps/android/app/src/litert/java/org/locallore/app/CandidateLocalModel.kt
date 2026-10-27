@@ -26,7 +26,9 @@ internal object CandidateLocalModel {
         preparedStore ?: run {
             check(Looper.myLooper() != Looper.getMainLooper())
             val app = context.applicationContext
-            val store = if (BuildConfig.MODEL_RECEIPT_VERIFICATION) {
+            val store = if (BuildConfig.PHYSICAL_MODEL_VERIFICATION) {
+                AndroidPhysicalModelAccess.create(app)
+            } else if (BuildConfig.MODEL_RECEIPT_VERIFICATION) {
                 AndroidReceiptModelAccess.create(app)
             } else if (BuildConfig.MODEL_VOLUME_VERIFICATION) {
                 val volume = AndroidModelVolume.select(app)

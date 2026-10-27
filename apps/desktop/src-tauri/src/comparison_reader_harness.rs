@@ -27,6 +27,9 @@ pub fn active() -> bool {
     crate::harness::active()
         && std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1")
 }
+fn literal_mode() -> bool {
+    active() && std::env::var("LOCALLORE_D07_LITERAL_COMPARISON_READER").as_deref() == Ok("1")
+}
 fn root(workspace: &Path) -> Result<PathBuf, String> {
     if !active()
         || std::env::var_os("LOCALLORE_TEST_WORKSPACE")
@@ -161,14 +164,19 @@ pub async fn harness_comparison_reader_case(
                 if !reference.exists() { comparison::prepare_reference(&reference,&Cancellation::default())?; }
                 let reference=comparison::open_reference(&reference)?;
                 let paired=fixtures.join("paired");
-                if !paired.exists() { comparison::run_comparison(&paired,false,ComparisonKind::PairedSnapshots,&Cancellation::default(),2,LaneFactory::ScriptedBaseline,Some(&reference))?; }
                 let rollout=fixtures.join("rollout");
-                if !rollout.exists() { comparison::run_comparison(&rollout,false,ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None)?; }
+                let (protocol_version, paired_rows, rollout_rows) = if literal_mode() {
+                    if !paired.exists() { comparison::literal_v3::run_comparison(&paired,false,ComparisonKind::PairedSnapshots,&Cancellation::default(),2,LaneFactory::ScriptedBaseline,Some(&reference))?; }
+                    if !rollout.exists() { comparison::literal_v3::run_comparison(&rollout,false,ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None)?; }
+                    (3, comparison::literal_v3::inspect_comparison(&paired)?.turns.len(), comparison::literal_v3::inspect_comparison(&rollout)?.turns.len())
+                } else {
+                    if !paired.exists() { comparison::run_comparison(&paired,false,ComparisonKind::PairedSnapshots,&Cancellation::default(),2,LaneFactory::ScriptedBaseline,Some(&reference))?; }
+                    if !rollout.exists() { comparison::run_comparison(&rollout,false,ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None)?; }
+                    (2, comparison::inspect_comparison(&paired)?.turns.len(), comparison::inspect_comparison(&rollout)?.turns.len())
+                };
                 drop(reference);
-                let paired=comparison::inspect_comparison(&paired)?;
-                let rollout=comparison::inspect_comparison(&rollout)?;
                 let fixture_inventory=inventory(&fixtures)?;
-                lease.dispatch(epoch,||Ok(json!({"synthetic":true,"paired_rows":paired.turns.len(),"rollout_rows":rollout.turns.len(),"models_executed":false,"fixture_inventory":fixture_inventory})))
+                lease.dispatch(epoch,||Ok(json!({"synthetic":true,"protocol_version":protocol_version,"paired_rows":paired_rows,"rollout_rows":rollout_rows,"models_executed":false,"fixture_inventory":fixture_inventory})))
             }
             "choose-paired" => { state.choice.store(0,Ordering::SeqCst); Ok(json!(true)) }
             "choose-rollout" => { state.choice.store(1,Ordering::SeqCst); Ok(json!(true)) }

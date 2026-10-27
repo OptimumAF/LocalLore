@@ -1,5 +1,6 @@
-//! Literal/relevant comparison contract only. No protocol3 producer, persisted
-//! report, model runner or execution permission is supplied by this module.
+//! Closed literal/relevant comparison metadata and private capture validation.
+//! Actual protocol3 execution lives in the separately scoped comparison driver.
+//! Deserializing these values grants no execution or canonical authority.
 use crate::{capture_envelope, encode, Capture, Result};
 use locallore::{
     context_compiler::{player_literal_transcript_v1_cancelled, ContextPolicy},
@@ -19,7 +20,9 @@ pub enum ComparisonArmV3 {
 
 // An Option field with this deserializer is REQUIRED on the wire, including
 // when its value is null. Ordinary Option derive would silently admit omission.
-fn required_nullable<'de, D, T>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
+pub(crate) fn required_nullable<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
     T: Deserialize<'de>,
@@ -100,7 +103,6 @@ impl ArmDescriptorV3 {
 /// Private owned evidence; no serde or conversion to execution authority.
 /// A future producer must additionally validate raw files, source/row hashes,
 /// canonical history and ledger. Narrator checks cover envelope/hash/order only.
-#[allow(dead_code)] // Contract is qualified before its separately scoped producer.
 pub(crate) struct CapturedLiteralContext {
     pub director_prompts: Vec<String>,
     pub narrator_prompts: Vec<String>,
@@ -109,7 +111,6 @@ pub(crate) struct CapturedLiteralContext {
     pub selected_start: usize,
     pub selected_units: usize,
 }
-#[allow(dead_code)]
 impl CapturedLiteralContext {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn from_host_capture(
@@ -284,4 +285,157 @@ impl CapturedLiteralContext {
         }
         Ok(result)
     }
+}
+
+pub const VERSION: u16 = 3;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstructionEvidenceStatusV3 {
+    ValidatedLiteral,
+    ValidatedRelevant,
+    NotApplicableGuard,
+    NotApplicableDependency,
+    Unavailable,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CurrentBindingV3 {
+    pub protocol_version: u16,
+    pub arms: [ArmDescriptorV3; 2],
+    pub source_sha256: String,
+    pub suite_sha256: String,
+    pub forwarded_budget_version: u16,
+    pub max_admissions: usize,
+    pub max_roles: usize,
+    pub max_active_ms: u64,
+    pub attempts: usize,
+    pub expected_accepted: usize,
+    pub expected_guard_only: usize,
+    pub native: bool,
+}
+pub fn current_binding(native: bool) -> Result<CurrentBindingV3> {
+    let previous = crate::memory_comparison_v2::current_binding(native)?;
+    Ok(CurrentBindingV3 {
+        protocol_version: VERSION,
+        arms: arm_descriptors(),
+        source_sha256: previous.source_sha256,
+        suite_sha256: previous.suite_sha256,
+        forwarded_budget_version: 1,
+        max_admissions: previous.max_admissions,
+        max_roles: previous.max_roles,
+        max_active_ms: previous.max_active_ms,
+        attempts: previous.attempts,
+        expected_accepted: previous.expected_accepted,
+        expected_guard_only: previous.expected_guard_only,
+        native,
+    })
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TurnReportV3 {
+    pub turn: String,
+    pub scene: u8,
+    pub arm: String,
+    pub construction: ArmDescriptorV3,
+    pub phase: String,
+    #[serde(deserialize_with = "required_nullable")]
+    pub error: Option<String>,
+    pub expected: String,
+    pub passed: bool,
+    pub failures: Vec<String>,
+    pub quality_flags: Vec<String>,
+    pub roles: usize,
+    pub roles_known: bool,
+    pub recovered_without_checkpoint: bool,
+    #[serde(deserialize_with = "required_nullable")]
+    pub admission: Option<usize>,
+    pub elapsed_ms: u64,
+    #[serde(deserialize_with = "required_nullable")]
+    pub first_final_response_ms: Option<u64>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub commit_elapsed_ms: Option<u64>,
+    pub input_semantic_sha256: String,
+    pub output_semantic_sha256: String,
+    pub mechanical_sha256: String,
+    pub construction_matches: bool,
+    pub construction_evidence_status: ConstructionEvidenceStatusV3,
+    #[serde(deserialize_with = "required_nullable")]
+    pub literal_source_units: Option<usize>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub literal_selected_start: Option<usize>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub literal_selected_units: Option<usize>,
+    pub context_evidence_available: bool,
+    pub context_requirement: String,
+    pub privacy_passed: bool,
+    #[serde(deserialize_with = "required_nullable")]
+    pub fallback: Option<bool>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub capture_sha256: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub recording_sha256: Option<String>,
+    pub raw_sha256: Vec<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub role_metrics: Option<Value>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub trace: Option<Value>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub actual_receipt_sha256: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub source_fallback_reason: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub compiler_fallback_reason: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub narration: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub repairs: Option<u8>,
+    pub stages: Vec<Value>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub mandatory_sha256: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub optional_detail_selected: Option<bool>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub director_private_target_present: Option<bool>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub selected_context_bytes: Option<usize>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub estimated_context_tokens: Option<u64>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub forwarded_director_estimates: Option<Vec<Value>>,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComparisonReportV3 {
+    pub version: u16,
+    pub arms: [ArmDescriptorV3; 2],
+    pub kind: crate::memory_comparison_v2::ComparisonKind,
+    pub lane: String,
+    pub source_matches: bool,
+    pub completed: bool,
+    pub completed_scenes: usize,
+    pub turns: Vec<TurnReportV3>,
+    pub human_reviewed: usize,
+    pub human_rubric: String,
+    pub quality_accepted: bool,
+    pub physical_setups: usize,
+    #[serde(deserialize_with = "required_nullable")]
+    pub physical_setup_ms: Option<u64>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub native_load: Option<Value>,
+    pub left_charged_ms: u64,
+    pub right_charged_ms: u64,
+    pub left_reserved_roles: usize,
+    pub right_reserved_roles: usize,
+    #[serde(deserialize_with = "required_nullable")]
+    pub first_semantic_divergence: Option<String>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub first_mechanical_divergence: Option<String>,
+    pub same_input_pairs: usize,
+    pub unavailable: Vec<String>,
+    pub profile: PlayProfile,
+    pub suite_sha256: String,
+    pub source_sha256: String,
+    #[serde(deserialize_with = "required_nullable")]
+    pub reference_sha256: Option<String>,
+    pub limitations: Vec<String>,
 }

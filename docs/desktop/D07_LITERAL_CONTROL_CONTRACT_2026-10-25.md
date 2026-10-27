@@ -1,20 +1,81 @@
-# Proposed literal conversation control and first read-only oracle
+# Literal conversation control and comparison status
 
-Source inspected: accepted PR180 merge `5608b72c34477ee110b771c675bc1d0afd06bd6e`.
+Original design baseline: accepted PR180 merge `5608b72c34477ee110b771c675bc1d0afd06bd6e`.
 Scope: D07.04 / M07.01, with M06.04/.06 eligibility ownership.
 Status: **Native literal execution and Host durability are qualified with explicitly
 scripted providers. The linked slices cover source, renderer, execution/replay and
-native Host selection. Evaluator/UI exposure and real-model literal comparisons
-remain unqualified.**
+native Host selection. Scripted protocol3 evaluation, strict cold report reads
+and resume are qualified in the linked producer record. Approved-model finite
+paired/rollout execution and completed-native resume are qualified separately.
+Desktop protocols2/3 read-only UI/IPC and protocol3→selected2 controls have
+scripted-provider evidence described below. Final coordinator regression and
+normal-build restoration gates remain pending; native-model UI execution and
+human story quality remain unqualified.**
 See [source API and qualification](D07_LITERAL_TRANSCRIPT_SOURCE_QUALIFICATION_2026-10-25.md).
 See [literal renderer and packing qualification](D07_LITERAL_DIRECTOR_RENDER_QUALIFICATION_2026-10-25.md).
 See [guarded native execution and replay qualification](D07_LITERAL_GUARDED_PLAY_QUALIFICATION_2026-10-25.md).
 See [native Host and durability qualification](D07_LITERAL_HOST_QUALIFICATION_2026-10-25.md).
 See [comparison metadata and literal capture qualification](D07_LITERAL_CAPTURE_CONTRACT_QUALIFICATION_2026-10-25.md).
-The latter adds a data-only contract and private input validator; a protocol3
-producer, persisted report and UI exposure remain unimplemented.
-The candidate runtime signature remains a proposal. Root's narrower first
-allocation observes original validated diagnostic Values only in cfg(test).
+The latter adds a data-only contract and private input validator.
+See [scripted protocol3 producer, CLI and cold-read qualification](D07_LITERAL_COMPARISON_PRODUCER_QUALIFICATION_2026-10-25.md).
+It runs the actual literal/Relevant pair through the established owners.
+The [trusted native3 API ownership qualification](D07_LITERAL_NATIVE_OWNER_QUALIFICATION_2026-10-25.md)
+adds model-free preflight and actual protocol-child cleanup evidence.
+The [approved-model qualification](D07_LITERAL_NATIVE_MODEL_QUALIFICATION_2026-10-25.md)
+records 96 outcomes, 153 real roles and 3 loads, retaining failed expectations,
+dependency and narration fallback. Native3 CLI, full-comparison desktop
+execution and human quality remain unqualified; this does not revoke the
+separate shared full-comparison native Rust qualification.
+The [protocol3 read capability qualification](D07_LITERAL_DESKTOP_READ_QUALIFICATION_2026-10-25.md)
+adds an opaque Rust reader over actual canonical edges, receipts and retained
+artifacts. It preserves observer restrictions and existing V2/selected readers;
+that source record does not itself qualify UI or rerun permission.
+The [desktop reader qualification](D07_LITERAL_DESKTOP_UI_QUALIFICATION_2026-10-26.md)
+adds actual frontend/controller/native IPC and inspected app-owned WebView
+renders for protocol3. At that historical reader-only source it preserved
+existing selected1 sources and refused protocol3 reruns without consuming the
+reader. Its refusal is not the current desktop availability boundary. Inference
+in that cohort was synthetic; approved-model generation remains separate evidence.
+The [shared scripted selected rerun qualification](D07_LITERAL_SELECTED_SCRIPTED_QUALIFICATION_2026-10-26.md)
+adds [PR202's](https://github.com/OptimumAF/LocalLore/pull/202) separate selected2 Rust API over actual protocol3 histories, requests and
+construction descriptors, with isolated save/resume and conservative recovery.
+That scripted slice alone does not enable native selected2 or desktop controls.
+The [native selected2 qualification](D07_LITERAL_SELECTED_NATIVE_QUALIFICATION_2026-10-26.md)
+adds [PR204's](https://github.com/OptimumAF/LocalLore/pull/204) trusted shared-owner Rust API, actual fixed-child ownership oracles and
+one approved-model two-arm Move with zero-asset completed/checkpoint-loss resume.
+The [selected2 read capability qualification](D07_SELECTED2_DESKTOP_READ_QUALIFICATION_2026-10-26.md)
+adds [PR205's](https://github.com/OptimumAF/LocalLore/pull/205) safe metadata, actual observer-filtered edges and explicit omniscient
+inspection over both scripted and retained native selected2 runs, without new
+inference or permission. Those records retain their original source-specific
+scope; later desktop integration does not relabel their tests as UI execution.
+
+The [current selected2 desktop qualification](D07_LITERAL_SELECTED_DESKTOP_QUALIFICATION_2026-10-26.md)
+covers the normal controller/native IPC path for protocol3 sources: typed Rust
+prepare/start, independent read consent, observer-filtered evidence and completed
+fresh-source UI resume. At clean source `6a195f85`, Root reported 252 initial and
+261 restart check entries, 27 initial and 28 restart actual hidden/unfocused
+app-owned WebView2 CapturePreview images and all 626 source fixture files
+byte-identical in each stage. Root inspected all 55 images with no further
+visible layout findings. Each stage retained exactly one deliberate
+Transport-buffer error from the lost-acknowledgement journey. This cohort uses
+scripted fake inference and fixed picker/consent doubles, not real-model UI or
+automated OS dialogs, and never controls or captures the desktop.
+
+Source and read grants remain distinct. Rust validates actual source capability,
+original per-arm prefixes/requests, plan binding, actor privacy and retained
+worker ownership. The UI hides a locally attempted source token until a fresh
+reader token is supplied; an unknown acknowledgement does not restore that link.
+That conservative presentation fence does not certify native consumption.
+Legacy compatibility, native tests/lint/format, frontend checks, Android Rust
+host/graph checks and normal-build restoration passed at the same source; exact
+counts, commands and retained failures are in the linked record. The observed
+WebView2 SDK 1412 shutdown message remains a separate [D09 #31](https://github.com/OptimumAF/LocalLore/issues/31)
+limitation, not a clean-SDK-exit result. Paused/incomplete UI resume, native-model
+UI execution, real OS dialogs, whole-app RAM/performance, human quality and
+physical-phone parity remain unqualified.
+Design sections below
+preserve the original proposal; linked qualification records define the current
+implemented interfaces and their evidence classes.
 GitHub #29/#11 retain task status; no criterion is checked by this document.
 
 ## Definition
@@ -45,7 +106,11 @@ observer-safe source contract. Omniscient inspection permission never grants
 generation access. This first oracle targets the existing Domain1 comparison
 producer; Domain2 literal execution/audit support is not implied.
 
-## What exists at the inspected source
+## Original PR180 source baseline (historical)
+
+This table records the source inspected for the original oracle proposal; its
+line references belong to that baseline. The linked later slices above define
+current separately versioned literal source/rendering/execution and consumers.
 
 | Source | Actual behavior and consequence |
 |---|---|
@@ -254,10 +319,13 @@ information-channel differences without demonstrating that a model used memory
 well. Actual model samples, narrative assessment and human review require a
 separate bounded admission. No LLM judge can waive mechanical/privacy failures.
 
-Next runnable task: freeze the literal transcript-source projection and its
-eligibility/whole-unit packing oracles through the existing compiler. Then
-allocate the separately versioned renderer and execution closure. No quality,
-performance, native/UI, Android/device or D07/M07 completion is claimed.
+The original next task was to freeze the literal source projection and its
+eligibility/whole-unit packing oracles, then allocate the separately versioned
+renderer/execution closure. Those prerequisites now have the linked source-bound
+qualifications above. The current desktop cohort and remaining coordinator gates
+are in the selected2 desktop record; paused/incomplete UI resume and real-model UI
+remain separate work. No quality, whole-app performance, Android/device or
+D07/M07 completion is claimed.
 
 ## Frozen first allocation and actual qualification
 

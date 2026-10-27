@@ -39,6 +39,7 @@ fn failed_unconsumed_exit_preserves_first_explicit_code_and_reissues_one_permit(
         gate.opened(1).unwrap();
         let ticket = start(&mut gate, 1, Intent::Exit(code));
         assert!(gate.confirm(ticket));
+        destroy_before_exit(&mut gate, ticket);
         assert_eq!(
             gate.take_continuation(ticket),
             Some(Continuation::Exit { code })
@@ -73,6 +74,7 @@ fn old_window_failure_cannot_undo_late_exit_new_sequence_or_new_window_epoch() {
     let window = start(&mut gate, 1, Intent::Window);
     assert!(gate.confirm(window));
     gate.take_continuation(window).unwrap();
+    assert_eq!(gate.destroyed(1), Ok(Decision::Pending));
     let exit = match gate.request(1, Intent::Exit(Some(9))).unwrap() {
         Decision::Continue(ticket) => ticket,
         other => panic!("expected proven clean exit {other:?}"),
@@ -92,6 +94,7 @@ fn old_window_failure_cannot_undo_late_exit_new_sequence_or_new_window_epoch() {
     let old = start(&mut gate, 1, Intent::Window);
     assert!(gate.confirm(old));
     gate.take_continuation(old).unwrap();
+    assert_eq!(gate.destroyed(1), Ok(Decision::Pending));
     gate.opened(3).unwrap();
     assert!(!gate.continuation_failed(old));
     let current = start(&mut gate, 3, Intent::Window);

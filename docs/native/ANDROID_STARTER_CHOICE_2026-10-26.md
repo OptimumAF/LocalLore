@@ -208,7 +208,7 @@ payload occurrences match their recorded hashes; none is missing. All1119
 members across the three ZIPs and all three complete-history source bundles
 match. All62 copied public Git blobs also match their Git object identities.
 All1116 unique indexed original paths survive byte-identical. These selected
-originals are already on the separate recovery drive; none points to D:.
+originals are already on C:; none points to D:.
 
 The audit additionally checks only the827 exact D: executable-source paths
 from the sealed SDK2 source map: all survive unchanged. It does not establish
@@ -224,3 +224,32 @@ all87 measured-SDK2 pairs. Its new bounded host inventory records zero protected
 emulator processes; the existing server pin matches without a lifecycle action
 or device call. These prerequisite replays are not new test executions. The
 fixed creation19 and broad89 results will be reported only after actual runs.
+
+## Current-source legacy regression follow-up
+
+This packet reuses the unchanged834-input source map and exact three APKs above,
+after deep build/native10/current87-client prerequisite replay. Both fresh
+API35/x86_64 environments and proposals are prepared before either launch.
+Existing2GiB/two-CPU resources,4GiB host-available floor,1200-second guest ceiling,
+850-second SDK session and900-second verification owner remain unchanged.
+
+The fixed `story-creation` phase actually passes all19 methods across4 classes
+with99 complete measured-SDK2 pairs. The verification owner records307811ms,
+worker0, cleanup/capture true and stderr0; maximum client16997ms and maximum
+server observer4515ms. Independent canonical readback verifies each original
+runner frame, current source/request/build/owner binding, exact closed roster
+and all client/raw pairs. The four legacy test source files and their method
+rosters are unchanged from main; the production native catalog is exercised
+through the current APK, without changing the fake-port compatibility tests.
+
+The bound stop helper returns0, and the actual guest handle subsequently returns0.
+Its owner records `stop_requested`,333530ms/worker1, cleanup/capture/closure true,
+no guest-flush claim and the exact proposal hash. Guest console warnings remain
+separate from the clean verification stderr. This qualification is scripted
+local creation/ordinary Activity coverage; it does not establish OS-death,
+physical-device, real-model, ARM64 or joined-drain results.
+
+The separate fixed `regression` phase is running. No result or terminal recovery
+seal is claimed for it yet. Its final postflight will run only after both exact
+requested guest closures. No source changes, repeated build, timeout relaxation,
+server lifecycle action or unrelated emulator stop are used by this packet.

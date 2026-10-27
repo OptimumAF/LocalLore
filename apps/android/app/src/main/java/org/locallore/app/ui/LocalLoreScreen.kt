@@ -26,9 +26,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +49,10 @@ import org.locallore.app.DemoAction
 import org.locallore.app.DemoMode
 import org.locallore.app.PlayInput
 import org.locallore.app.PlayInputKind
+import org.locallore.app.PlayDraft
+import org.locallore.app.PlayDraftScope
+import org.locallore.app.restorePlayDraft
+import org.locallore.app.savePlayDraft
 import org.locallore.app.ShellState
 import org.locallore.app.SavedStory
 import org.locallore.app.SavedTimeline
@@ -53,6 +62,10 @@ private val Paper = Color(0xFFF8F5EC)
 private val Ink = Color(0xFF202D2A)
 private val Teal = Color(0xFF18584E)
 private val MutedInk = Color(0xFF4D5C56)
+private val PlayDraftSaver = Saver<PlayDraft, Any>(
+    save = { savePlayDraft(it) },
+    restore = { restorePlayDraft(it) },
+)
 
 /** A state-only sample surface. The coordinator owns every response and state change. */
 @Composable
@@ -66,7 +79,7 @@ fun LocalLoreScreen(
     onResume: (SavedStory) -> Unit = {},
     onRecover: () -> Unit = {},
     onStoryRecord: (() -> Unit)? = null,
-    onText: ((PlayInput) -> Unit)? = null,
+    onText: ((PlayInput, SavedStory?) -> Unit)? = null,
     archiveAvailable: Boolean = false,
     onArchive: () -> Unit = {},
     deletionAvailable: Boolean = false,
@@ -79,11 +92,21 @@ fun LocalLoreScreen(
     onFork: () -> Unit = {},
     overlay: @Composable () -> Unit = {},
 ) {
-    // Keep unsent text in this composition, including when its lazy item scrolls off screen.
-    // A new accepted head retains it; a different story/branch or disposal forgets it.
-    var playInput by remember(state.selectedStory?.story, state.selectedStory?.branch) {
-        mutableStateOf(PlayInput(PlayInputKind.ACTION, ""))
+    // Save only the scoped editor payload, never a pending submission or gameplay state.
+    // Do not key rememberSaveable by the initially unresolved story: restoration does
+    // not validate its inputs, and null -> selected would discard the pending payload.
+    var playDraft by rememberSaveable(stateSaver = PlayDraftSaver) { mutableStateOf(PlayDraft()) }
+    val renderedStory = state.selectedStory
+    val draftScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
+    val draftPending = state.persistent && renderedStory == null && (state.busy || state.recoveryRequired)
+    val observedDraft = playDraft
+    val resolvedDraft = observedDraft.resolve(draftScope, draftPending)
+    SideEffect {
+        if (playDraft === observedDraft && playDraft != resolvedDraft) playDraft = resolvedDraft
     }
+    val currentDraftScope by rememberUpdatedState(draftScope)
+    val currentDraftPending by rememberUpdatedState(draftPending)
+    val playInput = if (draftPending) PlayInput(PlayInputKind.ACTION, "") else resolvedDraft.input
     MaterialTheme(
         colorScheme = lightColorScheme(
             primary = Teal,
@@ -296,15 +319,28 @@ fun LocalLoreScreen(
                         }
                     }
                     if (onText != null) item(key = "play-composer") {
-                        PlayInputComposer(
-                            input = playInput,
-                            provider = state.textProvider,
-                            busy = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
-                                (state.persistent && state.selectedStory == null),
-                            recoveryRequired = state.recoveryRequired,
-                            onInput = { playInput = it },
-                            onSend = onText,
-                        )
+                        // Text-field/button managers retain callbacks internally. Recreate
+                        // those controllers on a scope change, rather than retargeting an
+                        // old semantics/IME action to the new story's latest callback.
+                        key(draftScope) {
+                            PlayInputComposer(
+                                input = playInput,
+                                provider = state.textProvider,
+                                busy = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
+                                    (state.persistent && state.selectedStory == null),
+                                recoveryRequired = state.recoveryRequired,
+                                onInput = { input ->
+                                    if (!currentDraftPending && currentDraftScope == draftScope) {
+                                        playDraft = playDraft.resolve(currentDraftScope, pending = false)
+                                            .edit(draftScope, currentDraftScope, input)
+                                    }
+                                },
+                                onSend = { input ->
+                                    if (!currentDraftPending && currentDraftScope == draftScope) onText(input, renderedStory)
+                                },
+                                draftNotRestored = !draftPending && resolvedDraft.textNotRestored,
+                            )
+                        }
                     }
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

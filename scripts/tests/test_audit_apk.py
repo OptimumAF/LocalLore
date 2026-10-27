@@ -145,6 +145,31 @@ class ApkAuditTests(unittest.TestCase):
             with self.subTest(tree=candidate_tree), self.assertRaises(audit.AuditError):
                 audit.audit_manifest(candidate_badging, candidate_tree, package)
 
+    def test_input_draft_profile_keeps_package_permission_and_capability_boundary(self):
+        package = "org.locallore.app.draftverify"
+        badging = BADGING.replace("org.locallore.app", package)
+        tree = TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package),
+                         [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for candidate, candidate_badging, candidate_tree in (
+                ("org.locallore.app", badging, tree),
+                (package + ".other", badging.replace(package, package + ".other"), tree),
+                (package, badging, TREE),
+                (package, badging + "uses-permission: name='android.permission.INTERNET'\n", tree),
+                (package, badging, tree.replace("0x00000002", "0x00000000"))):
+            with self.subTest(candidate=candidate), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(candidate_badging, candidate_tree, candidate)
+
+    def test_input_draft_cli_refuses_model_modes_before_reading_any_artifact(self):
+        flags = ("--litert-verification", "--model-provisioning", "--model-picker-fixture",
+                 "--model-volume-verification", "--model-receipt-verification")
+        with patch.object(audit, "audit_zip", side_effect=AssertionError("artifact read")) as read, \
+                patch("builtins.print"):
+            for flag in flags:
+                with self.subTest(flag=flag):
+                    self.assertEqual(audit.main(["unread.apk", "--input-draft-verification", flag]), 1)
+            read.assert_not_called()
+
     def test_model_setup_is_separate_from_existing_candidate_and_has_no_network(self):
         package = "org.locallore.app.modelverify"
         badging, tree = BADGING.replace("org.locallore.app", package), TREE.replace("org.locallore.app", package)

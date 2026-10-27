@@ -444,8 +444,15 @@ compiler in Kotlin and no cloud fallback.
 Input is bounded to 2048 UTF-8 bytes with valid Unicode. Text remains unchanged
 across the native request and exact-key recovery. Pending work disables editing;
 **Cancel** stops preparation. Drafts remain after rejection or an accepted head
-update, and reset on story/branch changes or composition disposal. Accepted prose
-and state come from saved engine receipts. Existing typed sample actions and fake
+update. For saved stories, one unsent draft uses Android saved-instance state,
+bound to the exact story and timeline. It stays hidden while that scope is unresolved and is cleared
+when a different scope settles; switching back does not revive an older draft.
+Restoration never sends a turn. Up to 8192 UTF-8 text bytes plus bounded identity
+metadata can be saved; sending still requires at most 2048 bytes. Larger or
+Unicode-invalid editor text is omitted when saving, with a re-entry notice on
+restoration, without truncating the live editor. This is not persistence after
+force-stop, task dismissal or an ordinary cold launch. Accepted prose and state
+come from saved engine receipts. Existing typed sample actions and fake
 modes remain available as separate regression fixtures.
 
 The potion example, literal dialogue, cancellation, lost acknowledgements,
@@ -453,6 +460,16 @@ disposal, saved-story isolation and strict reopen passed on both API 35 x86_64
 test emulators. No model is loaded and the real local-backend/physical-phone gate
 remains open. Read [dated evidence](../../docs/native/ANDROID_INPUT_VERIFICATION_2026-10-23.md)
 and [all attempts](../../docs/native/ANDROID_INPUT_RESULTS_2026-10-23.json).
+
+The separate [saved-draft lifecycle checks](../../docs/native/ANDROID_INPUT_DRAFT_VERIFICATION_2026-10-25.md)
+pass 15 selected methods on one fresh API 35 x86_64 emulator, including actual
+product Activity recreation and a retained-callback regression. This does not
+claim actual process-death restoration, phone support or a model result.
+Build its isolated debug pair with `-PlocalLoreInputDraftVerification=true`
+and `--project-cache-dir .gradle-input-draft`, using the same offline tasks above.
+It uses `.draftverify` and `app/build-input-draft`; release, mixed profiles and
+mismatched caches are refused. Audit the app with
+`scripts/audit_apk.py APK --input-draft-verification`. Existing installations are separate.
 
 ## Review local diagnostics
 

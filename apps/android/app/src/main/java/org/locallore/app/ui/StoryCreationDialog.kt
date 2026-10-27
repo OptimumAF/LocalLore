@@ -44,7 +44,7 @@ import org.locallore.app.validStoryTitle
 import org.locallore.app.validStoryPlayerName
 import org.locallore.app.hasReviewedPlayerName
 
-/** A starter/title review only. No premise, seed, identity or gameplay editor is exposed. */
+/** Initial starter/name/title review. No existing-story or mechanical-state editor. */
 @Composable
 internal fun StoryCreationDialog(
     state: StoryCreationUiState,
@@ -74,7 +74,9 @@ internal fun StoryCreationDialog(
                     .testTag("story-creation-content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Start a story", style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.semantics { heading() })
-                    Text("Choose a built-in starter, review its starting facts, then name the new save. The title does not change its rules or world.")
+                    Text(if (request?.preview?.playerSetup != null)
+                        "Choose a built-in starter and player name, review the starting facts, then name the new save. The save title does not change its rules or world."
+                        else "Choose a built-in starter, review its starting facts, then name the new save. The title does not change its rules or world.")
                     if (state.busy) {
                         CircularProgressIndicator()
                         Text(when { state.closing -> "Finishing local work…"; state.creating -> "Creating story…"; else -> "Loading starter…" })

@@ -1,0 +1,66 @@
+# Initial player-name setup — 2026-10-26
+
+M09.02, with M09.03/M09.06 interaction coverage. This packet is stacked on
+[draft PR #221](https://github.com/OptimumAF/LocalLore/pull/221), exact prerequisite
+`6b4ccab9df0afbeb1178611a016bc2dbf0f7e16b`; it does not merge that work. Prior
+native10/chooser7/creation19/broad89 results keep their original834-input source
+attribution and do not qualify this changed source or its APKs.
+
+## Behavior and authority
+
+The creation review now offers a player-name field. Editing it invalidates old
+Create consent; explicit Review changes obtains a new native preview before
+creation. Rust constructs the selected original starter, changes only the
+player Actor's display name, validates the engine and binds the reviewed setup
+with exact template/derived-seed hashes. Entity IDs, mechanical rules, facts,
+beliefs, NPC state and knowledge eligibility remain unchanged.
+
+Names are at most64 Unicode scalars/256 UTF-8 bytes with no normalization or
+silent trimming. Source inspection found the existing context compiler's256-byte
+actor-name ceiling; the new bound keeps valid setups inside that existing
+runtime contract. Save titles keep their separate80/320 limits. Cancellation
+before Create preserves the selected library and play draft; uncertain creation
+retains the existing refresh rules. Exact retained retries compare the full
+seed and title and cannot rename an existing story or reset accepted history.
+
+See the [closed setup contract](STORY_PLAYER_SETUP_V1.md) and
+[fixed eight-method Android protocol](ANDROID_PLAYER_SETUP_PROTOCOL.md). Legacy
+catalog/preview/named-creation formats and existing Android rosters are unchanged.
+The debug probe maps configured creation to named creation and ignores the new
+read-only setup operation without changing its fourteen counters.
+
+## Verification at this checkpoint
+
+The native author actually runs8 new focused unit adversaries and3 legacy
+creation tests, all passing, in the separate native worktree. Their835-input
+maps remain unchanged; the retained original streams include ordinary Cargo
+compiler stderr. These are focused native results, not integrated Android proof.
+
+Root's bounded generation completes24409ms/worker0 with cleanup/capture true.
+All four generation commands return0. The1948-file before/after maps differ
+only in the two expected generated frontend schema/type files. The separate
+frontend/schema/type/controller/format check passes27601ms/worker0,
+cleanup/capture true, with1948 tracked sources unchanged. Later changes add
+only Python tests and Rust workspace/Android test or production inputs; their
+actual integrated checks are still required.
+
+Independent review finds no mismatch in the frozen native/Android contracts or
+callback/ownership paths. Ten original workspace tests independently derive the
+expected seed and hash from fixture bytes. They cover durable retry/fork/archive
+round trips, duplicate-name ambiguity and canonical context compilation at the
+64-emoji/256-byte boundary. Eight new JVM methods and eight fixed Android methods
+cover wire bounds, exact retained consent, review cancellation and actual native
+state after ordinary Activity reopen. At this checkpoint those integrated tests
+are authored, not yet executed; compilation and source review are insufficient.
+
+No dependency is introduced or repinned. Existing locked offline toolchains are
+reused. All requested verification will retain original bounded output and exact
+source/APK/owner bindings in create-only private C: evidence; no model weights,
+private saves, raw diagnostics or guest images are uploaded. Public checkpoints
+are committed and pushed incrementally.
+
+Original premise generation, tone/content boundaries and broader character
+editing remain required M09.02 work. Full journeys, accessibility, joined drain,
+current-source external OS-death, real-model, physical-phone and ARM64 execution
+remain separate gates. Full milestone checkboxes stay unchanged. No merge,
+release, persistent setting change or unrelated emulator stop is performed.

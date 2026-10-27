@@ -61,9 +61,10 @@ Both builds run the existing versioned entry point:
 python -I -B benchmarks/android_process_verification.py build --out "$evidence/build-v2" --sdk "$sdk" --java "$java"
 ```
 
-Main's generated BuildConfig field changes the product/test APK hashes from the
-older779 checkpoint despite identical byte counts. Both current builds have
-the following exact hashes; the controller is unchanged. Cached compiler tasks
+The current product/test APK hashes differ from the older779 checkpoint despite
+identical byte counts. Main also adds a generated BuildConfig field; this check
+does not isolate the sole cause of the byte differences. Both current builds
+have the following exact hashes; the controller is unchanged. Cached compiler tasks
 are not new ABI execution evidence. JVM/controller outputs are rerun by the driver.
 
 | APK | Bytes | SHA256 |

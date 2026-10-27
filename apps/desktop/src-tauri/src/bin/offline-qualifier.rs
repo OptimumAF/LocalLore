@@ -1501,8 +1501,8 @@ mod win {
             let token = token_observation(unsafe { GetCurrentProcess() }).unwrap_or_else(|error| json!({"observation_error":error}));
             let diagnostic = token_diagnostic(unsafe { GetCurrentProcess() }).unwrap_or_else(|error| json!({"diagnostic_error":error}));
             let rows = read_mask_observations(&root.join("challenge.txt"), &expected);
-            let passed = full_read_passed(&rows) && token["is_appcontainer"] == true &&
-                token["capability_count"] == 0 && token["package_sid"] == package_sid &&
+            let passed = full_read_passed(&rows) && token["is_appcontainer"] == false &&
+                token["capability_count"] == 0 && token["package_sid"].is_null() &&
                 diagnostic["integrity_sid"] == "S-1-16-4096";
             let report = json!({"version":1,"kind":"low_file_read_probe","case":"low-file-read",
                 "run_id":id,"challenge":challenge,"token":token,"token_diagnostic":diagnostic,
@@ -1547,7 +1547,7 @@ mod win {
                 "rows":medium_rows,"passed":medium_passed,"profile_created":false,"network_tested":false})).unwrap()).unwrap();
             assert!(medium_passed, "Original medium GENERIC_READ control failed; original evidence retained before any child launch");
             let request = json!({"version":1,"kind":"low_file_read_probe","case":"low-file-read","run_id":id,"challenge":challenge});
-            let child = run_child_fixed(&image.path, Some(package.0), &request, &evidence.path, "low-file-read", ChildMode::LowFileReadProbe);
+            let child = run_child_fixed(&image.path, None, &request, &evidence.path, "low-file-read", ChildMode::LowFileReadProbe);
             write_new(&evidence.path.join("child-process.json"), &encode(&child).unwrap()).unwrap();
             let low_rows = &child["reply"]["rows"];
             let same_identity = full_read_row(low_rows).is_some_and(|row| row["identity"] == json!(identity));

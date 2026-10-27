@@ -425,6 +425,8 @@ function detached(value: unknown, maximum: number): unknown {
     requireWire(encoder.encode(encoded).length <= maximum);
     return JSON.parse(encoded) as unknown;
 }
+// Shared transport copy only; receipt semantics and accepted history stay in Rust.
+export { detached as checkedJsonV2 };
 function actor(value: unknown): void {
     const a = exact(value, [
         "name",

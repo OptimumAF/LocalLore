@@ -43,11 +43,11 @@ adds a Rust-owned preview, an editable title and explicit Create/Cancel to the
 persistent Android shell. The report records exact host/build/device evidence
 and limits. Full premise, tone and character customization remain pending.
 
-The [retained archive chooser packet](docs/native/ANDROID_RETAINED_ARCHIVE_VERIFICATION_2026-10-26.md)
-fixes stale Import/Export/Open consent and adds original retained-parent archive
-round-trip/refusal tests. Integrated host/JVM/lint/build checks pass; actual
-chooser execution is blocked on host commit capacity. It remains distinct from
-earlier emulator results and physical-phone/model qualification.
+The [archive import follow-up](docs/native/ANDROID_ARCHIVE_IMPORT_FIX_2026-10-27.md)
+uses a one-time content read and releases passive test readers. Fresh native10
+and both retained-archive chooser methods pass on API35/x86_64, retaining the
+original permission and canonical-history assertions. The report preserves
+the original failures; physical-phone/model qualification remains separate.
 
 The [retained-parent deletion UI qualification](docs/native/ANDROID_RETAINED_PARENT_UI_VERIFICATION_2026-10-26.md)
 passes real Compose Cancel, explicit native deletion preserving a child's

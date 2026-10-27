@@ -209,3 +209,14 @@ closes the earlier boundary. This is a qualifier execution protocol, not a new
 renderer command, generic app launcher, arbitrary execution hook or claim about
 hostile OS compromise. Compilation, Windows safety tests and actual canary
 execution remain prerequisites; source review is not runtime evidence.
+
+The reviewed outer protocol also pins every ordinary local-disk ancestor of the
+fixed image, working directory, task temporary and evidence directories before
+creation or launch; no reparse traversal or relaxed-sharing fallback is allowed.
+Generated evidence and proof directories stay pinned through final writes.
+Proof reads are capped before allocation, and bind the exact canonical run UUID,
+integer version and copied-image hash. Exceptional paths still terminate/reap
+only the owned parent and join bounded readers; uncertain internal child/profile
+cleanup is recorded as unknown, with no fallback profile deletion.
+The fixed polling deadline rejects late completion even if the parent has exited.
+Process creation itself is explicitly not preempted by that polling deadline.

@@ -644,3 +644,79 @@ The integration also reuses the reviewed Host/capture stack and accepted receipt
 transport main. Formatting alters no intended independent oracle. No model,
 application, WebView, Android/device or human-quality execution follows from
 these producer tests; the original needs-improvement assessment stays immutable.
+
+## First noncommitted diagnostic-classification freeze
+
+Source-only tests are independently frozen from `00ddb65e` before the private
+observer/caller change. The new file is
+`scene_v4/noncommit_privacy_review_tests.rs`; the only existing source change is
+its `cfg(test)` module declaration. All original17 producer cases and production
+runtime behavior remain unchanged. At first handoff this is
+**UNCOMPILED/UNRUN**: the proposed optional-input private function does not yet
+exist, and that API prerequisite is not behavioral RED.
+
+The proposed private seam is exactly:
+
+```rust
+fn finite_privacy(
+    dir: &Path,
+    recording: &RecordingFile,
+    capture: Option<&Value>,
+    receipt: Option<&Receipt>,
+) -> FinitePrivacy;
+```
+
+Retain the existing private Checked/Unavailable/Violation outcomes and closed
+public enum. Inspect available positive diagnostic observations even when other
+details or a receipt are absent. Missing capture/receipt plus clean diagnostics
+remains Unavailable. A retained positive forbidden flag or consistent retained
+raw sentinel remains Violation, including when another diagnostic copy says its
+flag is false. Caller privacy PASS still requires the actual checked scene input
+and complete evidence; no noncommitted row may pass that gate or gain a receipt.
+The exact public failure tags remain
+`observer_or_output_privacy_violation` versus
+`observer_or_output_privacy_evidence_unavailable`.
+
+Four finite unit cases use actual existing scripted Host/Store flows. The fixture
+reuses LaneFactory::ScriptedBaseline, existing TestFault::SecretNarrator and
+WrongCommand, existing recording/provider/capture helpers and the native Host
+construction selector. It submits the first unchanged original scenario, prepares
+and reads its owner-authorized capture, then cancels a ready candidate without
+ever invoking commit. The WrongCommand case genuinely fails preparation instead.
+Actual Store lookup must show Cancelled/Failed and no receipt; before/after
+accepted-history bases, records and projections must match. Captures are actual
+copies taken at the prepared/failed cut before terminal close, not newly invented
+collector artifacts. This is actual scripted Host execution when later run,
+not a completed run whose receipt argument was merely omitted.
+
+The cases cover actual cancelled sentinel output/flags with no receipt; actual
+raw sentinel despite a false flag and absent capture argument; clean actual
+cancelled and failed attempts remaining unavailable; and an explicitly marked
+diagnostic-loss copy retaining its reported violation after other details are
+removed. Only flag/loss copies are mutated in the latter classifier cases; no
+canonical receipt, SQL, new provider/runtime, new production fault variant or
+public hook is introduced. Existing strict shared missing/corrupt raw-file
+inspection tests remain unchanged. Observation failure is not proof of output
+origin, actual model execution or general semantic privacy.
+
+The same cases call the existing private row builder using actual before/after
+snapshots, terminal phase/error and recording/capture. They require public row
+failure tags to preserve the observed cause while construction/privacy statuses
+remain Unavailable and passed=false. These are row-classification checks, not a
+full producer invocation, ledger/timing/settlement or report-inspection journey;
+they claim no admission or timing. Existing full producer and native owner tests
+continue owning those separate boundaries.
+
+After implementing the optional-input private seam and caller, Root can run:
+
+```powershell
+cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --lib local_lane::comparison::scene_v4::noncommit_privacy_review_tests -- --test-threads=1
+```
+
+The author ran no compiler/test/formatter/Cargo/Node/native application/model,
+render/device/desktop or protected-resource operation. Author checks are source
+and API inspection, registration-only diff/whitespace and commit/hash inspection.
+Root owns compilation/fixture calibration, actual execution and integration. No
+actual cancelled SDK/model/desktop workflow, race/death/drain, Domain2, new human
+review or quality acceptance is qualified here. The original human packet and
+needs-improvement assessment remain unchanged.

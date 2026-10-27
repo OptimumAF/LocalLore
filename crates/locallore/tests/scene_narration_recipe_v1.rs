@@ -1103,3 +1103,95 @@ fn every_old_validator_family_refuses_scene_some_on_otherwise_valid_original_rec
         );
     }
 }
+
+// The real measured stage is read back through the existing collector. No
+// private StageMeasurement fields, callback ordinals or fake validator are used.
+struct CancelAfterMeasuredValidation {
+    ring: locallore::turn_trace::TraceRing,
+    handle: locallore::turn_trace::AttemptHandle,
+    identity: locallore::turn_trace::AttemptIdentity,
+    cancel: Cancellation,
+    observed: Option<locallore::turn_trace::Outcome>,
+}
+impl CancelAfterMeasuredValidation {
+    fn new(request: &Request, player: &str, cancel: Cancellation) -> Self {
+        use locallore::turn_trace::*;
+        let identity = AttemptIdentity {
+            scope: request.scope.clone(),
+            base_revision: request.expected_revision,
+            observer: player.into(),
+            turn: request.turn.clone(),
+            attempt: 0,
+        };
+        let mut ring = TraceRing::new(Config::default());
+        ring.set_enabled(true);
+        let handle = ring.begin(identity.clone(), Provenance::default()).handle.unwrap();
+        Self { ring, handle, identity, cancel, observed: None }
+    }
+}
+impl locallore::turn_trace::TraceSink for CancelAfterMeasuredValidation {
+    fn matches(&mut self, scope: &Scope, base_revision: u64, observer: &str, turn: &str) -> bool {
+        self.identity.scope == *scope && self.identity.base_revision == base_revision
+            && self.identity.observer == observer && self.identity.turn == turn
+    }
+    fn record(&mut self, measurement: locallore::turn_trace::StageMeasurement) {
+        use locallore::turn_trace::*;
+        assert_eq!(self.ring.record_measured(&self.handle, measurement), HookStatus::Recorded);
+        let snapshot = self.ring.read(&Selection {
+            scope: self.identity.scope.clone(),
+            base_revision: self.identity.base_revision,
+            observer: self.identity.observer.clone(),
+            turn: Some(self.identity.turn.clone()),
+            attempt: Some(self.identity.attempt),
+        }, &Reader::scoped(self.identity.scope.clone(), self.identity.observer.clone())).unwrap();
+        assert_eq!(snapshot.attempts.len(), 1);
+        let stage = snapshot.attempts[0].stages.last().unwrap();
+        if stage.stage == Stage::NarrationValidation {
+            self.observed = Some(stage.outcome);
+            self.cancel.cancel();
+        }
+    }
+}
+
+#[test]
+fn postvalidation_callback_cancellation_precedes_excluded_fallback() {
+    use locallore::turn_trace::Outcome;
+    let ordinary = fixture(None, &[]);
+    let request = make_request(&ordinary, "derive-postvalidation-summary", "I wait for one tide tick.");
+    let proposal = Proposal {
+        version: VERSION, scope: request.scope.clone(), turn: request.turn.clone(),
+        expected_revision: request.expected_revision, commands: vec![Command::Wait { ticks: 1 }],
+    };
+    let summary = ordinary.stage_play_v25(&request, &proposal, &|| false)
+        .unwrap().approved().narration().to_owned();
+    let mut actual = Vec::new();
+    for recipe in [memory(), SceneRecipeV1::LiteralV1] {
+        // First-person prose really fails the new guard. The exact mechanical
+        // fallback is separately excluded by the actual seed presentation.
+        let mut engine = fixture(Some(StoryTone::Warm), &[&summary]);
+        let before = engine.clone();
+        let request = make_request(&engine, "cancel-after-validation", "I wait for one tide tick.");
+        let cancel = Cancellation::default();
+        let mut sink = CancelAfterMeasuredValidation::new(&request, &engine.seed().player, cancel.clone());
+        let mut script = Script::new(Command::Wait { ticks: 1 }, "I walked through a forest.", 1);
+        let coverage = CoverageRead::RawFallback(FallbackReason::Missing);
+        let result = play::execute_traced_with_scene_recipe_v1(
+            &mut engine, &request, &mut script, &cancel, &profile(), Some(&mut sink),
+            ScenePlayConstructionInput {
+                recipe,
+                coverage: if matches!(recipe, SceneRecipeV1::Memory(_)) { Some(&coverage) } else { None },
+            },
+        );
+        assert_eq!(script.seen.len(), 2, "actual Director and narrator must have completed");
+        assert_eq!(sink.observed, Some(Outcome::Rejected),
+            "actual measured rejected NarrationValidation must precede cancellation");
+        assert!(cancel.is_cancelled());
+        unchanged(&engine, &before);
+        actual.push((recipe, result));
+    }
+    // Collect both actual arms before asserting so a RED preserves both results.
+    assert_eq!(actual, vec![
+        (memory(), Err(Error::Cancelled)),
+        (SceneRecipeV1::LiteralV1, Err(Error::Cancelled)),
+    ], "post-validation cancellation must not be masked by an excluded fallback");
+}

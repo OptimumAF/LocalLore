@@ -228,7 +228,8 @@ identity/admission remains blocked for that capture (#5 claim/release
 At this packet's handoff, broad89/root82/retired-leaf139 had not been newly run
 on this827 map; older-source results were not promoted. The separate
 [current-source controls follow-up](ANDROID_SDK2_MAIN_CONTROLS_2026-10-26.md)
-subsequently verifies broad89 and its owned closure. Root preparation is
-interrupted and the original environment pins are no longer available; root82
-and retired-leaf139 need fresh environment admission. Full task acceptance and
+subsequently verifies broad89 and its owned closure. It preserves the interrupted
+root preparation, then records separate fresh root82/retired-leaf139 passes and
+their requested closures after new environment admission. The old pins and
+interrupted guest remain historical. Full task acceptance and
 physical/real-model/ARM64/accessibility/drain gates remain open.

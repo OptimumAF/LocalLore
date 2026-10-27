@@ -6,6 +6,10 @@ Supporting M10.02/M09.06, draft PR #219. Executable inputs remain aa9deaee:
 Documentation is outside that map. This packet introduces no dependency, model,
 gameplay, schema or source-input change. Full task acceptance remains separate.
 
+Latest follow-up: root82 and retired-leaf139 now pass in separate fresh guests
+under the existing source and budgets. The resumed-control section below records
+their exact results. Earlier interrupted attempts retain their original status.
+
 ## Reused prerequisites
 
 Before dispatch, the existing build-v2 and measured-current native10 gate from
@@ -151,10 +155,65 @@ the current build/native prerequisite, request, source, owner, exact raw proof,
 product records and all99 client pairs. These executed assertions are not an
 independent full-canonical-state sidecar comparison.
 
-The separate retired-leaf guest and verification are now live. No retired result
-is inferred from partial files. The reviewed final helper remains unexecuted
-until both exact proposal-bound requested closures; it will observe only the
-new server once, with zero protected-process observations and no device call.
-Full milestone acceptance, physical/model/ARM64 and joined-drain gates remain
-separate. No merge, settings change, unrelated emulator stop or private upload
-is performed by this follow-up.
+Retired leaf `restore_retired_child` also actually passes result2/DONE/NONE:
+139 checks and two recorded OS process deaths,430077ms/worker0, cleanup/capture
+true, stderr0 and117 clean measured-SDK2 pairs. Its controller frame is4010 bytes
+and proof3955 bytes, within unchanged4160/4096 caps. Maximum recorded client
+47637ms/observer2144ms retain their original budgets.
+
+All three original quiet helper bodies have exactly18 fields and a trailing LF,
+with611/741/748 bytes for load/probe/retire. Their662/792/799-byte transports
+have the exact two zero-status footers. Native commit attempts are0/0/1 and both
+resource-close flags are true in every body. Probe preserves other0/parent1 and
+active target1; retirement preserves other0/parent1 while the target becomes
+inactive with a null active head. Sidecars remain empty, as required for a leaf.
+This is distinct from retained-parent's four canonical sidecars and proves no
+hidden-world equality or forensic erasure.
+
+Retired saved/command creation maps agree: first legacy0/named2, second zeros.
+Gameplay maps agree: first free_text1/prepare1/commit1/other2 and submit/cancel0;
+second all zeros. Product, fixture, current native prerequisite, source/build,
+raw proof/helper/transport and all117 client pairs pass independent deep replay.
+The retired bound stop returns0 and its guest handle is actually terminal0.
+Guest owner records `stop_requested`,512702ms/worker1, cleanup/capture/closure
+true and no guest-flush claim. Both guests are now closed.
+
+Only then does Root run the reviewed final postflight once: pass, both exact
+proposal/stop-bound closures, one unchanged existing-server observation, zero
+protected-process observations and zero device calls. The existing server is
+deliberately left available. This new zero-process preflight supplies no inherited
+comparison with the earlier vanished identities. Original interrupted/failed
+attempts and the unexecuted original three-closure helper retain their history.
+
+The remaining root/leaf controls are locally qualified for this827-input source.
+Full milestone acceptance, physical/model/ARM64, accessibility and joined-drain
+gates remain separate. No merge, settings change, unrelated emulator stop,
+server lifecycle action or private upload is performed by this follow-up.
+
+## Resumed-control recovery
+
+Final postflight is2730 bytes, SHA256
+`fef850b430bb529ced0998593457228d71518bd427e633fc3392a98635230518`.
+The new bounded preflight retains its original59-byte stdout and clean child
+record; both source maps in each runtime cohort match the current827-input map.
+The two external phases contain216 complete measured-SDK2 pairs in total.
+
+The separate private C: recovery selection has534 entries/1694501 bytes:
+520 runtime/input records, seven helper sources, two derived coordination records,
+three historical index references, one append-only native clarification and one
+new derived audit. Every selected existing file, recovery copy and ZIP member
+matches; a second full replay and Root replay pass. The176860-byte index has
+SHA256 `282a6b91d181639b14a94b83a4436012b573a4819991e7baabed1eeb40ff9de2`;
+the565763-byte ZIP has SHA256
+`064c522106f01a998bd7e4fd836a9e002083c11858edc1c27e1e13875dae4dab`.
+The original current-source host/build, native and broad/interruption index/ZIP
+pairs and native clarification rehash unchanged. Their payloads are referenced
+without duplicating APKs or adopting the interrupted guest. Newer834-source
+records are not substituted. Guest images, databases, models, private saves,
+live service logs and unknown subtrees are excluded.
+
+Both verification owners and both guest handles are terminal. The existing
+debug service remains available. Current827 native10, broad89, child123,
+retained-parent202 observed diagnostic checks, root82 and retired-leaf139 retain
+their separate original cohorts and exact source/build attribution. These are
+bounded scripted tests, not full milestone acceptance or model qualification.

@@ -347,6 +347,41 @@ fn immediate_and_midpreparation_cancel_return_no_frame_and_preserve_source() {
 }
 
 #[test]
+fn late_cancel_beyond_the_complete_existing_stage_preserves_original_source() {
+    let source = fixture();
+    let before = source.clone();
+    let request = request(
+        &source,
+        "late-cancel",
+        PlayInputKind::Action,
+        "I move to pier.",
+    );
+    let proposal = proposal(&request, Command::Move { to: "pier".into() });
+    let baseline_calls = Cell::new(0usize);
+    source
+        .stage_play_v25(&request, &proposal, &|| {
+            baseline_calls.set(baseline_calls.get() + 1);
+            false
+        })
+        .unwrap();
+    let calls = Cell::new(0usize);
+    let cancellation_boundary = baseline_calls.get() + 1;
+    let late_cancel = || {
+        calls.set(calls.get() + 1);
+        calls.get() > cancellation_boundary
+    };
+    assert!(matches!(
+        source.stage_scene_play_v1(&request, &proposal, &late_cancel),
+        Err(Error::Cancelled)
+    ));
+    assert!(
+        calls.get() > cancellation_boundary,
+        "exercise cancellation beyond all actual existing-stage polls"
+    );
+    unchanged(&source, &before);
+}
+
+#[test]
 fn corrected_child_preserves_scope_location_and_observed_a_until_actual_new_discovery_b() {
     let mut parent = fixture();
     let discovery = parent.request(

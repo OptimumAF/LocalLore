@@ -59,6 +59,9 @@ pub async fn harness_memory_case(
         .capture(window.label())
         .map_err(str::to_owned)?;
     match action.as_str() {
+        "hold-read" | "release-read" | "read-state" => {
+            crate::memory_inspection_harness::case(&workspace.path, &action)
+        }
         "hold" => {
             HOLD.store(true, Ordering::SeqCst);
             Ok(json!({"held":true}))

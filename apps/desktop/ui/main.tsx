@@ -10,6 +10,8 @@ import { ArchiveController } from "./archive-controller";
 import { archiveBinding } from "./archive-model";
 import { ForkController } from "./fork-controller";
 import { MemoryMaintenanceController } from "./memory-maintenance-controller";
+import { MemoryInspectionController } from "./memory-inspection-controller";
+import { memoryInspectionContext } from "./memory-inspection-context";
 import { memoryContext } from "./memory-context";
 import { BrokerRetention, type BrokerIdentity } from "./broker-retention";
 import { AuthorController } from "./author-controller";
@@ -66,6 +68,7 @@ declare global {
             timelining?: boolean;
             forking?: boolean;
             maintaining?: boolean;
+            inspectingMemory?: boolean;
             authoring?: boolean;
             archiveStage?:
                 | "source"
@@ -365,6 +368,7 @@ const controller = new Controller(gateway, errors, undefined, (work) =>
 );
 const archive = new ArchiveController(invoke, () => controller.library());
 const maintenance = new MemoryMaintenanceController(invoke);
+const memoryInspection = new MemoryInspectionController(invoke);
 const v2 = new V2PlayController(gateway, async () => {
     await controller.refresh();
     if (controller.get().workspace) await controller.library();
@@ -476,6 +480,13 @@ const syncEvaluationContext = () => {
     syncV2Context();
     author.contextChanged(authorContext());
     maintenance.contextChanged(memoryContext(controller, memorySelectionEpoch));
+    memoryInspection.contextChanged(
+        memoryInspectionContext(
+            controller,
+            memorySelectionEpoch,
+            authorNativeContext?.granted === true,
+        ),
+    );
     timeline.contextChanged(timelineContext(controller));
     fork.contextChanged(timelineContext(controller));
     capture.contextChanged(
@@ -616,6 +627,14 @@ root.render(
         timeline={timeline}
         fork={fork}
         maintenance={maintenance}
+        memoryInspection={memoryInspection}
+        memoryInspectionContext={() =>
+            memoryInspectionContext(
+                controller,
+                memorySelectionEpoch,
+                authorNativeContext?.granted === true,
+            )
+        }
         maintenanceContext={() =>
             memoryContext(controller, memorySelectionEpoch)
         }
@@ -643,6 +662,7 @@ const dispose = async () => {
     timeline.dispose();
     fork.dispose();
     maintenance.dispose();
+    memoryInspection.dispose();
     await capture.dispose();
     await controller.dispose();
     root.unmount();
@@ -701,18 +721,34 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             transport: authorTransport,
         });
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.maintaining) {
-        const { memoryNativeJourneys } =
-            await import("./memory-native-journeys");
-        await memoryNativeJourneys({
-            controller,
-            maintenance,
-            brokerRetention,
-            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
-            errors,
-            invoke,
-            dispose,
-            config: window.__LOCALLORE_TEST__,
-        });
+        if (window.__LOCALLORE_TEST__.inspectingMemory) {
+            const { memoryInspectionNativeJourneys } =
+                await import("./memory-inspection-native-journeys");
+            await memoryInspectionNativeJourneys({
+                controller,
+                maintenance,
+                inspection: memoryInspection,
+                brokerRetention,
+                gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+                errors,
+                invoke,
+                dispose,
+                config: window.__LOCALLORE_TEST__,
+            });
+        } else {
+            const { memoryNativeJourneys } =
+                await import("./memory-native-journeys");
+            await memoryNativeJourneys({
+                controller,
+                maintenance,
+                brokerRetention,
+                gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+                errors,
+                invoke,
+                dispose,
+                config: window.__LOCALLORE_TEST__,
+            });
+        }
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.forking) {
         const { forkNativeJourneys } = await import("./fork-native-journeys");
         await forkNativeJourneys({

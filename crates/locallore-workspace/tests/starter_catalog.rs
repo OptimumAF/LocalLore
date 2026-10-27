@@ -8,23 +8,29 @@ use locallore::{
 };
 use locallore_storage::Store;
 use serde_json::{json, Value};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::PathBuf,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 const FANTASY: &str = "lantern-quay-v1";
 const NARRATIVE: &str = "bracken-harbor-v1";
 const NARRATIVE_SHA: &str = "df58fc298372389f1366cdee767bac81740e56d5ee0c4ea4cec1d322f0e17347";
+static NEXT: AtomicU64 = AtomicU64::new(0);
 
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {
         let base = std::env::temp_dir().canonicalize().unwrap();
         let path = base.join(format!(
-            "locallore-catalog-adversary-{}-{}",
+            "locallore-catalog-adversary-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::create_dir(&path).unwrap();
         Self(path)

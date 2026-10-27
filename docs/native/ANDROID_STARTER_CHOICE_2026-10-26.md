@@ -34,7 +34,7 @@ Gradle8.11.1/AGP8.10.1 and NDK29.0.14206865 on Windows.
 | Full Python discovery in `scripts/tests` |1477 pass,0 failures/errors/skips; owner173189ms/worker0, cleanup/capture true |
 | `cargo +1.93.1 fmt --all -- --check` |Tool-observed exit0 |
 | Final offline Android build/JVM/lints/artifact audits |Pass; owner330616ms/worker0, cleanup/capture true;266 executed JVM tests/31 XML suites,0 failures/errors/skips; both lints0 errors/3 warnings;11 artifact audits |
-| New seven Android chooser methods |Compiled; exact three classes/seven public JUnit definitions read back from test APK; unexecuted |
+| New seven Android chooser methods |Compiled in the original packet; the fresh follow-up below now passes all7 on API35/x86_64 |
 
 The Rust run freezes829 mapped inputs at `634b1403`. Subsequent Android and
 Python integration changes no Rust/fixture/Cargo input. Clippy and frontend
@@ -110,11 +110,12 @@ APKs, their copied reports and explicit helper sources. The original failed
 generation helper remains failed. No live outputs, model weights, guest images,
 databases, private saves or unknown subtrees enter this selection.
 
-All check owners are terminal. No SDK device command, server lifecycle action,
-emulator stop, system-setting change, merge or release is performed by this
-packet. Next runnable Android gate is fresh environment/server admission,
-current native10 and the separate fixed starter-choice7 in fresh owned guests.
-Original root/retired controls and full UI/physical/model gates remain separate.
+The original host/build packet ends with all check owners terminal and no SDK
+device command or server lifecycle action. Its next gate is fresh environment
+admission, native10 and starter-choice7. The separately measured follow-up below
+records that setup and execution. Original root/retired controls and full
+UI/physical/model gates remain separate. No merge, release, system-setting change
+or unrelated emulator stop is performed by either packet.
 
 ## Fresh runtime follow-up
 
@@ -146,13 +147,53 @@ Its owner records `stop_requested`,353068ms/worker1, cleanup/capture/closure
 true and no guest-flush claim. Emulator warning streams are retained separately
 from the clean verification-owner stderr.
 
-The separate chooser guest and seven-method verification are now running;
-no chooser result is inferred from partial files. The final one-shot postflight
-will require both exact proposal-bound requested closures before observing the
-new server. The new preflight contains zero protected processes, so it supplies
-no comparison with the two processes that disappeared in the earlier packet.
+The separate chooser phase passes all7 methods across3 classes and90 complete
+measured-SDK2 client pairs. Its owner records290764ms/worker0, cleanup/capture
+true and stderr0. Maximum recorded client13169ms/server observer4663ms retains
+the original budgets. The real MainActivity/JNI case explicitly creates both native
+rule profiles with different story identities, preserves library/selection on
+Cancel and reopens both profiles after ordinary Activity close. Wire and Compose
+cases cover strict metadata, immutable retained callbacks and disabled selection.
+This is scripted local API35/x86_64 execution, with no model load. It does not
+prove accepted-turn conservation, draft preservation, OS-death recovery or joined
+native drain; those remain separate tests and gates.
+
+The chooser bound stop returns0 and its emulator handle is actually terminal0.
+Its guest owner records `stop_requested`,346299ms/worker1, cleanup/capture/closure
+true and no guest-flush claim. Only after both exact proposal-bound requested
+closures, Root executes the reviewed final postflight once: pass, one observation
+of the same launched server, zero SDK/device calls and no server lifecycle action
+by that observation. The new preflight contains zero protected processes, so it
+supplies no comparison with the two processes that disappeared earlier. The new
+server is deliberately retained; its live console logs are excluded from a
+terminal evidence seal.
 
 One complete device-list capture from the native phase contains one authorized
 SDK-emulator profile and no physical-profile candidate. Assessment reads only
 that original bound capture and makes no new SDK, OS or hardware call. It does
 not establish absolute phone absence or fresh physical-device admission.
+
+Independent readback verifies both runtime source maps against the same current
+834-input map and immutable build, all177 measured-SDK2 pairs, exact runner
+frames, both proposal-bound requested closures and all six prepared INI bindings.
+Final postflight is2501 bytes, SHA256
+`f1f331580df6f71e6e1429c49993a03901e76be7116036156e6daa7896ee0e4a`.
+
+The separate private runtime recovery selection contains439 entries/1374083
+bytes:427 runtime/input records, seven helper sources, two derived coordination
+records, one derived captured-device assessment, one prior-seal index reference
+and one derived audit. Every selected source file, recovery copy and ZIP member
+is verified, followed by another full replay. The146524-byte index has SHA256
+`4d6a86ac927c6f7088e082bc3b8f0f6da285f0b371b49c4f0b0cb17cdb925498`;
+the484194-byte ZIP has SHA256
+`2614e4e69ebc722d10c3a88a1049b15f53c90637f5b498986a0a0a0d4080076b`.
+The preceding host/build seal remains unchanged and supplies the exact APKs;
+their payloads are not duplicated into this runtime selection. Live server logs,
+guest images, databases, models, private saves and unknown subtrees are excluded.
+
+The current chooser gate is now qualified on this one API35/x86_64 environment.
+Full custom premise/tone/content/player editing, complete journeys, physical
+model/ARM64 execution, accessibility and joined-drain qualification remain open.
+The earlier root82/retired139 controls retain their separate source and pending
+status. The fresh debug server now permits their next environment admission;
+existing source-identical prerequisite records must be revalidated first.

@@ -1491,6 +1491,20 @@ mod win {
             assert_eq!(fs::read_dir(&outside.path).unwrap().count(), 1);
         }
         #[test]
+        fn new_fixture_challenge_is_readable_before_any_child_or_profile_creation() {
+            let root = fixture();
+            let moniker = wide(format!("locallore.offline.{}", guid().unwrap()));
+            let package =
+                Sid(
+                    unsafe { DeriveAppContainerSidFromAppContainerName(PCWSTR(moniker.as_ptr())) }
+                        .unwrap(),
+                );
+            grant_new_fixture(&root, package.0).unwrap();
+            let marker = root.path.join("challenge.txt");
+            write_new(&marker, b"fixed-synthetic-challenge").unwrap();
+            assert_eq!(read_small(&marker).unwrap(), b"fixed-synthetic-challenge");
+        }
+        #[test]
         fn actual_pipe_deadline_retains_completed_diagnostics_without_inventing_eof() {
             let (input, output) = pipe().unwrap();
             let worker = reader(into_file(input)).unwrap();

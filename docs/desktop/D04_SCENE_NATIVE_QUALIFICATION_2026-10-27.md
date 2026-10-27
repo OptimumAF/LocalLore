@@ -159,7 +159,7 @@ restoration records retained separately:
 
 | Attempt / source | Actual stopping condition | Normal restoration |
 | --- | --- | --- |
-| First / `779080d9` | Native oracle command registered but missing Tauri permission; `not allowed. Command not found`, before screenshots | PASS, unlaunched |
+| First / `779080d9` | Native oracle handler exists but its AppManifest/permission entries are missing; `not allowed. Command not found`, before rendered captures | PASS, unlaunched |
 | Second / `e55a174c` | Newly generated untracked `harness_scene_oracle.toml` trips the unchanged-source guard after build; no journey report | FAILED on same source guard; no restoration success claimed |
 | Third / `b0abf839` | Strict final error oracle rejects actual `[Cancelled, Cancelled, Stale]` after 10 initial images | PASS, unlaunched |
 | Fourth / `0ca33123` | Same strict refusal, now with bounded rejection evidence; 10 images | PASS, unlaunched |
@@ -243,7 +243,7 @@ introduced.
 | Full frontend preflight | 779080d9 | PASS; 18.4312241 |
 | Fixed sixth native cohort | 879ffb45 | PASS, 364 evaluations/24 images; 47.4844116 |
 | Full frontend final | 879ffb45 | PASS, includes 45 bootstrap + 46 transport cases; 17.0834428 |
-| Default-parallel dev native regression | 879ffb45 | 251 unit + 2 contract = 253 passed, 0 failed, 9 ignored; 323.8238205 |
+| Dev native regression, no explicit thread override | 879ffb45 | 251 unit + 2 contract = 253 passed, 0 failed, 9 ignored; 323.8238205 |
 | Strict dev native Clippy final | 879ffb45 | PASS; 11.9024017 |
 | Rust formatting final | 879ffb45 | PASS; 3.9670303 |
 | Targeted 12-file frontend/config Prettier check | 879ffb45 | PASS; 0.8029328 |
@@ -252,7 +252,8 @@ introduced.
 All final process records report clean unchanged source. The native unit binary
 takes 293.87 seconds; command time includes compilation/overhead. Nine ignored
 tests remain ignored, not new passes. No `--test-threads` override is supplied
-by the native command. Android evidence is dependency metadata only, not an
+by the native command; inherited `RUST_TEST_THREADS` was not separately recorded,
+so this report does not assert a measured thread count. Android evidence is dependency metadata only, not an
 Android build, ABI/device execution or phone parity claim. Core/Store/workspace
 and lock bytes match Host237 for that graph.
 

@@ -255,7 +255,7 @@ fn assert_request(copy: &Value, actual: &GenerationRequest) {
     };
     assert_eq!(
         copy,
-        json!({"version":actual.version,"scope":actual.scope,"turn":actual.turn,"revision":actual.revision,
+        &json!({"version":actual.version,"scope":actual.scope,"turn":actual.turn,"revision":actual.revision,
         "model_profile":actual.model_profile,"schema_id":actual.schema,"budget":{"max_output_bytes":actual.budget.max_output_bytes,
         "max_output_tokens":actual.budget.max_output_tokens,"max_pending_polls":actual.budget.max_pending_polls,"deadline_ms":actual.budget.deadline_ms},
         "input":{"kind":"structured","role":role,"prompt":prompt,"schema":schema}})

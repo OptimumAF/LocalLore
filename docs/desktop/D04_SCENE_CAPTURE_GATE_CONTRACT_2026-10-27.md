@@ -123,7 +123,8 @@ positive test. Cross-arm refusal binds expected recipe to the actual receipt's
 construction/context tuple, not an invented arm-specific narrator tag.
 
 Director envelopes are checked for identity, budgets, schema ID, order and
-recording hashes only. The contract deliberately admits a self-consistent
+recording hashes only. Director prompt and schema content are not regenerated
+from source. The contract deliberately admits a self-consistent
 Director prompt suffix forgery when all narrator/native bindings remain valid;
 it does not claim to reconstruct Director source. It also admits a self-consistent
 replacement raw-output diagnostic. These positive limit tests make clear that

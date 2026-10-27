@@ -1,6 +1,7 @@
 //! Committed Domain1 scene narrator-input consistency. This is neither output
 //! authentication nor proof of provider or memory-compiler execution. In
-//! particular Director prompts receive envelope checks, not source regeneration.
+//! particular Director prompts and schemas receive envelope checks, not source
+//! regeneration.
 use crate::{capture_envelope, digest, Capture};
 use locallore::{
     contracts::{Intent, Request},

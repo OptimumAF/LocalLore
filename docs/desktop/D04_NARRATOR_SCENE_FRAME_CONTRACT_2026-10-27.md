@@ -303,3 +303,50 @@ device, desktop input/capture, profile or process-control operation ran. Source
 review of APIs and proposed oracles is not implementation or runtime evidence.
 Full M05.03/D04.04/D07.04 and quality acceptance remain open. Root must reconcile
 the current dependency heads and production interfaces before allocation.
+
+## First preparation-only test freeze
+
+Root reviewed the proposal and allocated a smaller source-only preparation
+sub-slice on accepted `6f6608bf`, preserving this original contract. Its sole new
+test path is `crates/locallore/tests/narrator_scene_frame_v1.rs`. This first freeze
+does not implement the larger prompt, commit, record, construction, presentation,
+capture or evaluation recipe above. It changes no defaults or version IDs.
+
+The preparation API remains `Engine::stage_scene_play_v1` as above, returning
+`locallore::engine::staged_scene_play::StagedScenePlayV1`. The opaque stage has
+`approved() -> &Receipt`, `narrator_evidence() -> &NarratorEvidenceV22` and
+`scene_frame() -> &NarratorSceneFrameV1`. The frame is exported from that same
+module, with `Serialize`, private fields and no `Deserialize` or public
+constructor. Getter types are `version() -> u16`, `scope() -> &Scope`,
+`before_revision() -> u64`, `after_revision() -> u64`, `player() -> &str` and
+`location() -> &str`. These are exactly **six** JSON fields, counting `version`.
+Root owns production declarations and all other paths. There is no commit API
+stub or claim that an unconsumed preparation authorizes a canonical write.
+
+The independent candidate oracle invokes the actual existing `play::execute`
+pipeline on a clone, with deterministic typed Director output and a malformed
+narrator fixture that forces its actual mechanical fallback. It checks the
+existing 2.5 record and two provider calls; it does not implement a fake frame
+or a duplicate projection. The actual committed clone's Player Query2 profile
+must agree with `character_context_v2`'s player self-location. New frame getters
+and the complete exact six-field serialization are compared with that value.
+The existing opaque V25 stage's approved receipt and sanitized narrator evidence
+also supply an exact compatibility cross-check. The original source's complete
+history basis, records, seed and canonical projection must stay unchanged.
+
+Six tests are frozen: existing-API calibration; nonmovement Say/Give/Use;
+accepted Move destination; known-but-unreachable route refusal; immediate and
+mid-preparation cancellation; and corrected Domain2 child scope/location with
+actual observed A retained after world correction B until a real new Discovery
+observes B. The latter separately preserves Mira's observed A, checks new
+discovery attribution, and excludes all fact/author/NPC/Director material from
+the frame. No observer/grant argument, frame constructor, provider, commit or
+record parameter is added to preparation.
+
+This author performed source review and Git diff checks only. The new test file
+is **UNCOMPILED/UNRUN**. At a base without the new module/API, compilation failure
+is a missing prerequisite, never executed behavioral RED or a product defect.
+Even its existing-API calibration is not claimed executed while the whole test
+file cannot compile. Root must independently review, implement and run the
+frozen tests, preserve failures, and distinguish actual engine-only deterministic
+provider evidence from model/Host/Store/native UI/render/quality qualification.

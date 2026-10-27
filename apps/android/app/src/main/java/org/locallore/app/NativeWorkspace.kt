@@ -27,6 +27,7 @@ internal object NativeWorkspace {
 
 internal class NativeWorkspaceTransport(
     context: Context, private val localInference: LocalInferenceOwner? = null,
+    private val operationObserver: ((String) -> Unit)? = null,
 ) : WorkspaceTransport {
     init { localInference?.claimTransport(this) }
     private val app = context.applicationContext
@@ -66,6 +67,7 @@ internal class NativeWorkspaceTransport(
     }
     override suspend fun exchange(command: JSONObject): JSONObject = withContext(Dispatchers.IO) {
         worker()
+        operationObserver?.invoke(command.optString("op", ""))
         val id = allocateOnWorker()
         val envelope = JSONObject().put("version", 1).put("command", command).toString()
         val bytes = if (localInference == null) envelope.toByteArray(Charsets.UTF_8) else localUtf8(envelope)

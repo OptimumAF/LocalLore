@@ -65,3 +65,10 @@ apps/android/app/build-litert-worker/
 apps/android/app/build-model-picker/
 apps/android/app/build-model-volume/
 apps/android/app/build-model-receipt/
+apps/android/.gradle-input-draft/
+apps/android/app/build-input-draft/
+apps/android/.gradle-input-process/
+apps/android/app/build-input-process/
+apps/android/draft-process-controller/build/
+apps/android/.gradle-physical-model/
+apps/android/app/build-physical-model/

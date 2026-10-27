@@ -70,7 +70,13 @@ A reopened story restores accepted transcript and player state from recorded
 receipts. It does not generate narration during replay. Previously submitted,
 uncommitted drafts are counted visibly and never automatically committed or
 cancelled on resume: another live owner could still be processing them. Unsent
-composer text is session-local. Retrying an uncertain outcome retains its original
+composer text for saved stories uses one bounded Android saved-instance UI record,
+separate from submitted drafts. It restores only for the exact resolved story and
+branch, stays hidden while opening/recovery is unresolved, and is discarded when
+a different scope settles. Revision changes retain it; restoration never submits
+or resumes provider work. This is not a promise of retention after task dismissal,
+force-stop or a cold launch. See [Android draft lifecycle evidence](../native/ANDROID_INPUT_DRAFT_VERIFICATION_2026-10-25.md).
+Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.
 

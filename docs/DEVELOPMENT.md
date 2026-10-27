@@ -57,6 +57,26 @@ belong in the verification report. No migration or save upgrade is introduced.
 
 ## Dependency inventory
 
+For the isolated Android saved-task process-restoration profile, controller
+instrumentation, artifact audits and actual execution limits, see the
+[verification report](native/ANDROID_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md)
+and [closed protocol](native/ANDROID_PROCESS_RESTORATION_PROTOCOL.md). The
+controller targets its own process and operates the genuine product Activity;
+ordinary product builds do not enable its observers or test-tag export.
+
+The [retired-selection protocol](native/ANDROID_RETIRED_SELECTION_PROTOCOL.md)
+adds a test-APK-only native fixture, with a mandatory actual loading gate before
+typed retirement and byte-preserving host readback. Its
+[verification report](native/ANDROID_RETIRED_SELECTION_VERIFICATION_2026-10-26.md)
+records the callback RED/GREEN tests, all three saved-task controls, failed
+attempts, source/artifact bindings and remaining device/model gates.
+
+The [versioned Windows host driver](native/ANDROID_PROCESS_HOST_DRIVER.md)
+builds/audits the isolated process profile and runs its fixed ten loader/native
+component methods with pinned SDK ownership and exact runner evidence. It keeps
+private records outside the checkout and does not replace saved-task controller
+or physical-model qualification.
+
 The [SQLite foundation](storage/README.md) is a separate Rust storage owner.
 Workspace tests include its model-free schema/migration/backup regressions.
 Its [dependency inventory and official compatibility sources](storage/SOURCES_2026-10-22.md)

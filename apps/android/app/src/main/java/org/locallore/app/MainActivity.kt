@@ -25,6 +25,7 @@ import org.locallore.app.ui.StoryDeletionDialog
 import org.locallore.app.ui.BranchDeletionDialog
 import org.locallore.app.ui.BranchForkPanel
 import org.locallore.app.ui.StoryRecordDialog
+import org.locallore.app.ui.StoryCreationDialog
 
 internal class WorkspaceConstructionUnavailable : IllegalStateException("Workspace unavailable")
 
@@ -37,8 +38,11 @@ open class MainActivity : ComponentActivity() {
         get() = transportObservation?.get()
     // Selected by application construction, never by story text or a model response.
     internal open fun createWorkspaceTransport(): NativeWorkspaceTransport =
-        NativeWorkspaceTransport(applicationContext)
+        NativeWorkspaceTransport(applicationContext, operationObserver =
+            if (BuildConfig.INPUT_PROCESS_VERIFICATION) ProcessVerificationProbe::operation else null)
     private lateinit var model: ShellViewModel
+    private var pendingNavigationHint: PlayDraftScope? = null
+    private var processVerificationRun: String? = null
     private val archiveImportPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (::model.isInitialized) {
             if (uri == null) model.completeArchiveImport(null)
@@ -69,19 +73,31 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingNavigationHint = readNavigationHint(savedInstanceState)
+        processVerificationRun = if (BuildConfig.INPUT_PROCESS_VERIFICATION) try {
+            (savedInstanceState?.getString(ProcessVerificationProbe.RUN_STATE)
+                ?: intent.getStringExtra(ProcessVerificationProbe.RUN_EXTRA))
+                ?.takeIf { Regex("[0-9a-f]{16}").matches(it) }
+        } catch (_: RuntimeException) { null } else null
+        ProcessVerificationProbe.configure(applicationContext, processVerificationRun, taskId, savedInstanceState != null)
         enableEdgeToEdge()
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 require(modelClass == ShellViewModel::class.java)
                 val transport = createWorkspaceTransport()
+                ProcessVerificationProbe.factoryCreated()
                 transportObservation = WeakReference(transport)
-                val durable = DurableGateway(transport, autoCreateIfEmpty = false)
+                val durable = DurableGateway(transport, autoCreateIfEmpty = false,
+                    initialScopeHint = pendingNavigationHint)
                 return ShellViewModel(durable,
                     archiveGateway = NativeArchiveGateway(applicationContext),
                     deletionGateway = NativeArchiveGateway(applicationContext),
                     branchDeletionGateway = NativeArchiveGateway(applicationContext),
-                    forkGateway = NativeForkGateway(transport::forkHandle),
+                    forkGateway = NativeForkGateway(transport::forkHandle,
+                        mutationObserver = if (BuildConfig.INPUT_PROCESS_VERIFICATION) {
+                            { ProcessVerificationProbe.operation("fork_mutation") }
+                        } else null),
                     forkContextProvider = durable::forkContext,
                     forkRecoveryStore = AtomicForkRecoveryStore(applicationContext)) as T
             }
@@ -106,13 +122,14 @@ open class MainActivity : ComponentActivity() {
             val archive by model.archive.collectAsStateWithLifecycle()
             val deletion by model.deletion.collectAsStateWithLifecycle()
             val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
+            val creation by model.creation.collectAsStateWithLifecycle()
             val record by model.storyRecord.collectAsStateWithLifecycle()
             val fork by model.fork.collectAsStateWithLifecycle()
             val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
             val renderedRecordContext = record.context
-            LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
+            LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
                 onText = model::submitText,
@@ -122,13 +139,20 @@ open class MainActivity : ComponentActivity() {
                 branchDeletionAvailable = model.branchDeletionController != null,
                 onDeleteTimeline = model::openBranchDeletion,
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
+                exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION,
+                draftInteractionAllowed = model::canEditPlayDraft,
                 onFork = model::openFork) {
                 BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
                     onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
                     onRetry = model::retryFork, onLookup = model::lookupFork, onForget = model::forgetFork,
-                    onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork)
+                    onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork,
+                    exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
                 model.branchDeletionController?.let { controller ->
                     BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
+                }
+                model.creationController?.let { controller ->
+                    StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
+                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
                 }
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
@@ -152,8 +176,8 @@ open class MainActivity : ComponentActivity() {
                                 catch (_: Exception) { model.archiveImportPickerFailed() }
                             }
                         },
-                        onExportPicker = {
-                            if (model.beginArchiveExportPicker()) {
+                        onExportPicker = { expected ->
+                            if (model.beginArchiveExportPicker(expected)) {
                                 try { archiveExportPicker.launch("locallore-private-story.json") }
                                 catch (_: Exception) { model.archiveExportPickerFailed() }
                             }
@@ -161,7 +185,32 @@ open class MainActivity : ComponentActivity() {
                 }
             }
         }
+        ProcessVerificationProbe.created(pendingNavigationHint)
     }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::model.isInitialized) pendingNavigationHint = navigationHintToSave(pendingNavigationHint, model.state.value)
+        encodeNavigationHint(pendingNavigationHint)?.let { value ->
+            outState.putBundle("locallore.navigation.v1", Bundle().apply {
+                putInt("version", value[0] as Int)
+                putString("story", value[1] as String)
+                putString("branch", value[2] as String)
+            })
+        }
+        processVerificationRun?.let { outState.putString(ProcessVerificationProbe.RUN_STATE, it) }
+        ProcessVerificationProbe.saved(pendingNavigationHint)
+    }
+
+    private fun readNavigationHint(state: Bundle?): PlayDraftScope? = try {
+        state?.getBundle("locallore.navigation.v1")?.let { hint ->
+            if (hint.keySet() != setOf("version", "story", "branch")) null
+            else {
+                @Suppress("DEPRECATION")
+                decodeNavigationHint(listOf(hint.get("version"), hint.get("story"), hint.get("branch")))
+            }
+        }
+    } catch (_: RuntimeException) { null } // Malformed UI saved state is never native storage authority.
 
     override fun onStop() {
         // Conservatively stop sample work when the surface leaves the foreground, including rotation.

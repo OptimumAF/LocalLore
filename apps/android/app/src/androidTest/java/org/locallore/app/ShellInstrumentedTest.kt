@@ -27,7 +27,7 @@ class ShellInstrumentedTest {
         compose.waitForIdle()
     }
     @Before fun freshSavedStory() {
-        idle(); tag("reset-demo").performClick(); idle()
+        idle(); compose.createStoryThroughMainReview(); idle()
     }
     private fun choose(mode: DemoMode) {
         tag("mode-menu").performClick()
@@ -52,7 +52,8 @@ class ShellInstrumentedTest {
         assertInitial()
         @Suppress("DEPRECATION")
         val info = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, PackageManager.GET_PERMISSIONS)
-        assertEquals(listOf("org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"), info.requestedPermissions?.toList().orEmpty())
+        assertEquals(listOf(compose.activity.packageName + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"),
+            info.requestedPermissions?.toList().orEmpty())
         @Suppress("DEPRECATION")
         val permission = compose.activity.packageManager.getPermissionInfo(info.requestedPermissions!!.single(), 0)
         assertEquals(android.content.pm.PermissionInfo.PROTECTION_SIGNATURE, permission.protectionLevel)
@@ -95,7 +96,7 @@ class ShellInstrumentedTest {
         idle()
         tag("notice").assertTextContains("accepted saved history", substring = true)
         assertInitial()
-        tag("reset-demo").performClick(); idle()
+        compose.createStoryThroughMainReview(); idle()
         assertInitial()
         give(); idle()
         assertAccepted()
@@ -105,7 +106,7 @@ class ShellInstrumentedTest {
         give(); idle()
         compose.activityRule.scenario.recreate(); idle()
         assertAccepted()
-        tag("reset-demo").performClick(); idle()
+        compose.createStoryThroughMainReview(); idle()
         choose(DemoMode.DELAYED)
         compose.runOnIdle {
             val model = ViewModelProvider(compose.activity)[ShellViewModel::class.java]

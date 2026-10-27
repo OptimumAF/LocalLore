@@ -263,6 +263,43 @@
           "additionalProperties": false,
           "properties": {
             "op": {
+              "const": "story_template",
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "template"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "creation_id": {
+              "type": "string"
+            },
+            "op": {
+              "const": "create_named",
+              "type": "string"
+            },
+            "seed_sha256": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "template", "seed_sha256", "title", "creation_id"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
               "const": "open",
               "type": "string"
             },

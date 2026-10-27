@@ -222,6 +222,90 @@ class BranchForkShellTest {
         model.resumeFork(outcome); advanceUntilIdle(); assertEquals(1, stories.resumes.size)
         assertFalse(model.forkVisible.value)
     }
+    @Test fun sequentialForkRequiresExplicitSuccessfulForgetAfterKnownOutcomeResume() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events); val hint = Hint(events)
+        val model = model(stories, forks, hint); advanceUntilIdle(); model.openFork()
+        val first = model.fork.value.input!!
+        model.confirmFork(first, true); advanceUntilIdle()
+        val firstRecovery = BranchForkRecovery(1, first)
+        model.resumeFork(model.fork.value.outcome!!); advanceUntilIdle()
+        val parent = model.state.value.selectedStory!!
+        assertEquals(first.childBranch, parent.branch)
+        assertEquals(first.atRevision, parent.revision)
+        assertEquals(firstRecovery, hint.value)
+        assertTrue(model.forkRecoveryPending.value)
+        val canonicalBeforeForget = stories.saved()
+
+        // Resuming known success does not silently clear the original identity.
+        // A second opening displays that old request, not a new request on P.
+        model.openFork()
+        val recovered = model.fork.value.input!!
+        assertEquals(first, recovered)
+        assertEquals(ForkScope(Original.story, Original.branch), recovered.parent)
+        assertEquals(ForkScope(parent.story, parent.branch), model.fork.value.context!!.parent)
+        assertTrue(model.fork.value.lookupOnly)
+        model.prepareForkBoundary(recovered, parent.revision)
+        model.confirmFork(recovered, true); model.retryFork(true); advanceUntilIdle()
+        assertSame(recovered, model.fork.value.input)
+        assertEquals(listOf(first), forks.registrations.map { it.second })
+        assertEquals(1, forks.runs.size)
+
+        model.forgetFork(false); advanceUntilIdle()
+        assertEquals(firstRecovery, hint.value)
+        assertEquals(listOf(firstRecovery), hint.writes)
+        hint.failSave = true
+        model.forgetFork(true); advanceUntilIdle()
+        assertEquals(firstRecovery, hint.value)
+        assertEquals(listOf(firstRecovery), hint.writes)
+        assertTrue(model.forkRecoveryPending.value)
+        assertTrue(model.fork.value.lookupOnly)
+        assertSame(recovered, model.fork.value.input)
+        assertFalse(model.fork.value.notice!!.contains("PRIVATE"))
+        assertEquals(canonicalBeforeForget, stories.saved())
+        assertEquals(listOf(first), forks.registrations.map { it.second })
+        assertEquals(1, forks.runs.size)
+
+        hint.failSave = false
+        model.forgetFork(true); advanceUntilIdle()
+        assertNull(hint.value)
+        assertFalse(model.forkRecoveryPending.value)
+        assertNull(model.fork.value.input)
+        // Forget changes only recovery metadata, not selection, accepted head,
+        // messages or native draft metadata. This JVM test has no Compose editor.
+        assertEquals(canonicalBeforeForget, stories.saved())
+        assertEquals(parent, model.state.value.selectedStory)
+        assertEquals(parent.revision, model.state.value.revision)
+        assertEquals(canonicalBeforeForget.messages, model.state.value.messages)
+        assertEquals(canonicalBeforeForget.uncommittedDrafts, model.state.value.uncommittedDrafts)
+        assertEquals(1, forks.registrations.size); assertEquals(1, forks.runs.size)
+
+        model.closeFork(); advanceUntilIdle(); model.openFork()
+        val second = model.fork.value.input!!
+        assertEquals(ForkScope(parent.story, parent.branch), second.parent)
+        assertEquals(parent.revision, second.expectedParentRevision)
+        assertEquals(parent.revision, second.atRevision)
+        assertNotEquals(first.childBranch, second.childBranch)
+        assertFalse(model.fork.value.lookupOnly)
+        assertNull(hint.value)
+        assertEquals(1, forks.registrations.size); assertEquals(1, forks.runs.size)
+        model.confirmFork(second, false); advanceUntilIdle()
+        assertSame(second, model.fork.value.input)
+        assertEquals(1, forks.registrations.size); assertEquals(1, forks.runs.size)
+        model.confirmFork(second, true); advanceUntilIdle()
+        assertEquals(listOf(first, second), forks.registrations.map { it.second })
+        assertEquals(listOf(first.parent, second.parent), forks.registrations.map { it.first.parent })
+        assertEquals(2, forks.runs.size)
+        assertEquals(listOf("register", "run", "register", "run"), events.filter { it == "register" || it == "run" })
+        assertEquals(listOf(firstRecovery, null, BranchForkRecovery(1, second)), hint.writes)
+        assertEquals(BranchForkRecovery(1, second), hint.value)
+        assertEquals(second.childBranch, model.fork.value.outcome!!.scope.branch)
+        assertEquals(listOf(parent), stories.resumes) // The second fork never auto-resumes.
+        assertEquals(canonicalBeforeForget, stories.saved())
+        assertEquals(parent, model.state.value.selectedStory)
+        assertEquals(parent.revision, model.state.value.revision)
+        assertEquals(0, stories.submissions); assertEquals(0, stories.creates); assertEquals(0, stories.recoveries)
+        assertTrue(forks.lookups.isEmpty())
+    }
     @Test fun viewModelClearClosesForkBeforeTheSingleWorkspaceAndRetainsHint() = runTest(dispatcher) {
         val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events); val hint = Hint(events)
         val model = model(stories, forks, hint); advanceUntilIdle(); model.openFork()

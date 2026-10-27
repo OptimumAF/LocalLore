@@ -77,7 +77,7 @@ class DurableRestartTest {
     @Test fun checkpointAcceptedStory() {
         assertTrue("Never overwrite another checkpoint", directory.mkdir())
         val count = model().state.value.stories.size
-        tag("reset-demo").performClick(); idle()
+        compose.createStoryThroughMainReview(10_000); idle()
         assertEquals(count + 1, model().state.value.stories.size)
         assertEquals(0L, model().state.value.revision)
         tag("give-potion").performClick(); idle()
@@ -134,7 +134,7 @@ class DurableRestartTest {
         accepted()
         assertEquals(record.getString("digest"), digest(model().state.value.messages))
         // New story retains the spent story and gives its own player a separate potion.
-        tag("reset-demo").performClick(); idle()
+        compose.createStoryThroughMainReview(10_000); idle()
         assertEquals(0L, model().state.value.revision)
         assertTrue(model().state.value.messages.isEmpty())
         tag("potion-owner").assertTextEquals("Healing potion · You")

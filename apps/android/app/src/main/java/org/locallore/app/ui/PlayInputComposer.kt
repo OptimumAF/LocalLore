@@ -33,8 +33,11 @@ internal fun PlayInputComposer(
     provider: TextProvider,
     busy: Boolean,
     recoveryRequired: Boolean,
+    onKindChange: (PlayInputKind) -> Unit,
+    onTextChange: (String) -> Unit,
     onInput: (PlayInput) -> Unit,
     onSend: (PlayInput) -> Unit,
+    draftNotRestored: Boolean = false,
 ) {
     val enabled = !busy && !recoveryRequired && provider != TextProvider.UNAVAILABLE
     val valid = validPlayInput(input)
@@ -68,7 +71,7 @@ internal fun PlayInputComposer(
             PlayInputKind.entries.forEach { kind ->
                 FilterChip(
                     selected = input.kind == kind,
-                    onClick = { onInput(input.copy(kind = kind)) },
+                    onClick = { onKindChange(kind) },
                     enabled = enabled,
                     label = { Text(kind.label) },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
@@ -87,7 +90,7 @@ internal fun PlayInputComposer(
         )
         OutlinedTextField(
             value = input.text,
-            onValueChange = { onInput(input.copy(text = it)) },
+            onValueChange = onTextChange,
             enabled = enabled,
             label = { Text(if (input.kind == PlayInputKind.ACTION) "Your action" else "Your dialogue") },
             minLines = 3,
@@ -99,6 +102,13 @@ internal fun PlayInputComposer(
             "$byteCount / $MAX_PLAY_INPUT_BYTES UTF-8 bytes · new lines and tabs allowed",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (draftNotRestored) Text(
+            "This draft could not be restored. Enter it again before sending.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("play-draft-not-restored")
+                .semantics { liveRegion = LiveRegionMode.Polite },
         )
         if (problem != null) Text(
             problem,

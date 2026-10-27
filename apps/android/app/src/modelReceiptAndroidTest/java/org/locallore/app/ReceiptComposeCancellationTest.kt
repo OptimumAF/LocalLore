@@ -291,6 +291,13 @@ class ReceiptComposeCancelTest : ReceiptComposeCancellationHarness() {
             checked(checks, "empty_library_visible", model.state.value.selectedStory == null)
             var newStoryClicks = 0
             node("reset-demo").assertIsEnabled().performClick(); newStoryClicks++
+            compose.waitUntil(deadline.remaining(5_000)) {
+                compose.onAllNodes(hasTestTag("story-creation-confirm") and isEnabled()).fetchSemanticsNodes().size == 1
+            }
+            compose.onNodeWithTag("story-creation-confirm").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+            compose.waitUntil(deadline.remaining(5_000)) {
+                compose.onAllNodesWithTag("story-creation-dialog").fetchSemanticsNodes().isEmpty()
+            }
             checked(checks, "new_story_clicked_once", newStoryClicks == 1)
             settled(deadline)
             checked(checks, "production_transport_local", model.state.value.textProvider == TextProvider.LOCAL)

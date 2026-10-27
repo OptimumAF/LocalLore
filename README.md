@@ -21,6 +21,57 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [explicit starter review and named creation](docs/native/ANDROID_STORY_CREATION_VERIFICATION_2026-10-26.md)
+adds a Rust-owned preview, an editable title and explicit Create/Cancel to the
+persistent Android shell. The report records exact host/build/device evidence
+and limits. Full premise, tone and character customization remain pending.
+
+The [retained archive chooser packet](docs/native/ANDROID_RETAINED_ARCHIVE_VERIFICATION_2026-10-26.md)
+fixes stale Import/Export/Open consent and adds original retained-parent archive
+round-trip/refusal tests. Integrated host/JVM/lint/build checks pass; actual
+chooser execution is blocked on host commit capacity. It remains distinct from
+earlier emulator results and physical-phone/model qualification.
+
+The [retained-parent deletion UI qualification](docs/native/ANDROID_RETAINED_PARENT_UI_VERIFICATION_2026-10-26.md)
+passes real Compose Cancel, explicit native deletion preserving a child's
+original history, and stale-preview refusal after an independent parent turn.
+The fixed two-method UI phase is separate from native component and lifecycle
+checks. It uses scripted inference on API35/x86_64; phone/model gates remain separate.
+
+The [current external restoration execution](docs/native/ANDROID_EXTERNAL_PROCESS_EXECUTION_2026-10-26.md)
+passes the real scripted Compose/JNI/Rust root, active-child, retired-leaf and
+selected-parent controls across two saved-task process deaths per case. Four original
+snapshots preserve the retained child's inherited receipts and exclude the
+parent's later tail. The report retains the failed setup attempt, the explicit
+fork-recovery consent correction, host-validator correction and current verification.
+This is API35/x86_64 evidence; phone and real-model qualification remain separate.
+
+The [Android saved-task restoration check](docs/native/ANDROID_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md)
+exercises the real Compose screen and Rust storage across background process
+death, including a selected second story and an unsent draft. It uses scripted
+inference on an emulator; physical-phone and real-model qualification remain
+separate gates.
+An [active-child follow-up](docs/native/ANDROID_CHILD_PROCESS_RESTORATION_VERIFICATION_2026-10-26.md)
+also exercises the real fork confirmation/resume flow and two child process
+deaths, retaining the parent receipt and draft while a child turn leaves its
+parent unchanged. Its host-verifier correction and remaining limits are recorded.
+The [retired-child follow-up](docs/native/ANDROID_RETIRED_SELECTION_VERIFICATION_2026-10-26.md)
+checks native retirement between save and restore, a visible fallback notice,
+and clearing the unavailable timeline's draft. It also fixes stale editor
+callbacks: rapid kind/text edits preserve both fields, and Send uses the latest
+valid scoped draft. Phone and real-model qualification remain separate.
+The [retained-parent implementation and preservation handoff](docs/native/ANDROID_RETAINED_PARENT_VERIFICATION_2026-10-26.md)
+records interrupted verification and missing private evidence, including the
+earlier retired-child index. Source is preserved; the new lifecycle case
+requires a fresh owned run.
+The [versioned host driver](docs/native/ANDROID_PROCESS_HOST_DRIVER.md) and its
+[component verification](docs/native/ANDROID_PROCESS_HOST_DRIVER_VERIFICATION_2026-10-26.md)
+retain fresh build, host and ten-method native component evidence. The current
+external execution above records the separately qualified lifecycle scope.
+The [external evidence validators](docs/native/ANDROID_EXTERNAL_CONTROLLER_HOST.md)
+check original controller, producer and retirement records with synthetic host
+regressions; their tests do not establish a new Android lifecycle result.
+
 | Document | Purpose |
 |---|---|
 | [Roadmap and project status](https://github.com/OptimumAF/LocalLore/issues/3) | Authoritative milestone tickets, task IDs, dependencies, acceptance criteria, status, and evidence |
@@ -68,6 +119,29 @@ The [isolated Android runtime experiment](docs/runtime/android/README.md) runs
 both candidates and the existing Rust oracle on authorized emulators. It adds
 no production inference dependency; physical-device and reliability gates remain
 open, with failures retained in the dated results.
+
+The [2026-10-25 admission reassessment](docs/native/EMULATOR_COMMIT_REASSESSMENT_VERIFICATION_2026-10-25.md)
+corrects an unsupported 18 GiB host commit cutoff to an explicit 10 GiB project
+budget for the unchanged 8 GiB emulator. Actual startup and 12 preflight checks
+pass without stopping other emulators or changing system settings. Two original
+1 GiB transfer controls pass; an alternate shell path fails its binary prerequisite
+and is refused. A connected Samsung ARM64/4 KiB phone also passes nine actual
+Rust JNI/SQLite tests with fake inference. These establish no new phone model
+performance or playable-scene qualification.
+
+The subsequent [Windows binary staging and scene run](docs/native/WINDOWS_BINARY_TRANSFER_VERIFICATION_2026-10-25.md)
+reproduces the text-mode truncation mechanism and refuses the unsafe Windows
+shell route. A fresh isolated receipt test build passes **122 app checks**:
+full local model import, actual SDK Gift and literal Dialogue validated/committed
+by Rust, inspector/invalid-action guards, and a new-process reopen of both
+receipts without inference. This qualifies the current codec for that original
+emulator fixture; phone model performance and production backend selection
+remain pending. Historical failures are preserved.
+
+The separate [physical-model harness](docs/native/PHYSICAL_MODEL_HARNESS_VERIFICATION_2026-10-25.md)
+now builds the six guarded phone phases, with 488 JVM tests and a signed APK
+pair audit passing. The selected USB phone was absent at the initial refresh;
+these host/build checks establish no phone import or inference result.
 
 Separate [Android model-storage receipt checks](docs/native/RECEIPT_FRESH_TARGET_VERIFICATION_2026-10-24.md)
 passed four methods on a fresh isolated emulator, including cancellation and

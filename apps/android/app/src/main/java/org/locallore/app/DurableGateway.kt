@@ -20,8 +20,13 @@ internal interface WorkspaceTransport {
 internal class DurableGateway(
     private val transport: WorkspaceTransport,
     autoCreateIfEmpty: Boolean = true,
-) : DemoGateway {
+    initialScopeHint: PlayDraftScope? = null,
+) : DemoGateway, StoryCreationGateway {
     private var mayAutoCreate = autoCreateIfEmpty
+    // Navigation IDs are an unresolved UI hint, never a saved engine/session.
+    // Keep them through initialization failures, including failures after attach.
+    private var pendingInitialScopeHint = initialScopeHint
+    private var initialSelectionUnavailable = false
     override val durable = true
     override val storyRecords = true
     private var session: String? = null
@@ -83,26 +88,77 @@ internal class DurableGateway(
         if (session != null) return snapshot()
         return openLibrary(mayAutoCreate)
     }
-    private suspend fun workspace(): JSONObject = call(command("workspace")).also {
-        check(it.getBoolean("persistent") && it.getInt("schema_version") == 1)
-        check(it.getInt("database_schema_version") == 5)
-        it.getString("location")
-        it.getJSONArray("stories")
+    private suspend fun workspace(): JSONObject = call(command("workspace"))
+    /** The existing native catalog wire, shared by initial selection and snapshots. */
+    private fun workspaceStories(workspace: JSONObject): List<SavedStory> = try {
+        fun fields(value: JSONObject, expected: Set<String>) {
+            check(value.keys().asSequence().toSet() == expected)
+        }
+        fun text(value: JSONObject, key: String): String = value.get(key) as? String ?: error("Wire")
+        fun count(value: JSONObject, key: String): Long {
+            val raw = value.get(key)
+            check(raw is Int || raw is Long)
+            return (raw as Number).toLong().also { check(it >= 0) }
+        }
+        fields(workspace, setOf("persistent", "location", "schema_version", "database_schema_version", "stories"))
+        check(workspace.get("persistent") == true && count(workspace, "schema_version") == 1L)
+        check(count(workspace, "database_schema_version") == 5L)
+        text(workspace, "location")
+        val rows = workspace.get("stories") as? JSONArray ?: error("Wire")
+        check(rows.length() <= 256)
+        val stories = (0 until rows.length()).map { index ->
+            val row = rows.get(index) as? JSONObject ?: error("Wire")
+            fields(row, setOf("scope", "title", "revision", "drafts"))
+            val scope = row.get("scope") as? JSONObject ?: error("Wire")
+            fields(scope, setOf("story", "branch"))
+            val story = text(scope, "story")
+            val branch = text(scope, "branch")
+            check(timelineId.matches(story) && timelineId.matches(branch))
+            val revision = count(row, "revision")
+            count(row, "drafts")
+            SavedStory(story, branch, text(row, "title"), revision)
+        }
+        check(stories.map { it.story }.toSet().size == stories.size)
+        stories
+    } catch (_: Exception) {
+        throw WorkspaceFailure("Malformed")
     }
     private suspend fun openLibrary(allowCreate: Boolean): SavedSnapshot {
         val workspace = workspace()
-        val saved = workspace.getJSONArray("stories")
+        val stories = workspaceStories(workspace)
+        val hint = pendingInitialScopeHint
+        val hintedRoot = hint?.let { candidate -> stories.singleOrNull { it.story == candidate.story } }
+        val hintedTimeline = if (hintedRoot != null) {
+            // Only native, strictly decoded active branch metadata can authorize resume.
+            decodeTimelines(call(command("branches").put("story", hintedRoot.story)), hintedRoot)
+                .singleOrNull { it.branch == hint?.branch }
+        } else null
+        initialSelectionUnavailable = hint != null && hintedTimeline == null
         // Automatic bootstrap is a one-time compatibility option. Never repeat an uncertain create.
+        // The hint neither enables nor retries this independently configured compatibility path.
         mayAutoCreate = false
-        if (saved.length() == 0 && !allowCreate) return emptySnapshot(workspace)
-        attach(if (saved.length() == 0) call(command("create").put("seed", "lantern-quay-v1"))
-            else call(command("resume").put("scope", saved.getJSONObject(0).getJSONObject("scope"))))
+        if (stories.isEmpty() && !allowCreate) return emptySnapshot(workspace)
+        attach(if (stories.isEmpty()) call(command("create").put("seed", "lantern-quay-v1")) else {
+            val selected = if (hintedTimeline != null) {
+                JSONObject().put("story", hintedTimeline.story).put("branch", hintedTimeline.branch)
+            } else {
+                val first = stories.first()
+                JSONObject().put("story", first.story).put("branch", first.branch)
+            }
+            call(command("resume").put("scope", selected))
+        })
         return snapshot()
     }
     private fun emptySnapshot(workspace: JSONObject): SavedSnapshot {
         check(workspace.getJSONArray("stories").length() == 0)
-        return SavedSnapshot(0, "", emptyList(), workspace.getString("location"), 1,
-            emptyList(), null, databaseSchemaVersion = workspace.getInt("database_schema_version"))
+        return resolvedInitialSelection(SavedSnapshot(0, "", emptyList(), workspace.getString("location"), 1,
+            emptyList(), null, databaseSchemaVersion = workspace.getInt("database_schema_version")))
+    }
+    private fun resolvedInitialSelection(saved: SavedSnapshot): SavedSnapshot {
+        val unavailable = pendingInitialScopeHint != null && initialSelectionUnavailable
+        pendingInitialScopeHint = null
+        initialSelectionUnavailable = false
+        return saved.copy(selectionRestoreUnavailable = unavailable)
     }
     override suspend fun reconcileSaved(): SavedSnapshot {
         coherentPlayerSnapshot = false
@@ -156,10 +212,7 @@ internal class DurableGateway(
         // Host-v1's workspace contract and the SQLite implementation have separate versions.
         val databaseSchema = workspace.getInt("database_schema_version")
         check(databaseSchema == 5)
-        val stories = workspace.getJSONArray("stories").let { rows -> (0 until rows.length()).map {
-            val row = rows.getJSONObject(it); val s = row.getJSONObject("scope")
-            SavedStory(s.getString("story"), s.getString("branch"), row.getString("title"), row.getLong("revision"))
-        } }
+        val stories = workspaceStories(workspace)
         val selectedScope = checkNotNull(scope)
         val root = checkNotNull(stories.singleOrNull { it.story == selectedScope.getString("story") })
         val timelines = decodeTimelines(call(command("branches").put("story", root.story)), root)
@@ -173,7 +226,7 @@ internal class DurableGateway(
             SavedStory(current.story, current.branch, root.title, current.revision), current.uncommittedDrafts,
             view.getString("rules"), textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines)
         coherentPlayerSnapshot = true
-        return saved
+        return resolvedInitialSelection(saved)
     }
     private suspend fun readTextProvider(): TextProvider {
         val capabilities = call(command("capabilities"))
@@ -340,6 +393,39 @@ internal class DurableGateway(
             }
         }
         closeSession()
+    }
+    override suspend fun preview(): StoryCreationPreview {
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        if (operation != null) throw WorkspaceFailure("Busy")
+        val data = call(command("story_template").put("template", "lantern-quay-v1"))
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        return StoryCreationWire.preview(data)
+    }
+    override suspend fun create(request: StoryCreationRequest): SavedSnapshot {
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        if (operation != null) throw WorkspaceFailure("Busy")
+        val input = StoryCreationWire.command(request)
+        release()
+        val data = call(input)
+        try {
+            check(data.keys().asSequence().toSet() == setOf("session", "scope", "revision", "created"))
+            check(data.get("created") is Boolean)
+            val resultScope = data.getJSONObject("scope")
+            check(resultScope.keys().asSequence().toSet() == setOf("story", "branch"))
+            check(resultScope.get("story") == "quay-${request.creationId}" && resultScope.get("branch") == "main")
+            val head = data.get("revision")
+            check((head is Int || head is Long) && (head as Number).toLong() >= 0)
+            check((data.get("session") as String).toByteArray(Charsets.UTF_8).size in 1..128)
+        } catch (_: Exception) { throw WorkspaceFailure("Malformed") }
+        attach(data)
+        val saved = snapshot()
+        val selected = saved.selected
+        if (selected == null || selected.story != "quay-${request.creationId}" || selected.branch != "main" ||
+            selected.title != request.title) {
+            coherentPlayerSnapshot = false
+            throw WorkspaceFailure("Stale")
+        }
+        return saved
     }
     override suspend fun createSaved(): SavedSnapshot {
         release()

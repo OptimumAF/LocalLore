@@ -67,7 +67,7 @@ class TimelineProtocolTest {
                 "workspace" -> ok(JSONObject().put("persistent", true).put("schema_version", 1)
                     .put("database_schema_version", databaseSchemaVersion).put("location", "/synthetic/workspace.sqlite3")
                     .put("stories", JSONArray().put(JSONObject().put("scope", scope("main"))
-                        .put("title", "Original title").put("revision", 2).put("drafts", 0).put("retired", false))))
+                        .put("title", "Original title").put("revision", 2).put("drafts", 0))))
                 "branches" -> {
                     assertEquals(storyId, command.getString("story"))
                     ok(catalog().also(changeCatalog))
@@ -122,7 +122,9 @@ class TimelineProtocolTest {
             val gateway = DurableGateway(transport, autoCreateIfEmpty = false)
             try {
                 try { gateway.initialize(); fail("Incompatible live schema was accepted") }
-                catch (_: IllegalStateException) { /* Strict current owner check, no adoption. */ }
+                catch (failure: WorkspaceFailure) {
+                    assertEquals("Malformed", failure.category) // Strict current owner wire, no adoption.
+                }
                 assertEquals(listOf("workspace"), transport.calls)
             } finally { gateway.close() }
         }

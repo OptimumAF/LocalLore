@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.locallore.app.ArchiveKind
+import org.locallore.app.ArchiveImported
+import org.locallore.app.ArchivePrepared
 import org.locallore.app.ArchiveUiState
 
 /** Inert preview text and explicit consent. Native capabilities remain in the controller. */
@@ -45,9 +47,9 @@ fun ArchiveDialog(
     onCancel: () -> Unit,
     onPrepareExport: () -> Unit,
     onImportPicker: () -> Unit,
-    onExportPicker: () -> Unit,
-    onConfirmImport: () -> Unit,
-    onOpenImported: () -> Unit,
+    onExportPicker: (ArchivePrepared) -> Unit,
+    onConfirmImport: (ArchivePrepared) -> Unit,
+    onOpenImported: (ArchiveImported) -> Unit,
 ) {
     if (!state.visible) return
     val window = LocalWindowInfo.current.containerSize
@@ -105,7 +107,7 @@ fun ArchiveDialog(
                             style = MaterialTheme.typography.bodySmall)
                         Text("Corrected timelines, when present, are preserved for transfer. Opening corrected timelines on Android is currently unavailable.",
                             style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = onOpenImported, enabled = ready,
+                        Button(onClick = { onOpenImported(imported) }, enabled = ready,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-open-imported")) {
                             Text("Open imported story")
                         }
@@ -118,7 +120,8 @@ fun ArchiveDialog(
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-import-pick")) {
                             Text("Choose archive to validate")
                         }
-                        state.prepared?.preview?.let { preview ->
+                        state.prepared?.let { prepared ->
+                            val preview = prepared.preview
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("archive-preview")) {
                                 HorizontalDivider()
                                 Text(preview.title, style = MaterialTheme.typography.titleMedium,
@@ -142,7 +145,7 @@ fun ArchiveDialog(
                                 if (state.kind == ArchiveKind.EXPORT) {
                                     Text("Choose a new document. LocalLore refuses nonempty or unverifiable opened destinations. " +
                                         "A stopped or failed write may leave a partial new document.", style = MaterialTheme.typography.bodySmall)
-                                    Button(onClick = onExportPicker, enabled = ready,
+                                    Button(onClick = { onExportPicker(prepared) }, enabled = ready,
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-export-pick")) {
                                         Text("Export this full private archive")
                                     }
@@ -151,7 +154,7 @@ fun ArchiveDialog(
                                         style = MaterialTheme.typography.bodySmall)
                                     Text("Cancellation may race a completed import. Close to refresh the library if the outcome is uncertain.",
                                         style = MaterialTheme.typography.bodySmall)
-                                    Button(onClick = onConfirmImport, enabled = ready,
+                                    Button(onClick = { onConfirmImport(prepared) }, enabled = ready,
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-import-confirm")) {
                                         Text("Import validated archive")
                                     }

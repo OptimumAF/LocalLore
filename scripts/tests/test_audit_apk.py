@@ -91,6 +91,31 @@ class ApkAuditTests(unittest.TestCase):
     def test_manifest_allows_only_current_app_owned_signature_permission(self):
         self.assertEqual(audit.audit_manifest(BADGING, TREE), [audit.PERMISSION])
 
+    def test_actual_windows_aapt_crlf_preserves_exact_sdk_contract(self):
+        self.assertEqual(audit.audit_manifest(BADGING.replace("\n", "\r\n"), TREE.replace("\n", "\r\n")), [audit.PERMISSION])
+        for malformed in (BADGING.replace("\n", "\r"), BADGING.replace("\n", "\r\n", 1),
+                          BADGING.replace("\n", "\v", 1), BADGING.replace("\n", "\f", 1),
+                          BADGING.replace("\n", "\x85", 1), BADGING + "\0"):
+            with self.subTest(malformed=repr(malformed)), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(malformed, TREE)
+
+    def test_sdk_rows_cannot_be_duplicate_conflicting_malformed_or_truthy(self):
+        for malformed in (BADGING + "minSdkVersion:'26'\n", BADGING + "minSdkVersion:'25'\n",
+                          BADGING + "targetSdkVersion:'36'\n", BADGING + "targetSdkVersion:'37'\n",
+                          BADGING + " minSdkVersion:'26'\n", BADGING + "minSdkVersion:26\n",
+                          BADGING + "sdkVersion:'26'\n", BADGING.replace("minSdkVersion:'26'", "minSdkVersion:'026'"),
+                          BADGING.replace("minSdkVersion:'26'", "minSdkVersion:'true'"),
+                          BADGING.replace("targetSdkVersion:'36'", "targetSdkVersion:'35'"),
+                          BADGING.replace("minSdkVersion:'26'\n", "")):
+            with self.subTest(malformed=malformed), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(malformed, TREE)
+
+    def test_aapt_normalization_is_closed_and_does_not_strip_controls(self):
+        for malformed in (None, b"text", "A\rB", "A\r\nB\n", "A\nB\r\n", "A\u2028B", "A\u2029B", "A\x7fB"):
+            with self.subTest(malformed=malformed), self.assertRaises(audit.AuditError):
+                audit.aapt_text(malformed)
+        self.assertEqual(audit.aapt_text("label='日本語'\r\n\tvalue\r\n"), "label='日本語'\n\tvalue\n")
+
     def test_capacity_package_requires_explicit_allowlist_and_own_permission(self):
         for package in ("org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.cancelack"):
             badging = BADGING.replace("org.locallore.app", package)
@@ -119,6 +144,48 @@ class ApkAuditTests(unittest.TestCase):
                 (badging, tree.replace("0x00000002", "0x00000000"))):
             with self.subTest(tree=candidate_tree), self.assertRaises(audit.AuditError):
                 audit.audit_manifest(candidate_badging, candidate_tree, package)
+
+    def test_input_draft_profile_keeps_package_permission_and_capability_boundary(self):
+        package = "org.locallore.app.draftverify"
+        badging = BADGING.replace("org.locallore.app", package)
+        tree = TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package),
+                         [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for candidate, candidate_badging, candidate_tree in (
+                ("org.locallore.app", badging, tree),
+                (package + ".other", badging.replace(package, package + ".other"), tree),
+                (package, badging, TREE),
+                (package, badging + "uses-permission: name='android.permission.INTERNET'\n", tree),
+                (package, badging, tree.replace("0x00000002", "0x00000000"))):
+            with self.subTest(candidate=candidate), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(candidate_badging, candidate_tree, candidate)
+
+    def test_input_draft_cli_refuses_model_modes_before_reading_any_artifact(self):
+        flags = ("--litert-verification", "--model-provisioning", "--model-picker-fixture",
+                 "--model-volume-verification", "--model-receipt-verification")
+        with patch.object(audit, "audit_zip", side_effect=AssertionError("artifact read")) as read, \
+                patch("builtins.print"):
+            for flag in flags:
+                with self.subTest(flag=flag):
+                    self.assertEqual(audit.main(["unread.apk", "--input-draft-verification", flag]), 1)
+            read.assert_not_called()
+
+    def test_process_profile_keeps_own_permission_and_separate_explicit_selection(self):
+        package = "org.locallore.app.draftprocessverify"
+        badging, tree = BADGING.replace("org.locallore.app", package), TREE.replace("org.locallore.app", package)
+        self.assertEqual(audit.audit_manifest(badging, tree, package),
+                         [package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+        for selected in ("org.locallore.app", "org.locallore.app.draftverify", package + ".other"):
+            with self.subTest(selected=selected), self.assertRaises(audit.AuditError):
+                audit.audit_manifest(badging, tree, selected)
+        flags = ("--input-draft-verification", "--litert-verification", "--model-provisioning",
+                 "--model-picker-fixture", "--model-volume-verification", "--model-receipt-verification")
+        with patch.object(audit, "audit_zip", side_effect=AssertionError("artifact read")) as read, \
+                patch("builtins.print"):
+            for flag in flags:
+                with self.subTest(flag=flag):
+                    self.assertEqual(audit.main(["unread.apk", "--input-process-verification", flag]), 1)
+            read.assert_not_called()
 
     def test_model_setup_is_separate_from_existing_candidate_and_has_no_network(self):
         package = "org.locallore.app.modelverify"

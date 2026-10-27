@@ -34,6 +34,14 @@ require(modelVolume != "true" || modelPicker != "true") { "Model volume and pick
 val modelReceipt = providers.gradleProperty("localLoreModelReceiptVerification").orNull
 require(modelReceipt == null || modelReceipt == "true") { "Model receipt verification must be explicitly true or absent." }
 require(modelReceipt != "true" || modelVolume == "true") { "Model receipt verification requires the explicit model volume, setup and LiteRT profiles." }
+val physicalModel = providers.gradleProperty("localLorePhysicalModelVerification").orNull
+require(physicalModel == null || physicalModel == "true") { "Physical model verification must be explicitly true or absent." }
+require(physicalModel != "true" || (liteRt == "true" && modelSetup == "true")) {
+    "Physical model verification requires the explicit LiteRT and setup profiles."
+}
+require(physicalModel != "true" || listOf(modelVolume, modelReceipt, modelPicker).none { it == "true" }) {
+    "Physical internal-storage verification is separate from volume, receipt and picker installations."
+}
 if (liteRt == "true") {
     val finiteCodecBytes = file("src/litert/java/org/locallore/app/FiniteSchemaRegex.kt").readText()
         .replace("\r\n", "\n").toByteArray(Charsets.UTF_8)
@@ -58,7 +66,14 @@ val externalInference = providers.gradleProperty("localLoreExternalInferenceVeri
 require(externalInference == null || externalInference == "true")
 val cancelAckVerification = providers.gradleProperty("localLoreCancelAckVerification").orNull
 require(cancelAckVerification == null || cancelAckVerification == "true")
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, cancelAckVerification, externalInference, liteRt).count { it == "true" } <= 1) {
+val inputDraftVerification = providers.gradleProperty("localLoreInputDraftVerification").orNull
+require(inputDraftVerification == null || inputDraftVerification == "true")
+val inputProcessVerification = providers.gradleProperty("localLoreInputProcessVerification").orNull
+require(inputProcessVerification == null || inputProcessVerification == "true")
+require(inputProcessVerification != "true" || inputDraftVerification == "true") {
+    "Process verification requires the input draft verification profile."
+}
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, cancelAckVerification, inputDraftVerification, externalInference, liteRt).count { it == "true" } <= 1) {
     "Verification installations must be selected individually."
 }
 require(archiveVerification != "true" || archiveCapacity != "true") {
@@ -66,8 +81,22 @@ require(archiveVerification != "true" || archiveCapacity != "true") {
 }
 val capacityProjectCache = rootProject.file(".gradle-archive-capacity").canonicalFile
 val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject.file(".gradle")).canonicalFile
-require((liteRt == "true") == (selectedProjectCache == rootProject.file(".gradle-litert-worker").canonicalFile)) {
-    "LiteRT worker verification requires its exclusive .gradle-litert-worker project cache."
+require((inputProcessVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-input-process").canonicalFile)) {
+    "Input process verification requires its exclusive .gradle-input-process project cache."
+}
+require((inputDraftVerification == "true" && inputProcessVerification != "true") == (selectedProjectCache == rootProject.file(".gradle-input-draft").canonicalFile)) {
+    "Input draft verification requires its exclusive .gradle-input-draft project cache."
+}
+require(inputDraftVerification != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Input draft verification is for local debug verification only."
+}
+val physicalProjectCache = rootProject.file(".gradle-physical-model").canonicalFile
+require((physicalModel == "true") == (selectedProjectCache == physicalProjectCache)) {
+    "Physical model verification requires its exclusive .gradle-physical-model project cache."
+}
+val liteRtProjectCache = if (physicalModel == "true") physicalProjectCache else rootProject.file(".gradle-litert-worker").canonicalFile
+require((liteRt == "true") == (selectedProjectCache == liteRtProjectCache)) {
+    "LiteRT verification requires its exclusive selected project cache."
 }
 require(liteRt != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
     "LiteRT worker verification is for local debug verification only."
@@ -116,6 +145,7 @@ require(archiveCapacity != "true" || gradle.startParameter.taskNames.none { it.c
 }
 if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir(when {
+        physicalModel == "true" -> "build-physical-model"
         modelReceipt == "true" -> "build-model-receipt"
         modelVolume == "true" -> "build-model-volume"
         modelPicker == "true" -> "build-model-picker"
@@ -135,14 +165,21 @@ if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
 } else if (cancelAckVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-cancel-ack"))
+} else if (inputProcessVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-input-process"))
+} else if (inputDraftVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-input-draft"))
 }
 val verificationSuffix = when {
+    physicalModel == "true" -> ".phoneverify"
     modelVolume == "true" -> ".modelvolumeverify"
     modelPicker == "true" -> ".modelpickerverify"
     modelSetup == "true" -> ".modelverify"
     liteRt == "true" -> ".litertverify"
     externalInference == "true" -> ".externalverify"
     cancelAckVerification == "true" -> ".cancelack"
+    inputProcessVerification == "true" -> ".draftprocessverify"
+    inputDraftVerification == "true" -> ".draftverify"
     parentRetention == "true" -> ".parentverify"
     timelineVerification == "true" -> ".timelineverify"
     storyDeletion == "true" -> ".storydelete"
@@ -171,7 +208,7 @@ val reliefFaultTest = reliefFaultOption == "true"
 require(!(reliefFaultTest && reliefOption == "true")) { "Relief and helper-fault modes are mutually exclusive" }
 val reliefTest = reliefOption == "true" || reliefFaultTest
 require(!(capacityTest && reliefTest)) { "Capacity and capacity-relief modes are mutually exclusive" }
-require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, cancelAckVerification, externalInference, liteRt).none { it == "true" } || !(capacityTest || reliefTest)) {
+require(listOf(archiveVerification, archiveCapacity, storyDeletion, timelineVerification, parentRetention, cancelAckVerification, inputDraftVerification, externalInference, liteRt).none { it == "true" } || !(capacityTest || reliefTest)) {
     "Archive verification and capacity modes are mutually exclusive"
 }
 val capacityCache = rootProject.file(".gradle-capacity-v4").canonicalFile
@@ -229,7 +266,9 @@ android {
 
     defaultConfig {
         buildConfigField("boolean", "MODEL_VOLUME_VERIFICATION", (modelVolume == "true").toString())
-        buildConfigField("boolean", "MODEL_RECEIPT_VERIFICATION", (modelReceipt == "true").toString())
+        buildConfigField("boolean", "MODEL_RECEIPT_VERIFICATION", (modelReceipt == "true" || physicalModel == "true").toString())
+        buildConfigField("boolean", "PHYSICAL_MODEL_VERIFICATION", (physicalModel == "true").toString())
+        buildConfigField("boolean", "INPUT_PROCESS_VERIFICATION", (inputProcessVerification == "true").toString())
         applicationId = when {
             capacityTest -> "org.locallore.app.capacityv4"
             reliefFaultTest -> "org.locallore.app.capacityfaultsv4"
@@ -246,7 +285,7 @@ android {
         manifestPlaceholders["modelPickerTestAuthority"] = "org.locallore.app$verificationSuffix.test.modelpicker"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
-            versionNameSuffix = when { liteRt == "true" -> "-litert-worker"; externalInference == "true" -> "-external-inference"; cancelAckVerification == "true" -> "-cancel-ack-verification"; parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
+            versionNameSuffix = when { liteRt == "true" -> "-litert-worker"; externalInference == "true" -> "-external-inference"; cancelAckVerification == "true" -> "-cancel-ack-verification"; inputDraftVerification == "true" -> "-input-draft-verification"; parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -259,8 +298,14 @@ android {
         packaging { jniLibs.keepDebugSymbols += "**/liblitertlm_jni.so" }
         sourceSets["main"].java.srcDir("src/litert/java")
         if (modelSetup == "true") sourceSets["debug"].manifest.srcFile("src/litert/AndroidManifest.xml")
+        if (physicalModel == "true") {
+            sourceSets["debug"].manifest.srcFile("src/physicalModel/AndroidManifest.xml")
+            sourceSets["debug"].java.srcDir("src/physicalModel/java")
+            sourceSets["test"].java.srcDir("src/physicalModelTest/java")
+            sourceSets["androidTest"].java.srcDir("src/physicalModelAndroidTest/java")
+        }
         sourceSets["test"].java.srcDir("src/litertTest/java")
-        sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
+        if (physicalModel != "true") sourceSets["androidTest"].java.srcDir("src/litertAndroidTest/java")
         if (modelVolume == "true") {
             sourceSets["debug"].java.srcDir("src/modelVolume/java")
             sourceSets["debug"].manifest.srcFile("src/modelVolume/AndroidManifest.xml")
@@ -302,7 +347,7 @@ androidComponents {
 
 androidComponents {
     beforeVariants(selector().withBuildType("release")) {
-        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true" || parentRetention == "true" || externalInference == "true" || liteRt == "true" || cancelAckVerification == "true") it.enable = false
+        if (archiveCapacity == "true" || storyDeletion == "true" || timelineVerification == "true" || parentRetention == "true" || externalInference == "true" || liteRt == "true" || cancelAckVerification == "true" || inputDraftVerification == "true") it.enable = false
     }
 }
 

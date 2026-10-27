@@ -50,9 +50,9 @@ is executed by these mocked host tests.
 
 The private original request/tools/source maps and streams are retained at
 `2026-10-26-client-timing-v2/host-focused-v1`. The current777-input Android
-cohorts continue using their original record1 code; these new records cannot
-retroactively qualify them. Full host/build/current SDK-record2 runtime
-qualification remain pending.
+cohorts used their original record1 code; these new records cannot retroactively
+qualify them. At this initial check, full host/build/current SDK-record2 runtime
+qualification was pending; subsequent checks are recorded below.
 
 An independent review found that the initial generic compatibility reader alone
 would allow a fully rebound current row to lose its timing through a record1
@@ -94,3 +94,10 @@ does not alter any SDK-client or emulator deadline. Current source09c66e04 has
 identical executable inputs. Android build and fresh SDK-record2 runtime
 qualification remain pending. Earlier record1 runtime cohorts retain their
 original passes or failures and cannot gain new metrics.
+
+The [owned-lifetime follow-up](ANDROID_OWNED_LIFETIME_VERIFICATION_2026-10-26.md)
+actually runs native10 against frozen source9ff29c6b with84 clean measured-v2
+client records, after1335 host tests and259 executed JVM tests pass. It does not
+qualify external process death or a timeout-cause fix. Concurrent upstream
+merges change mapped inputs and the Android build graph, so current-main
+build/native/external qualification needs separate fresh evidence.

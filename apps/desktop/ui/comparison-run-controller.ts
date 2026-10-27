@@ -419,6 +419,27 @@ export class ComparisonRunController {
         owner.operation = next.operation_id;
         owner.protocol = next.protocol_version;
     }
+    private bindCatalog(owner: Owner, catalog: Catalog): void {
+        if (catalog.input_lane !== owner.transport.mode ||
+            (owner.protocol !== null && catalog.protocol_version !== owner.protocol))
+            throw Error("ComparisonRunWire");
+        const rows = catalog.runs.filter((row) => owner.runId !== null
+            ? row.run_id === owner.runId
+            : owner.client !== null && row.client_id === owner.client);
+        if (!rows.length) return;
+        if (rows.length !== 1) throw Error("ComparisonRunWire");
+        const row = rows[0];
+        if ((owner.client !== null && row.client_id !== owner.client) ||
+            (owner.kind !== null && row.comparison_kind !== owner.kind) ||
+            (owner.protocol !== null && row.protocol_version !== owner.protocol))
+            throw Error("ComparisonRunWire");
+        // A lost admission/open acknowledgement may not have supplied a token
+        // yet. Matching native metadata already fixes this owner's protocol.
+        owner.client = row.client_id;
+        owner.runId = row.run_id;
+        owner.kind = row.comparison_kind;
+        owner.protocol = row.protocol_version;
+    }
     private async ownedCall(
         owner: Owner,
         action: Action,
@@ -479,8 +500,7 @@ export class ComparisonRunController {
                             (run) => run.run_id === owner.runId,
                         );
                         if (!metadata) throw Error("UnknownEvaluationRun");
-                        owner.client = metadata.client_id;
-                        owner.kind = metadata.comparison_kind;
+                        this.bindCatalog(owner, catalog);
                     }
                     if (!owner.client) return;
                     this.bind(
@@ -923,8 +943,7 @@ export class ComparisonRunController {
                 const value = await this.call("catalog", {});
                 if (live()) {
                     const catalog = this.transport.catalog(value);
-                    if (this.current?.protocol !== null && this.current?.protocol !== undefined &&
-                        this.current.protocol !== catalog.protocol_version) throw Error("ComparisonRunWire");
+                    if (this.current) this.bindCatalog(this.current, catalog);
                     this.patch({ catalog });
                 }
             }

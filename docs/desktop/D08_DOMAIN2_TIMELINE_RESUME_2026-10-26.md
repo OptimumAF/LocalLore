@@ -101,3 +101,38 @@ must retain its original source attribution. No hidden Domain2 Timeline/Fork UI,
 timeline-context behavior, schema, permission, Android decoder or shared memory
 maintenance changes are included. Android parity, physical phones, model quality,
 packaging, release and whole-milestone acceptance remain separate.
+
+## Current-main integration and native oracle
+
+The prepared packet is now reconciled onto accepted main
+`3f75b5d673512b165e18b2b1e34d3deafc69067a` in the separate integration branch.
+The three original commits were imported without conflict as `4a9cc55e`,
+`88924c2a` and `93c9c55f`. The frozen checker and helper implementation are
+unchanged by reconciliation. The RED/GREEN measurements above remain attributed
+to their original sources; no new integrated check has run at this handoff.
+
+Current main adds Host StoryTemplate/CreateNamed and exact named-story creation.
+Those operations do not replace resume, author correction or player snapshots.
+Database schema remains5 and no SQL migration is introduced by this packet.
+The Main author `openChild` callback, gameplay Controller and AuthorController
+retain the same interfaces; native comparison integration is preserved.
+
+The existing author native journey already awaits the actual Main-bound
+`author.openConfirmed()`. Its older assertion checked the loaded V2 head only
+after changing view, which could clear the false author error. A new assertion
+now runs immediately after that await and before any view/lens change. It requires
+author error=null, selected child scope/head2 and the exact Domain2 thin
+scope/head2 with play=null. It uses no replacement resume or native response.
+The existing `author-native-saved` and `author-native-history` captures remain:
+the latter records coherent selected-child identity, empty author error, actual
+neutral correction marker and inherited message provenance. Capture labels and
+the initial15/restart2 image allocation do not change.
+
+`author-harness.mjs` now includes `ui/timeline-controller.ts` in both its pre-build
+and final source-hash inventories. Root must run the existing author harness on
+a frozen clean integrated source with its approved isolated artifact/target
+directories, inspect all produced images and semantic snapshots, retain bounded
+stderr/errors and verify normal frontend/native restoration afterward. This is
+a fixed synthetic native/Store/WebView journey, not real-model or Android proof.
+The new native assertion and hash additions are source-only and unexecuted;
+they do not retroactively strengthen the historical native cohort.

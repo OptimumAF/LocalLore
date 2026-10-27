@@ -760,7 +760,7 @@ export function V2PlayPanel({
                             Original route:{" "}
                             {(state.pending ?? state.uncertain)!.request.intent
                                 .kind === "free_text"
-                                ? "local model request"
+                                    ? "free-text provider request"
                                 : `typed fixture · ${(state.pending ?? state.uncertain)!.mode}`}
                             . Current composer controls do not replace this
                             request.

@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { randomUUID, createHash } from "node:crypto";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
+if (process.argv.length !== 2) throw Error("ClosedAuthorHarnessArgumentsRequired");
 const base = process.env.LOCALLORE_M07_MEMORY_ARTIFACT_ROOT;
 const target = process.env.LOCALLORE_M07_MEMORY_TARGET_DIR;
 async function ownedDirectory(value) {
@@ -51,17 +52,23 @@ Object.assign(process.env, {
 });
 let runNumber = 0;
 async function run(command, args, env = {}) {
+    await unchangedSource();
+    if (command === executable) await unchangedProducts();
     const log = `run-${++runNumber}`;
+    const started = new Date().toISOString();
     const bounded = { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
     let truncated = false,
         timedOut = false;
+    const inherited = { ...process.env };
+    for (const key of Object.keys(inherited))
+        if (key.startsWith("LOCALLORE_") && /HARNESS|TEST_|ARTIFACT_DIR/.test(key)) delete inherited[key];
     const result = await new Promise((resolve) => {
         const child = spawn(command, args, {
             cwd: root,
             stdio: ["ignore", "pipe", "pipe"],
             windowsHide: true,
             shell: false,
-            env: { ...process.env, ...env },
+            env: { ...inherited, ...env },
         });
         for (const channel of ["stdout", "stderr"])
             child[channel].on("data", (chunk) => {
@@ -101,10 +108,13 @@ async function run(command, args, env = {}) {
         );
     await writeFile(
         path.join(folder, `${log}-process.json`),
-        JSON.stringify({ ...result, truncated, timedOut }, null, 2),
+        JSON.stringify({ ...result, truncated, timedOut, sourceRevision,
+            started, ended: new Date().toISOString() }, null, 2),
         { flag: "wx" },
     );
     console.log(`${log}: exit ${result.code}; bounded logs retained`);
+    await unchangedSource();
+    if (command === executable) await unchangedProducts();
     if (result.code !== 0 || timedOut || truncated)
         throw Error(`AuthorHarnessChildFailure:${log}`);
 }
@@ -125,6 +135,12 @@ const startInputSHA256 = Object.fromEntries(
             "ui/author-native-journeys.ts",
             "ui/author-controller.ts",
             "ui/timeline-controller.ts",
+            "ui/App.tsx",
+            "ui/controller.ts",
+            "ui/memory-inspection-context.ts",
+            "ui/memory-inspection-model.ts",
+            "ui/memory-inspection-controller.ts",
+            "ui/MemoryInspectionPanel.tsx",
             "ui/AuthorPanel.tsx",
             "ui/broker-retention.ts",
             "ui/v2-play-controller.ts",
@@ -133,6 +149,8 @@ const startInputSHA256 = Object.fromEntries(
             "src-tauri/src/author_commands.rs",
             "../../crates/locallore/src/inference.rs",
             "../../Cargo.lock",
+            "package.json",
+            "package-lock.json",
         ].map(async (file) => [
             file,
             createHash("sha256")
@@ -141,6 +159,21 @@ const startInputSHA256 = Object.fromEntries(
         ]),
     ),
 );
+async function currentHashes(files) {
+    return Object.fromEntries(await Promise.all(files.map(async file => [file,
+        createHash("sha256").update(await readFile(path.isAbsolute(file) ? file : path.join(root, file))).digest("hex")])));
+}
+async function unchangedSource() {
+    if ((await git("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim() !== sourceRevision
+        || (await git("git", ["status", "--porcelain"], { cwd: root })).stdout.trim()
+        || JSON.stringify(await currentHashes(Object.keys(startInputSHA256))) !== JSON.stringify(startInputSHA256))
+        throw Error("AuthorHarnessSourceChanged");
+}
+let builtProducts = null;
+async function unchangedProducts() {
+    if (!builtProducts || JSON.stringify(await currentHashes(["dist/app.js", executable])) !== JSON.stringify(builtProducts))
+        throw Error("AuthorHarnessProductChanged");
+}
 await writeFile(
     path.join(folder, "source-manifest.json"),
     JSON.stringify(
@@ -160,6 +193,8 @@ await writeFile(
     ),
     { flag: "wx" },
 );
+if (sourceDirty) throw Error("CleanCommittedAuthorSourceRequired");
+try {
 await run(process.execPath, ["build.mjs", "--harness"]);
 await run("cargo", [
     "build",
@@ -172,6 +207,10 @@ await run("cargo", [
     "--target-dir",
     targetRoot,
 ]);
+builtProducts = await currentHashes(["dist/app.js", executable]);
+await writeFile(path.join(folder, "product-manifest.json"), JSON.stringify({
+    sourceRevision, productSHA256: builtProducts,
+}, null, 2), { flag: "wx" });
 const labels = {
     initial: [
         "consent",
@@ -345,6 +384,8 @@ const inputSHA256 = Object.fromEntries(
         ]),
     ),
 );
+await unchangedSource();
+await unchangedProducts();
 inputSHA256["<native-target>/debug/locallore-desktop-spike.exe"] = hash(
     await readFile(executable),
 );
@@ -376,3 +417,14 @@ await writeFile(
 console.log(
     `AUTHOR NATIVE PASS: ${checks.size} distinct assertions,17 app-owned captures; local artifacts: ${folder}`,
 );
+} catch (error) {
+    await writeFile(path.join(folder, "failure-observation.json"), JSON.stringify({
+        sourceRevision, passed: false, ended: new Date().toISOString(),
+        error: String(error.message).slice(0, 500),
+        terminalSourceRevision: (await git("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim(),
+        terminalDirty: (await git("git", ["status", "--porcelain"], { cwd: root })).stdout.trim(),
+        terminalSourceSHA256: await currentHashes(Object.keys(startInputSHA256)).catch(e => ({ error: String(e.message).slice(0, 160) })),
+        terminalProductSHA256: builtProducts ? await currentHashes(["dist/app.js", executable]).catch(e => ({ error: String(e.message).slice(0, 160) })) : null,
+    }, null, 2), { flag: "wx" });
+    throw error;
+}

@@ -1074,16 +1074,16 @@ export async function authorNativeJourneys({
                 exactEventMatchClaim: false,
             });
             await capture("author-native-v2-receipt-prior-seed");
-            const original = await v2.readQuery({
+            const inheritedHistory = await v2.readQuery({
                 view: "history",
                 atRevision: 3,
                 search: "",
             });
             check(
-                !!original,
+                !!inheritedHistory,
                 "actual-current-bound-history-ready-for-inherited-source-link",
             );
-            const inherited = original!.page.rows.find(
+            const inherited = inheritedHistory!.page.rows.find(
                 (row) =>
                     row.kind === "event" &&
                     row.event.scope.story === parent.story &&

@@ -246,3 +246,106 @@ are excluded from public Git. A fresh read-only runtime admission verifies the
 corrected host/build/source bindings and the existing server without changing
 its lifecycle. No new emulator instrumentation or model result is claimed at
 this checkpoint; the fixed native10 and player-setup8 phases remain pending.
+
+## Corrected emulator execution and terminal preservation — 2026-10-27
+
+The corrected841-input source now passes both fixed phases in separate fresh
+owned API35 Google APIs/x86_64 guests,2GiB RAM/two CPUs each. Root prepares and
+plans both before launching either; continuous same-tool readiness-to-dispatch
+uses the actual live owner handle. Each phase retains the existing850-second SDK
+session/900-second verification owner/180-second class caps, measured-v2 client
+requirements and one-shot guest admission. No source, dependency, roster or
+deadline is changed to obtain these results.
+
+| Fixed phase | Classes / methods | Complete SDK2 pairs | Owner elapsed / worker | Maximum SDK / observer elapsed |
+|---|---|---|---|---|
+| `components` |3 /10 |90 (29 SDK,61 observers) |254261ms /0 |10501ms /3049ms |
+| `player-setup` |3 /8 |93 (30 SDK,63 observers) |268917ms /0 |17463ms /2467ms |
+
+Both actual phase handles terminate0. Their original owner records report known
+cleanup/capture,18 stdout bytes and0 stderr bytes. Exact source method rosters,
+runner frames and matching SDK raw copies pass worker, parent and independent
+file-only readback. All183 client/observer pairs are current measured-v2,
+complete and clean; each SDK call has matching pinned-listener observations
+before and after. These timings are diagnostics, not phone performance or a
+general timeout-cause claim. The841-input map and three corrected APK bindings
+match before/after/current source and the deeply validated build-v2 records.
+
+The eight new methods exercise strict native setup wire fields/hashes/name,
+explicit review before Create, retained actions, invalid/busy states, native
+failure without fallback, Cancel preserving the selected library/play draft,
+and configured creation plus ordinary Activity reopen retaining the stored
+player name. These real Compose/MainActivity/JNI checks use scripted inference.
+They do not kill the OS process, qualify a real model or prove joined drain.
+The legacy creation19, chooser7, broad89 and external-controller rosters remain
+unchanged and require their own current-source cohorts.
+
+Root stops only each exact owned guest after its verification clients have
+known terminal capture/cleanup. Both stop helpers and original guest handles
+actually return0. Their guest owners record `stop_requested`,worker1,
+cleanup/capture/closure true, no guest-flush claim, elapsed287467/342171ms and
+exact proposal-bound stops. Original guest stderr1085/1084 bytes is retained;
+it is separate from the verification owners'0-byte stderr. The second guest is
+launched only after the first closes.
+
+The reviewed final helper executes once after both closures and passes: one
+matching observation of the existing server,0 device calls and no server
+lifecycle operation. The new raw-bound preflight inventory contained0 protected
+emulator identities; no inherited comparison to older processes is claimed.
+The server is deliberately left available. The2827-byte final-postflight file
+has SHA256
+`f4b6d9cf6e903c86816047659908f7534e3b452f212a51739bfddb1f6fa127c5`.
+
+Independent terminal audit seals450 existing originals plus1 derived assessment,
+451 entries/1397812 bytes, into a new create-only C: recovery set. Independent
+second replay and Root replay verify every original/copy/ZIP member, with0
+missing files or mismatches. Its154147-byte index has SHA256
+`91963035900e1d2cfcf436facef7b67230ce2c07c00a2c7d22f6a043efcf35ad`;
+the493727-byte ZIP has SHA256
+`efdd3cb67ab5564c2999ed546364f517c512e7448bd0d668fa3912e565e38155`.
+The corrected host/build seal stays unchanged and is referenced by index rather
+than duplicating its APK payloads. Recovery includes exact raw SDK2/runner,
+request/source/build bindings, owners, preparation/STOP/INI/closure records,
+helpers and explicitly derived coordination/audit records. It excludes images,
+models, saves, DBs, live service logs and unknown subtrees. Feature acceptance
+remains false in these private seals because full task/owner acceptance is open;
+this does not relabel the successful fixed tests as failed executions.
+
+Only the native phase's existing device-list capture is assessed for phone
+availability: one authorized explicit SDK-emulator profile, no physical
+candidate established in that capture. This is neither a fresh hardware
+admission nor a claim that a connected phone is absent. M01.01/M01.02 physical
+identity/performance remain blocked on a freshly established eligible device.
+
+### Executed checks and reproducibility
+
+Commands below abbreviate the pinned executable paths; private requests and
+original command captures retain the exact arguments, environment and bindings.
+Rust package owners use actual1.93.1 Cargo/Rustc/Rustdoc executables, offline
+mode/two build jobs and unchanged600-second ceilings. Python is3.14.7; Android
+uses JDK21,Gradle8.11.1,AGP8.10.1,NDK29.0.14206865 and SDK/build-tools35.
+
+| Command or fixed procedure actually executed | Outcome |
+|---|---|
+| `cargo test --locked --offline -p locallore --all-features` |428 pass/4 ignored |
+| `cargo test --locked --offline -p locallore-storage --all-features` |239 pass/6 ignored |
+| `cargo test --locked --offline -p locallore-workspace --all-features --features locallore-storage/development-fixtures` |150 pass/1 ignored |
+| `cargo +1.93.1 clippy --locked --offline -p locallore -p locallore-storage -p locallore-workspace --all-targets --all-features -- -D warnings` |Pass |
+| Full Python `unittest` discovery of `scripts/tests/test_*.py` |1485 pass/0 failures/errors/skips |
+| `node verify-frontend.mjs` and pinned Prettier checks in `apps/desktop` |Pass |
+| Fixed offline Android build worker: controller clean, app JVM test clean/test, both lints, product/test/controller assembly,11 artifact audits |274 JVM pass/32 suites;0 lint errors/3 existing warnings;11 audits pass |
+| `python -I -B benchmarks/android_process_verification.py components` with exact current build/proposal/running/server inputs |10 methods pass |
+| `python -I -B benchmarks/android_process_verification.py player-setup` with its distinct guest and same corrected build |8 methods pass |
+| Exact proposal-bound owned stops, reviewed final postflight, independent terminal audit and original/copy/ZIP replays |Pass |
+
+No test results from the earlier834-input starter packet or pre-reference841
+checkpoint are promoted to this source. Later public commits update only this
+report/README; executable source remains02c91f92 and the corrected841-input map
+above. GitHub Issues retain task status and handoffs; the retired Markdown
+trackers remain pointers. This M09.02 slice/supporting M09.03/M09.06 is locally
+verified/in review, with full checkboxes unchanged. Owner acceptance/merge,
+broader authoring, accessibility, physical/model/ARM64, current-source OS-death
+and joined-drain gates remain open. Next runnable verification: current841
+legacy creation19 and broad89 in fresh owned guests; then the corresponding
+current-source lifecycle controls. No merge, release, persistent setting change,
+unrelated-emulator stop or private upload is performed.

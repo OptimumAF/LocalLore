@@ -23,8 +23,9 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 The [initial player-name setup](docs/native/ANDROID_PLAYER_SETUP_2026-10-26.md)
 adds an editable name and explicit native review before creating a story.
-Its report distinguishes implemented behavior, checks actually run and pending
-Android/device qualification. Broader authoring remains in the milestone scope.
+Its report records host/build checks and scripted native/player-setup execution
+in two fresh emulators. Physical-model qualification and broader authoring remain
+in the milestone scope.
 
 The [original starter choice](docs/native/ANDROID_STARTER_CHOICE_2026-10-26.md)
 adds explicit selection of Lantern Quay fantasy rules or the original Bracken

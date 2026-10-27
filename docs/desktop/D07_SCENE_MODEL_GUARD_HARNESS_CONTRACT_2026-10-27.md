@@ -116,3 +116,51 @@ No approved-asset hash observation substitutes for the before-reap sentinel test
 No inference/offline/security/Android/human-quality or whole milestone approval
 follows. Parent owns later registration/reproducible commands and exact results;
 the source author runs no heavy/runtime operation.
+
+## Source implementation handoff and API calibration
+
+The three new source files implement this closed plan without touching existing
+production/registration. They remain **UNCOMPILED/UNRUN**. Root registration is
+still required before any application test or cfg(test) matrix can exist in the
+native binary. The Node runner requires existing ordinary
+LOCALLORE_SCENE_MODEL_GUARD_ARTIFACT_ROOT and
+LOCALLORE_SCENE_MODEL_GUARD_TARGET_DIR and accepts no arguments. It overrides
+all model/publication env inputs with its fresh sentinel-only sibling root.
+Its one app stage produces report.json only, no pixel/render proof. Native
+input inventory is one ordinary file of at most1KiB per root; output uses the
+existing256KiB harness report cap. The launcher retains source/product hashes,
+direct-child logs and known-close normal-build restoration without launching
+normal products. Root chooses one serialized target after independent review.
+
+Source calibration before implementation: existing ModelManager.import handles
+internal picker-None Cancelled by returning its ordinary status with
+phase=unloaded, loaded/resident=false and error=null; it does not expose a public
+cancelled phase. Therefore the counterfactual requires those actual fields,
+exactly one picker call after the control sentinel has vanished, an empty control
+inventory and byte-identical publication inventory. The first contract's
+"Cancelled status" refers to that internal outcome, not a new public DTO. No
+model is loaded and no approved file is created. This is not a measured result.
+
+The fixed Windows matrix has14 finite child cases, including an old-mode D04
+root-precedence control. The parent launches its exact
+existing libtest binary/test name with CREATE_NO_WINDOW and per-child env; no
+set_var or existing parallel-test environment changes occur. Each child has a
+new tiny private fixture. It bounds each pipe at64KiB, waits at most30s plus5s
+for owned process/reader termination, stops later cases on uncertainty and records
+8.3 unavailable explicitly. The case-alias oracle is required even if8.3 names
+are unavailable. None of these children calls model import/load or opens an app.
+Read-only GetShortPathNameW is used only on the new synthetic nested directory.
+
+After registration, Root can run (existing offline cache/owned target):
+
+```powershell
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-harness --locked --offline --jobs 1 --target-dir $ownedTarget scene_model_guard_harness::tests::root_protocol_matrix_uses_isolated_fixed_children_without_parent_environment_mutation -- --nocapture
+# From apps/desktop with the two existing ordinary roots configured:
+node scene-model-guard-harness.mjs
+```
+
+Keep actual case-alias baseline failure, production correction and unchanged
+rerun separately attributable. No Node/Cargo/formatter/compiler/test/app/model,
+approved-publication/asset read or desktop/device operation was performed by
+the source author. Source/API/Git/whitespace/hash checks only are author evidence;
+Root owns source review, compilation/calibration and all later execution.

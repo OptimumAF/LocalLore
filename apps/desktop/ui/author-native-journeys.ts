@@ -667,11 +667,13 @@ export async function authorNativeJourneys({
                 expectedChild = { ...parent, branch: "author-saved" };
             check(
                 a.get().error === null &&
-                    structural(selectedChild?.scope) === structural(expectedChild) &&
+                    structural(selectedChild?.scope) ===
+                        structural(expectedChild) &&
                     selectedChild?.revision === 2 &&
                     opened.play === null &&
                     opened.playV2?.domain_version === 2 &&
-                    structural(opened.playV2.scope) === structural(expectedChild) &&
+                    structural(opened.playV2.scope) ===
+                        structural(expectedChild) &&
                     opened.playV2.revision === 2,
                 "confirmed-child-resume-proof-has-no-false-author-error-before-view-change",
             );

@@ -348,10 +348,7 @@ fn actual_core_capture_covers_both_recipes_presentation_repair_and_fallback() {
                     let after = s.after.clone();
                     let reply = s.reply.clone();
                     let recordings = serde_json::to_value(&s.recordings).unwrap();
-                    let checked = s
-                        .gate()
-                        .ok()
-                        .expect("actual complete Core capture must pass");
+                    let checked = s.gate().expect("actual complete Core capture must pass");
                     assert_eq!(checked.version(), 1);
                     assert_eq!(checked.director_calls(), 1 + u8::from(repair));
                     assert_eq!(checked.fallback(), fallback);
@@ -758,7 +755,6 @@ fn director_envelope_only_and_raw_output_authentication_limits_are_explicit() {
     // smallest gate binds Narrator source only; Director is envelope-only.
     let checked = changed
         .gate()
-        .ok()
         .expect("Director source authentication is outside V1");
     let actual = original.gate().ok().unwrap();
     assert_eq!(

@@ -239,12 +239,12 @@ export class CaptureController {
                 key,
                 (this.closingSessions.get(key) ?? 0) + 1,
             );
-            if (this.session && this.sessionKey(this.session) === key) {
-                // Existing context retirement clears private data immediately
-                // and queues its revocation before the Host close below.
-                this.contextChanged(null, 0, false, null);
-            }
             try {
+                if (this.session && this.sessionKey(this.session) === key) {
+                    // Existing context retirement clears private data immediately
+                    // and queues its revocation before the Host close below.
+                    this.contextChanged(null, 0, false, null);
+                }
                 await this.control(work);
             } finally {
                 const remaining = (this.closingSessions.get(key) ?? 1) - 1;

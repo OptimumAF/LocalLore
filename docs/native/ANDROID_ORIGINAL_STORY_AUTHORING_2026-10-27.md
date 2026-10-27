@@ -81,6 +81,35 @@ attempt and fixes only the test: the C: refusal is exact, and a mocked existing
 D: candidate must raise FileExistsError before any owner bytes are written.
 No D: filesystem operation or production guard change is introduced.
 
+The final `2ef0f5f4` host cohort passes976 Rust tests (including3 standalone
+native-linker cases),11 ignored,1,716 Python tests,305 app JVM cases and569
+LiteRT JVM cases. Formatting, default/all-feature Clippy, fixture-output checks,
+lints and audits pass. Its native10 phase also passes. Original-story8 actually
+fails: wire3/dialog2 pass, while all3 MainActivity cases fail. The first times out
+after Create; subsequent startup reports recovery required. No end-to-end
+original-story success is claimed for that source. Both exact owned guests are
+requested-stopped after known client closure;7 metadata files per guest are
+copied to C: with0 mismatch. The separate resource postflight passes with the
+existing server unchanged; that does not turn the failed app phase into a pass.
+
+The failure is a production gateway assumption: native original worlds assign
+player IDs such as `a-{prefix}-0`, while DurableGateway requires literal
+`player` in the fixed native player snapshot. Post-create inspection fails and
+later startup hits the same assumption. The correction accepts a bounded native
+observer ID, binds it to the attached session/scope and retains response scope/
+revision checks. Semantic `player` lens labels in record/fork contracts remain
+unchanged. Three focused binding JVM cases actually pass on `f723f2db`
+(31,272ms owner,1,997 unchanged inputs); full integration remains pending.
+
+Independent source review then identifies aliasing/overlap cases at the abstract
+transport boundary, without claiming executed JNI failures. A fresh attachment
+token now fences attach/detach/close and immutable captured scope values. Final
+publication atomically rechecks the current observer binding under the same
+metadata lock; no native call or suspension occurs under that lock. The existing
+Wire method gains deferred same-object/same-session reattachment and overlapping
+conflicting-observer cases; the8-method roster and15-second UI wait are unchanged.
+A fresh full build/host and native/original emulator cohort must verify this fix.
+
 Review identifies a real recovery design race: looking up a completed authored
 seed and then calling insert-or-retry could resurrect it after another Store
 deleted it. Recovery is changed to read-only Engine load/presence/full-seed

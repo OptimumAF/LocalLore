@@ -212,20 +212,29 @@ export function ComparisonReaderPanel({
                     )}
                     {s.summary && (
                         <>
-                            <p>
-                                <strong>
-                                    {s.summary.report.kind ===
-                                    "paired_snapshots"
-                                        ? "Paired snapshots"
-                                        : "Continuous rollout"}
-                                </strong>{" "}
-                                · {s.summary.report.lane} ·{" "}
-                                {s.summary.report.completed
-                                    ? "Completed"
-                                    : "Partial"}{" "}
-                                · {s.summary.report.completed_scenes} completed
-                                scenes
-                            </p>
+                            <header
+                                className="comparison-report-context"
+                                aria-label="Report context"
+                            >
+                                <p>
+                                    <strong>
+                                        {s.summary.report.kind ===
+                                        "paired_snapshots"
+                                            ? "Paired snapshots"
+                                            : "Continuous rollout"}
+                                    </strong>{" "}
+                                    · {s.summary.report.lane} ·{" "}
+                                    {s.summary.report.completed
+                                        ? "Completed"
+                                        : "Partial"}{" "}
+                                    · {s.summary.report.completed_scenes}{" "}
+                                    completed scenes
+                                </p>
+                                <p>
+                                    Read-only cached report · Protocol{" "}
+                                    {s.summary.report.version} · observer {lens}
+                                </p>
+                            </header>
                             {s.summary.report.version !== 2 && (
                                 <>
                                     <p>

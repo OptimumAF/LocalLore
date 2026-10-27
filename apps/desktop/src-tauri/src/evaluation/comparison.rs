@@ -877,4 +877,6 @@ impl EvaluationManager {
 #[cfg(test)]
 mod literal_read_review;
 #[cfg(test)]
+mod scene_read_review;
+#[cfg(test)]
 mod tests;

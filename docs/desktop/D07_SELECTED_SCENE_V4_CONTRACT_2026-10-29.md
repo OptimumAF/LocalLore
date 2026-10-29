@@ -332,3 +332,26 @@ cleanup of new failed fixtures or accumulated evidence. No model, Android/SDK,
 emulator, targeted OS or desktop-control experiment is admitted by this document.
 Later desktop wiring must keep its current selected4-unavailable state until its
 own contract, independent tests, actual IPC/render checks and review are accepted.
+
+## Source-fixture construction clarification before FIRST freeze
+
+The public Scene4 full-run entry accepts one LaneFactory for both arms. Existing
+scripted and TestFault factories therefore cannot use that entry alone to produce
+deterministic asymmetric rollout histories. This is a fixture construction gap,
+not a selected-execution result and not permission to fabricate report authority.
+
+For the divergent-source fixture only, the independent test author may drive the
+existing private Scene4 Session4 / execute_turn4 / scene_data4 / finish path, as
+the accepted selected2 review fixture already does for its own source protocol.
+Use the existing TestFault::WrongCommand for the first left-arm turn only and
+ScriptedBaseline for all other turns. Actual Host/Store execution, checkpoints,
+ledger settlement, scene seal and final strict inspection must establish that
+source. Assert the failed turn's unchanged head/no receipt and the other arm's
+actual accepted prefix; do not write invented report, request, Store or Engine
+state. No new provider, source-production seam or production behavior is needed.
+
+Label this private-driver source fixture separately from public full-run source
+fixtures. All selected3 prepare/run/resume/inspect/read behavior under review
+still goes through the proposed public selected3 functions and opaque handles.
+This clarification changes only the permitted test-source construction, with the
+same owned new FIRST file, source-only authoring and later Root runtime admission.

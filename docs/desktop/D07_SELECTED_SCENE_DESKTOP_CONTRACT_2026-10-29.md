@@ -494,3 +494,13 @@ integration; disjoint native/frontend production paths follow independent test
 freeze. Source authors keep each new contribution below1MiB on physical D and
 preserve the current shared gate's original failed/qualified packets unchanged.
 This acceptance does not enable the UI, accept the later adapter or close D07.
+
+### Decoder versus controller immutability precision before FIRST freeze
+
+Existing standalone selected decoders return detached mutable DTO copies; an
+accepted selected2 regression intentionally mutates its detached copy. Preserve
+that behavior for V1/V2 and use the same detached-copy convention for V3. The
+frozen-record requirement above applies to the controller's recursively frozen
+published state, not a new standalone decoder freeze. FIRST must distinguish
+decoder detachment from immutable controller publication, preserving both owners
+without changing old tests or adding a special V3-only freeze rule.

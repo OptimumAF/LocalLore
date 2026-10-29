@@ -355,10 +355,7 @@ fn harness_reopen(
 fn main() {
     // Refuse malformed retained-review requests before any workspace/model setup.
     #[cfg(feature = "dev-harness")]
-    if std::env::var("LOCALLORE_TEST_RESTART").is_ok_and(|stage| {
-        stage == "review"
-            || (comparison_run_native_harness::scene_requested() && stage != "0" && stage != "1")
-    }) {
+    if comparison_run_native_harness::review_requested() {
         let valid = comparison_run_native_harness::review_active()
             && std::env::var_os("LOCALLORE_TEST_WORKSPACE").is_some_and(|path| {
                 comparison_run_native_harness::review_webview_profile(&std::path::PathBuf::from(

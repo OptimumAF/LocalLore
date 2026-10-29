@@ -464,10 +464,18 @@ fn fixed_review_profile_case_child() {
         "helpers must not create, write or remove files: {case}"
     );
     if ADDITIONAL_CASES.contains(&case.as_str()) {
-        assert!(review_requested(), "requested review must be detected before setup even when invalid");
+        assert!(
+            review_requested(),
+            "requested review must be detected before setup even when invalid"
+        );
         if case == "non-unicode-restart-stage" {
-            assert!(matches!(std::env::var("LOCALLORE_TEST_RESTART"),
-                Err(std::env::VarError::NotUnicode(_))), "actual child stage is present and non-Unicode");
+            assert!(
+                matches!(
+                    std::env::var("LOCALLORE_TEST_RESTART"),
+                    Err(std::env::VarError::NotUnicode(_))
+                ),
+                "actual child stage is present and non-Unicode"
+            );
         }
         if case == "disabled-other-harness" {
             assert!(active, "only a nonzero unrelated harness conflicts");
@@ -478,8 +486,14 @@ fn fixed_review_profile_case_child() {
             assert!(!new_root.join("review").exists());
             assert!(!argument.exists());
         } else {
-            assert!(!active, "conflicting/unknown configuration cannot activate review");
-            assert!(first.is_err() && second.is_err(), "invalid review cannot obtain a profile");
+            assert!(
+                !active,
+                "conflicting/unknown configuration cannot activate review"
+            );
+            assert!(
+                first.is_err() && second.is_err(),
+                "invalid review cannot obtain a profile"
+            );
         }
         println!("fixed-retained-review-profile-case:{case}:pure");
         return;
@@ -525,8 +539,10 @@ fn fixed_review_profile_case_child() {
 
 #[test]
 fn retained_review_absence_rejects_present_metadata_without_a_filesystem_probe() {
-    assert!(review_absence_from_metadata(Ok(())).is_err(),
-        "a present entry is never an absent workspace/profile, regardless of target resolution");
+    assert!(
+        review_absence_from_metadata(Ok(())).is_err(),
+        "a present entry is never an absent workspace/profile, regardless of target resolution"
+    );
 }
 
 #[test]
@@ -542,7 +558,9 @@ fn retained_review_absence_accepts_only_not_found_classification() {
         io::ErrorKind::TimedOut,
         io::ErrorKind::Other,
     ] {
-        assert!(review_absence_from_metadata(Err(io::Error::from(kind))).is_err(),
-            "metadata error {kind:?} is not proof of absence");
+        assert!(
+            review_absence_from_metadata(Err(io::Error::from(kind))).is_err(),
+            "metadata error {kind:?} is not proof of absence"
+        );
     }
 }

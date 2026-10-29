@@ -42,7 +42,40 @@ pub fn scene_active() -> bool {
 }
 /// Closed render-only stage; this does not grant execution or choose a protocol.
 pub fn review_active() -> bool {
-    scene_active() && std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("review")
+    scene_active()
+        && std::env::var_os("LOCALLORE_TEST_RESTART").is_some_and(|stage| stage == "review")
+        && !std::env::vars_os().any(|(key, value)| {
+            let key = key.to_string_lossy();
+            let other_harness = key.starts_with("LOCALLORE_")
+                && key.ends_with("_HARNESS")
+                && !matches!(
+                    key.as_ref(),
+                    "LOCALLORE_D02_HARNESS"
+                        | "LOCALLORE_D07_FULL_COMPARISON_HARNESS"
+                        | "LOCALLORE_D07_NATIVE_FULL_HARNESS"
+                        | "LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS"
+                );
+            let other_test = key.starts_with("LOCALLORE_TEST_")
+                && !matches!(
+                    key.as_ref(),
+                    "LOCALLORE_TEST_MEMORY" | "LOCALLORE_TEST_RESTART" | "LOCALLORE_TEST_WORKSPACE"
+                );
+            (other_harness || other_test) && !value.is_empty() && value != "0"
+        })
+}
+
+/// Detect unsupported Scene4 stages even when their Windows value is not UTF-8.
+pub fn review_requested() -> bool {
+    std::env::var_os("LOCALLORE_TEST_RESTART").is_some_and(|stage| {
+        stage == "review" || (scene_requested() && stage != "0" && stage != "1")
+    })
+}
+
+fn review_absence_from_metadata(result: std::io::Result<()>) -> Result<(), String> {
+    match result {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Ok(()) | Err(_) => Err("Forbidden".into()),
+    }
 }
 
 /// Return a fresh profile address without creating any source/output files.
@@ -61,9 +94,7 @@ pub fn review_webview_profile(workspace: &Path) -> Result<PathBuf, String> {
     }
     let source = checked_parent(workspace)?;
     let _source_pins = pins(source)?;
-    if workspace.try_exists().map_err(|_| "Forbidden")? {
-        return Err("Forbidden".into());
-    }
+    review_absence_from_metadata(std::fs::symlink_metadata(workspace).map(|_| ()))?;
     let artifacts = std::env::var_os("LOCALLORE_D02_ARTIFACT_DIR")
         .map(PathBuf::from)
         .ok_or("Forbidden")?;
@@ -88,13 +119,15 @@ pub fn review_webview_profile(workspace: &Path) -> Result<PathBuf, String> {
     if source.starts_with(&resolved_output) || resolved_output.starts_with(&source) {
         return Err("Forbidden".into());
     }
-    if artifacts.try_exists().map_err(|_| "Forbidden")? {
-        let _artifact_pins = pins(&artifacts)?;
+    match std::fs::symlink_metadata(&artifacts) {
+        Ok(_) => {
+            let _artifact_pins = pins(&artifacts)?;
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err("Forbidden".into()),
     }
     let profile = output.join("webview-profile");
-    if profile.try_exists().map_err(|_| "Forbidden")? {
-        return Err("Forbidden".into());
-    }
+    review_absence_from_metadata(std::fs::symlink_metadata(&profile).map(|_| ()))?;
     Ok(profile)
 }
 pub fn protocol() -> Result<crate::evaluation::FullComparisonProtocol, String> {

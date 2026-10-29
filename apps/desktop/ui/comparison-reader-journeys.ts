@@ -241,7 +241,11 @@ export async function comparisonReaderJourneys({
         if (diagnosticMode) {
             target =
                 document.querySelector<HTMLElement>(
-                    ".comparison-narration-diagnostic, .comparison-evidence, .comparison-selection-context",
+                    ".comparison-narration-diagnostic",
+                ) ??
+                document.querySelector<HTMLElement>(".comparison-evidence") ??
+                document.querySelector<HTMLElement>(
+                    ".comparison-selection-context",
                 ) ??
                 document.querySelector<HTMLElement>(
                     "#comparison-reader .comparison-controls",

@@ -521,3 +521,14 @@ This is not a promise to prevent arbitrary Proxy traps/JavaScript side effects,
 detect duplicate raw JSON keys from an already parsed object, authenticate input
 or replace native/Core permission enforcement. Preserve the old valid-wire tests;
 do not loosen their schemas or rewrite old fixtures to satisfy the new cases.
+
+### Native FIRST negative controls accepted before freeze
+
+Only for the new native FIRST, a negative test may corrupt source_binding in the
+metadata of an actual manager-retained Prepared wrapper while leaving its real
+opaque Core plan, retained native source binding and histories intact. This tests
+the required create-index equality before directory creation; it is trusted native
+metadata fault injection, not renderer authority or a fabricated positive plan.
+Negative cold-index tests may corrupt separate copies of an actual created index,
+preserving those copies. No production seam, altered seed, invented receipt,
+positive index/plan constructor or new model owner is authorized by these controls.

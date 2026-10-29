@@ -216,6 +216,9 @@ def _worker(path, sha):
     output = env.safe_path(request["output"],directory=True)
     _need(output.drive.upper() == "D:" and output.resolve(strict=True) == output and
           not output.is_relative_to(ROOT) and path == output/"request-v1.json","request")
+    cwd = Path.cwd()
+    _need(cwd.drive.upper() == "D:" and cwd.resolve(strict=True) == cwd and
+          all(not os.path.lexists(parent/".git") for parent in (output,*output.parents)),"request")
     _need(env.process_identity(os.getppid()) == request["parent"],"request")
     _check_bindings(request["source_closure"],request["python"])
     bound, admitted = _load_admission(request["admission"]["path"],request["admission"]["sha256"])

@@ -89,6 +89,59 @@ class PlanFixture:
         self.plan[role] = self.g.save(self.plan[role]['path'], value)
 
 
+def inventory_worker_fixture(mutation):
+    """Existing ordinary synthetic inventory; never an executable SDK/model."""
+    g = f.ClosedRestartGraph()
+    sdk = g.base / 'synthetic-sdk'
+    tools = []
+    for old in g.a['server']['tools']:
+        name = Path(old['path']).name
+        data = b'synthetic tool data, never executed\n'
+        if name == 'adb.exe':
+            data += b'ADB_USB\0ADB_EMU\0ADB_MDNS\0'
+        tools.append(g.save(sdk / 'platform-tools' / name, data))
+    tools.sort(key=lambda item: item['path'])
+    g.a['server']['tools'] = tools
+    g.a['server']['adb'] = next(item for item in tools if Path(item['path']).name == 'adb.exe')
+    g.a['server']['source_review'] = g.save(g.base / 'source-review.md', b'Original synthetic metadata only.\n')
+    g.a['compatibility'] = g.save(g.base / 'compatibility.md', b'Original synthetic compatibility metadata.\n')
+    g.a['guest'].update(
+        proposal=g.save(g.base / 'guest-run-proposal.json', {}),
+        authorization=g.save(g.base / 'guest-run-authorization.json', {}),
+        emulator=g.save(sdk / 'emulator/emulator.exe', b'synthetic, not executable'),
+        qemu=g.save(sdk / 'emulator/qemu/windows-x86_64/qemu-system-x86_64-headless.exe', b'synthetic, not executable'),
+        refuser=g.save(g.base / 'deny-adb-client.exe', b'synthetic, not executable'),
+        refuser_source=p.env.binding(p.ROOT / 'benchmarks/native/deny_adb_client.c'))
+    g.a['artifacts']['probe'] = p.env.binding(p.ROOT / 'benchmarks/fixtures/physical_model_probe_v1.txt')
+    caproot = g.base / 'offline-capabilities'
+    outputs = [g.save(caproot / 'command-01.stdout.bin', b'Android Debug Bridge version 1.0.41\nVersion 37.0.1-15733141\n'),
+        g.save(caproot / 'command-02.stdout.bin', b'-L SOCKET server nodaemon ADB_LOCAL_TRANSPORT_MAX_PORT ADB_MDNS_AUTO_CONNECT\n')]
+    watched = outputs[0]
+    if mutation == 'alias':
+        watched = g.save(g.base / 'harmless-secret-alias.bin', b'ordinary synthetic marker, no credentials/model')
+        outputs[0] = watched
+    elif mutation == 'bool_bytes':
+        outputs[0] = dict(outputs[0], bytes=False)
+    elif mutation == 'declared_overcap':
+        outputs[0] = dict(outputs[0], bytes=p.CAP + 1)
+    elif mutation == 'actual_overcap':
+        Path(outputs[0]['path']).write_bytes(b'x' * (p.CAP + 1))
+    else:
+        raise AssertionError('unknown synthetic mutation')
+    rows = [dict(index=index, argv=[g.a['server']['adb']['path'], command],
+        owner=dict(status='completed', elapsed_ms=1, returncode=0, cleanup_complete=True, stderr_bytes=0),
+        stdout=output) for index, command, output in zip((1, 2), ('version', 'help'), outputs)]
+    g.a['server']['capabilities'] = g.save(caproot / 'result-v1.json', dict(version=1, passed=True,
+        offline_CLI_calls=2, server_requests=0, device_calls=0, sources_equal=True, rows=rows))
+    g.d = f.running(g.a)
+    g.s = f.session(g.a)
+    g.s['root'] = str(g.sdk)
+    # Supply a constructed data fixture; no validator verdict is replaced.
+    with patch.object(f, 'ClosedRestartGraph', return_value=g):
+        fixture = PlanFixture()
+    return fixture, watched
+
+
 @unittest.skipUnless(os.name == 'nt', 'physical D file-audit fixtures')
 class ReadObserverTests(unittest.TestCase):
     def observed(self):
@@ -431,6 +484,29 @@ class ProfilePlanTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == 'nt', 'physical D launcher wiring boundaries')
 class ProfileLauncherBoundaryTests(unittest.TestCase):
+    def test_worker_rejects_capability_output_alias_and_bounds_before_asset_hash(self):
+        for mutation in ('alias', 'bool_bytes', 'declared_overcap', 'actual_overcap'):
+            with self.subTest(mutation=mutation):
+                fixture, watched = inventory_worker_fixture(mutation)
+                plan = fixture.g.save(fixture.base / 'profile-plan.json', fixture.plan)
+                output = fixture.base / 'profile-worker'
+                output.mkdir()
+                request = output / 'request-v1.json'
+                p.env.create_json(request, dict(version=1, scope='closed-validation-profile-owner-v1',
+                    plan=plan, sources=p.sources(), output=str(output), repeat=1, seconds=180))
+                actual_check = p.env.check_binding
+                touched = []
+                def guarded(binding):
+                    if binding['path'] == watched['path']:
+                        touched.append(binding)
+                        raise AssertionError('untrusted capability stdout reached unbounded asset hash')
+                    return actual_check(binding)
+                with patch.object(p.sys, 'stdin', type('Input', (), {'buffer': io.BytesIO(p.GO)})()), \
+                     patch.object(p.env, 'check_binding', side_effect=guarded):
+                    with self.assertRaises(ValueError):
+                        p.worker(output, p.env.digest(request))
+                self.assertEqual(touched, [])
+
     def test_repeat_bounds_refuse_before_plan_IO_or_supervisor(self):
         for repeat in (True, False, 0, 4, 1.0):
             with self.subTest(repeat=repeat), patch.object(p, 'pin') as read, patch.object(p.env, 'supervise') as owner:

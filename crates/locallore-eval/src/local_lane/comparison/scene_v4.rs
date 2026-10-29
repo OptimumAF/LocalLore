@@ -6,6 +6,8 @@ use super::*;
 #[cfg(feature = "local-model")]
 mod native;
 #[cfg(test)]
+mod narration_diagnostic_companion_review_tests;
+#[cfg(test)]
 mod noncommit_privacy_review_tests;
 use crate::memory_comparison_v4::{
     self as v4, ArmDescriptorV4, ComparisonArmV4, ComparisonReportV4,

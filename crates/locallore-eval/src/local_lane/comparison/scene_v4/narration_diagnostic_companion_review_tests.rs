@@ -10,7 +10,10 @@ use crate::local_lane::comparison::turn_execution::{
     NarrationDiagnosticTestControlV1 as Control, NarrationDiagnosticTestFaultV1 as Fault,
 };
 use locallore::inspection_query::Observer;
-use std::sync::{atomic::{AtomicU64, Ordering}, OnceLock};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    OnceLock,
+};
 
 const DECLARATION: &str = "narration-diagnostics-v1.json";
 const PRIVATE: &str = "SYNTHETIC-COMPANION-PRIVATE-661";
@@ -19,8 +22,12 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn root(label: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
-        "scene-diagnostic-first-{label}-{}-{}-{}", std::process::id(),
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+        "scene-diagnostic-first-{label}-{}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
         NEXT.fetch_add(1, Ordering::Relaxed),
     ));
     fs::create_dir(&dir).unwrap();
@@ -60,7 +67,11 @@ fn copy(source: &Path, label: &str) -> PathBuf {
             None => fs::create_dir_all(target).unwrap(),
             Some(bytes) => {
                 fs::create_dir_all(target.parent().unwrap()).unwrap();
-                let mut file = OpenOptions::new().write(true).create_new(true).open(target).unwrap();
+                let mut file = OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(target)
+                    .unwrap();
                 file.write_all(bytes).unwrap();
             }
         }
@@ -86,19 +97,41 @@ fn exact_keys(v: &Value, wanted: &[&str]) {
     assert_eq!(keys(v), wanted);
 }
 fn bounded_refusal<T>(result: Result<T>) {
-    let Err(error) = result else { panic!("invalid companion must not become an absence/success") };
+    let Err(error) = result else {
+        panic!("invalid companion must not become an absence/success")
+    };
     assert!(!error.is_empty() && error.len() <= 64);
     assert!(!error.contains(PRIVATE));
 }
-fn run(dir: &Path, resume: bool, scenes: usize, factory: LaneFactory, enabled: bool) -> ComparisonReportV4 {
+fn run(
+    dir: &Path,
+    resume: bool,
+    scenes: usize,
+    factory: LaneFactory,
+    enabled: bool,
+) -> ComparisonReportV4 {
     if enabled {
         run_comparison_with_narration_diagnostics_v1(
-            dir, resume, ComparisonKind::ContinuousRollout, &Cancellation::default(),
-            scenes, factory, None,
-        ).unwrap()
+            dir,
+            resume,
+            ComparisonKind::ContinuousRollout,
+            &Cancellation::default(),
+            scenes,
+            factory,
+            None,
+        )
+        .unwrap()
     } else {
-        run_comparison(dir, resume, ComparisonKind::ContinuousRollout,
-            &Cancellation::default(), scenes, factory, None).unwrap()
+        run_comparison(
+            dir,
+            resume,
+            ComparisonKind::ContinuousRollout,
+            &Cancellation::default(),
+            scenes,
+            factory,
+            None,
+        )
+        .unwrap()
     }
 }
 fn template() -> &'static Path {
@@ -127,23 +160,42 @@ fn cp(dir: &Path, arm: &str, index: usize) -> Value {
 fn observation_path(dir: &Path, arm: &str, index: usize) -> PathBuf {
     let checkpoint = cp(dir, arm, index);
     let admission = checkpoint["row"]["admission"].as_u64().unwrap();
-    dir.join(arm).join(format!("narration-diagnostic-v1-{admission:02}.json"))
+    dir.join(arm)
+        .join(format!("narration-diagnostic-v1-{admission:02}.json"))
 }
 fn row(dir: &Path, arm: &str, index: usize) -> RowId {
-    RowId { turn: cp(dir, arm, index)["request"]["turn"].as_str().unwrap().into(),
-        arm: if arm == "left" { Arm::Left } else { Arm::Right } }
+    RowId {
+        turn: cp(dir, arm, index)["request"]["turn"]
+            .as_str()
+            .unwrap()
+            .into(),
+        arm: if arm == "left" { Arm::Left } else { Arm::Right },
+    }
 }
 fn read(dir: &Path, arm: &str, index: usize) -> Result<Value> {
     let opened = desktop_api::open_read_only(dir)?;
     let summary = desktop_api::summary(&opened, true)?;
     desktop_api::narration_diagnostic_v1(
-        &opened, summary["binding"].as_str().unwrap(), &row(dir, arm, index),
-        Observer::Omniscient, true,
+        &opened,
+        summary["binding"].as_str().unwrap(),
+        &row(dir, arm, index),
+        Observer::Omniscient,
+        true,
     )
 }
 fn response(v: &Value, status: &str, observation: bool) {
-    let mut common = vec!["version", "protocol_version", "kind", "binding", "row", "generation_grant", "status"];
-    if observation { common.push("observation"); }
+    let mut common = vec![
+        "version",
+        "protocol_version",
+        "kind",
+        "binding",
+        "row",
+        "generation_grant",
+        "status",
+    ];
+    if observation {
+        common.push("observation");
+    }
     exact_keys(v, &common);
     assert_eq!(v["version"], 1);
     assert_eq!(v["protocol_version"], 4);
@@ -159,8 +211,10 @@ fn cold_refusal_unchanged(dir: &Path) {
     assert_eq!(inventory(dir), before);
 }
 fn is_companion(relative: &Path) -> bool {
-    relative.file_name().and_then(|n| n.to_str()).is_some_and(|n|
-        n == DECLARATION || n.starts_with("narration-diagnostic-v1-"))
+    relative
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n == DECLARATION || n.starts_with("narration-diagnostic-v1-"))
 }
 #[cfg(feature = "local-model")]
 fn native_cancel_preflight() {
@@ -170,8 +224,10 @@ fn native_cancel_preflight() {
         fn assets(&self) -> crate::local_lane::NativeAssets<'_> {
             panic!("cancelled preflight must not inspect assets")
         }
-        fn retain_uncertain(&mut self, owner: locallore_local_runtime::adapter::SharedRuntime)
-            -> std::result::Result<(), locallore_local_runtime::adapter::SharedRuntime> {
+        fn retain_uncertain(
+            &mut self,
+            owner: locallore_local_runtime::adapter::SharedRuntime,
+        ) -> std::result::Result<(), locallore_local_runtime::adapter::SharedRuntime> {
             Err(owner)
         }
     }
@@ -180,8 +236,16 @@ fn native_cancel_preflight() {
     cancel.cancel();
     let called = std::cell::Cell::new(0usize);
     let result = run_native_comparison_with_narration_diagnostics_v1::<NeverReservation>(
-        &dir, false, ComparisonKind::ContinuousRollout, &cancel, 1,
-        || { called.set(called.get() + 1); Err("must-not-reserve".into()) }, None,
+        &dir,
+        false,
+        ComparisonKind::ContinuousRollout,
+        &cancel,
+        1,
+        || {
+            called.set(called.get() + 1);
+            Err("must-not-reserve".into())
+        },
+        None,
     );
     assert!(matches!(result, Err(ref e) if e.code() == "Interrupted"));
     assert_eq!(called.get(), 0);
@@ -194,13 +258,27 @@ fn actual_both_recipes_one_precommit_binding_survives_cold_reader_without_old_wi
     let before = inventory(&dir);
     let manifest: Manifest = decode(&dir.join("run.json"), 128 * 1024).unwrap();
     let declaration = value(&dir.join(DECLARATION));
-    exact_keys(&declaration, &["version", "kind", "source_protocol_version", "run_binding_sha256",
-        "run_manifest_sha256", "source_sha256", "harvest", "generation_grant"]);
+    exact_keys(
+        &declaration,
+        &[
+            "version",
+            "kind",
+            "source_protocol_version",
+            "run_binding_sha256",
+            "run_manifest_sha256",
+            "source_sha256",
+            "harvest",
+            "generation_grant",
+        ],
+    );
     assert_eq!(declaration["version"], 1);
     assert_eq!(declaration["kind"], "full_scene_narration_diagnostics_v1");
     assert_eq!(declaration["source_protocol_version"], 4);
     assert_eq!(declaration["run_binding_sha256"], manifest.key().unwrap());
-    assert_eq!(declaration["run_manifest_sha256"], digest(&fs::read(dir.join("run.json")).unwrap()));
+    assert_eq!(
+        declaration["run_manifest_sha256"],
+        digest(&fs::read(dir.join("run.json")).unwrap())
+    );
     assert_eq!(declaration["source_sha256"], manifest.source_sha256);
     assert_eq!(declaration["harvest"], "first_exact_precommit_host_v1");
     assert_eq!(declaration["generation_grant"], false);
@@ -209,11 +287,26 @@ fn actual_both_recipes_one_precommit_binding_survives_cold_reader_without_old_wi
         for index in 0..6 {
             let checkpoint_path = checkpoint_path(&dir.join(arm), index);
             let checkpoint = cp(&dir, arm, index);
-            exact_keys(&checkpoint, &["version", "binding", "index", "arm", "request", "before_head",
-                "after_head", "row", "capture_file", "recording_file"]);
+            exact_keys(
+                &checkpoint,
+                &[
+                    "version",
+                    "binding",
+                    "index",
+                    "arm",
+                    "request",
+                    "before_head",
+                    "after_head",
+                    "row",
+                    "capture_file",
+                    "recording_file",
+                ],
+            );
             let got = read(&dir, arm, index).unwrap();
-            let path = checkpoint["row"]["admission"].as_u64().map(|admission|
-                dir.join(arm).join(format!("narration-diagnostic-v1-{admission:02}.json")));
+            let path = checkpoint["row"]["admission"].as_u64().map(|admission| {
+                dir.join(arm)
+                    .join(format!("narration-diagnostic-v1-{admission:02}.json"))
+            });
             let Some(path) = path.filter(|p| p.exists()) else {
                 response(&got, "no_observation", false);
                 continue;
@@ -223,51 +316,112 @@ fn actual_both_recipes_one_precommit_binding_survives_cold_reader_without_old_wi
             let status = match stored["host_reply"]["status"].as_str().unwrap() {
                 "rejected" => "host_rejected",
                 "ok" => match stored["host_reply"]["data"]["status"].as_str().unwrap() {
-                    "recorded" => "recorded", "unavailable" => "host_unavailable", other => panic!("{other}"),
-                }, other => panic!("{other}"),
+                    "recorded" => "recorded",
+                    "unavailable" => "host_unavailable",
+                    other => panic!("{other}"),
+                },
+                other => panic!("{other}"),
             };
             response(&got, status, true);
             if index == 0 {
-                assert_eq!(status, "recorded", "both real baseline recipes must retain their actual decision");
+                assert_eq!(
+                    status, "recorded",
+                    "both real baseline recipes must retain their actual decision"
+                );
                 let decision = &stored["host_reply"]["data"]["decision"];
                 exact_keys(decision, &["version", "outcome", "error", "reason"]);
                 assert_eq!(decision["version"], 1);
             }
             assert_eq!(got["observation"], stored);
-            exact_keys(&stored, &["version", "kind", "declaration_sha256", "run_binding_sha256", "source_sha256",
-                "arm", "index", "admission", "checkpoint_sha256", "host_query", "host_reply", "generation_grant"]);
+            exact_keys(
+                &stored,
+                &[
+                    "version",
+                    "kind",
+                    "declaration_sha256",
+                    "run_binding_sha256",
+                    "source_sha256",
+                    "arm",
+                    "index",
+                    "admission",
+                    "checkpoint_sha256",
+                    "host_query",
+                    "host_reply",
+                    "generation_grant",
+                ],
+            );
             assert_eq!(stored["version"], 1);
             assert_eq!(stored["kind"], "full_scene_narration_observation_v1");
             assert_eq!(stored["arm"], arm);
             assert_eq!(stored["index"], index);
             assert_eq!(stored["admission"], checkpoint["row"]["admission"]);
-            assert_eq!(stored["checkpoint_sha256"], digest(&fs::read(checkpoint_path).unwrap()));
-            assert_eq!(stored["declaration_sha256"], digest(&fs::read(dir.join(DECLARATION)).unwrap()));
+            assert_eq!(
+                stored["checkpoint_sha256"],
+                digest(&fs::read(checkpoint_path).unwrap())
+            );
+            assert_eq!(
+                stored["declaration_sha256"],
+                digest(&fs::read(dir.join(DECLARATION)).unwrap())
+            );
             assert_eq!(stored["source_sha256"], declaration["source_sha256"]);
-            assert_eq!(stored["run_binding_sha256"], declaration["run_binding_sha256"]);
+            assert_eq!(
+                stored["run_binding_sha256"],
+                declaration["run_binding_sha256"]
+            );
             assert_eq!(stored["generation_grant"], false);
             exact_keys(&stored["host_query"], &["version", "command"]);
             let query = &stored["host_query"]["command"];
-            exact_keys(query, &["op", "session", "scope", "expected_head", "base_revision", "turn", "attempt"]);
+            exact_keys(
+                query,
+                &[
+                    "op",
+                    "session",
+                    "scope",
+                    "expected_head",
+                    "base_revision",
+                    "turn",
+                    "attempt",
+                ],
+            );
             assert_eq!(query["op"], "trace_narration_validation_read_v1");
             assert_eq!(query["expected_head"], checkpoint["before_head"]);
-            assert_eq!(query["base_revision"], checkpoint["request"]["expected_revision"]);
+            assert_eq!(
+                query["base_revision"],
+                checkpoint["request"]["expected_revision"]
+            );
             assert_eq!(query["turn"], checkpoint["request"]["turn"]);
             assert_eq!(query["scope"], checkpoint["request"]["scope"]);
             assert!(query["attempt"].as_u64().unwrap() <= u64::from(u32::MAX));
             let trace = checkpoint["row"]["trace"]["attempts"].as_array().unwrap();
-            let exact = trace.iter().find(|a| {
-                let id = &a["identity"];
-                id["scope"] == query["scope"] && id["base_revision"] == query["base_revision"]
-                    && id["turn"] == query["turn"] && id["attempt"] == query["attempt"]
-                    && id["observer"] == suite().unwrap().seed().player
-            }).expect("exact final trace identity, never a new latest attempt");
+            let exact = trace
+                .iter()
+                .find(|a| {
+                    let id = &a["identity"];
+                    id["scope"] == query["scope"]
+                        && id["base_revision"] == query["base_revision"]
+                        && id["turn"] == query["turn"]
+                        && id["attempt"] == query["attempt"]
+                        && id["observer"] == suite().unwrap().seed().player
+                })
+                .expect("exact final trace identity, never a new latest attempt");
             if stored["host_reply"]["status"] == "ok" {
                 exact_keys(&stored["host_reply"], &["version", "status", "data"]);
                 let data = &stored["host_reply"]["data"];
-                let mut wanted = vec!["version", "session", "scope", "head", "base_revision", "turn",
-                    "attempt", "observer", "generation_grant", "status"];
-                if status == "recorded" { wanted.push("decision"); }
+                let mut wanted = vec![
+                    "version",
+                    "session",
+                    "scope",
+                    "head",
+                    "base_revision",
+                    "turn",
+                    "attempt",
+                    "observer",
+                    "generation_grant",
+                    "status",
+                ];
+                if status == "recorded" {
+                    wanted.push("decision");
+                }
                 exact_keys(data, &wanted);
                 for field in ["session", "scope", "base_revision", "turn", "attempt"] {
                     assert_eq!(data[field], query[field]);
@@ -276,8 +430,12 @@ fn actual_both_recipes_one_precommit_binding_survives_cold_reader_without_old_wi
                 assert_eq!(data["observer"], "player");
                 assert_eq!(data["generation_grant"], false);
                 if status == "recorded" {
-                    let stage = exact["stages"].as_array().unwrap().iter()
-                        .find(|s| s["stage"] == "narration_validation").unwrap();
+                    let stage = exact["stages"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|s| s["stage"] == "narration_validation")
+                        .unwrap();
                     assert_eq!(data["decision"]["outcome"], stage["outcome"]);
                     assert_eq!(data["decision"]["error"], stage["error"]);
                 }
@@ -285,10 +443,23 @@ fn actual_both_recipes_one_precommit_binding_survives_cold_reader_without_old_wi
             assert!(fs::read(path).unwrap().len() <= 7168);
             assert!(serde_json::to_vec(&stored["host_reply"]).unwrap().len() <= 4096);
             let encoded = stored.to_string();
-            for secret in [PRIVATE, "SECRET-TIDE-731", "FOREIGN-COMPARISON", "PARENT-FUTURE-COMPARISON"] {
+            for secret in [
+                PRIVATE,
+                "SECRET-TIDE-731",
+                "FOREIGN-COMPARISON",
+                "PARENT-FUTURE-COMPARISON",
+            ] {
                 assert!(!encoded.contains(secret));
             }
-            for forbidden in ["prompt", "narration", "raw", "receipt", "stages", "owner", "path"] {
+            for forbidden in [
+                "prompt",
+                "narration",
+                "raw",
+                "receipt",
+                "stages",
+                "owner",
+                "path",
+            ] {
                 assert!(stored.get(forbidden).is_none());
             }
         }
@@ -296,7 +467,13 @@ fn actual_both_recipes_one_precommit_binding_survives_cold_reader_without_old_wi
     assert!(counts.iter().all(|n| *n > 0 && *n <= 32));
     let companions: Vec<_> = before.iter().filter(|(p, _)| is_companion(p)).collect();
     assert!(companions.len() <= 65);
-    assert!(companions.iter().map(|(_, b)| b.as_ref().unwrap().len()).sum::<usize>() <= 512 * 1024);
+    assert!(
+        companions
+            .iter()
+            .map(|(_, b)| b.as_ref().unwrap().len())
+            .sum::<usize>()
+            <= 512 * 1024
+    );
     assert_eq!(inventory(&dir), before);
 }
 
@@ -304,7 +481,10 @@ fn actual_both_recipes_one_precommit_binding_survives_cold_reader_without_old_wi
 fn outputs_authorization_precedes_binding_unknown_row_and_corrupt_source_probes() {
     let dir = copy(template(), "authorization");
     let opened = desktop_api::open_read_only(&dir).unwrap();
-    let good_binding = desktop_api::summary(&opened, true).unwrap()["binding"].as_str().unwrap().to_owned();
+    let good_binding = desktop_api::summary(&opened, true).unwrap()["binding"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     // Corrupt only this fixture AFTER capability acquisition. Error precedence
     // is runtime-observable; this is not a transport-wide zero-I/O assertion.
     fs::write(dir.join("run.json"), b"{").unwrap();
@@ -312,25 +492,47 @@ fn outputs_authorization_precedes_binding_unknown_row_and_corrupt_source_probes(
     let before = inventory(&dir);
     for observer in [Observer::Player, Observer::Character { id: "mira".into() }] {
         for granted in [false, true] {
-            let unknown = RowId { turn: "unknown-private-row".into(), arm: Arm::Right };
-            let result = desktop_api::narration_diagnostic_v1(&opened, "wrong-binding", &unknown, observer.clone(), granted);
+            let unknown = RowId {
+                turn: "unknown-private-row".into(),
+                arm: Arm::Right,
+            };
+            let result = desktop_api::narration_diagnostic_v1(
+                &opened,
+                "wrong-binding",
+                &unknown,
+                observer.clone(),
+                granted,
+            );
             assert!(matches!(result, Err(ref e) if e == "Forbidden"));
         }
     }
     let known = row(&dir, "left", 0);
-    assert!(matches!(desktop_api::narration_diagnostic_v1(&opened, &good_binding, &known,
-        Observer::Omniscient, false), Err(ref e) if e == "Forbidden"));
-    bounded_refusal(desktop_api::narration_diagnostic_v1(&opened, &good_binding, &known,
-        Observer::Omniscient, true));
+    assert!(
+        matches!(desktop_api::narration_diagnostic_v1(&opened, &good_binding, &known,
+        Observer::Omniscient, false), Err(ref e) if e == "Forbidden")
+    );
+    bounded_refusal(desktop_api::narration_diagnostic_v1(
+        &opened,
+        &good_binding,
+        &known,
+        Observer::Omniscient,
+        true,
+    ));
     drop(opened);
     assert_eq!(inventory(&dir), before);
 }
 
 #[test]
-fn trusted_stored_envelope_controls_preserve_recorded_unavailable_rejected_and_absence_distinctions() {
+fn trusted_stored_envelope_controls_preserve_recorded_unavailable_rejected_and_absence_distinctions(
+) {
     // These mutations exercise the codec/reader, NOT actual Engine/Host failure
     // provenance. Hash/query consistency never authenticates their origin.
-    for mode in ["recorded", "host_unavailable", "host_rejected", "no_observation"] {
+    for mode in [
+        "recorded",
+        "host_unavailable",
+        "host_rejected",
+        "no_observation",
+    ] {
         let dir = copy(template(), mode);
         let path = observation_path(&dir, "left", 0);
         let mut stored = value(&path);
@@ -341,19 +543,32 @@ fn trusted_stored_envelope_controls_preserve_recorded_unavailable_rejected_and_a
             }
             "host_unavailable" => {
                 stored["host_reply"]["data"]["status"] = json!("unavailable");
-                stored["host_reply"]["data"].as_object_mut().unwrap().remove("decision");
+                stored["host_reply"]["data"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("decision");
             }
-            "host_rejected" => stored["host_reply"] = json!({"version":1,"status":"rejected","error":"Closed"}),
+            "host_rejected" => {
+                stored["host_reply"] = json!({"version":1,"status":"rejected","error":"Closed"})
+            }
             "no_observation" => {}
             _ => unreachable!(),
         }
         if mode == "no_observation" {
-            fs::rename(&path, dir.parent().unwrap().join("retained-observation.bytes")).unwrap();
-        } else { set(&path, &stored); }
+            fs::rename(
+                &path,
+                dir.parent().unwrap().join("retained-observation.bytes"),
+            )
+            .unwrap();
+        } else {
+            set(&path, &stored);
+        }
         let before = inventory(&dir);
         let got = read(&dir, "left", 0).unwrap();
         response(&got, mode, mode != "no_observation");
-        if mode != "no_observation" { assert_eq!(got["observation"], stored); }
+        if mode != "no_observation" {
+            assert_eq!(got["observation"], stored);
+        }
         assert_eq!(inventory(&dir), before);
     }
     let legacy = root("actual-default-no-declaration").join("run");
@@ -365,10 +580,17 @@ fn trusted_stored_envelope_controls_preserve_recorded_unavailable_rejected_and_a
 #[test]
 fn exact_binding_and_closed_metadata_tampering_refuse_without_mutating_legacy_report() {
     let bad: [(&str, Value); 18] = [
-        ("/run_binding_sha256", json!("0".repeat(64))), ("/source_sha256", json!("1".repeat(64))),
-        ("/declaration_sha256", json!("2".repeat(64))), ("/checkpoint_sha256", json!("3".repeat(64))),
-        ("/arm", json!("right")), ("/index", json!(1)), ("/admission", json!(31)),
-        ("/host_query/command/attempt", json!(u64::from(u32::MAX) + 1)),
+        ("/run_binding_sha256", json!("0".repeat(64))),
+        ("/source_sha256", json!("1".repeat(64))),
+        ("/declaration_sha256", json!("2".repeat(64))),
+        ("/checkpoint_sha256", json!("3".repeat(64))),
+        ("/arm", json!("right")),
+        ("/index", json!(1)),
+        ("/admission", json!(31)),
+        (
+            "/host_query/command/attempt",
+            json!(u64::from(u32::MAX) + 1),
+        ),
         ("/host_query/command/session", json!("foreign-session")),
         ("/host_query/command/turn", json!("foreign-turn")),
         ("/host_query/command/scope/story", json!("foreign-story")),
@@ -377,7 +599,8 @@ fn exact_binding_and_closed_metadata_tampering_refuse_without_mutating_legacy_re
         ("/host_query/command/expected_head", json!(999)),
         ("/host_reply/data/observer", json!("omniscient")),
         ("/host_reply/data/generation_grant", json!(true)),
-        ("/generation_grant", json!(true)), ("/checkpoint_sha256", json!("A".repeat(64))),
+        ("/generation_grant", json!(true)),
+        ("/checkpoint_sha256", json!("A".repeat(64))),
     ];
     for (pointer, replacement) in bad {
         let dir = copy(template(), "exact-binding");
@@ -387,7 +610,10 @@ fn exact_binding_and_closed_metadata_tampering_refuse_without_mutating_legacy_re
         set(&path, &stored);
         let old = serde_json::to_value(inspect_comparison(&dir).unwrap()).unwrap();
         cold_refusal_unchanged(&dir);
-        assert_eq!(serde_json::to_value(inspect_comparison(&dir).unwrap()).unwrap(), old);
+        assert_eq!(
+            serde_json::to_value(inspect_comparison(&dir).unwrap()).unwrap(),
+            old
+        );
     }
     // Coordinated query/reply attempt/head changes still lack the exact final
     // checkpoint identity. Coordinated session rewrites are NOT origin proof.
@@ -395,9 +621,17 @@ fn exact_binding_and_closed_metadata_tampering_refuse_without_mutating_legacy_re
         let dir = copy(template(), "coordinated-but-unbound");
         let path = observation_path(&dir, "left", 0);
         let mut stored = value(&path);
-        let new = if name == "turn" { json!("foreign-turn") } else { json!(999) };
+        let new = if name == "turn" {
+            json!("foreign-turn")
+        } else {
+            json!(999)
+        };
         stored["host_query"]["command"][name] = new.clone();
-        let reply_name = if name == "expected_head" { "head" } else { name };
+        let reply_name = if name == "expected_head" {
+            "head"
+        } else {
+            name
+        };
         stored["host_reply"]["data"][reply_name] = new;
         set(&path, &stored);
         cold_refusal_unchanged(&dir);
@@ -411,25 +645,35 @@ fn exact_binding_and_closed_metadata_tampering_refuse_without_mutating_legacy_re
         let mut stored = value(&path);
         let checkpoint_file = checkpoint_path(&dir.join("left"), 0);
         let mut checkpoint = value(&checkpoint_file);
-        let attempts = checkpoint["row"]["trace"]["attempts"].as_array_mut().unwrap();
+        let attempts = checkpoint["row"]["trace"]["attempts"]
+            .as_array_mut()
+            .unwrap();
         let mut unrelated = attempts.last().unwrap().clone();
         unrelated["identity"]["turn"] = json!("unrelated-private-turn");
         unrelated["identity"]["attempt"] = json!(u32::MAX);
-        if !preserve_exact { attempts.clear(); }
+        if !preserve_exact {
+            attempts.clear();
+        }
         attempts.push(unrelated);
         set(&checkpoint_file, &checkpoint);
         let manifest: Manifest = decode(&dir.join("run.json"), 128 * 1024).unwrap();
-        set(&dir.join("scene-00.json"), &serde_json::to_value(scene_data4(&dir, &manifest.key().unwrap(), 0).unwrap()).unwrap());
+        set(
+            &dir.join("scene-00.json"),
+            &serde_json::to_value(scene_data4(&dir, &manifest.key().unwrap(), 0).unwrap()).unwrap(),
+        );
         stored["checkpoint_sha256"] = json!(digest(&fs::read(&checkpoint_file).unwrap()));
         set(&path, &stored);
         if preserve_exact {
             response(&read(&dir, "left", 0).unwrap(), "recorded", true);
-        } else { cold_refusal_unchanged(&dir); }
+        } else {
+            cold_refusal_unchanged(&dir);
+        }
     }
 }
 
 #[test]
-fn versions_unknown_keys_duplicate_keys_finite_codes_and_partial_files_are_never_unavailable_success() {
+fn versions_unknown_keys_duplicate_keys_finite_codes_and_partial_files_are_never_unavailable_success(
+) {
     // Complete existing Host-v1 finite decision projection, explicitly trusted
     // stored metadata controls; these are not 25 new observed Engine failures.
     let mut supported = vec![
@@ -437,12 +681,35 @@ fn versions_unknown_keys_duplicate_keys_finite_codes_and_partial_files_are_never
         json!({"version":1,"outcome":"cancelled","error":"cancelled","reason":null}),
         json!({"version":1,"outcome":"stale","error":"stale","reason":null}),
     ];
-    for reason in ["unclassified", "scene_first_person", "scene_unapproved_movement"] {
-        supported.push(json!({"version":1,"outcome":"rejected","error":"narration","reason":reason}));
+    for reason in [
+        "unclassified",
+        "scene_first_person",
+        "scene_unapproved_movement",
+    ] {
+        supported
+            .push(json!({"version":1,"outcome":"rejected","error":"narration","reason":reason}));
     }
-    for error in ["malformed", "version", "scope", "rule", "agency", "deadline", "retry_mismatch",
-        "too_large", "author_ui_required", "clarification_required", "unknown_reference", "dead_actor",
-        "location", "inventory", "resource", "ability", "knowledge", "provider", "corrupt_history"] {
+    for error in [
+        "malformed",
+        "version",
+        "scope",
+        "rule",
+        "agency",
+        "deadline",
+        "retry_mismatch",
+        "too_large",
+        "author_ui_required",
+        "clarification_required",
+        "unknown_reference",
+        "dead_actor",
+        "location",
+        "inventory",
+        "resource",
+        "ability",
+        "knowledge",
+        "provider",
+        "corrupt_history",
+    ] {
         supported.push(json!({"version":1,"outcome":"rejected","error":error,"reason":null}));
     }
     assert_eq!(supported.len(), 25);
@@ -454,13 +721,20 @@ fn versions_unknown_keys_duplicate_keys_finite_codes_and_partial_files_are_never
         set(&path, &stored);
         let got = read(&dir, "left", 0).unwrap();
         response(&got, "recorded", true);
-        assert_eq!(got["observation"]["host_reply"]["data"]["decision"], decision);
+        assert_eq!(
+            got["observation"]["host_reply"]["data"]["decision"],
+            decision
+        );
     }
     for (pointer, replacement) in [
-        ("/version", json!(2)), ("/kind", json!("future_kind")), ("/index", json!(24)),
-        ("/admission", json!(32)), ("/host_query/version", json!(2)),
+        ("/version", json!(2)),
+        ("/kind", json!("future_kind")),
+        ("/index", json!(24)),
+        ("/admission", json!(32)),
+        ("/host_query/version", json!(2)),
         ("/host_query/command/op", json!("trace_clear")),
-        ("/host_reply/version", json!(2)), ("/host_reply/data/version", json!(2)),
+        ("/host_reply/version", json!(2)),
+        ("/host_reply/data/version", json!(2)),
         ("/host_reply/data/decision/version", json!(2)),
         ("/host_reply/data/decision/reason", json!("future_reason")),
         ("/host_reply/data/decision/error", json!("future_error")),
@@ -473,7 +747,14 @@ fn versions_unknown_keys_duplicate_keys_finite_codes_and_partial_files_are_never
         set(&path, &stored);
         cold_refusal_unchanged(&dir);
     }
-    for target in ["", "/host_query", "/host_query/command", "/host_reply", "/host_reply/data", "/host_reply/data/decision"] {
+    for target in [
+        "",
+        "/host_query",
+        "/host_query/command",
+        "/host_reply",
+        "/host_reply/data",
+        "/host_reply/data/decision",
+    ] {
         let dir = copy(template(), "closed-extra");
         let path = observation_path(&dir, "left", 0);
         let mut stored = value(&path);
@@ -482,18 +763,31 @@ fn versions_unknown_keys_duplicate_keys_finite_codes_and_partial_files_are_never
         set(&path, &stored);
         cold_refusal_unchanged(&dir);
     }
-    for (target, field) in [("", "host_query"), ("/host_query", "version"),
-        ("/host_query/command", "attempt"), ("/host_reply/data", "session"),
-        ("/host_reply/data/decision", "reason")] {
+    for (target, field) in [
+        ("", "host_query"),
+        ("/host_query", "version"),
+        ("/host_query/command", "attempt"),
+        ("/host_reply/data", "session"),
+        ("/host_reply/data/decision", "reason"),
+    ] {
         let dir = copy(template(), "closed-required");
         let path = observation_path(&dir, "left", 0);
         let mut stored = value(&path);
-        stored.pointer_mut(target).unwrap().as_object_mut().unwrap().remove(field);
+        stored
+            .pointer_mut(target)
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
         set(&path, &stored);
         cold_refusal_unchanged(&dir);
     }
-    for bytes in [b"{".to_vec(), b"null".to_vec(), b"[]".to_vec(),
-        b"{\"version\":1,\"version\":1}".to_vec()] {
+    for bytes in [
+        b"{".to_vec(),
+        b"null".to_vec(),
+        b"[]".to_vec(),
+        b"{\"version\":1,\"version\":1}".to_vec(),
+    ] {
         let dir = copy(template(), "partial");
         fs::write(observation_path(&dir, "left", 0), bytes).unwrap();
         cold_refusal_unchanged(&dir);
@@ -501,7 +795,10 @@ fn versions_unknown_keys_duplicate_keys_finite_codes_and_partial_files_are_never
     let dir = copy(template(), "duplicate-real-field");
     let path = observation_path(&dir, "left", 0);
     let original = fs::read_to_string(&path).unwrap();
-    let duplicate = format!("{{\"version\":1,{}", original.trim_start().strip_prefix('{').unwrap());
+    let duplicate = format!(
+        "{{\"version\":1,{}",
+        original.trim_start().strip_prefix('{').unwrap()
+    );
     fs::write(&path, duplicate).unwrap();
     cold_refusal_unchanged(&dir);
     for error in ["Provider", "Storage", "FutureVersion"] {
@@ -521,10 +818,15 @@ fn versions_unknown_keys_duplicate_keys_finite_codes_and_partial_files_are_never
 }
 
 #[test]
-fn exact_file_caps_allow_whitespace_then_refuse_one_more_byte_and_overlapping_namespace_overflows() {
+fn exact_file_caps_allow_whitespace_then_refuse_one_more_byte_and_overlapping_namespace_overflows()
+{
     for (is_declaration, limit) in [(true, 4096usize), (false, 7168usize)] {
         let dir = copy(template(), "exact-byte-cap");
-        let path = if is_declaration { dir.join(DECLARATION) } else { observation_path(&dir, "left", 0) };
+        let path = if is_declaration {
+            dir.join(DECLARATION)
+        } else {
+            observation_path(&dir, "left", 0)
+        };
         let mut bytes = fs::read(&path).unwrap();
         assert!(bytes.len() < limit);
         bytes.resize(limit, b' ');
@@ -550,15 +852,26 @@ fn exact_file_caps_allow_whitespace_then_refuse_one_more_byte_and_overlapping_na
     }
     // These exceed a namespace/name/count bound together; they do not isolate
     // aggregate arithmetic. Valid per-file/count caps total only 452KiB.
-    for name in ["narration-diagnostic-v1-31.json", "narration-diagnostic-v1-32.json", "narration-diagnostic-v1-0.json",
-        "narration-diagnostic-v1-00-copy.json"] {
+    for name in [
+        "narration-diagnostic-v1-31.json",
+        "narration-diagnostic-v1-32.json",
+        "narration-diagnostic-v1-0.json",
+        "narration-diagnostic-v1-00-copy.json",
+    ] {
         let dir = copy(template(), "namespace-alias");
         let original = fs::read(observation_path(&dir, "left", 0)).unwrap();
         fs::write(dir.join("left").join(name), original).unwrap();
         cold_refusal_unchanged(&dir);
     }
     let dir = copy(template(), "count-and-byte-overflow");
-    for index in 0..66 { fs::write(dir.join("left").join(format!("narration-diagnostic-v1-extra-{index:02}.json")), vec![b' '; 8192]).unwrap(); }
+    for index in 0..66 {
+        fs::write(
+            dir.join("left")
+                .join(format!("narration-diagnostic-v1-extra-{index:02}.json")),
+            vec![b' '; 8192],
+        )
+        .unwrap();
+    }
     cold_refusal_unchanged(&dir);
     let dir = copy(template(), "selected-root-not-adopted");
     fs::write(dir.join("selected.json"), b"{}").unwrap();
@@ -569,9 +882,14 @@ fn exact_file_caps_allow_whitespace_then_refuse_one_more_byte_and_overlapping_na
 fn declaration_tamper_and_opt_in_legacy_resume_refuse_before_new_evidence_or_backfill() {
     #[cfg(feature = "local-model")]
     native_cancel_preflight(); // Signature/re-export/preflight only; no runtime/assets.
-    for (pointer, replacement) in [("/version", json!(2)), ("/source_protocol_version", json!(3)),
-        ("/run_manifest_sha256", json!("0".repeat(64))), ("/source_sha256", json!("1".repeat(64))),
-        ("/harvest", json!("latest_after_commit")), ("/generation_grant", json!(true))] {
+    for (pointer, replacement) in [
+        ("/version", json!(2)),
+        ("/source_protocol_version", json!(3)),
+        ("/run_manifest_sha256", json!("0".repeat(64))),
+        ("/source_sha256", json!("1".repeat(64))),
+        ("/harvest", json!("latest_after_commit")),
+        ("/generation_grant", json!(true)),
+    ] {
         let dir = copy(template(), "declaration-tamper");
         let path = dir.join(DECLARATION);
         let mut declaration = value(&path);
@@ -582,27 +900,52 @@ fn declaration_tamper_and_opt_in_legacy_resume_refuse_before_new_evidence_or_bac
     let legacy = root("legacy-no-retrofit").join("run");
     run(&legacy, false, 1, LaneFactory::ScriptedBaseline, false);
     let before = inventory(&legacy);
-    bounded_refusal(run_comparison_with_narration_diagnostics_v1(&legacy, true,
-        ComparisonKind::ContinuousRollout, &Cancellation::default(), 1,
-        LaneFactory::TestFault(crate::local_lane::TestFault::WrongCommand), None));
+    bounded_refusal(run_comparison_with_narration_diagnostics_v1(
+        &legacy,
+        true,
+        ComparisonKind::ContinuousRollout,
+        &Cancellation::default(),
+        1,
+        LaneFactory::TestFault(crate::local_lane::TestFault::WrongCommand),
+        None,
+    ));
     assert_eq!(inventory(&legacy), before);
     assert!(!legacy.join(DECLARATION).exists());
     let partial = copy(template(), "partial-declaration-resume");
     fs::write(partial.join(DECLARATION), b"{").unwrap();
     let before = inventory(&partial);
-    bounded_refusal(run_comparison_with_narration_diagnostics_v1(&partial, true,
-        ComparisonKind::ContinuousRollout, &Cancellation::default(), 1,
-        LaneFactory::ScriptedBaseline, None));
+    bounded_refusal(run_comparison_with_narration_diagnostics_v1(
+        &partial,
+        true,
+        ComparisonKind::ContinuousRollout,
+        &Cancellation::default(),
+        1,
+        LaneFactory::ScriptedBaseline,
+        None,
+    ));
     assert_eq!(inventory(&partial), before);
     // A completed valid resume returns unchanged evidence, never reharvests.
     let dir = copy(completed_template(), "completed-no-reread");
     let before = inventory(&dir);
-    let report = run(&dir, true, 1, LaneFactory::TestFault(crate::local_lane::TestFault::WrongCommand), true);
+    let report = run(
+        &dir,
+        true,
+        1,
+        LaneFactory::TestFault(crate::local_lane::TestFault::WrongCommand),
+        true,
+    );
     assert!(report.completed);
     assert_eq!(inventory(&dir), before);
     let missing = copy(completed_template(), "completed-missing-no-backfill");
     let path = observation_path(&missing, "left", 0);
-    fs::rename(&path, missing.parent().unwrap().join("retained-missing-observation.bytes")).unwrap();
+    fs::rename(
+        &path,
+        missing
+            .parent()
+            .unwrap()
+            .join("retained-missing-observation.bytes"),
+    )
+    .unwrap();
     let before = inventory(&missing);
     assert!(run(&missing, true, 1, LaneFactory::ScriptedBaseline, true).completed);
     response(&read(&missing, "left", 0).unwrap(), "no_observation", false);
@@ -615,7 +958,12 @@ fn declaration_tamper_and_opt_in_legacy_resume_refuse_before_new_evidence_or_bac
 fn lifecycle(fault: Fault) -> (PathBuf, Control, Result<()>, Value) {
     let dir = root("owned-lifecycle").join("run");
     let factory = LaneFactory::ScriptedBaseline;
-    let manifest = Manifest::new(ComparisonKind::ContinuousRollout, factory.profile().unwrap(), None).unwrap();
+    let manifest = Manifest::new(
+        ComparisonKind::ContinuousRollout,
+        factory.profile().unwrap(),
+        None,
+    )
+    .unwrap();
     let key = manifest.key().unwrap();
     let mut session = Session4::open(&dir, false, manifest.clone(), None, Instant::now()).unwrap();
     let declaration = json!({"version":1,"kind":"full_scene_narration_diagnostics_v1","source_protocol_version":4,
@@ -630,42 +978,91 @@ fn lifecycle(fault: Fault) -> (PathBuf, Control, Result<()>, Value) {
     ensure_database(&path, corpus.seed(), &[]).unwrap();
     let before = engine(&path, &corpus.seed().scope).unwrap();
     let control = Control::new(fault);
-    let actual = live::execute_with_narration_diagnostics_test_v1(live::LiveTurnJob {
-        dir: &arm, path: &path, index: 0, step, factory: &factory,
-        cancel: &Cancellation::default(), construction: host_construction(CONSTRUCTIONS[0]),
-        before, profile: factory.profile().unwrap(),
-    }, &mut session.ledgers[0], control.clone()).unwrap();
+    let actual = live::execute_with_narration_diagnostics_test_v1(
+        live::LiveTurnJob {
+            dir: &arm,
+            path: &path,
+            index: 0,
+            step,
+            factory: &factory,
+            cancel: &Cancellation::default(),
+            construction: host_construction(CONSTRUCTIONS[0]),
+            before,
+            profile: factory.profile().unwrap(),
+        },
+        &mut session.ledgers[0],
+        control.clone(),
+    )
+    .unwrap();
     let final_engine = engine(&path, &corpus.seed().scope).unwrap();
-    assert_eq!(actual.after.canonical_bytes(), final_engine.canonical_bytes());
+    assert_eq!(
+        actual.after.canonical_bytes(),
+        final_engine.canonical_bytes()
+    );
     assert_eq!(actual.after.receipts(), final_engine.receipts());
     let row = make_row4(Observation4 {
-        dir: &arm, step, arm: "left", construction: CONSTRUCTIONS[0], before: &actual.before,
-        after: &actual.after, phase: &actual.phase, error: actual.error.clone(),
-        receipt: actual.receipt.as_ref(), recording: Some(&actual.recording),
-        capture: actual.capture.as_ref(), trace: actual.trace.clone(), admission: Some(actual.admission),
-        elapsed_ms: actual.elapsed_ms, first_final_response_ms: actual.first_final_response_ms,
-        commit_elapsed_ms: actual.commit_elapsed_ms, profile: &actual.profile, recovered: false,
-    }).unwrap();
-    let checkpoint = StoredTurn4 { version:4, binding:key, index:0, arm:"left".into(),
-        request:actual.request.clone(), before_head:actual.before.revision(), after_head:actual.after.revision(),
-        row, capture_file:actual.capture_file.clone(), recording_file:Some(actual.recording_file.clone()) };
+        dir: &arm,
+        step,
+        arm: "left",
+        construction: CONSTRUCTIONS[0],
+        before: &actual.before,
+        after: &actual.after,
+        phase: &actual.phase,
+        error: actual.error.clone(),
+        receipt: actual.receipt.as_ref(),
+        recording: Some(&actual.recording),
+        capture: actual.capture.as_ref(),
+        trace: actual.trace.clone(),
+        admission: Some(actual.admission),
+        elapsed_ms: actual.elapsed_ms,
+        first_final_response_ms: actual.first_final_response_ms,
+        commit_elapsed_ms: actual.commit_elapsed_ms,
+        profile: &actual.profile,
+        recovered: false,
+    })
+    .unwrap();
+    let checkpoint = StoredTurn4 {
+        version: 4,
+        binding: key,
+        index: 0,
+        arm: "left".into(),
+        request: actual.request.clone(),
+        before_head: actual.before.revision(),
+        after_head: actual.after.revision(),
+        row,
+        capture_file: actual.capture_file.clone(),
+        recording_file: Some(actual.recording_file.clone()),
+    };
     let result = actual.checkpoint_and_settle(&arm, 0, &checkpoint, &mut session.ledgers[0]);
     let summary = json!({"phase":actual.phase,"receipt":actual.receipt,"roles":actual.recording.roles,
         "canonical_sha256":digest(&actual.after.canonical_bytes())});
     drop(actual); // Observe existing owned Drop cleanup before asserting terminal evidence.
     drop(session);
-    assert_eq!(digest(&engine(&path, &corpus.seed().scope).unwrap().canonical_bytes()), summary["canonical_sha256"]);
+    assert_eq!(
+        digest(
+            &engine(&path, &corpus.seed().scope)
+                .unwrap()
+                .canonical_bytes()
+        ),
+        summary["canonical_sha256"]
+    );
     (dir, control, result, summary)
 }
 fn mark_name(mark: &Mark) -> &'static str {
     match mark {
-        Mark::FirstTraceSelected => "selected", Mark::NoExactTrace => "no_trace",
-        Mark::DiagnosticHostRead => "read", Mark::HarvestDecodeError => "decode_error",
-        Mark::RecordedHarvested => "recorded_harvest", Mark::HostUnavailableHarvested => "unavailable_harvest",
+        Mark::FirstTraceSelected => "selected",
+        Mark::NoExactTrace => "no_trace",
+        Mark::DiagnosticHostRead => "read",
+        Mark::HarvestDecodeError => "decode_error",
+        Mark::RecordedHarvested => "recorded_harvest",
+        Mark::HostUnavailableHarvested => "unavailable_harvest",
         Mark::HostRejectedHarvested => "rejected_harvest",
-        Mark::CanonicalOutcome => "canonical", Mark::CheckpointSaved => "checkpoint",
-        Mark::LedgerSettled => "settled", Mark::CompanionCreated => "companion",
-        Mark::CaptureRevoked => "revoked", Mark::HostClosed => "closed",
+        Mark::CanonicalOutcome => "canonical",
+        Mark::CheckpointSaved => "checkpoint",
+        Mark::LedgerSettled => "settled",
+        Mark::CompanionCreated => "companion",
+        Mark::CaptureRevoked => "revoked",
+        Mark::HostClosed => "closed",
         Mark::CompanionErrorReturned => "error",
     }
 }
@@ -676,17 +1073,27 @@ fn marks(control: &Control) -> Vec<&'static str> {
     actual.iter().map(mark_name).collect()
 }
 fn precedes(marks: &[&str], first: &str, next: &str) {
-    assert!(marks.iter().position(|m| *m == first).unwrap() < marks.iter().position(|m| *m == next).unwrap());
+    assert!(
+        marks.iter().position(|m| *m == first).unwrap()
+            < marks.iter().position(|m| *m == next).unwrap()
+    );
 }
 
 #[test]
-fn finite_actual_host_harvest_controls_latch_once_and_keep_unavailable_rejected_and_no_observation_separate() {
-    for (fault, expected, reads) in [(Fault::None, "recorded", 1usize),
+fn finite_actual_host_harvest_controls_latch_once_and_keep_unavailable_rejected_and_no_observation_separate(
+) {
+    for (fault, expected, reads) in [
+        (Fault::None, "recorded", 1usize),
         (Fault::NoExactTrace, "no_observation", 0),
         (Fault::DisableTraceBeforeRead, "host_unavailable", 1),
-        (Fault::CloseHostBeforeRead, "host_rejected", 1)] {
+        (Fault::CloseHostBeforeRead, "host_rejected", 1),
+    ] {
         let (dir, control, result, outcome) = lifecycle(fault);
-        if expected == "host_unavailable" { bounded_refusal(result); } else { result.unwrap(); }
+        if expected == "host_unavailable" {
+            bounded_refusal(result);
+        } else {
+            result.unwrap();
+        }
         assert_eq!(control.host_read_count(), reads);
         let marks = marks(&control);
         precedes(&marks, "canonical", "checkpoint");
@@ -695,7 +1102,11 @@ fn finite_actual_host_harvest_controls_latch_once_and_keep_unavailable_rejected_
         let observation = dir.join("left/narration-diagnostic-v1-00.json");
         if expected == "no_observation" {
             assert!(!observation.exists());
-            assert!(marks.contains(&"no_trace") && !marks.contains(&"read") && !marks.contains(&"companion"));
+            assert!(
+                marks.contains(&"no_trace")
+                    && !marks.contains(&"read")
+                    && !marks.contains(&"companion")
+            );
         } else if expected == "host_unavailable" {
             // Actual HostUnavailable is harvested, but disabling the trace
             // leaves no exact final identity. Refuse publication, never repair.
@@ -715,12 +1126,22 @@ fn finite_actual_host_harvest_controls_latch_once_and_keep_unavailable_rejected_
             let stored = value(&observation);
             if expected == "host_rejected" {
                 assert!(marks.contains(&"rejected_harvest"));
-                assert_eq!(stored["host_reply"], json!({"version":1,"status":"rejected","error":"Closed"}));
+                assert_eq!(
+                    stored["host_reply"],
+                    json!({"version":1,"status":"rejected","error":"Closed"})
+                );
                 // Explicit CloseHost interference may cancel. Do not relabel it
                 // as passive collection or require a committed receipt.
             } else {
                 assert!(marks.contains(&"recorded_harvest"));
-                assert_eq!(stored["host_reply"]["data"]["status"], if expected == "recorded" { "recorded" } else { "unavailable" });
+                assert_eq!(
+                    stored["host_reply"]["data"]["status"],
+                    if expected == "recorded" {
+                        "recorded"
+                    } else {
+                        "unavailable"
+                    }
+                );
                 assert_eq!(outcome["phase"], "committed");
                 assert!(outcome["receipt"].is_object());
             }
@@ -729,7 +1150,8 @@ fn finite_actual_host_harvest_controls_latch_once_and_keep_unavailable_rejected_
 }
 
 #[test]
-fn finite_failure_controls_preserve_order_exact_checkpoint_canonical_receipt_and_teardown_without_repair() {
+fn finite_failure_controls_preserve_order_exact_checkpoint_canonical_receipt_and_teardown_without_repair(
+) {
     for (fault, checkpoint, settled, file, decode_error) in [
         (Fault::MalformedHarvestReply, true, true, false, true),
         (Fault::CheckpointFailure, false, false, false, false),
@@ -759,10 +1181,15 @@ fn finite_failure_controls_preserve_order_exact_checkpoint_canonical_receipt_and
         if checkpoint {
             let stored = cp(&dir, "left", 0);
             assert_eq!(stored["row"]["phase"], outcome["phase"]);
-            assert_eq!(stored["row"]["actual_receipt_sha256"], digest(&serde_json::to_vec(&outcome["receipt"]).unwrap()));
+            assert_eq!(
+                stored["row"]["actual_receipt_sha256"],
+                digest(&serde_json::to_vec(&outcome["receipt"]).unwrap())
+            );
             precedes(&marks, "canonical", "checkpoint");
         }
-        if settled { precedes(&marks, "checkpoint", "settled"); }
+        if settled {
+            precedes(&marks, "checkpoint", "settled");
+        }
         if decode_error {
             precedes(&marks, "read", "decode_error");
             precedes(&marks, "decode_error", "canonical");
@@ -772,33 +1199,63 @@ fn finite_failure_controls_preserve_order_exact_checkpoint_canonical_receipt_and
         // Synthetic stop/I/O boundaries are not actual process death. All
         // current fixture bytes (including partial/conflict files) survive.
         let frozen = inventory(&dir);
-        if file { assert!(!fs::read(&path).unwrap().is_empty()); }
+        if file {
+            assert!(!fs::read(&path).unwrap().is_empty());
+        }
         assert_eq!(inventory(&dir), frozen);
     }
 }
 
 #[test]
-fn default_old_wires_canonical_provider_recording_and_ready_recovery_never_gain_companion_metadata() {
+fn default_old_wires_canonical_provider_recording_and_ready_recovery_never_gain_companion_metadata()
+{
     let dir = root("default-parity").join("run");
     let ordinary = run(&dir, false, 1, LaneFactory::ScriptedBaseline, false);
     assert_eq!(ordinary.turns.len(), 12);
     assert!(!inventory(&dir).keys().any(|p| is_companion(p)));
     for arm in ARM_NAMES {
-        let old_engine = engine(&database(&dir.join(arm), 0, ComparisonKind::ContinuousRollout), &suite().unwrap().seed().scope).unwrap();
-        let observed = engine(&database(&template().join(arm), 0, ComparisonKind::ContinuousRollout), &suite().unwrap().seed().scope).unwrap();
+        let old_engine = engine(
+            &database(&dir.join(arm), 0, ComparisonKind::ContinuousRollout),
+            &suite().unwrap().seed().scope,
+        )
+        .unwrap();
+        let observed = engine(
+            &database(&template().join(arm), 0, ComparisonKind::ContinuousRollout),
+            &suite().unwrap().seed().scope,
+        )
+        .unwrap();
         // Compare the same six-step prefix; only separate-run Play stage time
         // is normalized, never error, phase, current bytes or canonical data.
-        let old_receipts: Vec<_> = old_engine.receipts().iter().map(|r| {
-            let mut value = serde_json::to_value(r).unwrap();
-            if let Some(stages) = value.pointer_mut("/play/stages").and_then(Value::as_array_mut) {
-                for stage in stages { stage["elapsed_ms"] = json!(0); }
-            }
-            value
-        }).collect();
-        let mut new_receipts: Vec<_> = observed.receipts().iter().take(old_engine.receipts().len()).map(|r| serde_json::to_value(r).unwrap()).collect();
+        let old_receipts: Vec<_> = old_engine
+            .receipts()
+            .iter()
+            .map(|r| {
+                let mut value = serde_json::to_value(r).unwrap();
+                if let Some(stages) = value
+                    .pointer_mut("/play/stages")
+                    .and_then(Value::as_array_mut)
+                {
+                    for stage in stages {
+                        stage["elapsed_ms"] = json!(0);
+                    }
+                }
+                value
+            })
+            .collect();
+        let mut new_receipts: Vec<_> = observed
+            .receipts()
+            .iter()
+            .take(old_engine.receipts().len())
+            .map(|r| serde_json::to_value(r).unwrap())
+            .collect();
         for value in &mut new_receipts {
-            if let Some(stages) = value.pointer_mut("/play/stages").and_then(Value::as_array_mut) {
-                for stage in stages { stage["elapsed_ms"] = json!(0); }
+            if let Some(stages) = value
+                .pointer_mut("/play/stages")
+                .and_then(Value::as_array_mut)
+            {
+                for stage in stages {
+                    stage["elapsed_ms"] = json!(0);
+                }
             }
         }
         assert_eq!(old_receipts, new_receipts);
@@ -812,18 +1269,49 @@ fn default_old_wires_canonical_provider_recording_and_ready_recovery_never_gain_
             assert_eq!(old["row"]["roles"], new["row"]["roles"]);
             if let Some(file) = old["recording_file"].as_str() {
                 let old_recording = value(&dir.join(arm).join(file));
-                let new_recording = value(&template().join(arm).join(new["recording_file"].as_str().unwrap()));
-                exact_keys(&old_recording, &["version", "captures", "raw", "role_metrics", "roles", "lost",
-                    "forbidden_director_prompt", "forbidden_narrator_prompt", "forbidden_narrator_output"]);
+                let new_recording = value(
+                    &template()
+                        .join(arm)
+                        .join(new["recording_file"].as_str().unwrap()),
+                );
+                exact_keys(
+                    &old_recording,
+                    &[
+                        "version",
+                        "captures",
+                        "raw",
+                        "role_metrics",
+                        "roles",
+                        "lost",
+                        "forbidden_director_prompt",
+                        "forbidden_narrator_prompt",
+                        "forbidden_narrator_output",
+                    ],
+                );
                 assert_eq!(keys(&old_recording), keys(&new_recording));
                 assert_eq!(old_recording["roles"], new_recording["roles"]);
                 assert_eq!(old_recording["raw"], new_recording["raw"]);
             }
         }
-        let recovered = ready_turn4(ReadyJob4 { path:&database(&dir.join(arm), 0, ComparisonKind::ContinuousRollout),
-            full:&old_engine, index:0, arm, construction:CONSTRUCTIONS[usize::from(arm == "right")],
-            binding:&Manifest::new(ComparisonKind::ContinuousRollout, LaneFactory::ScriptedBaseline.profile().unwrap(), None).unwrap().key().unwrap(),
-            step:&suite().unwrap().steps()[0], profile:&LaneFactory::ScriptedBaseline.profile().unwrap() }).unwrap().unwrap();
+        let recovered = ready_turn4(ReadyJob4 {
+            path: &database(&dir.join(arm), 0, ComparisonKind::ContinuousRollout),
+            full: &old_engine,
+            index: 0,
+            arm,
+            construction: CONSTRUCTIONS[usize::from(arm == "right")],
+            binding: &Manifest::new(
+                ComparisonKind::ContinuousRollout,
+                LaneFactory::ScriptedBaseline.profile().unwrap(),
+                None,
+            )
+            .unwrap()
+            .key()
+            .unwrap(),
+            step: &suite().unwrap().steps()[0],
+            profile: &LaneFactory::ScriptedBaseline.profile().unwrap(),
+        })
+        .unwrap()
+        .unwrap();
         assert!(recovered.row.recovered_without_checkpoint);
         assert!(recovered.row.trace.is_none() && recovered.row.admission.is_none());
         assert!(recovered.capture_file.is_none() && recovered.recording_file.is_none());

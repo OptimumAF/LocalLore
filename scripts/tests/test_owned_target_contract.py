@@ -712,6 +712,39 @@ class ActualOwnerMockTests(unittest.TestCase):
             with self.assertRaises(self.o.OwnerRefused):runtime.wait_receipt()
         auth.assert_not_called();ports.assert_not_called();self.popen.assert_not_called();self.native_socket.assert_not_called()
 
+    def test_current_job_return_struct_requires_complete_bounded_unique_positive_pid_roster(self):
+        api=object.__new__(self.o._ProcessApi)
+        def acquire(*,assigned=4,pids=(7102,7103,7104,7105),returned=None,success=True):
+            def call(job,kind,pointer,size,returned_pointer):
+                self.assertIsNone(job);self.assertEqual(kind,3)
+                value=self.o.ctypes.cast(pointer,self.o.ctypes.POINTER(self.o._JobProcessIds)).contents
+                value.assigned=assigned;value.count=len(pids)
+                for i,pid in enumerate(pids):value.pids[i]=pid
+                count=8+len(pids)*self.o.ctypes.sizeof(self.o.ctypes.c_size_t)if returned is None else returned
+                self.o.ctypes.cast(returned_pointer,self.o.ctypes.POINTER(self.o.wintypes.DWORD)).contents.value=count
+                return success
+            api._job=call;return api.current_job_pids()
+        self.assertEqual(acquire(),[7102,7103,7104,7105])
+        for change in(dict(assigned=5),dict(pids=(7102,7102)),dict(pids=(0,7102)),dict(returned=8),dict(success=False)):
+            with self.subTest(change=change):
+                with self.assertRaises(self.o.OwnerRefused):acquire(**change)
+
+    def test_parent_pbi_native_return_struct_binds_queried_pid_size_and_actual_parent(self):
+        api=object.__new__(self.o._ProcessApi);api.identity=lambda handle:self.f.d['guest']
+        def acquire(*,status=0,size=48,pid=None,parent=None):
+            def call(handle,kind,pointer,length,returned_pointer):
+                self.assertEqual((handle,kind,length),(901,0,48))
+                value=self.o.ctypes.cast(pointer,self.o.ctypes.POINTER(self.o._BasicProcessInformation)).contents
+                value.pid=self.f.d['guest']['pid']if pid is None else pid
+                value.parent_pid=self.f.d['launcher']['pid']if parent is None else parent
+                self.o.ctypes.cast(returned_pointer,self.o.ctypes.POINTER(self.o.wintypes.ULONG)).contents.value=size
+                return status
+            api._basic=call;return api.parent_pid(901)
+        self.assertEqual(acquire(),self.f.d['launcher']['pid'])
+        for change in(dict(status=1),dict(size=47),dict(pid=999),dict(parent=0)):
+            with self.subTest(change=change):
+                with self.assertRaises(self.o.OwnerRefused):acquire(**change)
+
     def test_cleanup_terminates_actual_held_guest_before_launcher_then_server_and_retains_uncertainty(self):
         for wait_fails in(False,True):
             events=[]

@@ -185,7 +185,7 @@ class GuardFixture:
     def operation(self,label,phase,value=None):
         def call(*args,**kwargs):
             self.event(label)
-            if self.failure==phase:raise self.primary
+            if phase is not None and self.failure==phase:raise self.primary
             return value
         return call
     def __enter__(self):

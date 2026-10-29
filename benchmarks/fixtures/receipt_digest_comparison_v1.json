@@ -1,0 +1,170 @@
+{
+  "aggregation": "For each method median of5weighted summed-call_ns and median of5smallbatch_ns. Warmup excluded; all5rounds retained.",
+  "baseline_commit": "255696ad91906a509faad6110e2b941670c7abe2",
+  "complete_reads": "Every call creates a new digest, opens and reads the complete file. No result/data/handle cache; buffer allocated per call.",
+  "criterion": "Candidate qualifies iff production39-eligible, every hash correct, weightedmedian*100<=baselinemedian*95 AND smallmedian*100<=baselinesmallmedian*110. Rank qualifiers by weightedmedian,smallmedian,declared method order. No automatic production edit.",
+  "failure_rules": [
+    "Any source/tool/protocol/corpus drift, wrong hash, missing/extra file, clock rollback, policy attempt, exception, capture failure or deadline makes experimentfailed; no candidate qualifies.",
+    "No tuning, retries, alternative corpus, skipped methods/rounds or recapture within this packet. Preserve partial raw data/failure.",
+    "Existing or unsafe output refuses; productionMigration IO denied for covered Python audit events; no OS/native filesystem sandbox claim."
+  ],
+  "file_digest_note": "Python3.11+ measurement reference; not an unguarded Python3.9 production substitute.",
+  "generation": "Create-only binary writes with1MiB generated chunks; no actual SDK/tool/model/source bytes.",
+  "independent_hashes": "ExpectedSHA generated from logical pattern with65521-byte chunks; disk before/after SHA uses read_bytes independently, outside timing.",
+  "large_files": [
+    {
+      "bytes": 50887776,
+      "name": "qemu",
+      "weight": 1
+    },
+    {
+      "bytes": 8273560,
+      "name": "adb",
+      "weight": 4
+    },
+    {
+      "bytes": 6785760,
+      "name": "dll",
+      "weight": 2
+    },
+    {
+      "bytes": 1823328,
+      "name": "emulator",
+      "weight": 1
+    },
+    {
+      "bytes": 106208,
+      "name": "exe",
+      "weight": 2
+    }
+  ],
+  "limits": [
+    "Warm-cache local Windows/Python3.14.7 synthetic comparison, not cold storage, Android, device, model or service performance.",
+    "Balanced rotating orders reduce but do not eliminate background-load/cache/order effects; no cache flush or system settings.",
+    "Instrumentation overhead is included. Performance criteria do not replace correctness/regression tests."
+  ],
+  "measurement": "perf_counter_ns; each weighted full method call includes safe_path/open/new SHA/read or readinto/close; sum10call_ns. Smallbatch timer includes all32full calls and result-list creation; correctness comparisons occur after timers.",
+  "methods": [
+    "baseline_read_1m",
+    "readinto_64k",
+    "readinto_256k",
+    "readinto_1m",
+    "stdlib_file_digest"
+  ],
+  "owner_seconds": 180,
+  "pattern": "Original repeating256 bytes: byte[i]=(73*i+19)%256; each file starts at pattern offset0.",
+  "per_method_order": [
+    "weighted_guard",
+    "small_batch"
+  ],
+  "production39_eligible": [
+    "baseline_read_1m",
+    "readinto_64k",
+    "readinto_256k",
+    "readinto_1m"
+  ],
+  "readinto_count_guard": "Actual e.require(type(count)is int and0<=count<=len(buffer),'invalid_hash_read') on every readinto result; positive short reads continue; EOFonly0; no retries. Guard overhead is timed.",
+  "round_orders": [
+    [
+      "baseline_read_1m",
+      "readinto_64k",
+      "readinto_256k",
+      "readinto_1m",
+      "stdlib_file_digest"
+    ],
+    [
+      "readinto_64k",
+      "readinto_256k",
+      "readinto_1m",
+      "stdlib_file_digest",
+      "baseline_read_1m"
+    ],
+    [
+      "readinto_256k",
+      "readinto_1m",
+      "stdlib_file_digest",
+      "baseline_read_1m",
+      "readinto_64k"
+    ],
+    [
+      "readinto_1m",
+      "stdlib_file_digest",
+      "baseline_read_1m",
+      "readinto_64k",
+      "readinto_256k"
+    ],
+    [
+      "stdlib_file_digest",
+      "baseline_read_1m",
+      "readinto_64k",
+      "readinto_256k",
+      "readinto_1m"
+    ]
+  ],
+  "safe_path": "Same actual receipt_avd_environment.safe_path at the first executable operation of every method. Baseline invokes actual receipt_avd_environment.digest unchanged.",
+  "scope": "stream-hash-comparison-v1",
+  "small_bytes": 513024,
+  "small_names": "small/source-000.bin through small/source-031.bin, in index order",
+  "small_sizes": [
+    0,
+    256,
+    1024,
+    4096,
+    8192,
+    16384,
+    32768,
+    65536,
+    0,
+    256,
+    1024,
+    4096,
+    8192,
+    16384,
+    32768,
+    65536,
+    0,
+    256,
+    1024,
+    4096,
+    8192,
+    16384,
+    32768,
+    65536,
+    0,
+    256,
+    1024,
+    4096,
+    8192,
+    16384,
+    32768,
+    65536
+  ],
+  "storage": {
+    "corpus_bytes": 68389656,
+    "expected_maximum_bytes": 322122547,
+    "packet_including_recovery_allowance_bytes": 536870912,
+    "retention": "Keep corpus, protocol, runner, rawcaptures, source/tool pins and results. No recovery copy executed by comparison runner."
+  },
+  "unique_corpus_bytes": 68389656,
+  "version": 1,
+  "warmup_order": [
+    "baseline_read_1m",
+    "readinto_64k",
+    "readinto_256k",
+    "readinto_1m",
+    "stdlib_file_digest"
+  ],
+  "weighted_bytes": 99589280,
+  "weighted_order": [
+    "qemu",
+    "adb",
+    "dll",
+    "emulator",
+    "exe",
+    "adb",
+    "dll",
+    "exe",
+    "adb",
+    "adb"
+  ]
+}

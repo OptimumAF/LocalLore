@@ -3,6 +3,8 @@ import type { ComparisonReaderController } from "./comparison-reader-controller"
 import type {
     ComparisonTurnV3,
     ComparisonTurnV4,
+    ReaderNarrationDiagnosticV1,
+    RowAvailability,
 } from "./comparison-reader-model";
 import type { ObserverV2, ViewV2 } from "./v2-view-model";
 
@@ -27,6 +29,140 @@ const views: ViewV2[] = [
     "summaries",
     "retrieval_indexes",
 ];
+
+function NarrationDiagnosticDetails({
+    result,
+    source,
+    phase,
+    caseError,
+    fallback,
+    receiptAvailable,
+}: {
+    result: ReaderNarrationDiagnosticV1["diagnostic"];
+    source: RowAvailability["source"];
+    phase: string | null;
+    caseError: string | null | undefined;
+    fallback: boolean | null;
+    receiptAvailable: boolean;
+}) {
+    const labels = {
+        no_declaration: "No declaration · legacy absence",
+        no_observation: "No saved observation",
+        recorded: "Validation decision recorded",
+        host_unavailable: "Host unavailable",
+        host_rejected: "Stored Host rejection",
+    };
+    const observation = "observation" in result ? result.observation : null;
+    const reply = observation?.host_reply;
+    const decision =
+        reply?.status === "ok" && reply.data.status === "recorded"
+            ? reply.data.decision
+            : null;
+    const reason =
+        decision?.reason === "scene_first_person"
+            ? "First-person claim"
+            : decision?.reason === "scene_unapproved_movement"
+              ? "Unapproved movement"
+              : decision?.reason === "unclassified"
+                ? "Unclassified by the validator"
+                : "No rejection reason";
+    return (
+        <div
+            className="comparison-evidence comparison-narration-diagnostic"
+            data-diagnostic-status={result.status}
+            aria-live="polite"
+        >
+            <h4>Narration diagnostic · {labels[result.status]}</h4>
+            <p>
+                {result.row.turn} · {result.row.arm} · observer omniscient
+            </p>
+            <p>
+                Source story {source.scope.story} · branch {source.scope.branch}{" "}
+                · Before {source.before_head} · After {source.after_head}
+            </p>
+            <p>
+                Selected case phase:{" "}
+                {phase ?? "Unavailable — inspect the report"} · Case error:{" "}
+                {caseError === undefined
+                    ? "Unavailable — inspect the report"
+                    : (caseError ?? "None")}
+            </p>
+            <p>
+                Accepted receipt:{" "}
+                {receiptAvailable ? "available" : "unavailable"} · Quality: not
+                established by this metadata.
+            </p>
+            <p>
+                {fallback === true
+                    ? "Mechanical fallback recorded."
+                    : fallback === false
+                      ? "No mechanical fallback recorded."
+                      : "Fallback status unavailable — inspect the report."}
+            </p>
+            {result.status === "no_declaration" && (
+                <p>
+                    This run has no diagnostic declaration. Older reports cannot
+                    supply missing validation causes.
+                </p>
+            )}
+            {result.status === "no_observation" && (
+                <p>
+                    No bound observation was saved for this turn. This does not
+                    establish whether validation ran.
+                </p>
+            )}
+            {result.status === "host_unavailable" && (
+                <p>
+                    The stored Host reply reports unavailable evidence for this
+                    attempt. It supplies no validation decision.
+                </p>
+            )}
+            {result.status === "host_rejected" && (
+                <p>
+                    The stored reply records rejection of the earlier Host
+                    diagnostic read. The current metadata read succeeded; this
+                    is separate from rejection of narration.
+                </p>
+            )}
+            {observation && (
+                <dl>
+                    <dt>Validation base revision</dt>
+                    <dd>{observation.host_query.command.base_revision}</dd>
+                    <dt>Actual attempt</dt>
+                    <dd>{observation.host_query.command.attempt}</dd>
+                    {decision && (
+                        <>
+                            <dt>Validation outcome</dt>
+                            <dd>{decision.outcome}</dd>
+                            <dt>Validation error</dt>
+                            <dd>
+                                {decision.error?.replaceAll("_", " ") ?? "None"}
+                            </dd>
+                            <dt>Validation reason</dt>
+                            <dd>{reason}</dd>
+                        </>
+                    )}
+                    {reply?.status === "rejected" && (
+                        <>
+                            <dt>Host read error</dt>
+                            <dd>{reply.error}</dd>
+                        </>
+                    )}
+                </dl>
+            )}
+            <p>
+                This metadata does not establish a final commit or prose
+                quality. A rejected narration may have a mechanical fallback; a
+                recorded decision may precede cancellation. The selected row's
+                phase and receipt remain separate.
+            </p>
+            <details>
+                <summary>Inspect bound diagnostic metadata</summary>
+                <pre>{display(result)}</pre>
+            </details>
+        </div>
+    );
+}
 
 export function ComparisonReaderPanel({
     controller: c,
@@ -708,7 +844,29 @@ export function ComparisonReaderPanel({
                                     >
                                         Inspect recorded role outputs
                                     </button>
+                                    {s.source?.protocol_version === 4 && (
+                                        <button
+                                            disabled={s.busy}
+                                            onClick={() =>
+                                                void c.inspectNarrationDiagnosticV1()
+                                            }
+                                        >
+                                            Inspect narration diagnostic
+                                        </button>
+                                    )}
                                 </div>
+                            )}
+                            {omni && s.diagnostic && (
+                                <NarrationDiagnosticDetails
+                                    result={s.diagnostic.diagnostic}
+                                    source={selected.source}
+                                    phase={turn?.phase ?? null}
+                                    caseError={turn?.error}
+                                    fallback={turn?.fallback ?? null}
+                                    receiptAvailable={
+                                        selected.receipt_available
+                                    }
+                                />
                             )}
                             {s.evidence && (
                                 <div

@@ -1352,3 +1352,343 @@ export function checkedReaderEvidence(
     }
     return o as ReaderEvidence;
 }
+
+const narrationDiagnosticCategories = [
+    "malformed",
+    "version",
+    "scope",
+    "rule",
+    "agency",
+    "deadline",
+    "retry_mismatch",
+    "too_large",
+    "author_ui_required",
+    "clarification_required",
+    "unknown_reference",
+    "dead_actor",
+    "location",
+    "inventory",
+    "resource",
+    "ability",
+    "knowledge",
+    "provider",
+    "corrupt_history",
+    "narration",
+    "cancelled",
+    "stale",
+] as const;
+const narrationDiagnosticReasons = [
+    "unclassified",
+    "scene_first_person",
+    "scene_unapproved_movement",
+] as const;
+const narrationDiagnosticHostErrors = [
+    "TooLarge",
+    "Malformed",
+    "Version",
+    "Forbidden",
+    "Closed",
+    "Scope",
+    "Stale",
+    "InvalidRequest",
+    "InvalidSelection",
+    "Internal",
+    "Io",
+    "Database",
+    "ForeignDatabase",
+    "FutureVersion",
+    "SchemaMismatch",
+    "BackupRequired",
+    "BackupExists",
+    "Busy",
+    "InvalidSeed",
+    "DuplicateStory",
+    "NotFound",
+    "InvalidInput",
+    "Integrity",
+    "UnknownTurn",
+    "RetryMismatch",
+    "Cancelled",
+    "Full",
+    "Agency",
+    "AuthorUiRequired",
+    "ClarificationRequired",
+    "UnknownReference",
+    "DeadActor",
+    "Location",
+    "Inventory",
+    "Resource",
+    "Ability",
+    "Knowledge",
+    "Rule",
+    "Provider",
+    "Timeout",
+    "Narration",
+    "CorruptHistory",
+    "Storage",
+] as const;
+type NarrationDiagnosticDecisionV1 = {
+    version: 1;
+    outcome: "accepted" | "rejected" | "cancelled" | "stale";
+    error: (typeof narrationDiagnosticCategories)[number] | null;
+    reason: (typeof narrationDiagnosticReasons)[number] | null;
+};
+type NarrationDiagnosticQueryV1 = {
+    version: 1;
+    command: {
+        op: "trace_narration_validation_read_v1";
+        session: string;
+        scope: ScopeV2;
+        expected_head: number;
+        base_revision: number;
+        turn: string;
+        attempt: number;
+    };
+};
+type NarrationDiagnosticHostDataV1 = {
+    version: 1;
+    session: string;
+    scope: ScopeV2;
+    head: number;
+    base_revision: number;
+    turn: string;
+    attempt: number;
+    observer: "player";
+    generation_grant: false;
+};
+type NarrationDiagnosticRecordedReplyV1 = {
+    version: 1;
+    status: "ok";
+    data: NarrationDiagnosticHostDataV1 & {
+        status: "recorded";
+        decision: NarrationDiagnosticDecisionV1;
+    };
+};
+type NarrationDiagnosticUnavailableReplyV1 = {
+    version: 1;
+    status: "ok";
+    data: NarrationDiagnosticHostDataV1 & { status: "unavailable" };
+};
+type NarrationDiagnosticRejectedReplyV1 = {
+    version: 1;
+    status: "rejected";
+    error: (typeof narrationDiagnosticHostErrors)[number];
+};
+type NarrationDiagnosticReplyV1 =
+    | NarrationDiagnosticRecordedReplyV1
+    | NarrationDiagnosticUnavailableReplyV1
+    | NarrationDiagnosticRejectedReplyV1;
+type NarrationDiagnosticObservationV1<R extends NarrationDiagnosticReplyV1> = {
+    version: 1;
+    kind: "full_scene_narration_observation_v1";
+    declaration_sha256: string;
+    run_binding_sha256: string;
+    source_sha256: string;
+    arm: "left" | "right";
+    index: number;
+    admission: number;
+    checkpoint_sha256: string;
+    host_query: NarrationDiagnosticQueryV1;
+    host_reply: R;
+    generation_grant: false;
+};
+type NarrationDiagnosticResultV1 = {
+    version: 1;
+    protocol_version: 4;
+    kind: "narration_diagnostic_v1";
+    binding: string;
+    row: RowId;
+    generation_grant: false;
+} & (
+    | { status: "no_declaration" | "no_observation" }
+    | {
+          status: "recorded";
+          observation: NarrationDiagnosticObservationV1<NarrationDiagnosticRecordedReplyV1>;
+      }
+    | {
+          status: "host_unavailable";
+          observation: NarrationDiagnosticObservationV1<NarrationDiagnosticUnavailableReplyV1>;
+      }
+    | {
+          status: "host_rejected";
+          observation: NarrationDiagnosticObservationV1<NarrationDiagnosticRejectedReplyV1>;
+      }
+);
+export type ReaderNarrationDiagnosticV1 = {
+    version: 1;
+    kind: "comparison_reader_narration_diagnostic_v1";
+    run_token: string;
+    diagnostic: NarrationDiagnosticResultV1;
+};
+
+function narrationDiagnosticDecision(value: unknown): void {
+    const d = exact(value, ["version", "outcome", "error", "reason"]);
+    wire(d.version === 1);
+    const outcome = choices(d.outcome, [
+        "accepted",
+        "rejected",
+        "cancelled",
+        "stale",
+    ]);
+    nullable(d.error, (v) => choices(v, narrationDiagnosticCategories));
+    nullable(d.reason, (v) => choices(v, narrationDiagnosticReasons));
+    if (outcome === "accepted") wire(d.error === null && d.reason === null);
+    else if (outcome === "cancelled")
+        wire(d.error === "cancelled" && d.reason === null);
+    else if (outcome === "stale")
+        wire(d.error === "stale" && d.reason === null);
+    else if (d.error === "narration") wire(d.reason !== null);
+    else
+        wire(
+            d.error !== null &&
+                d.error !== "cancelled" &&
+                d.error !== "stale" &&
+                d.reason === null,
+        );
+}
+
+/** Decode inspection metadata only; Rust owns its manifest/checkpoint/ledger binding. */
+export function checkedReaderNarrationDiagnosticV1(
+    raw: unknown,
+    token: string,
+    source: ReaderSource,
+    selected: RowId,
+): ReaderNarrationDiagnosticV1 {
+    // This cap covers the entire distinct envelope, without the old wrapper allowance.
+    const envelope = exact(detached(raw, 8192), [
+        "version",
+        "kind",
+        "run_token",
+        "diagnostic",
+    ]);
+    wire(
+        source.protocol_version === 4 &&
+            envelope.version === 1 &&
+            envelope.kind === "comparison_reader_narration_diagnostic_v1" &&
+            guid(envelope.run_token) === token,
+    );
+    const entry = source.rows.find(
+        (v) => readerRowKey(v.row) === readerRowKey(selected),
+    );
+    wire(entry);
+    const d = object(envelope.diagnostic);
+    const status = choices(d.status, [
+        "no_declaration",
+        "no_observation",
+        "recorded",
+        "host_unavailable",
+        "host_rejected",
+    ]);
+    const observed = status !== "no_declaration" && status !== "no_observation";
+    exact(d, [
+        "version",
+        "protocol_version",
+        "kind",
+        "binding",
+        "row",
+        "generation_grant",
+        "status",
+        ...(observed ? ["observation"] : []),
+    ]);
+    wire(
+        d.version === 1 &&
+            d.protocol_version === 4 &&
+            d.kind === "narration_diagnostic_v1" &&
+            hash(d.binding) === source.binding &&
+            readerRowKey(rowId(d.row)) === readerRowKey(selected) &&
+            d.generation_grant === false,
+    );
+    if (!observed) return envelope as ReaderNarrationDiagnosticV1;
+
+    const observation = exact(d.observation, [
+        "version",
+        "kind",
+        "declaration_sha256",
+        "run_binding_sha256",
+        "source_sha256",
+        "arm",
+        "index",
+        "admission",
+        "checkpoint_sha256",
+        "host_query",
+        "host_reply",
+        "generation_grant",
+    ]);
+    wire(
+        observation.version === 1 &&
+            observation.kind === "full_scene_narration_observation_v1" &&
+            observation.arm === selected.arm &&
+            observation.generation_grant === false,
+    );
+    integer(observation.index, 0, 23);
+    integer(observation.admission, 0, 31);
+    for (const key of [
+        "declaration_sha256",
+        "run_binding_sha256",
+        "source_sha256",
+        "checkpoint_sha256",
+    ])
+        hash(observation[key]);
+    // The run binding is NOT the reader snapshot binding. Neither this source
+    // tuple nor a session string authenticates the historical observation.
+    const query = exact(observation.host_query, ["version", "command"]);
+    wire(query.version === 1);
+    const command = exact(query.command, [
+        "op",
+        "session",
+        "scope",
+        "expected_head",
+        "base_revision",
+        "turn",
+        "attempt",
+    ]);
+    wire(command.op === "trace_narration_validation_read_v1");
+    id(command.session);
+    wire(
+        sameScope(scope(command.scope), entry.source.scope) &&
+            id(command.turn) === selected.turn &&
+            integer(command.expected_head) === entry.source.before_head,
+    );
+    integer(command.base_revision);
+    integer(command.attempt, 0, 0xffff_ffff);
+    const reply = object(observation.host_reply);
+    wire(reply.version === 1);
+    if (reply.status === "rejected") {
+        exact(reply, ["version", "status", "error"]);
+        wire(status === "host_rejected");
+        choices(reply.error, narrationDiagnosticHostErrors);
+    } else {
+        exact(reply, ["version", "status", "data"]);
+        wire(reply.status === "ok" && status !== "host_rejected");
+        const data = object(reply.data),
+            recorded = status === "recorded";
+        exact(data, [
+            "version",
+            "session",
+            "scope",
+            "head",
+            "base_revision",
+            "turn",
+            "attempt",
+            "observer",
+            "generation_grant",
+            "status",
+            ...(recorded ? ["decision"] : []),
+        ]);
+        wire(
+            data.version === 1 &&
+                data.status === (recorded ? "recorded" : "unavailable") &&
+                id(data.session) === command.session &&
+                sameScope(scope(data.scope), scope(command.scope)) &&
+                integer(data.head) === command.expected_head &&
+                integer(data.base_revision) === command.base_revision &&
+                id(data.turn) === command.turn &&
+                integer(data.attempt, 0, 0xffff_ffff) === command.attempt &&
+                data.observer === "player" &&
+                data.generation_grant === false,
+        );
+        if (recorded) narrationDiagnosticDecision(data.decision);
+    }
+    wire(encoded(reply) <= 4096 && encoded(observation) <= 7168);
+    return envelope as ReaderNarrationDiagnosticV1;
+}

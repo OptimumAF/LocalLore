@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = new URL(".", import.meta.url);
 for (const args of [
     ["comparison-run-process-policy-check.mjs"],
+    ["comparison-reader-process-policy-check.mjs"],
     ["build.mjs"],
     ["node_modules/typescript/bin/tsc", "--noEmit"],
     ["check-contract.mjs"],
@@ -46,6 +47,7 @@ for (const args of [
     ["check-comparison-reader.mjs"],
     ["check-literal-comparison-reader.mjs"],
     ["check-scene-reader-review.mjs"],
+    ["check-narration-diagnostic-reader-review.mjs"],
     ["check-comparison-main-review.mjs"],
     ["check-comparison-capability-review.mjs"],
     ["check-archive-controller.mjs"],

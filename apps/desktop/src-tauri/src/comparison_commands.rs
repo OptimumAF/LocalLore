@@ -1,6 +1,8 @@
 //! Closed read-only comparison IPC. Paths and grants belong to native code.
 use crate::{
-    evaluation::{ComparisonEvidenceRequest, EvaluationManager},
+    evaluation::{
+        ComparisonEvidenceRequest, ComparisonNarrationDiagnosticRequestV1, EvaluationManager,
+    },
     WorkspaceState,
 };
 use locallore::inspection_query::{Observer, View};
@@ -16,6 +18,7 @@ enum Action {
     Source(String),
     Summary(String),
     Evidence(ComparisonEvidenceRequest),
+    NarrationDiagnosticV1(ComparisonNarrationDiagnosticRequestV1),
     Close(String, Option<String>),
 }
 fn invalid<T>() -> Result<T> {
@@ -146,6 +149,33 @@ fn parse(action: &str, query: &Value) -> Result<Action> {
             };
             Ok(Action::Close(guid(&query["clientId"])?, token))
         }
+        "narration_diagnostic_v1" => {
+            keys(query, &["runToken", "binding", "turnId", "arm", "observer"])?;
+            let binding = text(&query["binding"])?;
+            if binding.len() != 64
+                || !binding
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return invalid();
+            }
+            let arm = match query["arm"].as_str() {
+                Some("left") => Arm::Left,
+                Some("right") => Arm::Right,
+                _ => return invalid(),
+            };
+            Ok(Action::NarrationDiagnosticV1(
+                ComparisonNarrationDiagnosticRequestV1 {
+                    token: guid(&query["runToken"])?,
+                    binding,
+                    row: RowId {
+                        turn: identifier(&query["turnId"])?,
+                        arm,
+                    },
+                    observer: observer(&query["observer"])?,
+                },
+            ))
+        }
         "evidence" => {
             keys(query, &["runToken", "binding", "turnId", "arm", "request"])?;
             let binding = text(&query["binding"])?;
@@ -252,6 +282,9 @@ pub async fn evaluation_comparison(
         Action::Source(token) => manager.comparison_source(&lease, epoch, granted, &token),
         Action::Summary(token) => manager.comparison_summary(&lease, epoch, granted, &token),
         Action::Evidence(input) => manager.comparison_evidence(&lease, epoch, granted, input),
+        Action::NarrationDiagnosticV1(input) => {
+            manager.comparison_narration_diagnostic_v1(&lease, epoch, granted, input)
+        }
         Action::Close(_, _) => Err("EvaluationInternal".into()),
     })
     .await
@@ -267,6 +300,9 @@ pub async fn evaluation_comparison(
     }
     result
 }
+
+#[cfg(test)]
+mod narration_diagnostic_review_tests;
 
 #[cfg(test)]
 mod tests {

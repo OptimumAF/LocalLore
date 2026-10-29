@@ -22,11 +22,47 @@ const MOVEMENT: &str = "You walk toward a low stone arch.";
 const PRIVATE: &str = "SYNTHETIC_HOST_DIAGNOSTIC_SECRET_557";
 
 fn engine(player: &str) -> Engine {
-    // Original synthetic ID substitution rewrites exact JSON tokens only;
-    // no public Host seed-import or player-identity override is introduced.
-    let source = include_str!("../../../../fixtures/lantern_quay.json")
-        .replace("\"player\"", &format!("\"{player}\""));
-    let mut seed: Seed = serde_json::from_str(&source).unwrap();
+    // Typed fixture remapping preserves schema property names and ordinary text.
+    // Only the actor-map key and explicit actor-ID values change. This is not
+    // a public Host seed-import or player-identity override.
+    let mut seed: Seed =
+        serde_json::from_str(include_str!("../../../../fixtures/lantern_quay.json")).unwrap();
+    if seed.player != player {
+        let old_player = seed.player.clone();
+        let actor = seed.actors.remove(&old_player).unwrap();
+        assert!(seed.actors.insert(player.to_owned(), actor).is_none());
+        seed.player = player.to_owned();
+        let remap_actor = |id: &mut String| {
+            if id.as_str() == old_player.as_str() {
+                *id = player.to_owned();
+            }
+        };
+        for item in seed.items.values_mut() {
+            remap_actor(&mut item.owner);
+            if let Some(return_to) = &mut item.return_to {
+                remap_actor(return_to);
+            }
+        }
+        for ability in seed.abilities.values_mut() {
+            remap_actor(&mut ability.teacher);
+        }
+        for fact in seed.facts.values_mut() {
+            if fact.known_by.remove(old_player.as_str()) {
+                fact.known_by.insert(player.to_owned());
+            }
+        }
+        for relationship in &mut seed.relationships {
+            remap_actor(&mut relationship.from);
+            remap_actor(&mut relationship.to);
+        }
+        for belief in &mut seed.beliefs {
+            remap_actor(&mut belief.believer);
+        }
+        for commitment in seed.commitments.values_mut() {
+            remap_actor(&mut commitment.from);
+            remap_actor(&mut commitment.to);
+        }
+    }
     seed.facts.get_mut("ancestry").unwrap().proposition = PRIVATE.into();
     Engine::new(seed).unwrap()
 }

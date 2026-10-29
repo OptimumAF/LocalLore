@@ -266,3 +266,40 @@ The independent author verifies source/oracles, fixture-path resolution, exact
 two-path diff, whitespace and hashes only: no compiler, formatter, Cargo, Node,
 browser, app, model/assets, phone or desktop execution. Handoff releases these
 two paths to Root with the frozen commit/hash before any production edit.
+
+## Independent preproduction fixture correction — 2026-10-29
+
+Root's source review found a defect in the original `a2f5f967` FIRST source:
+`engine(player)` replaced every exact JSON string token `"player"`, including
+the required Seed PROPERTY KEY. Consequently `engine("hero")` would remove that
+property and fail Seed deserialization before testing Host behavior. This was
+found by source inspection, not a measured behavioral RED. Preserve the original
+555-line freeze/hash `2afb14de...a8d94a` and Root's format-equality evidence.
+The registered/formatted pre-correction source has SHA256
+`e1ae862213cfe1cee595bc7422825d0105975d3ec45bb452fd38b25586ab087e`.
+
+The independent correction uses NEW
+`test/d07-host-read-typed-player-fixture-v1` from Root's preproduction
+`bd4e26d01f25181945654dfd3312ea1623a56b95`. Amendment claims before edits:
+[#9 comment6495291485](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6495291485),
+[#29 comment6495291934](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6495291934).
+Only `engine(player)` changes, plus this append. It parses the original JSON as
+typed Seed, preserves schema keys and ordinary text, and conditionally renames
+the actors-map key, Seed player value, item owners/return targets, ability
+teachers, known-by membership, relationship endpoints, belief owners and
+commitment parties. Exact actor-ID matches alone change; unrelated IDs/prose do
+not. The ordinary `"player"` case skips remapping, retaining the existing default
+fixture semantics and unchanged privacy sentinel assignment.
+
+All six test bodies/assertions, the nonliteral-ID case and other helpers remain
+unchanged; a source comparison outside this helper confirms preservation.
+Corrected pre-format source SHA256:
+`14f4752332fcd5a81ce16fec9f8c3883c7a55543ea4503887d69f3fb396d4aac`.
+Checks here are typed-definition/JSON source inspection, scope/whitespace/hash
+checks only. No Rust Seed/Engine execution, compiler, formatter, Cargo, Node,
+app, model/assets, device or desktop action occurred. The registered tests
+remain **UNCOMPILED/UNRUN** with the new Host API/selector visibility/schema still
+absent. Root withholds production until this corrected source handoff, then owns
+format-equality, registration preservation, implementation and actual checks.
+Both owned paths are released to Root after the correction commit; no gate or
+full-task acceptance follows from fixing this source fixture.

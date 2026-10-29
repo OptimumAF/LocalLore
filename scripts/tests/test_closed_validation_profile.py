@@ -27,6 +27,10 @@ class PlanFixture:
         self.g = g = f.ClosedRestartGraph()
         self.base = g.base
         self.launch = g.base / 'controller-parent'
+        g.admission = g.save(g.base / 'target-admission-v2.json', g.a)
+        g.d['admission'] = g.admission
+        g.running = g.save(g.running['path'], g.d)
+        g.s.update(admission=g.admission, running=g.running, descriptor=g.d)
         caller = copy.deepcopy(g.d['worker'])
         caller.update(pid=8102, creation_filetime=108102)
         g.s['caller'] = caller
@@ -218,6 +222,35 @@ class ProfilePlanTests(unittest.TestCase):
             change(fixture.plan)
             with self.assertRaises(ValueError):
                 p.prepare(fixture.plan)
+
+    def test_wrong_role_basename_refuses_before_any_role_read(self):
+        fixture = PlanFixture()
+        fixture.plan['target_started'] = dict(path=str(fixture.base / 'adbkey'), bytes=7, sha256='a' * 64)
+        with patch.object(p, 'read', side_effect=AssertionError('no role may be read before basename checks')) as read:
+            with self.assertRaises(ValueError):
+                p.prepare(fixture.plan)
+            read.assert_not_called()
+
+    def test_metadata_pin_and_reader_refuse_non_JSON_before_hashing(self):
+        path = directory() / 'ordinary.txt'
+        path.write_bytes(b'ordinary test data, not credentials')
+        binding = p.env.binding(path)
+        with patch.object(p.env, 'binding', side_effect=AssertionError('non-JSON must not be hashed')) as hashed:
+            with self.assertRaises(ValueError):
+                p.pin(path)
+            hashed.assert_not_called()
+        with patch.object(p.env, 'binding', side_effect=AssertionError('non-JSON must not be hashed')) as hashed:
+            with self.assertRaises(ValueError):
+                p.read(binding)
+            hashed.assert_not_called()
+
+    def test_metadata_size_bound_is_checked_before_hashing(self):
+        path = directory() / 'oversized.json'
+        path.write_bytes(b'x' * (p.CAP + 1))
+        with patch.object(p.env, 'binding', side_effect=AssertionError('oversized input must not be hashed')) as hashed:
+            with self.assertRaisesRegex(ValueError, 'metadata_size'):
+                p.pin(path)
+            hashed.assert_not_called()
 
     def test_session_caller_cannot_replace_independent_controller_started_identity(self):
         fixture = PlanFixture()

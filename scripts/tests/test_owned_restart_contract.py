@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from benchmarks import owned_restart_contract as r
+from benchmarks import android_process_verification_v5 as reader
 from benchmarks import owned_target_contract as legacy
 from scripts.tests import test_owned_target_contract as f
 
@@ -62,9 +63,9 @@ def instrumentation(kind):
 
 def process_packet(*,mode='snapshot',state='alive',pid=8021,uid=10421,start=90001,boot=BOOT):
     value=dict(version=1,protocol='android-author-process-probe-v1',mode=mode,boot_id=boot,pid=pid,expected_uid=uid,
-      observed_uid=uid,start_ticks=start,state=state,pidfd_opened=True,poll_revents=0,pidfd_closed=True,error=None,errno=0)
-    if mode=='boot':value.update(pid=None,expected_uid=None,observed_uid=None,start_ticks=None,state='boot',pidfd_opened=False,poll_revents=None,pidfd_closed=None)
-    elif state=='absent':value.update(observed_uid=None,start_ticks=None,pidfd_opened=False,poll_revents=None,pidfd_closed=None,errno=3)
+      observed_uid=uid,start_ticks=start,state=state,pidfd_opened=True,poll_revents=0,pidfd_closed=True,proc_opened=True,proc_closed=True,error=None,errno=0)
+    if mode=='boot':value.update(pid=None,expected_uid=None,observed_uid=None,start_ticks=None,state='boot',pidfd_opened=False,poll_revents=None,pidfd_closed=None,proc_opened=False,proc_closed=None)
+    elif state=='absent':value.update(observed_uid=None,start_ticks=None,pidfd_opened=False,poll_revents=None,pidfd_closed=None,proc_opened=False,proc_closed=None,errno=3)
     elif state=='exited':value['poll_revents']=1
     return value
 
@@ -123,6 +124,64 @@ class RestartProfileTests(unittest.TestCase):
         with self.assertRaises(legacy.TargetRefused):legacy.validate_session(s,f.admission())
         for key,bad in(('protocol','sdk-owned-target-v1'),('descriptor',f.running())):
             changed=copy.deepcopy(s);changed[key]=bad;self.refused(lambda:r.validate_session(changed,value))
+
+
+class NativeProbePacketTests(unittest.TestCase):
+    def raw(self,value):return json.dumps(value,separators=(',',':'),allow_nan=False).encode()
+    def refused(self,call):
+        from benchmarks.receipt_avd_environment import EnvironmentRefused
+        with self.assertRaises((ValueError,EnvironmentRefused)):call()
+
+    def test_original_boot_alive_exited_and_esrch_packets_are_distinct_and_copied(self):
+        for mode,state in(('boot','boot'),('snapshot','alive'),('snapshot','exited'),('snapshot','absent')):
+            value=process_packet(mode=mode,state=state);before=copy.deepcopy(value)
+            expected={}if mode=='boot'else dict(pid=8021,uid=10421)
+            self.assertEqual(reader.validate_probe_packet(self.raw(value)),value)
+            self.assertEqual(reader.parse_probe(self.raw(value),mode,**expected),value);self.assertEqual(value,before)
+
+    def test_exact_expected_pid_uid_and_mode_cannot_borrow_another_observation(self):
+        raw=self.raw(process_packet())
+        for expected in(dict(pid=8022,uid=10421),dict(pid=8021,uid=10422),dict(pid=True,uid=10421),dict(pid=8021,uid=True)):
+            self.refused(lambda:reader.parse_probe(raw,'snapshot',**expected))
+        self.refused(lambda:reader.parse_probe(raw,'boot'))
+
+    def test_esrch_is_only_absence_and_preserves_closed_proc_directory_if_opened(self):
+        value=process_packet(state='absent');value.update(proc_opened=True,proc_closed=True)
+        self.assertEqual(reader.parse_probe(self.raw(value),'snapshot',pid=8021,uid=10421),value)
+        for field,bad in(('errno',0),('errno',1),('errno',38),('observed_uid',10421),('start_ticks',90001),
+                         ('pidfd_opened',True),('proc_closed',None)):
+            changed=copy.deepcopy(value);changed[field]=bad
+            with self.subTest(field=field):self.refused(lambda:reader.parse_probe(self.raw(changed),'snapshot',pid=8021,uid=10421))
+
+    def test_unknown_or_failed_fd_close_never_qualifies_alive_or_exited(self):
+        for state in('alive','exited'):
+            for field,bad in(('pidfd_closed',None),('pidfd_closed',False),('proc_closed',None),('proc_closed',False),
+                             ('pidfd_opened',False),('proc_opened',False),('error','close'),('errno',5)):
+                value=process_packet(state=state);value[field]=bad
+                with self.subTest(state=state,field=field):self.refused(lambda:reader.parse_probe(self.raw(value),'snapshot',pid=8021,uid=10421))
+
+    def test_raw_poll_event_bits_and_positive_ticks_are_never_relabelled(self):
+        for revents in(1,16,17):
+            value=process_packet(state='exited');value['poll_revents']=revents
+            self.assertEqual(reader.parse_probe(self.raw(value),'snapshot',pid=8021,uid=10421),value)
+        for state,field,bad in(('alive','poll_revents',1),('exited','poll_revents',0),('exited','poll_revents',2),
+                               ('exited','poll_revents',32),('alive','start_ticks',0),('alive','start_ticks',True)):
+            value=process_packet(state=state);value[field]=bad
+            with self.subTest(state=state,field=field):self.refused(lambda:reader.parse_probe(self.raw(value),'snapshot',pid=8021,uid=10421))
+
+    def test_boot_requires_no_process_or_fd_claim_and_canonical_uuid(self):
+        for field,bad in(('pid',8021),('observed_uid',10421),('pidfd_opened',True),('proc_opened',True),('proc_closed',True),
+                         ('poll_revents',0),('boot_id',BOOT.upper()),('boot_id','not-a-boot-id'),('errno',True)):
+            value=process_packet(mode='boot');value[field]=bad
+            with self.subTest(field=field):self.refused(lambda:reader.parse_probe(self.raw(value),'boot'))
+
+    def test_packet_utf8_unique_keys_scalars_closed_schema_and_cap_are_strict(self):
+        for raw in(b'',b'\xff',b'{"version":1,"version":1}',b'{"x":NaN}',b'{"x":Infinity}',b'{} trailing',b' '*4097):
+            with self.subTest(raw=raw[:20]):self.refused(lambda:reader.validate_probe_packet(raw))
+        for field,bad in(('version',True),('pid',True),('expected_uid',9999),('observed_uid',True),('start_ticks',1.5),
+                         ('proc_opened',1),('private','SYNTHETIC_PRIVATE_CANARY')):
+            value=process_packet();value[field]=bad
+            with self.subTest(field=field):self.refused(lambda:reader.validate_probe_packet(self.raw(value)))
 
 
 if __name__=='__main__':unittest.main()

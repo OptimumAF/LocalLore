@@ -5,8 +5,9 @@ import os
 from pathlib import Path, PureWindowsPath
 import struct
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 
 from benchmarks import owned_target_contract as n
 from scripts.tests import test_isolated_adb_lease as host_fixture
@@ -590,6 +591,129 @@ class ClosedTargetReaderTests(unittest.TestCase):
     def test_instrumentation_requires_original_once_claim_bound_to_actual_caller(self):
         f=ClosedTargetFixture(instrument=True);self.assertEqual(f.validate(),f.row)
         value=f.env.read_json(f.claim['path']);value['caller']['pid']=999;f.rewrite(f.claim['path'],value);self.refused(f.validate)
+
+
+@unittest.skipUnless(os.name=='nt','physical D owned observer fixtures')
+class ActualOwnerMockTests(unittest.TestCase):
+    def setUp(self):
+        from benchmarks import owned_target_owner as owner
+        self.o=owner;self.f=ClosedTargetFixture();self.clock=100.0;self.wall=1800000010.0
+        self.identities={p['pid']:copy.deepcopy(p)for p in(self.f.d[k]for k in('owner','worker','server','launcher','guest'))}
+        self.caller=dict(pid=7106,creation_filetime=107106,executable=self.f.a['python']['executable']['path']);self.identities[7106]=self.caller
+        self.handles={};self.closed=[];self.next_handle=100;self.bad_pid=None
+        self.api=SimpleNamespace(open_process=self.open_process,identity=self.identity,alive=lambda handle:True,
+          close_handle=self.close_handle,parent_pid=lambda handle:self.f.d['launcher']['pid'],current_job_pids=Mock())
+        self.enter(patch.object(owner,'_ProcessApi',return_value=self.api));self.enter(patch.object(owner.os,'getpid',return_value=7106))
+        self.enter(patch.object(owner.time,'monotonic',side_effect=lambda:self.clock));self.enter(patch.object(owner.time,'time',side_effect=lambda:self.wall))
+        self.inputs=self.enter(patch.object(owner.contract,'revalidate_inputs'))
+        self.enter(patch.object(owner.contract,'source_bindings',return_value=self.f.a['sources']))
+        self.enter(patch.object(owner.file_guard,'_python_bindings',return_value=self.f.a['python']))
+        self.observe=self.enter(patch.object(owner,'_observe',side_effect=self.capture))
+        self.native_socket=self.enter(patch.object(owner.socket,'socket',side_effect=AssertionError('unmocked socket')))
+        self.popen=self.enter(patch.object(owner.subprocess,'Popen',side_effect=AssertionError('no process launch')))
+    def enter(self,context):
+        value=context.__enter__();self.addCleanup(context.__exit__,None,None,None);return value
+    def open_process(self,pid):
+        self.next_handle+=1;self.handles[self.next_handle]=pid;return self.next_handle
+    def identity(self,handle):
+        pid=self.handles[handle]
+        if pid==self.bad_pid:raise OSError('synthetic identity refusal')
+        return copy.deepcopy(self.identities[pid])
+    def close_handle(self,handle):self.closed.append(handle);return True
+    def capture(self,api,*,guest=False):
+        if guest:
+            value=ready(self.f.a,self.f.d)['guest_observation']
+        else:
+            value=host_fixture.observation(host_fixture.row4(pid=self.f.d['server']['pid']),
+              host_fixture.row4(role='server',pid=self.f.d['server']['pid'],ordinal=4),
+              host_fixture.row4(role='client',pid=self.caller['pid'],ordinal=8))
+        return value,table_metadata(value)
+    def live(self):return self.o.LiveOwnedTarget(self.f.admission,self.f.running)
+
+    def test_actual_live_constructor_holds_each_identity_returns_copies_and_closes_owned_handles(self):
+        live=self.live();self.assertEqual(live.caller,self.caller);live.descriptor['guest']['pid']=99
+        self.assertEqual(live.descriptor,self.f.d);self.assertTrue(live.close())
+        self.assertEqual(set(self.closed),set(self.handles));self.api.current_job_pids.assert_not_called();self.native_socket.assert_not_called();self.popen.assert_not_called()
+
+    def test_partial_identity_acquisition_closes_all_acquired_handles_without_launch(self):
+        self.bad_pid=self.f.d['server']['pid']
+        with self.assertRaises(self.o.OwnerRefused):self.live()
+        self.assertEqual(set(self.closed),set(self.handles));self.assertGreater(len(self.closed),1);self.popen.assert_not_called()
+
+    def test_actual_fast_guard_rejects_wall_expiry_monotonic_rollback_and_bound_stop(self):
+        for mode in('wall','clock','stop'):
+            self.clock=100;self.wall=1800000010;live=self.live()
+            if mode=='wall':self.wall=self.f.d['deadline_epoch']
+            elif mode=='clock':self.clock=99
+            else:self.f.save(self.f.root/'stop-v1.json',dict(version=1,protocol=PROTOCOL,admission_sha256=self.f.admission['sha256'],action='stop'))
+            with self.assertRaises(self.o.OwnerRefused):live.fast_guard()
+            live.close()
+
+    def test_actual_claim_is_create_only_admission_wide_across_observers_and_spent_after_guard_failure(self):
+        first=self.live();second=self.live();digest='a'*64;first.claim_once('import',digest)
+        with self.assertRaises((self.o.OwnerRefused,self.o.output_control.ControlRefused,FileExistsError)):second.claim_once('import',digest)
+        claim=self.f.env.read_json(self.f.root/'claims-v1/import-v1.json')
+        self.assertEqual(n.validate_claim(claim,self.f.admission,self.caller,'import',digest),claim)
+        original=first.guard;calls=0
+        def after_claim_guard(*args,**kwargs):
+            nonlocal calls
+            calls+=1
+            if calls==2:raise self.o.OwnerRefused('source')
+            return original(*args,**kwargs)
+        with patch.object(first,'guard',side_effect=after_claim_guard):
+            with self.assertRaises(self.o.OwnerRefused):first.claim_once('author','b'*64)
+        self.assertTrue((self.f.root/'claims-v1/author-v1.json').is_file());first.close();second.close()
+
+    def test_actual_query_uses_original_raw_tuple_before_send_and_records_exact_eof_closed_socket(self):
+        from scripts.tests.test_android_process_client_v4 import FakeSocket
+        live=self.live();sock=FakeSocket(b'OKAY00040029')
+        with patch.object(self.o.socket,'socket',return_value=sock)as factory:
+            record,failure=live._query('version')
+        self.assertIsNone(failure);self.assertEqual(sock.sent,b'000Chost:version');self.assertEqual(sock.connects,[('127.0.0.1',15937)])
+        self.assertTrue(record['eof']);self.assertTrue(record['socket_closed']);self.assertEqual(record['response_hex'],b'OKAY00040029'.hex())
+        factory.assert_called_once();live.close()
+
+    def test_query_foreign_current_pid_refuses_without_sending_or_retry(self):
+        from scripts.tests.test_android_process_client_v4 import FakeSocket
+        live=self.live();sock=FakeSocket(b'OKAY00040029');original=self.capture
+        def capture(api,*,guest=False):
+            value,tables=original(api,guest=guest)
+            if not guest:value['rows'][2]=host_fixture.row4(role='client',pid=999,ordinal=8);tables=table_metadata(value)
+            return value,tables
+        with patch.object(self.o.socket,'socket',return_value=sock),patch.object(self.o,'_observe',side_effect=capture):
+            record,failure=live._query('version')
+        self.assertIsNotNone(failure);self.assertEqual(sock.sent,b'');self.assertTrue(record['socket_closed']);self.assertFalse(record['eof']);live.close()
+
+    def test_runtime_constructor_and_bad_receipt_do_not_reach_auth_ports_or_processes(self):
+        request=dict(validated_admission=self.f.a,admission=self.f.admission,owner=self.f.d['owner'])
+        runtime=self.o._TargetRuntime(request,self.f.admission,self.f.root);runtime.worker=self.f.d['worker'];runtime.processes=SimpleNamespace(guard=Mock())
+        self.f.save(self.f.root/'started-v1.json',dict(worker=dict(runtime.worker,pid=99),request=self.f.admission))
+        with patch.object(self.o.primitives.AuthKeyGuard,'open')as auth,patch.object(self.o,'_guest_preflight')as ports:
+            with self.assertRaises(self.o.OwnerRefused):runtime.wait_receipt()
+        auth.assert_not_called();ports.assert_not_called();self.popen.assert_not_called();self.native_socket.assert_not_called()
+
+    def test_cleanup_terminates_actual_held_guest_before_launcher_then_server_and_retains_uncertainty(self):
+        for wait_fails in(False,True):
+            events=[]
+            def child(name):
+                handle=SimpleNamespace(closed=False)
+                handle.Close=lambda:(events.append(name+'-close'),setattr(handle,'closed',True))
+                return SimpleNamespace(poll=lambda:None,terminate=lambda:events.append(name+'-terminate'),
+                  wait=lambda timeout:(events.append(name+'-wait')or 7),_handle=handle)
+            def wait(handle):
+                events.append('qemu-wait')
+                if wait_fails:raise OSError('uncertain actual VM exit')
+                return 1
+            runtime=SimpleNamespace(root=self.f.base/('cleanup-'+str(wait_fails)),guest_stop_verified=True,guest_stop_handle=901,
+              guest=self.f.d['guest'],server=self.f.d['server'],launcher=self.f.d['launcher'],
+              api=SimpleNamespace(alive=lambda handle:True,terminate_guest=lambda handle:events.append('qemu-terminate'),wait_guest=wait),
+              processes=SimpleNamespace(release=lambda handle:(events.append('qemu-close')or True),close=lambda:True),
+              guest_child=child('launcher'),child=child('server'),capture=None,guest_capture=None,auth=SimpleNamespace(close=lambda:True),clients_closed=True)
+            runtime.root.mkdir();cleanup,*_=self.o._cleanup(runtime,dict(created_mask=1,close_attempted_mask=1,closed_mask=1),
+              dict(created_mask=15,close_attempted_mask=15,closed_mask=15))
+            self.assertLess(events.index('qemu-wait'),events.index('launcher-terminate'))
+            if wait_fails:self.assertNotIn('server-terminate',events);self.assertFalse(cleanup['guest_wait_completed'])
+            else:self.assertLess(events.index('launcher-wait'),events.index('server-terminate'));self.assertTrue(cleanup['guest_process_handle_closed'])
 
 
 if __name__=='__main__':unittest.main()

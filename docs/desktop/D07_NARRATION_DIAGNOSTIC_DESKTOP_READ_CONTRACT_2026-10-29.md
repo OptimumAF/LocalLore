@@ -262,3 +262,43 @@ test, registration, compiler, formatter, Cargo, Node, browser/app, model/assets,
 device or desktop execution. Next: Root accepts/refines this proposed contract
 after companion gates, then allocates independent FIRST source. This note grants
 no merge/release authority or full task, quality, device or dependency acceptance.
+
+## Interface precision before acceptance — 2026-10-29
+
+This normative append resolves the earlier shorthand; the original 264-line
+proposal remains intact. Claim before editing:
+[#29 comment6499719137](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6499719137).
+The proposal remains unaccepted pending companion gates. No implementation or
+independent FIRST source is allocated by this append.
+
+Request compact UTF-8 overflow **above 4,096 bytes** preserves the existing
+parser's `InvalidEvaluationInput` and may precede authorization. The error-table
+envelope-overflow entry refers **only to the new response**: total serialized
+UTF-8 bytes above **8,192** return `EvaluationBudget`, without truncation or a
+partial reply. No old-action limit or error behavior changes.
+
+The distinct new frontend envelope is checked with `detached(raw, 8192)` and
+its exact `comparison_reader_narration_diagnostic_v1` kind. Do not reuse the
+old evidence wrapper or its separate 4,096-byte allowance; 8KiB is the entire
+new envelope, not the payload plus another wrapper allowance.
+
+Reader snapshot `diagnostic.binding` and companion `run_binding_sha256` are
+different hashes; equality between them is **not** an invariant. Frontend checks
+only context actually available: token, snapshot binding, selected row, scope,
+BEFORE head, query/reply equality, closed fields and hash shapes. The accepted
+Rust reader owns exact manifest/source/checkpoint/ledger/base-revision/attempt
+binding. Do not invent a Source run key or derive an attempt/base from a new
+latest lookup. Safe-number refusal and generation_grant:false still apply.
+
+Existing `cfg(test)` before_publish barriers suffice for deterministic held-
+completion close/retirement/stale tests. No new held-I/O seam is required or
+authorized. Keep the existing **30-second response timeout** unchanged: it is
+neither cancellation nor a hard filesystem deadline. No shortened-timeout seam
+is authorized or needed; exercise the actual 30-second boundary once or label
+that check unrun. Mock/headless, native component and actual WebView evidence
+retain their separate meanings and limitations.
+
+Only document/source/Git/prefix/hash/whitespace checks were performed here.
+No compiler, formatter, Cargo, Node, app, model/assets, device, desktop or probe
+execution. Release this document to Root for acceptance after the companion
+gate; all task, dependency, quality and execution-admission limits still stand.

@@ -344,3 +344,25 @@ No actual link/junction/reparse/canary/network/profile/isolation probe occurred.
 Independent fault/metadata controls and source checks must be labeled honestly;
 unavailable platform qualification is not a measured safety pass. This remains
 a source-only proposal; only the document is released after handoff.
+
+## Root acceptance for independent FIRST tests — 2026-10-29
+
+Root accepts the complete proposal and precision append for independent original
+synthetic test-source allocation, not production. Original commits `cecbe972`
+and `2dc511b6` integrate as `8bb9f833` and `e42cdda9`. Claims:
+[#29 comment6497405944](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6497405944),
+[#9 comment6497405522](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6497405522).
+Names, caps, closed schemas, exact producer/reader signatures, held-file guard
+reuse and harvest/checkpoint/settlement/teardown order are fixed as above.
+
+Independent tests may use separate Scene4 end-to-end and turn_execution
+lifecycle test children, registered by Root later. The existing TestFault
+variants are provider outcomes, not proof of every filesystem/crash boundary.
+Use actual synthetic Host harvest and explicitly labeled private boundary/
+metadata controls; do not invent existing fault hooks or claim OS crash testing.
+If a named test seam is needed, return it to Root before implementation.
+No actual link/junction/reparse/canary/network/profile/isolation/model/device
+probe is authorized by this test allocation. Missing interfaces/registration
+remain setup, not behavioral RED. Root owns later implementation allocation,
+source integration, actual checks and separate review. Both negative human
+assessments, old missing causes and unmerged dependencies remain unchanged.

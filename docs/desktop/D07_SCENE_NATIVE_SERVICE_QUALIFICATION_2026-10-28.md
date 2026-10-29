@@ -114,15 +114,12 @@ files at exit. All commands use physical D: source/cache/target and process-loca
 | `d07-scene-native-full-process-check-syntax1` | `96337932` | Exit 0; policy checker syntax only | 0.0940730 |
 | `d07-scene-native-full-launcher-syntax1` | `96337932` | Exit 0; launcher syntax only | 0.1114425 |
 
-For exact command reproduction, the recorded source root is
-`D:/CodexLocalLore/01a165d9-ff25-7500-a550-1099087d4e37/source-resource-metrics-review`.
-Below, `<target>` means exactly
-`D:/CodexLocalLore/01a165d9-ff25-7500-a550-1099087d4e37/d07-comparison-reader-native-target`,
-and `<node>` means exactly
-`D:/CodexLocalLore/01a165d9-ff25-7500-a550-1099087d4e37/d09-build-security/node-v24.22.1-win-x64/node.exe`.
-`CARGO_HOME` is the existing sibling
-`d07-consumer-cargo-home-20261026-restore1`. Run from the recorded source root,
-with the owned D: environment, rather than recreating a cache or using a C: path.
+For command reproduction, run from the task-owned physical D: checkout.
+Below, `<target>` is the existing task-owned D: Cargo target and `<node>` is
+the task-owned D: Node 24.22.1 executable. `CARGO_HOME` points to the existing
+task-owned D: locked/offline Cargo cache. The exact private absolute paths are
+retained in the local process records identified below; select those owned
+paths explicitly rather than recreating a cache or using a C: workspace.
 
 ```text
 cargo clean --manifest-path Cargo.toml --offline -p locallore -p locallore-storage -p locallore-workspace -p locallore-android -p locallore-eval -p locallore-desktop-spike --target-dir <target>

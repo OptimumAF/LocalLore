@@ -417,21 +417,42 @@ impl EvaluationManager {
             .map(|t| t.run.clone())
             .ok_or("UnknownEvaluationRun")?;
         let mut full = self.full_lock()?;
-        full.token_leases.retain(|key, _| parent.tokens.contains_key(key));
-        let matches = full.token_leases.get(token)
-            .is_some_and(|(owner_epoch, owner)| *owner_epoch == epoch && lease.owns_identity(owner))
-            && full.runs.get(&id).is_some_and(|r| r.index.lane().ok() == Some(lane));
+        full.token_leases
+            .retain(|key, _| parent.tokens.contains_key(key));
+        let matches = full
+            .token_leases
+            .get(token)
+            .is_some_and(|(owner_epoch, owner)| {
+                *owner_epoch == epoch && lease.owns_identity(owner)
+            })
+            && full
+                .runs
+                .get(&id)
+                .is_some_and(|r| r.index.lane().ok() == Some(lane));
         drop(full);
         if !matches {
             return Err("UnknownEvaluationRun".into());
         }
         Self::token(parent, epoch, token)
     }
-    fn full_mint(parent: &mut State, full: &mut FullComparisonState, lease: &WindowLease, epoch: u64, run: String) -> Result<String> {
-        let token = Self::mint_reusing(parent, epoch, run, |id| full.token_leases.get(id)
-            .is_some_and(|(owner_epoch, owner)| *owner_epoch == epoch && lease.owns_identity(owner)))?;
-        full.token_leases.retain(|id, _| parent.tokens.contains_key(id));
-        full.token_leases.insert(token.clone(), (epoch, lease.identity()));
+    fn full_mint(
+        parent: &mut State,
+        full: &mut FullComparisonState,
+        lease: &WindowLease,
+        epoch: u64,
+        run: String,
+    ) -> Result<String> {
+        let token = Self::mint_reusing(parent, epoch, run, |id| {
+            full.token_leases
+                .get(id)
+                .is_some_and(|(owner_epoch, owner)| {
+                    *owner_epoch == epoch && lease.owns_identity(owner)
+                })
+        })?;
+        full.token_leases
+            .retain(|id, _| parent.tokens.contains_key(id));
+        full.token_leases
+            .insert(token.clone(), (epoch, lease.identity()));
         Ok(token)
     }
     pub fn full_comparison_catalog(
@@ -907,7 +928,9 @@ impl EvaluationManager {
     }
     pub(super) fn full_comparison_retire(&self, epoch: u64) {
         if let Ok(mut state) = self.full_comparison.try_lock() {
-            state.token_leases.retain(|_, (owner_epoch, _)| *owner_epoch != epoch);
+            state
+                .token_leases
+                .retain(|_, (owner_epoch, _)| *owner_epoch != epoch);
             for r in state.runs.values_mut().filter(|r| r.epoch == epoch) {
                 r.epoch = 0;
                 r.report = None;

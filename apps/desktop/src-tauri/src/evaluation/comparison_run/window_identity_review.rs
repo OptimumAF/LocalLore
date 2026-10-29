@@ -55,10 +55,14 @@ struct Fixture {
 }
 impl Fixture {
     fn new(native: bool) -> Self {
-        let root = std::env::temp_dir().join(format!("full-run-window-identity-{}", uuid().unwrap()));
+        let root =
+            std::env::temp_dir().join(format!("full-run-window-identity-{}", uuid().unwrap()));
         fs::create_dir(&root).unwrap();
         let manager = Arc::new(EvaluationManager::new(root.join("evaluations")));
-        let models = Arc::new(ModelManager::new(root.join("models"), root.join("resources")));
+        let models = Arc::new(ModelManager::new(
+            root.join("models"),
+            root.join("resources"),
+        ));
         let lease = Arc::new(WindowLease::default());
         let epoch = lease.begin().unwrap();
         let run = uuid().unwrap();
@@ -70,7 +74,12 @@ impl Fixture {
         let index = Index {
             version: if native { 2 } else { 1 },
             protocol_version: 3,
-            input_lane: if native { "approved_native" } else { "scripted_baseline" }.into(),
+            input_lane: if native {
+                "approved_native"
+            } else {
+                "scripted_baseline"
+            }
+            .into(),
             run_id: run.clone(),
             client_id: client.clone(),
             kind: core::ComparisonKind::ContinuousRollout,
@@ -78,41 +87,90 @@ impl Fixture {
             created_ms: 1,
             binding: wire::current_binding(native).unwrap(),
         };
-        fs::write(directory.join("desktop.json"), serde_json::to_vec(&index).unwrap()).unwrap();
-        Self { root, manager, models, lease, epoch, run, client, native }
+        fs::write(
+            directory.join("desktop.json"),
+            serde_json::to_vec(&index).unwrap(),
+        )
+        .unwrap();
+        Self {
+            root,
+            manager,
+            models,
+            lease,
+            epoch,
+            run,
+            client,
+            native,
+        }
     }
     fn lookup(&self, lease: &WindowLease) -> Value {
         let value = if self.native {
-            self.manager.full_comparison_lookup_native(lease, self.epoch, true, &self.client)
+            self.manager
+                .full_comparison_lookup_native(lease, self.epoch, true, &self.client)
         } else {
-            self.manager.full_comparison_lookup(lease, self.epoch, true, &self.client)
-        }.unwrap();
+            self.manager
+                .full_comparison_lookup(lease, self.epoch, true, &self.client)
+        }
+        .unwrap();
         assert_eq!(value["version"], if self.native { 2 } else { 1 });
         assert_eq!(value["protocol_version"], 3);
-        assert_eq!(value["input_lane"], if self.native { "approved_native" } else { "scripted_baseline" });
+        assert_eq!(
+            value["input_lane"],
+            if self.native {
+                "approved_native"
+            } else {
+                "scripted_baseline"
+            }
+        );
         assert_eq!(value["run_id"], self.run);
         assert_eq!(value["running"], false);
         assert_eq!(value["report_ready"], false);
         value
     }
     fn status(&self, lease: &WindowLease, cap: &str) -> Result<Value> {
-        if self.native { self.manager.full_comparison_status_native(lease, self.epoch, true, cap) }
-        else { self.manager.full_comparison_status(lease, self.epoch, true, cap) }
+        if self.native {
+            self.manager
+                .full_comparison_status_native(lease, self.epoch, true, cap)
+        } else {
+            self.manager
+                .full_comparison_status(lease, self.epoch, true, cap)
+        }
     }
     fn cancel(&self, lease: &WindowLease, cap: &str) -> Result<Value> {
-        if self.native { self.manager.full_comparison_cancel_native(lease, self.epoch, true, cap, 1) }
-        else { self.manager.full_comparison_cancel(lease, self.epoch, true, cap, 1) }
+        if self.native {
+            self.manager
+                .full_comparison_cancel_native(lease, self.epoch, true, cap, 1)
+        } else {
+            self.manager
+                .full_comparison_cancel(lease, self.epoch, true, cap, 1)
+        }
     }
     fn resume(&self, lease: &Arc<WindowLease>, cap: &str) -> Result<Value> {
         if self.native {
-            self.manager.full_comparison_resume_native(lease, &self.models, self.epoch, true,
-                FullComparisonNativeResume { run_token: cap.into(), max_new_scenes: 1 },
-                |_| panic!("stolen capability must be refused before native consent"))
-        } else { self.manager.full_comparison_resume(lease, self.epoch, true, cap, 1) }
+            self.manager.full_comparison_resume_native(
+                lease,
+                &self.models,
+                self.epoch,
+                true,
+                FullComparisonNativeResume {
+                    run_token: cap.into(),
+                    max_new_scenes: 1,
+                },
+                |_| panic!("stolen capability must be refused before native consent"),
+            )
+        } else {
+            self.manager
+                .full_comparison_resume(lease, self.epoch, true, cap, 1)
+        }
     }
     fn close(&self, lease: &WindowLease, cap: &str) -> Result<Value> {
-        if self.native { self.manager.full_comparison_close_native(lease, self.epoch, false, cap) }
-        else { self.manager.full_comparison_close(lease, self.epoch, false, cap) }
+        if self.native {
+            self.manager
+                .full_comparison_close_native(lease, self.epoch, false, cap)
+        } else {
+            self.manager
+                .full_comparison_close(lease, self.epoch, false, cap)
+        }
     }
 }
 struct Retained {
@@ -134,9 +192,14 @@ impl Drop for Fixture {
         } else {
             // Preserve the same real owner pair on unexpected cleanup failure.
             static HELD: OnceLock<Mutex<Vec<Retained>>> = OnceLock::new();
-            HELD.get_or_init(|| Mutex::new(vec![])).lock().unwrap().push(Retained {
-                _manager: self.manager.clone(), _models: self.models.clone(), _lease: self.lease.clone(),
-            });
+            HELD.get_or_init(|| Mutex::new(vec![]))
+                .lock()
+                .unwrap()
+                .push(Retained {
+                    _manager: self.manager.clone(),
+                    _models: self.models.clone(),
+                    _lease: self.lease.clone(),
+                });
         }
         // Synthetic source files remain on disk even after a failed assertion.
     }
@@ -148,11 +211,18 @@ fn independent_same_epoch_handles(native: bool) {
     let initial = f.lookup(&f.lease);
     assert_eq!(initial["phase"], "retained");
     let first = token(&initial).to_owned();
-    assert_eq!(token(&f.lookup(&f.lease)), first, "same-owner retry reuses its capability");
+    assert_eq!(
+        token(&f.lookup(&f.lease)),
+        first,
+        "same-owner retry reuses its capability"
+    );
     let other = Arc::new(WindowLease::default());
     assert_eq!(other.begin().unwrap(), f.epoch);
     let second = token(&f.lookup(&other)).to_owned();
-    assert_ne!(first, second, "explicit lookup by another lease must not rebind the first token");
+    assert_ne!(
+        first, second,
+        "explicit lookup by another lease must not rebind the first token"
+    );
     assert_eq!(token(&f.lookup(&other)), second);
     for (owner, own, stolen) in [(&f.lease, &first, &second), (&other, &second, &first)] {
         assert_eq!(f.status(owner, own).unwrap()["run_id"], f.run);
@@ -218,8 +288,13 @@ fn existing_four_handle_lru_bound_applies_across_same_epoch_windows() {
             tokens.push(cap);
         }
         assert_eq!(f.manager.state().unwrap().tokens.len(), 4);
-        f.manager.state().unwrap().tokens.get_mut(&tokens[0]).unwrap().touched =
-            Instant::now().checked_sub(Duration::from_secs(1)).unwrap();
+        f.manager
+            .state()
+            .unwrap()
+            .tokens
+            .get_mut(&tokens[0])
+            .unwrap()
+            .touched = Instant::now().checked_sub(Duration::from_secs(1)).unwrap();
         let fifth = Arc::new(WindowLease::default());
         assert_eq!(fifth.begin().unwrap(), f.epoch);
         let cap = token(&f.lookup(&fifth)).to_owned();
@@ -227,7 +302,10 @@ fn existing_four_handle_lru_bound_applies_across_same_epoch_windows() {
         assert_eq!(f.manager.state().unwrap().tokens.len(), 4);
         refused(f.status(&owners[0], &tokens[0]));
         for index in 1..4 {
-            assert_eq!(f.status(&owners[index], &tokens[index]).unwrap()["run_id"], f.run);
+            assert_eq!(
+                f.status(&owners[index], &tokens[index]).unwrap()["run_id"],
+                f.run
+            );
             refused(f.status(&fifth, &tokens[index]));
             f.close(&owners[index], &tokens[index]).unwrap();
         }

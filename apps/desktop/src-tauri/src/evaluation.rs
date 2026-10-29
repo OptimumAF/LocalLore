@@ -719,7 +719,12 @@ impl EvaluationManager {
     fn mint(s: &mut State, epoch: u64, run: String) -> Result<String> {
         Self::mint_reusing(s, epoch, run, |_| true)
     }
-    fn mint_reusing(s: &mut State, epoch: u64, run: String, can_reuse: impl Fn(&str) -> bool) -> Result<String> {
+    fn mint_reusing(
+        s: &mut State,
+        epoch: u64,
+        run: String,
+        can_reuse: impl Fn(&str) -> bool,
+    ) -> Result<String> {
         let active = s.job.as_ref().map(|j| j.run.clone());
         s.tokens.retain(|_, t| {
             t.touched.elapsed() < Duration::from_secs(900) || active.as_ref() == Some(&t.run)

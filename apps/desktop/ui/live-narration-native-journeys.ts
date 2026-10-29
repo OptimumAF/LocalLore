@@ -602,9 +602,10 @@ export async function liveNarrationNativeJourneys({
             const reopened = await oracle("cold-reopen");
             await lab();
             await bounded(c.traceBasis(2), "cold-actual-trace-basis");
+            const coldTrace = c.get().trace.reply;
             check(
-                c.get().trace.reply?.snapshot.status === "disabled" &&
-                    c.get().trace.reply.snapshot.attempts.length === 0 &&
+                coldTrace?.snapshot.status === "disabled" &&
+                    coldTrace.snapshot.attempts.length === 0 &&
                     diagnostic().query === null &&
                     diagnostic().reply === null &&
                     v2.get().receipt === null &&

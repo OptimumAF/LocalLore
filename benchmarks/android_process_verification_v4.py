@@ -9,6 +9,7 @@ from pathlib import Path, PureWindowsPath
 from benchmarks import owned_target_contract as c
 from benchmarks import isolated_adb_lease as base
 from benchmarks import receipt_avd_environment as env
+from benchmarks import host_commit_capacity as commit
 
 
 def _raw(pin,cap=2*1024*1024):
@@ -134,6 +135,8 @@ def verify_guest_inputs(pin,admission,admission_binding):
     for key,wanted in(('admission',admission_binding),('proposal',g['proposal']),('authorization',g['authorization'])):_equal(value[key],wanted)
     proposal=_json(g['proposal']);authorization=_json(g['authorization'])
     env.check_authorization(authorization,'run',g['proposal']['sha256'])
+    _equal(proposal['host_free_min'],env.root_free_min(g['root']))
+    c._int(proposal['host_available_memory_min'],12*1024**3,12*1024**3,'budget')
     c._need(proposal['version']==1 and proposal['phase']=='run'and
       proposal['paths']['root']==g['root']and proposal['serial']==g['serial']and
       type(proposal['memory_mib'])is int and proposal['memory_mib']==8192 and type(proposal['cores'])is int and proposal['cores']==4 and
@@ -161,7 +164,13 @@ def verify_guest_inputs(pin,admission,admission_binding):
     c._int(facts['available_memory'],12*1024**3,2**63-1);c._int(facts['logical_cpus'],8,2**31-1)
     c._obj(facts['free_bytes'],proposal['host_free_min'].keys())
     for drive,floor in proposal['host_free_min'].items():c._int(facts['free_bytes'][drive],floor,2**63-1)
-    c._need(type(facts['commit_capacity'])is dict,'binding')
+    capacity=facts['commit_capacity']
+    c._obj(capacity,('version','commit_total_bytes','commit_limit_bytes','available_commit_bytes',
+                    'guest_memory_bytes','required_commit_bytes','reserve_bytes'))
+    snapshot={k:capacity[k]for k in('version','commit_total_bytes','commit_limit_bytes','available_commit_bytes')}
+    try:expected_capacity=commit.require_capacity(snapshot,8192)
+    except commit.HostCommitRefused:raise c.TargetRefused('budget')from None
+    _equal(capacity,expected_capacity)
     return value
 
 

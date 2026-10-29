@@ -26,6 +26,8 @@ host-only descriptor while target work is permitted.
 `serial:emulator-5592`, `memory_mib:8192`, `cores:4`, `max_seconds:1800`,
 `api:35`, `abi:x86_64`. Bindings are `{path,bytes,sha256}`. The approved root is
 `D:/Dev/Experiments/LocalLore/2026-10-28-author-player-contract-v1/avd-v1`.
+The fixed headless profile pins only `qemu-system-x86_64-headless.exe`; it cannot
+substitute the ordinary QEMU executable selected by a different launcher mode.
 Proposal/authorization bind the existing create-only AVD preparation and
 explicit run authorization. Validate actual prepared data/config/tool/resource
 pins before boot; metadata is not human authorization. No prior AVD is reset,

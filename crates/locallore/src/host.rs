@@ -33,6 +33,7 @@ pub mod memory_inspection;
 pub mod memory_maintenance;
 pub const MAX_INPUT: usize = 24_576;
 pub const MAX_OUTPUT: usize = 262_144;
+const MAX_NARRATION_VALIDATION_REPLY_V1: usize = 4096;
 pub const MAX_SESSIONS: usize = 4;
 pub const MAX_TURNS: usize = 64;
 pub const MAX_WORKERS: usize = 4;
@@ -228,6 +229,14 @@ pub enum HostCommand {
         turn: Option<String>,
         attempt: Option<u64>,
     },
+    TraceNarrationValidationReadV1 {
+        session: String,
+        scope: Scope,
+        expected_head: u64,
+        base_revision: u64,
+        turn: String,
+        attempt: u64,
+    },
     TraceClear {
         session: String,
         scope: Scope,
@@ -279,6 +288,96 @@ pub fn schema() -> Value {
     let mut value = serde_json::to_value(schemars::schema_for!(Envelope)).unwrap();
     value["properties"]["version"] = json!({"const": HOST_VERSION});
     value
+}
+
+// Separate output-only wire projection. Core metadata and old trace-v1 remain
+// unchanged; unknown or inconsistent native decisions never acquire a v1 code.
+#[derive(Serialize)]
+struct HostNarrationValidationReplyV1<'a> {
+    version: u16,
+    session: &'a str,
+    scope: &'a Scope,
+    head: u64,
+    base_revision: u64,
+    turn: &'a str,
+    attempt: u32,
+    observer: &'static str,
+    generation_grant: bool,
+    #[serde(flatten)]
+    result: HostNarrationValidationResultV1,
+}
+#[derive(Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+enum HostNarrationValidationResultV1 {
+    Unavailable,
+    Recorded { decision: HostNarrationValidationDecisionV1 },
+}
+#[derive(Serialize)]
+struct HostNarrationValidationDecisionV1 {
+    version: u16,
+    outcome: &'static str,
+    error: Option<&'static str>,
+    reason: Option<&'static str>,
+}
+impl HostNarrationValidationDecisionV1 {
+    fn from_native(diagnostic: turn_trace::NarrationValidationDiagnosticV1) -> Option<Self> {
+        use crate::turn_trace::NarrationRejectionReasonV1 as Reason;
+        if diagnostic.version() != 1 {
+            return None;
+        }
+        let (outcome, error, reason) = match (
+            diagnostic.outcome(), diagnostic.error(), diagnostic.reason(),
+        ) {
+            (Outcome::Accepted, None, None) => ("accepted", None, None),
+            (Outcome::Cancelled, Some(ErrorCategory::Cancelled), None) => {
+                ("cancelled", Some("cancelled"), None)
+            }
+            (Outcome::Stale, Some(ErrorCategory::Stale), None) => ("stale", Some("stale"), None),
+            (Outcome::Rejected, Some(ErrorCategory::Narration), Some(Reason::Unclassified)) => {
+                ("rejected", Some("narration"), Some("unclassified"))
+            }
+            (Outcome::Rejected, Some(ErrorCategory::Narration), Some(Reason::SceneFirstPerson)) => {
+                ("rejected", Some("narration"), Some("scene_first_person"))
+            }
+            (Outcome::Rejected, Some(ErrorCategory::Narration), Some(Reason::SceneUnapprovedMovement)) => {
+                ("rejected", Some("narration"), Some("scene_unapproved_movement"))
+            }
+            (Outcome::Rejected, Some(error), None) => {
+                let code = match error {
+                    ErrorCategory::Malformed => "malformed",
+                    ErrorCategory::Version => "version",
+                    ErrorCategory::Scope => "scope",
+                    ErrorCategory::Rule => "rule",
+                    ErrorCategory::Agency => "agency",
+                    ErrorCategory::Deadline => "deadline",
+                    ErrorCategory::RetryMismatch => "retry_mismatch",
+                    ErrorCategory::TooLarge => "too_large",
+                    ErrorCategory::AuthorUiRequired => "author_ui_required",
+                    ErrorCategory::ClarificationRequired => "clarification_required",
+                    ErrorCategory::UnknownReference => "unknown_reference",
+                    ErrorCategory::DeadActor => "dead_actor",
+                    ErrorCategory::Location => "location",
+                    ErrorCategory::Inventory => "inventory",
+                    ErrorCategory::Resource => "resource",
+                    ErrorCategory::Ability => "ability",
+                    ErrorCategory::Knowledge => "knowledge",
+                    ErrorCategory::Provider => "provider",
+                    ErrorCategory::CorruptHistory => "corrupt_history",
+                    _ => return None,
+                };
+                ("rejected", Some(code), None)
+            }
+            _ => return None,
+        };
+        Some(Self { version: 1, outcome, error, reason })
+    }
+}
+fn narration_validation_read_error(error: turn_trace::ReadError) -> Value {
+    reject(match error {
+        turn_trace::ReadError::Scope => "Scope",
+        turn_trace::ReadError::Forbidden => "Forbidden",
+        turn_trace::ReadError::InvalidSelection => "InvalidSelection",
+    })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -962,6 +1061,7 @@ impl Host {
         }
     }
     pub fn call(&self, input: &[u8]) -> Value {
+        let mut output_limit = MAX_OUTPUT;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             if input.len() > MAX_INPUT {
                 return reject("TooLarge");
@@ -971,6 +1071,14 @@ impl Host {
             };
             if envelope.version != HOST_VERSION {
                 return reject("Version");
+            }
+            // This new private read must refuse before State/admission/storage,
+            // including get_session's existing NotFound retirement behavior.
+            if matches!(&envelope.command, HostCommand::TraceNarrationValidationReadV1 { .. }) {
+                output_limit = MAX_NARRATION_VALIDATION_REPLY_V1;
+                if !self.story_lab {
+                    return reject("Forbidden");
+                }
             }
             if let HostCommand::AuthoringGenerate { job } = &envelope.command {
                 return self.generate_initial_world(job);
@@ -1008,7 +1116,7 @@ impl Host {
             self.dispatch_traced(&mut state, envelope.command)
         }))
         .unwrap_or_else(|_| reject("Internal"));
-        if serde_json::to_vec(&result).map_or(true, |bytes| bytes.len() > MAX_OUTPUT) {
+        if serde_json::to_vec(&result).map_or(true, |bytes| bytes.len() > output_limit) {
             reject("TooLarge")
         } else {
             result
@@ -1124,6 +1232,12 @@ impl Host {
                 expected_head,
                 ..
             }
+            | HostCommand::TraceNarrationValidationReadV1 {
+                session,
+                scope,
+                expected_head,
+                ..
+            }
             | HostCommand::TraceCaptureConfigure {
                 session,
                 scope,
@@ -1156,6 +1270,53 @@ impl Host {
                 return Err(reject("Stale"));
             }
             match command {
+                HostCommand::TraceNarrationValidationReadV1 {
+                    session, base_revision, turn, attempt, ..
+                } => {
+                    let attempt = u32::try_from(*attempt).map_err(|_| reject("InvalidRequest"))?;
+                    let selection = Selection {
+                        scope: scope.clone(),
+                        base_revision: *base_revision,
+                        observer: engine.seed().player.clone(),
+                        turn: Some(turn.clone()),
+                        attempt: Some(attempt),
+                    };
+                    let reader = Reader::story_lab(scope.clone());
+                    TraceRing::validate_selection(&selection, &reader)
+                        .map_err(narration_validation_read_error)?;
+                    // Unlike trace_control, this read neither recovers poison
+                    // nor changes optional collection when the lock is busy.
+                    let native = match self.trace.try_lock() {
+                        Ok(trace) => trace
+                            .read_narration_validation_for_owner(&owner, &selection, &reader)
+                            .map_err(narration_validation_read_error)?,
+                        Err(_) => turn_trace::NarrationValidationReadV1::Unavailable,
+                    };
+                    let result = match native {
+                        turn_trace::NarrationValidationReadV1::Recorded(diagnostic) => {
+                            HostNarrationValidationDecisionV1::from_native(diagnostic)
+                                .map_or(HostNarrationValidationResultV1::Unavailable, |decision| {
+                                    HostNarrationValidationResultV1::Recorded { decision }
+                                })
+                        }
+                        turn_trace::NarrationValidationReadV1::Unavailable => {
+                            HostNarrationValidationResultV1::Unavailable
+                        }
+                    };
+                    let data = HostNarrationValidationReplyV1 {
+                        version: 1,
+                        session,
+                        scope,
+                        head,
+                        base_revision: *base_revision,
+                        turn,
+                        attempt,
+                        observer: "player",
+                        generation_grant: false,
+                        result,
+                    };
+                    Ok(ok(serde_json::to_value(data).map_err(|_| reject("Internal"))?))
+                }
                 HostCommand::TraceCaptureConfigure {
                     enabled, consent, ..
                 } => {
@@ -1824,6 +1985,7 @@ impl Host {
             | HostCommand::InspectionQuery { .. }
             | HostCommand::TraceConfigure { .. }
             | HostCommand::TraceRead { .. }
+            | HostCommand::TraceNarrationValidationReadV1 { .. }
             | HostCommand::TraceClear { .. } => unreachable!(),
             HostCommand::TraceCaptureConfigure { .. }
             | HostCommand::TraceCaptureRead { .. }

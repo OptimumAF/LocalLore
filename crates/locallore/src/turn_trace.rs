@@ -893,7 +893,7 @@ impl TraceRing {
             .collect();
         Ok(self.snapshot(attempts))
     }
-    fn validate_selection(selection: &Selection, reader: &Reader) -> Result<(), ReadError> {
+    pub(crate) fn validate_selection(selection: &Selection, reader: &Reader) -> Result<(), ReadError> {
         if selection.scope != reader.scope {
             return Err(ReadError::Scope);
         }

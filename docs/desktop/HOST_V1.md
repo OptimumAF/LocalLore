@@ -8,6 +8,7 @@ SQLite owner. The production desktop and Android apps use the latter; D02
 compatibility journeys explicitly use memory fixtures. This is not a general
 RPC server or a real inference pipeline. Behavior below describes accepted main
 `2612001`, after D01 #33, D02 #36 and shared app integration #42.
+Later scoped additions below reference their own contracts and qualification.
 
 ## Wire and capabilities
 
@@ -45,6 +46,7 @@ An unknown turn is unknown, not evidence of durable rollback after process loss.
 | `cancel` | Session + scope + turn; cancel queued/running/ready work; committed outcome stays committed |
 | `turn_status` | Session + scope + turn; phase/error and committed receipt. Durable Host looks up the original stored request and outcome across restarts; fixture status exists only while its session is retained |
 | `inspect` | Session + scope + observer + expected revision; coherent immutable serialized context or explicitly granted omniscient projection/history |
+| `trace_narration_validation_read_v1` | Opt-in Story Lab read: required session/scope/expected_head/base_revision/turn/attempt; exact owned player attempt only; separate closed recorded/unavailable response, at most 4,096 total reply bytes. See the scoped addition below |
 | `play_snapshot` | Session + scope + expected revision; one coherent player context, player-owned inventory, recorded `rules` profile and finalized player-request receipts; rejects stale revision |
 | `model_status` | Honest fixed fake marker; no real model loaded |
 | `free_text` | Session + domain request; scope-validated `Unsupported`; no model interpretation of player text |
@@ -111,6 +113,51 @@ uses Host session/cancellation fences. A wire observer cannot enable Story Lab. 
 lab, non-omniscient views use `Engine::character_context`; omniscient reads never
 feed back into player/NPC model contexts. Invalid story/branch/observer and stale
 revisions reject before returning content. Author mutations remain unsupported.
+
+## Opt-in narration validation read
+
+The current source adds `trace_narration_validation_read_v1` under the
+[accepted scoped contract](D07_NARRATION_DIAGNOSTIC_HOST_READ_CONTRACT_2026-10-29.md).
+This Host adapter has no Eval persistence or UI adoption. Its source changes
+require coordinator-owned schema/type regeneration and separate verification;
+the callback/retention qualification does not establish Host-adapter execution.
+
+The command requires `session`, `scope`, u64 `expected_head`, u64
+`base_revision`, `turn` and u64 `attempt`. A native Story Lab Host derives the
+existing owner and actual player actor; JSON observer/owner/handle/privilege
+fields are rejected. Exact current authoritative head admission precedes native
+u32 attempt conversion, then the shared Core selector validation, then the
+best-effort read. Existing frontend safe-integer checks remain; no broader
+Host-wide JavaScript precision guarantee is added.
+
+For this valid new command only, a non-Story-Lab Host returns Forbidden after
+bounded parsing/version checks but before State locking, session admission,
+StoragePort/source probes or lifecycle changes. TooLarge/Malformed/Version keep
+their existing precedence. This is a Host-level boundary: desktop
+`WorkspaceState::get` can initialize/open storage and reap previews before Host
+receives the command. The outer transport and existing operations are unchanged.
+Authorized normal admission can still retire/cancel an invalidated attachment
+on NotFound. Closed/Scope/storage/Stale/InvalidRequest/InvalidSelection errors
+remain distinct from an authorized unavailable diagnostic.
+
+The ordinary ok envelope's data binds `version:1`, `session`, `scope`, current
+`head`, `base_revision`, `turn`, native `attempt`, literal observer `player` and
+`generation_grant:false`. Status `unavailable` has no decision key; status
+`recorded` has exactly version/outcome/error/reason in its decision. Nullable
+`error` and `reason` keys remain present. Fixed tuple/code projection reports only
+supported actual finite validation decisions. Unsupported or inconsistent native
+metadata becomes Unavailable and never an invented Unclassified cause. The
+entire reply, including envelope, is capped at 4,096 bytes; overflow returns
+TooLarge without truncation. Global reply limits and old trace/capture formats
+remain unchanged; generated frontend types describe requests, not this response.
+
+Busy/poisoned trace locks return authorized Unavailable without recovery, clear,
+retry, configuration, new attempt, provider call or canonical mutation. Retention
+and observer/session fences remain authoritative in Rust. Recorded does not
+establish final commit/fallback, authenticated origin, semantic safety or prose
+quality. Historical absent causes remain unavailable; this read does not replay
+validation or backfill a capture. Host/schema edits affect Eval source
+fingerprints; historical source-mismatch refusals must remain intact.
 
 ## Schema maintenance
 

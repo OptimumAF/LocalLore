@@ -52,7 +52,14 @@ Admission has exactly `version` (exact int1), `protocol`, `server`, `adb_file`,
 `candidates`, `expected_version`. `server` is exactly `{pid, creation_filetime,
 executable}`. `adb_file` is exactly `{path, bytes, sha256, identity}`; identity
 is a five-int list `[st_dev, st_ino, st_size, st_mtime_ns, st_ctime_ns]`, with
-size equal to bytes. Executable/path must agree exactly and be absolute Windows
+size equal to bytes. This is the **path API** identity. Windows Python can report
+different ctime values through path stat and descriptor fstat for the same file;
+do not equate those observations. Both must retain their exact five-int values
+before/after each read. Backend descriptor identity additionally stays equal
+across all brackets. Join the two APIs using exact dev/inode/size/mtime plus
+explicit `st_birthtime_ns`; birth time must exist, agree and remain stable in both
+APIs, otherwise refuse. Full bytes/hash and admitted path identity remain required.
+Executable/path must agree exactly and be absolute Windows
 paths to the existing installed tool. Expected version is exactly four lowercase
 hex characters, selected before execution, never learned from the response.
 
@@ -83,7 +90,9 @@ Bracket is exactly `{server, client, adb_file, held_processes_alive}`. Server/fi
 must equal admission; client has the same process schema, remains equal across
 all brackets and differs from server. Held handle liveness, native identity and
 fresh PID observations must agree. File pin includes stable open/path identities
-and full hash, rejecting byte-identical replacement. Endpoint is exactly
+and full hash, rejecting byte-identical replacement. Cross-API ctime equality is
+not a file-identity requirement; each API's ctime stability is. The same binding
+rule applies to CLI reads of hash-bound private JSON. Endpoint is exactly
 `{handle, socket_id, local_address, local_port, peer_address, peer_port}`, with
 positive integer handle/id, local127.0.0.1:allocated-port, peer127.0.0.1:5037;
 local port differs from5037. Backend exposes no socket object/borrow/transfer.

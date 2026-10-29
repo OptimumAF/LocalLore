@@ -21,6 +21,7 @@ from benchmarks.owned_restart_owner import LiveOwnedRestartTarget
 from benchmarks.android_process_client_v5 import OwnedRestartSdkCapture
 from benchmarks import android_process_verification_v5 as verification
 from benchmarks import android_process_verification as build_verification
+from benchmarks import windows_tcp_control as output_control
 from benchmarks import original_author_model_proof as author_proof
 from benchmarks import original_author_diagnostic as diagnostic
 from benchmarks import original_author_restart_proof as restart_proof
@@ -162,7 +163,8 @@ def _verify_process_probe_build(pin, admission):
         _need(Path(compile_result[stream]["path"]) == build_root / ("compile." + stream + ".raw"))
         _check_binding(compile_result[stream])
         _need(compile_result[stream]["bytes"] == 0)
-    raw = env.safe_path(value["binary"]["path"]).read_bytes()
+    with env.safe_path(value["binary"]["path"]).open("rb") as stream:
+        raw = stream.read(64 * 1024 * 1024 + 1)
     _need(len(raw) == value["binary"]["bytes"] and hashlib.sha256(raw).hexdigest() == value["binary"]["sha256"])
     _need(contract._same(_probe_elf(raw), value["elf"]))
     for item in [pin, value["source"], value["builder"], value["request"], value["binary"], *value["tools"]]:
@@ -273,7 +275,12 @@ def _shell(cap, live, argv, label, *, seconds=20, limit=131072):
     live.guard()
     raw = cap.shell(argv, label, seconds=seconds, cap=limit)
     live.guard()
-    return raw, _record(cap)
+    witness = _record(cap)
+    record = _json(witness)
+    stderr = record["stderr"]
+    _need(Path(stderr["path"]) == cap.directory / ("command-%04d.stderr.bin" % cap.count) and stderr["bytes"] == 0)
+    _check_binding(stderr)
+    return raw, witness
 
 
 def _package(cap, live, package):
@@ -394,8 +401,7 @@ def _checkpoint(request, live):
 def run(admission_binding, running_binding, build_binding, output_root):
     """No outer process or scope grant. An authorized finite caller owns execution."""
     begin = time.monotonic()
-    output = env.safe_path(output_root, exists=False)
-    _need(output.is_absolute() and output.drive.upper() == "D:" and not os.path.lexists(output))
+    output = output_control.validate_output(str(output_root))
     output.mkdir()
     request_pin = session_pin = prerequisite_pin = restart_instrumentation = boot_final = restart_pin = None
     restart_artifacts = {name: None for name in RECORDS}

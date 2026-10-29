@@ -441,6 +441,47 @@ function sandbox(options = {}) {
         blocked,
     };
 }
+// Post-production scheduler calibration only: the original frozen source and
+// 02df4593 result (152 PASS / 3 FAIL at restore Git6/7/8 timeout) remain evidence.
+// Reach the intended manual child without advancing any virtual timer. Merely
+// increasing the global microtick count would not establish this fault boundary.
+async function awaitIntendedGitTimeout(h, outcome, position) {
+    for (
+        let flushes = 0;
+        flushes < 8 && h.control.gitCount < position && !outcome.settled;
+        flushes++
+    )
+        await h.flush();
+    const lastGit = h.spawns.filter((entry) => entry.command === "git").at(-1),
+        timers = [...h.timers.values()],
+        child = lastGit?.child,
+        observed = h.api.observe();
+    try {
+        assert.equal(h.control.gitCount, position, "IntendedGitPosition");
+        assert.equal(outcome.settled, false, "IntendedGitStillPending");
+        assert.equal(lastGit?.spec, h.control.gitFault, "IntendedGitFaultIdentity");
+        assert.equal(lastGit?.spec?.mode, "manual", "IntendedGitManualChild");
+        assert(child?.pid != null, "IntendedGitHasPid");
+        assert.equal(child.kills, 0, "IntendedGitNotPreviouslyKilled");
+        assert.equal(observed.ownedDrainUnknown, false, "NoPrecedingUnknownDrain");
+        assert.equal(timers.length, 1, "OnlyIntendedGitTimerPending");
+        assert.equal(timers[0].ms, 15000, "IntendedGitTimerIs15Seconds");
+    } catch {
+        throw Object.assign(Error("IntendedGitTimeoutBoundaryUnreached"), {
+            code: "SYNTHETIC_GIT_FAULT_BOUNDARY_UNREACHED",
+            readiness: {
+                position,
+                gitCount: h.control.gitCount,
+                settled: outcome.settled,
+                manualFault: lastGit?.spec === h.control.gitFault && lastGit?.spec?.mode === "manual",
+                pidPresent: child?.pid != null,
+                kills: child?.kills ?? null,
+                ownedDrainUnknown: observed.ownedDrainUnknown,
+                timers: timers.slice(0, 4).map((timer) => ({ ms: timer.ms, at: timer.at })),
+            },
+        });
+    }
+}
 async function check(name, body) {
     authored.push(name);
     if (setup.length) return;
@@ -448,6 +489,16 @@ async function check(name, body) {
         await body();
         checks.push({ name, passed: true });
     } catch (error) {
+        if (error?.code === "SYNTHETIC_GIT_FAULT_BOUNDARY_UNREACHED") {
+            setup.push({
+                stage: "intended-manual-git-timeout-readiness",
+                name,
+                error: String(error.message).slice(0, 400),
+                readiness: error.readiness,
+                classification: "SETUP_UNRUN fault boundary not reached; no behavioral timeout result",
+            });
+            return;
+        }
         checks.push({
             name,
             passed: false,
@@ -1356,6 +1407,7 @@ for (const position of [1, 2, 3, 4, 5, 6, 7, 8])
                 const restoring = h.track(h.api.restore());
                 await h.flush();
                 if (fault === "timeout") {
+                    await awaitIntendedGitTimeout(h, restoring, position);
                     await h.advance(15000);
                     await h.advance(5000);
                 }

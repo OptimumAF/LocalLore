@@ -7,7 +7,7 @@ The [accepted contract](D07_SELECTED_SCENE_V4_CONTRACT_2026-10-29.md)
 retains the original proposal, binding definitions and pre-runtime clock clarification.
 
 This gate implements the shared Rust API. Desktop selected Protocol4 routing,
-controls and native selected execution remain unavailable. No frontend/native
+controls and native selected Protocol4 execution remain unavailable. No frontend/native
 command, canonical schema, provider, memory implementation or Android adapter
 changes are included. This record does not complete D07 or the desktop epic.
 
@@ -247,7 +247,7 @@ and finite tests are not hostile-race or OS isolation qualification.
 
 Both retained real-model human assessments remain **needs improvement**, with
 no inferred scores or quality acceptance. Historical missing causes remain
-missing. No real-model cohort, model asset or protected task resource was changed.
+missing. This gate changed no real-model cohort, model asset or protected task resource.
 Dependencies/locks are unchanged; the previously tracked Linux glib advisory
 remains separate from this Windows source/build gate.
 

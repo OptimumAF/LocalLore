@@ -407,7 +407,7 @@ fixture gate.
 The [scripted selected-scene Rust gate](docs/desktop/D07_SELECTED_SCENE_V4_SHARED_QUALIFICATION_2026-10-29.md)
 adds isolated Protocol4 selected-turn runs, durable resume and observer-filtered
 reads through the existing engine/Store. It uses fake inference. Desktop selected
-Protocol4 controls and native selected execution remain unavailable pending their
+Protocol4 controls and native selected Protocol4 execution remain unavailable pending their
 separate integration and qualification.
 
 The proposed first target is Android, with a Kotlin/Jetpack Compose interface, a portable Rust story engine, and SQLite persistence. One locally loaded model initially performs director, narrator, and archivist roles sequentially. A narrow inference interface allows backend replacement without committing to multiple production integrations.

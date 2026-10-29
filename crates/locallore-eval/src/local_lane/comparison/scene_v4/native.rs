@@ -144,6 +144,45 @@ pub fn run_native_comparison<R: SelectedNativeReservation>(
     reserve: impl FnOnce() -> Result<R>,
     reference: Option<&ValidatedReference>,
 ) -> NativeResult<ComparisonReportV4, R> {
+    run_native_comparison_inner(
+        dir,
+        resume,
+        kind,
+        cancel,
+        max_new_scenes,
+        reserve,
+        (reference, false),
+    )
+}
+pub fn run_native_comparison_with_narration_diagnostics_v1<R: SelectedNativeReservation>(
+    dir: &Path,
+    resume: bool,
+    kind: ComparisonKind,
+    cancel: &Cancellation,
+    max_new_scenes: usize,
+    reserve: impl FnOnce() -> Result<R>,
+    reference: Option<&ValidatedReference>,
+) -> NativeResult<ComparisonReportV4, R> {
+    run_native_comparison_inner(
+        dir,
+        resume,
+        kind,
+        cancel,
+        max_new_scenes,
+        reserve,
+        (reference, true),
+    )
+}
+fn run_native_comparison_inner<R: SelectedNativeReservation>(
+    dir: &Path,
+    resume: bool,
+    kind: ComparisonKind,
+    cancel: &Cancellation,
+    max_new_scenes: usize,
+    reserve: impl FnOnce() -> Result<R>,
+    options: (Option<&ValidatedReference>, bool),
+) -> NativeResult<ComparisonReportV4, R> {
+    let (reference, diagnostics) = options;
     let started = Instant::now();
     let failure = SelectedNativeFailure::from_error;
     if cancel.is_cancelled() {
@@ -164,12 +203,26 @@ pub fn run_native_comparison<R: SelectedNativeReservation>(
         if actual != expected || !actual.source_matches().map_err(failure)? {
             return Err(failure("CheckpointMismatch".into()));
         }
+        if diagnostics {
+            desktop_api::validate_companion_for_resume(dir).map_err(failure)?;
+        }
         let report = inspect_comparison(dir).map_err(failure)?;
         if report.completed {
             return Ok(report);
         }
     }
     let mut session = Session4::open(dir, resume, expected, reference, started).map_err(failure)?;
+    if diagnostics {
+        if !resume {
+            crate::narration_diagnostic_companion_v1::declare(
+                dir,
+                &session.key,
+                &session.manifest.source_sha256,
+            )
+            .map_err(failure)?;
+        }
+        session.diagnostics = true;
+    }
     preflight(&session).map_err(failure)?;
     let deadline =
         native_startup::preparation_deadline(started, remaining(&session), Instant::now())

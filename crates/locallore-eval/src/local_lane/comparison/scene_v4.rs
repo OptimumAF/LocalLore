@@ -16,6 +16,8 @@ use crate::memory_comparison_v4::{
 use locallore::host::HostPlayConstructionV1;
 #[cfg(feature = "local-model")]
 pub use native::run_native_comparison;
+#[cfg(feature = "local-model")]
+pub use native::run_native_comparison_with_narration_diagnostics_v1;
 
 const CONSTRUCTIONS: [ComparisonArmV4; 2] = [
     ComparisonArmV4::LiteralSceneV1,
@@ -564,6 +566,7 @@ struct Job4<'a> {
     step: &'a protocol::Step,
     factory: &'a LaneFactory,
     cancel: &'a Cancellation,
+    diagnostics:bool,
 }
 fn execute_turn4(job: Job4<'_>, ledger: &mut Ledger) -> Result<StoredTurn4> {
     let Job4 {
@@ -576,6 +579,7 @@ fn execute_turn4(job: Job4<'_>, ledger: &mut Ledger) -> Result<StoredTurn4> {
         step,
         factory,
         cancel,
+        diagnostics,
     } = job;
     let full = engine(path, &suite()?.seed().scope)?;
     if full.domain_version() != 1 {
@@ -594,8 +598,7 @@ fn execute_turn4(job: Job4<'_>, ledger: &mut Ledger) -> Result<StoredTurn4> {
     })? {
         return Ok(turn);
     }
-    let actual = turn_execution::execute(
-        turn_execution::LiveTurnJob {
+    let live_job=turn_execution::LiveTurnJob {
             dir,
             path,
             index,
@@ -605,9 +608,8 @@ fn execute_turn4(job: Job4<'_>, ledger: &mut Ledger) -> Result<StoredTurn4> {
             construction: host_construction(construction),
             before: full,
             profile,
-        },
-        ledger,
-    )?;
+        };
+    let actual=if diagnostics {turn_execution::execute_with_narration_diagnostics_v1(live_job,ledger)}else{turn_execution::execute(live_job,ledger)}?;
     let row = make_row4(Observation4 {
         dir,
         step,
@@ -779,6 +781,7 @@ struct Session4 {
     ledgers: [Ledger; 2],
     turns: [Vec<StoredTurn4>; 2],
     reference: Option<ValidatedReference>,
+    diagnostics:bool,
 }
 impl Session4 {
     fn open(
@@ -846,6 +849,7 @@ impl Session4 {
             ledgers,
             turns,
             reference,
+            diagnostics:false,
         })
     }
     fn begin_invocations(&mut self) -> Result<()> {
@@ -934,6 +938,7 @@ impl Session4 {
                             step: &corpus.steps()[index],
                             factory,
                             cancel,
+                            diagnostics:self.diagnostics,
                         },
                         &mut self.ledgers[arm],
                     )?;
@@ -986,6 +991,19 @@ pub fn run_comparison(
     factory: LaneFactory,
     reference: Option<&ValidatedReference>,
 ) -> Result<ComparisonReportV4> {
+    run_comparison_inner(dir,resume,kind,cancel,max_new_scenes,factory,(reference,false))
+}
+pub fn run_comparison_with_narration_diagnostics_v1(
+    dir:&Path,resume:bool,kind:ComparisonKind,cancel:&Cancellation,max_new_scenes:usize,
+    factory:LaneFactory,reference:Option<&ValidatedReference>,
+)->Result<ComparisonReportV4>{
+    run_comparison_inner(dir,resume,kind,cancel,max_new_scenes,factory,(reference,true))
+}
+fn run_comparison_inner(
+    dir:&Path,resume:bool,kind:ComparisonKind,cancel:&Cancellation,max_new_scenes:usize,
+    factory:LaneFactory,options:(Option<&ValidatedReference>,bool),
+)->Result<ComparisonReportV4>{
+    let (reference,diagnostics)=options;
     let started = Instant::now();
     if factory.native() {
         return Err("NativeSceneComparisonRequiresReservation".into());
@@ -1006,12 +1024,18 @@ pub fn run_comparison(
         if actual != expected || !actual.source_matches()? {
             return Err("CheckpointMismatch".into());
         }
+        if diagnostics {desktop_api::validate_companion_for_resume(dir)?;}
         let report = inspect_comparison(dir)?;
         if report.completed {
             return Ok(report);
         }
     }
-    Session4::open(dir, resume, expected, reference, started)?.execute(
+    let mut session=Session4::open(dir, resume, expected, reference, started)?;
+    if diagnostics {
+        if !resume {crate::narration_diagnostic_companion_v1::declare(dir,&session.key,&session.manifest.source_sha256)?;}
+        session.diagnostics=true;
+    }
+    session.execute(
         cancel,
         max_new_scenes,
         factory,

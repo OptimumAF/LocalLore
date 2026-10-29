@@ -469,6 +469,10 @@ fn link_count(_file: &File) -> Result<u64> {
 }
 
 fn single_link_file(path: &Path) -> Result<()> {
+    pin_single_link_file(path).map(drop)
+}
+
+pub(super) fn pin_single_link_file(path: &Path) -> Result<File> {
     ordinary(path)?;
     let mut options = OpenOptions::new();
     options.read(true);
@@ -481,7 +485,7 @@ fn single_link_file(path: &Path) -> Result<()> {
     if !file.metadata().map_err(|_| "Io")?.is_file() || link_count(&file)? != 1 {
         return Err("AliasedDestination".into());
     }
-    Ok(())
+    Ok(file)
 }
 
 pub(super) fn pin_selected(dir: &Path) -> Result<Vec<File>> {

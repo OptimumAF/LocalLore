@@ -26,6 +26,7 @@ mod capture_envelope;
 mod literal_capture_contract_tests;
 pub mod local_lane;
 mod local_recording;
+mod narration_diagnostic_companion_v1;
 pub mod memory_comparison;
 pub mod memory_comparison_v2;
 pub mod memory_comparison_v3;

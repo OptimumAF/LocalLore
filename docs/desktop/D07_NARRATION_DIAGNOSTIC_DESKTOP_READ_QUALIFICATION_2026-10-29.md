@@ -1,9 +1,12 @@
 # Desktop narration diagnostic read v1: scoped qualification
 
 2026-10-29. Refs #29 **D07.04/D07.06**.
-**Implemented; static-HTML, frontend and lint checks measured; original focused
-native run failed in fixture cleanup. Corrected rerun pending. No native IPC/pixel gate.**
-Prepared against `9f57bba8c45c098dd0f0c5aaebc184d447ae6ea3` under
+**Implemented; corrected component checks and the third complete synthetic
+native IPC/WebView cohort passed. Accepted-main integration checks are pending.**
+Current completed native evidence is exact `0bbf8eed61315d580001464ff60a0899a474b427`.
+Integration `54603e31281b23010e040e3eab002fa0a260fef0` includes accepted main;
+no result below is relabeled as a completed check at that integration source.
+Originally prepared against `9f57bba8c45c098dd0f0c5aaebc184d447ae6ea3` under
 [#29 comment6502868048](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6502868048).
 This note qualifies only the read-only desktop adapter above the
 [Core companion slice](D07_NARRATION_DIAGNOSTIC_EVAL_COMPANION_QUALIFICATION_2026-10-29.md).
@@ -203,15 +206,16 @@ node apps/desktop/comparison-reader-process-policy-check.mjs
 Source-only independent adapter review at `9f57bba8` found no blocker. It
 examined native admission/worker/timeouts, strict wire validation, frontend
 stale/private clearing and artifact-local context against the accepted contract.
-It is separate from runtime and acceptance. At this note's freeze, the corrected
+It is separate from runtime and acceptance. At the original note's freeze, the corrected
 focused run, new native Clippy, Android Rust host and formatting batch are
 **PENDING**; no running command is counted as passing.
 
 ## Remaining gates and limits
 
-Actual app-owned hidden/unfocused WebView IPC journeys, cold restart, wide/narrow
-geometry and individual native render-image inspection remain **UNRUN** for
-this new adapter. Pending-picker pixels cannot prove held diagnostic I/O.
+The third run below supplies actual app-owned hidden/unfocused WebView IPC,
+cold restart, wide/narrow geometry and Root's individual render-image inspection
+at `0bbf8eed`. Requalification at the accepted-main integration remains pending.
+Pending-picker pixels cannot prove held diagnostic I/O.
 The actual 30-second timeout passed within the original failed focused run;
 that does not erase the cleanup failure or prove a hard filesystem deadline.
 No new OS reparse/race/isolation or isolated valid-envelope8KiB boundary proof is
@@ -221,15 +225,15 @@ controls are not authenticated causes, SDK-load measurements or model outcomes.
 No real model/assets/publication/import/reservation, original cohort mutation,
 new desktop-control capture, phone/Android ABI/device or quality qualification
 is established. Historical missing causes stay missing. Both human assessments
-remain **needs improvement**; unaccepted dependencies and the full D07/desktop
-epic exit gates remain open. D02 #23 is already closed; this supporting work
+remain **needs improvement**; the full D07/desktop epic exit gates remain open.
+Dependency acceptance is recorded on GitHub. D02 #23 is already closed; this supporting work
 does not reopen it. This note grants no merge/release authority.
 
 The documentation author performed bounded record/source/Git/hash/whitespace
 inspection only, with TEMP/TMP on D:/Dev/_Temp and project work physically on D:.
 Root owns measured execution and final evidence updates. The next runnable step
-is to finish and separately qualify the corrected checks, then review and execute
-the accepted finite native harness before its render/IPC gate.
+is to finish and separately qualify the integrated compatibility/native checks,
+then complete independent evidence review before the scoped reviewable PR gate.
 
 ## Root corrected component checks — 2026-10-29
 
@@ -342,3 +346,126 @@ unlaunched. Separate post-exit collection confirms all 641 frozen file hashes,
 Record `d07-diag-desktop-native-second1-postexit-fixtures.json` is separate from
 the preserved failed packet. The remaining journeys and cold restart still
 require a fresh complete run; neither failed packet is relabeled successful.
+
+## Third complete synthetic native cohort — 2026-10-29
+
+Refresh claim: [#29 comment6503708164](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6503708164).
+`0bbf8eed` adds diagnostic-only bounded mounted-DOM waits before row/read/capture
+actions, binding the rendered lens, selected row and diagnostic/evidence presence
+before existing strict assertions. It also records/checks the existing selected
+header's visible error text, rectangle and hit test. Geometry failures remain
+asserted after checkpoint capture. No product/controller/native/API/CSS change,
+native-call retry, new timing hook or default-mode relaxation is introduced.
+Source review found no further blocker; presence checks do not replace checking
+the actual displayed status/text or individual images.
+
+At clean, unchanged exact `0bbf8eed61315d580001464ff60a0899a474b427`, full
+frontend verification passed in **14.8290703s**. The fresh native launcher then
+exited0 in **203.4606851s**, 17:20:17.6299059Z–17:23:41.0905910Z.
+Original records are `d07-diag-desktop-settled-ui-frontend1-process.json` and
+`d07-diag-desktop-native-webview-settled-ui1-process.json`, with matching logs.
+They retain clean/unchanged source, empty dirty lists, D: cache/target paths
+and process-local TEMP/TMP `D:/Dev/_Temp`.
+
+Packet `comparison-reader-native-637464b0-6622-4c93-b6fd-46adb32a8895` contains:
+
+| Actual stage | Passing assertion occurrences | Distinct assertion labels | Native images |
+| --- | --- | --- | --- |
+| Initial | 139 | 74 | 15 |
+| Cold restart | 21 | 20 | 2 |
+
+These are occurrence/label counts, not 160 independent test cases. Both native
+reports pass. Journeys use the actual frontend action/controller and native IPC:
+both recipe reads, actual accepted receipt, all five diagnostic statuses,
+actor clearing and native refusal, row/context/permission stale completion,
+malformed integrity refusal, held-picker cancellation/close, fresh explicit
+recovery and cold reread with a fresh capability. Stored unavailable/rejected
+and malformed cases remain labeled trusted controls, not actual model failures.
+
+Initial broker errors contain exactly **one** `{source:native,category:Transport}`:
+the actual malformed companion read returns `EvaluationIntegrity`. The direct
+actor request separately returns `Forbidden` with **zero** broker entries;
+it does not use the controller callback. Restart has zero errors. No error is
+hidden, renamed lost ACK, or counted as evidence of an unrelated rejection.
+Picker-pending pixels are explicitly `held_picker_only`; diagnostic-I/O pending
+pixels remain `unavailable_no_io_hold_seam`.
+
+Root reports individually viewing all **17 original app-owned PNGs**, including
+wide/narrow artifact-local source/revision/status/receipt/fallback/quality framing,
+actor views without private diagnostics, and the selected malformed-error alert.
+This documentation author read the records and did not perform that pixel review.
+The run uses actual hidden/unfocused WebView2 rendering, not desktop capture,
+headless browser rendering or static HTML. Snapshot user agent is:
+
+```text
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0
+```
+
+This is the reported user agent, not an independently queried full WebView2
+runtime version. The Node executable in the original process record is 24.22.1;
+formatter/compiler provenance above remains separately attributed.
+
+Both released-stage inventories equal the same frozen **641-file** map:
+**660 entries, 5,313,467 bytes**. The 74,900-byte external freeze SHA256 is
+`9c2b044d7e87ad19ee1d7a880ec3c3af6e72e057c419374dd5ded8713d526140`.
+The 139,588-byte `qualification.json` SHA256 is
+`0cb00627d65b5d9d59c0132dbcf8a51f75152baf18c1554c4f9aafdb2e4ff334`.
+Initial/restart checks preserve original file bytes, including retained malformed
+and moved-observation controls, and the external freeze itself. Counts/hashes
+belong to this fresh packet; different earlier synthetic runs remain unchanged.
+
+Both stages observe reservation sequence 0, no evaluation owner and retained 0.
+The model directory remains absent after exit. These are managed-state and
+directory observations, not independent SDK-load telemetry. Ordinary shutdown's
+absent task-owned model-candidate metadata probe remains acknowledged. No real
+model/assets/publication/import/copy/link/reservation is used. All six recorded
+build/app/restoration children closed without timeout or unknown-owned-drain;
+normal frontend/native restoration passed and the normal product was unlaunched.
+This does not establish Job/process-tree containment or universal filesystem race
+safety. No model-quality, Android ABI/device or new OS-probe gate is satisfied.
+
+Reproduce this finite mode from the physical D: checkout, using existing owned
+D: directories and the already locked/offline cache. Only private absolute paths
+and the Node executable are normalized; no package/model download is implied:
+
+```powershell
+Set-Location '<physical-D-checkout>'
+$env:TEMP = 'D:/Dev/_Temp'
+$env:TMP = 'D:/Dev/_Temp'
+$env:CARGO_HOME = '<existing-owned-D-locked-cargo-cache>'
+$env:LOCALLORE_D07_COMPARISON_READER_ARTIFACT_ROOT = '<existing-owned-D-artifact-root>'
+$env:LOCALLORE_D07_COMPARISON_READER_TARGET_DIR = '<existing-owned-D-native-target>'
+$env:LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER = '1'
+$env:LOCALLORE_D07_SCENE_COMPARISON_READER = '1'
+$env:LOCALLORE_D07_LITERAL_COMPARISON_READER = '0'
+node apps/desktop/comparison-reader-harness.mjs
+```
+
+The launcher validates D: source/base/target, strips the complete inherited
+case-insensitive LOCALLORE namespace before fixed child flags and creates a fresh
+packet. Failure packets must not be overwritten or retrofitted. All collector,
+proof and runtime budgets remain unchanged. Both earlier native failures, their
+images and the original component cleanup failure remain failures.
+
+## Accepted-main integration: verification pending
+
+Accepted main `3db75eff` includes owner-merged #225/#258/#259/#260. Local merge
+`54603e31281b23010e040e3eab002fa0a260fef0` completed without conflicts. This
+refresh is doc-only on that base; the completed `0bbf8eed` run does not qualify
+the merged source automatically. Root's integrated 17-capture native, app/shared Rust,
+frontend, strict lint, Android Rust host and formatting checks are **PENDING**
+at this document freeze. No running or future result is counted as completed.
+
+Accepted main also adds a dev-harness `offline-qualifier` binary with OS-probing
+tests. Root may compile/lint it but will not execute that binary or those probes
+in this slice. App component/contract test selection is explicitly bounded:
+
+```text
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --target-dir <owned-D-target> --bin locallore-desktop-spike --test harness_contract -- --test-threads=1
+```
+
+This command is a pending integrated check, not an executed result here. Existing
+unrelated broad-suite guard fixtures and compilation of the qualifier do not
+establish new companion-specific OS isolation. Root owns final measured updates
+and independent evidence review. D02 #23 stays closed; D07/desktop epic and human
+quality acceptance remain separate. This note grants no merge/release authority.

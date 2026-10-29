@@ -18,6 +18,13 @@ type FixtureProof = {
         quality_accepted: boolean;
     };
 };
+type DiagnosticModelObservation = {version:1;kind:"diagnostic_reader_model_observation_v1";
+    reservation_sequence:number;owner_present:boolean;retained_evaluations:number};
+type DiagnosticFixtureId="diagnostic-recorded"|"diagnostic-legacy"|"diagnostic-missing"|"diagnostic-unavailable"|"diagnostic-rejected"|"diagnostic-malformed";
+type DiagnosticFixtureProof = {version:1;kind:"narration_diagnostic_reader_fixture_v1";protocol_version:4;synthetic:true;
+    fixtures:{id:string;provenance:string;expected_status:string|null;expected_error:string|null}[];
+    fixture_inventory:Record<string,string>;model_observation:DiagnosticModelObservation;
+    inventory_stats:{entries:number;files:number;bytes:number};inventory_limits:{entries:number;bytes:number;file_bytes:number;depth:number}};
 export async function comparisonReaderJourneys({
     controller: c,
     comparison: r,
@@ -41,6 +48,11 @@ export async function comparisonReaderJourneys({
     let fixtureInventory: Record<string, string> | null = null;
     let protocolVersion: 2 | 3 | 4 = 2;
     let fixtureProof: FixtureProof | null = null;
+    let diagnosticMode=false;
+    let diagnosticProof:Omit<DiagnosticFixtureProof,"fixture_inventory">|null=null;
+    let diagnosticObservation:DiagnosticModelObservation|null=null;
+    const expectedDiagnosticErrors:{action:string;code:string;broker_delta:ReturnType<ErrorBuffer["snapshot"]>}[]=[];
+    const diagnosticCaptures:Record<string,{source:string;provenance:string}>={};
     const check = (value: unknown, label: string) => {
         failedCheck = label;
         if (!value) throw Error(label);
@@ -183,7 +195,13 @@ export async function comparisonReaderJourneys({
         let target = document.querySelector<HTMLElement>(selector);
         let requireSelectedContext = false;
         let hashRange: Range | null = null;
-        if (protocolVersion === 4) {
+        let diagnosticGeometry:unknown=null;
+        const diagnosticGeometryFailures:string[]=[];
+        const geometryCheck=(value:unknown,name:string)=>{if(!value)diagnosticGeometryFailures.push(name);};
+        if (diagnosticMode) {
+            target=document.querySelector<HTMLElement>(".comparison-narration-diagnostic, .comparison-evidence, .comparison-selection-context")
+                ?? document.querySelector<HTMLElement>("#comparison-reader .comparison-controls");
+        } else if (protocolVersion === 4) {
             if (
                 [
                     "comparison-receipt",
@@ -281,7 +299,7 @@ export async function comparisonReaderJourneys({
         }
         check(target, `${label}-actual-capture-target-present`);
         target!.scrollIntoView({
-            block: protocolVersion === 4 ? "center" : "start",
+            block: diagnosticMode ? "start" : protocolVersion === 4 ? "center" : "start",
         });
         if (hashRange) {
             const bounds = hashRange.getBoundingClientRect();
@@ -300,7 +318,32 @@ export async function comparisonReaderJourneys({
         );
         const overflow = document.documentElement.scrollWidth > innerWidth + 2;
         const nested = !!panel && panel.scrollWidth > panel.clientWidth + 2;
-        if (protocolVersion === 4) {
+        if (diagnosticMode) {
+            const diagnosticArtifact=document.querySelector<HTMLElement>(".comparison-narration-diagnostic");
+            const artifact=diagnosticArtifact??document.querySelector<HTMLElement>(".comparison-evidence");
+            const rect=(node:Element)=>{const b=node.getBoundingClientRect();return {top:b.top,bottom:b.bottom,left:b.left,right:b.right,width:b.width,height:b.height};};
+            const header=document.querySelector<HTMLElement>(".comparison-selection-context");
+            const fixed=!!header&&["sticky","fixed"].includes(getComputedStyle(header).position);
+            const nodes=artifact?[artifact.querySelector<HTMLElement>("h4"),...artifact.querySelectorAll<HTMLElement>("p")
+                ].filter((node):node is HTMLElement=>!!node&&(/^(Source story|Case phase|Selected case phase|Case error|Quality|Prose quality)/i.test(node.textContent?.trim()??"")||node.tagName==="H4")):[target!];
+            geometryCheck(nodes.length>0,`${label}-positive-context-nodes`);
+            diagnosticGeometry={target:rect(target!),header:header?rect(header):null,headerPosition:header?getComputedStyle(header).position:null,
+                context:nodes.map(node=>({text:node.textContent?.slice(0,1024),...rect(node)}))};
+            for(const node of nodes) {
+                const b=rect(node),h=header?rect(header):null;
+                geometryCheck(b.width>0&&b.height>0&&b.top>=-2&&b.bottom<=innerHeight+2,`${label}-artifact-context-visible`);
+                geometryCheck(!fixed||!h||b.bottom<=h.top||b.top>=h.bottom,`${label}-context-not-covered-by-sticky-header`);
+                const hit=document.elementFromPoint(Math.min(innerWidth-2,Math.max(2,(b.left+b.right)/2)),Math.min(innerHeight-2,Math.max(2,(b.top+b.bottom)/2)));
+                geometryCheck(!!hit&&node.contains(hit),`${label}-actual-context-hit-test`);
+            }
+            if(artifact&&selected) {
+                const body=artifact.innerText.split("Inspect bound diagnostic metadata")[0];
+                geometryCheck(body.includes(selected.source.scope.story)&&body.includes(selected.source.scope.branch)&&
+                    new RegExp(`before(?: head| revision)?\\s*:?\\s*${selected.source.before_head}\\b`,"i").test(body)&&
+                    new RegExp(`after(?: head| revision)?\\s*:?\\s*${selected.source.after_head}\\b`,"i").test(body),`${label}-artifact-local-source-before-after`);
+                if(diagnosticArtifact)geometryCheck(/case error/i.test(body)&&/quality/i.test(body),`${label}-artifact-case-error-and-quality-labels`);
+            }
+        } else if (protocolVersion === 4) {
             const rectangle =
                 hashRange?.getBoundingClientRect() ??
                 target!.getBoundingClientRect();
@@ -462,6 +505,16 @@ export async function comparisonReaderJourneys({
                     errors: errors.snapshot(),
                     fixtureInventory: includeSummary ? fixtureInventory : null,
                     fixtureProof: includeSummary ? fixtureProof : null,
+                    ...(diagnosticMode?{diagnosticFixtureProof:includeSummary?diagnosticProof:null,
+                        diagnosticProvenance:diagnosticCaptures[label]??null,modelObservation:diagnosticObservation,
+                        diagnostic:state.diagnostic,diagnosticGeometry,diagnosticGeometryFailures,expectedDiagnosticErrors,
+                        selectedCase:{before:selected?.source.before_head??null,after:selected?.source.after_head??null,
+                            base:state.diagnostic&&"observation"in state.diagnostic.diagnostic?state.diagnostic.diagnostic.observation.host_query.command.base_revision:null,
+                            attempt:state.diagnostic&&"observation"in state.diagnostic.diagnostic?state.diagnostic.diagnostic.observation.host_query.command.attempt:null,
+                            phase:state.summary?.report.turns.find(t=>t.turn===state.selected?.turn&&t.arm===state.selected?.arm)?.phase??null,
+                            error:state.summary?.report.turns.find(t=>t.turn===state.selected?.turn&&t.arm===state.selected?.arm)?.error??null,
+                            fallback:state.summary?.report.turns.find(t=>t.turn===state.selected?.turn&&t.arm===state.selected?.arm)?.fallback??null,
+                            receipt_available:selected?.receipt_available??null}}:{}),
                     selectedStory: selected?.source.scope ?? null,
                     selectedReport: state.status?.run_token ?? null,
                     observer: state.observer,
@@ -488,6 +541,7 @@ export async function comparisonReaderJourneys({
                         uncertain: state.uncertain,
                         busy: state.busy,
                         error: state.error,
+                        ...(diagnosticMode?{diagnostic:state.diagnostic}:{}),
                     },
                     dom: {
                         text: panel?.innerText.slice(0, 24576),
@@ -550,6 +604,100 @@ export async function comparisonReaderJourneys({
         }
         check(!overflow, `${label}-no-page-overflow`);
         check(!nested, `${label}-no-panel-overflow`);
+        for(const geometryFailure of diagnosticGeometryFailures)check(false,geometryFailure);
+    };
+    const diagnosticJourneys=async(prepared:DiagnosticFixtureProof,canonicalBefore:string)=>{
+        diagnosticMode=true;protocolVersion=4;
+        const {fixture_inventory,...proof}=prepared;diagnosticProof=proof;fixtureInventory=fixture_inventory;
+        diagnosticObservation=prepared.model_observation;
+        check(prepared.version===1&&prepared.synthetic===true&&prepared.protocol_version===4&&prepared.fixtures.length===6,"closed-six-diagnostic-fixtures");
+        const ids=["diagnostic-recorded","diagnostic-legacy","diagnostic-missing","diagnostic-unavailable","diagnostic-rejected","diagnostic-malformed"] as const;
+        check(structural(prepared.fixtures.map(f=>f.id))===structural(ids),"fixed-diagnostic-fixture-roster");
+        const observe=async()=>{
+            diagnosticObservation=await scenario("diagnostic-observation") as DiagnosticModelObservation;
+            check(diagnosticObservation.version===1&&diagnosticObservation.kind==="diagnostic_reader_model_observation_v1"&&
+                diagnosticObservation.reservation_sequence===0&&!diagnosticObservation.owner_present&&diagnosticObservation.retained_evaluations===0,"existing-model-manager-stays-unreserved");
+        };
+        await observe();
+        let current:DiagnosticFixtureId="diagnostic-recorded";
+        const choose={"diagnostic-recorded":"choose-diagnostic-recorded","diagnostic-legacy":"choose-diagnostic-legacy",
+            "diagnostic-missing":"choose-diagnostic-missing","diagnostic-unavailable":"choose-diagnostic-unavailable",
+            "diagnostic-rejected":"choose-diagnostic-rejected","diagnostic-malformed":"choose-diagnostic-malformed"} as const;
+        const select=(arm:"left"|"right")=>selectRow({turn:"courier-01",arm});
+        const openFixture=async(id:DiagnosticFixtureId,arm:"left"|"right"="left")=>{
+            await r.close();current=id;await scenario(choose[id]);await open();await summary();await select(arm);
+            check(r.get().source?.rows.length===12&&r.get().summary?.report.version===4,"actual-diagnostic-source-through-existing-reader");
+        };
+        const readDiagnostic=async(status:string)=>{
+            button("Inspect narration diagnostic").click();
+            check(r.get().busy&&r.get().diagnostic===null,"actual-diagnostic-action-synchronous-busy-clear");
+            await until(()=>!r.get().busy);
+            check(r.get().error===null&&r.get().diagnostic?.diagnostic.status===status,`actual-native-diagnostic-${status}`);
+        };
+        const image=async(label:string,include=false,provenance?:string)=>{
+            diagnosticCaptures[label]={source:current,provenance:provenance??prepared.fixtures.find(f=>f.id===current)!.provenance};
+            await capture(label,"#comparison-reader",include);
+        };
+        await openFixture("diagnostic-recorded");await readDiagnostic("recorded");
+        await image(config.stage==="restart"?"comparison-restarted":"comparison-open",true);
+        if(config.stage!=="restart") {
+            await inspect("receipt");check(r.get().evidence?.body.kind==="receipt","actual-diagnostic-source-accepted-receipt");
+            await image("comparison-receipt");
+            await openFixture("diagnostic-unavailable");await readDiagnostic("host_unavailable");await image("comparison-capture");
+            await openFixture("diagnostic-rejected");await readDiagnostic("host_rejected");await image("comparison-outputs");
+            await openFixture("diagnostic-recorded","right");await readDiagnostic("recorded");
+            await invoke("harness_viewport",{preset:"capture-narrow"});await image("comparison-narrow");await invoke("harness_viewport",{preset:"wide"});
+            const lateObserver=r.inspectNarrationDiagnosticV1();
+            check(r.get().busy&&r.get().diagnostic===null,"real-diagnostic-pending-observer-switch");
+            r.setObserver({kind:"character",id:"mira"});await lateObserver;
+            check(r.get().diagnostic===null&&r.get().summary===null&&r.get().evidence===null,"real-late-diagnostic-cannot-refill-mira");
+            await image("comparison-mira",false,"frontend_actor_lens_cleared_after_real_ipc");
+            r.setObserver({kind:"character",id:"sable"});
+            const status=r.get().status!;const errorBefore=errors.snapshot();let denial="";
+            try {await invoke("evaluation_comparison",{action:"narration_diagnostic_v1",query:{runToken:status.run_token,
+                binding:"0".repeat(64),turnId:"not-a-retained-row",arm:"left",observer:{kind:"character",id:"sable"}}});}
+            catch(error){denial=String(error);}
+            const denialDelta=errors.snapshot().slice(errorBefore.length);
+            expectedDiagnosticErrors.push({action:"direct_actor_diagnostic_denial",code:denial,broker_delta:denialDelta});
+            check(denial==="Forbidden","actual-native-actor-denial-before-binding-row-probes");
+            check(denialDelta.length===0,"direct-native-denial-does-not-invent-a-controller-error-callback");
+            await image("comparison-sable",false,"actual_native_actor_denial_with_frontend_clearing");
+            r.setObserver({kind:"omniscient"});await summary();await readDiagnostic("recorded");
+            const lateRow=r.inspectNarrationDiagnosticV1();r.select({turn:"courier-01",arm:"left"});await lateRow;
+            check(r.get().diagnostic===null&&r.get().selected?.arm==="left","real-late-diagnostic-cannot-refill-other-row");
+            await readDiagnostic("recorded");await image("comparison-recovered",false,"explicit_fresh_omniscient_read");
+            await openFixture("diagnostic-missing");await readDiagnostic("no_observation");await image("comparison-guard");
+            await openFixture("diagnostic-legacy");await readDiagnostic("no_declaration");await image("comparison-rollout");
+            await r.close();current="diagnostic-recorded";await scenario("choose-diagnostic-recorded");await scenario("hold-picker");
+            const opening=r.pick();await until(()=>r.get().status?.running===true);
+            await image("comparison-pending",false,"held_picker_pending_not_diagnostic_io");
+            const closing=r.close();await scenario("release-picker");await closing;await opening;
+            check(r.get().source===null&&r.get().diagnostic===null,"real-late-picker-never-restores-closed-capability");
+            await image("comparison-closed",false,"closed_native_reader_capability");
+            await openFixture("diagnostic-malformed");const malformedBefore=errors.snapshot();
+            await r.inspectNarrationDiagnosticV1();
+            const malformedDelta=errors.snapshot().slice(malformedBefore.length);
+            expectedDiagnosticErrors.push({action:"malformed_companion_refusal",code:r.get().error??"missing",broker_delta:malformedDelta});
+            check(r.get().error==="EvaluationIntegrity"&&r.get().diagnostic===null,"actual-malformed-companion-is-integrity-refusal");
+            check(malformedDelta.length===1&&malformedDelta[0].source==="native"&&malformedDelta[0].category==="Transport","actual-malformed-native-error-delta-retained");
+            await image("comparison-unknown");
+            await openFixture("diagnostic-recorded");await readDiagnostic("recorded");
+            const lateContext=r.inspectNarrationDiagnosticV1();c.returnToPlay();
+            await until(()=>!r.get().allowed);await lateContext;
+            check(r.get().source===null&&r.get().diagnostic===null,"actual-context-retirement-fences-real-late-completion");
+            c.requestLab();c.acknowledgeLab(true);await until(()=>r.get().allowed);
+            await image("comparison-switched",false,"local_lab_context_clear_not_host_privilege_revocation");
+        }
+        await r.close();await observe();await c.refresh();
+        check(structural(c.get().play??c.get().playV2)===canonicalBefore,"diagnostic-inspection-preserves-live-gameplay-canon");
+        check(structural(errors.snapshot())===structural(expectedDiagnosticErrors.flatMap(e=>e.broker_delta)),"only-bounded-expected-native-error-deltas");
+        await image("comparison-finished",false,"all_caps_closed_before_exit");
+        await dispose();
+        await invoke("harness_finish",{report:{synthetic:true,passed:true,stage:config.stage,protocolVersion:4,diagnosticReader:true,
+            checks,errors:errors.snapshot(),expectedDiagnosticErrors,diagnosticCaptures,fixtureProof:diagnosticProof,
+            modelObservation:diagnosticObservation,diagnosticPendingImage:"unavailable_no_io_hold_seam",
+            pendingImage:"held_picker_only",realModelGeneration:false,nativeIpc:true,desktopInput:false,
+            rendering:"native-webview2",nativeDialogsAutomated:false,timing}});
     };
     try {
         await c.start();
@@ -557,7 +705,11 @@ export async function comparisonReaderJourneys({
         c.requestLab();
         c.acknowledgeLab(true);
         await until(() => r.get().allowed);
-        const prepared = (await scenario("prepare")) as {
+        const rawPrepared=await scenario("prepare");
+        if((rawPrepared as {kind?:string})?.kind==="narration_diagnostic_reader_fixture_v1") {
+            await diagnosticJourneys(rawPrepared as DiagnosticFixtureProof,before);return;
+        }
+        const prepared = rawPrepared as {
             protocol_version: 2 | 3 | 4;
             paired_rows: number;
             rollout_rows: number;

@@ -16,9 +16,33 @@ import path from "node:path";
 
 if (process.argv.length !== 2)
     throw Error("ClosedComparisonReaderArgumentsRequired");
+// reader-policy-v1:start
+function readerDiagnosticMode(environment) {
+    const pick = (name) => {
+        const keys = Object.keys(environment).filter(key => key.toUpperCase() === name);
+        if (keys.length > 1) throw Error("AmbiguousReaderModeAlias");
+        return keys.length ? environment[keys[0]] : undefined;
+    };
+    const diagnostic = pick("LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER");
+    const scene = pick("LOCALLORE_D07_SCENE_COMPARISON_READER");
+    const literal = pick("LOCALLORE_D07_LITERAL_COMPARISON_READER");
+    if (diagnostic !== undefined && diagnostic !== "0" && diagnostic !== "1")
+        throw Error("ClosedDiagnosticReaderModeRequired");
+    if (diagnostic !== "1") return false;
+    if (scene !== "1" || (literal !== undefined && literal !== "0"))
+        throw Error("DiagnosticSceneReaderModeRequired");
+    return true;
+}
+function readerChildEnvironment(environment) {
+    return Object.fromEntries(Object.entries(environment).filter(([key]) => !/^LOCALLORE_/i.test(key)));
+}
+// reader-policy-v1:end
+process.env.TEMP = "D:/Dev/_Temp";
+process.env.TMP = "D:/Dev/_Temp";
+const diagnosticMode = readerDiagnosticMode(process.env);
 const root = fileURLToPath(new URL(".", import.meta.url));
 const literalMode = process.env.LOCALLORE_D07_LITERAL_COMPARISON_READER === "1";
-const sceneMode = process.env.LOCALLORE_D07_SCENE_COMPARISON_READER === "1";
+const sceneMode = diagnosticMode || process.env.LOCALLORE_D07_SCENE_COMPARISON_READER === "1";
 if (literalMode && sceneMode)
     throw Error("ExclusiveComparisonReaderModeRequired");
 const protocolVersion = sceneMode ? 4 : literalMode ? 3 : 2;
@@ -26,6 +50,8 @@ async function ownedDirectory(value) {
     if (!value || !path.isAbsolute(value))
         throw Error("TrustedOwnedDirectoryRequired");
     const resolved = path.resolve(value);
+    if (path.parse(resolved).root.toLowerCase() !== "d:\\")
+        throw Error("PhysicalDOwnedDirectoryRequired");
     if ((await realpath(resolved)).toLowerCase() !== resolved.toLowerCase())
         throw Error("UnsafeOwnedDirectory");
     for (let current = resolved; ; current = path.dirname(current)) {
@@ -36,6 +62,7 @@ async function ownedDirectory(value) {
     }
     return resolved;
 }
+await ownedDirectory(root);
 const base = await ownedDirectory(
     process.env.LOCALLORE_D07_COMPARISON_READER_ARTIFACT_ROOT,
 );
@@ -99,6 +126,13 @@ const sourceFiles = [
     "../../crates/locallore/src/play/scene_narration.rs",
     "../../crates/locallore-storage/src/lib.rs",
     "../../crates/locallore-workspace/src/lib.rs",
+    ...(diagnosticMode ? [
+        "../../crates/locallore-eval/src/narration_diagnostic_companion_v1.rs",
+        "../../crates/locallore-eval/src/local_lane/comparison.rs",
+        "../../crates/locallore-eval/src/local_lane/comparison/turn_execution.rs",
+        "../../crates/locallore-eval/src/local_lane/comparison/selected.rs",
+        "src-tauri/src/models.rs",
+    ] : []),
 ];
 async function hashes(files) {
     return Object.fromEntries(
@@ -155,8 +189,8 @@ async function run(label, command, args, env = {}, limit = 240000) {
     }
     const started = new Date().toISOString();
     const output = { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
-    const inherited = { ...process.env };
-    for (const key of Object.keys(inherited))
+    const inherited = diagnosticMode ? readerChildEnvironment(process.env) : { ...process.env };
+    if (!diagnosticMode) for (const key of Object.keys(inherited))
         if (
             key.startsWith("LOCALLORE_") &&
             /HARNESS|TEST_|ARTIFACT_DIR|COMPARISON_READER/.test(key)
@@ -182,6 +216,8 @@ async function run(label, command, args, env = {}, limit = 240000) {
                 CARGO_PROFILE_DEV_DEBUG: "0",
                 CARGO_PROFILE_TEST_DEBUG: "0",
                 ...env,
+                TEMP: "D:/Dev/_Temp",
+                TMP: "D:/Dev/_Temp",
             },
         });
         directPid = child.pid ?? null;
@@ -300,24 +336,29 @@ async function run(label, command, args, env = {}, limit = 240000) {
     assert(!overflow, `${label}:bounded-output-overflow`);
     assert.equal(result.exit, 0, `${label}:exit`);
 }
+let readerInventoryStats = null;
 async function inventory(directory) {
     const files = {};
-    let bytes = 0;
+    let bytes = 0, entries = 0;
     async function visit(current, depth) {
         assert(depth <= 8, "FixtureDepth");
+        entries++;
+        if (diagnosticMode) assert(entries <= 8192, "DiagnosticFixtureEntryBudget");
         for (const name of (await readdir(current)).sort()) {
             const full = path.join(current, name),
                 stat = await lstat(full);
             assert(!stat.isSymbolicLink(), "FixtureLink");
             if (stat.isDirectory()) await visit(full, depth + 1);
             else {
+                entries++;
+                if (diagnosticMode) assert(entries <= 8192, "DiagnosticFixtureEntryBudget");
                 assert(
                     stat.isFile() && stat.size <= 8 * 1024 * 1024,
                     "FixtureFileBudget",
                 );
                 bytes += stat.size;
-                assert(bytes <= 64 * 1024 * 1024, "FixtureTotalBudget");
-                assert(Object.keys(files).length < 2048, "FixtureCountBudget");
+                assert(Number.isSafeInteger(bytes) && bytes <= (diagnosticMode ? 128 : 64) * 1024 * 1024, "FixtureTotalBudget");
+                assert(Object.keys(files).length < (diagnosticMode ? 8192 : 2048), "FixtureCountBudget");
                 files[
                     path.relative(directory, full).replaceAll(path.sep, "/")
                 ] = digest(await readFile(full));
@@ -325,7 +366,16 @@ async function inventory(directory) {
         }
     }
     await visit(directory, 0);
+    readerInventoryStats = { entries, files: Object.keys(files).length, bytes };
     return files;
+}
+async function modelCandidateAbsent() {
+    try {
+        await lstat(path.join(folder, "models"));
+        throw Error("DiagnosticModelDirectoryUnexpected");
+    } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+    }
 }
 const reports = [];
 const artifacts = {};
@@ -349,6 +399,7 @@ async function artifactJson(file) {
     );
 }
 let expectedFixtures = null,
+    expectedDiagnosticFreeze = null,
     originalError = null,
     normalRestoration = null,
     candidateSummary = null;
@@ -360,6 +411,7 @@ await writeFile(
             sourceRevision: revision,
             sourceClean: true,
             protocolVersion,
+            ...(diagnosticMode ? { diagnosticReader: true } : {}),
             synthetic: true,
             modelExecution: false,
             inputSHA256: initialSourceHashes,
@@ -402,6 +454,7 @@ try {
         ),
         { flag: "wx" },
     );
+    if (diagnosticMode) await modelCandidateAbsent();
     for (const stage of ["initial", "restart"]) {
         const directory = path.join(folder, stage);
         await run(
@@ -429,6 +482,7 @@ try {
                     ? "1"
                     : "0",
                 LOCALLORE_D07_SCENE_COMPARISON_READER: sceneMode ? "1" : "0",
+                ...(diagnosticMode ? { LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER: "1" } : {}),
                 LOCALLORE_D02_ARTIFACT_DIR: directory,
                 LOCALLORE_TEST_MEMORY: "0",
                 LOCALLORE_TEST_WORKSPACE: path.join(
@@ -441,6 +495,23 @@ try {
         );
         const report = await artifactJson(path.join(directory, "report.json"));
         reports.push({ stage, report });
+        if (diagnosticMode && report.passed !== true)
+            throw Error(`Journeys:${stage}:${report.failedCheck ?? "IncompleteDiagnosticReader"}`);
+        if (diagnosticMode) {
+            await modelCandidateAbsent();
+            assert.equal(report.diagnosticReader, true, "ClosedDiagnosticReaderJourney");
+            assert.equal(report.modelObservation.reservation_sequence, 0);
+            assert.equal(report.modelObservation.owner_present, false);
+            assert.equal(report.modelObservation.retained_evaluations, 0);
+            assert.equal(report.diagnosticPendingImage, "unavailable_no_io_hold_seam");
+            assert.equal(report.pendingImage, "held_picker_only");
+            const codes = report.expectedDiagnosticErrors.map(e => [e.action, e.code]);
+            assert.deepEqual(codes, stage === "restart" ? [] : [
+                ["direct_actor_diagnostic_denial", "Forbidden"],
+                ["malformed_companion_refusal", "EvaluationIntegrity"],
+            ], "ActualBoundedExpectedRefusals");
+            assert.deepEqual(report.errors, report.expectedDiagnosticErrors.flatMap(e => e.broker_delta), "ExpectedErrorsAreNotZeroedOrRelabeled");
+        }
         assert.equal(
             report.passed,
             true,
@@ -476,7 +547,15 @@ try {
             protocolVersion,
             "ActualReportProtocol",
         );
-        if (sceneMode) {
+        if (diagnosticMode) {
+            const proof = opened.diagnosticFixtureProof;
+            assert.equal(proof.kind, "narration_diagnostic_reader_fixture_v1");
+            assert.equal(proof.version, 1); assert.equal(proof.protocol_version, 4); assert.equal(proof.synthetic, true);
+            assert.deepEqual(proof.fixtures.map(f => f.id), ["diagnostic-recorded", "diagnostic-legacy", "diagnostic-missing", "diagnostic-unavailable", "diagnostic-rejected", "diagnostic-malformed"]);
+            assert.deepEqual(proof.fixtures.map(f => [f.expected_status, f.expected_error]), [["recorded",null],["no_declaration",null],["no_observation",null],["host_unavailable",null],["host_rejected",null],[null,"EvaluationIntegrity"]]);
+            assert.deepEqual(proof.inventory_limits, { entries:8192, bytes:128*1024*1024, file_bytes:8*1024*1024, depth:8 });
+            assert.equal(opened.comparison.source.rows.length, 12);
+        } else if (sceneMode) {
             const proof = opened.fixtureProof;
             assert.equal(
                 proof?.source_gate,
@@ -524,6 +603,14 @@ try {
         const actual = await inventory(
             path.join(folder, "comparison-fixtures"),
         );
+        if (diagnosticMode) {
+            assert.deepEqual(readerInventoryStats, opened.diagnosticFixtureProof.inventory_stats, "ActualCompleteSixFixtureInventoryStats");
+            const frozen=await artifactJson(path.join(folder,"diagnostic-reader-fixtures-v1.json"));
+            assert.deepEqual(frozen.fixture_inventory, actual, "ExternalFrozenInventoryMatchesAllBytes");
+            const freezeHash=artifacts["diagnostic-reader-fixtures-v1.json"].sha256;
+            if(expectedDiagnosticFreeze)assert.equal(freezeHash,expectedDiagnosticFreeze,"RestartPreservesExternalFreezeBytes");
+            expectedDiagnosticFreeze=freezeHash;
+        }
         assert.deepEqual(
             actual,
             opened.fixtureInventory,
@@ -539,7 +626,7 @@ try {
         const captures = (await readdir(directory)).filter((name) =>
             name.endsWith(".png"),
         );
-        const labels = [
+        const labels = (diagnosticMode && stage === "restart" ? ["restarted", "finished"] : [
             stage === "restart" ? "restarted" : "open",
             "receipt",
             "capture",
@@ -555,7 +642,7 @@ try {
             "rollout",
             "switched",
             "finished",
-        ].map((name) => `comparison-${name}`);
+        ]).map((name) => `comparison-${name}`);
         assert.deepEqual(
             captures.slice().sort(),
             labels.map((name) => `${name}.png`).sort(),
@@ -603,6 +690,33 @@ try {
                 `SemanticVersion:${name}`,
             );
             const state = snapshot.comparison;
+            if (diagnosticMode) {
+                const label=name.slice(0,-4);
+                const expectedSource={"comparison-open":"diagnostic-recorded","comparison-restarted":"diagnostic-recorded",
+                    "comparison-receipt":"diagnostic-recorded","comparison-capture":"diagnostic-unavailable",
+                    "comparison-outputs":"diagnostic-rejected","comparison-narrow":"diagnostic-recorded",
+                    "comparison-mira":"diagnostic-recorded","comparison-sable":"diagnostic-recorded",
+                    "comparison-guard":"diagnostic-missing","comparison-rollout":"diagnostic-legacy",
+                    "comparison-pending":"diagnostic-recorded","comparison-closed":"diagnostic-recorded",
+                    "comparison-unknown":"diagnostic-malformed","comparison-recovered":"diagnostic-recorded",
+                    "comparison-switched":"diagnostic-recorded","comparison-finished":"diagnostic-recorded"};
+                assert.equal(snapshot.diagnosticProvenance.source, expectedSource[label], "ExactCaptureSourceMapping");
+                assert.equal(report.diagnosticCaptures[label].provenance, snapshot.diagnosticProvenance.provenance);
+                const expectedStatus={"comparison-open":"recorded","comparison-restarted":"recorded",
+                    "comparison-capture":"host_unavailable","comparison-outputs":"host_rejected",
+                    "comparison-narrow":"recorded","comparison-guard":"no_observation",
+                    "comparison-rollout":"no_declaration","comparison-recovered":"recorded"}[label];
+                assert.deepEqual(snapshot.diagnostic, state.diagnostic);
+                if (expectedStatus) assert.equal(state.diagnostic?.diagnostic.status, expectedStatus, "ActualFiveStatusCapture");
+                else assert.equal(state.diagnostic, null, "NoDiagnosticLeakIntoClearedOrErrorCapture");
+                if (label === "comparison-unknown") assert.equal(state.error, "EvaluationIntegrity");
+                if (["comparison-mira","comparison-sable"].includes(label)) {
+                    assert.equal(snapshot.observer.kind, "character");
+                    assert.equal(state.summaryProjection, null); assert.equal(state.evidence, null);
+                }
+                assert.deepEqual(snapshot.diagnosticGeometryFailures, [], "ActualContextGeometryAndHitTests");
+                assert(snapshot.diagnosticGeometry.context.length > 0, "ActualFinitePositiveContextGeometry");
+            }
             const selected = state.source?.rows.find(
                 (row) =>
                     row.row.turn === state.selected?.turn &&
@@ -721,6 +835,11 @@ try {
         sourceRevision: revision,
         sourceClean: true,
         protocolVersion,
+        ...(diagnosticMode ? { diagnosticReader: true, inventoryStats: readerInventoryStats,
+            inventoryLimits:{entries:8192,bytes:128*1024*1024,file_bytes:8*1024*1024,depth:8},
+            modelDirectoryAbsentAfterExit:true, externalFreezeSha256:expectedDiagnosticFreeze,
+            captureProvenance:reports.map(item=>({stage:item.stage,captures:item.report.diagnosticCaptures})),
+            expectedErrorEvidence:reports.map(item=>({stage:item.stage,errors:item.report.errors,expected:item.report.expectedDiagnosticErrors})) } : {}),
         synthetic: true,
         nativeIpc: true,
         rendering: "actual-hidden-unfocused-webview2",
@@ -746,6 +865,11 @@ try {
             "Whole-report snapshot is last validated at open; selected evidence is refreshed",
             "Native images require separate visual inspection",
             "No Job/process-tree containment or timeout-drain qualification",
+            ...(diagnosticMode ? ["Diagnostic pending image unavailable; picker-pending image only",
+                "Stored unavailable/rejected/malformed fixtures are trusted metadata controls",
+                "seq0/no owner/retained0 are ModelManager observations, not independent SDK-load telemetry",
+                "Ordinary shutdown metadata-probes the absent task-owned models candidate; no zero-path-probe claim",
+                "Six-fixture collector8192entries/128MiB is separate from unchanged Core run/namespace/library quotas"] : []),
         ],
     };
 } catch (error) {

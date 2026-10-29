@@ -90,11 +90,15 @@ V3 command JSON is exactly the11 v2 scalar keys (`version`, `index`, `label`,
 `status`, `returncode`, `cleanup_complete`, `stdout_bytes`, `stdout_sha256`,
 `stderr_bytes`, `elapsed_ms`, `effective_deadline_ms`) plus `protocol`,
 `server_admission`, `server_before`, `server_after`, `transport_id`,
-`command_sha256`, `argv`. Version is exact int3. Before/after are manifest byte
+`command_sha256`, `argv`, `client_qualified`. Version is exact int3. Before/after are manifest byte
 bindings; after may be null only in a failed record. Recorded argv is bounded,
 canonical-hashed and policy-checked; its hash is metadata, not execution
 authentication. The source-admitted runtime checks its own exact phase/command
-roster. Clients remains exactly JSON/raw pair per ACTUALLY dispatched command.
+roster. `client_qualified` is an exact boolean: true only after subprocess
+completion, post-proof and the final caller/source/deadline guards all pass.
+Failed guards preserve the actual SDK result with this flag false; a completed
+subprocess alone cannot qualify the row. Clients remains exactly JSON/raw pair
+per ACTUALLY dispatched command.
 
 `check_server()` returns a freshly acquired verified bundle without a fake SDK
 row. Its folders are `check-NNNN`, independent sequential check indices. Context
@@ -113,13 +117,16 @@ weights are passed through text or ordinary bounded capture.
 ## Bound proof acquisition
 
 Bundle root has create-only `launch/` and `held/`, plus `bundle-v1.json`. Launch
-contains request-v1.json, started-v1.json, owner-result-v1.json and the two owner
+contains request-v1.json, started-v1.json, owner-result-v1.json,
+source-after-v1.json and the two owner
 stdout/stderr .bin files. The fixed request binds session/context/source/Python,
 actual caller and exact CLI argv; started records the actual external CLI.
 Held contains the existing CLI's exact13-file success roster. The external CLI
 gets a bounded owner; its nested worker retains its existing barrier/pins and
 resource checks. Both terminal captures are required, with joined actual CLI
-and worker identities. No legacy observer or SDK/device service is called here.
+and worker identities. Source-after has exact SDK/held source, Python and caller
+bindings and must match the request/session. No legacy observer or SDK/device
+service is called here.
 
 Bundle manifest has exactly `version`=1, `protocol`=BUNDLE_PROTOCOL, `session`,
 `context`, `verified`, `files`. Files is a sorted list of exact `{relative,

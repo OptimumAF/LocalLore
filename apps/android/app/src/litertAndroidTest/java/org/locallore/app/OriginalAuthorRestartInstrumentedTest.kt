@@ -34,7 +34,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Passive continuation only. Exact old-process death is established by the external host. */
+/** Passive continuation only. The host establishes exact old-process death within the same Android boot. */
 @RunWith(AndroidJUnit4::class)
 class OriginalAuthorRestartInstrumentedTest {
     @Test fun recordsOriginalAuthorAfterExternalRestartWithoutInference() = runBlocking {
@@ -63,6 +63,7 @@ class OriginalAuthorRestartInstrumentedTest {
                 val importProcess = process(imported.getJSONObject("process"))
                 val authorProcess = process(author.getJSONObject("process"))
                 check(importProcess.uid == Process.myUid().toLong() && authorProcess.uid == Process.myUid().toLong())
+                // These elapsed-time comparisons cannot establish continuity across an Android reboot.
                 check(importProcess.start < authorProcess.start && authorProcess.start < Process.getStartElapsedRealtime())
                 check(author.get("prior_import_sha256") == phase.importHash)
                 same(imported.getJSONObject("model"), imported.getJSONObject("accepted"))
@@ -82,8 +83,16 @@ class OriginalAuthorRestartInstrumentedTest {
                 check(text(scope, "story", STORY) == "original-" + text(author, "creation_id", CREATION))
                 check(text(scope, "branch", WORD) == "main")
                 val catalog = baseline.envelope("workspace-created-v1.json")
-                fields(catalog, "stories")
+                fields(catalog, "persistent", "location", "schema_version", "database_schema_version", "stories")
+                check(catalog.get("persistent") == true && integer(catalog, "schema_version") == 1L &&
+                    integer(catalog, "database_schema_version") == 5L)
+                val location = catalog.get("location")
+                check(location is String && localUtf8(location).size in 1..4096)
                 check(catalog.getJSONArray("stories").length() == 1)
+                val story = catalog.getJSONArray("stories").getJSONObject(0)
+                fields(story, "scope", "title", "revision", "drafts")
+                same(scope, story.getJSONObject("scope"))
+                check(story.get("title") is String && integer(story, "revision") == 0L && integer(story, "drafts") == 0L)
                 val priorSnapshot = baseline.envelope("snapshot-created-v1.json")
                 fields(priorSnapshot, "scope", "revision", "rules", "player", "inventory", "receipts")
                 same(scope, priorSnapshot.getJSONObject("scope"))

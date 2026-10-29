@@ -271,4 +271,59 @@ class NativeProbePacketTests(unittest.TestCase):
             with self.subTest(field=field):self.refused(lambda:reader.validate_probe_packet(self.raw(value)))
 
 
+@unittest.skipUnless(os.name=='nt','physical D original closed graphs')
+class RestartPrerequisiteGraphTests(unittest.TestCase):
+    def refused(self,call):
+        from benchmarks.receipt_avd_environment import EnvironmentRefused
+        from benchmarks.android_instrumentation_evidence import EvidenceRefused
+        with self.assertRaises((ValueError,EnvironmentRefused,EvidenceRefused,OSError)):call()
+    def publish(self,g):g.prerequisite_pin=g.save(g.prerequisite_pin['path'],g.prerequisite)
+
+    def test_complete_original_prerequisite_uses_actual_bound_readers_without_mutation(self):
+        g=ClosedRestartGraph();before=copy.deepcopy(g.prerequisite);g.validate()
+        self.assertEqual(g.prerequisite,before);self.assertEqual(len(g.rows),12)
+        self.assertTrue(all(path.is_relative_to(g.base)for path in g.writes))
+        self.assertNotEqual(PureWindowsPath(str(g.base)),r.GUEST_ROOT)
+
+    def test_missing_extra_legacy_or_wrong_admission_fields_never_qualify(self):
+        for change in(lambda v:v.pop('author_proof'),lambda v:v.update(protocol='original-author-restart-prerequisite-v0'),
+                      lambda v:v.update(extra=True),lambda v:v['author_artifacts'].pop('worker-v2.json'),
+                      lambda v:v['caller'].update(pid=999)):
+            g=ClosedRestartGraph();change(g.prerequisite);self.publish(g);self.refused(g.validate)
+
+    def test_selected_sdk_witness_order_and_operation_are_bound_not_just_success(self):
+        for left,right in(('boot_initial','probe_after'),('import_instrumentation','author_instrumentation'),('force_stop','probe_before')):
+            g=ClosedRestartGraph();g.prerequisite[left]=g.prerequisite[right];self.publish(g);self.refused(g.validate)
+
+    def test_changed_boot_id_after_original_author_is_not_same_boot_death(self):
+        g=ClosedRestartGraph();pid=g.author['process']['pid'];uid=g.author['process']['uid']
+        g.mutate_stdout(12,g.encode(process_packet(pid=pid,uid=uid,state='absent',boot='9c1d9900-9a62-43fb-8440-c8be4364d762')))
+        self.refused(g.validate)
+
+    def test_wrong_pid_uid_or_still_alive_after_scoped_force_stop_refuses(self):
+        for change in(dict(pid=8021),dict(uid=10422),dict(state='alive')):
+            g=ClosedRestartGraph();values=dict(pid=g.author['process']['pid'],uid=g.author['process']['uid'],state='absent');values.update(change)
+            g.mutate_stdout(12,g.encode(process_packet(**values)));self.refused(g.validate)
+
+    def test_exited_pid_reuse_must_keep_original_before_kernel_start_ticks(self):
+        g=ClosedRestartGraph();pid=g.author['process']['pid'];uid=g.author['process']['uid']
+        g.mutate_stdout(12,g.encode(process_packet(pid=pid,uid=uid,state='exited',start=90002)));self.refused(g.validate)
+
+    def test_wrapper_exit_zero_does_not_promote_refused_native_packet_or_unknown_fd_close(self):
+        g=ClosedRestartGraph();value=process_packet(pid=g.author['process']['pid'],uid=g.author['process']['uid'])
+        value.update(state='refused',error='close',errno=5,proc_closed=None)
+        self.assertEqual(reader.validate_probe_packet(g.encode(value)),value)
+        g.mutate_stdout(10,g.encode(value));self.assertEqual(g.rows[9]['returncode'],0);self.refused(g.validate)
+
+    def test_original_baseline_and_actual_junit_must_pass_not_caller_summary(self):
+        g=ClosedRestartGraph();g.mutate_stdout(3,b'OK (1 test)\n');self.refused(g.validate)
+        g=ClosedRestartGraph();value=copy.deepcopy(g.author);value['review_sha256']='0'*64
+        g.prerequisite['author_proof']=g.save(g.author_proof['path'],author_fixture.f.raw(value));self.publish(g);self.refused(g.validate)
+
+    def test_package_uid_apk_hash_and_separate_claim_binding_cannot_be_swapped(self):
+        g=ClosedRestartGraph();g.prerequisite['package_checks']['product']['uid']=g.prerequisite['package_checks']['tests']['uid'];self.publish(g);self.refused(g.validate)
+        g=ClosedRestartGraph();g.mutate_stdout(6,('0'*64+'  /data/app/~~original-product/base.apk\n').encode());self.refused(g.validate)
+        g=ClosedRestartGraph();path=g.root/'claims-v1/import-v1.json';value=g.env.read_json(path);value['prerequisite']=g.prerequisite_pin;g.save(path,value);self.refused(g.validate)
+
+
 if __name__=='__main__':unittest.main()

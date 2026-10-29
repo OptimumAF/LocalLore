@@ -136,13 +136,80 @@ The documentation author read source/bounded records and checked Git scope/
 whitespace only; no compiler, formatter, Cargo, Node, browser, app, model/assets,
 device or desktop execution was performed by this author.
 
-## Pending gates and limitations
+## Completed broad and normal-native checks
 
-The portable-workspace/development-native serialized sequence is running at this
-freeze, without completed process records. Both broad results stay pending;
-no previous slice's counts are copied. Normal native build/lint and any justified
-retained no-inference compatibility read remain Root-owned and unmeasured here.
-Independent final evidence review and the focused PR gate remain pending.
+At clean, unchanged `fab59b0761a0585ff57cc8b8e315d7134f8805e2`, the serial
+sequence completed with exit0 and empty dirty lists:
+
+| Check | Actual result | Command duration |
+| --- | --- | --- |
+| Portable workspace excluding desktop | 1,046 passed, 0 failed, 11 ignored; 142 result groups | 519.4704493s |
+| Development native suite | 282 unit + 2 contract passed, 0 failed, 11 ignored | 743.6410952s; 702.02s unit-test time |
+
+```text
+cargo test --workspace --exclude locallore-desktop-spike --all-features --locked --offline --target-dir <owned-D-target> -- --test-threads=1
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --target-dir <owned-D-target> -- --test-threads=1
+```
+
+The qualification-document-only integration `f640b64f` leaves all production,
+test and generated request files unchanged. At that clean, unchanged source,
+normal Windows native build passes in 10.8784372s and normal all-target strict
+Clippy passes in 9.7170032s. The normal product remains unlaunched.
+
+```text
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --target-dir <owned-D-target>
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --all-targets --target-dir <owned-D-target> -- -D warnings
+```
+
+## Actual retained native compatibility journey at `fab59b07`
+
+`node apps/desktop/comparison-run-harness.mjs --native-scene-review-v1` ran with
+the exact existing retained packet, approved publication and owned target paths
+provided in process-local environment variables. It used the real frontend
+controller, native IPC and hidden, unfocused WebView2 rendering. No desktop
+control, desktop capture or OS-dialog automation was used. The wrapper started
+no child after the harness and inspected existing cleanup records only.
+
+2026-10-29 12:08:19.2807851Z–12:09:46.2420194Z: **257 checks, 12 PNGs,
+zero recorded broker errors**, 86.9612343s, exit0 and unchanged clean source.
+Historical results open; explicit resume correctly returns
+`EvaluationSourceMismatch` / `source_mismatch`. This is a retained historical
+read/refusal journey, not successful completed resume at this source.
+It does not exercise the new Host operation through IPC or add UI display of it;
+the new operation's direct execution evidence is the six Rust Host tests above.
+
+All twelve captures were individually inspected. Nine artifact views also have
+positive, in-viewport heading/source/outcome rectangles without selection-header
+overlap. The idle PNG's inspection preview initially appeared blank. Its
+original bytes are identical to the readable finished PNG, SHA256
+`fffdeb43e969a105ff5ad61cab0856b1ff9a0df19fe00420ecf1d18e734bb908`.
+Read-only decoding and an encoding-only preview have identical RGBA bytes,
+SHA256 `7cf95d7d86a403f96a0e497e7c9b0ead159eced80d64e87e847033ae84202cd4`;
+the derived preview was individually inspected at original detail and shows
+readable UI. All source PNGs remain unchanged. This is a tool-preview anomaly,
+not a repaired capture, app failure or reason for a new inference run.
+The local twelve-image review manifest SHA256 is
+`f97725d715af8210daa4808c5e1f812fcccc6b164b1f35ab16bf0cf20d2a0b38`.
+
+All 2,072 retained result files remain byte-identical, aggregate SHA256
+`f22cd3ec7c40c8870684b025fe1bcd909a4664e34f92f552779f2068bce429e5`.
+Original workspace SQLite remains absent. Reservation sequence, consent calls
+and retained-Eval observations remain zero; no owner is present before or after.
+No inference, model import, weight copy or source-fingerprint rewrite occurred.
+Those observations support the source-reviewed no-call path; they are not an
+independent SDK-load counter. All 32 known child executions closed, unknown
+drain is false and the unknown-child list is empty. Normal products were
+restored successfully and left unlaunched.
+
+Additional recorded versions: WindowsNT10.0.26300.0, PowerShell7.6.5,
+Prettier3.9.10, TypeScript7.0.2 and json-schema-to-typescript16.0.0.
+The native user agent reports Chromium/Edge156.0.0.0; an independent installed
+WebView build was not obtained. These are scoped compatibility checks.
+
+## Remaining gates and limitations
+
+Independent final evidence review and this focused slice's review gate remain
+pending. No previous slice's counts are copied or relabeled as these reruns.
 
 Rust synthetic Host/native-component tests and frontend mock/controller/headless
 checks/build do not establish native IPC/WebView rendering, new real-model
@@ -155,7 +222,7 @@ Both original and newer human assessments remain **needs improvement**.
 
 Bounded local `d07-narration-host-read-*` process/log/equality/correction records
 retain evidence; private paths/raw material stay outside this public document.
-Next: Root records completed broad and appropriate compatibility checks, obtains
-independent evidence review and prepares the focused stack above
+Next: independent evidence review and an update to the existing
+[PR #255](https://github.com/OptimumAF/LocalLore/pull/255), stacked above
 [PR #253](https://github.com/OptimumAF/LocalLore/pull/253). Full M05.03/M05.04,
 D07.04 and dependency acceptance remain unchecked; no merge/release is authorized.

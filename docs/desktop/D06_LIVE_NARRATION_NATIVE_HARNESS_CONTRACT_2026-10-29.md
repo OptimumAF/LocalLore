@@ -98,3 +98,21 @@ fresh replacement roots to evade a failure. Frozen raw FIRST, failed packets,
 original render images, hashes, logs and final reports stay local and retained.
 Actual execution requires Root's later explicit run allocation; this contract
 does not establish that these budget/closure/render checks have passed.
+
+## Accepted construction amendment before FIRST freeze
+
+Independent source inspection found the original external **typed** wait trigger
+above is incompatible with the existing unchanged scene Store proof: every
+postbaseline receipt must retain the exact free-text scene recipe/provenance.
+A typed receipt fails `SceneRecord`, including cold-restart configuration. Do not
+weaken or modify that proof. Instead, Root authorizes exactly one additional
+**external free-text scripted scene turn**, using the same existing fixed literal
+provider and exact fixture text/recipe, then normal Host prepare/commit. Use the
+fixed valid synthetic turn ID `d06-live-external-wait`. The original UI turn
+commits baseline r1 to r2; this explicit external trigger commits r2 to r3 while
+the UI remains at r2 for its real Stale diagnostic read. Retain the original
+selected attempt/base r1 and read head r2. Account for two provider factories and
+four role polls after these intentional generations; nongeneration operations
+must leave those counts unchanged. Restart performs zero factories/polls. This
+amendment supersedes only the typed-trigger/no-extra-generation wording above;
+all real outcome, unchanged proof, lifecycle, storage and evidence gates remain.

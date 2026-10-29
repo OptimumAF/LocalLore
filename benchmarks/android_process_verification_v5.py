@@ -179,7 +179,19 @@ def _prefix(session, admission, last):
         row = _IO.verify_client_record(pin, session, admission)
         c._need(row['index'] == index and row['returncode'] == 0, 'capability')
         rows.append(row)
+    _instrument_counts(rows, {'import': 1, 'author': 1, 'restart': 0})
     return rows
+
+
+def _instrument_counts(rows, expected=None):
+    counts = {kind: 0 for kind in c.CLAIM_KINDS}
+    for row in rows:
+        argv = row['operation']['argv']
+        if argv[:2] == ['am', 'instrument']:
+            counts[c.instrumentation_kind(argv)] += 1
+    c._need(all(number <= 1 for number in counts.values()), 'spent')
+    if expected is not None:
+        _same(counts, expected, 'spent')
 
 
 def _collection(rows, session, remote, local, pins, uid, lower, upper):
@@ -298,6 +310,7 @@ def verify_restart_prerequisite(pin, admission, admission_binding, running_bindi
     for key, expected in (('admission', admission_binding), ('running', running_binding), ('caller', caller)):
         _same(value[key], expected)
     session = c.validate_session(_json(value['session']), a)
+    _same(value['session'], _IO._pin(Path(session['root'])/c.SESSION_FILE))
     _same(session['admission'], admission_binding)
     _same(session['running'], running_binding)
     _same(session['caller'], caller)
@@ -356,6 +369,11 @@ class _RestartVerifier(shared._Verifier):
                                         session['admission'], session['running'], session['caller'])
         return value
 
+    def require_current_clients(self, root, count, session_binding, admission):
+        rows = super().require_current_clients(root, count, session_binding, admission)
+        _instrument_counts(rows)
+        return rows
+
 
 _REPLAY = _RestartVerifier()
 
@@ -411,6 +429,7 @@ def verify_controller_result(binding, admission, admission_binding, running_bind
     prior = _json(value['prerequisite'])
     _same(prior['session'], value['session'])
     records = require_current_clients(request['root'], value['client_count'], value['session'], admission)
+    _instrument_counts(records, {'import': 1, 'author': 1, 'restart': 1})
     selected = _instrument(value['restart_instrumentation'], session, admission, 'restart')
     final_boot = _client(value['boot_final'], session, admission, [HELPER, '--boot'])
     _empty_stderr(final_boot)

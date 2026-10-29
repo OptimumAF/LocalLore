@@ -831,3 +831,6 @@ impl TraceRing {
 fn micros(duration: std::time::Duration) -> u64 {
     duration.as_micros().min(u128::from(u64::MAX)) as u64
 }
+
+#[cfg(test)]
+mod narration_diagnostic_retention_review_tests;

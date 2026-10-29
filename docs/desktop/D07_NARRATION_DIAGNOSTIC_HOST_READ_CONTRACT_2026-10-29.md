@@ -109,7 +109,7 @@ identify that exact selection. `observer` is the literal player label; the
 actual actor identity is derived natively. No owner/handle or new capability is
 returned. Unavailable has **no decision key**; Recorded has exactly the four
 decision keys above, including required nullable error/reason. No extra fields.
-Cap the **entire new-operation Host reply**, including envelope, at4,096 bytes;
+Cap the **entire new-operation Host reply**, including envelope, at 4,096 bytes;
 otherwise TooLarge with no truncation. Existing global MAX_OUTPUT is unchanged.
 
 Only diagnostic version1 and actual Phase1 tuple semantics can be Recorded:
@@ -155,7 +155,7 @@ Minimum finite oracles must cover:
    truncated/cleared/evicted/missing data Unavailable; ordinary finished decisions
    remain distinct from commit; exact retry/prevalidation refusals invent none.
 5. Closed bound reply/key sets, missing decision on Unavailable, tuple projection,
-   constructible unsupported-metadata controls,4,096-byte cap and no private
+   constructible unsupported-metadata controls, 4,096-byte cap and no private
    sentinel leakage. No hypothetical future-version or negative-trait test claim.
 6. Unchanged provider/cancellation/canonical/receipt/replay behavior, existing
    trace/capture/PlayRecord/Report4 bytes and observer/generation authority;
@@ -182,3 +182,23 @@ checks only. No tests, compiler, Cargo, Node, formatter, app, model/assets, devi
 or desktop operation. Handoff releases only this document; Root records formal
 acceptance and allocates independent FIRST tests before implementation. Full
 M05.03/M05.04, D07.04 and D06 acceptance remain unchecked.
+
+## Root acceptance for independent FIRST tests — 2026-10-29
+
+Root accepts the exact operation, required fields, bound closed response,
+finite tuple/code mapping, admission/error order and 4,096-byte total reply cap.
+The original proposal is `3f5f5dc7`, integrated as `801996f2`. Claims:
+[#9 comment6494810636](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6494810636),
+[#29 comment6494811044](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6494811044).
+The only Core change permitted is the existing selector helper's crate-visible
+reuse seam; its signature/body/semantics remain fixed. Denied requests must never
+enter admission or lock recovery. Authorized existing admission reconciliation
+and the outer transport I/O caveat remain explicit.
+
+Allocate independent original synthetic FIRST tests to a different author in
+`host/narration_diagnostic_read_review_tests.rs`, with Root-owned test-only
+registration later. The production author cannot alter that freeze. Root owns
+later execution and integration; no production, schema generation or runtime
+operation is authorized before the independent test-source handoff. This is
+interface acceptance, not implementation, behavioral RED, milestone or merge
+acceptance. Both negative human assessments and unmerged dependencies stand.

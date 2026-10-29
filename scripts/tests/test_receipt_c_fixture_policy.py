@@ -7,6 +7,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+import warnings
 
 from benchmarks import receipt_avd_environment as env
 from scripts.tests import receipt_c_fixture as fixture
@@ -182,6 +183,7 @@ class SyntheticCFixturePolicyTests(unittest.TestCase):
             self.assertFalse(volume.root.exists())
         self.assertEqual(source.read_bytes(),b'preserve D source');self.assertEqual(list(self.backing.iterdir()),[]);self.restored()
 
+    @unittest.skipUnless(hasattr(Path,'info'),'Path.info was added in Python 3.14')
     def test_cached_path_info_refuses_C_and_UNC_before_any_real_query_but_preserves_D_info(self):
         original_info=Path.info;normal=self.base/'normal-info.txt';normal.write_bytes(b'genuine D info')
         real_exists=os.path.exists
@@ -197,6 +199,26 @@ class SyntheticCFixturePolicyTests(unittest.TestCase):
                     path.info
             self.assertTrue(normal.info.exists());self.assertTrue(normal.info.is_file())
         self.assertIs(Path.info,original_info);self.restored();self.assertEqual(normal.read_bytes(),b'genuine D info')
+
+    def test_simulated_legacy_reserved_name_fallback_keeps_D_mapping_and_refuses_before_reserved_IO(self):
+        # This exercises the absent-modern-API branch on the installed Python;
+        # it does not qualify execution on an older interpreter.
+        with patch.object(fixture,'_IS_RESERVED',None),warnings.catch_warnings():
+            warnings.simplefilter('ignore',DeprecationWarning)
+            volume=SyntheticCVolume(self.backing);names=('NUL','nul.txt','COM1','LPT9','trailing.','trailing ','file:stream','wild?card','control\x01')
+            forbidden=[self.backing/'new-avd'/name for name in names];raw_lstat=fixture._RAW_LSTAT
+            def inspect(path,*args,**kwargs):
+                if Path(path)in forbidden:raise AssertionError('reserved target reached real metadata IO')
+                return raw_lstat(path,*args,**kwargs)
+            with volume,patch.object(fixture,'_RAW_LSTAT',new=inspect):
+                self.assertEqual(volume.root.drive.upper(),'C:');self.assertEqual(volume.physical(volume.root),self.backing/'new-avd')
+                volume.root.mkdir();(volume.root/'ordinary.txt').write_bytes(b'ordinary D fixture bytes')
+                for name in names:
+                    with self.subTest(name=repr(name)),self.assertRaises(ValueError):volume.physical(volume.root/name)
+                self.assertEqual((volume.root/'ordinary.txt').read_bytes(),b'ordinary D fixture bytes')
+            self.assertEqual((self.backing/'new-avd/ordinary.txt').read_bytes(),b'ordinary D fixture bytes')
+            self.assertEqual({path.name for path in(self.backing/'new-avd').iterdir()},{'ordinary.txt'})
+        self.restored()
 
 
 if __name__=='__main__':unittest.main()

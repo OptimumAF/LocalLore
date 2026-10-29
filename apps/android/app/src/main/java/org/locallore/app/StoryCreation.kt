@@ -12,8 +12,10 @@ internal fun validStoryTemplateProfile(template: String, profile: String) = when
 }
 
 /** Native-owned starter metadata; title editing is not gameplay or a seed import. */
+internal data class StoryPlayerSetup(val templateSha256: String, val setupSha256: String, val playerName: String)
 internal data class StoryCreationPreview(val template: String, val seedSha256: String,
-    val defaultTitle: String, val description: String, val profile: String, val details: List<String>)
+    val defaultTitle: String, val description: String, val profile: String, val details: List<String>,
+    val playerSetup: StoryPlayerSetup? = null)
 internal data class StoryCreationRequest(val preview: StoryCreationPreview, val title: String, val creationId: String)
 internal data class StoryCreationClose(val saved: SavedSnapshot? = null, val refreshRequired: Boolean = false)
 internal interface StoryCreationGateway {
@@ -23,13 +25,22 @@ internal interface StoryCreationGateway {
         if (template != DEFAULT_STORY_TEMPLATE) throw WorkspaceFailure("UnsupportedSeed")
         return preview()
     }
+    // Legacy fake-port capability only. The native gateway returns a strict configured preview or fails.
+    suspend fun setupPreview(template: String, playerName: String?): StoryCreationPreview? = null
     suspend fun preview(): StoryCreationPreview
     suspend fun create(request: StoryCreationRequest): SavedSnapshot
 }
 
 /** Presentation validation only; Rust validates again before persistent creation. */
 internal fun validStoryTitle(title: String): Boolean {
-    if (title.isEmpty() || title.trim() != title || title.toByteArray(Charsets.UTF_8).size > 320) return false
+    return validStoryLabel(title, 80, 320)
+}
+internal fun validStoryPlayerName(name: String): Boolean = validStoryLabel(name, 64, 256)
+internal fun hasReviewedPlayerName(request: StoryCreationRequest, draft: String?): Boolean =
+    request.preview.playerSetup?.let { validStoryPlayerName(it.playerName) && draft == it.playerName } ?: (draft == null)
+
+private fun validStoryLabel(title: String, maxScalars: Int, maxBytes: Int): Boolean {
+    if (title.isEmpty() || title.trim() != title || title.toByteArray(Charsets.UTF_8).size > maxBytes) return false
     var scalars = 0
     var index = 0
     while (index < title.length) {
@@ -39,7 +50,7 @@ internal fun validStoryTitle(title: String): Boolean {
             Character.toCodePoint(first, title[++index])
         } else { if (first.isLowSurrogate()) return false; first.code }
         if (Character.isISOControl(value) || value in 0x2028..0x202e || value in 0x2066..0x2069) return false
-        if (++scalars > 80) return false
+        if (++scalars > maxScalars) return false
         index++
     }
     return true

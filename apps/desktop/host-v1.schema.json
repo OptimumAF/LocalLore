@@ -287,6 +287,24 @@
         {
           "additionalProperties": false,
           "properties": {
+            "op": {
+              "const": "story_setup",
+              "type": "string"
+            },
+            "player_name": {
+              "default": null,
+              "type": ["string", "null"]
+            },
+            "template": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "template"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
             "creation_id": {
               "type": "string"
             },
@@ -305,6 +323,43 @@
             }
           },
           "required": ["op", "template", "seed_sha256", "title", "creation_id"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "creation_id": {
+              "type": "string"
+            },
+            "op": {
+              "const": "create_configured",
+              "type": "string"
+            },
+            "player_name": {
+              "type": "string"
+            },
+            "setup_sha256": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            },
+            "template_sha256": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "template",
+            "template_sha256",
+            "setup_sha256",
+            "player_name",
+            "title",
+            "creation_id"
+          ],
           "type": "object"
         },
         {

@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [initial player-name setup](docs/native/ANDROID_PLAYER_SETUP_2026-10-26.md)
+adds an editable name and explicit native review before creating a story.
+Its report records host/build checks, scripted native/player-setup execution,
+and current-source creation/broad regression runs in separate fresh emulators.
+Physical-model qualification and broader authoring remain in the milestone scope.
+
 The [original starter choice](docs/native/ANDROID_STARTER_CHOICE_2026-10-26.md)
 adds explicit selection of Lantern Quay fantasy rules or the original Bracken
 Harbor narrative rules, with a native-owned preview before Create. Its report

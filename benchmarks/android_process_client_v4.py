@@ -19,6 +19,7 @@ import threading
 import time
 
 from benchmarks import owned_target_contract as contract
+from benchmarks import android_process_verification_v4 as verification
 from benchmarks import adb_held_socket_probe as file_guard
 from benchmarks import receipt_avd_environment as environment
 from benchmarks import windows_tcp_control as output_control
@@ -274,8 +275,7 @@ class OwnedTargetSdkCapture:
                                              copy.deepcopy(anchor), after=after))
         contract.binding(copy.deepcopy(pin))
         environment.check_binding(pin)
-        _, value = file_guard._read_bound(Path(pin["path"]), pin["sha256"], 2 * 1024 * 1024, "proof")
-        contract.validate_proof(value, self.session, copy.deepcopy(original))
+        value = verification.verify_proof(copy.deepcopy(pin), self.session, copy.deepcopy(original))
         _need(file_guard._same(value["session"], self.session_binding), "session_changed")
         # The independent owner is responsible for the complete proof graph;
         # do not substitute an arbitrary caller-supplied boolean provider.

@@ -319,6 +319,18 @@ class WindowsTcpControlPreflightTests(unittest.TestCase):
         self.assertTrue(folder.is_dir())
 
     @unittest.skipUnless(os.name=='nt','physical D: fixture requires Windows')
+    def test_existing_output_file_is_rejected_without_overwrite(self):
+        parent = Path(tempfile.mkdtemp(prefix='listener-control-file-',dir='D:/Dev/_Temp'))
+        output = parent/'existing-control'
+        original = b'original synthetic sentinel\n'
+        with output.open('xb') as sink:
+            sink.write(original)
+        with patch.object(t,'_dispatch') as dispatch, redirect_stdout(io.StringIO()):
+            self.assertEqual(t.main(['--output',str(output)]),1)
+            dispatch.assert_not_called()
+        self.assertEqual(output.read_bytes(),original)
+
+    @unittest.skipUnless(os.name=='nt','physical D: fixture requires Windows')
     def test_physical_D_preflight_returns_missing_path_without_creating_it(self):
         parent = Path(tempfile.mkdtemp(prefix='listener-control-parent-',dir='D:/Dev/_Temp'))
         output = parent/'new-control'

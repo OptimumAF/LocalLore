@@ -9,6 +9,7 @@ import io
 import os
 from pathlib import Path
 import re
+import struct
 import subprocess
 import tarfile
 import time
@@ -77,12 +78,45 @@ def _content_equal(left, right):
     return all(left[key] == right[key] for key in ("bytes", "sha256"))
 
 
+def _probe_elf(raw):
+    """The fixed offline image contract, parsed without executing an ELF/tool."""
+    _need(type(raw) is bytes and 64 <= len(raw) <= 64 * 1024 * 1024 and raw[:7] == b"\x7fELF\x02\x01\x01")
+    kind, machine = struct.unpack_from("<HH", raw, 16)
+    phoff = struct.unpack_from("<Q", raw, 32)[0]
+    phsize, phcount = struct.unpack_from("<HH", raw, 54)
+    _need(kind == 3 and machine == 62 and phsize == 56 and 1 <= phcount <= 128 and
+          phoff + phsize * phcount <= len(raw))
+    segments = [struct.unpack_from("<IIQQQQQQ", raw, phoff + phsize * index) for index in range(phcount)]
+    _need(all(part[2] + part[5] <= len(raw) for part in segments))
+    _need([raw[p[2]:p[2] + p[5]] for p in segments if p[0] == 3] == [b"/system/bin/linker64\0"])
+    dynamic = [part for part in segments if part[0] == 2]
+    _need(len(dynamic) == 1 and dynamic[0][5] % 16 == 0)
+    part = dynamic[0]
+    entries = [struct.unpack_from("<QQ", raw, part[2] + offset) for offset in range(0, part[5], 16)]
+    strings = [value for tag, value in entries if tag == 5]
+    sizes = [value for tag, value in entries if tag == 10]
+    _need(len(strings) == len(sizes) == 1 and 0 < sizes[0] <= 1024 * 1024)
+    loads = [p for p in segments if p[0] == 1 and p[3] <= strings[0] and strings[0] + sizes[0] <= p[3] + p[5]]
+    _need(len(loads) == 1)
+    offset = loads[0][2] + strings[0] - loads[0][3]
+    table = raw[offset:offset + sizes[0]]
+    needed = []
+    for tag, value in entries:
+        if tag == 1:
+            _need(value < len(table) and b"\0" in table[value:])
+            needed.append(table[value:].split(b"\0", 1)[0].decode("ascii"))
+    _need(len(needed) == len(set(needed)) and "libc.so" in needed and
+          set(needed) <= {"libc.so", "libdl.so", "libm.so"})
+    return dict(elf_class=2, machine=machine, type=kind, interpreter="/system/bin/linker64", needed=sorted(needed))
+
+
 def _verify_process_probe_build(pin, admission):
     value = _json(pin)
     _need(set(value) == PROBE_BUILD_KEYS and type(value["version"]) is int and value["version"] == 1 and
           value["scope"] == "android_author_process_probe_build_v1" and value["passed"] is True and
           value["feature_acceptance"] is False and value["ndk_revision"] == "29.0.14206865" and
           value["target"] == "x86_64-linux-android35")
+    _need(type(value["binary"]["bytes"]) is int and 64 <= value["binary"]["bytes"] <= 64 * 1024 * 1024)
     for key in ("source", "builder", "request", "started", "owner", "compile", "binary"):
         _check_binding(value[key])
     for tool in value["tools"]:
@@ -92,6 +126,23 @@ def _verify_process_probe_build(pin, admission):
         _need(request[key] == value[key])
     build_root = Path(value["request"]["path"]).parent
     _need(request["output"] == str(build_root) and Path(value["binary"]["path"]) == build_root / "android-author-process-probe-v1")
+    for key, name in (("request", "request-v1.json"), ("started", "started-v1.json"),
+                      ("owner", "owner-result-v1.json"), ("compile", "compile.json")):
+        _need(Path(value[key]["path"]) == build_root / name)
+    _need(Path(pin["path"]) == build_root / "result-v1.json")
+    ndk = Path(request["ndk"])
+    _need(ndk.name == "29.0.14206865")
+    llvm = ndk / "toolchains/llvm/prebuilt/windows-x86_64"
+    expected_command = [str(llvm / "bin/clang.exe"), "--no-default-config", "--target=x86_64-linux-android35",
+                        "--sysroot=" + str(llvm / "sysroot"), "-std=c11", "-Wall", "-Wextra", "-Werror",
+                        "-O2", "-fPIE", "-pie", "-Wl,-z,relro,-z,now", "-Wl,-z,max-page-size=16384",
+                        value["source"]["path"], "-o", value["binary"]["path"]]
+    expected_tools = [ndk / "source.properties", llvm / "bin/clang.exe", llvm / "bin/ld.lld.exe",
+                      llvm / "sysroot/usr/include/x86_64-linux-android/asm/unistd_64.h",
+                      llvm / "sysroot/usr/include/asm-generic/unistd.h"]
+    _need(value["command"] == expected_command and [item["path"] for item in value["tools"]] == [str(p) for p in sorted(expected_tools)])
+    _need(value["environment"] == {key: "D:\\Dev\\_Temp" for key in ("TEMP", "TMP", "TMPDIR")})
+    _need("Pkg.Revision = 29.0.14206865" in env.safe_path(ndk / "source.properties").read_text(encoding="utf-8"))
     # The compiled Choice source paths stay intact; only bytes are compared to current Root source.
     _need(_content_equal(value["source"], admission["artifacts"]["process_probe_source"]) and
           _content_equal(value["builder"], env.binding(ROOT / "scripts/build_android_author_process_probe.py")) and
@@ -100,33 +151,56 @@ def _verify_process_probe_build(pin, admission):
     _need(owner["status"] == "child_exited" and type(owner["worker_returncode"]) is int and
           owner["worker_returncode"] == 0 and owner["cleanup_complete"] is True and
           owner["output_capture_complete"] is True and owner["stdout_bytes"] == owner["stderr_bytes"] == 0)
+    _need(all(type(owner[key]) is int for key in ("elapsed_ms", "stdout_bytes", "stderr_bytes")) and
+          owner["elapsed_ms"] >= 0)
     for stream in ("stdout", "stderr"):
         _need(env.safe_path(build_root / ("owner-" + stream + "-v1.bin")).read_bytes() == b"")
     compile_result = _json(value["compile"])
     _need(type(compile_result["returncode"]) is int and compile_result["returncode"] == 0 and compile_result["capture_complete"] is True and
           compile_result["timed_out"] is False and compile_result["output_limit"] is False)
     for stream in ("stdout", "stderr"):
+        _need(Path(compile_result[stream]["path"]) == build_root / ("compile." + stream + ".raw"))
         _check_binding(compile_result[stream])
         _need(compile_result[stream]["bytes"] == 0)
-    elf = value["elf"]
-    _need(set(elf) == {"elf_class", "machine", "type", "interpreter", "needed"} and elf["elf_class"] == 2 and
-          elf["machine"] == 62 and elf["type"] == 3 and elf["interpreter"] == "/system/bin/linker64" and
-          "libc.so" in elf["needed"] and set(elf["needed"]) <= {"libc.so", "libdl.so", "libm.so"})
+    raw = env.safe_path(value["binary"]["path"]).read_bytes()
+    _need(len(raw) == value["binary"]["bytes"] and hashlib.sha256(raw).hexdigest() == value["binary"]["sha256"])
+    _need(contract._same(_probe_elf(raw), value["elf"]))
+    for item in [pin, value["source"], value["builder"], value["request"], value["binary"], *value["tools"]]:
+        _check_binding(item)
     return value
 
 
-def _verify_build(pin, admission):
+def _compiled_sources(mapping):
+    return {name: digest for name, digest in sorted(mapping.items()) if
+            name.startswith(("apps/android/", "crates/", "fixtures/", "prompts/", "scripts/", "benchmarks/")) or
+            name in ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml")}
+
+
+def _verify_build_closed(pin, admission):
+    """Fixed file-only build replay. Tracked completeness belongs to the live wrapper."""
     value = _json(pin)
     _need(set(value) == BUILD_KEYS and type(value["version"]) is int and value["version"] == 1 and
           value["scope"] == "owned_restart_android_build_admission_v1")
-    current = _source_map()
-    _need(_json(value["sources"]) == current and _json(value["compiled"]) == _compiled_map())
-    _need(value["head"] == _current_head())
+    _need(type(value["head"]) is str and re.fullmatch("[0-9a-f]{40}", value["head"]) is not None)
+    current = _json(value["sources"])
+    _need(type(current) is dict and 1 <= len(current) <= 10000)
+    for name, digest in current.items():
+        _need(type(name) is str and name and "\\" not in name and ":" not in name and
+              not name.startswith("/") and all(part and part not in (".", "..") for part in name.split("/")) and
+              type(digest) is str and re.fullmatch("[0-9a-f]{64}", digest) is not None)
+        path = env.safe_path(ROOT / name)
+        _need(path.is_relative_to(ROOT) and env.digest(path) == digest)
+    required = [*admission["sources"], admission["artifacts"]["process_probe_source"],
+                env.binding(ROOT / "scripts/build_android_author_process_probe.py")]
+    for source in required:
+        path = Path(source["path"])
+        _need(path.is_relative_to(ROOT) and current.get(path.relative_to(ROOT).as_posix()) == source["sha256"])
+        _check_binding(source)
+    compiled = _compiled_sources(current)
+    _need(_json(value["compiled"]) == compiled)
     counts = value["counts"]
-    compiled = _compiled_map()
     _need(all(type(item) is int for item in counts.values()) and
-          counts == dict(tracked=len(current), compiled=len(compiled), jvm=588, reports=58) and
-          all(current.get(name) == digest for name, digest in compiled.items()))
+          counts == dict(tracked=len(current), compiled=len(compiled), jvm=588, reports=58))
     for mapping in (value["build_files"], value["fresh_lint_files"]):
         for artifact in mapping.values():
             _check_binding(artifact)
@@ -159,6 +233,13 @@ def _verify_build(pin, admission):
         _need(apk["package"] == package and {name: apk[name] for name in ("path", "bytes", "sha256")} == admission["artifacts"][key])
         _check_binding(admission["artifacts"][key])
     _verify_process_probe_build(value["process_probe_build"], admission)
+    return value
+
+
+def _verify_build(pin, admission):
+    value = _verify_build_closed(pin, admission)
+    _need(_json(value["sources"]) == _source_map() and _json(value["compiled"]) == _compiled_map() and
+          value["head"] == _current_head())
     return value
 
 

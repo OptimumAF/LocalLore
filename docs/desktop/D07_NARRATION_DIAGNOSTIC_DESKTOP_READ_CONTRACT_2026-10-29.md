@@ -302,3 +302,53 @@ Only document/source/Git/prefix/hash/whitespace checks were performed here.
 No compiler, formatter, Cargo, Node, app, model/assets, device, desktop or probe
 execution. Release this document to Root for acceptance after the companion
 gate; all task, dependency, quality and execution-admission limits still stand.
+
+## Root acceptance for isolated independent FIRST source — 2026-10-29
+
+Root accepts the proposal and precision for source-only independent tests.
+Claim: [#29 comment6500337073](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6500337073).
+All eleven companion groups have passed within the current broad run at
+`272c8bb5`; complete Eval/native qualification remains pending. Refine only
+the earlier scheduling restriction: isolated test authoring may proceed while
+the coordinator's exact source and heavy commands remain unchanged. This grants
+no production integration, second heavy workload, execution or acceptance.
+
+Accepted native input/method, action string, frontend method/type/decoder and
+closed request/result/caps/access/fencing rules are those above. Freeze the
+private parser case as `Action::NarrationDiagnosticV1` carrying the proposed
+native request. Existing `before_publish` barriers only; no new I/O, timeout,
+clock, global, environment-driven fault or arbitrary callback/path test seam.
+Use the actual 30-second timeout once if feasible, otherwise identify it unrun.
+
+Independent author owns only these NEW test files and a handoff append here:
+
+- `apps/desktop/src-tauri/src/evaluation/comparison/scene_read_review/narration_diagnostic_review_tests.rs`
+- `apps/desktop/src-tauri/src/comparison_commands/narration_diagnostic_review_tests.rs`
+- `apps/desktop/check-narration-diagnostic-reader-review.mjs`
+
+The nested manager child may reuse its unchanged parent Fixture/inventory
+helpers. Root later registers both Rust children and the frontend checker;
+missing registration/APIs are setup, not behavioral RED. Freeze actual synthetic
+producer/native-manager cases separately from trusted stored-envelope controls;
+preserve full post-release inventories, permission/role/canonical assertions and
+old actions. Do not reopen held run.lock during a full inventory or hash a
+generic JSON Value as though it were original typed Receipt bytes.
+
+The frontend checker freezes actual model/controller and Panel static-HTML
+checks with synthetic transport fixtures. It may propose a closed headless
+geometry mode using the same actual component, local files and existing pinned
+browser; author does not execute it. No desktop/input injection or network server.
+Freeze all five statuses, malformed/unsafe-number refusals, context clearing,
+pending/errors, no dispatch during rendering and visible selected context.
+Any additional native-journey fixture/control API must return to Root for an
+exact finite acceptance before source, never become an arbitrary action hook.
+Actual hidden-WebView/IPC/render/geometry and image inspection remain required
+later gates, not satisfied by these mocks/static HTML or this source freeze.
+
+Root retains later implementation ownership for the proposed adapter/frontend
+paths and the existing fixed development files `comparison_reader_harness.rs`,
+`ui/comparison-reader-journeys.ts`, `comparison-reader-harness.mjs`, and narrow
+checker registration in `verify-frontend.mjs`. No full-run/index/selected/Host
+schema/provider changes. Every author check is source/Git/hash/whitespace only;
+no formatter/compiler/Cargo/Node/browser/app/model/assets/device/OS-probe or
+desktop execution. Full task, dependency and negative human-review gates remain.

@@ -680,6 +680,10 @@ class _TargetRuntimeCore:
         self.guard()
         _need(self.proposal is not None, "guest")
         environment.verify_prepared(self.proposal, initial=True)
+        environment.check_binding(self.admission["guest"]["proposal"])
+        environment.storage_transition(environment.guest_storage.record_state,
+            Path(self.admission["guest"]["root"]), "retained",
+            proposal_sha256=self.admission["guest"]["proposal"]["sha256"])
         claim_path = Path(self.admission["guest"]["root"]) / self._contract.BOOT_CLAIM_FILE
         environment.create_json(claim_path, dict(version=1, protocol=self._contract.PROTOCOL,
             admission=self.admission_binding, worker=copy.deepcopy(self.worker),
@@ -1222,7 +1226,19 @@ def _parent(admission_binding, admission, *, _contract=None, _verification=None)
             environment.check_binding(pin)
         _inputs(admission, admission_binding, _contract=selected)
         qualified, reason = True, record["reason"]
+        # The direct SDK4/SDK5 launcher shares the central guest's storage ledger.
+        # Preserve the frozen owner/worker result schemas; this new guest record
+        # binds their already verified cleanup plus the final source/handle proof.
+        closure_path = Path(admission["guest"]["root"]) / "guest-storage-closure-v1.json"
+        environment.create_json(closure_path, dict(version=1,
+            proposal_sha256=admission["guest"]["proposal"]["sha256"],
+            closure_verified=True, cleanup_complete=True,
+            admission=copy.deepcopy(admission_binding), owner_result=copy.deepcopy(owner_binding),
+            worker_result=copy.deepcopy(worker_binding), after=copy.deepcopy(after_binding)))
+        environment.storage_transition(environment.guest_storage.record_closed,
+            Path(admission["guest"]["root"]), closure_path)
     except BaseException as error:
+        qualified = False
         reason = _reason(error)
         if worker_binding is None and out.is_dir() and os.path.lexists(out / "worker-result-v1.json"):
             try:

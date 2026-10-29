@@ -431,7 +431,11 @@ export async function comparisonReaderJourneys({
                     `${label}-artifact-context-visible`,
                 );
                 geometryCheck(
-                    !fixed || !h || b.bottom <= h.top || b.top >= h.bottom,
+                    node === header ||
+                        !fixed ||
+                        !h ||
+                        b.bottom <= h.top ||
+                        b.top >= h.bottom,
                     `${label}-context-not-covered-by-sticky-header`,
                 );
                 const hit = document.elementFromPoint(

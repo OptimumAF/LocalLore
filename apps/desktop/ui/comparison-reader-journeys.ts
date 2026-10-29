@@ -170,6 +170,17 @@ export async function comparisonReaderJourneys({
             return;
         }
         const value = `Inspect ${row.arm} ${row.turn}`;
+        if (diagnosticMode) {
+            failedCheck = "diagnostic-mounted-row-ready";
+            await until(() => {
+                const nodes = [
+                    ...document.querySelectorAll<HTMLButtonElement>(
+                        "#comparison-reader button",
+                    ),
+                ].filter((node) => node.getAttribute("aria-label") === value);
+                return nodes.length === 1 && !nodes[0].disabled;
+            });
+        }
         const matches = [
             ...document.querySelectorAll<HTMLButtonElement>(
                 "#comparison-reader button",
@@ -251,6 +262,34 @@ export async function comparisonReaderJourneys({
         includeSummary = false,
     ) => {
         failedCheck = `${label}-capture`;
+        if (diagnosticMode) {
+            const expected = r.get();
+            const lens =
+                expected.observer.kind === "character"
+                    ? expected.observer.id
+                    : expected.observer.kind;
+            await until(() => {
+                const panel =
+                    document.querySelector<HTMLElement>("#comparison-reader");
+                return (
+                    !!panel &&
+                    panel.dataset.observer === lens &&
+                    panel.dataset.turn === (expected.selected?.turn ?? "") &&
+                    panel.dataset.arm === (expected.selected?.arm ?? "") &&
+                    !!panel.querySelector(
+                        ".comparison-narration-diagnostic",
+                    ) === !!expected.diagnostic &&
+                    !!panel.querySelector(
+                        ".comparison-evidence:not(.comparison-narration-diagnostic)",
+                    ) === !!expected.evidence &&
+                    (!expected.error ||
+                        [...panel.querySelectorAll('[role="alert"]')].some(
+                            (node) =>
+                                node.textContent?.includes(expected.error!),
+                        ))
+                );
+            });
+        }
         let target = document.querySelector<HTMLElement>(selector);
         let requireSelectedContext = false;
         let hashRange: Range | null = null;
@@ -441,6 +480,42 @@ export async function comparisonReaderJourneys({
                     ...rect(node),
                 })),
             };
+            if (state.error && !artifact) {
+                const alert =
+                    header?.querySelector<HTMLElement>('[role="alert"]');
+                geometryCheck(
+                    !!alert && !!alert.textContent?.includes(state.error),
+                    `${label}-actual-error-code-in-context`,
+                );
+                if (alert) {
+                    const bounds = rect(alert);
+                    const hit = document.elementFromPoint(
+                        Math.min(
+                            innerWidth - 2,
+                            Math.max(2, (bounds.left + bounds.right) / 2),
+                        ),
+                        Math.min(
+                            innerHeight - 2,
+                            Math.max(2, (bounds.top + bounds.bottom) / 2),
+                        ),
+                    );
+                    diagnosticGeometry = {
+                        ...(diagnosticGeometry as object),
+                        error: { text: alert.textContent, ...bounds },
+                    };
+                    geometryCheck(
+                        bounds.width > 0 &&
+                            bounds.height > 0 &&
+                            bounds.top >= -2 &&
+                            bounds.bottom <= innerHeight + 2,
+                        `${label}-actual-error-visible`,
+                    );
+                    geometryCheck(
+                        !!hit && alert.contains(hit),
+                        `${label}-actual-error-hit-test`,
+                    );
+                }
+            }
             for (const node of nodes) {
                 const b = rect(node),
                     h = header ? rect(header) : null;
@@ -879,6 +954,28 @@ export async function comparisonReaderJourneys({
             );
         };
         const readDiagnostic = async (status: string) => {
+            failedCheck = "diagnostic-mounted-read-action-ready";
+            const expected = r.get();
+            await until(() => {
+                const panel =
+                    document.querySelector<HTMLElement>("#comparison-reader");
+                const nodes = [
+                    ...(panel?.querySelectorAll<HTMLButtonElement>("button") ??
+                        []),
+                ].filter(
+                    (node) =>
+                        node.textContent?.trim() ===
+                        "Inspect narration diagnostic",
+                );
+                return (
+                    !!panel &&
+                    panel.dataset.observer === "omniscient" &&
+                    panel.dataset.turn === expected.selected?.turn &&
+                    panel.dataset.arm === expected.selected?.arm &&
+                    nodes.length === 1 &&
+                    !nodes[0].disabled
+                );
+            });
             button("Inspect narration diagnostic").click();
             check(
                 r.get().busy && r.get().diagnostic === null,

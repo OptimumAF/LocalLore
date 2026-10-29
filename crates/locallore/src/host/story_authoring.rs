@@ -215,8 +215,8 @@ impl Host {
                     model_profile: local.profile.id.clone(),
                     model_configuration: (&local.profile).into(),
                     provider: provider_kind(&local),
-                    prompt_version: "initial-world-v1".into(),
-                    schema_version: "initial-world-v1".into(),
+                    prompt_version: core::PROMPT_VERSION.into(),
+                    schema_version: core::SCHEMA_VERSION.into(),
                     response,
                     response_sha256,
                 })

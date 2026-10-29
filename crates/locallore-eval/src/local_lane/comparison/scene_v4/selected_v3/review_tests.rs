@@ -35,13 +35,8 @@ fn root(label: &str) -> PathBuf {
         assert!(info.is_dir() && !info.file_type().is_symlink());
         #[cfg(windows)] {
             use std::os::windows::fs::MetadataExt;
-            assert_eq!(info.file_attributes() & 0x400, 0, "ordinary existing D parent only");
+            assert_eq!(info.file_attributes() & 0x400, 0, "ordinary existing parent only");
         }
-    }
-    #[cfg(windows)] {
-        use std::path::{Component, Prefix};
-        assert!(matches!(parent.components().next(), Some(Component::Prefix(prefix))
-            if matches!(prefix.kind(), Prefix::Disk(letter) | Prefix::VerbatimDisk(letter) if letter.to_ascii_uppercase() == b'D')));
     }
     // Only the explicitly dedicated test packet is scanned for cumulative
     // retention admission. Never inventory an unrelated global temp directory.

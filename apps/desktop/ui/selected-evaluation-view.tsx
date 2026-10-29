@@ -30,6 +30,8 @@ const armLabel = (arm: SelectedArm, version: number | undefined) =>
         ? arm === "left"
             ? "Left arm"
             : "Right arm"
+        : version === 3
+          ? arm === "left" ? "Literal scene" : "Relevant memory scene"
         : version === 2
           ? arm === "left"
               ? "Literal player conversation"
@@ -38,6 +40,19 @@ const armLabel = (arm: SelectedArm, version: number | undefined) =>
             ? "Recent transcript baseline"
             : "Relevant memory";
 const privateCheckLabel = (item: SelectedDiagnosticRow, context = false) => {
+    if ("privacy_evidence_status" in item) {
+        if (context)
+            return item.construction_evidence_status === "validated_committed_scene_narrator_v1"
+                ? "Validated committed scene input"
+                : item.construction_evidence_status.startsWith("not_applicable_")
+                  ? "Not applicable"
+                  : "Unavailable · scene evidence was not recovered";
+        return item.privacy_evidence_status === "checked_finite_sentinels"
+            ? "Checked finite sentinels · no general privacy guarantee"
+            : item.privacy_evidence_status === "not_applicable_guard"
+              ? "Not applicable · engine guard"
+              : "Unavailable · not established";
+    }
     if ("construction_evidence_status" in item) {
         if (item.construction_evidence_status === "not_applicable_guard")
             return "Not applicable · engine guard";
@@ -99,6 +114,7 @@ export type SelectedEvaluationViewProps = {
     row: RowId | null;
     observer: ObserverV2;
     sourceUnavailable?: boolean;
+    sourceProtocolVersion?: 2 | 3 | 4;
 };
 export function SelectedEvaluationView({
     controller: c,
@@ -106,6 +122,7 @@ export function SelectedEvaluationView({
     row,
     observer,
     sourceUnavailable = false,
+    sourceProtocolVersion,
 }: SelectedEvaluationViewProps) {
     const subscribe = useCallback(
         (listener: () => void) => c.subscribe(listener),
@@ -118,6 +135,10 @@ export function SelectedEvaluationView({
             ? linkedSource
             : null;
     const [lane, setLane] = useState<SelectedLane>("scripted_baseline");
+    const sceneSource = sourceProtocolVersion === 4;
+    useEffect(() => {
+        if (sceneSource && lane === "approved_native") setLane("scripted_baseline");
+    }, [sceneSource, lane]);
     const [savedId, setSavedId] = useState("");
     const [arm, setArm] = useState<SelectedArm>("left");
     const [edge, setEdge] = useState<"before" | "after">("after");
@@ -221,7 +242,7 @@ export function SelectedEvaluationView({
                             const value = event.target.value;
                             if (
                                 value === "scripted_baseline" ||
-                                value === "approved_native"
+                                (value === "approved_native" && !sceneSource)
                             )
                                 setLane(value);
                         }}
@@ -229,17 +250,18 @@ export function SelectedEvaluationView({
                         <option value="scripted_baseline">
                             Scripted baseline · fake inference
                         </option>
-                        <option value="approved_native">
-                            Installed native model · approved assets required
+                        <option value="approved_native" disabled={sceneSource}>
+                            {sceneSource ? "Native selected scene execution unavailable" : "Installed native model · approved assets required"}
                         </option>
                     </select>
                 </label>
                 <button
                     disabled={
-                        !s.allowed || blocked || !!s.clientId || !source || !row
+                        !s.allowed || blocked || !!s.clientId || !source || !row || (sceneSource && lane !== "scripted_baseline")
                     }
                     onClick={() => {
-                        if (source && row) void c.prepare(source, row, lane);
+                        if (source && row && !(sceneSource && lane !== "scripted_baseline"))
+                            void c.prepare(source, row, lane, sourceProtocolVersion);
                     }}
                 >
                     Prepare selected case
@@ -264,6 +286,7 @@ export function SelectedEvaluationView({
                       : "Choose a comparison report and a source turn in the reader before preparing an experiment."}
             </p>
             <p>
+                {sceneSource ? "Native selected scene execution is unavailable. " : ""}
                 {lane === "scripted_baseline"
                     ? "Scripted inference is a synthetic plumbing check; it does not measure model quality."
                     : "Native execution requires installed approved model assets and fresh native confirmation. Availability is checked on admission."}
@@ -368,6 +391,7 @@ export function SelectedEvaluationView({
                     <details>
                         <summary>Prepared identity hashes</summary>
                         <p className="hash-value">{prepared.binding}</p>
+                        {prepared.version === 3 && <p className="hash-value">Source snapshot binding: {prepared.source_binding}</p>}
                         {prepared.arms.map((item) => (
                             <p key={item.arm} className="hash-value">
                                 {item.arm} prefix {item.prefix_sha256} · input{" "}
@@ -782,7 +806,7 @@ export function SelectedEvaluationView({
                                                 ? "Matches recorded construction"
                                                 : "Not established"}
                                         </dd>
-                                        {item.construction.arm ===
+                                        {"literal_source_units" in item && item.construction.arm ===
                                             "literal_player_v1" && (
                                             <>
                                                 <dt>Literal source units</dt>
@@ -819,6 +843,20 @@ export function SelectedEvaluationView({
                                                   ? "Recorded fallback"
                                                   : "No recorded fallback"}
                                         </dd>
+                                        {"recovered_without_checkpoint" in item && (
+                                            <>
+                                                <dt>Construction evidence reason</dt>
+                                                <dd>{item.construction_evidence_reason === null ? "None recorded" : boundedText(item.construction_evidence_reason)}</dd>
+                                                <dt>Checkpoint recovery</dt>
+                                                <dd>{item.recovered_without_checkpoint ? "Recovered from the accepted receipt; original scene validation and timing remain unavailable" : "Recorded workflow checkpoint"}</dd>
+                                                <dt>Narration repairs</dt>
+                                                <dd>{item.repairs ?? "Unknown; not recovered"}</dd>
+                                                <dt>First final response time</dt>
+                                                <dd>{item.first_final_response_ms === null ? "Unavailable" : `${item.first_final_response_ms} ms`}</dd>
+                                                <dt>Commit elapsed time</dt>
+                                                <dd>{item.commit_elapsed_ms === null ? "Unavailable" : `${item.commit_elapsed_ms} ms`}</dd>
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </dl>

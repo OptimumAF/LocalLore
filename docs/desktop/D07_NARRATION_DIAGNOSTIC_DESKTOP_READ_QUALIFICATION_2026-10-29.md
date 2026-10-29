@@ -221,11 +221,53 @@ controls are not authenticated causes, SDK-load measurements or model outcomes.
 No real model/assets/publication/import/reservation, original cohort mutation,
 new desktop-control capture, phone/Android ABI/device or quality qualification
 is established. Historical missing causes stay missing. Both human assessments
-remain **needs improvement**; unaccepted dependencies and full D07/D02 gates
-remain open. This note grants no merge/release authority.
+remain **needs improvement**; unaccepted dependencies and the full D07/desktop
+epic exit gates remain open. D02 #23 is already closed; this supporting work
+does not reopen it. This note grants no merge/release authority.
 
 The documentation author performed bounded record/source/Git/hash/whitespace
 inspection only, with TEMP/TMP on D:/Dev/_Temp and project work physically on D:.
 Root owns measured execution and final evidence updates. The next runnable step
 is to finish and separately qualify the corrected checks, then review and execute
 the accepted finite native harness before its render/IPC gate.
+
+## Root corrected component checks — 2026-10-29
+
+The following completed at clean, unchanged `6afda8950d20826b867f80411d5d61ba0ef1c97e`.
+The source includes the finite three-path harness from original `300e4106`,
+integrated as `8c86c312`, registration/formatting `3a84b1d3`, and the independently
+reviewed cleanup-only correction `c8b17880` integrated as `6afda895`.
+
+| Check | Result | Command duration |
+| --- | --- | --- |
+| Focused native/parser functions | 9 passed, 0 failed, 0 ignored; 293 filtered | 157.5014315s |
+| Strict native dev-harness all-target Clippy | exit 0 | 8.5818871s |
+| Android Rust host `cargo check -p locallore-android --locked --offline` | exit 0 | 0.5851512s |
+| Root `cargo fmt --all -- --check` | exit 0 | 1.9839218s |
+| Broad frontend Prettier check | exit 1; six inherited files | 3.3142250s |
+
+The nine-function test body took 128.23s. The separately filtered contract binary
+ran zero tests and adds no coverage. The original eight-pass/one-failure record
+remains unchanged. This rerun changes no production permission behavior or
+permission/state/expiry/source-byte assertions; it closes before draining and
+adds an explicit closed-phase assertion. These are Rust component tests, with no
+IPC, browser/native WebView, real model, phone or OS-isolation qualification.
+
+The full frontend suite at clean `3a84b1d3` also passed in 15.6089432s after
+harness integration, including strict TypeScript, the unchanged 156 diagnostic
+cases and the 61 launcher-policy cases. The latter remain trusted-source VM and
+fake-child simulation, not actual native/process execution.
+
+The broad style failures are `ui/comparison-run-controller.ts`,
+`ui/comparison-run-model.ts`, `ui/comparison-run-view.tsx`,
+`ui/scene-model-guard-journeys.ts`, `check-scene-native-transport-review.mjs` and
+`scene-model-guard-harness.mjs`, all relative to `apps/desktop/`. A Git comparison
+against base `e95232fa` confirms all six byte-identical and outside this slice.
+They are preserved; this is an inherited failed check, not a passing broad style
+gate. A separate changed-file formatting check and actual native harness remain
+pending at this append. No native pixels or IPC result follows from compilation.
+
+Local records use `d07-diag-desktop-native-focused-corrected1`,
+`d07-diag-desktop-harness-clippy1`, `d07-diag-desktop-android-host1`,
+`d07-diag-desktop-root-format1`, `d07-diag-desktop-frontend-format1` and
+`d07-diag-desktop-harness-frontend1`, each retaining original logs/process JSON.

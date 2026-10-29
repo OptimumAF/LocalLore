@@ -266,3 +266,40 @@ and `node apps/desktop/comparison-run-process-policy-check.mjs` from the physica
 D: checkout. They remain UNRUN by this author. Root must preserve old failure
 records, run only the safe ordinary/simulated tests, and keep later native
 retained-review/render acceptance distinct.
+
+## Immediate-parent artifact-base regression freeze
+
+Frozen from exact `38d1c90882fe736504af012828404fae6524dc74`, before the tiny
+production correction. Root's first retained launch stopped at
+`outsideReviewPacket(sceneBase)`: an immediate parent produces relative `..`,
+while the existing helper accepts only `..` followed by the path separator.
+The failed log/process record is retained; no packet, child, app or model was
+started in that attempt. This author does not rerun that launch or infer native
+acceptance from its early refusal.
+
+The checker preserves all 16 process-policy cases and five storage/environment
+groups, then adds one sixth boundary group. It extracts the **existing**
+`outsideReviewPacket` function between
+`function outsideReviewPacket(` and `async function absent(`, evaluates it only
+in the existing isolated pure context with `path.win32`, `assert` and
+`reviewPacketRoot='D:/synthetic-boundary/retained-packet'`:
+
+- Non-disjoint artifact-base mode has eight fixed string cases: immediate
+  parent, farther ancestor, sibling and case-alias parent must be allowed;
+  equal, equal case alias, descendant and descendant case alias must refuse.
+- Disjoint mode has seven cases: immediate/farther/case-alias ancestor, equal
+  and descendant must refuse; sibling and sibling case alias must be allowed.
+
+All 15 subcases retain individual observations even when another subcase fails.
+Expected refusal must be the existing assertion category, not a setup/reference
+error mistaken for a successful guard. Missing extraction/function setup is
+recorded in `boundary_setup_failures`, not behavioral RED. There is no
+proposed product API. The Root-owned tiny fix must preserve the distinction
+between an allowed ancestor artifact base and a disjoint output/source root;
+equal or descendant retained-packet destinations remain forbidden.
+
+This is **SOURCE ONLY, UNFORMATTED AND UNRUN**. No Node/Cargo/app/model/assets,
+filesystem/profile/link/reparse probe, SDK, phone or desktop operation was
+performed. Git/source/whitespace checks only are author evidence. Root owns
+actual pure-check baseline/fix execution, preserving the failed first launch,
+and any later separately authorized one-process native retained render review.

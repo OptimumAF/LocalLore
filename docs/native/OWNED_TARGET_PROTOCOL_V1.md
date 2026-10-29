@@ -106,12 +106,20 @@ byte checks only; no native process/TCP/credential inspection.
 
 `owned_target_owner.py` exposes `LiveOwnedTarget(admission_binding,
 running_binding)` with copied `.admission`, `.descriptor`, `.admission_binding`,
-`.running_binding`; `.guard(min_seconds=0)` checks current source/clock/stop and
+`.running_binding`, `.caller` (actual constructor-held native caller identity);
+`.guard(min_seconds=0)` checks current source/clock/stop and
 actual held process/guest/server identity; `.fast_guard()` checks live handles
 and finite clock while streaming; `.prove(path, session, context, socket,
 anchor, after=False)` publishes a bound complete proof; `.close()` releases only
 its own observer handles. The owner CLI accepts --admission/--admission-sha256.
 It never exposes a host-only v2 lease as target authority.
+
+Anchor is exactly `{handle,socket_id,local_address,local_port}`, captured after
+exclusive IPv4 loopback ephemeral bind and before connect. Endpoint is exactly
+`{local_address,local_port,peer_address,peer_port}`. Both phases bind the same
+Python socket id/native handle and local tuple; proof is a bound JSON file.
+Guest observation is exactly `{version:1,ports:[5592,5593],families:[2,23],rows}`;
+server observation uses `port:15937`. Raw row/table keys are unchanged from v2.
 
 `android_process_client_v4.py` exposes `OwnedTargetSdkCapture(directory,seconds,
 lease)`, `.shell(argv,label,seconds=15,cap=131072,full_budget=False)`,
@@ -121,6 +129,15 @@ lease)`, `.shell(argv,label,seconds=15,cap=131072,full_budget=False)`,
 limited to bound model/APKs/probe. Return stdout bytes only after exact exit0,
 complete capture and post-proof; preserve nonzero/partial/error measurements
 before poisoning. No legacy SDK constructor/runner or global monkeypatch.
+
+`check_server()` returns None after a live guard only; it creates no command or
+proof index and is not accepted as command coverage. Command files use the flat
+`command-NNNN.stdout.bin`/`command-NNNN.stderr.bin` names. Status enum is exactly
+completed/refused/timeout/io_error/cancelled; preserve measured completion/exit
+after a later guard/proof refusal, with client_qualified false. Close disposes
+only the client's own streams/threads/sockets, never the borrowed live lease.
+Every returned proof binding is independently reopened/replayed against the full
+session object and context, including exact session byte binding before dispatch.
 
 Session exact keys: `version:1`, `protocol`, `admission`, `running`, `descriptor`,
 `caller`, `sources`, `python`, `root`, `seconds`, `started_epoch`, `deadline_epoch`.

@@ -35,6 +35,7 @@ for (const args of [
     ["check-selected-source-freshness-review.mjs"],
     ["check-comparison-run.mjs"],
     ["check-comparison-run-native.mjs"],
+    ["check-scene-native-transport-review.mjs"],
     ["check-comparison-reader-native.mjs"],
     ["check-main-comparison-run-native.mjs"],
     ["check-native-comparison-admission-review.mjs"],

@@ -422,7 +422,7 @@ fn report(
         return Err("SetupIntegrity".into());
     }
     let mut unavailable = vec![
-        "selected_protocol4_gui_unavailable".into(),
+        "selected_protocol4_native_rerun_unavailable".into(),
         "human_quality_not_reviewed".into(),
         "scripted_lane_no_native_setup_measurement".into(),
     ];

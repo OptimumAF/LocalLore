@@ -532,3 +532,14 @@ metadata fault injection, not renderer authority or a fabricated positive plan.
 Negative cold-index tests may corrupt separate copies of an actual created index,
 preserving those copies. No production seam, altered seed, invented receipt,
 positive index/plan constructor or new model owner is authorized by these controls.
+
+### Retained preparation versus pending resume identity
+
+Native resume retains the prior preparation metadata until a successful outcome.
+Keep the established source expectation separate from a newly requested resume
+source. A successful resume must validate returned prepared3 source_binding
+against that pending request before promoting its expectation. A failed resume
+must validate any retained metadata against the prior successful expectation and
+preserve the native error, including EvaluationSourceMismatch. An error is not a
+blanket exemption allowing unsolicited mismatched preparation metadata. Preserve
+the existing context, client, operation, cleanup and stale-response fences.

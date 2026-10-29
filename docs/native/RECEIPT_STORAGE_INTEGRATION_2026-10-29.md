@@ -94,3 +94,7 @@ reuse the old root, claims or results. The next action is a new frozen
 `4c53db36` source/build/admission binding followed by fixed shared-ledger
 admission and one bounded import/AUTHOR/passive restart case. Device/model
 results require actual execution and separate evidence. No merge occurred.
+
+The subsequently executed [guarded cohort](GUARDED_RESTART_RUN_2026-10-29.md)
+verifies real import/AUTHOR and owner/storage closure, but refuses complete
+restart collection at the fixed session boundary. That failure stays failed.

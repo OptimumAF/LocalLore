@@ -309,3 +309,36 @@ they are ceilings, not runtime budget increases or a proof for every valid set.
 Record `d07-diag-desktop-native-first1-postexit-fixtures.json` preserves this
 collection separately without modifying the failed packet. A fresh synthetic
 cohort remains required; no restart or remaining journey result is inferred.
+
+## Second actual native execution and mounted-DOM synchronization
+
+At clean, unchanged `f0820c519f07c20bc4e513598b22edf560b4e839`, the next fresh
+synthetic run exited 1 in 107.1927913s. Separate packet
+`comparison-reader-native-a621b798-e779-40b5-99b5-b826936ec413` preserves seven
+images and the original reports. All seven were individually inspected. Header
+self-overlap correction passed; actual Mira clearing and native Sable `Forbidden`
+before malformed binding/row lookup passed. Both actor images contain selected
+source context without diagnostic or private report. Broker errors were empty
+at this point; the later malformed-control error had not yet been exercised.
+
+It stopped at `actual-mounted-button-Show private report` immediately after
+synchronously changing the controller lens from Sable to Omniscient. Independent
+source review confirms the strict button lookup ran before any await and before
+React was required to commit the Omni-only button. Controller ready/busy-false
+state does not establish mounted DOM readiness. This is a harness synchronization
+failure, not failed native permission enforcement or a completed cohort.
+
+Correction `ef23e7ea` adds an existing bounded DOM wait only in diagnostic mode:
+mounted panel data-observer and actual observer select must be Omniscient, with
+exactly one enabled Show private report button. The original strict button
+assertion/click and Protocol4 summary assertion remain. No native request retry,
+direct loadSummary bypass, private state mutation, flushSync, new hook, default
+mode change or product repair is introduced.
+
+The app closed without timeout/unknown drain, and normal builds were restored
+unlaunched. Separate post-exit collection confirms all 641 frozen file hashes,
+660 entries and 5,313,289 bytes unchanged. The 74,900-byte freeze has SHA256
+`7d85c71081da22ef78818c8f8493f2256a89cb3e7d98458fae61e7d8adae85d7`.
+Record `d07-diag-desktop-native-second1-postexit-fixtures.json` is separate from
+the preserved failed packet. The remaining journeys and cold restart still
+require a fresh complete run; neither failed packet is relabeled successful.

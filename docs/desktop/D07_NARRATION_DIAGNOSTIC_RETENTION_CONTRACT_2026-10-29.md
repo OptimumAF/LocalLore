@@ -172,3 +172,61 @@ tests, compiler, Cargo, Node, formatter, app, model, assets, phone or desktop ac
 Handoff is this proposed contract commit; ownership is released to Root afterward.
 Root must resolve/record acceptance of names, slot/status rules and test allocation.
 D07.04/M05.03/M05.04 remain unchecked; no full cause-reporting completion is claimed.
+
+## Root acceptance and independent FIRST oracle freeze — 2026-10-29
+
+Root accepted the proposed names, native result variants and lifecycle boundaries
+at `d7da151b`, for an independent test-source allocation only. Phase1 must finish
+its qualification gate before later production. Root owns registration; a separate
+author owns production after this freeze. This author owns only NEW
+`crates/locallore/src/turn_trace/narration_diagnostic_retention_review_tests.rs`
+and this append, on `test/d07-narration-diagnostic-retention` from exact `d7da151b`.
+Claims: [#9 comment6492354974](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6492354974)
+and [#29 comment6492355297](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6492355297).
+
+Accepted write priority is Disabled; stale/foreign/unowned/retired Dropped;
+truncated Truncated; finished/duplicate Dropped; missing or mismatched last
+NarrationValidation outcome/error InvalidMetadata; first valid write Recorded.
+Read authorization preserves Scope, then Forbidden, then InvalidSelection before
+availability, requiring both turn and attempt. Either the truncated flag OR
+Truncated outcome refuses reads. Busy/poison applies to the caller/RingSink
+best-effort lock; an `&TraceRing` method cannot independently detect mutex poison.
+
+Ten independent test functions freeze these finite groups:
+
+1. Real Engine/Play -> RingSink -> native read in both Scene recipes: accepted,
+   first-person, movement, both-predicate order, generic and non-Narration errors.
+   Actual callback retention versus discard preserves semantic/provider outcomes;
+   old PlayRecord keys and content-free metadata remain exact.
+2. Explicit collector controls copy an actual emitted diagnostic to test missing,
+   wrong-stage and outcome/error mismatch, first write, duplicate and finish rules.
+   Retention itself preserves exact old serialized trace bytes and timings.
+3. Exact read/authorization precedence even while disabled; missing selectors,
+   invalid IDs, character/foreign owner, absent turn and different revision.
+4. Clear, disable/re-enable, owner cleanup/retirement and eviction never revive
+   the old slot; ordinary Committed/Failed/Cancelled/Stale finish retains it.
+5. Truncation and write-status priority, including explicitly staged private
+   metadata controls independently isolating the flag/outcome OR condition.
+6. Copy/size bound, original count/byte budgets, pressure/eviction and exact old
+   trace snapshot/attempt/stage key sets; no serialized diagnostic field.
+7. Foreign-ring handles, foreign owners, retired and unowned attempts cannot
+   transfer data. These native collector controls are not origin authentication.
+8. Real callback under busy or deliberately poisoned test mutex drops passively;
+   actual Play/provider outcomes remain equal. Only test assertions inspect a
+   poisoned guard; the bounded native caller continues to report unavailable.
+9. Stage/new-hook cancellation and panics before/after forwarding preserve the
+   decision/commit distinction, canonical state and calls; disabled observers stay
+   disabled. An already retained decision survives a later observer panic.
+10. Actual recorded retry and replay preserve exact same-Engine receipt/canonical
+    bytes; stale/ability guards and retry create no new cause/provider call.
+
+Separate executions normalize only previously agreed measured receipt stage
+elapsed values; actual request deadlines stay positive, bounded and nonincreasing.
+Same-Engine retry/replay and direct old-wire retention assertions normalize none.
+All fixtures are original synthetic source, with no private captured prose.
+The new child is UNREGISTERED and the new retention APIs are absent at this base:
+**SETUP / UNCOMPILED / UNRUN**, not behavioral RED or qualification. No negative
+Serde trait proof, native IPC/render/model/device or complete cause-reporting
+acceptance is claimed. Author checks only source/oracles, scope, whitespace,
+fixture-path resolution and hashes; no compiler/Cargo/Node/formatter execution.
+Handoff releases these two paths to Root with the frozen commit and test hash.

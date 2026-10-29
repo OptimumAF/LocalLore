@@ -3,7 +3,8 @@
 use crate::{
     contracts::{Effect, Error, MAX_RECEIPT_BYTES},
     engine::{check_json_budget, staged_scene_play::BoundScenePlayV1},
-    play::{narration_schema, PlayProfile, MAX_ROLE_INPUT_BYTES},
+    play::{narration_schema, NarrationValidationFailureV1, PlayProfile, MAX_ROLE_INPUT_BYTES},
+    turn_trace::NarrationRejectionReasonV1,
 };
 use serde_json::Value;
 
@@ -68,7 +69,10 @@ pub fn render_scene_narrator_v1(
 
 /// Finite new-policy English checks, after ordinary narration validation and
 /// only for generated prose. Exact mechanical fallback does not call this.
-pub(super) fn validate_generated(bound: &BoundScenePlayV1, text: &str) -> Result<(), Error> {
+pub(super) fn validate_generated_detailed(
+    bound: &BoundScenePlayV1,
+    text: &str,
+) -> Result<(), NarrationValidationFailureV1> {
     let lower = text.to_lowercase();
     if lower
         .split(|character: char| !character.is_alphanumeric())
@@ -79,7 +83,9 @@ pub(super) fn validate_generated(bound: &BoundScenePlayV1, text: &str) -> Result
             )
         })
     {
-        return Err(Error::Narration);
+        return Err(NarrationValidationFailureV1::scene(
+            NarrationRejectionReasonV1::SceneFirstPerson,
+        ));
     }
     let accepted_player_move = bound.approved().events().iter().any(|event| {
         matches!(event.outcome(), Effect::Moved { actor, .. }
@@ -99,7 +105,9 @@ pub(super) fn validate_generated(bound: &BoundScenePlayV1, text: &str) -> Result
         .iter()
         .any(|phrase| lower.contains(phrase))
     {
-        return Err(Error::Narration);
+        return Err(NarrationValidationFailureV1::scene(
+            NarrationRejectionReasonV1::SceneUnapprovedMovement,
+        ));
     }
     Ok(())
 }

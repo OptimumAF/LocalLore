@@ -307,20 +307,22 @@ _BACKUP_URI = "http://schemas.android.com/apk/res/android:"
 _BACKUP_RULE_FILE = "res/xml/data_extraction_rules.xml"
 _BACKUP_DOMAINS = frozenset(("root", "file", "database", "sharedpref", "external"))
 _BACKUP_OPTIONAL = frozenset(("device_root", "device_file", "device_database", "device_sharedpref"))
+_BACKUP_OVERRIDE_IDS = frozenset(("0x0101027f", "0x01010504"))
 
 
 def _backup_nodes(tree):
     """Read the bounded observed AAPT XML structure, retaining attribute ownership."""
     lines = aapt_text(tree).splitlines()
     require(len(lines) <= 65536, "Too many backup metadata lines")
-    nodes, stack = [], []
+    nodes, stack, namespaces = [], [], set()
     attributes = 0
     for line in lines:
         if not line.strip():
             continue
-        namespace = re.fullmatch(r" *N: [A-Za-z_][A-Za-z0-9_.-]*=\S+ \(line=[0-9]+\)", line)
+        namespace = re.fullmatch(r" *N: ([A-Za-z_][A-Za-z0-9_.-]*)=\S+ \(line=[0-9]+\)", line)
         if namespace:
-            require(not nodes, "Unexpected nested backup namespace")
+            require(not nodes and namespace[1] not in namespaces, "Unexpected or duplicate backup namespace")
+            namespaces.add(namespace[1])
             continue
         element = re.fullmatch(r"( *)E: ([A-Za-z_][A-Za-z0-9_.-]*) \(line=[0-9]+\)", line)
         if element:
@@ -345,13 +347,18 @@ def _backup_nodes(tree):
         attributes += 1
         require(attributes <= 16384, "Too many backup attributes")
         identifier = attribute[3].lower() if attribute[3] else None
+        require(all(previous[0] != attribute[2]
+                    and (identifier is None or previous[1] != identifier)
+                    for previous in node["attributes"]), "Duplicate backup attribute name or ID")
         node["attributes"].append((attribute[2], identifier, attribute[4]))
     return nodes
 
 
 def _backup_attribute(node, name, *, namespace="", identifier=None):
     matches = [item for item in node["attributes"] if item[0].rsplit(":", 1)[-1] == name]
-    require(len(matches) == 1 and matches[0][:2] == (namespace + name, identifier),
+    identity_matches = [item for item in node["attributes"] if item[1] == identifier] if identifier else matches
+    require(len(matches) == 1 and identity_matches == matches
+            and matches[0][:2] == (namespace + name, identifier),
             "Missing, duplicate or foreign backup attribute")
     return matches[0][2]
 
@@ -375,6 +382,7 @@ def audit_backup_resource(manifest_tree, resources, package="org.locallore.app")
     require(len(applications) == 1 and applications[0]["parent"] == root, "Wrong backup application")
     app = applications[0]
     require(not any(item[0].rsplit(":", 1)[-1] in ("backupAgent", "defaultToDeviceProtectedStorage")
+                    or item[1] in _BACKUP_OVERRIDE_IDS
                     for item in app["attributes"]), "Unreviewed backup storage override")
     for name, identifier in (("allowBackup", "0x01010280"), ("fullBackupContent", "0x010104eb")):
         require(_backup_attribute(app, name, namespace=_BACKUP_URI, identifier=identifier) == "false",

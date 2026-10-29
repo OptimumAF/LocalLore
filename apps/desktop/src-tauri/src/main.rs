@@ -237,6 +237,13 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             },
             if reopened {
                 "reopened"
+            } else if {
+                #[cfg(feature = "dev-harness")]
+                { comparison_run_native_harness::review_active() }
+                #[cfg(not(feature = "dev-harness"))]
+                { false }
+            } {
+                "review"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
                 "restart"
             } else {
@@ -253,11 +260,15 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         let path = std::path::PathBuf::from(
             std::env::var_os("LOCALLORE_TEST_WORKSPACE").unwrap_or_default(),
         );
-        builder.data_directory(
+        let profile = if comparison_run_native_harness::review_active() {
+            comparison_run_native_harness::review_webview_profile(&path)
+                .map_err(std::io::Error::other)?
+        } else {
             path.parent()
                 .unwrap_or_else(|| std::path::Path::new("."))
-                .join("webview-profile"),
-        )
+                .join("webview-profile")
+        };
+        builder.data_directory(profile)
     } else {
         builder
     };
@@ -343,6 +354,21 @@ fn harness_reopen(
     Ok(())
 }
 fn main() {
+    // Refuse malformed retained-review requests before any workspace/model setup.
+    #[cfg(feature = "dev-harness")]
+    if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("review") {
+        let valid = comparison_run_native_harness::review_active()
+            && std::env::var_os("LOCALLORE_TEST_WORKSPACE").is_some_and(|path| {
+                comparison_run_native_harness::review_webview_profile(&std::path::PathBuf::from(
+                    path,
+                ))
+                .is_ok()
+            });
+        if !valid {
+            eprintln!("ForbiddenRetainedReviewConfiguration");
+            std::process::exit(2);
+        }
+    }
     #[cfg(feature = "dev-harness")]
     if std::env::args().any(|a| a == "--host-stdio") {
         test_bridge::run();

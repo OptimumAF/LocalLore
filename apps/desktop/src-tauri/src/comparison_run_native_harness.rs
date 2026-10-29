@@ -1,5 +1,7 @@
 //! Fixed native full-comparison consent/picker doubles; never real user consent.
 //! Compiled and registered only with dev-harness. No renderer paths or owners.
+#[cfg(test)]
+mod review_profile_tests;
 use crate::WorkspaceState;
 use serde_json::{json, Value};
 use std::{
@@ -37,6 +39,63 @@ pub fn scene_active() -> bool {
     active()
         && std::env::var("LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS").as_deref() == Ok("1")
         && std::env::var("LOCALLORE_D04_HARNESS").as_deref() != Ok("1")
+}
+/// Closed render-only stage; this does not grant execution or choose a protocol.
+pub fn review_active() -> bool {
+    scene_active() && std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("review")
+}
+
+/// Return a fresh profile address without creating any source/output files.
+pub fn review_webview_profile(workspace: &Path) -> Result<PathBuf, String> {
+    fn physical_d(path: &Path) -> bool {
+        path.is_absolute()
+            && !path
+                .components()
+                .any(|part| matches!(part, Component::ParentDir | Component::CurDir))
+            && matches!(path.components().next(), Some(Component::Prefix(prefix))
+                if matches!(prefix.kind(), std::path::Prefix::Disk(drive) | std::path::Prefix::VerbatimDisk(drive)
+                    if drive.to_ascii_uppercase() == b'D'))
+    }
+    if !review_active() || !physical_d(workspace) {
+        return Err("Forbidden".into());
+    }
+    let source = checked_parent(workspace)?;
+    let _source_pins = pins(source)?;
+    if workspace.try_exists().map_err(|_| "Forbidden")? {
+        return Err("Forbidden".into());
+    }
+    let artifacts = std::env::var_os("LOCALLORE_D02_ARTIFACT_DIR")
+        .map(PathBuf::from)
+        .ok_or("Forbidden")?;
+    if !physical_d(&artifacts)
+        || artifacts.file_name().and_then(|name| name.to_str()) != Some("review")
+    {
+        return Err("Forbidden".into());
+    }
+    let output = artifacts.parent().ok_or("Forbidden")?;
+    let id = output
+        .file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_prefix("full-comparison-native-"))
+        .ok_or("Forbidden")?;
+    if !crate::archive::valid_id(id) || id.bytes().any(|byte| byte.is_ascii_uppercase()) {
+        return Err("Forbidden".into());
+    }
+    let _output_pins = pins(output)?;
+    // Resolve existing ordinary ancestors before comparing aliases/ancestry.
+    let source = std::fs::canonicalize(source).map_err(|_| "Forbidden")?;
+    let resolved_output = std::fs::canonicalize(output).map_err(|_| "Forbidden")?;
+    if source.starts_with(&resolved_output) || resolved_output.starts_with(&source) {
+        return Err("Forbidden".into());
+    }
+    if artifacts.try_exists().map_err(|_| "Forbidden")? {
+        let _artifact_pins = pins(&artifacts)?;
+    }
+    let profile = output.join("webview-profile");
+    if profile.try_exists().map_err(|_| "Forbidden")? {
+        return Err("Forbidden".into());
+    }
+    Ok(profile)
 }
 pub fn protocol() -> Result<crate::evaluation::FullComparisonProtocol, String> {
     if scene_requested() {

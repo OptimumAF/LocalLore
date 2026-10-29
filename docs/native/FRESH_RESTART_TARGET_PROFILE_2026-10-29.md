@@ -3,6 +3,20 @@
 Refs #14 (M10.02), #13 (supporting M09.06). This is a source-bound host target
 revision and build prerequisite. Reading this file grants no device authority.
 
+**Guest work is blocked for the frozen `f1b81363` build checkpoint.** It does
+not contain the subsequently required shared AVD storage guard. Before any
+preparation or SDK4/SDK5 owner launch, integrate a reviewed guard revision and
+verify the new source/build/admission bindings. Do not run copied older owners
+to avoid the ledger. The operator policy requires the shared
+`D:/Dev/_Migration/LocalLore-AVD-Storage` ledger, at most two unretired roots,
+a 64 GiB admission budget and 40 GiB per preparing/live guest. Preserve closed
+guest images and recovery unless retirement is explicitly authorized. The
+October 27 records-only retired roots must never be booted, repaired or recreated.
+
+The offline APK/JVM/lint checkpoint is useful build evidence and provides no
+exception to those requirements. Its frozen checkout remains unchanged; this
+later reporting note is not substituted into its source hashes or manifest.
+
 The current SDK5 restart profile selects exactly:
 
 `D:/Dev/Experiments/LocalLore/2026-10-29-restart-after-metadata-v1/avd-v1`

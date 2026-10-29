@@ -122,3 +122,9 @@ The later [D-resident fixture migration](../docs/native/D_ONLY_RECEIPT_FIXTURES_
 keeps the six original C-policy test bodies while moving all their fixture IO
 to D:. Its final host suite passes all 2,169 checks without exclusions; C: paths
 are explicitly simulated, and device/runtime gates remain separate.
+
+The [frozen restart build checkpoint](../docs/native/RESTART_BUILD_PREFLIGHT_2026-10-29.md)
+records current offline APK/JVM/fresh-lint and actual-build-bound host simulation
+checks. It also records why the frozen source is blocked from guest work until
+the shared AVD storage guard is reviewed and integrated; build success grants
+no emulator, phone or model authority.

@@ -178,7 +178,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},sceneModelGuard:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},inspectingMemory:{},authoring:{},sceneCase:'{}',archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},sceneFullComparing:{},sceneModelGuard:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},inspectingMemory:{},authoring:{},sceneCase:'{}',archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -195,6 +195,12 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             {
                 #[cfg(feature = "dev-harness")]
                 { comparison_run_native_harness::active() }
+                #[cfg(not(feature = "dev-harness"))]
+                { false }
+            },
+            {
+                #[cfg(feature = "dev-harness")]
+                { comparison_run_native_harness::scene_active() }
                 #[cfg(not(feature = "dev-harness"))]
                 { false }
             },

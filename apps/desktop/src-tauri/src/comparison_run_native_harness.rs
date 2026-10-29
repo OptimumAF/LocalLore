@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::{
     path::{Component, Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
     time::{Duration, Instant},
@@ -18,6 +18,7 @@ pub struct NativeComparisonHarness {
     deny_read: AtomicBool,
     lost_ack: AtomicBool,
     consent_active: AtomicBool,
+    consent_calls: AtomicU64,
 }
 
 pub fn active() -> bool {
@@ -154,6 +155,10 @@ pub fn consent(
     {
         return Err("InvalidEvaluationInput".into());
     }
+    if scene_active() {
+        state.consent_calls.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| count.checked_add(1))
+            .map_err(|_| "EvaluationBudget".to_owned())?;
+    }
     state.consent_active.store(true, Ordering::SeqCst);
     let _active = ActiveConsent(&state.consent_active);
     let began = Instant::now();
@@ -191,6 +196,7 @@ enum Scenario {
     DenyRead,
     LoseAck,
     Status,
+    Observation,
 }
 fn scenario(value: &str) -> Result<Scenario, String> {
     match value {
@@ -200,6 +206,7 @@ fn scenario(value: &str) -> Result<Scenario, String> {
         "deny-read-consent" => Ok(Scenario::DenyRead),
         "lose-start-ack" => Ok(Scenario::LoseAck),
         "consent-status" => Ok(Scenario::Status),
+        "execution-observation" => Ok(Scenario::Observation),
         _ => Err("InvalidEvaluationInput".into()),
     }
 }
@@ -209,6 +216,7 @@ pub async fn harness_native_comparison_case(
     window: tauri::WebviewWindow,
     workspace: tauri::State<'_, WorkspaceState>,
     state: tauri::State<'_, Arc<NativeComparisonHarness>>,
+    models: tauri::State<'_, Arc<crate::models::ModelManager>>,
     scenario: String,
 ) -> Result<Value, String> {
     if !active() {
@@ -222,6 +230,7 @@ pub async fn harness_native_comparison_case(
     let lease = workspace.lease.clone();
     let path = workspace.path.clone();
     let state = state.inner().clone();
+    let models = models.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let parent = checked_parent(&path)?;
         let _pins = pins(parent)?;
@@ -233,6 +242,13 @@ pub async fn harness_native_comparison_case(
                 Scenario::DenyRead => state.deny_read.store(true, Ordering::SeqCst),
                 Scenario::LoseAck => state.lost_ack.store(true, Ordering::SeqCst),
                 Scenario::Status => {}
+                Scenario::Observation => {
+                    if !scene_active() { return Err("Forbidden".into()); }
+                    let (sequence, owner_present, retained) = models.evaluation_observation_for_harness()?;
+                    return Ok(json!({"version":1,"kind":"native_scene_execution_observation","protocol_version":4,
+                        "reservation_sequence":sequence,"consent_calls":state.consent_calls.load(Ordering::SeqCst),
+                        "owner_present":owner_present,"retained_evaluations":retained}));
+                }
             }
             // Only fixture flags: not evidence that execution or cleanup ran.
             Ok(

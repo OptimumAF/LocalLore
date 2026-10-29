@@ -69,6 +69,12 @@ const FULL_COMPARISON_LABELS: &[&str] = &[
     "full-restarted",
     "full-finished",
 ];
+const SCENE_COMPARISON_LABELS: &[&str] = &[
+    "full-scene-courier-01-left", "full-scene-courier-01-right",
+    "full-scene-courier-05-left", "full-scene-courier-05-right",
+    "full-scene-courier-12-left", "full-scene-courier-12-right",
+    "full-scene-courier-22-left", "full-scene-courier-22-right",
+];
 const SELECTED_LABELS: &[&str] = &[
     "selected-resumed",
     "selected-relevant-construction",
@@ -359,6 +365,13 @@ impl HarnessState {
                 && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
                 && SELECTED_LABELS.contains(&label))
             || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label))
+            || (active()
+                && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_D07_NATIVE_FULL_HARNESS").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_D04_HARNESS").as_deref() != Ok("1")
+                && SCENE_COMPARISON_LABELS.contains(&label))
             || (active()
                 && std::env::var("LOCALLORE_D07_FULL_COMPARISON_HARNESS").as_deref() == Ok("1")
                 && FULL_COMPARISON_LABELS.contains(&label)))

@@ -52,7 +52,7 @@ ownership rules and native consent are unchanged.
 | Android offline build |588 JVM tests/58 suites,0 failures/errors/skips; cleaned unfiltered unit task, both APK assemblies and dependency/analyzer/APK audits pass. Owner420464ms, known cleanup/capture, no stderr,2020 inputs unchanged. Gradle reports87 actionable tasks executed. This does not establish fresh compilation of every dependency. |
 | Lint/analyzer |0 errors,10 warnings; analyzer32.4.1 reports analysis_did_work:true. |
 | Independent closed-build audit | Full source/before/after/request hashes, all58 XML files, required27 store/4 AUTHOR worker/6 capture/10 owner cases and both APK bytes verified. Both native ABIs embed the exact revised prompt and current label and define the publication export; test DEX contains the new label. No SDK/native execution. |
-| Current standalone diagnostic CLI | Offline build passes;1121ms owner with known cleanup/capture and893 compiled input bindings stable. It was not invoked on a model response. |
+| Current standalone diagnostic CLI | Offline build passes;1121ms owner with known cleanup/capture and894 compiled input bindings stable. It was not invoked on a model response. |
 
 The Host regression assertion's bytes are identical in RED and the corrected
 suite (SHA256 `fd2ae1627682612b95de55970058703e06fc9a281115baa92849ae3469415345`).

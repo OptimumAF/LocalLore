@@ -264,7 +264,7 @@ def _supervise(command, request, root, seconds, on_started):
             time.sleep(.01)
     except KeyboardInterrupt:
         status = 'cancelled'
-    except (OSError,ValueError,KeyError,TypeError,env.EnvironmentRefused):
+    except (OSError,ValueError,KeyError,TypeError,RuntimeError,env.EnvironmentRefused):
         status = 'evidence_failed' if capture is None or capture.failed.is_set() else 'owner_failed'
     finally:
         if child is not None:
@@ -281,7 +281,13 @@ def _supervise(command, request, root, seconds, on_started):
             except (OSError,subprocess.TimeoutExpired):
                 cleaned = False
             for thread in readers:
-                thread.join(timeout=2)
+                try:
+                    thread.join(timeout=2)
+                except RuntimeError:
+                    # Thread.start may have failed before there was a reader.
+                    # Preserve failed ownership without skipping later closes.
+                    cleaned = False
+                    capture.failed.set()
             readers_stopped = not any(t.is_alive() for t in readers)
             cleaned = cleaned and readers_stopped
             # A failed job close must not suppress safe pipe-close attempts.

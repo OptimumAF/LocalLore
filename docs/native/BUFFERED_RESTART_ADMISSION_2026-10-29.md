@@ -48,7 +48,7 @@ code and all protected guards and method bodies remain unchanged.
 
 ## Build and storage boundaries
 
-The next build uses a separate frozen physical D: worktree. Exact executed
+The build uses a separate frozen physical D: worktree. Exact executed
 source and artifact bindings belong to its actual receipts; later report
 commits must not replace that source attribution. Existing frozen `f1b81363`
 and `4c53db36` builds and both original dirty guard worktrees are untouched.
@@ -99,3 +99,65 @@ Actual full result SHA256:
 `7210514f130559515d1686bc4153a0f43312dac3bfde4efa24649e9484cec19b`.
 This later verification text is not substituted into the frozen source or its
 build/admission bindings. No runtime outcome follows from a host-suite pass.
+
+## Actual offline Android build
+
+The reviewed offline recipe executes once from frozen source `778f6f78`, after
+the full host suite closes. Its driver differs from the prior reviewed build
+mechanism only in the worktree, output root, frozen head and tracked-file count.
+Existing locked tools/caches remain in place; no dependency, runtime, signing
+key or global tool setting changes. The actual commands, with D: process-local
+temporary/cache settings, are:
+
+```powershell
+python -I -S -B scripts/build_android_author_process_probe.py --ndk C:/Users/Avery/AppData/Local/Android/Sdk/ndk/29.0.14206865 --output D:/Dev/Experiments/LocalLore/2026-10-29-buffered-restart-admission-v1/native-helper-v1
+python -I -S -B D:/Dev/Experiments/LocalLore/2026-10-29-buffered-restart-admission-v1/android/build-sdk-v1.py sdk-build-v1
+```
+
+The helper compile exits 0 in **2,444 ms**; the SDK build exits 0 in
+**264,782 ms**. Both have known capture/cleanup and empty parent streams. The
+ELF helper is **never executed**. JVM results are **588 unique cases / 58 XML
+reports**, zero failures/errors/skips. APK/signature/package/manifest/JNI,
+dependency and analyzer audits pass. All 2,232 raw sources, 985 compiled-prefix
+entries and tool bindings remain stable in the actual worktree.
+
+Fresh same-job lint uses analyzer **32.4.1**, with actual `didWork: true`, zero
+Error/Fatal and ten warnings: seven UsableSpace, one GradleDependency, one
+ObsoleteSdkInt and one OldTargetApi. No separate lint phase or fallback rerun
+is substituted. The unchanged pins include SDK36/build-tools35, NDK29,
+Rust1.93.1, Java21, Gradle8.11.1 and LiteRT-LM0.18.1.
+
+| Newly built artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| Product APK | 78,423,520 | `c8adf07e9ae6802f98108ea8f9d0f061200119203273c95dd6f7e98069bfcd09` |
+| Test APK | 2,272,447 | `215731ef23e46f1dd1d97f9fb846672eaa954467332069f8723520f3101a0221` |
+| Compile-only process helper | 13,848 | `8c9408c4af7ce73d4e39dde712c291dd1d5e042e53ff407414dfa4d864d41972` |
+
+These new outputs reproduce prior artifact bytes. Their actual new build job
+and frozen source establish their attribution; old artifact paths or receipts
+are not relabelled as a new build.
+
+Independent file-only build/lint replay passes: exact 98 SDK and ten native
+artifacts, own-worktree source/compiled maps, all JVM XML/cases, APK/DEX/JNI/ELF,
+dependency/analyzer provenance and actual lint inputs. Both ABI libraries and
+the defined AUTHOR/restart instrumented methods are present; neither ABI was
+executed on Android in this packet. The native compile's started receipt lacks
+a direct request binding. That limitation remains explicit; artifact/source/
+compiler checks do not authenticate device execution or a guest grant.
+
+Build result SHA256:
+`753cd0c47229c3c54be3dc67b4aebb7b4882b6edef6b88a228eab4689c72bcf6`.
+Independent build/lint receipts:
+`e65851ff51785ed7543ae2265e38edc57e104d1e379f063125f381a4a301febd` /
+`4978952a646a8cedd0122b92f8d9e27c4c3e22cbe05f601592e666fb64287dfc`.
+The joined, unchanged 12-key **build-only** admission manifest SHA256 is
+`2085719820bde13805ad811683e439249af5118128a1bee38fe4821b32fa60ab`.
+There is no target admission, human authorization file or guest reservation.
+
+Named-root metadata observes **814,987,138 bytes** aggregate logical growth
+between the immediate pre-build and closed post-build snapshots, within the
+14 GiB allowance. This excludes later recovery and does not attribute shared
+cache/volume activity exclusively to the build. The separate frozen worktree's
+ignored outputs, APKs, source and all raw reports remain preserved. No cleanup
+is performed. The earlier closed profile captures already have a verified
+28-file / 1,128,070-byte recovery copy; final source/build recovery is separate.

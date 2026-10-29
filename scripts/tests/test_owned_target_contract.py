@@ -138,6 +138,14 @@ class AdmissionContractTests(unittest.TestCase):
         value=admission();value['protocol']='isolated-adb-lease-v2'
         self.refused(lambda:n.validate_admission(value))
 
+    def test_headless_profile_accepts_exact_qemu_headless_executable(self):
+        value=admission();value['guest']['qemu']['path']=str(PureWindowsPath(value['guest']['emulator']['path']).parent/'qemu/windows-x86_64/qemu-system-x86_64-headless.exe')
+        self.assertEqual(n.validate_admission(value),value)
+
+    def test_headless_profile_refuses_ordinary_qemu_executable(self):
+        value=admission();value['guest']['qemu']['path']=str(PureWindowsPath(value['guest']['emulator']['path']).parent/'qemu/windows-x86_64/qemu-system-x86_64.exe')
+        self.refused(lambda:n.validate_admission(value))
+
     def test_target_protocol_version_closed_keys_and_budget_are_strict(self):
         for field,bad in(('version',True),('version',2),('protocol','owned-emulator-target-v2'),
                          ('seconds',True),('seconds',1199),('seconds',1701),('private_rows','SYNTHETIC_PRIVATE_CANARY')):
@@ -900,6 +908,18 @@ class ClosedLifecycleReaderTests(unittest.TestCase):
                            ('ready',lambda v:v['guest_tables'][0].update(abi_checked=False)),
                            ('guest_job',lambda v:v['processes'].pop())):
             f=ClosedLifecycleFixture();f.mutate(key,change);self.refused(f.validate)
+
+    def test_readiness_cannot_regress_from_registration_to_guest_process_even_with_monotonic_time(self):
+        f=ClosedLifecycleFixture()
+        def change(entries):
+            entries.reverse()
+            for index,entry in enumerate(entries,1):entry['elapsed_ms']=index
+        f.mutate('readiness',change);self.refused(f.validate)
+
+    def test_final_readiness_queries_must_match_the_ready_registration_measurement(self):
+        f=ClosedLifecycleFixture();value=f.env.read_json(f.root/'target-registration-v1.json')
+        value['queries'][0]['elapsed_ms']+=1;different=f.save(f.root/'other-valid-registration-v1.json',value)
+        f.mutate('readiness',lambda entries:entries[-1].update(queries=different));self.refused(f.validate)
 
 
 if __name__=='__main__':unittest.main()

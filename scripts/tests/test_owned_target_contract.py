@@ -309,6 +309,19 @@ class ProofContractTests(unittest.TestCase):
 
 
 class GuestAndRecordTests(unittest.TestCase):
+    def test_actual_qemu_internal_adb_bridge_both_endpoints_are_owned_not_foreign(self):
+        d=running();rows=[host_fixture.row4(lp=5592,pid=d['guest']['pid'],ordinal=1),
+          host_fixture.row4(lp=5593,pid=d['guest']['pid'],ordinal=2),
+          host_fixture.row4(role='server',lp=5593,rp=43150,pid=d['guest']['pid'],ordinal=10),
+          host_fixture.row4(role='client',lp=43150,rp=5593,pid=d['guest']['pid'],ordinal=11)]
+        value=dict(version=1,ports=[5592,5593],families=[2,23],rows=rows)
+        with self.subTest(owner='actual-qemu'):
+            self.assertIsNone(n.validate_guest_observation(value,d['guest'],d['server']))
+        for pid in(d['launcher']['pid'],99999):
+            changed=copy.deepcopy(value);changed['rows'][-1]=host_fixture.row4(role='client',lp=43150,rp=5593,pid=pid,ordinal=11)
+            with self.subTest(owner='foreign',pid=pid):
+                with self.assertRaises(n.TargetRefused):n.validate_guest_observation(changed,d['guest'],d['server'])
+
     def test_guest_ipv4_and_optional_ipv6_listeners_belong_to_qemu_not_launcher(self):
         d=running();rows=[host_fixture.row4(lp=5592,pid=d['guest']['pid'],ordinal=1),
           host_fixture.row4(lp=5593,pid=d['guest']['pid'],ordinal=2),

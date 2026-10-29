@@ -106,7 +106,7 @@ class ShellFramingTests(unittest.TestCase):
 class OwnedClientFlowTests(unittest.TestCase):
     def setUp(self):
         self.base=Path(tempfile.mkdtemp(prefix='locallore-sdk4-client-',dir='D:/Dev/_Temp'))
-        self.clock=100.0;self.proof_cost={};self.proof_fail=set();self.guard_fail=False;self.proof_calls=[];self.claims=set();self.index=0
+        self.clock=100.0;self.proof_cost={};self.proof_fail=set();self.guard_fail=False;self.proof_calls=[];self.claims=set();self.index=0;self.on_proof=None
         self.admitted=f.admission();self.descriptor=f.running(self.admitted)
         self.probe=self.base/'physical_model_probe_v1.txt';self.payload=b'original probe\0\x1a\xff\r\n';self.probe.write_bytes(self.payload)
         self.admitted['artifacts']['probe']=c.environment.binding(self.probe)
@@ -136,7 +136,9 @@ class OwnedClientFlowTests(unittest.TestCase):
         if context['phase']in self.proof_fail:raise ValueError('synthetic proof failure')
         value=f.proof(session,after=after);value.update(context=copy.deepcopy(context),anchor=copy.deepcopy(anchor))
         value['session']=c.environment.binding(Path(session['root'])/'sdk-session-v4.json')
-        c.environment.create_json(path,value);return c.environment.binding(path)
+        c.environment.create_json(path,value)
+        if self.on_proof is not None:self.on_proof(context)
+        return c.environment.binding(path)
     def row(self,owner):return c.environment.read_json(owner.directory/'command-0001.json')
     def poisoned(self,owner):
         self.assertFalse(owner.clean);calls=self.factory.call_count
@@ -248,6 +250,21 @@ class OwnedClientFlowTests(unittest.TestCase):
         self.socket=FakeSocket(self.response());second=self.owner()
         with self.assertRaises(c.ClientRefused):second.shell(argv,'import')
         self.assertEqual(second.count,0);self.assertEqual(self.socket.sent,b'');self.poisoned(second)
+
+    def test_same_size_changed_probe_keeps_actual_unqualified_stream_measurement(self):
+        owner=self.owner();changed=b'X'+self.payload[1:]
+        self.assertEqual(len(changed),len(self.payload));self.assertNotEqual(hashlib.sha256(changed).hexdigest(),self.admitted['artifacts']['probe']['sha256'])
+        def mutate(context):
+            if context['phase']=='before':self.probe.write_bytes(changed)
+        self.on_proof=mutate
+        with self.assertRaises(c.ClientRefused):
+            owner.stream(['run-as',c.contract.APP,'--user','0','dd','of=no_backup/original-author-transfer-probe-v1.bin','bs=65536'],
+                         self.admitted['artifacts']['probe'],'probe',seconds=15)
+        self.assertIn(packet(0,changed),self.socket.sent);self.assertEqual(self.socket.sent[-5:],packet(4,b''))
+        self.assertTrue((owner.directory/'command-0001.json').is_file(),'actual measured stream must have an unqualified JSON record')
+        row=self.row(owner);self.assertFalse(row['client_qualified']);self.assertEqual(row['status'],'completed');self.assertEqual(row['returncode'],0)
+        self.assertEqual(row['stdin_bytes'],len(changed));self.assertEqual(row['stdin_sha256'],hashlib.sha256(changed).hexdigest())
+        self.assertTrue(row['stdin_complete']);self.assertIsNone(row['server_after']);self.poisoned(owner)
 
 
 if __name__=='__main__':unittest.main()

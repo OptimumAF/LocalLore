@@ -40,9 +40,28 @@ fn diagnostic_mode() -> bool {
         && !literal_mode()
         && std::env::var("LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER").as_deref() == Ok("1")
 }
+pub(super) fn selected_scene_flags(
+    base: bool, selected: bool, scene: bool, literal: bool, diagnostic: bool,
+) -> bool {
+    base && selected && scene && !literal && !diagnostic
+}
+pub(super) fn selected_scene_requested() -> bool {
+    std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_SCENE_COMPARISON_READER").as_deref() == Ok("1")
+}
+pub(super) fn selected_scene_mode() -> bool {
+    selected_scene_flags(
+        active(),
+        std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1"),
+        std::env::var("LOCALLORE_D07_SCENE_COMPARISON_READER").as_deref() == Ok("1"),
+        std::env::var("LOCALLORE_D07_LITERAL_COMPARISON_READER").as_deref() == Ok("1"),
+        std::env::var("LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER").as_deref() == Ok("1"),
+    )
+}
 fn root(workspace: &Path) -> Result<(PathBuf, Vec<std::fs::File>), String> {
     if !active()
         || (literal_mode() && scene_mode())
+        || (selected_scene_requested() && !selected_scene_mode())
         || std::env::var_os("LOCALLORE_TEST_WORKSPACE")
             .map(PathBuf::from)
             .as_deref()
@@ -173,6 +192,11 @@ fn inventory(root: &Path) -> Result<std::collections::BTreeMap<String, String>, 
 fn inventory_stats(
     root: &Path,
 ) -> Result<(std::collections::BTreeMap<String, String>, usize, usize), String> {
+    inventory_stats_for_mode(root, diagnostic_mode(), false)
+}
+fn inventory_stats_for_mode(
+    root: &Path, diagnostic: bool, selected: bool,
+) -> Result<(std::collections::BTreeMap<String, String>, usize, usize), String> {
     fn visit(
         root: &Path,
         path: &Path,
@@ -180,11 +204,12 @@ fn inventory_stats(
         out: &mut std::collections::BTreeMap<String, String>,
         total: &mut usize,
         entries: &mut usize,
-        diagnostic: bool,
+        mode: (bool, bool),
     ) -> Result<(), String> {
+        let (diagnostic, selected) = mode;
         *entries = entries.checked_add(1).ok_or("SyntheticFixtureBudget")?;
         if depth > 8
-            || (if diagnostic {
+            || (if diagnostic || selected {
                 *entries > 8192
             } else {
                 out.len() >= 2048
@@ -206,14 +231,16 @@ fn inventory_stats(
                     out,
                     total,
                     entries,
-                    diagnostic,
+                    mode,
                 )?;
             }
         } else {
-            if !metadata.is_file() || metadata.len() > 8 * 1024 * 1024 {
+            if !metadata.is_file() || metadata.len() > 8 * 1024 * 1024
+                || (selected && out.len() >= 2048)
+            {
                 return Err("SyntheticFixtureBudget".into());
             }
-            let bytes = if diagnostic {
+            let bytes = if diagnostic || selected {
                 read_fixture_bytes(path, 8 * 1024 * 1024)?
             } else {
                 std::fs::read(path).map_err(|_| "SyntheticFixtureIo")?
@@ -230,7 +257,12 @@ fn inventory_stats(
                 .to_str()
                 .ok_or("SyntheticFixturePath")?
                 .replace('\\', "/");
-            out.insert(key, format!("{:x}", Sha256::digest(bytes)));
+            if selected && !selected_scene_relative(&key) {
+                return Err("SyntheticFixturePath".into());
+            }
+            if out.insert(key, format!("{:x}", Sha256::digest(bytes))).is_some() && selected {
+                return Err("SyntheticFixturePath".into());
+            }
         }
         Ok(())
     }
@@ -244,9 +276,161 @@ fn inventory_stats(
         &mut result,
         &mut total,
         &mut entries,
-        diagnostic_mode(),
+        (diagnostic, selected),
     )?;
     Ok((result, entries, total))
+}
+
+const SELECTED_SCENE_FREEZE: &str = "selected-scene-source-freeze-v1.json";
+const SELECTED_SCENE_FREEZE_CAP: usize = 1024 * 1024;
+
+fn selected_scene_relative(value: &str) -> bool {
+    !value.is_empty() && !value.contains('\\') && !value.contains(':')
+        && value.split('/').all(|part| !part.is_empty() && part != "." && part != "..")
+        && !value.chars().any(char::is_control)
+}
+fn selected_scene_hash(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+fn selected_scene_files<'de, D>(deserializer: D)
+    -> Result<std::collections::BTreeMap<String, String>, D::Error>
+where D: serde::Deserializer<'de> {
+    struct Files;
+    impl<'de> serde::de::Visitor<'de> for Files {
+        type Value = std::collections::BTreeMap<String, String>;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a bounded unique source file map")
+        }
+        fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+        where M: serde::de::MapAccess<'de> {
+            let mut files = std::collections::BTreeMap::new();
+            while let Some((name, hash)) = map.next_entry::<String, String>()? {
+                if files.len() >= 2048 || !selected_scene_relative(&name)
+                    || !selected_scene_hash(&hash) || files.insert(name, hash).is_some()
+                {
+                    return Err(serde::de::Error::custom("invalid source file map"));
+                }
+            }
+            Ok(files)
+        }
+    }
+    deserializer.deserialize_map(Files)
+}
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct SelectedSceneFreeze {
+    version: u16,
+    kind: String,
+    source_protocol_version: u16,
+    #[serde(deserialize_with = "selected_scene_files")]
+    files: std::collections::BTreeMap<String, String>,
+    file_count: usize,
+    entry_count: usize,
+    total_bytes: usize,
+}
+
+/// Fixed native development fixture owner; no renderer path/stage is accepted.
+pub(super) fn selected_scene_prepare(fixtures: &Path, stage: &str) -> Result<Value, String> {
+    if !matches!(stage, "initial" | "restart") || !fixtures.is_absolute()
+        || fixtures.components().any(|p| matches!(p, Component::ParentDir | Component::CurDir))
+        || fixtures.file_name().and_then(|s| s.to_str()) != Some("comparison-fixtures")
+    {
+        return Err("SyntheticWorkspaceRequired".into());
+    }
+    let parent = fixtures.parent().ok_or("SyntheticWorkspaceRequired")?;
+    if !parent.file_name().and_then(|s| s.to_str())
+        .and_then(|s| s.strip_prefix("comparison-reader-native-"))
+        .is_some_and(crate::archive::valid_id)
+    {
+        return Err("SyntheticWorkspaceRequired".into());
+    }
+    let _parent_pins = crate::archive::pin(parent)?;
+    let freeze_path = parent.join(SELECTED_SCENE_FREEZE);
+    let fixtures_present = present(fixtures)?;
+    let freeze_present = present(&freeze_path)?;
+    let creating = !fixtures_present && !freeze_present && stage == "initial";
+    if !creating && (!fixtures_present || !freeze_present) {
+        return Err("SyntheticFixtureInvalid".into());
+    }
+    // Decode retained bytes before opening any producer; never repair a partial set.
+    let retained = if creating { None } else {
+        let _freeze_pins = crate::archive::pin(&freeze_path)?;
+        let info = std::fs::symlink_metadata(&freeze_path).map_err(|_| "SyntheticFixtureIo")?;
+        if !info.is_file() || info.file_type().is_symlink() || info.len() > SELECTED_SCENE_FREEZE_CAP as u64 {
+            return Err("SyntheticFixtureBudget".into());
+        }
+        let bytes = read_fixture_bytes(&freeze_path, SELECTED_SCENE_FREEZE_CAP)?;
+        let freeze: SelectedSceneFreeze = serde_json::from_slice(&bytes).map_err(|_| "SyntheticFixtureInvalid")?;
+        Some((freeze, bytes))
+    };
+    if creating {
+        std::fs::create_dir(fixtures).map_err(|_| "SyntheticFixtureIo")?;
+    }
+    let _fixture_pins = crate::archive::pin(fixtures)?;
+    if !std::fs::metadata(fixtures).map_err(|_| "SyntheticFixtureIo")?.is_dir() {
+        return Err("SyntheticFixturePath".into());
+    }
+    let reference_path = fixtures.join("reference");
+    if creating {
+        comparison::prepare_reference(&reference_path, &Cancellation::default())?;
+        let reference = comparison::open_reference(&reference_path)?;
+        comparison::scene_v4::run_comparison(&fixtures.join("paired"), false,
+            ComparisonKind::PairedSnapshots, &Cancellation::default(), 2,
+            LaneFactory::ScriptedBaseline, Some(&reference))?;
+        comparison::scene_v4::run_comparison(&fixtures.join("rollout"), false,
+            ComparisonKind::ContinuousRollout, &Cancellation::default(), 1,
+            LaneFactory::ScriptedBaseline, None)?;
+    }
+    let mut members = std::collections::BTreeSet::new();
+    for entry in std::fs::read_dir(fixtures).map_err(|_| "SyntheticFixtureIo")? {
+        let path = entry.map_err(|_| "SyntheticFixtureIo")?.path();
+        let name = path.file_name().and_then(|s| s.to_str()).ok_or("SyntheticFixturePath")?;
+        if !matches!(name, "reference" | "paired" | "rollout") || !members.insert(name.to_owned()) {
+            return Err("SyntheticFixtureInvalid".into());
+        }
+        let _pins = crate::archive::pin(&path)?;
+        if !std::fs::metadata(&path).map_err(|_| "SyntheticFixtureIo")?.is_dir() {
+            return Err("SyntheticFixturePath".into());
+        }
+    }
+    if members != ["reference", "paired", "rollout"].into_iter().map(str::to_owned).collect() {
+        return Err("SyntheticFixtureInvalid".into());
+    }
+    let (files, entries, total) = inventory_stats_for_mode(fixtures, false, true)?;
+    let actual = SelectedSceneFreeze {
+        version: 1, kind: "selected_scene_source_freeze_v1".into(), source_protocol_version: 4,
+        file_count: files.len(), files, entry_count: entries, total_bytes: total,
+    };
+    let retained_bytes = match retained {
+        Some((expected, bytes)) => {
+            if actual != expected { return Err("SyntheticFixtureInvalid".into()); }
+            Some(bytes)
+        }
+        None => None,
+    };
+    drop(comparison::open_reference(&reference_path)?);
+    let paired = scene_proof(&fixtures.join("paired"), 2)?;
+    let rollout = scene_proof(&fixtures.join("rollout"), 1)?;
+    // Public readers/proofs must leave all captured producer bytes unchanged.
+    let (files, entries, total) = inventory_stats_for_mode(fixtures, false, true)?;
+    if actual.files != files || actual.entry_count != entries || actual.total_bytes != total {
+        return Err("SyntheticFixtureInvalid".into());
+    }
+    let bytes = match retained_bytes {
+        Some(bytes) => bytes,
+        None => {
+            let bytes = serde_json::to_vec(&actual).map_err(|_| "SyntheticFixtureInvalid")?;
+            if bytes.len() > SELECTED_SCENE_FREEZE_CAP { return Err("SyntheticFixtureBudget".into()); }
+            fixed_new(&freeze_path, &bytes)?;
+            bytes
+        }
+    };
+    Ok(json!({"synthetic":true,"protocol_version":4,"paired_rows":24,"rollout_rows":12,
+        "models_executed":false,"scene_proof":{"paired":paired,"rollout":rollout,
+        "source_gate":"fresh_domain1_committed_narrator_input_only"},
+        "fixture_inventory":{"version":1,"kind":"selected_scene_source_freeze_ref_v1",
+        "sha256":format!("{:x}",Sha256::digest(&bytes)),"source_protocol_version":4,
+        "file_count":actual.file_count,"entry_count":actual.entry_count,"total_bytes":actual.total_bytes}}))
 }
 
 const DIAGNOSTIC_FIXTURES: [(&str, &str, Option<&str>, Option<&str>); 6] = [
@@ -523,6 +707,17 @@ pub async fn harness_comparison_reader_case(
     tauri::async_runtime::spawn_blocking(move || {
         lease.dispatch(epoch,||Ok(()))?;
         let (fixtures,_root_pins)=root(&workspace_path)?;
+        if selected_scene_requested() && !selected_scene_mode() { return Err("Forbidden".into()); }
+        if selected_scene_mode() && scenario == "prepare" {
+            let stage = match std::env::var("LOCALLORE_TEST_RESTART") {
+                Ok(value) if value == "1" => "restart",
+                Ok(value) if value == "0" => "initial",
+                Err(std::env::VarError::NotPresent) => "initial",
+                _ => return Err("Forbidden".into()),
+            };
+            let answer = selected_scene_prepare(&fixtures, stage)?;
+            return lease.dispatch(epoch, || Ok(answer));
+        }
         if diagnostic_mode() {
             let answer=match scenario.as_str() {
                 "prepare" => diagnostic_prepare(&fixtures,&models),

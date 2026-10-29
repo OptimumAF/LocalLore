@@ -54,17 +54,24 @@ fn workspace_parent<'a>(workspace: &'a Path, expected: Option<&Path>) -> Result<
     Ok(parent)
 }
 fn checked_workspace(workspace: &Path) -> Result<&Path, String> {
-    if !active() {
+    if !active()
+        || (crate::comparison_reader_harness::selected_scene_requested()
+            && !crate::comparison_reader_harness::selected_scene_mode())
+    {
         return Err("Forbidden".into());
     }
     let expected = std::env::var_os("LOCALLORE_TEST_WORKSPACE").map(PathBuf::from);
     workspace_parent(workspace, expected.as_deref())
 }
 fn metadata_kind(metadata: &Value) -> Result<(), String> {
+    metadata_kind_for_mode(metadata, crate::comparison_reader_harness::selected_scene_mode())
+}
+fn metadata_kind_for_mode(metadata: &Value, scene: bool) -> Result<(), String> {
     // This is a closed fixture discriminator, NOT a second canonical/DTO
     // validator. The actual service supplies already-validated shared metadata.
     if !metadata.is_object()
-        || !matches!(metadata["version"].as_u64(), Some(1 | 2))
+        || !(matches!(metadata["version"].as_u64(), Some(1 | 2))
+            || (scene && metadata["version"] == 3 && metadata["source_protocol_version"] == 4))
         || (metadata["version"] == 2 && metadata["source_protocol_version"] != 3)
         || !matches!(
             metadata["kind"].as_str(),

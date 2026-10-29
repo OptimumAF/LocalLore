@@ -95,8 +95,8 @@ export function ComparisonRunView({
                 <p>
                     Native comparison details are not yet available. Refresh
                     saved metadata to check the reported configuration. An
-                    approved local model is required; its availability is checked
-                    before execution. Human quality is not established.
+                    approved local model is required; its availability is
+                    checked before execution. Human quality is not established.
                 </p>
             ) : (
                 <p>

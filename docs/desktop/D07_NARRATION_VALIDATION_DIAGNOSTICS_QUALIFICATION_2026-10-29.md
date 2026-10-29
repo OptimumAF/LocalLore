@@ -1,7 +1,7 @@
-# Narration-validation diagnostics v1: partial qualification
+# Narration-validation diagnostics v1: scoped qualification
 
 2026-10-29. Refs #9 **M05.03/M05.04**; supports #29 **D07.04**.
-**Implemented; focused, portable and Eval checks measured; compatibility gates pending.**
+**Implemented; focused, portable, Eval and scoped native compatibility checks measured.**
 This note records coordinator-run evidence at source
 `223b6a3f22eb35d9c2d1aedb7b6ed4e5c7f8ea19`. It is not task acceptance,
 release qualification, a model-quality result or permission to merge.
@@ -98,8 +98,8 @@ Earlier setup failures remain distinct:
 Test-only `d4dc966d` removes the redundant inner `cfg(test)` while preserving the
 parent's test-only registration, and uses equivalent `!is_empty()`. Assertions,
 fixtures and all four production files remain unchanged. Focused tests and strict
-lint will be repeated after those corrections; the earlier broad passes remain
-at their actual `223b6a3f` source and are not relabeled as reruns.
+lint passed after those corrections, as recorded below. The earlier broad passes
+remain at their actual `223b6a3f` source and are not relabeled as reruns.
 
 The additional measured Eval command was:
 
@@ -118,17 +118,90 @@ process-local `D:/Dev/_Temp`; source, Cargo cache and targets were on D:.
 The documentation author read source and bounded result records only and ran
 no compiler, formatter, Node, browser, app, model/assets, device or desktop tool.
 
-## Pending gates and limits
+## Later compatibility checks at clean `a84e0799`
 
-At this documentation update, corrected strict workspace Clippy, Android Rust
-host compatibility and workspace formatting remain unqualified; native and frontend
-compatibility and any justified no-inference native read/resume remain pending.
-No completion is inferred from a running log or an earlier branch's results.
-Android Rust host checks will not qualify an Android ABI, emulator or physical
-device. Headless/static tests will not qualify native WebView execution.
+All four production files are byte-identical to `223b6a3f`. Only the two reviewed
+test lint corrections and qualification documentation intervene. Each following
+process record reports exit0, unchanged source and an empty dirty list:
+
+| Check | Actual result | Command duration |
+| --- | --- | --- |
+| Same focused host/library filter | 10 passed; 0 failed; 73 filtered | 8.4569509s; 0.28s test |
+| Strict all-feature/all-target workspace Clippy | Passed | 12.7085590s |
+| Android Rust host compilation | Passed | 3.3442320s |
+| Workspace formatting | Passed | 1.8296697s |
+| Core without default features | Passed | 3.7248167s |
+| Normal Windows native build; unlaunched | Passed | 24.3015048s |
+| Normal Windows native strict Clippy | Passed | 9.3931504s |
+| Development native suite, serial | 282 unit + 2 contract passed; 0 failed; 11 ignored | 723.9802339s |
+| Full frontend checks/build | Passed; normal frontend excludes development hooks | 14.4595115s |
+| Android normal dependency graph for aarch64 | Expected root present; zero desktop/Eval/local-runtime/Tauri/Wry/WebView2 packages | 0.4143478s |
+
+```text
+cargo clippy --workspace --all-features --all-targets --locked --offline --target-dir <owned-D-target> -- -D warnings
+cargo check -p locallore-android --locked --offline --target-dir <owned-D-target>
+cargo fmt --all --manifest-path Cargo.toml -- --check
+cargo check --manifest-path Cargo.toml -p locallore --no-default-features --locked --offline --target-dir <owned-D-target>
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --target-dir <owned-D-target>
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --all-targets --target-dir <owned-D-target> -- -D warnings
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --target-dir <owned-D-target> -- --test-threads=1
+node apps/desktop/verify-frontend.mjs
+cargo tree --manifest-path Cargo.toml -p locallore-android --target aarch64-linux-android --locked --offline --edges normal --prefix none
+```
+
+The attempted normal `harness_contract` target stopped with exit101 in
+0.3885447s: that target requires `dev-harness`. No tests ran in that attempt.
+The valid development command above includes its two passing contract tests.
+The feature requirement was preserved. Android host compilation and dependency
+metadata establish neither Android ABI compilation nor device/emulator execution.
+
+## Actual retained native read and source-mismatch refusal
+
+The separate development command `node apps/desktop/comparison-run-harness.mjs
+--native-scene-review-v1` ran against the existing immutable synthetic cohort,
+with explicit retained-packet, approved-publication and owned target paths in
+process-local environment variables. It executed the real frontend controller,
+native IPC and hidden, unfocused WebView2 application-owned rendering. No desktop
+input or desktop capture was used. This is native execution, not a headless render.
+
+At clean `a84e0799`, 2026-10-29 09:53:39.2591654Z–09:54:48.2920328Z:
+**257 checks passed, 12 PNGs, zero recorded broker errors**, 69.0328674s.
+The retained completed report opens. Explicit resume returns the authoritative
+`EvaluationSourceMismatch` / `source_mismatch`, expected after changing Core.
+This is a verified historical-read/refusal journey, not a successful completed
+resume at the new source. No stored source fingerprint was rewritten.
+
+All twelve images were individually inspected; nine artifact views also have
+positive, in-viewport heading/source/outcome rectangles without selection-header
+overlap. The original `full-idle.png` initially appeared blank in the inspection
+tool. Read-only PNG decoding found 15,730 bright pixels and 951,300 pixels unequal
+to its first pixel. An encoding-only derived preview showed the readable UI;
+decoded RGBA bytes match exactly, SHA256
+`7cf95d7d86a403f96a0e497e7c9b0ead159eced80d64e87e847033ae84202cd4`.
+Original PNG SHA256
+`fffdeb43e969a105ff5ad61cab0856b1ff9a0df19fe00420ecf1d18e734bb908`
+is unchanged. This resolves an inspection-preview anomaly; it is neither a
+repaired capture nor a rerun. No capture-readiness code was changed.
+
+All 2,072 retained result files remain byte-identical, aggregate SHA256
+`f22cd3ec7c40c8870684b025fe1bcd909a4664e34f92f552779f2068bce429e5`.
+Original workspace SQLite remains absent. Sequence, consent and retained-Eval
+observations remain zero, with no active owner. These observations support the
+source-reviewed no-inference path; they are not an independent SDK-load counter.
+All 32 known child executions closed; unknown drain is false. Normal products
+were restored successfully and left unlaunched. The frozen model run and its
+human assessment are unchanged.
+
+Environment: Rust/Cargo1.93.1, Node24.22.1, PowerShell7.6.5,
+WindowsNT10.0.26300.0. The native user agent reports Chromium/Edge156.0.0.0;
+an independent installed WebView runtime build was not obtained. These checks
+do not qualify every native journey or a release.
+
+## Remaining scope and limits
 
 Local evidence is retained under the `d07-narration-diagnostics-*` process/log
-names, format-equality JSON and coordinator draft1; private absolute paths and
+names, format-equality JSON, the fourth native review process/packet, twelve-image
+review manifest and identical-pixel decoder proof; private absolute paths and
 raw model material are excluded from this public note. Root will append actual
 later results and independent review without replacing the preserved failures.
 
@@ -144,5 +217,6 @@ The focused [PR #251](https://github.com/OptimumAF/LocalLore/pull/251) remains a
 the other owner's open, unmerged draft
 [PR #225](https://github.com/OptimumAF/LocalLore/pull/225) is not accepted or
 authorized for merge by this work. M05.03/M05.04 and D07.04 remain in progress
-and unchecked. Next: Root completes the pending checks, records exact results,
-obtains independent review and presents the focused PR at its reviewable gate.
+and unchecked. Next: independent evidence review, then the separately contracted
+bounded RingSink retention slice. The focused callback slice has a reviewable
+local verification gate; this is not acceptance of its unmerged dependency stack.

@@ -43,6 +43,8 @@ import org.locallore.app.StoryCreationUiState
 import org.locallore.app.validStoryTitle
 import org.locallore.app.validStoryPlayerName
 import org.locallore.app.hasReviewedPlayerName
+import org.locallore.app.hasReviewedCreation
+import org.locallore.app.storyPresentationDraft
 
 /** Initial starter/name/title review. No existing-story or mechanical-state editor. */
 @Composable
@@ -55,6 +57,8 @@ internal fun StoryCreationDialog(
     onTemplate: (StoryCreationRequest, StoryTemplateOption) -> Unit = { _, _ -> },
     onPlayerName: (StoryCreationRequest, String) -> Unit = { _, _ -> },
     onPlayerReview: (StoryCreationRequest) -> Unit = {},
+    onTone: (StoryCreationRequest, String) -> Unit = { _, _ -> },
+    onExcludedPhrases: (StoryCreationRequest, String) -> Unit = { _, _ -> },
 ) {
     if (!state.visible) return
     val window = LocalWindowInfo.current.containerSize
@@ -64,6 +68,8 @@ internal fun StoryCreationDialog(
     val request = state.review
     val editing = !state.busy && !state.creating && !state.closing
     val nameValid = request?.preview?.playerSetup == null || validStoryPlayerName(state.playerNameDraft ?: "")
+    val presentationValid = request?.preview?.presentation == null || storyPresentationDraft(state.toneDraft, state.excludedPhrasesDraft) != null
+    val reviewed = request != null && hasReviewedCreation(request, state.playerNameDraft, state.toneDraft, state.excludedPhrasesDraft)
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.widthIn(max = minOf(560.dp, width * 0.94f)).fillMaxWidth()
             .heightIn(max = height * 0.9f).fillMaxHeight().testTag("story-creation-dialog")
@@ -74,7 +80,9 @@ internal fun StoryCreationDialog(
                     .testTag("story-creation-content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Start a story", style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.semantics { heading() })
-                    Text(if (request?.preview?.playerSetup != null)
+                    Text(if (request?.preview?.presentation != null)
+                        "Choose a starter, player name and narration style for this new story. Review the setup before creating the save."
+                        else if (request?.preview?.playerSetup != null)
                         "Choose a built-in starter and player name, review the starting facts, then name the new save. The save title does not change its rules or world."
                         else "Choose a built-in starter, review its starting facts, then name the new save. The title does not change its rules or world.")
                     if (state.busy) {
@@ -93,10 +101,12 @@ internal fun StoryCreationDialog(
                                         val selected = option.template == request.preview.template
                                         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                             .testTag("story-template-${option.template}")
-                                            .selectable(selected = selected, enabled = editing && nameValid, role = Role.RadioButton,
+                                            .selectable(selected = selected, enabled = editing && nameValid &&
+                                                (request.preview.presentation == null || reviewed), role = Role.RadioButton,
                                                 onClick = { onTemplate(request, option) }),
                                             verticalAlignment = Alignment.CenterVertically) {
-                                            RadioButton(selected = selected, enabled = editing && nameValid, onClick = null)
+                                            RadioButton(selected = selected, enabled = editing && nameValid &&
+                                                (request.preview.presentation == null || reviewed), onClick = null)
                                             Text("${option.defaultTitle} · ${ruleLabel(option.profile)}")
                                         }
                                     }
@@ -110,6 +120,35 @@ internal fun StoryCreationDialog(
                                     label = { Text("Player name") }, isError = !nameValid,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-player-name"))
                             }
+                            if (request.preview.presentation != null) {
+                                Text("Generated narration", style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.semantics { heading() })
+                                Column(Modifier.selectableGroup()) {
+                                    listOf("plain", "warm", "brisk").forEach { tone ->
+                                        key(CreationIdentity(request.preview), request.creationId, tone) {
+                                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-tone-$tone")
+                                                .selectable(selected = state.toneDraft == tone, enabled = editing, role = Role.RadioButton,
+                                                    onClick = { onTone(request, tone) }), verticalAlignment = Alignment.CenterVertically) {
+                                                RadioButton(selected = state.toneDraft == tone, enabled = editing, onClick = null)
+                                                Text(toneLabel(tone))
+                                            }
+                                        }
+                                    }
+                                }
+                                Text("Optional literal phrases to avoid in generated narration. Matching ignores letter case and can match inside a word. These are phrases, not topic filters or restrictions on your messages.")
+                                key(CreationIdentity(request.preview), request.creationId) {
+                                    OutlinedTextField(value = state.excludedPhrasesDraft.orEmpty(),
+                                        onValueChange = { onExcludedPhrases(request, it) }, enabled = editing,
+                                        label = { Text("Avoid phrases in generated narration") }, minLines = 2, maxLines = 4,
+                                        isError = !presentationValid,
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-excluded-phrases"))
+                                }
+                                if (!presentationValid) Text(
+                                    "Use up to 8 distinct phrases, one per line, with 1–64 characters each. Keep the combined list short and avoid outer spaces, control characters or blank lines.",
+                                    color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("story-presentation-error"))
+                                if (!reviewed) Text("Review setup changes before creating the story or choosing another starter.",
+                                    modifier = Modifier.testTag("story-presentation-review-required"))
+                            }
                             if (!nameValid) Text(
                                 "Use 1–64 characters without outer spaces, line breaks or control characters. Fix and review the name before changing starter.",
                                 color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("story-player-name-error"))
@@ -118,7 +157,7 @@ internal fun StoryCreationDialog(
                                 modifier = Modifier.testTag("story-player-review-required"))
                             key(CreationIdentity(request)) {
                                 OutlinedButton(onClick = { onPlayerReview(request) },
-                                    enabled = editing && nameValid && !hasReviewedPlayerName(request, state.playerNameDraft),
+                                    enabled = editing && nameValid && presentationValid && !reviewed,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-player-review")) {
                                     Text("Review changes")
                                 }
@@ -128,6 +167,10 @@ internal fun StoryCreationDialog(
                             Text("Starter · ${request.preview.defaultTitle}", style = MaterialTheme.typography.titleMedium)
                             Text(request.preview.description)
                             Text("Rules · ${ruleLabel(request.preview.profile)}")
+                            request.preview.presentation?.let { presentation ->
+                                Text("Reviewed narration tone · ${toneLabel(presentation.tone)}")
+                                presentation.excludedPhrases.forEach { Text("Avoid literal phrase: $it") }
+                            }
                             Text("Your starting view", style = MaterialTheme.typography.titleSmall)
                             request.preview.details.forEach { Text(it) }
                         }
@@ -144,7 +187,7 @@ internal fun StoryCreationDialog(
                         // semantics callback must not route through a mutable replacement onClick.
                         key(CreationIdentity(request)) {
                             Button(onClick = { onConfirm(request) }, enabled = editing && validStoryTitle(request.title) &&
-                                hasReviewedPlayerName(request, state.playerNameDraft),
+                                reviewed,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-creation-confirm")) { Text("Create") }
                         }
                     }
@@ -168,3 +211,5 @@ private fun ruleLabel(profile: String) = when (profile) {
     "narrative_v1" -> "Narrative"
     else -> "Starter-defined"
 }
+
+private fun toneLabel(tone: String) = when (tone) { "plain" -> "Plain"; "warm" -> "Warm"; "brisk" -> "Brisk"; else -> "Unknown" }

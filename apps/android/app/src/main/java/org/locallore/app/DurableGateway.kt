@@ -4,6 +4,7 @@ package org.locallore.app
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
@@ -419,6 +420,20 @@ internal class DurableGateway(
         val preview = StoryCreationWire.setupPreview(data)
         if (preview.template != template || (playerName != null && preview.playerSetup?.playerName != playerName))
             throw WorkspaceFailure("Malformed")
+        return preview
+    }
+    override suspend fun presentationPreview(template: String, playerName: String?, presentation: StoryPresentation?): StoryCreationPreview {
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        if (operation != null) throw WorkspaceFailure("Busy")
+        val expected = presentation?.let { it.copy(excludedPhrases = Collections.unmodifiableList(ArrayList(it.excludedPhrases))) }
+            ?: StoryPresentation()
+        val settings = if (presentation == null) JSONObject.NULL else StoryCreationWire.presentation(expected)
+        val data = call(command("story_presentation").put("template", template)
+            .put("player_name", playerName ?: JSONObject.NULL).put("presentation", settings))
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        val preview = StoryCreationWire.presentationPreview(data)
+        if (preview.template != template || (playerName != null && preview.playerSetup?.playerName != playerName) ||
+            preview.presentation != expected) throw WorkspaceFailure("Malformed")
         return preview
     }
     override suspend fun create(request: StoryCreationRequest): SavedSnapshot {

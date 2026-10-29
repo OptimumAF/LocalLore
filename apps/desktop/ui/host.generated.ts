@@ -32,6 +32,18 @@ export type HostCommand =
           template: string;
       }
     | {
+          op: "story_presentation";
+          player_name?: string | null;
+          presentation?: StoryPresentationV1 | null;
+          template: string;
+      }
+    | {
+          expected_revision: number;
+          op: "story_presentation_view";
+          scope: Scope;
+          session: string;
+      }
+    | {
           creation_id: string;
           op: "create_named";
           seed_sha256: string;
@@ -42,6 +54,16 @@ export type HostCommand =
           creation_id: string;
           op: "create_configured";
           player_name: string;
+          setup_sha256: string;
+          template: string;
+          template_sha256: string;
+          title: string;
+      }
+    | {
+          creation_id: string;
+          op: "create_presented";
+          player_name: string;
+          presentation: StoryPresentationV1;
           setup_sha256: string;
           template: string;
           template_sha256: string;
@@ -170,6 +192,7 @@ export type HostCommand =
           scope: Scope;
           session: string;
       };
+export type StoryTone = "plain" | "warm" | "brisk";
 export type Mode =
     "accepted" | "delayed" | "malformed" | "rejected" | "failed" | "cancelled";
 /**
@@ -291,6 +314,11 @@ export interface Envelope {
 export interface Scope {
     branch: string;
     story: string;
+}
+export interface StoryPresentationV1 {
+    excluded_phrases: string[];
+    tone: StoryTone;
+    version: number;
 }
 export interface Request {
     expected_revision: number;

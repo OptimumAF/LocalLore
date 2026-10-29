@@ -664,6 +664,7 @@ fn historical_v2_replay_preserves_original_input_without_an_inference_provider()
                 "cached_event_candidates":0,"raw_event_candidates":0}
         })).unwrap()),
         context_policy: Some(locallore::play::PlayContextPolicy::StateRelevantMemoryV1),
+        story_presentation: None,
     };
     engine.commit_play(&request, &proposal, &record).unwrap();
     commit(&mut engine, "later", vec![Command::Wait { ticks: 1 }]);

@@ -58,11 +58,18 @@ internal object StoryCreationWire {
         if (!validStoryTemplateProfile(request.preview.template, request.preview.profile) || !hash.matches(request.preview.seedSha256) ||
             !creationId.matches(request.creationId)) throw WorkspaceFailure("Malformed")
         val setup = request.preview.playerSetup
+        if (setup == null && request.preview.presentation != null) throw WorkspaceFailure("Malformed")
         if (setup == null) return JSONObject().put("op", "create_named").put("template", request.preview.template)
             .put("seed_sha256", request.preview.seedSha256).put("title", request.title).put("creation_id", request.creationId)
         if (!validStoryPlayerName(setup.playerName)) throw WorkspaceFailure("InvalidInput")
         if (!hash.matches(setup.templateSha256) || !hash.matches(setup.setupSha256) ||
             setup.templateSha256 != request.preview.seedSha256) throw WorkspaceFailure("Malformed")
+        request.preview.presentation?.let { settings ->
+            return JSONObject().put("op", "create_presented").put("template", request.preview.template)
+                .put("template_sha256", setup.templateSha256).put("setup_sha256", setup.setupSha256)
+                .put("player_name", setup.playerName).put("presentation", presentation(settings))
+                .put("title", request.title).put("creation_id", request.creationId)
+        }
         return JSONObject().put("op", "create_configured").put("template", request.preview.template)
             .put("template_sha256", setup.templateSha256).put("setup_sha256", setup.setupSha256)
             .put("player_name", setup.playerName).put("title", request.title).put("creation_id", request.creationId)
@@ -81,6 +88,27 @@ internal object StoryCreationWire {
             .put("description", data.get("description")).put("profile", data.get("profile")).put("details", data.get("details"))
         preview(metadata).copy(playerSetup = StoryPlayerSetup(templateHash, setupHash, name))
     } catch (_: Exception) { throw WorkspaceFailure("Malformed") }
+    fun presentationPreview(data: JSONObject): StoryCreationPreview = try {
+        check(data.toString().toByteArray(Charsets.UTF_8).size <= 16384)
+        fields(data, setOf("version", "template", "template_sha256", "setup_sha256", "default_title",
+            "description", "profile", "player_name", "presentation", "details"))
+        val settings = data.get("presentation") as JSONObject
+        fields(settings, setOf("version", "tone", "excluded_phrases"))
+        version(settings)
+        val rows = settings.get("excluded_phrases") as JSONArray
+        check(rows.length() <= 8)
+        val phrases = (0 until rows.length()).map { rows.get(it) as String }
+        val presentation = StoryPresentation(settings.get("tone") as String, Collections.unmodifiableList(phrases))
+        check(validStoryPresentation(presentation))
+        val setup = JSONObject()
+        for (key in data.keys()) if (key != "presentation") setup.put(key, data.get(key))
+        setupPreview(setup).copy(presentation = presentation)
+    } catch (_: Exception) { throw WorkspaceFailure("Malformed") }
+
+    fun presentation(value: StoryPresentation): JSONObject {
+        if (!validStoryPresentation(value)) throw WorkspaceFailure("InvalidInput")
+        return JSONObject().put("version", 1).put("tone", value.tone).put("excluded_phrases", JSONArray(value.excludedPhrases))
+    }
     private fun version(data: JSONObject) {
         val version = data.get("version")
         check((version is Int || version is Long) && (version as Number).toLong() == 1L)

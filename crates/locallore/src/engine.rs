@@ -482,6 +482,7 @@ impl Engine {
         if narration != receipt.narration {
             return Err(Error::Narration);
         }
+        self.validate_story_narration(narration)?;
         self.append_play(receipt.clone())?;
         Ok(receipt)
     }
@@ -502,6 +503,30 @@ impl Engine {
         record: &crate::play::PlayRecord,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
+        if record.prompt_version == crate::play::LITERAL_PRESENTATION_PROMPT_VERSION_V1 {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let staged = self.stage_play_v25(request, proposal, &|| false)?;
+            return self.commit_staged_literal_presentation_play_history_v1(
+                staged,
+                record,
+                &|| false,
+                recorded_history,
+            );
+        }
+        if record.prompt_version == crate::play::PRESENTATION_PROMPT_VERSION {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let staged = self.stage_play_v25(request, proposal, &|| false)?;
+            return self.commit_staged_presentation_play_history_v1(
+                staged,
+                record,
+                &|| false,
+                recorded_history,
+            );
+        }
         if record.prompt_version == crate::play::LITERAL_PLAY_PROMPT_VERSION_V1 {
             if let Some(receipt) = self.recorded(request)? {
                 return Ok(receipt);
@@ -537,10 +562,25 @@ impl Engine {
         }
         let mut receipt = self.preview(request, proposal)?;
         crate::play::validate_record(self, &receipt, record, recorded_history)?;
+        self.validate_story_narration(&record.narration.text)?;
         receipt.narration = record.narration.text.clone();
         receipt.play = Some(record.clone());
         self.append_play(receipt.clone())?;
         Ok(receipt)
+    }
+
+    /// All actual narration commit paths call this, including recorded history.
+    /// Evidence-only staging clones must remain able to describe an outcome to the narrator.
+    pub(crate) fn validate_story_narration(&self, text: &str) -> Result<(), Error> {
+        if self
+            .seed
+            .presentation
+            .as_ref()
+            .is_some_and(|p| !p.allows_narration(text))
+        {
+            return Err(Error::Narration);
+        }
+        Ok(())
     }
 
     /// Revalidate a prepared engine value; callers cannot supply accepted events as authority.
@@ -820,6 +860,13 @@ pub(crate) fn valid_id(id: &str) -> bool {
 }
 
 fn validate_seed(seed: &Seed) -> Result<(), Error> {
+    if seed
+        .presentation
+        .as_ref()
+        .is_some_and(|p| !p.validate() || p.is_default())
+    {
+        return Err(Error::Rule);
+    }
     if seed.version != VERSION {
         return Err(Error::Version);
     }

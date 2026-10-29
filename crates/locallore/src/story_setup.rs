@@ -72,6 +72,20 @@ pub struct StorySetupPreviewV1 {
     pub details: Vec<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct StoryPresentationPreviewV1 {
+    pub version: u16,
+    pub template: String,
+    pub template_sha256: String,
+    pub setup_sha256: String,
+    pub default_title: String,
+    pub description: String,
+    pub profile: String,
+    pub player_name: String,
+    pub presentation: crate::story_presentation::StoryPresentationV1,
+    pub details: Vec<String>,
+}
+
 /// Constructed only after the closed named-creation input passes native validation.
 /// This has no serde implementation: callers cannot deserialize a replacement Seed.
 pub struct NamedStarter {
@@ -317,6 +331,93 @@ pub fn prepare_configured(
     let expected_template = seed_hash(template)?;
     let expected_setup = setup_hash(&expected_template, &seed)?;
     if template_sha256 != expected_template || setup_sha256 != expected_setup {
+        return Err("Stale");
+    }
+    prepare_seed(seed, title, creation_id)
+}
+
+fn presentation_seed(
+    template: &str,
+    player_name: Option<&str>,
+    presentation: Option<&crate::story_presentation::StoryPresentationV1>,
+) -> Result<(Seed, crate::story_presentation::StoryPresentationV1), &'static str> {
+    let mut seed = configured_seed(template, player_name)?;
+    let presentation = presentation.cloned().unwrap_or_default();
+    if !presentation.validate() {
+        return Err("InvalidInput");
+    }
+    seed.presentation = (!presentation.is_default()).then(|| presentation.clone());
+    Engine::new(seed.clone()).map_err(|_| "Integrity")?;
+    Ok((seed, presentation))
+}
+
+fn presentation_hash(template_hash: &str, seed: &Seed) -> Result<String, &'static str> {
+    let mut hash = Sha256::new();
+    hash.update(b"locallore/story-presentation/v1\0");
+    hash.update(template_hash.as_bytes());
+    hash.update(b"\0");
+    hash.update(serde_json::to_vec(seed).map_err(|_| "Integrity")?);
+    Ok(format!("{:x}", hash.finalize()))
+}
+
+pub fn presentation_preview(
+    template: &str,
+    player_name: Option<&str>,
+    presentation: Option<&crate::story_presentation::StoryPresentationV1>,
+) -> Result<StoryPresentationPreviewV1, &'static str> {
+    let definition = definition(template)?;
+    let (seed, presentation) = presentation_seed(template, player_name, presentation)?;
+    let template_sha256 = seed_hash(template)?;
+    let mut details = player_details(&seed)?;
+    if seed.presentation.is_some() {
+        details.push(format!("Narration tone: {:?}", presentation.tone));
+        details.extend(
+            presentation
+                .excluded_phrases
+                .iter()
+                .map(|phrase| format!("Phrase excluded from generated narration: {phrase}")),
+        );
+    }
+    let preview = StoryPresentationPreviewV1 {
+        version: 1,
+        template: template.into(),
+        setup_sha256: presentation_hash(&template_sha256, &seed)?,
+        template_sha256,
+        default_title: definition.title.into(),
+        description: definition.description.into(),
+        profile: profile_name(&seed.profile).into(),
+        player_name: seed
+            .actors
+            .get(&seed.player)
+            .ok_or("Integrity")?
+            .name
+            .clone(),
+        presentation,
+        details,
+    };
+    if preview.details.len() > 64
+        || preview.details.iter().any(|row| row.len() > 2048)
+        || serde_json::to_vec(&preview).map_err(|_| "Integrity")?.len() > 16384
+    {
+        return Err("TooLarge");
+    }
+    Ok(preview)
+}
+
+pub fn prepare_presented(
+    template: &str,
+    template_sha256: &str,
+    setup_sha256: &str,
+    player_name: &str,
+    presentation: &crate::story_presentation::StoryPresentationV1,
+    title: &str,
+    creation_id: &str,
+) -> Result<NamedStarter, &'static str> {
+    let (seed, _) = presentation_seed(template, Some(player_name), Some(presentation))?;
+    let expected_template = seed_hash(template)?;
+    if template_sha256 != expected_template
+        || setup_sha256 != presentation_hash(&expected_template, &seed)?
+    {
         return Err("Stale");
     }
     prepare_seed(seed, title, creation_id)

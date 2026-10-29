@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [initial narration presentation](docs/native/ANDROID_STORY_PRESENTATION_2026-10-27.md)
+adds native-reviewed tone and literal phrase exclusions, retained with the story
+and checked before narration can commit. Its report separates host/build checks
+from actual Android qualification and the remaining semantic/model gates.
+
 The [initial player-name setup](docs/native/ANDROID_PLAYER_SETUP_2026-10-26.md)
 adds an editable name and explicit native review before creating a story.
 Its report records host/build checks, scripted native/player-setup execution,

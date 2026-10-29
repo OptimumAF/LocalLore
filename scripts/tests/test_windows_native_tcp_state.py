@@ -6,9 +6,16 @@ cannot grant service, SDK or device admission. No private capture is reused.
 import copy
 import hashlib
 import ipaddress
+import io
 import json
+import os
+from pathlib import Path
 import struct
+import tempfile
+from types import SimpleNamespace
 import unittest
+from contextlib import ExitStack,redirect_stdout
+from unittest.mock import patch
 
 from benchmarks import windows_native_tcp_state as n
 
@@ -280,6 +287,108 @@ class NativeAssessorTests(unittest.TestCase):
         result=n.assess_report(raw,expected);result['listener_states'][0]=999
         self.assertEqual(expected,PROCESS);self.assertEqual(raw,before)
         self.assertEqual(n.assess_report(raw,expected)['listener_states'],[2]*12)
+
+    def test_abi_scalar_coercions_and_equal_valued_float_bounds_refuse(self):
+        for offset,bad in((0,False),(1,4.0)):
+            value=report();value['abi']['basic']['field_offsets'][offset]=bad
+            with self.subTest(offset=offset):self.refused(lambda:self.assess(value))
+        for field in('allocated_bytes','returned_bytes','count'):
+            value=report();q=query(value);q[field]=float(q[field])
+            with self.subTest(field=field):self.refused(lambda:self.assess(value))
+
+
+@unittest.skipUnless(os.name=='nt','physical D: launcher fixtures require Windows')
+class NativeLauncherTests(unittest.TestCase):
+    def run_launcher(self,*,value=None,owner_change=None,source_change=False,binary_change=False,
+                     missing_started=False,worker_change=None,stderr=b''):
+        from benchmarks import receipt_avd_environment as env
+        from benchmarks import windows_tcp_control as control
+        base=Path(tempfile.mkdtemp(prefix='locallore-native-tcp-launch-',dir='D:/Dev/_Temp'))
+        binary=base/'native-control.exe';binary.write_bytes(b'synthetic executable bytes; never run')
+        source=base/'source.py';source.write_bytes(b'# synthetic source pin\n')
+        py=base/'python.exe';py.write_bytes(b'synthetic installed interpreter pin')
+        pin=env.binding(binary);output=base/'output';payload=encoded(report()if value is None else value)
+        caller=dict(pid=9001,creation_filetime=900100,executable=str(py))
+        worker=dict(PROCESS,executable=str(binary));worker.update(worker_change or {})
+        def identity(pid):
+            self.assertIn(pid,(9001,PID));return copy.deepcopy(caller if pid==9001 else worker)
+        def supervise(argv,barrier,out,seconds,started):
+            self.assertEqual(argv,[str(binary)]);self.assertEqual(barrier,b'LL_NATIVE_TCP_STATE_V1\n')
+            self.assertEqual(out,output);self.assertEqual(seconds,30)
+            if not missing_started:self.assertTrue(started(SimpleNamespace(pid=PID)))
+            (output/'owner-stdout-v1.bin').write_bytes(payload);(output/'owner-stderr-v1.bin').write_bytes(stderr)
+            if source_change:source.write_bytes(b'# changed synthetic source\n')
+            if binary_change:binary.write_bytes(b'changed synthetic binary bytes')
+            result=dict(status='child_exited',cleanup_complete=True,elapsed_ms=17,output_capture_complete=True,
+                        worker_returncode=0,stdout_bytes=len(payload),stderr_bytes=len(stderr))
+            result.update(owner_change or {});return result
+        probe=SimpleNamespace(_python_bindings=lambda:dict(executable=env.binding(py),runtime_dll=None))
+        fake_control=SimpleNamespace(_prepare_environment=lambda:None,validate_output=control.validate_output)
+        with ExitStack()as stack:
+            stack.enter_context(patch.object(n,'_runtime',return_value=(env,fake_control,probe)))
+            stack.enter_context(patch.object(n,'_source_bindings',side_effect=lambda *_:[env.binding(source)]))
+            stack.enter_context(patch.object(env,'process_identity',side_effect=identity))
+            stack.enter_context(patch.object(os,'getpid',return_value=9001))
+            owner=stack.enter_context(patch.object(env,'supervise',side_effect=supervise))
+            stack.enter_context(redirect_stdout(io.StringIO()))
+            code=n.main(['--binary',str(binary),'--binary-sha256',pin['sha256'],'--output',str(output)])
+        owner.assert_called_once()
+        return code,env.read_json(output/'result-v1.json'),output,payload
+
+    def test_known_owned_consistent_fixture_exits_zero_without_feature_admission(self):
+        code,result,out,raw=self.run_launcher()
+        self.assertEqual(code,0);self.assertIs(result['qualified_acquisition'],True)
+        self.assertIs(result['observation_consistent'],True);self.assertIs(result['feature_acceptance'],False)
+        self.assertEqual((out/'owner-stdout-v1.bin').read_bytes(),raw)
+
+    def test_acquired_unknown_native_states_exit_two_and_are_not_promoted(self):
+        code,result,_,_=self.run_launcher(value=report(listener=0,server=0,client=0))
+        self.assertEqual(code,2);self.assertTrue(result['qualified_acquisition']);self.assertFalse(result['observation_consistent'])
+        self.assertEqual(result['assessment']['listener_states'],[0]*12)
+
+    def test_failed_or_uncaptured_owner_never_qualifies(self):
+        for change in(dict(status='timeout'),dict(worker_returncode=1),dict(worker_returncode=True),
+                      dict(cleanup_complete=False),dict(output_capture_complete=False)):
+            with self.subTest(change=change):
+                code,result,_,_=self.run_launcher(owner_change=change)
+                self.assertEqual(code,1);self.assertFalse(result['qualified_acquisition'])
+
+    def test_owner_capture_counts_require_exact_integer_types(self):
+        for bad in(False,0.0):
+            with self.subTest(bad=bad):
+                code,result,_,_=self.run_launcher(owner_change=dict(stderr_bytes=bad))
+                self.assertEqual(code,1);self.assertFalse(result['qualified_acquisition'])
+
+    def test_changed_binary_or_source_pin_refuses_despite_valid_native_bytes(self):
+        for changes in(dict(source_change=True),dict(binary_change=True)):
+            with self.subTest(changes=changes):
+                code,result,_,_=self.run_launcher(**changes)
+                self.assertEqual(code,1);self.assertFalse(result['sources_equal']);self.assertIsNone(result['assessment'])
+
+    def test_missing_started_identity_or_wrong_birth_refuses(self):
+        for changes in(dict(missing_started=True),dict(worker_change=dict(creation_filetime=PROCESS['creation_filetime']+1))):
+            with self.subTest(changes=changes):
+                code,result,_,_=self.run_launcher(**changes)
+                self.assertEqual(code,1);self.assertFalse(result['qualified_acquisition'])
+
+    def test_stderr_and_malformed_acquisition_are_retained_but_not_qualified(self):
+        value=report();value['resources']['closed_mask']=3
+        for changes in(dict(stderr=b'original synthetic failure\n'),dict(value=value)):
+            with self.subTest(changes=changes):
+                code,result,out,raw=self.run_launcher(**changes)
+                self.assertEqual(code,1);self.assertFalse(result['qualified_acquisition'])
+                self.assertEqual((out/'owner-stdout-v1.bin').read_bytes(),raw)
+
+    def test_wrong_binary_hash_refuses_before_supervisor_or_output_creation(self):
+        from benchmarks import receipt_avd_environment as env
+        from benchmarks import windows_tcp_control as control
+        base=Path(tempfile.mkdtemp(prefix='locallore-native-tcp-preflight-',dir='D:/Dev/_Temp'))
+        binary=base/'control.exe';binary.write_bytes(b'synthetic executable; never run');out=base/'output'
+        fake_control=SimpleNamespace(_prepare_environment=lambda:None,validate_output=control.validate_output)
+        with patch.object(n,'_runtime',return_value=(env,fake_control,SimpleNamespace())),patch.object(env,'supervise')as owner:
+            with self.assertRaises(n.NativeControlRefused):
+                n.main(['--binary',str(binary),'--binary-sha256','0'*64,'--output',str(out)])
+        owner.assert_not_called();self.assertFalse(out.exists())
 
 
 if __name__=='__main__':unittest.main()

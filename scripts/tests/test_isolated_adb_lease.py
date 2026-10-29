@@ -588,4 +588,171 @@ class OwnerResourceTests(unittest.TestCase):
             auth.assert_not_called();port.assert_not_called();process.assert_not_called()
 
 
+class ClosedLeaseFixture:
+    """Complete original, closed receipts. All process/tool/key values are fake."""
+    def __init__(self,*,create=True):
+        from benchmarks import receipt_avd_environment as env
+        self.env=env;self.base=Path(tempfile.mkdtemp(prefix='locallore-isolated-proof-',dir='D:/Dev/_Temp'))
+        self.root=self.base/'lease-v1';self.admission=admission();self.admission['root']=str(self.root)
+        self.admission_path=self.base/'admission-v1.json';env.create_json(self.admission_path,self.admission)
+        self.admission_pin=env.binding(self.admission_path)
+        self.auth=dict(path=self.admission['auth_key'],native_profile='C:\\Users\\Synthetic',
+          metadata=dict(volume_serial=3,file_index=9,bytes=2048,attributes=0x20,
+                        creation_filetime=1001,write_filetime=1002,links=1))
+        script=next(p for p in self.admission['sources']if PureWindowsPath(p['path']).name=='isolated_adb_owner.py')
+        self.request=dict(version=1,protocol=PROTOCOL,admission=self.admission_pin,validated_admission=self.admission,
+          owner=OWNER,sources=self.admission['sources'],python=self.admission['python'],worker_script=script,owner_seconds=150)
+        self.documents={};self.proofs=[]
+        if create:self.root.mkdir();self.write()
+
+    def tables(self,obs):
+        result=[]
+        for family,size in((2,24),(23,56)):
+            rows=[row for row in obs['rows']if row['family']==family]
+            count=max((row['ordinal']+1 for row in rows),default=0)
+            raw=bytearray(struct.pack('<I',count)+bytes(count*size))
+            for row in rows:raw[4+row['ordinal']*size:4+(row['ordinal']+1)*size]=bytes.fromhex(row['raw_hex'])
+            result.append(dict(family=family,table_class=5,allocated_bytes=len(raw),returned_bytes=len(raw),
+              count=count,raw_sha256=hashlib.sha256(raw).hexdigest(),abi_checked=True))
+        return result
+
+    def proof(self,kind,port,history):
+        before=observation(row4(ordinal=1),row4(role='server',rp=port,ordinal=4),row4(role='client',lp=port,ordinal=8))
+        after=observation(row4(ordinal=1),row4(role='server',rp=port,pid=0,ordinal=4))
+        for index,old in enumerate(history):
+            before['rows'].append(row4(role='server',rp=old,pid=0,ordinal=10+index))
+            after['rows'].append(row4(role='server',rp=old,pid=0,ordinal=10+index))
+        ep=dict(local_address='127.0.0.1',local_port=port,peer_address='127.0.0.1',peer_port=PORT)
+        bracket=dict(worker=CLIENT,server=SERVER,sources=self.admission['sources'],tools=self.admission['tools'],
+          auth=self.auth,server_alive=True,socket=dict(handle=77,socket_id=100001,local_address='127.0.0.1',local_port=port))
+        request,response=(b'000Chost:version',b'OKAY00040029')if kind=='version'else(b'000Ehost:devices-l',b'OKAY0000')
+        return dict(version=1,protocol=PROTOCOL,kind=kind,admission=self.admission_pin,worker=CLIENT,server=SERVER,client=CLIENT,
+          endpoint=ep,brackets={phase:copy.deepcopy(bracket)for phase in('before_connect','before_send','after_response')},
+          observations=dict(before_send=before,after_request=after),tables=dict(before_send=self.tables(before),after_request=self.tables(after)),
+          completed_ports=list(history),request_hex=request.hex(),request_sent=True,response_hex=response.hex(),response_complete=True,
+          elapsed_ms=13,socket_closed=True,client_handle_closed=True)
+
+    def save(self,name,value):
+        path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True)
+        path.write_bytes(value if type(value)is bytes else self.env.encoded(value));return self.env.binding(path)
+
+    def write(self,*,request_existing=False):
+        if request_existing:self.request=self.env.read_json(self.root/'request-v1.json')
+        else:self.save('request-v1.json',self.request)
+        self.request_pin=self.env.binding(self.root/'request-v1.json')
+        self.documents['preflight-v1.json']=dict(observation=observation(),tables=self.tables(observation()),created_mask=1,
+          close_attempted_mask=1,closed_mask=1,exclusive_bind_succeeded=True)
+        obs=observation(row4());self.documents['readiness-v1.json']=[dict(observation=obs,tables=self.tables(obs))]
+        self.proofs=[self.proof('version',CLIENT_PORT,()),self.proof('devices',OLD_PORT,(CLIENT_PORT,))]
+        proof_pins=[self.save('proof-'+kind+'-v1.json',proof)for kind,proof in zip(('version','devices'),self.proofs)]
+        closed=running(self.admission);closed.update(admission=self.admission_pin,version_proof=proof_pins[0],devices_proof=proof_pins[1])
+        self.documents['running-v1.json']=closed
+        out=self.save('server-output-v1/owner-stdout-v1.bin',b'original synthetic server output\n')
+        err=self.save('server-output-v1/owner-stderr-v1.bin',b'')
+        self.documents['server-capture-v1.json']=dict(version=1,protocol=PROTOCOL,server=SERVER,status='terminated',returncode=7,
+          stdout=out,stderr=err,stdout_bytes=out['bytes'],stderr_bytes=0,capture_complete=True,pipes_closed=True)
+        pins={name:self.save(name,value)for name,value in self.documents.items()}
+        self.result=copy.deepcopy(dict(version=1,protocol=PROTOCOL,admission=self.admission_pin,request=self.request_pin,worker=CLIENT,server=SERVER,
+          auth=self.auth,preflight=pins['preflight-v1.json'],readiness=pins['readiness-v1.json'],proofs=proof_pins,running=pins['running-v1.json'],
+          stop_requested=True,reason='stop_requested',elapsed_ms=31,server_returncode=7,server_capture=pins['server-capture-v1.json'],
+          cleanup={key:True for key in n.CLEANUP_KEYS},sources_after=dict(sources=self.admission['sources'],python=self.admission['python'],
+          tools=self.admission['tools'],auth=self.auth)))
+        self.result_pin=self.save('worker-result-v1.json',self.result)
+
+    def mutate_document(self,name,change):
+        value=self.env.read_json(self.root/name);change(value);p=self.save(name,value)
+        key={'preflight-v1.json':'preflight','readiness-v1.json':'readiness','running-v1.json':'running','server-capture-v1.json':'server_capture'}[name]
+        self.result[key]=p;self.result_pin=self.save('worker-result-v1.json',self.result)
+
+    def mutate_proof(self,index,change):
+        name='proof-'+('version'if index==0 else'devices')+'-v1.json';value=self.env.read_json(self.root/name);change(value)
+        self.result['proofs'][index]=self.save(name,value)
+        run=self.env.read_json(self.root/'running-v1.json');run['version_proof'if index==0 else'devices_proof']=self.result['proofs'][index]
+        self.result['running']=self.save('running-v1.json',run);self.result_pin=self.save('worker-result-v1.json',self.result)
+
+    def validate(self):
+        return n.validate_worker_result(self.result_pin,self.admission,self.admission_pin,self.request_pin,CLIENT)
+
+
+@unittest.skipUnless(os.name=='nt','physical D: original deep receipts require Windows')
+class DeepReceiptTests(unittest.TestCase):
+    def setUp(self):self.f=ClosedLeaseFixture()
+
+    def refused(self,call):
+        from benchmarks import receipt_avd_environment as env
+        with self.assertRaises((n.LeaseRefused,env.EnvironmentRefused,OSError))as error:call()
+        self.assertNotIn('SYNTHETIC_PRIVATE_CANARY',str(error.exception))
+
+    def test_complete_original_closed_worker_receipts_replay_without_execution(self):
+        result=self.f.validate();self.assertEqual(result,self.f.result)
+        result['cleanup']['auth_handle_closed']=False;self.assertTrue(self.f.result['cleanup']['auth_handle_closed'])
+        self.assertEqual(result['server_returncode'],7)
+
+    def test_proof_requires_exact_worker_server_and_serialized_completed_history(self):
+        for change in(lambda p:p.update(worker=dict(CLIENT,creation_filetime=1)),
+                      lambda p:p.update(server=dict(SERVER,pid=9999)),lambda p:p.update(completed_ports=[])):
+            f=ClosedLeaseFixture();f.mutate_proof(1,change)
+            with self.subTest(change=change):self.refused(f.validate)
+
+    def test_partial_or_wrong_frame_never_becomes_a_complete_proof(self):
+        for field,bad in(('request_sent',False),('response_complete',False),('response_hex',b'OKAY0000'.hex()),
+                         ('socket_closed',False),('client_handle_closed',1),('elapsed_ms',3001)):
+            f=ClosedLeaseFixture();f.mutate_proof(0,lambda p:p.update({field:bad}))
+            with self.subTest(field=field):self.refused(f.validate)
+
+    def test_proof_same_socket_auth_and_source_brackets_cannot_be_swapped(self):
+        changes=(lambda p:p['brackets']['after_response']['socket'].update(handle=78),
+          lambda p:p['brackets']['before_send']['auth']['metadata'].update(file_index=10),
+          lambda p:p['brackets']['after_response']['sources'][0].update(sha256='0'*64),
+          lambda p:p['brackets']['before_send'].update(server_alive=False))
+        for change in changes:
+            f=ClosedLeaseFixture();f.mutate_proof(0,change);self.refused(f.validate)
+
+    def test_tables_require_full_family_roster_abi_count_and_raw_bounds(self):
+        changes=(lambda p:p['tables']['before_send'].pop(),
+          lambda p:p['tables']['before_send'][0].update(abi_checked=1),
+          lambda p:p['tables']['before_send'][0].update(count=1),
+          lambda p:p['tables']['before_send'][0].update(returned_bytes=3),
+          lambda p:p['tables']['before_send'][0].update(raw_sha256='not-a-hash'))
+        for change in changes:
+            f=ClosedLeaseFixture();f.mutate_proof(0,change);self.refused(f.validate)
+
+    def test_pre_send_pid_zero_and_missing_listener_after_response_refuse(self):
+        for phase in('before_send','after_request'):
+            f=ClosedLeaseFixture()
+            def change(p):
+                if phase=='before_send':p['observations'][phase]['rows'][1]=row4(role='server',pid=0,ordinal=4)
+                else:p['observations'][phase]['rows'].pop(0)
+            f.mutate_proof(0,change)
+            with self.subTest(phase=phase):self.refused(f.validate)
+
+    def test_worker_server_capture_identity_counts_cleanup_and_closed_keys(self):
+        for change in(lambda c:c.update(server=dict(SERVER,creation_filetime=1)),lambda c:c.update(stdout_bytes=True),
+                      lambda c:c.update(stdout_bytes=9999),lambda c:c.update(capture_complete=False),
+                      lambda c:c.update(pipes_closed=False),lambda c:c.update(returncode=0),
+                      lambda c:c.update(private_rows='SYNTHETIC_PRIVATE_CANARY')):
+            f=ClosedLeaseFixture();f.mutate_document('server-capture-v1.json',change);self.refused(f.validate)
+
+    def test_server_output_tamper_and_missing_bound_capture_refuse(self):
+        (self.f.root/'server-output-v1/owner-stdout-v1.bin').write_bytes(b'changed synthetic output')
+        self.refused(self.f.validate)
+        f=ClosedLeaseFixture();(f.root/'server-capture-v1.json').unlink();self.refused(f.validate)
+
+    def test_cleanup_false_bad_stop_reason_or_changed_sources_never_qualify(self):
+        for change in(lambda r:r['cleanup'].update(auth_handle_closed=False),lambda r:r.update(stop_requested=False),
+                      lambda r:r.update(server_returncode=True),lambda r:r['sources_after']['tools'][0].update(sha256='0'*64)):
+            f=ClosedLeaseFixture();change(f.result);f.result_pin=f.save('worker-result-v1.json',f.result)
+            self.refused(f.validate)
+
+    def test_preflight_and_readiness_evidence_must_have_own_closed_bind(self):
+        self.f.mutate_document('preflight-v1.json',lambda p:p.update(close_attempted_mask=0));self.refused(self.f.validate)
+        f=ClosedLeaseFixture();f.mutate_document('readiness-v1.json',lambda r:r[-1]['observation'].update(rows=[]));self.refused(f.validate)
+
+    def test_swapped_proof_order_and_worker_result_hash_refuse(self):
+        self.f.result['proofs'].reverse();self.f.result_pin=self.f.save('worker-result-v1.json',self.f.result)
+        self.refused(self.f.validate)
+        f=ClosedLeaseFixture();pin=dict(f.result_pin,sha256='0'*64)
+        self.refused(lambda:n.validate_worker_result(pin,f.admission,f.admission_pin,f.request_pin,CLIENT))
+
+
 if __name__=='__main__':unittest.main()

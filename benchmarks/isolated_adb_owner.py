@@ -109,7 +109,7 @@ class _FileInformation(ctypes.Structure):
 class AuthKeyGuard:
     """A metadata-only native key lease. FILE_SHARE_READ denies write/delete."""
     def __init__(self):
-        self.kernel=None;self.key=None;self.handles=set();self.failed_close=False;self.descriptor=None
+        self.kernel=None;self.key=None;self.handles=set();self.close_attempted=set();self.failed_close=False;self.descriptor=None
 
     def _plain(self,path,directory=False):
         for part in (path,*path.parents):
@@ -121,6 +121,10 @@ class AuthKeyGuard:
     def _open_read(self,path):
         handle=self.kernel.CreateFileW(str(path),0x80000000,1,None,3,0x00200000,None)
         _need(handle not in (None,0,ctypes.c_void_p(-1).value),"auth")
+        _need(handle not in self.handles,"auth")
+        # A new successful open may reuse a previously KNOWN-closed value.
+        # Uncertain values remain in handles and cannot be silently adopted.
+        self.close_attempted.discard(handle)
         self.handles.add(handle)
         return handle
 
@@ -135,6 +139,8 @@ class AuthKeyGuard:
         return metadata
 
     def _close(self,handle):
+        if handle in self.close_attempted:return False
+        self.close_attempted.add(handle)
         try:
             ok=bool(self.kernel.CloseHandle(handle))
         except (OSError,ValueError):
@@ -261,11 +267,12 @@ class ServerCapture:
 
 class ProcessHandles:
     def __init__(self,api):
-        self.api=api;self.handles={};self.failed_close=False
+        self.api=api;self.handles={};self.close_attempted=set();self.failed_close=False
 
     def add(self,pid,expected=None):
         handle=self.api.open_process(pid)
         _need(handle not in self.handles,"identity")
+        self.close_attempted.discard(handle)
         self.handles[handle]=None
         value=self.api.identity(handle)
         _need(self.api.alive(handle) and (expected is None or _same(value,expected)),"identity")
@@ -277,6 +284,8 @@ class ProcessHandles:
             _need(value is not None and self.api.alive(handle) and _same(self.api.identity(handle),value),"identity")
 
     def release(self,handle):
+        if handle in self.close_attempted:return False
+        self.close_attempted.add(handle)
         try:closed=self.api.close_handle(handle) is True
         except (OSError,ValueError):closed=False
         if closed:self.handles.pop(handle,None)

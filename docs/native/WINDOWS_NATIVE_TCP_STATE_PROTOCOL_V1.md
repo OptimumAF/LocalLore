@@ -73,7 +73,9 @@ elapsed_ms              nonnegative integer from native monotonic clock
 20/4/[0,4,8,12,16],28/4/[0,4,8,12,16,20,24]. Values are emitted using actual
 sizeof/offsetof expressions and checked independently by the Python reader.
 
-Each stage has exactly `stage`, `acceptconn`, `queries`. Each query has exactly
+Each stage has exactly `stage`, `acceptconn`, `queries`. `acceptconn` is exact
+int0..1: zero retains a valid acquired but inconsistent diagnostic, not a retry.
+Each query has exactly
 `name`, `initial_code`, `final_code`, `allocated_bytes`, `returned_bytes`, `count`,
 `rows`. Codes and sizes are exact nonnegative DWORDs; success needs initial122
 (or0 with a valid nonzero allocation), final0 and bounded complete count/stride.
@@ -127,10 +129,13 @@ a valid acquired diagnostic result, never service admission. Listener states
 are12 ordered integers (four queries per phase); connection_states is6 ordered
 objects `{stage,query,server,client}` for connected/exchanged × owner_all/basic/
 owner2, preserving every DWORD. Every listener path must uniquely contain the
-listener tuple; every all-connection path must uniquely contain the reciprocal
+listener-local tuple; every all-connection path must uniquely contain the reciprocal
 owned connection tuples, with exact PID where supplied. Consistency requires
 all listener raw states2, all server/client connection states5 and acceptconn1.
-Unknown values remain raw and yield observation_consistent=false.
+Unknown state values remain raw and yield observation_consistent=false. Select
+server/client roles by their exact reciprocal endpoint tuples before assigning
+the one remaining listener-local row. Never select roles from raw state, and do
+not require listener remote fields (undefined for LISTEN) to be zero.
 
 Independent synthetic/adversarial tests must cover those distinctions and fixed
 resource/command/source/capture limits before the ONE actual native control.

@@ -435,3 +435,34 @@ format-equality proof, separate-author production and actual verification after
 the companion gate. Actual hidden-WebView/IPC, wide/narrow geometry/images and
 individual image inspection remain later gates. Both needs-improvement human
 assessments, historical absent causes and dependency/merge restrictions stand.
+
+## Root allocation after immutable FIRST handoff — 2026-10-29
+
+Root accepts source freeze `99b400c6` from `4bdf9c24` for separate-author
+implementation. Claim and exact original hashes/counts:
+[#29 comment6500763519](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6500763519).
+The nine Rust groups and 151 authored frontend cases remain unregistered,
+uncompiled and unrun; their existence is not a pass or behavioral RED.
+
+Refine scheduling only for isolated production source authoring while the
+coordinator's broad companion checks still run at unchanged `272c8bb5`.
+All eleven companion groups have passed inside that run, but complete Eval and
+desktop component gates remain required. No second heavy workload, desktop
+integration/execution or qualification is authorized by this scheduling choice.
+
+Root owns only `ui/comparison-reader-model.ts`,
+`ui/comparison-reader-controller.ts` and `ui/ComparisonReaderPanel.tsx` on
+`impl/d07-narration-diagnostic-desktop-frontend-v1` in the released selected
+checkout. Different author `main_window_backport_review` owns only
+`comparison_commands.rs`, `evaluation.rs` and `evaluation/comparison.rs` on
+`impl/d07-narration-diagnostic-desktop-native-v1` in the released reader checkout.
+These paths are relative to their existing desktop UI/native directories.
+No tests, fixtures, schemas, contracts, old action semantics, Host/provider,
+full-run/index/selected paths or timeout/held-I/O seams may change.
+
+Root retains registrations, reconciliation, formatter-equality proof, actual
+checks, later explicitly frozen finite development-harness controls and evidence.
+Source authors perform source/Git/whitespace checks only: no compiler, formatter,
+Cargo, Node, browser/app, assets/model, device, new OS probe or desktop execution.
+Independent review and full native IPC/render/geometry/image gates remain later.
+No task, quality, dependency, security or merge acceptance follows.

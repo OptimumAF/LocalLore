@@ -106,3 +106,13 @@ author_artifacts, prior_import_raw)` additionally binds the native report's full
 hashes/counts and its outcome to the original returned native envelope. Neither
 function reads files, invokes a model/native engine or repairs model output.
 Host source/APK/target/owner/JUnit/CLI provenance remains independently required.
+
+The three host readers additionally accept keyword-only
+`expected_prompt_version`, with the strict legacy default `initial-world-v1`.
+The caller may explicitly select `initial-world-v1.1` for the player/NPC prompt
+revision. A completed proof's canonical origin must match that exact selection;
+the reader never chooses a cohort from archive data. Unknown or non-string
+selectors refuse. Schema and proof versions remain unchanged. A generation
+refusal contains no committed origin, so accepting its diagnostic bindings does
+not establish the prompt revision: source/APK and runtime admission must bind it.
+Existing recorded v1 proofs retain their original default-reader result.

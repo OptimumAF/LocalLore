@@ -311,7 +311,13 @@ def _traces(values, response_bytes):
     _need(all(count == 0 for count in status["counts"].values()), "traces")
 
 
-def _archive(value, story, generated, review, profile, input_hash, review_hash):
+def _expected_prompt_version(value):
+    # Caller-selected source cohort, never inferred from untrusted archive data.
+    _need(type(value) is str and value in ("initial-world-v1", "initial-world-v1.1"), "provenance")
+    return value
+
+
+def _archive(value, story, generated, review, profile, input_hash, review_hash, expected_prompt_version):
     _object(value, ("format", "version", "canonicalization", "privacy", "payload", "integrity"))
     _need(value["format"] == "locallore-playable-archive" and type(value["version"]) is int and value["version"] == 1
           and value["canonicalization"] == "locallore-json-v1" and value["privacy"] == "full_private", "canonical")
@@ -331,7 +337,7 @@ def _archive(value, story, generated, review, profile, input_hash, review_hash):
     generation = _object(origin["generation"], ("input", "proposal", "model_profile", "model_configuration", "provider", "prompt_version", "schema_version", "response", "response_sha256"))
     _need(generation["provider"] == "local" and generation["model_profile"] == profile["id"]
           and _equal(generation["model_configuration"], profile) and _equal(generation["input"], INPUT)
-          and _equal(generation["proposal"], generated["proposal"]) and generation["prompt_version"] == "initial-world-v1"
+          and _equal(generation["proposal"], generated["proposal"]) and generation["prompt_version"] == expected_prompt_version
           and generation["schema_version"] == "initial-world-v1", "provenance")
     response = _text(generation["response"], 1, 8192).encode("utf-8")
     _need(_digest(generation["response_sha256"]) == _sha(response), "provenance")
@@ -353,7 +359,7 @@ def _archive(value, story, generated, review, profile, input_hash, review_hash):
     return seed, len(response)
 
 
-def _author(raw, artifacts, prior_import_raw):
+def _author(raw, artifacts, prior_import_raw, expected_prompt_version):
     prior = _import(prior_import_raw)
     value = _json(raw)
     _complete(value, "original_author_model_v1", ("version", "scope", "status", "stage", "reason", "process", "package", "prior_import_sha256", "profile", "job", "input_sha256", "review_sha256", "creation_id", "records", "traces", "elapsed_ms"))
@@ -405,7 +411,7 @@ def _author(raw, artifacts, prior_import_raw):
     _scope(snapshot["scope"], story)
     _need(type(snapshot["revision"]) is int and snapshot["revision"] == 0 and snapshot["rules"] == "narrative_v1"
           and snapshot["receipts"] == [], "canonical")
-    seed, response_bytes = _archive(decoded["archive-v1.json"], story, generated, review, value["profile"], value["input_sha256"], value["review_sha256"])
+    seed, response_bytes = _archive(decoded["archive-v1.json"], story, generated, review, value["profile"], value["input_sha256"], value["review_sha256"], expected_prompt_version)
     player = _object(snapshot["player"], ("version", "scope", "revision", "observer", "seed_source", "self_state", "facts", "observations", "beliefs"))
     _scope(player["scope"], story)
     _need(type(player["version"]) is int and player["version"] == 1 and type(player["revision"]) is int and player["revision"] == 0
@@ -418,10 +424,12 @@ def _author(raw, artifacts, prior_import_raw):
     return value
 
 
-def validate_author(raw: bytes, artifacts: Mapping[str, bytes], prior_import_raw: bytes) -> dict:
-    """Validate closed proof metadata/provenance; no IO, engine, model or SDK call."""
+def validate_author(raw: bytes, artifacts: Mapping[str, bytes], prior_import_raw: bytes, *,
+                    expected_prompt_version="initial-world-v1") -> dict:
+    """Bind a caller-selected prompt cohort; the default stays strictly legacy v1."""
     try:
-        return _author(raw, artifacts, prior_import_raw)
+        expected = _expected_prompt_version(expected_prompt_version)
+        return _author(raw, artifacts, prior_import_raw, expected)
     except ProofRefused:
         raise
     except (ValueError, TypeError, KeyError, UnicodeError, OverflowError, RecursionError):

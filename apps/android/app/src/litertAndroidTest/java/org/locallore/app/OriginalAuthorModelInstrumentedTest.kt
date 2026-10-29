@@ -237,7 +237,7 @@ class OriginalAuthorModelInstrumentedTest {
                 same(OriginalStoryWire.input(input), generation.getJSONObject("input")); same(OriginalStoryWire.proposal(generated.proposal), generation.getJSONObject("proposal"))
                 same(phase.profile, generation.getJSONObject("model_configuration"))
                 check(generation.getString("model_profile") == checkNotNull(phase.profile).getString("id") && generation.getString("provider") == "local")
-                check(generation.getString("prompt_version") == "initial-world-v1" && generation.getString("schema_version") == "initial-world-v1")
+                check(generation.getString("prompt_version") == "initial-world-v1.1" && generation.getString("schema_version") == "initial-world-v1")
                 val response = localUtf8(generation.getString("response")); check(response.size in 1..8192)
                 check(sha(response) == generation.getString("response_sha256")); same(parse(response), generation.getJSONObject("proposal"))
                 NativeArchive.close(archive)

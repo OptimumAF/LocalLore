@@ -8,7 +8,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const PROMPT_VERSION: &str = "initial-world-v1";
+pub const PROMPT_VERSION: &str = "initial-world-v1.1";
+/// Historical initial-world records retain their original prompt provenance.
+pub const LEGACY_PROMPT_VERSION_V1: &str = "initial-world-v1";
 pub const SCHEMA_VERSION: &str = "initial-world-v1";
 pub const MAX_INPUT_BYTES: usize = 4096;
 pub const MAX_PROPOSAL_BYTES: usize = 8192;
@@ -494,7 +496,10 @@ fn validate_record(origin: &InitialWorldOriginV1) -> Result<(), String> {
     sized(origin, MAX_ORIGIN_BYTES)?;
     if origin.version != 1
         || !crate::story_setup::valid_title(&origin.title)
-        || origin.generation.prompt_version != PROMPT_VERSION
+        || !matches!(
+            origin.generation.prompt_version.as_str(),
+            PROMPT_VERSION | LEGACY_PROMPT_VERSION_V1
+        )
         || origin.generation.schema_version != SCHEMA_VERSION
         || !profile_id(&origin.generation.model_profile)
         || origin.generation.response.len() > MAX_PROPOSAL_BYTES

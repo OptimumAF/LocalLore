@@ -120,3 +120,27 @@ Frozen source/build/guest evidence remains untouched. Any future runtime use
 needs new source/build admission and applicable device/guest authorization;
 the full restart, physical/ARM64, sustained performance and app journey gates
 remain open.
+
+## Full host verification
+
+At fixed checkpoint `e297ab3cd2c63ce0e54d58a43c86734b2cfa8bf5`, actual full
+discovery passes **2,263 unique tests**, zero failures/errors/skips/exclusions.
+The finite owner exits 0 after **438,352 ms**, with known cleanup/capture and
+empty stderr. All **2,230 tracked raw source hashes** remain stable. Covered
+Python auditing records zero forbidden IO attempts; eight exact standard-library
+null-sink opens are recorded separately. New tests use synthetic files and fake
+streams; no Android/SDK/native-device action occurs.
+
+Exact executed command from the physical D: integration worktree, with all three
+temporary-directory environment variables set to `D:\Dev\_Temp`:
+
+```powershell
+python -I -S -B D:/Dev/Experiments/LocalLore/2026-10-29-stream-hash-v1/check-host-v1.py all full-host-v1
+```
+
+The retained finite fixture runner SHA256 is
+`ba9f5350facf9dfa60a36cf6dc81e5e9eb5e94eee43f194e87cd5f9d832a6ca2`;
+full result SHA256 is
+`933463e4e568c650a6874225d718ff9310c2addeb4af1beb1204710159b0d01f`.
+The subsequent report commit adds only this verification section. It does not
+change production, tests, the frozen comparison or any runtime evidence.

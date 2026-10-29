@@ -134,7 +134,7 @@ class ControllerFlow:
                 return len(raw)
         with ExitStack()as stack:
             for target,name,value in((c,'_verify_inputs',lambda*a:(copy.deepcopy(g.a),copy.deepcopy(self.manifest))),
-                (c.LiveOwnedRestartTarget,'__init__',initialize),(c.LiveOwnedRestartTarget,'guard',lambda*a:None),
+                (c.LiveOwnedRestartTarget,'__init__',initialize),(c.LiveOwnedRestartTarget,'guard',lambda*a,**kw:None),
                 (c.LiveOwnedRestartTarget,'fast_guard',lambda*a:None),(c.LiveOwnedRestartTarget,'prove',lambda live,*a,**kw:self.prove(live,*a,**kw)),
                 (c.LiveOwnedRestartTarget,'close',close),(c.OwnedRestartSdkCapture,'stream',stream),
                 (wire.environment,'check_binding',check),(wire.socket,'socket',lambda*a:Socket()),(wire.threading,'Thread',InlineSender)):

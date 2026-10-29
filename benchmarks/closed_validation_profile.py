@@ -8,6 +8,7 @@ Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 import argparse
 import contextlib
 import copy
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -34,20 +35,28 @@ def need(value, reason):
         raise ValueError(reason)
 
 
-def pin(path):
+def metadata(path):
     need(isinstance(path, (str, Path)) and Path(path).suffix.lower() == ".json", "metadata_filename")
     path = env.safe_path(path)
     need(path.drive.upper() == "D:", "physical_D")
-    need(path.stat().st_size <= CAP, "metadata_size")
-    return env.binding(path)
+    need(0 < path.stat().st_size <= CAP, "metadata_size")
+    with path.open("rb") as stream:
+        data = stream.read(CAP + 1)
+    need(0 < len(data) <= CAP, "metadata_size")
+    return dict(path=str(path), bytes=len(data), sha256=hashlib.sha256(data).hexdigest()), data
+
+
+def pin(path):
+    return metadata(path)[0]
 
 
 def read(binding):
     need(type(binding) is dict and set(binding) == {"path", "bytes", "sha256"}, "binding")
     need(type(binding["path"]) is str and type(binding["bytes"]) is int and 0 <= binding["bytes"] <= CAP and
          type(binding["sha256"]) is str and re.fullmatch("[0-9a-f]{64}", binding["sha256"]) is not None, "binding")
-    need(pin(binding["path"]) == binding, "binding_changed")
-    return env.read_json(binding["path"], cap=CAP)
+    actual, data = metadata(binding["path"])
+    need(actual == binding, "binding_changed")
+    return env.decode_json(data)
 
 
 def same_path(binding, wanted):
@@ -150,6 +159,7 @@ def prepare(plan):
         proof = read(binding)
         need(type(proof["queries"]) is dict and Path(proof["queries"]["path"]) ==
              expected.with_name(expected.stem + "-queries-v1.json"), "canonical_path")
+        read(proof["queries"])  # Same strict shape and bounded bytes as top-level metadata.
         need(proof["caller"] == started["worker"] and proof["context"] == context and
              proof["session"] == plan["session"], "proof_caller")
         proofs[phase] = (binding, context, proof["queries"])
@@ -267,8 +277,13 @@ def worker(output, request_sha):
     frozen.update({plan[role]["path"]: plan[role] for role in ROLES})
     for binding, _, queries in case["proofs"].values():
         frozen.update({binding["path"]: binding, queries["path"]: queries})
-    for binding in frozen.values():
-        env.check_binding(binding)
+    def check_frozen():
+        for binding in frozen.values():
+            if Path(binding["path"]).suffix.lower() == ".json":
+                need(pin(binding["path"]) == binding, "binding_changed")
+            else:
+                env.check_binding(binding)
+    check_frozen()
     # Resolve the already-loaded interpreter DLL location before audit/profiling.
     # The unchanged inputs phase repeats its own lookup; no former PID is queried.
     contract.revalidate_inputs(copy.deepcopy(case["admission"]))
@@ -291,8 +306,7 @@ def worker(output, request_sha):
                     observed = action(phase, plan, case)
             rows.append(dict(phase=phase, iteration=iteration + 1, observed=observed,
                              costs=sample.snapshot(), reads=observer.snapshot()))
-    for binding in frozen.values():
-        env.check_binding(binding)
+    check_frozen()
     need(prepare(read(request["plan"])) == case and request["sources"] == sources(), "input_or_source_changed")
     env.check_binding(request_pin)
     env.create_json(output / "profile-v1.json", dict(version=1, scope="closed-validation-profile-v1",

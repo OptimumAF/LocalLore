@@ -109,3 +109,59 @@ Actual kernel/SELinux behavior, same-boot Android restart, phone/ARM64, quality,
 performance and full milestone acceptance remain unqualified. The next gate is
 current-source Android build plus actual-build-bound simulated result replay,
 then a concrete fresh execution scope requiring applicable user authorization.
+
+## Later approved preparation and failed initial proof
+
+The human explicitly approved the fresh API35/x86_64 D guest,8GiB/four cores,
+30-minute limit, isolated APK/helper installation, local model copy/import,
+one AUTHOR attempt and passive restart. The received reply is bound separately
+to the original proposal; pending proposal bytes are never overwritten.
+Actual host admission passes with29,887,803,392B available memory and
+22,689,005,568B available commit, above the unchanged floors. SDK guest creation
+completes in3,804ms with exit0/known child cleanup; preparation and final immutable
+checks pass. SDK stderr is recorded as645B, not an empty-stream claim. The guest
+is prepared but **never booted** in this attempt. The existing local model is
+rehashed successfully; no model copy or inference occurs.
+
+At the frozen `d05143d5` source/build, the first isolated target owner fails.
+Parent supervision ends in6,977ms, exit1, known capture/cleanup and empty streams.
+The created private ADB process is terminated/waited and its handles/pipes/capture
+close; the nine created-resource closure flags are true. Six guest flags remain
+false because no guest was created. Do not report all15 shutdown flags passing.
+No devices-list proof, boot claim, launcher, guest, ready descriptor, SDK session,
+model transfer/import, AUTHOR or passive restart is produced.
+
+The captured complete version reply is `OKAY00040029`. Both original v2
+observation/table validators pass with their raw state bytes unchanged. Exact
+closed proof replay rejects **budget:3,219ms exceeds3,000ms**. The worker's generic
+`proof` result and parent's generic `owner` result do not identify TCP state as
+the rejecting predicate. Full proof SHA256:
+`0e957c7825ea97c2877bb2504f6c99557da824f2e0988a8cc21c5c90d0844ff8`.
+The final post-response bracket and checked close are present; existing data
+cannot distinguish final-bracket versus cleanup-tail expiration. No original
+stage durations are invented, and no live retry is made to seek a favorable
+measurement. Independent read-only replays agree.
+
+Exactly three subsequent unchanged host-only input-validation calls take
+466.35ms,503.98ms and538.32ms, with2,078 source pins unchanged and44 unique assets
+totaling70,258,426B. This is current-host cost evidence, not causal attribution
+to the earlier3,219ms. The source has five whole-target validations per initial
+exchange, including two outside its three mandatory cryptographic brackets.
+
+The focused implementation at `48aa2965` retains full source/tool/auth/identity
+checks before connect, before send and after response. Only redundant outer
+checks become held-identity/clock/stop/capture/auth checks plus the small server
+admission binding. The three-second total, frames, raw observations, closure
+checks and readers remain unchanged. The first original nine synthetic guard
+tests fail five cost/count/sequence assertions, with no resource-leak claim;
+the same nine pass after the fix. The complete-response3,219ms and exact3,000ms
+refusals remain required. The test cost model is synthetic and does not label
+an unmeasured stage of the original attempt.
+
+New-source integrated/build checks and explicit metadata rebinding are required
+before further live use. Preserve the failed owner namespace and the prepared,
+unbooted guest; do not overwrite old grants, source cohorts, proofs or claims.
+The original approved first boot/import/AUTHOR scope has not been exercised.
+Actual Android restart, model execution for this packet and full milestone
+acceptance remain unqualified. The other emulator, shared ADB service and system
+settings are untouched; no merge, release, private upload or weight download.

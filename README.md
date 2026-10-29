@@ -28,6 +28,12 @@ adds actual host process-death/PLAYER retry checks and a compiled passive Androi
 method. Android external process death remains unrun; physical-device and broad
 story-quality gates remain separate.
 
+The [same-boot restart controller](docs/native/ORIGINAL_AUTHOR_RESTART_CONTROLLER_VERIFICATION_2026-10-29.md)
+adds a separately admitted SDK5 path. Its first approved fresh guest preparation
+passes, but initial private-server proof exceeds the unchanged three-second
+limit before any guest boot or model operation. The report preserves that
+failure and the subsequent host-only guard optimization and regression checks.
+
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.
 It preserves the first unsupported-listener failure and uses a distinct corrected

@@ -138,13 +138,49 @@ rerun nor modified. The failure transcription is not a raw stream capture.
 | Bound admission | 605 | `73596a4012bb3da15f67364dbeb90ce72224e54038c2c4478d095dfa04548aec` |
 | Live CLI result | 1,276 | `988b8ddf715fe7b8f91300c1f104a5c77163f84c90c4d9d2f9e5016c234ebb54` |
 | Live report | 7,094 | `81118c8950ad1e351b389fa68627d751322f287f8fb378c5ec815479366bce17` |
-| Closed auditV2 | See private index | `c8a171cc22d2b81b9a4e137a4711dce15bf5bfe3947d022b80108f5bdccc972b` |
+| Closed auditV2 | 8,417 | `c8a171cc22d2b81b9a4e137a4711dce15bf5bfe3947d022b80108f5bdccc972b` |
 | Executed-source ZIP at10c92b00 | 8,640,563 | `ad95d089baef0b6d16ddad37a5ef08523e0217c2738593bfe196f4240fcc74fb` |
 
 Every outcome retains `feature_acceptance=false`. The result establishes a
 narrow held-connection server proof in the captured view, with no SDK, emulator,
 phone, model quality/performance or gameplay acceptance. Raw identifiers, socket
 bytes, process paths and private diagnostics remain local.
+
+## D: recovery
+
+The create-only producer and independent verifier both actually exit0. At
+`D:/Dev/Archives/LocalLore/2026-10-28-held-socket-observer-v1`,189 original/copy
+entries,190 ZIP members and192 output files total17,888,283 bytes. Exact
+original/copy/ZIP/index hashes and rosters match with zero missing/mismatched
+entries. The independent replay rechecks all closed cohorts and their unchanged
+test/source identities, the original host proof's seven rows, both owners,
+source/runtime phases, source ZIP and failed/corrected audit attribution.
+
+Selection is a finite188-file roster plus the admitted selection control. It
+includes failed and corrected tests, original source snapshots, source-only
+helpers/reviews, Root163 results, admission, actual host proof, both auditors,
+explicitly transcribed audit failure, and SDK3 proposal. It excludes models,
+saves, caches, emulator state, credentials and APKs. Original and historical
+recovery data stay untouched. This proves byte preservation, with no new
+experiment, service request or feature acceptance.
+
+| Private recovery artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| Index | 130,051 | `feabb2da1be9b51c599fd719745f66cbf5ad6ea96140ed32583ea039c55ffa71` |
+| ZIP | 8,536,354 | `78b888da04ce135ff2e179491ee5eca46bf8bab32e37fb64bcd1d9e6acc2b798` |
+| Producer result | 850 | `efbe04f571f5d1f7cbe98a96ed14bb93a05929524b770f6904af2eefeae33c14` |
+| Independent verification | 1,882 | `59715e55296ef7b2d8cec114b367d4a97fe2239534879cf1c2ad0873f035cb00` |
+
+Producer source is30,131 bytes/SHA256
+`b0c911ef37bee27591faa1a09325656d4d3cb874786b67219cd4aa035a594adb`;
+independent verifier23,861 bytes/SHA256
+`5d825b8659d8aa6ea75f6b10b4ac9bb440a9dfb09754518f203af156455a290e`.
+Root executes `run-preservation-v1.py` and then `verify-held-socket-v1.py` with
+four reviewed admission/index/ZIP/result digests, using `python -I -B` from the
+physical D: checkout with D: TEMP/TMP. The immutable source ZIP binds exact
+10c92b00 and matches all15 tested-source members. It is a source snapshot, not
+complete Git history. This later verification/recovery prose is separately
+committed/pushed after that seal and is not inside that ZIP.
 
 ## Remaining bridge
 

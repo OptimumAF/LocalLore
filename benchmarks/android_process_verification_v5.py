@@ -4,7 +4,11 @@ No process, socket, device, model or credential operation is performed here.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import copy
+import hashlib
+import io
 import re
+import sys
+import tarfile
 from pathlib import Path, PureWindowsPath
 
 from benchmarks import android_process_verification_v4 as shared
@@ -139,11 +143,89 @@ def _client(pin, session, admission, argv):
 
 
 def _stdout(record):
-    return _raw(record['stdout'], 2*1024*1024)
+    return _raw(record['stdout'], 4*1024*1024)
 
 
 def _empty_stderr(record):
     c._need(_raw(record['stderr']) == b'', 'capability')
+
+
+def _current_sources(admission):
+    _same(admission['sources'], c.source_bindings(), 'source')
+    _same(admission['python']['executable'], env.binding(Path(sys.executable)), 'source')
+    root = Path(__file__).resolve().parents[1]
+    _same(admission['artifacts']['process_probe_source'],
+          env.binding(root/'benchmarks/native/android_author_process_probe.c'), 'source')
+    for pin in admission['sources'] + [p for p in admission['python'].values() if p is not None]:
+        env.check_binding(pin)
+
+
+def _local(pin, path, cap=author.MAX_ARTIFACT):
+    c._need(PureWindowsPath(pin['path']) == PureWindowsPath(path), 'binding')
+    return _raw(pin, cap)
+
+
+def _prefix(session, admission, last):
+    c._int(last, 1, 10000, 'binding')
+    rows = []
+    for index in range(1, last+1):
+        pin = _IO._pin(Path(session['root'])/'clients'/('command-%04d.json' % index))
+        peek = c.validate_client_record(_json(pin), session)
+        # A prerequisite cannot contain the operation it authorizes, even as
+        # an unselected earlier row. This also prevents recursive replay.
+        argv = peek['operation']['argv']
+        c._need(argv[:2] != ['am', 'instrument'] or
+                c.instrumentation_kind(argv) != 'restart', 'command')
+        row = _IO.verify_client_record(pin, session, admission)
+        c._need(row['index'] == index and row['returncode'] == 0, 'capability')
+        rows.append(row)
+    return rows
+
+
+def _collection(rows, session, remote, local, pins, uid, lower, upper):
+    names = tuple(pins)
+    paths = [remote+'/'+name for name in names]
+    prefix = ['run-as', c.APP, '--user', '0']
+    recipes = [prefix+['ls', remote], prefix+['sha256sum', *paths],
+               prefix+['tar', '-cf', '-', *paths], prefix+['sha256sum', *paths]]
+    candidates = [row for row in rows if lower < row['index'] < upper]
+    selected = []
+    for position, argv in enumerate(recipes):
+        matches = [row for row in candidates if row['operation'] == dict(argv=argv, stdin=None)]
+        # The two identical hash recipes must appear exactly twice, in order.
+        c._need(len(matches) == (2 if position in (1, 3) else 1), 'binding')
+        selected.append(matches[-1] if position == 3 else matches[0])
+    order = [row['index'] for row in selected]
+    c._need(order == sorted(set(order)), 'clock')
+    for row in selected:
+        _empty_stderr(row)
+    directories = {'workspace-v1', 'archive-staging'} if remote == 'no_backup/original-author-proof-v1' else (
+        {'archive-staging'} if remote == 'no_backup/original-author-restart-proof-v1' else set())
+    listed = _stdout(selected[0]).decode('ascii').splitlines()
+    c._need(len(listed) == len(set(listed)) and set(listed) == set(names)|directories, 'binding')
+    values = {name: _local(pins[name], Path(session['root'])/local/name) for name in names}
+    expected = {remote+'/'+name: hashlib.sha256(raw).hexdigest() for name, raw in values.items()}
+    for row in (selected[1], selected[3]):
+        observed = {}
+        for line in _stdout(row).decode('ascii').splitlines():
+            match = re.fullmatch(r'([0-9a-f]{64})  (no_backup/[A-Za-z0-9_./-]+)', line)
+            c._need(match is not None and match[2] not in observed, 'binding')
+            observed[match[2]] = match[1]
+        _same(observed, expected)
+    try:
+        with tarfile.open(fileobj=io.BytesIO(_stdout(selected[2])), mode='r:') as packed:
+            members = packed.getmembers()
+            c._need(len(members) == len(paths) and {item.name for item in members} == set(paths), 'binding')
+            for item in members:
+                c._need(item.isfile() and not item.islnk() and not item.issym() and
+                        item.uid == uid and 0 < item.size <= author.MAX_ARTIFACT, 'binding')
+                stream = packed.extractfile(item)
+                c._need(stream is not None, 'binding')
+                raw = stream.read(author.MAX_ARTIFACT+1)
+                c._need(len(raw) == item.size and raw == values[item.name.rsplit('/', 1)[1]], 'binding')
+    except (tarfile.TarError, OSError, ValueError):
+        raise c.TargetRefused('binding') from None
+    return selected[-1]['index']
 
 
 def _instrument(pin, session, admission, kind):
@@ -206,6 +288,7 @@ def _packages(checks, session, admission):
 def verify_restart_prerequisite(pin, admission, admission_binding, running_binding, caller):
     """Replay bound witness bytes; never query a process or select another target."""
     a = c.validate_admission(admission)
+    _current_sources(a)
     _same(c.validate_admission(_json(admission_binding)), a)
     root = Path(a['root'])
     value = _at(pin, root/'restart-prerequisite-v1.json')
@@ -248,6 +331,14 @@ def verify_restart_prerequisite(pin, admission, admission_binding, running_bindi
     order = [initial['index'], import_record['index'], author_record['index'], *package_indices,
              before['index'], stop['index'], after['index']]
     c._need(order == sorted(set(order)), 'clock')
+    rows = _prefix(session, a, after['index'])
+    _collection(rows, session, 'no_backup/original-author-import-proof-v1', 'import-proof',
+                {'import-v1.json': value['import_proof']}, identity['uid'],
+                import_record['index'], author_record['index'])
+    _collection(rows, session, 'no_backup/original-author-proof-v1', 'author-proof',
+                {'proof-v1.json': value['author_proof'], **value['author_artifacts']}, identity['uid'],
+                author_record['index'], package_indices[0])
+    _current_sources(a)
     return copy.deepcopy(value)
 
 
@@ -330,6 +421,11 @@ def verify_controller_result(binding, admission, admission_binding, running_bind
     c._obj(value['restart_artifacts'], restart.RECORDS, 'binding')
     newer = {name: _raw(value['restart_artifacts'][name], restart.MAX_ARTIFACT) for name in restart.RECORDS}
     baseline = {name: _raw(prior['author_artifacts'][name], author.MAX_ARTIFACT) for name in author.RECORDS+author.TRACES}
+    _collection(records, session, 'no_backup/original-author-restart-proof-v1', 'restart-proof',
+                {'proof-v1.json': value['restart_proof'], **value['restart_artifacts']},
+                author.validate_import(_raw(prior['import_proof']))['process']['uid'],
+                selected['index'], final_boot['index'])
     restart.validate_restart(_raw(value['restart_proof'], restart.MAX_PROOF), newer,
                              _raw(prior['author_proof']), baseline, _raw(prior['import_proof']))
+    _current_sources(admission)
     return copy.deepcopy(value)

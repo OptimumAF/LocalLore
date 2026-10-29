@@ -779,3 +779,5 @@ fn v4_selected_prepare_refuses_both_lanes_before_consent_target_or_model_reserva
         assert_eq!(inventory(&source), source_before);
     }
 }
+
+mod narration_diagnostic_review_tests;

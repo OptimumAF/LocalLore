@@ -670,3 +670,19 @@ Root retains the original freeze, implements separately and later runs
 repository with TEMP/TMP on D:/Dev/_Temp. No registration or product source changes
 are included. Existing fixture/capture, byte preservation, error provenance,
 quality/dependency and merge gates remain unchanged.
+
+## Root collector and registration precision — 2026-10-29
+
+Claim: [#29 comment6502615961](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6502615961).
+Only the new six-fixture verification inventory may collect up to 8,192 entries
+and 128MiB aggregate. Default modes retain 2,048/64MiB; both retain existing
+8MiB/file and depth8 limits. This aligns the existing development-inventory
+ceiling and does not enlarge runtime 32MiB/run, 512KiB companion namespace or
+256MiB/library budgets. Checked counts/sums refuse overflow and preserve partial
+evidence. Report actual bytes/entries and the new-mode limits. If 128MiB cannot
+fit, report the check unavailable; no implicit increase or fixture repair.
+
+Root registers the two Rust children and the actual frontend/SSR checker only.
+The separate policy checker remains setup until its frozen helpers arrive.
+Original test bytes/hashes are retained before formatter-only normalization;
+format-equality proof and later runtime results remain separate from the freeze.

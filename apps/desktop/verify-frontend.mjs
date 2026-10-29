@@ -46,6 +46,7 @@ for (const args of [
     ["check-comparison-reader.mjs"],
     ["check-literal-comparison-reader.mjs"],
     ["check-scene-reader-review.mjs"],
+    ["check-narration-diagnostic-reader-review.mjs"],
     ["check-comparison-main-review.mjs"],
     ["check-comparison-capability-review.mjs"],
     ["check-archive-controller.mjs"],

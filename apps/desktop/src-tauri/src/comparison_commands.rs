@@ -300,6 +300,9 @@ pub async fn evaluation_comparison(
 }
 
 #[cfg(test)]
+mod narration_diagnostic_review_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -359,3 +362,4 @@ mod tests {
         }
     }
 }
+

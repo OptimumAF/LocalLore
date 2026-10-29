@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 
 _RAW_LSTAT = Path.lstat
+_RAW_INFO = getattr(Path, "info", None)
 _RAW = {name: getattr(Path, name) for name in (
     "open", "mkdir", "stat", "lstat", "exists", "is_file", "is_dir",
     "is_symlink", "iterdir", "resolve",
@@ -141,6 +142,15 @@ def _unsupported(name):
     return call
 
 
+def _path_info(path):
+    # Python 3.14 PathInfo bypasses these method hooks and caches its results.
+    # Do not manufacture cached C metadata or permit a real C/UNC lookup.
+    selected = Path(path)
+    if selected.drive.upper() == "C:" or selected.drive.startswith("\\"):
+        _refuse("synthetic_c_unsupported")
+    return _RAW_INFO.__get__(path, type(path))
+
+
 def _install():
     global _PATCHES
     stack = ExitStack()
@@ -151,6 +161,8 @@ def _install():
             stack.enter_context(patch.object(Path, name, new=_ordinary(name)))
         stack.enter_context(patch.object(Path, "iterdir", new=_iterdir))
         stack.enter_context(patch.object(Path, "resolve", new=_resolve))
+        if _RAW_INFO is not None:
+            stack.enter_context(patch.object(Path, "info", new=property(_path_info)))
         for name in _UNSUPPORTED:
             stack.enter_context(patch.object(Path, name, new=_unsupported(name)))
     except BaseException:

@@ -550,9 +550,10 @@ export async function comparisonRunNativeJourneys({
                       const header = panel!.querySelector<HTMLElement>(
                           ".comparison-selection-context",
                       );
-                      check(header, `${label}-actual-selection-context`);
-                      const headerBox = header!.getBoundingClientRect();
-                      const position = getComputedStyle(header!).position;
+                      const headerBox = header?.getBoundingClientRect();
+                      const position = header
+                          ? getComputedStyle(header).position
+                          : null;
                       const paragraphs = [
                           ...target!.querySelectorAll<HTMLElement>("p"),
                       ];
@@ -580,9 +581,17 @@ export async function comparisonRunNativeJourneys({
                                 ]
                               : []),
                       ].map(({ kind, node }) => {
-                          check(node, `${label}-actual-artifact-${kind}`);
-                          const box = node!.getBoundingClientRect();
+                          if (!node)
+                              return {
+                                  kind,
+                                  missing: true,
+                                  positiveArea: false,
+                                  insideViewport: false,
+                                  selectionHeaderOverlap: false,
+                              };
+                          const box = node.getBoundingClientRect();
                           const overlap =
+                              headerBox !== undefined &&
                               (position === "sticky" || position === "fixed") &&
                               box.top < headerBox.bottom &&
                               box.bottom > headerBox.top &&
@@ -590,10 +599,24 @@ export async function comparisonRunNativeJourneys({
                               box.right > headerBox.left;
                           return {
                               kind,
+                              missing: false,
                               top: box.top,
                               bottom: box.bottom,
                               left: box.left,
                               right: box.right,
+                              width: box.width,
+                              height: box.height,
+                              positiveArea:
+                                  [
+                                      box.top,
+                                      box.bottom,
+                                      box.left,
+                                      box.right,
+                                      box.width,
+                                      box.height,
+                                  ].every(Number.isFinite) &&
+                                  box.width > 0 &&
+                                  box.height > 0,
                               insideViewport:
                                   box.top >= -1 &&
                                   box.bottom <= innerHeight + 1 &&
@@ -603,17 +626,22 @@ export async function comparisonRunNativeJourneys({
                           };
                       });
                       return {
-                          selectionHeader: {
-                              top: headerBox.top,
-                              bottom: headerBox.bottom,
-                              position,
-                          },
+                          selectionHeader: headerBox
+                              ? {
+                                    top: headerBox.top,
+                                    bottom: headerBox.bottom,
+                                    position,
+                                }
+                              : null,
                           items,
-                          visible: items.every(
-                              (item) =>
-                                  item.insideViewport &&
-                                  !item.selectionHeaderOverlap,
-                          ),
+                          visible:
+                              headerBox !== undefined &&
+                              items.every(
+                                  (item) =>
+                                      item.positiveArea &&
+                                      item.insideViewport &&
+                                      !item.selectionHeaderOverlap,
+                              ),
                       };
                   })()
                 : null;

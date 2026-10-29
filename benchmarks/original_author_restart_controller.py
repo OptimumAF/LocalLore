@@ -22,6 +22,8 @@ from benchmarks.android_process_client_v5 import OwnedRestartSdkCapture
 from benchmarks import android_process_verification_v5 as verification
 from benchmarks import android_process_verification as build_verification
 from benchmarks import windows_tcp_control as output_control
+from benchmarks import android_process_client_v4 as directory_checks
+from benchmarks import owned_target_owner as guard_phase_owner
 from benchmarks import original_author_model_proof as author_proof
 from benchmarks import original_author_diagnostic as diagnostic
 from benchmarks import original_author_restart_proof as restart_proof
@@ -398,11 +400,44 @@ def _checkpoint(request, live):
     live.guard()
 
 
+def _diagnostic_directory_identity(output):
+    """Observation failure cannot block the admitted controller workflow."""
+    try:
+        return directory_checks._identity(output)
+    except Exception:
+        return None
+
+
+def _export_guard_phases(output, expected_identity, live, observer_closed, *, preserve_failure):
+    """Private observation only; never change the authoritative result or cleanup."""
+    try:
+        if live is None or observer_closed is not True or expected_identity is None:
+            return
+        _need(directory_checks._identity(output) == expected_identity, "output")
+        observed = live.guard_phase_snapshot()
+        guard_phase_owner.validate_guard_phase_snapshot(observed)
+        if observed["observer_closed"] is not True:
+            return
+        _need(directory_checks._identity(output) == expected_identity, "output")
+        # Exclusive creation preserves an existing/partial diagnostic. No repair,
+        # replacement, result-schema extension or authority derives from it.
+        env.create_json(output / "host-guard-phases-v1.json", observed)
+        _need(directory_checks._identity(output) == expected_identity, "output")
+    except Exception:
+        return
+    except BaseException:
+        # Retain an already refused primary outcome. A new interrupt after a
+        # completed outcome still reaches its caller with its original identity.
+        if not preserve_failure:
+            raise
+
+
 def run(admission_binding, running_binding, build_binding, output_root):
     """No outer process or scope grant. An authorized finite caller owns execution."""
     begin = time.monotonic()
     output = output_control.validate_output(str(output_root))
     output.mkdir()
+    diagnostic_output_identity = _diagnostic_directory_identity(output)
     request_pin = session_pin = prerequisite_pin = restart_instrumentation = boot_final = restart_pin = None
     restart_artifacts = {name: None for name in RECORDS}
     live = cap = None
@@ -567,4 +602,8 @@ def run(admission_binding, running_binding, build_binding, output_root):
                       observer_handles_closed=observer_closed, feature_acceptance=False,
                       elapsed_ms=round(max(0, time.monotonic() - begin) * 1000))
         env.create_json(output / "controller-result-v1.json", result)
+        # All authoritative work, closure decisions and result publication are
+        # complete before best-effort diagnostics can fail or be interrupted.
+        _export_guard_phases(output, diagnostic_output_identity, live, observer_closed,
+                             preserve_failure=(outcome != "completed"))
     return copy.deepcopy(result)

@@ -49,7 +49,7 @@ emulator boot, Android filesystem, live lease, inference or physical phone.
 One safe characterization called the original fixture helper under a fresh
 Python audit hook. All 20 attempted C: `mkdir` operations were rejected before
 mutation. Windows `tempfile` retries a PermissionError; the initial driver
-incorrectly expected one attempt and returned1. That failed helper/result is
+incorrectly expected one attempt and returned 1. That failed helper/result is
 preserved. A separate closed readback verifies all 20 blocked attempts without
 rerunning the original helper. No original unit method ran, no C: scratch was
 created, and this is neither a product-test RED nor a feature pass.
@@ -91,28 +91,28 @@ No Rust/Android build or device tests are needed or claimed for this test-only
 migration.
 
 
-The first adapter passes the original six methods (owner 4,152ms, status0, no failures,
+The first adapter passes the original six methods (owner 4,152ms, status 0, no failures,
 errors, skips, exclusions or non-D write attempts; 2,207 stable tracked hashes).
 Independent new policy fixtures first pass 16 methods, then add a concrete cached
 `Path.info` regression. The unchanged 17-method cohort records three assertion
 failures for C/foreign-C/UNC property access, with zero errors/skips and no actual
 C/UNC query. The focused property refusal then passes the exact 17 methods
-(owner 4,967ms, status0, 2,208 stable source hashes, empty stderr, no write attempts).
+(owner 4,967ms, status 0, 2,208 stable source hashes, empty stderr, no write attempts).
 
 Compatibility review separately identifies unconditional APIs newer than the
 existing Python 3.9+ runner promise. The helper now feature-detects
 `os.path.isreserved`, retaining reserved-component checks through a legacy pure
 path fallback. Only the Path.info-specific method is availability-guarded on
 interpreters that lack it. On actual installed 3.14 all 18 policy methods run and
-pass, including a local-feature-seam fallback simulation (4,766ms0,zero skips,
+pass, including a local-feature-seam fallback simulation (4,766ms, status 0; zero skips,
 exclusions or non-D write attempts). No global API is removed, minimum raised or
 older interpreter qualified by that simulation.
 
-The first broad run at33034145 executes 2,168 tests but has eight errors:
+The first broad run at `33034145` executes 2,168 tests but has eight errors:
 its overly broad guard treats standard-library `subprocess.DEVNULL` opens as
 project outputs. All eight traces point to `os.open(os.devnull, os.O_RDWR)`;
 all recorded targets normalize to the Windows null device. That run remains
-failed (owner 332,576ms, status1,zero assertion failures/skips,all 2,208 source hashes
+failed (owner 332,576ms, status 1,zero assertion failures/skips,all 2,208 source hashes
 stable). No C: scratch write was attempted. Its driver and raw streams remain
 unchanged. Driver-v2 adds only the exact raw OS-sink exception and a separate
 counter. Seven pure guard-decision cases confirm ordinary D: acceptance and
@@ -139,3 +139,9 @@ full task checkboxes remain unchanged. Android external restart, physical/ARM64,
 model quality/performance and full mobile fault/journey gates remain separate.
 No SDK/device/model command, emulator boot, system setting, other-emulator stop,
 merge, release or private upload occurs in this packet.
+
+This follow-up is stacked on open PR #261 at `a28d898e`. Main advanced
+separately through desktop PR #262 during the packet; this branch result does
+not qualify that combined tree. Next runnable work is current Android
+build/source-binding preflight, then a separately admitted external-restart
+case. No spent emulator grant or closed model attempt is reused.

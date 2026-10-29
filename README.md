@@ -56,6 +56,10 @@ The [buffered restart preparation](docs/native/BUFFERED_RESTART_ADMISSION_2026-1
 advances the fixed target to an unused path while preserving previous guests
 and all admission requirements. It grants no emulator run.
 
+The [APK backup policy audit](docs/native/APK_BACKUP_AUDIT_2026-10-29.md) checks
+compiled backup flags and referenced cloud/device-transfer exclusions.
+Physical backup/restore behavior remains a separate qualification gate.
+
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.
 It preserves the first unsupported-listener failure and uses a distinct corrected

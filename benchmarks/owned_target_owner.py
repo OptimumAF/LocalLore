@@ -504,11 +504,15 @@ class _InitialServerView:
         return getattr(self.runtime, key)
 
     def guard(self):
-        self.runtime.guard()
+        # No frame or connection is authorized by this cheap outer check.
+        # Each proof bracket below still performs the complete byte guard.
+        self.runtime.fast_guard()
+        self.auth.check()
         environment.check_binding(self.binding)
 
     def bracket(self, item, anchor):
-        self.guard()
+        self.runtime.guard()
+        environment.check_binding(self.binding)
         _need(_same(_anchor(item), anchor), "tuple")
         return dict(worker=copy.deepcopy(self.worker), server=copy.deepcopy(self.server),
             sources=server_contract.source_bindings(), tools=copy.deepcopy(self.admission["tools"]),

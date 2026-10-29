@@ -925,22 +925,49 @@ export async function liveNarrationNativeJourneys({
             );
             c.layout(1, 1, 150);
             const enlargedScaleMounted = () => {
-                const app = document.querySelector<HTMLElement>(".app.text-150");
+                const app =
+                    document.querySelector<HTMLElement>(".app.text-150");
                 if (!app || c.get().textScale !== 150) return false;
-                const appFont = Number.parseFloat(getComputedStyle(app).fontSize);
-                const rootFont = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
-                return Number.isFinite(appFont) && Number.isFinite(rootFont) && appFont > 0 && rootFont > 0 &&
-                    Math.abs(appFont / rootFont - 1.5) <= 0.000001;
+                const appFont = Number.parseFloat(
+                    getComputedStyle(app).fontSize,
+                );
+                const rootFont = Number.parseFloat(
+                    getComputedStyle(document.documentElement).fontSize,
+                );
+                return (
+                    Number.isFinite(appFont) &&
+                    Number.isFinite(rootFont) &&
+                    appFont > 0 &&
+                    rootFont > 0 &&
+                    Math.abs(appFont / rootFont - 1.5) <= 0.000001
+                );
             };
-            await until(enlargedScaleMounted, "actual-150-percent-text-scale-mounted-before-capture");
-            check(c.get().textScale === 150, "actual-Controller-text-scale-is-150-percent");
-            const enlargedApp = document.querySelector<HTMLElement>(".app.text-150");
+            await until(
+                enlargedScaleMounted,
+                "actual-150-percent-text-scale-mounted-before-capture",
+            );
+            check(
+                c.get().textScale === 150,
+                "actual-Controller-text-scale-is-150-percent",
+            );
+            const enlargedApp =
+                document.querySelector<HTMLElement>(".app.text-150");
             check(!!enlargedApp, "actual-mounted-app-has-text-150-class");
-            const enlargedAppFont = Number.parseFloat(getComputedStyle(enlargedApp!).fontSize);
-            const enlargedRootFont = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
-            check(Number.isFinite(enlargedAppFont) && Number.isFinite(enlargedRootFont) && enlargedAppFont > 0 && enlargedRootFont > 0 &&
-                Math.abs(enlargedAppFont / enlargedRootFont - 1.5) <= 0.000001,
-                "actual-computed-app-font-is-one-and-a-half-root-font-before-enlarged-capture");
+            const enlargedAppFont = Number.parseFloat(
+                getComputedStyle(enlargedApp!).fontSize,
+            );
+            const enlargedRootFont = Number.parseFloat(
+                getComputedStyle(document.documentElement).fontSize,
+            );
+            check(
+                Number.isFinite(enlargedAppFont) &&
+                    Number.isFinite(enlargedRootFont) &&
+                    enlargedAppFont > 0 &&
+                    enlargedRootFont > 0 &&
+                    Math.abs(enlargedAppFont / enlargedRootFont - 1.5) <=
+                        0.000001,
+                "actual-computed-app-font-is-one-and-a-half-root-font-before-enlarged-capture",
+            );
             await capture("d06-live-enlarged");
             finalOracle = await oracle("initial-final");
             unchanged(

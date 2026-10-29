@@ -1027,7 +1027,7 @@ export class Controller {
         });
         try {
             const value = checkedTrace(
-                await this.gateway.call(query),
+                checkedJsonV2(await this.gateway.call(query), 65_536),
                 query,
                 player,
             );

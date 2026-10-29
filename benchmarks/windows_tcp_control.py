@@ -99,6 +99,11 @@ def validate_output(value: str) -> Path:
         path = Path(value)
         _need(path.is_absolute() and path.drive.upper() == "D:" and
               str(path) == os.path.abspath(value), "output")
+        for part in path.parts[1:]:
+            _need(part and not part.endswith((".", " ")) and
+                  not any(ord(char) < 32 or char in '<>:"|?*' for char in part) and
+                  re.fullmatch(r"(?i)(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?",part) is None,
+                  "output")
         _need(not path.exists() and not path.is_symlink(), "output")
         env.safe_path(path, exists=False)
         env.safe_path(path.parent, directory=True)
@@ -107,7 +112,7 @@ def validate_output(value: str) -> Path:
         cwd = Path.cwd()
         _need(cwd.drive.upper() == "D:" and cwd.resolve(strict=True) == cwd, "output")
         for ancestor in path.parents:
-            _need(not (ancestor/".git").exists(), "output")
+            _need(not os.path.lexists(ancestor/".git"), "output")
         return path
     except (OSError, ValueError, TypeError, env.EnvironmentRefused):
         raise ControlRefused("output") from None

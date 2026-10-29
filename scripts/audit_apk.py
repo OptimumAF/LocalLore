@@ -315,6 +315,7 @@ def _backup_nodes(tree):
     lines = aapt_text(tree).splitlines()
     require(len(lines) <= 65536, "Too many backup metadata lines")
     nodes, stack, namespaces = [], [], set()
+    attribute_names, attribute_ids = set(), set()
     attributes = 0
     for line in lines:
         if not line.strip():
@@ -347,9 +348,12 @@ def _backup_nodes(tree):
         attributes += 1
         require(attributes <= 16384, "Too many backup attributes")
         identifier = attribute[3].lower() if attribute[3] else None
-        require(all(previous[0] != attribute[2]
-                    and (identifier is None or previous[1] != identifier)
-                    for previous in node["attributes"]), "Duplicate backup attribute name or ID")
+        name_key, id_key = (stack[-1], attribute[2]), (stack[-1], identifier)
+        require(name_key not in attribute_names and (identifier is None or id_key not in attribute_ids),
+                "Duplicate backup attribute name or ID")
+        attribute_names.add(name_key)
+        if identifier is not None:
+            attribute_ids.add(id_key)
         node["attributes"].append((attribute[2], identifier, attribute[4]))
     return nodes
 

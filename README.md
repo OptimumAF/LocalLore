@@ -21,11 +21,18 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [owned-target model run](docs/native/OWNED_TARGET_VERIFICATION_2026-10-29.md)
+now verifies one real local-model import/AUTHOR/internal-reopen case on an
+explicitly approved emulator. The [external restart follow-up](docs/native/ORIGINAL_AUTHOR_RESTART_VERIFICATION_2026-10-29.md)
+adds actual host process-death/PLAYER retry checks and a compiled passive Android
+method. Android external process death remains unrun; physical-device and broad
+story-quality gates remain separate.
+
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.
 It preserves the first unsupported-listener failure and uses a distinct corrected
-protocol. Target-specific integration remains required before fresh emulator or
-model testing; the completed test service is closed.
+protocol. Its subsequent target-specific integration and model case are recorded above;
+the completed test service is closed.
 
 The [compiled Windows TCP control](docs/native/WINDOWS_NATIVE_TCP_STATE_VERIFICATION_2026-10-29.md)
 passes 355 host tests and reproduces inconsistent listener states using native
@@ -39,8 +46,8 @@ emulator or model command ran. Fresh runtime qualification remains gated.
 
 The [player/NPC AUTHOR contract](docs/native/AUTHOR_PLAYER_CONTRACT_VERIFICATION_2026-10-28.md)
 clarifies player and NPC identities and preserves versioned native provenance.
-Host/build checks pass; the new model run remains blocked by debug-service
-listener admission. No emulator or model result is substituted for that gate.
+Its original host/build checks and blocked listener attempt remain preserved;
+the separately admitted owned-target run above records the later model result.
 
 The [original AUTHOR refusal diagnosis](docs/native/ORIGINAL_AUTHOR_DIAGNOSTIC_VERIFICATION_2026-10-27.md)
 adds opt-in private response capture and one native diagnostic validator. Fresh

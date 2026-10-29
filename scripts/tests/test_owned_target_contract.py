@@ -80,7 +80,19 @@ def proof(s=None,*,after=False):
       anchor=dict(handle=81,socket_id=12345,local_address='127.0.0.1',local_port=43101),
       brackets=dict(before=copy.deepcopy(bracket),after=copy.deepcopy(bracket)),observation=obs,tables=tables,
       version_response_hex=b'OKAY00040029'.hex(),devices_response_hex=(b'OKAY'+('%04x'%len(devices)).encode()+devices).hex(),
+      queries=pin(PureWindowsPath(s['root'])/'proofs'/('command-0001-%s-queries-v1.json'%context['phase'])),
       after_request=after,elapsed_ms=1)
+
+
+def query_bundle(s=None):
+    s=session()if s is None else s;p=proof(s);queries=[]
+    for kind,request,response in(('version',b'000Chost:version',p['version_response_hex']),
+                                   ('devices',b'000Ehost:devices-l',p['devices_response_hex'])):
+        queries.append(dict(kind=kind,request_hex=request.hex(),response_hex=response,endpoint=copy.deepcopy(p['endpoint']),
+          anchor=copy.deepcopy(p['anchor']),brackets=copy.deepcopy(p['brackets']),observation_before=copy.deepcopy(p['observation']),
+          observation_after=copy.deepcopy(p['observation']),tables_before=copy.deepcopy(p['tables']),tables_after=copy.deepcopy(p['tables']),
+          eof=True,socket_closed=True,elapsed_ms=2))
+    return dict(version=1,protocol='owned-target-socket-proof-v1',admission=s['admission'],running=s['running'],caller=s['caller'],queries=queries)
 
 
 class AdmissionContractTests(unittest.TestCase):
@@ -352,6 +364,7 @@ class GuestAndRecordTests(unittest.TestCase):
             with self.subTest(key=key):
                 with self.assertRaises(n.TargetRefused):n.validate_client_record(changed,session())
 
+
     def test_unqualified_partial_record_retains_measured_failure_without_inferred_success(self):
         value=self.record();value.update(client_qualified=False,status='cancelled',returncode=None,elapsed_ms=9,
           cleanup_complete=False,socket_closed=False,server_after=None)
@@ -360,6 +373,87 @@ class GuestAndRecordTests(unittest.TestCase):
             changed=copy.deepcopy(value);changed[key]=bad
             with self.subTest(key=key):
                 with self.assertRaises(n.TargetRefused):n.validate_client_record(changed,session())
+
+
+class QueryReadyJobTests(unittest.TestCase):
+    def validate(self,value,*,require_device=True):
+        s=session();return n.validate_query_bundle(value,s['descriptor'],s['caller'],s['admission'],s['running'],require_device=require_device)
+
+    def test_complete_two_closed_original_guarded_queries_return_transport_without_io(self):
+        value=query_bundle();before=copy.deepcopy(value)
+        with patch.object(Path,'open',side_effect=AssertionError('unexpected IO')):
+            self.assertEqual(self.validate(value),7)
+        self.assertEqual(value,before)
+
+    def test_query_pair_kind_request_and_closed_key_roster_cannot_be_borrowed(self):
+        for change in(lambda v:v['queries'].reverse(),lambda v:v['queries'].pop(),
+                      lambda v:v['queries'][0].update(kind='devices'),lambda v:v['queries'][0].update(request_hex=b'000Chost:devices'.hex()),
+                      lambda v:v['queries'][0].update(private_rows='SYNTHETIC_PRIVATE_CANARY')):
+            value=query_bundle();change(value)
+            with self.assertRaises(n.TargetRefused):self.validate(value)
+
+    def test_query_refuses_unknown_eof_cleanup_type_deadline_and_wrong_live_brackets(self):
+        for key,bad in(('eof',False),('eof',1),('socket_closed',False),('elapsed_ms',True),('elapsed_ms',3001)):
+            value=query_bundle();value['queries'][0][key]=bad
+            with self.subTest(key=key):
+                with self.assertRaises(n.TargetRefused):self.validate(value)
+        value=query_bundle();value['queries'][0]['brackets']['after']['guest']['pid']=999
+        with self.assertRaises(n.TargetRefused):self.validate(value)
+
+    def test_query_before_requires_actual_caller_tuple_and_raw_table_bounds(self):
+        for change in(lambda q:q['observation_before']['rows'].__setitem__(2,host_fixture.row4(role='client',pid=0,ordinal=8)),
+                      lambda q:q['tables_before'][0].update(count=1),lambda q:q['anchor'].update(local_port=43102)):
+            value=query_bundle();change(value['queries'][0])
+            with self.assertRaises(n.TargetRefused):self.validate(value)
+
+    def test_query_exact_frame_declared_length_and_registered_device_are_not_reply_only_authority(self):
+        for raw in(b'OKAY00040028',b'OKAY0000',b'OKAY00040029X',b'FAIL0000'):
+            value=query_bundle();value['queries'][0]['response_hex']=raw.hex()
+            with self.assertRaises(n.TargetRefused):self.validate(value)
+        value=query_bundle();value['queries'][1]['response_hex']=b'OKAY0000'.hex()
+        with self.assertRaises(n.TargetRefused):self.validate(value)
+
+    def test_only_explicit_startup_null_running_accepts_empty_or_owned_offline_prefix(self):
+        s=session()
+        for raw,expected in((b'',None),(b'emulator-5592 offline transport_id:7\n',7)):
+            value=query_bundle();value['running']=None
+            value['queries'][1]['response_hex']=(b'OKAY'+('%04x'%len(raw)).encode()+raw).hex()
+            self.assertEqual(n.validate_query_bundle(value,s['descriptor'],s['caller'],s['admission'],None,require_device=False),expected)
+            with self.assertRaises(n.TargetRefused):n.validate_query_bundle(value,s['descriptor'],s['caller'],s['admission'],None)
+        with self.assertRaises(n.TargetRefused):self.validate(query_bundle(),require_device=False)
+        for flag in(0,1,None,'false'):
+            with self.assertRaises(n.TargetRefused):self.validate(query_bundle(),require_device=flag)
+
+    def test_device_status_does_not_normalize_foreign_duplicate_or_unauthorized_targets(self):
+        self.assertEqual(n.device_status(b''),('empty',None));self.assertEqual(n.device_status(b'emulator-5592 offline\n'),('offline',None))
+        for raw in(b'emulator-5592 unauthorized transport_id:7\n',b'emulator-5594 device transport_id:7\n',
+                   b'emulator-5592 device transport_id:7 transport_id:7\n',b'emulator-5592 device\n',
+                   b'emulator-5592 device transport_id:7\n127.0.0.1:5593 device transport_id:8\n'):
+            with self.assertRaises(n.TargetRefused):n.device_status(raw)
+
+    def test_main_proof_requires_exact_bound_phase_query_path_not_old_inline_hex(self):
+        for change in(lambda p:p.pop('queries'),lambda p:p['queries'].update(path='D:/Synthetic/inline-only.json'),
+                      lambda p:p['queries'].update(path='D:/Synthetic/sdk-v4/proofs/command-0001-after-queries-v1.json')):
+            value=proof();change(value)
+            with self.assertRaises(n.TargetRefused):n.validate_proof(value,session(),value['context'])
+
+    def test_startup_job_requires_actual_worker_all_held_processes_and_checked_receipt(self):
+        d=running();identities={key:copy.deepcopy(d[key])for key in('worker','server','launcher','guest')}
+        value=dict(version=1,protocol=PROTOCOL,worker=d['worker'],processes=sorted(p['pid']for p in identities.values()),
+          identities=identities,checked=True,source='QueryInformationJobObject(NULL,JobObjectBasicProcessIdList)')
+        self.assertEqual(n.validate_guest_job(value,d),value)
+        for change in(lambda v:v.update(checked=1),lambda v:v['processes'].pop(),lambda v:v['processes'].append(v['processes'][0]),
+                      lambda v:v['identities']['guest'].update(pid=d['launcher']['pid'])):
+            bad=copy.deepcopy(value);change(bad)
+            with self.assertRaises(n.TargetRefused):n.validate_guest_job(bad,d)
+
+    def test_partial_guest_prefix_never_substitutes_for_complete_ready_listeners(self):
+        d=running();value=dict(version=1,ports=[5592,5593],families=[2,23],rows=[])
+        self.assertIsNone(n.validate_guest_prefix(value,d['guest'],d['server']))
+        with self.assertRaises(n.TargetRefused):n.validate_guest_observation(value,d['guest'],d['server'])
+        value['rows']=[host_fixture.row4(lp=5593,pid=999,ordinal=1)]
+        with self.assertRaises(n.TargetRefused):n.validate_guest_prefix(value,d['guest'],d['server'])
+
 
 
 

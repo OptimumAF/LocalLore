@@ -136,6 +136,8 @@ class OwnedClientFlowTests(unittest.TestCase):
         if context['phase']in self.proof_fail:raise ValueError('synthetic proof failure')
         value=f.proof(session,after=after);value.update(context=copy.deepcopy(context),anchor=copy.deepcopy(anchor))
         value['session']=c.environment.binding(Path(session['root'])/'sdk-session-v4.json')
+        query_path=path.with_name(path.stem+'-queries-v1.json')
+        c.environment.create_json(query_path,f.query_bundle(session));value['queries']=c.environment.binding(query_path)
         c.environment.create_json(path,value)
         if self.on_proof is not None:self.on_proof(context)
         return c.environment.binding(path)

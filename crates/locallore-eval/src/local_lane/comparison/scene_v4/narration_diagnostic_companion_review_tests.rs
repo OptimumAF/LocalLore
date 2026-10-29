@@ -480,6 +480,8 @@ fn actual_both_recipes_one_precommit_binding_survives_cold_reader_without_old_wi
 #[test]
 fn outputs_authorization_precedes_binding_unknown_row_and_corrupt_source_probes() {
     let dir = copy(template(), "authorization");
+    // Inventory every file before the retained capability holds run.lock.
+    let mut before = inventory(&dir);
     let opened = desktop_api::open_read_only(&dir).unwrap();
     let good_binding = desktop_api::summary(&opened, true).unwrap()["binding"]
         .as_str()
@@ -489,7 +491,8 @@ fn outputs_authorization_precedes_binding_unknown_row_and_corrupt_source_probes(
     // is runtime-observable; this is not a transport-wide zero-I/O assertion.
     fs::write(dir.join("run.json"), b"{").unwrap();
     fs::write(dir.join(DECLARATION), PRIVATE.as_bytes()).unwrap();
-    let before = inventory(&dir);
+    before.insert(PathBuf::from("run.json"), Some(b"{".to_vec()));
+    before.insert(PathBuf::from(DECLARATION), Some(PRIVATE.as_bytes().to_vec()));
     for observer in [Observer::Player, Observer::Character { id: "mira".into() }] {
         for granted in [false, true] {
             let unknown = RowId {
@@ -1034,7 +1037,10 @@ fn lifecycle(fault: Fault) -> (PathBuf, Control, Result<()>, Value) {
         recording_file: Some(actual.recording_file.clone()),
     };
     let result = actual.checkpoint_and_settle(&arm, 0, &checkpoint, &mut session.ledgers[0]);
-    let summary = json!({"phase":actual.phase,"receipt":actual.receipt,"roles":actual.recording.roles,
+    // Hash actual typed Receipt bytes before json! changes object key order.
+    let receipt_sha256 = actual.receipt.as_ref()
+        .map(|receipt| digest(&serde_json::to_vec(receipt).unwrap()));
+    let summary = json!({"phase":actual.phase,"receipt":actual.receipt,"receipt_sha256":receipt_sha256,"roles":actual.recording.roles,
         "canonical_sha256":digest(&actual.after.canonical_bytes())});
     drop(actual); // Observe existing owned Drop cleanup before asserting terminal evidence.
     drop(session);
@@ -1183,7 +1189,7 @@ fn finite_failure_controls_preserve_order_exact_checkpoint_canonical_receipt_and
             assert_eq!(stored["row"]["phase"], outcome["phase"]);
             assert_eq!(
                 stored["row"]["actual_receipt_sha256"],
-                digest(&serde_json::to_vec(&outcome["receipt"]).unwrap())
+                outcome["receipt_sha256"]
             );
             precedes(&marks, "canonical", "checkpoint");
         }

@@ -124,7 +124,11 @@ def validate_admission(value):
             _binding(value['python']['runtime_dll'])
         auth = _path(value['auth_key'])
         _need(auth.name == 'adbkey' and auth.parent.name == '.android','auth')
-        _binding(value['capabilities'],project=True); _binding(value['source_review'],project=True)
+        for key,suffix in (('capabilities','.json'),('source_review','.md')):
+            _binding(value[key],project=True)
+            reference = PureWindowsPath(value[key]['path'])
+            _need(reference.suffix.casefold() == suffix and
+                  '.android' not in (part.casefold() for part in reference.parts),'auth')
         return copy.deepcopy(value)
     except LeaseRefused:
         raise

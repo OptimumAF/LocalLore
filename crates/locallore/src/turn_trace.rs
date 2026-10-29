@@ -226,6 +226,12 @@ impl NarrationValidationDiagnosticV1 {
         self.reason
     }
 }
+/// Separate native retention result. Absence never identifies a validation cause.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NarrationValidationReadV1 {
+    Unavailable,
+    Recorded(NarrationValidationDiagnosticV1),
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TokenBasis {
@@ -352,7 +358,7 @@ pub trait TraceSink {
     fn record(&mut self, measurement: StageMeasurement);
     /// Optional private data hook. Existing metadata sinks retain their default no-op.
     fn capture(&mut self, _artifact: crate::turn_capture::Artifact<'_>) {}
-    /// Optional native metadata only; existing sinks do not retain a history.
+    /// Optional native metadata hook; existing implementations may keep the no-op.
     fn narration_validation(&mut self, _diagnostic: NarrationValidationDiagnosticV1) {}
 }
 /// Short, nonblocking diagnostic adapter. Busy/poisoned locks and stale handles drop metadata.
@@ -386,6 +392,11 @@ impl TraceSink for RingSink {
     fn capture(&mut self, artifact: crate::turn_capture::Artifact<'_>) {
         if let Ok(mut ring) = self.ring.try_lock() {
             ring.capture_artifact(&self.handle, artifact);
+        }
+    }
+    fn narration_validation(&mut self, diagnostic: NarrationValidationDiagnosticV1) {
+        if let Ok(mut ring) = self.ring.try_lock() {
+            let _ = ring.record_narration_validation(&self.handle, diagnostic);
         }
     }
 }
@@ -478,6 +489,8 @@ struct LiveAttempt {
     sequence: u64,
     started: Instant,
     last: Instant,
+    // Fixed payload outside the unchanged serialized Attempt and its byte budget.
+    narration_validation: Option<NarrationValidationDiagnosticV1>,
     data: Attempt,
 }
 /// Pure, single-owner collector. Integrators may put it behind a short best-effort lock.
@@ -573,6 +586,7 @@ impl TraceRing {
             sequence,
             started: now,
             last: now,
+            narration_validation: None,
             data: Attempt {
                 identity,
                 provenance,
@@ -602,6 +616,39 @@ impl TraceRing {
                     .position(|a| a.sequence == handle.sequence)
             })
             .flatten()
+    }
+    /// Retain only a first callback aligned with the existing measured stage.
+    /// This does not append a stage, advance a clock or authenticate its origin.
+    fn record_narration_validation(
+        &mut self,
+        handle: &AttemptHandle,
+        diagnostic: NarrationValidationDiagnosticV1,
+    ) -> HookStatus {
+        if !self.enabled {
+            return HookStatus::Disabled;
+        }
+        let Some(index) = self.position(handle) else {
+            return HookStatus::Dropped;
+        };
+        let live = &mut self.attempts[index];
+        if !live.capture_owner.as_ref().is_some_and(TraceOwner::live) {
+            return HookStatus::Dropped;
+        }
+        if live.data.truncated || live.data.outcome == Outcome::Truncated {
+            return HookStatus::Truncated;
+        }
+        if live.data.outcome != Outcome::Running || live.narration_validation.is_some() {
+            return HookStatus::Dropped;
+        }
+        if live.data.stages.last().is_none_or(|stage| {
+            stage.stage != Stage::NarrationValidation
+                || stage.outcome != diagnostic.outcome()
+                || stage.error != diagnostic.error()
+        }) {
+            return HookStatus::InvalidMetadata;
+        }
+        live.narration_validation = Some(diagnostic);
+        HookStatus::Recorded
     }
     /// Caller must separately enforce current session/head and explicit local consent.
     pub fn configure_details(&mut self, owner: &TraceOwner, scope: &Scope, enabled: bool) {
@@ -786,29 +833,48 @@ impl TraceRing {
     ) -> Result<Snapshot, ReadError> {
         self.read_owned(Some(owner), selection, reader)
     }
+    /// Native metadata only. The caller separately enforces current session/head
+    /// authority and a bounded best-effort lock; no wire capability is created.
+    pub fn read_narration_validation_for_owner(
+        &self,
+        owner: &TraceOwner,
+        selection: &Selection,
+        reader: &Reader,
+    ) -> Result<NarrationValidationReadV1, ReadError> {
+        Self::validate_selection(selection, reader)?;
+        let (Some(turn), Some(attempt)) = (&selection.turn, selection.attempt) else {
+            return Err(ReadError::InvalidSelection);
+        };
+        if !self.enabled || !owner.live() {
+            return Ok(NarrationValidationReadV1::Unavailable);
+        }
+        let live = self.attempts.iter().find(|live| {
+            let key = &live.data.identity;
+            same_owner(live.capture_owner.as_ref(), Some(owner))
+                && key.scope == selection.scope
+                && key.base_revision == selection.base_revision
+                && key.observer == selection.observer
+                && &key.turn == turn
+                && key.attempt == attempt
+        });
+        let Some(live) = live else {
+            return Ok(NarrationValidationReadV1::Unavailable);
+        };
+        if live.data.truncated || live.data.outcome == Outcome::Truncated {
+            return Ok(NarrationValidationReadV1::Unavailable);
+        }
+        Ok(live.narration_validation.map_or(
+            NarrationValidationReadV1::Unavailable,
+            NarrationValidationReadV1::Recorded,
+        ))
+    }
     fn read_owned(
         &self,
         owner: Option<&TraceOwner>,
         selection: &Selection,
         reader: &Reader,
     ) -> Result<Snapshot, ReadError> {
-        if selection.scope != reader.scope {
-            return Err(ReadError::Scope);
-        }
-        if reader
-            .observer
-            .as_ref()
-            .is_some_and(|id| id != &selection.observer)
-        {
-            return Err(ReadError::Forbidden);
-        }
-        if !id(&selection.scope.story)
-            || !id(&selection.scope.branch)
-            || !id(&selection.observer)
-            || selection.turn.as_ref().is_some_and(|turn| !id(turn))
-        {
-            return Err(ReadError::InvalidSelection);
-        }
+        Self::validate_selection(selection, reader)?;
         let attempts = self
             .attempts
             .iter()
@@ -826,6 +892,26 @@ impl TraceRing {
             .map(|a| a.data.clone())
             .collect();
         Ok(self.snapshot(attempts))
+    }
+    fn validate_selection(selection: &Selection, reader: &Reader) -> Result<(), ReadError> {
+        if selection.scope != reader.scope {
+            return Err(ReadError::Scope);
+        }
+        if reader
+            .observer
+            .as_ref()
+            .is_some_and(|id| id != &selection.observer)
+        {
+            return Err(ReadError::Forbidden);
+        }
+        if !id(&selection.scope.story)
+            || !id(&selection.scope.branch)
+            || !id(&selection.observer)
+            || selection.turn.as_ref().is_some_and(|turn| !id(turn))
+        {
+            return Err(ReadError::InvalidSelection);
+        }
+        Ok(())
     }
 }
 fn micros(duration: std::time::Duration) -> u64 {

@@ -222,3 +222,13 @@ review. The next runnable step is independent evidence review of this bounded
 Core companion slice, then a focused reviewable PR. Desktop-reader source on
 separate branches still requires its own integration, tests and IPC/render gate;
 this document grants no execution promotion or merge authority.
+
+## Normal product restoration
+
+After the development component suite, Root rebuilt the normal Windows product
+at clean, unchanged `272c8bb5`, without dev-harness. The existing normal build
+command above exited0 in **9.7552782s**,
+16:20:11.6568450Z–16:20:21.4121232Z. Its original process/log records are retained;
+the normal product remains **unlaunched**. No subsequent source, test, schema or
+frontend change is included in this companion branch: the qualification
+integration above the tested source changes this document only.

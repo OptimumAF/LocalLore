@@ -83,8 +83,8 @@ requires all six nonempty bindings. Files are <=1MiB, combined <=2MiB; proof
 The first five are original native envelope bytes (version1/status ok/data,
 exact keys). Workspace data must equal the original workspace-created catalog
 and each other, with no added/deleted story or changed scope/title/revision/drafts.
-Recover/retry data exactly session/scope/revision/created; session positive
-integer; scope equals original create, revision0 and created=false. Snapshot
+Recover/retry data exactly session/scope/revision/created; session opaque
+string matching `[A-Za-z0-9_-]{1,128}`; scope equals original create, revision0 and created=false. Snapshot
 data equals original snapshot-created data, including PLAYER observer, rules,
 inventory and accepted receipts. Archive bytes equal original archive-v1 bytes;
 no reparsing/repair changes the captured artifact. Record hashes/counts and the

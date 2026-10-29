@@ -361,5 +361,10 @@ class RestartPrerequisiteGraphTests(unittest.TestCase):
         g=ClosedRestartGraph();g.mutate_stdout(6,('0'*64+'  /data/app/~~original-product/base.apk\n').encode());self.refused(g.validate)
         g=ClosedRestartGraph();path=g.root/'claims-v1/import-v1.json';value=g.env.read_json(path);value['prerequisite']=g.prerequisite_pin;g.save(path,value);self.refused(g.validate)
 
+    def test_duplicate_qualified_import_or_author_cannot_borrow_one_spent_claim(self):
+        for kind in('import','author'):
+            with self.subTest(kind=kind):
+                g=ClosedRestartGraph(duplicate_kind=kind);self.refused(g.validate)
+
 
 if __name__=='__main__':unittest.main()

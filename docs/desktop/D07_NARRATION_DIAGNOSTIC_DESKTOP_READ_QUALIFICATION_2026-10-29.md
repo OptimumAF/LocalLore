@@ -1,11 +1,12 @@
 # Desktop narration diagnostic read v1: scoped qualification
 
 2026-10-29. Refs #29 **D07.04/D07.06**.
-**Implemented; corrected component checks and the third complete synthetic
-native IPC/WebView cohort passed. Accepted-main integration checks are pending.**
-Current completed native evidence is exact `0bbf8eed61315d580001464ff60a0899a474b427`.
-Integration `54603e31281b23010e040e3eab002fa0a260fef0` includes accepted main;
-no result below is relabeled as a completed check at that integration source.
+**Implemented and verified at accepted-main integration: actual synthetic native
+IPC/WebView, Core/Host, workspace, application, frontend, lint, formatting and
+normal-build checks passed. This is a scoped reader gate, not full D07 acceptance.**
+Current completed verification is exact `54603e31281b23010e040e3eab002fa0a260fef0`,
+which includes accepted main `3db75eff`. Earlier `0bbf8eed` native results and
+both failed harness packets retain their original, separate source attribution.
 Originally prepared against `9f57bba8c45c098dd0f0c5aaebc184d447ae6ea3` under
 [#29 comment6502868048](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6502868048).
 This note qualifies only the read-only desktop adapter above the
@@ -469,3 +470,84 @@ unrelated broad-suite guard fixtures and compilation of the qualifier do not
 establish new companion-specific OS isolation. Root owns final measured updates
 and independent evidence review. D02 #23 stays closed; D07/desktop epic and human
 quality acceptance remain separate. This note grants no merge/release authority.
+
+## Completed accepted-main integration — 2026-10-29
+
+All following commands completed at clean, unchanged
+`54603e31281b23010e040e3eab002fa0a260fef0`. Root's local merge incorporates
+accepted main `3db75eff` without conflict. These results replace the earlier
+pending integration gate; they do not erase any historical failed record.
+
+| Check | Exact result | Command duration |
+| --- | --- | --- |
+| Actual hidden/unfocused native WebView2 and IPC, fresh initial/restart | exit 0; 15 + 2 images | 213.0003273s |
+| Full frontend, including existing 156 diagnostic and 61 policy cases | exit 0 | 14.9768733s |
+| Strict native dev-harness all-target Clippy, `-D warnings` | exit 0 | 16.3425085s |
+| Rust Android host check | exit 0 | 3.6415607s |
+| Root Rust formatting | exit 0 | 3.1209259s |
+| Full frontend formatting | exit 0 | 2.5034123s |
+| Core/Host Rust suite | 535 passed, 0 failed, 4 ignored; 64 result groups | 88.3019911s |
+| Workspace Rust suite | 182 passed, 0 failed, 1 ignored; 32 result groups | 65.3588560s |
+| Application native components and harness contracts | 291 + 2 passed, 0 failed, 11 ignored | 833.1913156s |
+| Normal application build restoration | exit 0; product unlaunched | 9.3705077s |
+
+Rust suite totals include their emitted unit/integration/doc-test groups; they
+are not a count of unique invariants across suites. The application unit body
+took 802.74s, with two separately selected contract tests. The actual command is
+the explicit application `--bin locallore-desktop-spike --test harness_contract`
+selection documented above. The accepted offline qualifier compiled/linted,
+but neither it nor its tests/probes were executed. Existing stopped D09 and
+SDK/device gates remain separate. The six inherited formatting failures were
+resolved by accepted PR260; this slice preserves those files and now passes the
+complete style check after integrating main.
+
+Native packet `comparison-reader-native-be8635cf-801a-4e25-be14-26415e92df57`
+contains the initial 139 assertions (74 distinct labels) and restart 21
+assertions (20 distinct labels); repeated journey assertions are not relabeled
+as 160 distinct cases. Root individually viewed every one of its 17 original
+CapturePreview PNGs. No layout or visible-state defect was found: wide/narrow
+diagnostic context is readable; all five statuses are distinct; Mira/Sable
+contain no private diagnostic/report; picker pending, close and context clear
+contain no stale selection; the integrity error is visibly adjacent to source,
+observer and revisions, separate from the committed canonical case outcome.
+Fresh-process read and final closure are visible in the restart images.
+`d07-diag-desktop-main-native1-render-inspection.json` records each image hash
+and individual finding separately. Geometry failure arrays are empty in all 17.
+
+The initial error buffer contains exactly one expected native Transport entry
+from malformed-companion `EvaluationIntegrity`; direct native actor `Forbidden`
+has an empty broker delta. Restart errors are empty. Known direct children
+closed without timeout/unknown drain, and both post-exit fixture inventories
+match the frozen map: 641 files, 660 entries, 5,313,563 bytes. External freeze
+SHA256 is `2a1591a8199d98469362e8e3e799ceef49a6f3850ab1360e31ae39fe9a8d4c2b`;
+qualification JSON SHA256 is
+`6b829eeb99f126a7c4e708cfe76b32b3dc675057207b610a523687fb17bb8b7b`.
+No process-tree containment or independent SDK-load proof follows from these
+observations. The absent task-owned model-candidate shutdown probe remains.
+
+All records use `d07-diag-desktop-main-` process/log families in the local
+artifact root. The standalone Core/Host and workspace log hashes are respectively
+`5a939181b9dedd78073f369f7ab87d0b1a88705eb277f761533ce6ddf95e0d4f`
+and `b766b38a0f0a80f86f5e1e8d23053d2b0616e9627183558d3e85c4fdc021f495`.
+The application component/contract log hash is
+`a4a9937e06bff38dccba2f7d719fa639ca6142a2e54e37339d9cc5edec9ebcd5`.
+Exact commands, timestamps, clean-source checks and exits remain in their
+original process records. The normal frontend bundle hash remains
+`656f14c372e1b9b544ab480ac18072a01b4d9e4ae7876c93def94853b4283dc9`
+after restoration, matching the pre-main reader build; no normal product was
+launched to establish that restoration.
+
+Fresh environment record `d07-diag-desktop-main-tool-versions1.json` records
+Rust/Cargo 1.93.1, rustfmt 1.8.0-stable, Node 24.22.1, PowerShell 7.6.5,
+Windows 10.0.26300.0, Prettier 3.9.10, TypeScript 7.0.2 and React 19.3.1.
+Installed WebView2 file metadata is 156.0.4314.50; this is not loaded-module
+verification. Actual rendered UA reports Chrome/Edg 156.0.0.0, as recorded above.
+TEMP/TMP and project/cache/artifact paths remain on D:.
+
+This gate establishes the bounded read adapter and its synthetic/native
+integration. It does not establish real-model prose improvement, restore the
+30 historical missing causes, enable Protocol4 managed generation/selected
+reruns, qualify Android SDK/device behavior, waive stopped OS/offline/package
+gates, or complete the desktop epic. Both human assessments remain
+**needs improvement**. The next implementation work requires its own contract,
+FIRST tests and scoped acceptance; no unrelated capability is inferred here.

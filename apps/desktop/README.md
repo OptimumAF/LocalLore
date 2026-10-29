@@ -291,6 +291,18 @@ restart/observer/refusal/recovery checks using synthetic inference. That earlier
 reader-only cohort refused protocol3 source transfer without consuming its
 capability; this is historical evidence, not the current selected-case limit.
 
+The [Protocol4 narration diagnostic reader](../../docs/desktop/D07_NARRATION_DIAGNOSTIC_DESKTOP_READ_QUALIFICATION_2026-10-29.md)
+adds **Inspect narration diagnostic** for a selected scene-report row in the
+Omniscient Story Lab lens. It distinguishes legacy absence, a missing observation,
+a recorded decision and stored Host unavailable/rejected replies. The selected
+source, revisions, case outcome, accepted receipt and quality limitation remain
+separate from the diagnostic. Switching lens, row or context clears private data.
+This reads bounded saved metadata; it does not reconstruct historical causes,
+enable scene generation or establish prose quality. Protocol4 selected-case
+reruns remain unavailable. The qualification note contains exact synthetic
+native/headless/component coverage, retained failures and reproducible commands
+for the application-owned hidden WebView harness, which needs no model assets.
+
 The current selected-case panel routes protocol2 sources to selected1 and
 protocol3 sources to the actual typed selected2 Rust plan/read capability. It
 supports explicit prepare/start, separate consent to read results and completed

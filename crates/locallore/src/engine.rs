@@ -503,6 +503,26 @@ impl Engine {
         record: &crate::play::PlayRecord,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
+        if matches!(
+            record.prompt_version.as_str(),
+            crate::play::scene_narration::SCENE_PROMPT_VERSION_V1
+                | crate::play::scene_narration::LITERAL_SCENE_PROMPT_VERSION_V1
+        ) {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let recipe =
+                if record.prompt_version == crate::play::scene_narration::SCENE_PROMPT_VERSION_V1 {
+                    crate::play::scene_narration::SceneRecipeV1::Memory(
+                        record.context_policy.ok_or(Error::Narration)?,
+                    )
+                } else {
+                    crate::play::scene_narration::SceneRecipeV1::LiteralV1
+                };
+            let preparation = self.stage_scene_play_v1(request, proposal, &|| false)?;
+            let bound = self.bind_scene_play_v1(preparation, recipe, &|| false)?;
+            return self.commit_scene_play_v1(bound, record, &|| false);
+        }
         if record.prompt_version == crate::play::LITERAL_PRESENTATION_PROMPT_VERSION_V1 {
             if let Some(receipt) = self.recorded(request)? {
                 return Ok(receipt);

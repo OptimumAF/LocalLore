@@ -1,7 +1,14 @@
 // Bundled only into the explicit DEVELOPMENT harness, never the normal frontend.
 import { Controller } from "./controller";
 import { category, ErrorBuffer, structural, composerShortcut } from "./model";
-import type { Command, Gateway, Session, NativeAction } from "./model";
+import type {
+    Command,
+    Gateway,
+    Session,
+    NativeAction,
+    Scope,
+    Request,
+} from "./model";
 function gate() {
     let release!: () => void;
     let ready!: () => void;
@@ -25,6 +32,15 @@ export class FaultGateway implements Gateway {
     failHeldPrepare = false;
     corruptRecovery = false;
     submissions: string[] = [];
+    diagnosticPhase = "";
+    readonly rejectedNativeCalls: {
+        op: string;
+        category: string;
+        scope: Scope | null;
+        expectedRevision: number | null;
+        turn: string | null;
+        phase: string;
+    }[] = [];
     constructor(readonly base: Gateway) {}
     forgeExportSave = false;
     heldExportCancel: ReturnType<typeof gate> | null = null;
@@ -68,7 +84,47 @@ export class FaultGateway implements Gateway {
         }
         if (command.op === "submit" || command.op === "free_text")
             this.submissions.push(command.request.turn);
-        const result = await this.base.call(command);
+        const phase = this.diagnosticPhase.slice(0, 128);
+        let result: unknown;
+        try {
+            result = await this.base.call(command);
+        } catch (error) {
+            const input = command as unknown as {
+                scope?: Scope;
+                request?: Request;
+                query?: { scope?: Scope; expected_head?: number };
+                expected_revision?: number;
+                turn?: string;
+            };
+            const scope =
+                input.scope ?? input.request?.scope ?? input.query?.scope;
+            const revision =
+                input.expected_revision ??
+                input.request?.expected_revision ??
+                input.query?.expected_head;
+            const turn = input.turn ?? input.request?.turn;
+            if (this.rejectedNativeCalls.length >= 64)
+                this.rejectedNativeCalls.shift();
+            this.rejectedNativeCalls.push({
+                op: command.op,
+                category: category(error),
+                phase,
+                scope:
+                    scope &&
+                    typeof scope.story === "string" &&
+                    typeof scope.branch === "string"
+                        ? {
+                              story: scope.story.slice(0, 64),
+                              branch: scope.branch.slice(0, 64),
+                          }
+                        : null,
+                expectedRevision: Number.isSafeInteger(revision)
+                    ? revision!
+                    : null,
+                turn: typeof turn === "string" ? turn.slice(0, 64) : null,
+            });
+            throw error;
+        }
         if (command.op === "trace_read" && this.heldTrace) {
             const held = this.heldTrace;
             this.heldTrace = null;

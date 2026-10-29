@@ -446,6 +446,7 @@ export function V2PlayPanel({
               : words(c.observer.kind);
     const inspection = state.inspection;
     const displayedReceipt = state.receipt;
+    const originalRequest = (state.pending ?? state.uncertain)?.request;
     return (
         <section
             className="v2-play"
@@ -468,7 +469,9 @@ export function V2PlayPanel({
                     ·{" "}
                     {c.playMode === "fixture"
                         ? "Fixture inference · synthetic responses"
-                        : "Local model · availability is checked by Rust"}
+                        : c.freeTextProvider?.kind === "synthetic_fixture"
+                          ? "Synthetic scene fixture · no model loaded"
+                          : "Free-text request · provider availability is checked"}
                 </p>
                 <p>
                     Operation:{" "}
@@ -478,6 +481,12 @@ export function V2PlayPanel({
                           state.status?.phase ??
                           "idle")}
                 </p>
+                {originalRequest && (
+                    <p aria-label="Active original request scope">
+                        Original request: {scopeLabel(originalRequest.scope)} ·
+                        from r{originalRequest.expected_revision}
+                    </p>
+                )}
                 {state.error && <p role="alert">{state.error}</p>}
                 {inspection && (
                     <p aria-label="Displayed inspection context">
@@ -488,7 +497,13 @@ export function V2PlayPanel({
                     </p>
                 )}
             </header>
-            {state.notice && <p role="status">{state.notice}</p>}
+            {state.notice && (
+                <p role="status">
+                    {state.status && state.notice === state.status.phase
+                        ? `Last Rust acknowledgement: ${state.notice}`
+                        : state.notice}
+                </p>
+            )}
             <button
                 disabled={state.readBusy}
                 onClick={() => void controller.refresh()}
@@ -624,7 +639,12 @@ export function V2PlayPanel({
                             }
                         >
                             <option value="fixture">Fixture · synthetic</option>
-                            <option value="local">Local model</option>
+                            <option value="local">
+                                {c.freeTextProvider?.kind ===
+                                "synthetic_fixture"
+                                    ? "Synthetic scene fixture (free text)"
+                                    : "Local model"}
+                            </option>
                         </select>
                     </label>
                     {c.playMode === "fixture" ? (
@@ -753,7 +773,7 @@ export function V2PlayPanel({
                             Original route:{" "}
                             {(state.pending ?? state.uncertain)!.request.intent
                                 .kind === "free_text"
-                                ? "local model request"
+                                ? "free-text provider request"
                                 : `typed fixture · ${(state.pending ?? state.uncertain)!.mode}`}
                             . Current composer controls do not replace this
                             request.

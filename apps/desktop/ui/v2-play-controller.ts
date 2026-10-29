@@ -5,7 +5,7 @@ import {
     sameScope,
     structural,
 } from "./model";
-import type { Action, FakeMode, Gateway, Request, Scope } from "./model";
+import type { Action, FakeMode, Gateway, Request, Scope, State } from "./model";
 import {
     checkedJsonV2 as detached,
     checkedPageV2,
@@ -33,6 +33,7 @@ export interface V2PlayContext {
     pending: boolean;
     blocked: boolean;
     playMode: "fixture" | "local";
+    freeTextProvider?: State["freeTextProvider"];
     inputKind: "action" | "dialogue";
     action: Action;
     fakeMode: FakeMode;
@@ -400,6 +401,14 @@ function context(value: V2PlayContext): V2PlayContext {
         wire();
     if (c.observer.kind === "character") id(c.observer.id);
     else if (!["player", "omniscient"].includes(c.observer.kind)) wire();
+    if (c.freeTextProvider !== undefined && c.freeTextProvider !== null) {
+        const provider = exact(c.freeTextProvider, ["provider", "kind"]);
+        if (
+            provider.provider !== "scene-native-fixture-v1" ||
+            provider.kind !== "synthetic_fixture"
+        )
+            wire();
+    }
     return c;
 }
 const lens = (c: V2PlayContext): ObserverV2 =>

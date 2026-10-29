@@ -355,3 +355,22 @@ fixtures. All selected3 prepare/run/resume/inspect/read behavior under review
 still goes through the proposed public selected3 functions and opaque handles.
 This clarification changes only the permitted test-source construction, with the
 same owned new FIRST file, source-only authoring and later Root runtime admission.
+
+## Existing clock semantics clarified before runtime qualification
+
+Independent source review confirms that PREPARATION_MS=120,000 is the existing
+durable preparation reservation and aggregate-capacity allowance. It is not a
+hard timeout for blocking filesystem/snapshot work. Existing accepted shared clock
+tests deliberately charge known opening work above that reservation. Preserve
+that behavior: retain the run/resume entry Instant for both ledgers, charge actual
+known opening work, retain full unknown reservations and apply the unchanged
+30-minute aggregate accounting plus 60-second absolute turn/watchdog machinery.
+Do not invent physical model-load time or reset the entry clock on refresh.
+
+The fourteen new FIRST groups test reservation capacity, completed-resume bypass
+and fixed post-arm cancellation; they do not advance a physical 120-second opening
+or 60-second turn. Qualification must distinguish existing shared clock tests,
+new wiring source review and actual scripted execution. No independent hard
+filesystem/preparation cutoff or real process-death/timeout evidence is claimed.
+This clarifies reuse of the existing owners; it does not introduce a new clock,
+relax a shared limit or qualify the deferred native selected execution gate.

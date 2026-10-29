@@ -15,6 +15,7 @@ additional requirements. No blanket all-Win32-handles assertion is made.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import ctypes
+from dataclasses import asdict
 import hashlib
 import importlib
 import json
@@ -86,14 +87,22 @@ def _read_bound(path, expected, cap, reason):
     _need(type(expected) is str and re.fullmatch("[0-9a-f]{64}",expected) is not None,reason)
     path = env.safe_path(path); before = path.stat()
     _need(0 < before.st_size <= cap,reason)
+    def signature(info):
+        # Windows Python 3.14 path stat and fstat can project ctime differently
+        # (CPython #157671). Retain each API's ctime stability independently;
+        # cross-bind their common identity plus explicit creation time instead.
+        birth = getattr(info,"st_birthtime_ns",None)
+        _need(type(birth) is int and 0 <= birth <= 2**128-1,reason)
+        return (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns,birth)
+    path_before = signature(before)
     with path.open("rb") as source:
         held = os.fstat(source.fileno())
-        signature = lambda info: (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
-        _need(signature(held) == signature(before),reason)
+        held_before = signature(held)
+        _need(held_before[:4] == path_before[:4] and held_before[5] == path_before[5],reason)
         raw = source.read(cap+1)
-        _need(signature(held) == signature(os.fstat(source.fileno())),reason)
+        _need(held_before == signature(os.fstat(source.fileno())),reason)
     env.safe_path(path)
-    _need(signature(before) == signature(path.stat()) and len(raw) == before.st_size and
+    _need(path_before == signature(path.stat()) and len(raw) == before.st_size and
           hashlib.sha256(raw).hexdigest() == expected,reason)
     value = env.decode_json(raw)
     return dict(path=str(path),bytes=len(raw),sha256=expected), value
@@ -152,6 +161,34 @@ def _set_temporary():
     os.environ.update(TEMP=str(temporary),TMP=str(temporary),TMPDIR=str(temporary))
 
 
+def _report_int(value, low, high):
+    _need(type(value) is int and low <= value <= high,"report")
+    return value
+
+
+def _report_bracket(value, admitted):
+    _need(type(value) is dict and set(value) == {"server","client","adb_file","held_processes_alive"},"report")
+    _need(_same(value["server"],admitted["server"]) and _same(value["adb_file"],admitted["adb_file"]) and
+          type(value["held_processes_alive"]) is bool,"report")
+    client = value["client"]
+    _need(type(client) is dict and set(client) == {"pid","creation_filetime","executable"},"report")
+    _report_int(client["pid"],1,2**32-1)
+    _report_int(client["creation_filetime"],1,2**64-1)
+    name = client["executable"]
+    _need(type(name) is str and 3 < len(name) <= 32768 and re.match(r"^[A-Za-z]:[\\/]",name) is not None and
+          not any(ord(char) < 32 for char in name),"report")
+
+
+def _report_endpoint(value):
+    _need(type(value) is dict and set(value) == {"handle","socket_id","local_address","local_port","peer_address","peer_port"},"report")
+    for key in ("handle","socket_id"):
+        _report_int(value[key],1,2**128-1)
+    for key in ("local_port","peer_port"):
+        _report_int(value[key],1,65535)
+    _need(value["local_address"] == value["peer_address"] == "127.0.0.1" and
+          value["peer_port"] == 5037 and value["local_port"] != 5037,"report")
+
+
 def _report_bytes(report, admitted):
     """Bound the private serialization; proof authority stays with report_verified."""
     contract = _contract()
@@ -180,25 +217,42 @@ def _report_bytes(report, admitted):
     for stage in stages:
         _need(type(stage) is dict and type(stage.get("stage")) is str and stage["stage"] in allowed and
               set(stage) <= allowed[stage["stage"]],"report")
-        if stage["stage"] == "connected" and type(stage.get("endpoint")) is dict:
-            client_port = stage["endpoint"].get("local_port")
-            _need(type(client_port) is int and 0 < client_port < 65536 and client_port != 5037,"report")
+        if "bracket" in stage:
+            _report_bracket(stage["bracket"],admitted)
+        for key in ("endpoint","endpoint_before","endpoint_after"):
+            if key in stage:
+                _report_endpoint(stage[key])
+        if stage["stage"] == "connected" and "endpoint" in stage:
+            client_port = stage["endpoint"]["local_port"]
         if "snapshot" not in stage:
             continue
         snapshot = stage["snapshot"]
         _need(type(snapshot) is dict and set(snapshot) == {"abi_checked","tables","rows"},"report")
-        _need(type(snapshot["tables"]) is list and len(snapshot["tables"]) == 2 and
+        _need(type(snapshot["abi_checked"]) is bool and
+              type(snapshot["tables"]) is list and len(snapshot["tables"]) == 2 and
               type(snapshot["rows"]) is list and len(snapshot["rows"]) <= 64,"report")
-        for table in snapshot["tables"]:
+        counts = {}
+        for table, family in zip(snapshot["tables"],(2,23)):
             _need(type(table) is dict and set(table) == {"family","table_class","allocated_bytes","returned_bytes","count","raw_sha256"},"report")
+            _need(type(table["family"]) is int and table["family"] == family and
+                  type(table["table_class"]) is int and table["table_class"] == 5,"report")
+            allocated = _report_int(table["allocated_bytes"],4,1024*1024)
+            returned = _report_int(table["returned_bytes"],4,allocated)
+            count = _report_int(table["count"],0,16384)
+            _need(4+count*(24 if family == 2 else 56) <= returned and
+                  type(table["raw_sha256"]) is str and re.fullmatch("[0-9a-f]{64}",table["raw_sha256"]) is not None,"report")
+            counts[family] = count
         for record in snapshot["rows"]:
             _need(type(record) is dict and set(record) == {"family","ordinal","raw_hex","raw_sha256","row"},"report")
             family = record["family"]
             _need(type(family) is int and family in (2,23),"report")
+            _report_int(record["ordinal"],0,counts[family]-1)
             raw_hex = record["raw_hex"]; size = 24 if family == 2 else 56
             _need(type(raw_hex) is str and re.fullmatch("[0-9a-f]{"+str(size*2)+"}",raw_hex) is not None,"report")
             raw = bytes.fromhex(raw_hex)
             row = decode_table(b"\1\0\0\0"+raw,family)[0]
+            _need(type(record["raw_sha256"]) is str and record["raw_sha256"] == hashlib.sha256(raw).hexdigest() and
+                  _same(record["row"],asdict(row)),"report")
             _need(row.local_port == 5037 or client_port is not None and row.local_port == client_port,"report")
     raw = env.encoded(report)
     _need(0 < len(raw) <= MAX_REPORT,"report")

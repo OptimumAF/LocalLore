@@ -6,6 +6,12 @@ boundary; public source closure, the interpreter executable and exposed loaded
 Python DLL are byte-bound before/after the supervised worker. A report alone
 does not authenticate its acquisition.
 
+The report's process_handles_closed covers only backend-owned native/file
+resources. Reused supervisor and pre-backend metadata helpers are separately
+source-bound; their handles are not covered by that report flag. Actual worker
+closure/capture, final pin checks and external CLI-terminal evidence remain
+additional requirements. No blanket all-Win32-handles assertion is made.
+
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import ctypes

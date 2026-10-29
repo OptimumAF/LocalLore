@@ -65,6 +65,35 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
 ];
 
 const MAX_JSON: usize = 256 * 1024;
+const MAX_SELECTED_SCENE_ARTIFACT_BYTES: usize = 64 * 1024 * 1024;
+
+#[derive(Default)]
+struct ArtifactBudget {
+    reserved: usize,
+    failed: bool,
+}
+impl ArtifactBudget {
+    fn reserve(&mut self, amount: usize) -> Result<(), &'static str> {
+        if self.failed {
+            return Err("ArtifactWriteBudget");
+        }
+        match self.reserved.checked_add(amount) {
+            Some(total) if total <= MAX_SELECTED_SCENE_ARTIFACT_BYTES => {
+                self.reserved = total;
+                Ok(())
+            }
+            _ => {
+                self.fail();
+                Err("ArtifactWriteBudget")
+            }
+        }
+    }
+
+    fn fail(&mut self) {
+        self.failed = true;
+    }
+}
+
 const FULL_COMPARISON_LABELS: &[&str] = &[
     "full-idle",
     "full-running",
@@ -374,6 +403,7 @@ struct Progress {
 pub struct HarnessState {
     directory: PathBuf,
     progress: Mutex<Progress>,
+    scene_budget: Option<Mutex<ArtifactBudget>>,
 }
 
 impl HarnessState {
@@ -402,6 +432,7 @@ impl HarnessState {
                 labels: HashSet::new(),
                 finished: false,
             }),
+            scene_budget: selected_scene_active().then(|| Mutex::new(ArtifactBudget::default())),
         })
     }
 
@@ -455,12 +486,25 @@ impl HarnessState {
 
     fn write(&self, name: &str, bytes: &[u8]) -> Result<(), &'static str> {
         // Every caller passes a literal or a name formed from LABELS above.
-        OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(self.directory.join(name))
-            .and_then(|mut file| file.write_all(bytes))
-            .map_err(|_| "ArtifactWriteFailed")
+        let write = || OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(self.directory.join(name))
+                .and_then(|mut file| file.write_all(bytes))
+                .map_err(|_| "ArtifactWriteFailed");
+        if let Some(budget) = &self.scene_budget {
+            // This owned guard spans reservation and the complete create-new
+            // write. Failed/partial writes remain charged and preserved.
+            let mut budget = budget.lock().map_err(|_| "ArtifactWriteBudget")?;
+            budget.reserve(bytes.len())?;
+            let result = write();
+            if result.is_err() {
+                budget.fail();
+            }
+            result
+        } else {
+            write()
+        }
     }
 }
 
@@ -641,6 +685,10 @@ async fn capture(window: &tauri::WebviewWindow) -> Result<Vec<u8>, &'static str>
 async fn capture(_: &tauri::WebviewWindow) -> Result<Vec<u8>, &'static str> {
     Err("CaptureUnsupported")
 }
+
+#[cfg(test)]
+#[path = "selected_scene_artifact_budget_review_tests.rs"]
+mod selected_scene_artifact_budget_review_tests;
 
 #[cfg(test)]
 mod tests {

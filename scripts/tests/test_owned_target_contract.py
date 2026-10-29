@@ -34,7 +34,7 @@ def admission():
     return dict(version=1,protocol=PROTOCOL,run_id=server['run_id'],root=str(root),seconds=1200,
       server=server,guest=dict(root='D:/Dev/Experiments/LocalLore/2026-10-28-author-player-contract-v1/avd-v1',
         proposal=pin('D:/Synthetic/guest-proposal.json'),authorization=pin('D:/Synthetic/guest-authorization.json'),
-        emulator=pin('C:/Synthetic/Android/emulator/emulator.exe'),qemu=pin('C:/Synthetic/Android/emulator/qemu/windows-x86_64/qemu-system-x86_64.exe'),
+        emulator=pin('C:/Synthetic/Android/emulator/emulator.exe'),qemu=pin('C:/Synthetic/Android/emulator/qemu/windows-x86_64/qemu-system-x86_64-headless.exe'),
         refuser=pin('D:/Synthetic/deny-adb-client.exe'),refuser_source=pin('D:/Synthetic/deny_adb_client.c'),
         console_port=5592,adb_port=5593,serial='emulator-5592',memory_mib=8192,cores=4,max_seconds=1800,api=35,abi='x86_64'),
       artifacts=dict(build=pin('D:/Synthetic/build-v1.json'),product_apk=pin('D:/Synthetic/product-debug.apk'),

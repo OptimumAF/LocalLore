@@ -76,8 +76,20 @@ def _lease_class():
     return LiveOwnedTarget
 
 
-class OwnedTargetSdkCapture:
+class _OwnedTargetSdkCapture:
     """A finite direct transport session bound to one immutable live target."""
+
+    @property
+    def _contract(self):
+        raise ClientRefused("client_type")
+
+    @property
+    def _verification(self):
+        raise ClientRefused("client_type")
+
+    @property
+    def _expected_lease_class(self):
+        raise ClientRefused("client_type")
 
     def __init__(self, directory, seconds, lease):
         self.clean = False
@@ -87,31 +99,31 @@ class OwnedTargetSdkCapture:
         self._time_lock = threading.Lock()
         self.lease = lease
         try:
-            _need(type(lease) is _lease_class(), "lease_type")
+            _need(type(lease) is self._expected_lease_class, "lease_type")
             _number(seconds)
             lease.guard(min_seconds=seconds)
             self._admission = copy.deepcopy(lease.admission)
             self._descriptor = copy.deepcopy(lease.descriptor)
             self._admission_binding = copy.deepcopy(lease.admission_binding)
             self._running_binding = copy.deepcopy(lease.running_binding)
-            contract.validate_admission(copy.deepcopy(self._admission))
-            contract.validate_running(copy.deepcopy(self._descriptor), copy.deepcopy(self._admission),
+            self._contract.validate_admission(copy.deepcopy(self._admission))
+            self._contract.validate_running(copy.deepcopy(self._descriptor), copy.deepcopy(self._admission),
                                       copy.deepcopy(self._admission_binding))
             self._target = {"transport_id": self._descriptor["transport_id"]}
             self.directory = output_control.validate_output(str(directory))
             _need(self.directory.name == "clients")
             self._proofs = output_control.validate_output(str(self.directory.parent / "proofs"))
-            session_path = output_control.validate_output(str(self.directory.parent / "sdk-session-v4.json"))
+            session_path = output_control.validate_output(str(self.directory.parent / self._contract.SESSION_FILE))
             started_epoch = time.time()
             self.until = self._now() + seconds
             self._deadline_limit = self.until
-            self._session = dict(version=1, protocol=SDK_PROTOCOL,
+            self._session = dict(version=1, protocol=self._contract.SDK_PROTOCOL,
                 admission=copy.deepcopy(self._admission_binding), running=copy.deepcopy(self._running_binding),
                 descriptor=copy.deepcopy(self._descriptor), caller=copy.deepcopy(lease.caller),
                 sources=copy.deepcopy(self._admission["sources"]), python=copy.deepcopy(self._admission["python"]),
                 root=str(self.directory.parent), seconds=seconds, started_epoch=started_epoch,
                 deadline_epoch=started_epoch + seconds)
-            contract.validate_session(copy.deepcopy(self._session), copy.deepcopy(self._admission))
+            self._contract.validate_session(copy.deepcopy(self._session), copy.deepcopy(self._admission))
             self.directory.mkdir(exist_ok=False)
             self._proofs.mkdir(exist_ok=False)
             self._directory_id = _identity(self.directory)
@@ -280,9 +292,9 @@ class OwnedTargetSdkCapture:
         original = copy.deepcopy(context)
         pin = copy.deepcopy(self.lease.prove(path, self.session, copy.deepcopy(context), sock,
                                              copy.deepcopy(anchor), after=after))
-        contract.binding(copy.deepcopy(pin))
+        self._contract.binding(copy.deepcopy(pin))
         environment.check_binding(pin)
-        value = verification.verify_proof(copy.deepcopy(pin), self.session, copy.deepcopy(original))
+        value = self._verification.verify_proof(copy.deepcopy(pin), self.session, copy.deepcopy(original))
         _need(file_guard._same(value["session"], self.session_binding), "session_changed")
         # The independent owner is responsible for the complete proof graph;
         # do not substitute an arbitrary caller-supplied boolean provider.
@@ -338,9 +350,9 @@ class OwnedTargetSdkCapture:
             _number(seconds)
             _need(type(cap) is int and 0 < cap <= MAX_CAPTURE and type(full_budget) is bool)
             operation = dict(argv=copy.deepcopy(argv), stdin=copy.deepcopy(source_binding))
-            contract.validate_operation(copy.deepcopy(operation), copy.deepcopy(self._admission))
+            self._contract.validate_operation(copy.deepcopy(operation), copy.deepcopy(self._admission))
             source_binding = copy.deepcopy(operation["stdin"])
-            operation_sha = contract.operation_digest(copy.deepcopy(operation))
+            operation_sha = self._contract.operation_digest(copy.deepcopy(operation))
             index = self.count + 1
             context = dict(index=index, phase="before", label=label,
                 operation_sha256=operation_sha, transport_id=self._target["transport_id"])
@@ -368,9 +380,8 @@ class OwnedTargetSdkCapture:
             effective_ms = math.ceil(effective * 1000)
             started = self._now()
             deadline = started + effective
-            if operation["argv"][:2] == ["am", "instrument"]:
-                method = operation["argv"][6]
-                kind = "import" if method == contract.CLASS + "#" + contract.METHODS[0] else "author"
+            kind = self._contract.instrumentation_kind(operation["argv"])
+            if kind is not None:
                 self.lease.claim_once(kind, operation_sha)
                 self._fast_guard(deadline)
             # Dispatch is counted exactly once, immediately before the first
@@ -456,7 +467,7 @@ class OwnedTargetSdkCapture:
                     stem = self.directory / ("command-%04d" % self.count)
                     stdout = self._write_bytes(stem.with_suffix(".stdout.bin"), bytes(state["stdout"]))
                     stderr = self._write_bytes(stem.with_suffix(".stderr.bin"), bytes(state["stderr"]))
-                    record = dict(version=4, protocol=SDK_PROTOCOL, session=self.session_binding,
+                    record = dict(version=self._contract.CLIENT_VERSION, protocol=self._contract.SDK_PROTOCOL, session=self.session_binding,
                         index=self.count, label=label, operation=copy.deepcopy(operation),
                         operation_sha256=operation_sha, transport_id=self._target["transport_id"],
                         status=status, returncode=state["returncode"],
@@ -466,7 +477,7 @@ class OwnedTargetSdkCapture:
                         stdin_complete=state["stdin_complete"], server_before=before, server_after=after,
                         client_qualified=qualified, socket_closed=socket_closed,
                         sender_joined=sender_joined, input_closed=input_closed)
-                    contract.validate_client_record(copy.deepcopy(record), self.session)
+                    self._contract.validate_client_record(copy.deepcopy(record), self.session)
                     environment.create_json(stem.with_suffix(".json"), record)
                     self._directory_guard()
                 except BaseException:
@@ -478,3 +489,26 @@ class OwnedTargetSdkCapture:
 
     def close(self):
         self._poison()
+
+
+class OwnedTargetSdkCapture(_OwnedTargetSdkCapture):
+    """Fixed original SDK4 profile; subclasses cannot select executable code."""
+
+    def __init__(self, directory, seconds, lease):
+        _need(type(self) is OwnedTargetSdkCapture, "client_type")
+        super().__init__(directory, seconds, lease)
+
+    @property
+    def _contract(self):
+        _need(type(self) is OwnedTargetSdkCapture, "client_type")
+        return contract
+
+    @property
+    def _verification(self):
+        _need(type(self) is OwnedTargetSdkCapture, "client_type")
+        return verification
+
+    @property
+    def _expected_lease_class(self):
+        _need(type(self) is OwnedTargetSdkCapture, "client_type")
+        return _lease_class()

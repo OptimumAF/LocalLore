@@ -1318,3 +1318,35 @@ fn default_old_wires_canonical_provider_recording_and_ready_recovery_never_gain_
     }
     assert!(!inventory(&dir).keys().any(|p| is_companion(p)));
 }
+
+#[test]
+fn additive_first_producer_reuse_requires_exact_bytes_while_cold_reader_allows_valid_whitespace() {
+    // Additive FIRST oracle for the source-review finding at73537f7e; not part
+    // of the original ten-group freeze and not a measured behavioral RED yet.
+    // Reconstruct trusted typed metadata from one actual synthetic artifact;
+    // this is NOT a new Host call, recovered historical cause or origin proof.
+    use crate::narration_diagnostic_companion_v1::{self as codec, Harvest, Query};
+    let dir = copy(template(), "exact-producer-reuse");
+    let path = observation_path(&dir, "left", 0);
+    let stored = value(&path);
+    let query: Query = serde_json::from_value(stored["host_query"].clone()).unwrap();
+    let harvest = Harvest::decode(query, &stored["host_reply"]).unwrap();
+    let checkpoint_bytes = fs::read(checkpoint_path(&dir.join("left"), 0)).unwrap();
+    let checkpoint: Value = serde_json::from_slice(&checkpoint_bytes).unwrap();
+    let admission = usize::try_from(stored["admission"].as_u64().unwrap()).unwrap();
+    let player = suite().unwrap().seed().player.clone();
+    let original = inventory(&dir);
+    codec::publish(&dir.join("left"), 0, admission, &checkpoint,
+        &checkpoint_bytes, &player, &harvest).unwrap();
+    assert_eq!(inventory(&dir), original, "exact intended bytes are reused without any rewrite");
+    let mut whitespace = fs::read(&path).unwrap();
+    whitespace.extend_from_slice(b"\n ");
+    assert!(whitespace.len() <= codec::RECORD_CAP);
+    fs::write(&path, whitespace).unwrap();
+    let retained = inventory(&dir);
+    response(&read(&dir, "left", 0).unwrap(), "recorded", true);
+    assert_eq!(inventory(&dir), retained, "valid whitespace is readable without canonicalizing it");
+    bounded_refusal(codec::publish(&dir.join("left"), 0, admission, &checkpoint,
+        &checkpoint_bytes, &player, &harvest));
+    assert_eq!(inventory(&dir), retained, "equivalent but different bytes must remain unchanged on refusal");
+}

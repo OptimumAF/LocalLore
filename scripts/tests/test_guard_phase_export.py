@@ -18,7 +18,8 @@ def snapshot(*, valid=True):
     return dict(version=1,scope='owned-target-guard-phases-v1',valid=valid,
         reason=None if valid else 'clock',observer_closed=True,open_phases=0,
         complete=valid,feature_acceptance=False,instrumentation_overhead_included=True,
-        rows=[dict(phase=phase,calls=1,completed=1,raised=0,wall_ns=10,max_ns=10) for phase in PHASES])
+        rows=[dict(phase=phase,calls=1,completed=1,raised=0,
+            wall_ns=100 if phase=='total' else 10,max_ns=100 if phase=='total' else 10) for phase in PHASES])
 
 
 @unittest.skipUnless(os.name == 'nt', 'physical D controller fixtures')

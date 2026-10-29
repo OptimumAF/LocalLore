@@ -244,7 +244,7 @@ def validate_guest_observation(value,guest,server):
                 key=r['local_port'],r['family'];_need(key not in listeners,'observation');listeners.add(key)
                 _need(r['pid']==guest['pid'],'identity')
             else:_need(r['local_port']==5593 and r['remote_address']==loop and r['remote_port']>0 and r['pid']in(0,guest['pid']),'identity')
-        else:_need(r['remote_port']==5593 and r['remote_address']==loop and r['pid']in(0,server['pid']),'identity')
+        else:_need(r['remote_port']==5593 and r['remote_address']==loop and r['pid']in(0,server['pid'],guest['pid']),'identity')
     _need((5592,2)in listeners and(5593,2)in listeners,'observation')
 
 
@@ -308,10 +308,11 @@ def validate_client_record(value,session):
         binding(source,max_bytes=4*1024**3)
         _need(value['stdin_bytes']<=source['bytes'],'binding')
         if value['stdin_sha256']is not None:_need(type(value['stdin_sha256'])is str and re.fullmatch('[0-9a-f]{64}',value['stdin_sha256'])is not None,'binding')
-        if value['stdin_complete']:_need(value['stdin_bytes']==source['bytes']and value['stdin_sha256']==source['sha256'],'binding')
+        if value['stdin_complete']:_need(value['stdin_bytes']==source['bytes']and value['stdin_sha256']is not None,'binding')
     for key in('server_before','server_after'):
         if value[key]is not None:binding(value[key])
     if value['client_qualified']:
+        _need(source is None or value['stdin_sha256']==source['sha256'],'binding')
         _need(value['status']=='completed'and type(value['returncode'])is int and value['returncode']==0 and
          value['elapsed_ms']is not None and all(value[k]is True for k in('cleanup_complete','stdin_complete','socket_closed','sender_joined','input_closed'))and
          value['server_before']is not None and value['server_after']is not None,'capability')

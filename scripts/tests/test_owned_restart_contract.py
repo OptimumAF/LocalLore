@@ -1,7 +1,9 @@
 """Original fixed-profile restart authority fixtures; no device/kernel/model IO."""
 import copy
 import json
+import os
 from pathlib import Path,PureWindowsPath
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -9,6 +11,8 @@ from benchmarks import owned_restart_contract as r
 from benchmarks import android_process_verification_v5 as reader
 from benchmarks import owned_target_contract as legacy
 from scripts.tests import test_owned_target_contract as f
+from scripts.tests import test_original_author_prompt_provenance as author_fixture
+from scripts.tests import test_android_instrumentation_evidence as junit_fixture
 
 PROTOCOL='owned-emulator-restart-target-v1'
 SDK_PROTOCOL='sdk-owned-restart-v1'
@@ -68,6 +72,89 @@ def process_packet(*,mode='snapshot',state='alive',pid=8021,uid=10421,start=9000
     elif state=='absent':value.update(observed_uid=None,start_ticks=None,pidfd_opened=False,poll_revents=None,pidfd_closed=None,proc_opened=False,proc_closed=None,errno=3)
     elif state=='exited':value['poll_revents']=1
     return value
+
+
+def junit_bytes(kind):
+    selected=instrumentation(kind)[6];cl,method=selected.split('#')
+    return (junit_fixture.bundle(method,1,1,cls=cl,count=1,stream='\n'+cl+':')+
+      junit_fixture.bundle(method,1,0,cls=cl,count=1,stream='.')+junit_fixture.ending(1)).encode()
+
+
+class ClosedRestartGraph:
+    """Fresh synthetic complete SDK records and original prerequisite sidecars."""
+    def __init__(self):
+        from benchmarks import receipt_avd_environment as env
+        self.env=env;self.base=Path(tempfile.mkdtemp(prefix='locallore-restart-graph-',dir='D:/Dev/_Temp')).resolve(strict=True)
+        self.root=self.base/'owner';self.sdk=self.base/'sdk';self.writes=[]
+        self.a=admission();self.a.update(root=str(self.root));self.a['server']['root']=str(self.root/'server')
+        self.admission=self.save(self.base/'admission-v1.json',self.a);self.d=running(self.a);self.d['admission']=self.admission
+        self.running=self.save(self.root/'running-v1.json',self.d);self.s=session(self.a)
+        self.s.update(root=str(self.sdk),admission=self.admission,running=self.running,descriptor=self.d)
+        self.session=self.save(self.sdk/'sdk-session-v5.json',self.s);self.rows=[];self.row_pins=[]
+        baseline=author_fixture.fixture(author_fixture.CURRENT);bf=author_fixture.f
+        self.import_proof=self.save(self.base/'import-proof/import-v1.json',baseline['imported'])
+        self.author=baseline['author'];self.author_raw=bf.raw(self.author)
+        self.author_proof=self.save(self.base/'author-proof/proof-v1.json',self.author_raw)
+        self.author_artifacts={name:self.save(self.base/'author-proof'/name,raw)for name,raw in baseline['artifacts'].items()}
+        for name in('workspace-v1','archive-staging'):(self.base/'author-proof'/name).mkdir()
+        pid=self.author['process']['pid'];uid=self.author['process']['uid']
+        boot=self.add([PROBE_PATH,'--boot'],self.encode(process_packet(mode='boot')),'boot-initial')
+        imported=self.add(instrumentation('import'),junit_bytes('import'),'import')
+        authored=self.add(instrumentation('author'),junit_bytes('author'),'author')
+        packages={}
+        for kind,name,package_uid,apk in(('product',r.APP,uid,'product_apk'),('tests',r.TEST,uid+1,'test_apk')):
+            path='/data/app/~~original-'+kind+'/base.apk'
+            uid_stdout=('package:'+r.APP+' uid:'+str(uid)+'\npackage:'+r.TEST+' uid:'+str(uid+1)+'\n').encode()
+            packages[kind]=dict(uid=self.add(['cmd','package','list','packages','-U','--user','0',name],uid_stdout,kind+'-uid'),
+              path=self.add(['cmd','package','path','--user','0',name],('package:'+path+'\n').encode(),kind+'-path'),
+              sha256=self.add(['sha256sum',path],(self.a['artifacts'][apk]['sha256']+'  '+path+'\n').encode(),kind+'-hash'))
+        before=self.add([PROBE_PATH,'--snapshot',str(pid),str(uid)],self.encode(process_packet(pid=pid,uid=uid)),'before')
+        stop=self.add(['am','force-stop','--user','0',r.APP],b'','force-stop')
+        after=self.add([PROBE_PATH,'--snapshot',str(pid),str(uid)],self.encode(process_packet(pid=pid,uid=uid,state='absent')),'after')
+        self.prerequisite=dict(version=1,protocol='original-author-restart-prerequisite-v1',admission=self.admission,running=self.running,
+          session=self.session,caller=self.s['caller'],import_proof=self.import_proof,author_proof=self.author_proof,
+          author_artifacts=self.author_artifacts,import_instrumentation=imported,author_instrumentation=authored,
+          boot_initial=boot,probe_before=before,force_stop=stop,probe_after=after,package_checks=packages)
+        self.prerequisite_pin=self.save(self.root/'restart-prerequisite-v1.json',self.prerequisite)
+
+    def encode(self,value):return self.env.encoded(value)
+    def save(self,path,value):
+        path=Path(path).resolve(strict=False)
+        if path.drive.upper()!='D:'or not path.is_relative_to(self.base):raise AssertionError('synthetic graph write escaped D root')
+        path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(value if type(value)is bytes else self.encode(value));self.writes.append(path)
+        return self.env.binding(path)
+    def add(self,argv,stdout,label):
+        index=len(self.rows)+1;operation=dict(argv=copy.deepcopy(argv),stdin=None);digest=r.operation_digest(operation);proofs={}
+        for phase in('before','after'):
+            p=proof(self.s,after=phase=='after');p['session']=self.session;p['context'].update(index=index,label=label,operation_sha256=digest)
+            path=self.sdk/'proofs'/('command-%04d-%s.json'%(index,phase));queries=path.with_name(path.stem+'-queries-v1.json')
+            p['queries']=self.save(queries,query_bundle(self.s));proofs[phase]=self.save(path,p)
+        stem=self.sdk/'clients'/('command-%04d'%index)
+        row=dict(version=5,protocol=SDK_PROTOCOL,session=self.session,index=index,label=label,operation=operation,operation_sha256=digest,
+          transport_id=self.d['transport_id'],status='completed',returncode=0,cleanup_complete=True,elapsed_ms=7,effective_deadline_ms=15000,
+          stdout=self.save(stem.with_suffix('.stdout.bin'),stdout),stderr=self.save(stem.with_suffix('.stderr.bin'),b''),
+          stdin_sha256=None,stdin_bytes=0,stdin_complete=True,server_before=proofs['before'],server_after=proofs['after'],
+          client_qualified=True,socket_closed=True,sender_joined=True,input_closed=True)
+        self.rows.append(row);pin=self.save(stem.with_suffix('.json'),row);self.row_pins.append(pin)
+        if argv[:2]==['am','instrument']:
+            kind=r.instrumentation_kind(argv)
+            self.save(self.root/'claims-v1'/(kind+'-v1.json'),r.claim_record(self.admission,self.s['caller'],kind,digest))
+        return pin
+
+    def validate(self):
+        return reader.verify_restart_prerequisite(self.prerequisite_pin,self.a,self.admission,self.running,self.s['caller'])
+
+    def replace_reference(self,value,path,pin):
+        if type(value)is dict:
+            if set(value)=={'path','bytes','sha256'}and value['path']==path:return copy.deepcopy(pin)
+            return {key:self.replace_reference(item,path,pin)for key,item in value.items()}
+        if type(value)is list:return [self.replace_reference(item,path,pin)for item in value]
+        return value
+
+    def mutate_stdout(self,index,raw):
+        row=self.rows[index-1];row['stdout']=self.save(row['stdout']['path'],raw);new=self.save(self.row_pins[index-1]['path'],row)
+        self.prerequisite=self.replace_reference(self.prerequisite,new['path'],new);self.row_pins[index-1]=new
+        self.prerequisite_pin=self.save(self.prerequisite_pin['path'],self.prerequisite)
 
 
 class RestartProfileTests(unittest.TestCase):

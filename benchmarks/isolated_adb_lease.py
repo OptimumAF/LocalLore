@@ -13,7 +13,7 @@ from pathlib import Path, PureWindowsPath
 import re
 import struct
 
-PROTOCOL = 'isolated-adb-lease-v1'
+PROTOCOL = 'isolated-adb-lease-v2'
 PORT = 15937
 SDK_VERSION = '37.0.1-15733141'
 ADB_SHA256 = 'b4a6b455702684652cccf7b46258b29e653538904359a58fd4931cf3ef286b3f'
@@ -138,7 +138,9 @@ def validate_admission(value):
 
 def server_command(admission):
     value = validate_admission(admission)
-    return [value['adb']['path'],'-L','tcp:127.0.0.1:%d' % PORT,'server','nodaemon']
+    # ADB accepts only its literal local-host spelling here. This selects the
+    # native IPv4 loopback branch; a numeric hostname hits its unsupported path.
+    return [value['adb']['path'],'-L','tcp:localhost:%d' % PORT,'server','nodaemon']
 
 
 def child_environment(admission, inherited):

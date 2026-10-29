@@ -9,6 +9,8 @@ mod player_setup_tests;
 #[cfg(test)]
 mod starter_catalog_tests;
 #[cfg(test)]
+mod narration_diagnostic_read_review_tests;
+#[cfg(test)]
 mod story_creation_tests;
 use crate::{
     contracts::*,

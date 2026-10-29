@@ -7,7 +7,7 @@ at `6a58e6f09a0aed6e878ef7578827fdc0f00a3dcf`. No product/runtime dependency cha
 
 The public diagnostic reproduces an inconsistent Windows listener observation
 using only sockets it owns. Acquisition completes and all three sockets close,
-but raw listener state remains0 across four query paths. The result is
+but raw listener states are0 or1 across four query paths, never LISTEN2. The result is
 `observation_inconsistent`, with `feature_acceptance=false`. Existing strict
 ADB admission remains refused. No emulator boot, target call, model copy,
 import or inference is performed in this packet. The earlier AUTHOR rejection
@@ -90,7 +90,11 @@ failure; its original17-test source differs from the final18-test suite.
 Private source-v2 controlled sockets first recorded successful listen/accept,
 SO_ACCEPTCONN=1 and17-byte exchange with listener0 in both extended table classes.
 Source-v4 extended the experiment to the basic and owner2 APIs: all four paths
-again returned listener0. The public implementation reproduces the same result.
+again returned listener0. The public implementation reproduces failed listener
+consistency, with a different exact state distribution: the extended listener
+class reports1 after listen and connection; the other three paths report0 for
+the listener. The selected server connection is5 and client connection0 in the
+three all-connection paths. These captured differences are retained.
 Before listen SO_ACCEPTCONN is0; afterward it is1. All three socket objects have
 fileno=-1 after closure. Selected connection rows can report state5; one earlier
 client row reported1. No conflicting state is repaired or dropped from evidence.
@@ -113,6 +117,21 @@ The first independent closed-row audit checks six selected rows from the earlier
 extended-only control. It constructs derived single-row frames from exact saved
 rows; it does not reconstruct or claim original full OS tables. Raw unrelated
 tables, identifiers and private diagnostics are not uploaded.
+
+The independent public-result audit verifies all five source/tool pins, known
+owner/worker closure, request/result/report bindings and all14 selected raw rows.
+Their state counts are0:9,1:2,5:3; no2 occurs. Exact hashes and fields agree with
+independent decoding. Its byte/metadata checks do not authenticate execution by
+themselves. Public controls hash:
+`289f46e5f62cf41bce518ecde21d247c1b39d7358a77ab9003a789ea5e71868d`;
+private audit JSON hash:
+`ba61d6cc5a1f2a959685635954147d167203c8de2e72203518034afe4d240aa4`.
+
+Correction to the initial report at3b800160 and ticket progress: saying all four
+public paths reported listener0 was inaccurate. The exact distinction above is
+established by the independent audit; both0 and1 fail LISTEN2. The initial
+source ZIP remains unchanged, preserving that historical report alongside this
+correction. The diagnostic did not rerun or modify any captured observation.
 
 ## Next admission task
 

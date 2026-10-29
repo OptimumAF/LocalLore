@@ -232,3 +232,110 @@ No new persistence, inference, validation rules, trace-v1/capture wire, Eval art
 catalog, export, character knowledge or generation access. No historical cause backfill,
 new real assets/cohort, SDK/device/OS probe or D09 promotion. Both retained human quality
 reviews remain “needs improvement”; this display slice cannot change that verdict.
+
+## Independent review precision — proposed amendment before acceptance
+
+The original 234-line proposal above is preserved. These clarifications supersede
+any conflicting inference from it; all remain proposed and unrun.
+
+### Caller-specific shared-codec errors
+
+At this source, `ui/comparison-reader-controller.ts:75` recognizes malformed data as
+`ComparisonReaderWire`; a bare `Wire` otherwise becomes `EvaluationIo`. Extraction
+must not change that policy or the existing 156 reader/error-category oracles.
+Freeze the shared helper's finite malformed-input failure as `Error("Wire")`.
+The live decoder retains that Wire category. The comparison model's narrow call-site
+adapter maps that shared Wire failure to `Error("ComparisonReaderWire")` before it
+can reach the existing reader controller. Keep other existing reader/native error
+handling unchanged. Do not route all reader errors through the live category helper.
+Independent FIRST must exercise malformed decision data through both real controller
+call paths and assert the exact distinct visible categories, not just decoder throws.
+
+### Actual thin-view mount and context display
+
+`ui/App.tsx:831` selects the V2 branch before the branch containing TurnDebugger at
+`:849`. Enabling its toolbar button alone cannot display it. The proposed App change
+must explicitly mount **only TurnDebugger's metadata surface** inside the validated
+thin/V2 branch, using the same Controller/State props and shown-state behavior.
+Do not mount CapturePanel, legacy InspectionPanel/QueryInspector, receipt comparison,
+timeline navigation, export, maintenance or generation controls through that change.
+The existing supported V2 Play panel remains its own surface.
+
+Use the validated trace-only `play ?? playV2` source for the debugger's actual-head
+label, base-input bound and stale-context banner. Show the latched read head and
+current head distinctly if stale; clear old decision data before showing the banner.
+Missing/changed source is unavailable, not head zero. Preserve the thin-view notice
+for still-unsupported surfaces, updating only its claim that all debugger metadata is
+unavailable. Mounted App FIRST must prove the debugger appears for a real checked thin
+snapshot and that those other surfaces remain excluded. Metadata inspection must
+never change a character's knowledge, prompt eligibility or generation identity.
+
+### Main-owned read-only V2 lifecycle fence
+
+Add `ui/main.tsx` to the **future proposed frontend ownership**, alongside the earlier
+paths. Root acceptance and separate production allocation are still required.
+No `v2-play-controller.ts` change is presently needed: its public `get/subscribe`
+at `:451–461` notify synchronously. `start()` at `:1096` installs its operation and
+queues drive in a Promise microtask, then synchronously patches pending. Both initial
+send and nonterminal retryExact use it. `cancel()` at `:1224` synchronously patches
+cancelling/uncertain before its first possible native control. Terminal/no-operation
+returns perform no native cancellation. Thus the existing subscriber can retire the
+diagnostic before those native admissions; a React effect cannot provide that fence.
+
+Proposed Controller adapter (presentation lifecycle only):
+
+```ts
+setTraceGameplayFence(value: Readonly<{
+    session: string; story: string; branch: string;
+    head: number; player: string; pending: boolean; uncertain: boolean;
+}> | null): void;
+```
+
+Main derives only these primitives from the selected session, validated Root snapshot
+and the existing public V2 pending/uncertain state. No operation/request object,
+native grant, provider/configuration, callback or arbitrary field selector crosses
+the seam. The Controller validates primitive shapes and exact equality against its
+current selected snapshot; absent/malformed/mismatched/null is fail-closed. Root's
+own pending/unresolved checks still apply. Any V2 pending or uncertain operation
+blocks new diagnostic reads, including a retained operation from a different selection.
+Never infer quiescence from an empty active/pending slot while uncertain is retained.
+
+Keep a detached primitive tuple, not a mutable V2 state reference. A changed tuple or
+entry into blocked/absent state synchronously retires the read ticket and clears its
+reply/error. Equal tuples are no-ops, preventing subscriber reentrancy loops and
+avoiding diagnostic invalidation for unrelated draft/render notifications. Unblocking
+does not reread. This is not a source of canonical state or an authorization grant.
+
+Extend actual Main source synchronization, not duplicated test-only glue:
+
+- In the existing Root subscription/context synchronization (`main.tsx:478`), update
+  this fence with the current validated snapshot and public V2 busy state before
+  returning. Keep normal Root context/head invalidation in the Controller as well.
+- Extend the existing V2 subscription (`:588`), which currently only updates Author,
+  to synchronously update this fence before returning from V2's notification. Preserve
+  the Author synchronization. The fence callback must not call V2 context setters,
+  native methods, cancel, trace control or gameplay refresh.
+- Subscriptions do not deliver an initial value. Perform one explicit initial sync
+  after wiring and before exposing the read action; no initial sync means no admission.
+  On Main disposal (`:660`), retire/set the fence null synchronously **before** removing
+  either subscription or awaiting V2 disposal. V2 dispose clears listeners without a
+  final notification (`v2-play-controller.ts:1255`); relying on it is insufficient.
+
+Independent FIRST must execute this actual Main wiring with real public Controller
+and V2PlayController instances plus a fixed synthetic Gateway. Observe cleared state
+inside the first native-call stub for send, nonterminal retry and submitted cancel;
+verify uncertain-only blocking, initial sync, source/session/head changes, disposal,
+equal-tuple no-op and no added gameplay calls. Include a nonliteral player ID from an
+actual checked thin snapshot and a selected checked trace; never seed private fields.
+Keep V2's Play-only send/retry admission intact. Calibrate Main's independent blocking
+with a genuinely pending/uncertain public V2 operation and a later otherwise-eligible
+Lab diagnostic attempt; an already-empty reply alone does not prove this new fence.
+Deferred native replies after retirement must not refill the debugger. Source review
+of Promise ordering alone is not a runtime pass. If the real Main setup cannot be
+constructed with existing finite harness facilities, report the missing setup for
+allocation before adding a hook; do not substitute a copied subscriber implementation.
+
+These refinements add no native permission or gameplay cancellation path. The earlier
+independent Host/Core, strict codec, mounted UI, scripted native and nonmutation gates
+remain required. No production, test, schema, runtime or acceptance result is added by
+this document amendment.

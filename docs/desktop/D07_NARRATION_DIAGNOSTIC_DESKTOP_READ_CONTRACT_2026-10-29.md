@@ -466,3 +466,47 @@ Source authors perform source/Git/whitespace checks only: no compiler, formatter
 Cargo, Node, browser/app, assets/model, device, new OS probe or desktop execution.
 Independent review and full native IPC/render/geometry/image gates remain later.
 No task, quality, dependency, security or merge acceptance follows.
+
+## Additive artifact-local context FIRST freeze — 2026-10-29
+
+Agent `model_guard_review`, exact clean combined source `96bd6801`, branch
+`test/d07-diagnostic-artifact-context-first-v1`. Claim:
+[#29 comment6501218985](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6501218985).
+Own only the frontend checker insertion and this handoff. Production, native
+tests, helper interfaces, registration and original assertions are unchanged.
+
+Source review found the new diagnostic artifact omitted AFTER revision and case
+error for all statuses, and omitted source story/branch/BEFORE revision in absent
+statuses. The surrounding Panel contained some context, so the original
+whole-Panel SSR assertions could not establish artifact-local framing. This is
+a source/display finding, not measured clipping, geometry or behavioral RED.
+
+Five new independent cases, one per status, use the existing actual controller,
+loadSummary/read/render and existing typed synthetic fixture. They isolate text
+from the diagnostic artifact's unique `data-diagnostic-status` marker until its
+first raw-metadata `<details>`. Surrounding Panel text and raw JSON cannot satisfy
+the assertions. Each requires local story/branch/turn/arm/observer, labeled
+BEFORE4/AFTER5, committed case phase, explicit **Case error: None**, accepted
+receipt availability, recorded mechanical fallback and a labeled quality
+limitation before the raw body. The fixture's case error remains null; no failed
+canonical row or private controller-state mutation is invented. These cases
+author static semantic framing only, never actual visible geometry.
+
+The insertion is exactly36 lines between named BEGIN/END markers before final
+source/result finalization. Removing only that insertion gives byte-for-byte
+original275-line equality and SHA256
+`46e7f0cecdb15cfeaf9de2d16b9f2965c4118b54a9470ed7f32214b40375a92f`.
+All original151 cases/helpers/assertions/finalization remain exact.
+New source: **311 lines, 156 source-enumerated cases**, SHA256
+`8601050b6e769ecf9ec1193bcc138cefdf0e0b09487af90458bdfbd3e8e9c4ca`.
+When executed, the five additions can retain five more static HTML documents
+(up to18 total); they add no browser, native journey, probe, server or test seam.
+
+Author checks: Git scope, exact insertion-removal equality, original/current
+hashes, source line/roster counts and whitespace only. **UNCOMPILED / UNRUN**:
+no compiler, syntax checker, formatter, Node, app/browser, model/assets, device,
+desktop or new OS probe. No measured RED or passing result is claimed. Root
+retains this frozen baseline, executes the original/additive roster after the
+current serialized batch, then owns the minimal typed selected-context Panel
+fix and separate actual verification. Release both paths; all native IPC/render/
+geometry/image, human quality, dependency and merge restrictions remain.

@@ -267,6 +267,42 @@ await test("Protocol3 capability never dispatches diagnostic",async()=>{
         assert.equal(diagnosticCalls(f).length,0);assert.equal(f.c.get().diagnostic,null);
     }finally{await f.close();}
 });
+// BEGIN INDEPENDENT ARTIFACT CONTEXT FIRST V1
+// Additive five-case source freeze BEFORE the Panel context fix. The original
+// 151 cases/helpers/assertions above and finalization below remain byte-exact.
+// Static HTML only: no native execution, visible geometry or measured RED.
+for(const artifactStatus of ["no_declaration","no_observation","recorded","host_unavailable","host_rejected"])
+    await test(`artifact-local context ${artifactStatus} before raw metadata`,async()=>{
+        const f=await fixture();try {
+            await f.c.loadSummary();
+            assert.equal(f.c.get().summary.report.turns[0].error,null,"existing typed synthetic fixture has no case error");
+            f.setReply(diagnostic(artifactStatus));await f.c.inspectNarrationDiagnosticV1();
+            assert.equal(f.c.get().error,null);
+            assert.equal(f.c.get().diagnostic.diagnostic.status,artifactStatus);
+            const {markup}=render(f,`artifact-context-${artifactStatus}`);
+            const marker=`data-diagnostic-status="${artifactStatus}"`;
+            const start=markup.indexOf(marker);
+            assert(start>=0,"actual new diagnostic artifact status marker exists");
+            assert.equal(markup.indexOf(marker,start+marker.length),-1,"one selected diagnostic artifact");
+            const end=markup.indexOf("<details",start);
+            assert(end>start,"actual artifact has a separate raw-metadata details section");
+            // Beginning at the artifact marker excludes the surrounding selected
+            // header/report. Ending before details excludes raw JSON as an oracle.
+            const local=textOnly(markup.slice(start+marker.length,end));
+            for(const required of [scope.story,scope.branch,row.turn])
+                assert(local.includes(required),`artifact-local selected context ${required}`);
+            assert.match(local,/\bleft\b/i,"artifact-local physical arm");
+            assert.match(local,/\bobserver\s*[:·-]?\s*omniscient\b/i,"artifact-local lens");
+            assert.match(local,/\bbefore(?:\s+head|\s+revision)?\s*[:·-]?\s*4\b/i,"artifact-local BEFORE4");
+            assert.match(local,/\bafter(?:\s+head|\s+revision)?\s*[:·-]?\s*5\b/i,"artifact-local AFTER5");
+            assert.match(local,/\b(?:selected\s+)?case\s+phase\s*[:·-]?\s*committed\b/i,"case phase is separate from validation decision");
+            assert.match(local,/\bcase\s+error\s*[:·-]?\s*none(?:\s+recorded)?\b/i,"explicit case error None; never infer it from a decision");
+            assert.match(local,/\baccepted\s+receipt\s*[:·-]?\s*available\b/i,"actual selected receipt availability");
+            assert.match(local,/\bmechanical\s+fallback\s+recorded\b/i,"selected fallback stays visible");
+            assert.match(local,/\b(?:prose\s+)?quality\s*[:·-]?\s*(?:unreviewed|not[ _]reviewed|not[ _]accepted|not[ _]established)\b/i,"explicit quality limitation beside artifact");
+        }finally{await f.close();}
+    });
+// END INDEPENDENT ARTIFACT CONTEXT FIRST V1
 assert.deepEqual(await hashes(),before,"test must not alter source");
 for(let i=0;i<html.length;i++)await writeFile(path.join(output,`${prefix}-${i}.html`),html[i].markup,{flag:"wx"});
 const result={classification:"synthetic IPC + actual frontend controller/decoder + Panel static HTML only",source:before,setup,cases,passed:cases.filter(v=>v.passed).length,failed:cases.filter(v=>!v.passed).length,staticHtml:html.map((v,i)=>({label:v.label,file:`${prefix}-${i}.html`})),nativeIpc:false,nativeWebView:false,geometry:false,modelExecution:false,limits:["Author source-only UNRUN; missing APIs are SETUP, not behavioral RED.","No native8192 overflow claim for valid closed records; no arbitrary Value seam.","No real browser geometry/images; actual hidden WebView/IPC/image gates remain pending."]};

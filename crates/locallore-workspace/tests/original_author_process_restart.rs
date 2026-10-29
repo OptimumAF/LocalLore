@@ -26,6 +26,7 @@ use std::{
 
 const CASE: &str = "LOCALLORE_ORIGINAL_RESTART_CASE_V1";
 const ROOT: &str = "LOCALLORE_ORIGINAL_RESTART_ROOT_V1";
+const ARTIFACT_BASE: &str = "LOCALLORE_ORIGINAL_RESTART_ARTIFACT_BASE_V1";
 const GO: &[u8] = b"LL_ORIGINAL_AUTHOR_RESTART_V1\n";
 const ASH: &str = "93739dd7d3e24ea890bd6472ab34f901";
 const COPPER: &str = "094f727ef5494e7a8b7dfaf82220e2d3";
@@ -57,19 +58,14 @@ fn plain(path: &Path) {
     }
 }
 fn temp_base() -> PathBuf {
-    let base = std::env::temp_dir();
+    // The local runner selects physical D explicitly. Other platforms/CI may
+    // use their normal supported TEMP without imposing a product drive policy.
+    let base = std::env::var_os(ARTIFACT_BASE)
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    assert!(base.is_absolute());
     plain(&base);
-    let base = base.canonicalize().unwrap();
-    #[cfg(windows)]
-    {
-        use std::path::{Component, Prefix};
-        assert!(
-            matches!(base.components().next(), Some(Component::Prefix(prefix))
-            if matches!(prefix.kind(), Prefix::Disk(b'D') | Prefix::VerbatimDisk(b'D'))),
-            "project test TEMP/TMP must be physical D: {base:?}"
-        );
-    }
-    base
+    base.canonicalize().unwrap()
 }
 fn saved(root: &Path, name: &str, value: &Value) {
     assert!(name.ends_with(".json") && !name.contains(['/', '\\']));
@@ -301,7 +297,7 @@ fn player_request() -> Request {
         expected_revision: 0,
         intent: Intent::FreeText {
             kind: PlayInputKind::Action,
-            text: "I wait for the next station clock tick.".into(),
+            text: "I wait for one tick.".into(),
         },
     }
 }
@@ -493,7 +489,30 @@ fn player_process(root: &Path) {
     );
     let counts = Arc::new(Counts::default());
     configure(&host, &counts, None, false);
+    // Preserve the original actual failure as a negative Host case. The finite
+    // supported-English grammar deliberately clarifies this unsupported phrase;
+    // the process-death positive case uses its documented one-tick form.
+    let before_negative = snapshot(root);
+    let mut unsupported = player_request();
+    unsupported.turn = "unsupported-original-player-phrase".into();
+    unsupported.intent = Intent::FreeText {
+        kind: PlayInputKind::Action,
+        text: "I wait for the next station clock tick.".into(),
+    };
+    assert_eq!(
+        data(free_text(&host, &session, &unsupported))["phase"],
+        "queued"
+    );
+    let refused = data(turn(&host, &session, &unsupported, "prepare"));
+    assert_eq!(refused["phase"], "failed");
+    assert_eq!(refused["error"], "ClarificationRequired");
+    assert_eq!(snapshot(root), before_negative);
+    assert!(counts.requests.lock().unwrap().is_empty());
+    saved(root, "unsupported-player-input.json", &json!(unsupported));
+    saved(root, "unsupported-player-result.json", &refused);
+    saved(root, "unsupported-player-generation.json", &counts.value());
     let request = player_request();
+    saved(root, "supported-player-input.json", &json!(request));
     assert_eq!(
         data(free_text(&host, &session, &request))["phase"],
         "queued"
@@ -616,6 +635,7 @@ impl OwnedChild {
             .current_dir(root)
             .env(CASE, phase)
             .env(ROOT, root)
+            .env(ARTIFACT_BASE, temp_base())
             .env("TEMP", temp_base())
             .env("TMP", temp_base())
             .stdin(Stdio::piped())

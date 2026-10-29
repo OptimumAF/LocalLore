@@ -1,8 +1,10 @@
 """Original owned-target metadata and byte-row adversaries; no live target IO."""
 import copy
 import hashlib
+import os
 from pathlib import Path, PureWindowsPath
 import struct
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -487,6 +489,107 @@ class QueryReadyJobTests(unittest.TestCase):
             with self.assertRaises(n.TargetRefused):n.validate_ready(bad,d,a)
 
 
+
+
+class ClosedTargetFixture:
+    """One complete original data-only graph, retained under physical D."""
+    def __init__(self,*,instrument=False):
+        from benchmarks import receipt_avd_environment as env
+        self.env=env;self.base=Path(tempfile.mkdtemp(prefix='locallore-owned-graph-',dir='D:/Dev/_Temp'))
+        self.a=admission();self.root=self.base/'lease';self.root.mkdir();self.a['root']=str(self.root);self.a['server']['root']=str(self.root/'server')
+        self.admission=self.save(self.base/'admission-v1.json',self.a);self.d=running(self.a);self.d['admission']=self.admission
+        self.running=self.save(self.root/'running-v1.json',self.d);self.s=session(self.a);self.s.update(admission=self.admission,running=self.running,descriptor=self.d,root=str(self.base/'sdk'))
+        self.sdk=Path(self.s['root']);self.sdk.mkdir();(self.sdk/'clients').mkdir();(self.sdk/'proofs').mkdir()
+        self.session=self.save(self.sdk/'sdk-session-v4.json',self.s)
+        operation=dict(argv=['getprop','sys.boot_completed'],stdin=None)
+        if instrument:operation['argv']=['am','instrument','-w','-r','-e','class',n.CLASS+'#'+n.METHODS[0],n.TEST+'/androidx.test.runner.AndroidJUnitRunner']
+        digest=n.operation_digest(operation);proofs={}
+        for phase in('before','after'):
+            p=proof(self.s,after=phase=='after');p['session']=self.session;p['context'].update(operation_sha256=digest,label='command')
+            path=self.sdk/'proofs'/('command-0001-'+phase+'.json')
+            p['queries']=self.save(path.with_name(path.stem+'-queries-v1.json'),query_bundle(self.s));proofs[phase]=self.save(path,p)
+        raw=self.sdk/'clients/command-0001.stdout.bin';raw.write_bytes(b'original\0\x1a\xff\r\n');err=raw.with_name('command-0001.stderr.bin');err.write_bytes(b'')
+        self.row=GuestAndRecordTests().record();self.row.update(session=self.session,label='command',operation=operation,operation_sha256=digest,
+          stdout=env.binding(raw),stderr=env.binding(err),server_before=proofs['before'],server_after=proofs['after'])
+        self.record=self.save(self.sdk/'clients/command-0001.json',self.row)
+        if instrument:
+            (self.root/'claims-v1').mkdir();self.claim=self.save(self.root/'claims-v1/import-v1.json',dict(version=1,protocol=PROTOCOL,
+              admission_sha256=self.admission['sha256'],kind='import',operation_sha256=digest,caller=self.s['caller']))
+
+    def save(self,path,value):
+        self.env.create_json(path,value);return self.env.binding(path)
+
+    def rewrite(self,path,value):
+        Path(path).write_bytes(self.env.encoded(value));return self.env.binding(path)
+
+    def mutate_proof(self,phase,change):
+        key='server_'+phase;p=self.env.read_json(self.row[key]['path']);change(p)
+        self.row[key]=self.rewrite(self.row[key]['path'],p);self.record=self.rewrite(self.record['path'],self.row)
+
+    def mutate_queries(self,phase,change):
+        def update(p):
+            q=self.env.read_json(p['queries']['path']);change(q);p['queries']=self.rewrite(p['queries']['path'],q)
+        self.mutate_proof(phase,update)
+
+    def validate(self):
+        from benchmarks import android_process_verification_v4 as reader
+        return reader.verify_client_record(self.record,self.s,self.a)
+
+
+@unittest.skipUnless(os.name=='nt','physical D bound-file fixtures')
+class ClosedTargetReaderTests(unittest.TestCase):
+    def refused(self,call):
+        from benchmarks.receipt_avd_environment import EnvironmentRefused
+        with self.assertRaises((n.TargetRefused,EnvironmentRefused,OSError)):call()
+
+    def test_complete_original_bound_binary_graph_replays_without_live_side_effects(self):
+        from benchmarks import android_process_verification_v4 as reader
+        f=ClosedTargetFixture()
+        with patch.object(f.env,'process_identity',side_effect=AssertionError('no native identity')):
+            self.assertEqual(f.validate(),f.row)
+            self.assertEqual(reader.require_current_clients(f.sdk,1,f.session,f.a),[f.row])
+
+    def test_raw_stdout_and_query_bytes_are_checked_against_bound_hashes(self):
+        f=ClosedTargetFixture();Path(f.row['stdout']['path']).write_bytes(b'changed\0\x1a');self.refused(f.validate)
+        f=ClosedTargetFixture();p=f.env.read_json(f.row['server_before']['path']);Path(p['queries']['path']).write_bytes(b'{}');self.refused(f.validate)
+
+    def test_postproof_cannot_borrow_another_phase_context_or_owned_socket(self):
+        for change in(lambda p:p['context'].update(phase='before'),lambda p:p['context'].update(label='foreign'),
+                      lambda p:p['anchor'].update(handle=p['anchor']['handle']+1)):
+            f=ClosedTargetFixture();f.mutate_proof('after',change);self.refused(f.validate)
+
+    def test_complete_rebound_query_graph_still_requires_eof_closure_source_and_live_tuple(self):
+        for change in(lambda q:q['queries'][0].update(eof=False),lambda q:q['queries'][0].update(socket_closed=False),
+                      lambda q:q['queries'][0]['brackets']['after']['sources'][0].update(sha256='0'*64),
+                      lambda q:q['queries'][0]['observation_before']['rows'].__setitem__(2,host_fixture.row4(role='client',pid=0,ordinal=8)),
+                      lambda q:q['queries'].reverse()):
+            f=ClosedTargetFixture();f.mutate_queries('before',change);self.refused(f.validate)
+
+    def test_rebound_query_transport_cannot_replace_current_target_or_main_reply(self):
+        f=ClosedTargetFixture()
+        def change(q):
+            raw=b'emulator-5592 device transport_id:8\n';q['queries'][1]['response_hex']=(b'OKAY'+('%04x'%len(raw)).encode()+raw).hex()
+        f.mutate_queries('after',change);self.refused(f.validate)
+
+    def test_bound_admission_running_and_session_contents_must_join_exactly(self):
+        for field in('admission','running','session'):
+            f=ClosedTargetFixture();binding=getattr(f,field);value=f.env.read_json(binding['path'])
+            value['protocol']='isolated-adb-lease-v2';f.rewrite(binding['path'],value);self.refused(f.validate)
+
+    def test_complete_output_does_not_qualify_unqualified_record(self):
+        f=ClosedTargetFixture();f.row['client_qualified']=False;f.record=f.rewrite(f.record['path'],f.row);self.refused(f.validate)
+
+    def test_current_client_reader_requires_exact_nonempty_contiguous_rosters(self):
+        from benchmarks import android_process_verification_v4 as reader
+        for folder in('clients','proofs'):
+            f=ClosedTargetFixture();(f.sdk/folder/'unrelated.json').write_bytes(b'{}')
+            self.refused(lambda:reader.require_current_clients(f.sdk,1,f.session,f.a))
+        f=ClosedTargetFixture();self.refused(lambda:reader.require_current_clients(f.sdk,0,f.session,f.a))
+        self.refused(lambda:reader.require_current_clients(f.sdk,2,f.session,f.a))
+
+    def test_instrumentation_requires_original_once_claim_bound_to_actual_caller(self):
+        f=ClosedTargetFixture(instrument=True);self.assertEqual(f.validate(),f.row)
+        value=f.env.read_json(f.claim['path']);value['caller']['pid']=999;f.rewrite(f.claim['path'],value);self.refused(f.validate)
 
 
 if __name__=='__main__':unittest.main()

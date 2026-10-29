@@ -57,8 +57,9 @@ formatted SHA256:
 ## Measured checks and preserved failures
 
 Commands below ran from the physical D: repository with existing locked/offline
-dependencies. Only the private target-directory argument is replaced with
-`<owned-D-target>`; local process records retain the exact argument and timings.
+dependencies. Private target-directory arguments are replaced with
+`<owned-D-target>` and the private absolute Node executable with `node`;
+local process records retain exact paths, arguments and timings.
 
 ```text
 cargo test --manifest-path Cargo.toml -p locallore --lib --features host --locked --offline --target-dir <owned-D-target> play::scene_narration::diagnostics_review_tests:: -- --test-threads=1 --nocapture

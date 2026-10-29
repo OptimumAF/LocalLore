@@ -432,6 +432,7 @@ def verify_controller_result(binding, admission, admission_binding, running_bind
             PureWindowsPath(value['request']['path']) == root/'request-v1.json', 'binding')
     session = c.validate_session(_json(value['session']), admission)
     _same(session['root'], request['root'])
+    _same(session['seconds'], request['seconds'], 'budget')
     verify_restart_prerequisite(value['prerequisite'], admission, admission_binding, running_binding, session['caller'])
     prior = _json(value['prerequisite'])
     _same(prior['session'], value['session'])

@@ -99,3 +99,15 @@ external post-creation process-death and actual cancellation gates remain separa
 Keep raw diagnostics, model weights, guest state and private capture/recovery
 files on D outside Git; no implicit shared-service recovery or emulator boot is
 authorized by reading this documentation.
+
+
+## Passive original-author process restart
+
+The [restart protocol](../docs/native/ORIGINAL_AUTHOR_RESTART_PROTOCOL_V1.md) and
+[actual verification](../docs/native/ORIGINAL_AUTHOR_RESTART_VERIFICATION_2026-10-29.md)
+separate Windows Host/Store process-death checks with scripted inference from a
+compiled, unrun Android passive method. `original_author_restart_proof.py` checks
+completed proof bytes against the complete original AUTHOR/import/canonical
+baseline; it performs no file, model or device operations and cannot authenticate
+execution from metadata. Old SDK4/spent guest claims do not authorize this case.
+A future device run requires its own admitted same-boot process-death controller.

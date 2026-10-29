@@ -278,8 +278,15 @@ artifacts carry their actual source revisions, case phase/error, scenario result
 and receipt availability before the raw body. Mechanical fallback is explicit;
 commit and raw-output availability do not imply prose quality. Private case
 summary details remain hidden outside the omniscient lens. No Rust owner,
-canonical validation, permissions or captured output changed. Read-only native
-verification of this corrected UI remains pending separately.
+canonical validation, permissions or captured output changed. The subsequent
+[retained-review qualification](D07_SCENE_RETAINED_REVIEW_QUALIFICATION_2026-10-29.md)
+preserves an initial startup failure and a 244-check native pass with failed
+visual acceptance. An independent headless geometry regression then failed
+before the small layout correction and passed unchanged afterward. The final
+read-only native review passes 256 checks with twelve individually viewed PNGs,
+unchanged 2,072-file inventory and no new inference. This qualifies the scoped
+visible-state corrections, not the original model prose or pending-confirmation
+native rendering.
 
 ## Acceptance boundary and next task
 
@@ -292,7 +299,7 @@ checkbox or epic acceptance follows from this cohort.
 The next runnable work is to review the preserved typed scenario failures and
 fallback bottleneck, finish the visible-state/capture follow-up with its own
 evidence, and address the measured fallback/actor-intent quality bottleneck.
-Post-fix native UI qualification, whole-app resource/offline/security/packaging checks,
+Whole-app resource/offline/security/packaging checks,
 Android/physical-phone parity and full D07 acceptance remain separate gates.
 There is no new model cohort or weakened validator in this documentation task.
 

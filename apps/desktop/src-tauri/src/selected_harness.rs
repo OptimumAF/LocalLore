@@ -64,7 +64,10 @@ fn checked_workspace(workspace: &Path) -> Result<&Path, String> {
     workspace_parent(workspace, expected.as_deref())
 }
 fn metadata_kind(metadata: &Value) -> Result<(), String> {
-    metadata_kind_for_mode(metadata, crate::comparison_reader_harness::selected_scene_mode())
+    metadata_kind_for_mode(
+        metadata,
+        crate::comparison_reader_harness::selected_scene_mode(),
+    )
 }
 fn metadata_kind_for_mode(metadata: &Value, scene: bool) -> Result<(), String> {
     // This is a closed fixture discriminator, NOT a second canonical/DTO

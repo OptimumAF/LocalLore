@@ -40,6 +40,7 @@ for (const args of [
     ["check-selected-scene-v4-review.mjs"],
     ["check-selected-scene-resume-identity-review.mjs"],
     ["check-selected-scene-process-policy-review.mjs"],
+    ["check-selected-scene-context-review.mjs"],
     ["check-selected-source-freshness-review.mjs"],
     ["check-comparison-run.mjs"],
     ["check-comparison-run-native.mjs"],

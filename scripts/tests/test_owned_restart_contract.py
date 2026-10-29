@@ -145,8 +145,8 @@ class ClosedRestartGraph:
         if path.drive.upper()!='D:'or not path.is_relative_to(self.base):raise AssertionError('synthetic graph write escaped D root')
         path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(value if type(value)is bytes else self.encode(value));self.writes.append(path)
         return self.env.binding(path)
-    def add(self,argv,stdout,label):
-        index=len(self.rows)+1;operation=dict(argv=copy.deepcopy(argv),stdin=None);digest=r.operation_digest(operation);proofs={}
+    def add(self,argv,stdout,label,*,stdin=None):
+        index=len(self.rows)+1;operation=dict(argv=copy.deepcopy(argv),stdin=copy.deepcopy(stdin));digest=r.operation_digest(operation);proofs={}
         for phase in('before','after'):
             p=proof(self.s,after=phase=='after');p['session']=self.session;p['context'].update(index=index,label=label,operation_sha256=digest)
             path=self.sdk/'proofs'/('command-%04d-%s.json'%(index,phase));queries=path.with_name(path.stem+'-queries-v1.json')
@@ -155,12 +155,16 @@ class ClosedRestartGraph:
         row=dict(version=5,protocol=SDK_PROTOCOL,session=self.session,index=index,label=label,operation=operation,operation_sha256=digest,
           transport_id=self.d['transport_id'],status='completed',returncode=0,cleanup_complete=True,elapsed_ms=7,effective_deadline_ms=15000,
           stdout=self.save(stem.with_suffix('.stdout.bin'),stdout),stderr=self.save(stem.with_suffix('.stderr.bin'),b''),
-          stdin_sha256=None,stdin_bytes=0,stdin_complete=True,server_before=proofs['before'],server_after=proofs['after'],
+          stdin_sha256=None if stdin is None else stdin['sha256'],stdin_bytes=0 if stdin is None else stdin['bytes'],stdin_complete=True,server_before=proofs['before'],server_after=proofs['after'],
           client_qualified=True,socket_closed=True,sender_joined=True,input_closed=True)
         self.rows.append(row);pin=self.save(stem.with_suffix('.json'),row);self.row_pins.append(pin)
         if argv[:2]==['am','instrument']:
             kind=r.instrumentation_kind(argv)
-            self.save(self.root/'claims-v1'/(kind+'-v1.json'),r.claim_record(self.admission,self.s['caller'],kind,digest))
+            prerequisite=None
+            if kind=='restart':
+                prerequisite=self.env.binding(self.root/'restart-prerequisite-v1.json')
+                reader.verify_restart_prerequisite(prerequisite,self.a,self.admission,self.running,self.s['caller'])
+            self.save(self.root/'claims-v1'/(kind+'-v1.json'),r.claim_record(self.admission,self.s['caller'],kind,digest,prerequisite))
         return pin
 
     def collection(self,remote,values,uid):

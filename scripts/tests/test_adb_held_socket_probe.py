@@ -4,6 +4,7 @@ import hashlib
 import io
 import itertools
 import json
+import os
 from pathlib import Path
 import tempfile
 import types
@@ -25,6 +26,7 @@ def report(client_path=None, refused=False):
     return core.probe(backend, f.admission())
 
 
+@unittest.skipUnless(os.name == 'nt', 'physical D: CLI fixtures require Windows')
 class CliTests(unittest.TestCase):
     def setUp(self):
         # Keep fixtures for reproducibility. No cleanup deletes old captures.
@@ -232,6 +234,83 @@ class CliTests(unittest.TestCase):
         code, result = self.dispatch(admission_change=True)
         self.assertEqual(code,1); self.assertEqual(result['reason'],'admission_changed')
         self.assertFalse(result['acquisition_completed']); self.assertFalse(result['server_proof_verified'])
+
+    def bound_reader(self, *, held_ctime=202, held_birth=77, path_birth=77, mutate=None, cross=None):
+        raw = b'{"synthetic":true}'
+        path_info = types.SimpleNamespace(st_dev=3,st_ino=7,st_size=len(raw),st_mtime_ns=100,
+                                          st_ctime_ns=101,st_birthtime_ns=path_birth)
+        held_info = types.SimpleNamespace(st_dev=3,st_ino=7,st_size=len(raw),st_mtime_ns=100,
+                                          st_ctime_ns=held_ctime,st_birthtime_ns=held_birth)
+        if held_birth is None: del held_info.st_birthtime_ns
+        if path_birth is None: del path_info.st_birthtime_ns
+        if cross: setattr(held_info,cross,getattr(held_info,cross)+1)
+        path_after = copy.deepcopy(path_info); held_after = copy.deepcopy(held_info)
+        if mutate:
+            target, field = mutate
+            selected = path_after if target == 'path' else held_after
+            setattr(selected,field,getattr(selected,field)+1)
+        class MemoryFile(io.BytesIO):
+            def fileno(self): return 941
+        path = Mock()
+        path.stat.side_effect = [path_info,path_after]
+        path.open.return_value = MemoryFile(raw)
+        with patch.object(cli.env,'safe_path',return_value=path), \
+             patch.object(cli.os,'fstat',side_effect=[held_info,held_after]):
+            return cli._read_bound(path,hashlib.sha256(raw).hexdigest(),16384,'admission')
+
+    def test_reader_accepts_distinct_ctimes_with_equal_birth_and_stable_per_api_identity(self):
+        binding, value = self.bound_reader()
+        self.assertEqual(value,dict(synthetic=True)); self.assertGreater(binding['bytes'],0)
+
+    def test_reader_refuses_missing_mismatched_or_malformed_birthtime(self):
+        for options in (dict(held_birth=None),dict(path_birth=None),dict(held_birth=78),
+                        dict(held_birth=True),dict(held_birth=77.0),dict(path_birth=-1)):
+            with self.subTest(options=options): self.refused(lambda:self.bound_reader(**options))
+
+    def test_reader_refuses_each_api_identity_or_birthtime_mutation(self):
+        for target in ('path','held'):
+            for field in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_birthtime_ns'):
+                with self.subTest(target=target,field=field):
+                    self.refused(lambda:self.bound_reader(mutate=(target,field)))
+        for field in ('st_dev','st_ino','st_size','st_mtime_ns'):
+            with self.subTest(cross_api_field=field): self.refused(lambda:self.bound_reader(cross=field))
+
+    def worker_preflight(self, *, invalid_parent=False, source_failure=False, admission_mutation=False, git_marker=False):
+        output = self.base/'worker-output'; output.mkdir()
+        if git_marker: (output/'.git').write_bytes(b'synthetic marker, not a repository')
+        request_path = output/'request-v1.json'
+        parent = dict(pid=8000,creation_filetime=1000000,executable='D:\\Synthetic\\python.exe')
+        request = dict(version=1,protocol=cli.PROTOCOL,output=str(output),admission=self.pin,
+                       validated_admission=f.admission(),owner_seconds=30,parent=parent,
+                       source_closure=[],python={})
+        observed = dict(parent)
+        if invalid_parent: observed['creation_filetime'] += 1
+        normalized = f.admission()
+        if admission_mutation: normalized['expected_version'] = '002a'
+        check = Mock(side_effect=cli.CliRefused('source') if source_failure else None)
+        with patch.object(cli.sys,'stdin',types.SimpleNamespace(buffer=io.BytesIO(cli.BARRIER))), \
+             patch.object(cli,'_existing_D_file',return_value=request_path), \
+             patch.object(cli,'_read_bound',return_value=({},request)), \
+             patch.object(cli.env,'process_identity',return_value=observed), \
+             patch.object(cli,'_check_bindings',check), \
+             patch.object(cli,'_load_admission',return_value=(self.pin,normalized)), \
+             patch.object(cli.importlib,'import_module') as module:
+            self.refused(lambda:cli._worker(request_path,'0'*64))
+        module.assert_not_called()
+        self.assertFalse((output/'report-v1.json').exists())
+        return check
+
+    def test_worker_changed_parent_refuses_before_backend_import(self):
+        self.worker_preflight(invalid_parent=True).assert_not_called()
+
+    def test_worker_changed_source_refuses_before_backend_import(self):
+        self.worker_preflight(source_failure=True).assert_called_once()
+
+    def test_worker_changed_admission_refuses_before_backend_import(self):
+        self.worker_preflight(admission_mutation=True).assert_called_once()
+
+    def test_worker_new_git_ancestor_refuses_before_backend_import(self):
+        self.worker_preflight(git_marker=True).assert_not_called()
 
 
 if __name__ == '__main__': unittest.main()

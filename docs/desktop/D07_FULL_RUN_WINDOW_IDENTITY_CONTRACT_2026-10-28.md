@@ -72,6 +72,12 @@ counts; synchronous stolen-token refusal and the source branch establish the
 intended before-admission boundary. No completed native run, worker cleanup,
 WebView/native IPC, visual, Android or human-quality result is claimed.
 
+Source-only fixture calibration before production: require `retained` on the
+initial metadata lookup, not every later lookup. The accepted service keeps a
+run's closed presentation phase after closing a handle; minting another valid
+handle does not reset that shared run phase. The capability assertions remain
+unchanged. No compiler or test result prompted or is claimed by this correction.
+
 ## Root verification and handoff
 
 Run project commands from the physical D: checkout. On Windows set process-local

@@ -91,7 +91,6 @@ impl Fixture {
         assert_eq!(value["protocol_version"], 3);
         assert_eq!(value["input_lane"], if self.native { "approved_native" } else { "scripted_baseline" });
         assert_eq!(value["run_id"], self.run);
-        assert_eq!(value["phase"], "retained");
         assert_eq!(value["running"], false);
         assert_eq!(value["report_ready"], false);
         value
@@ -146,7 +145,9 @@ fn independent_same_epoch_handles(native: bool) {
     let f = Fixture::new(native);
     let before = inventory(&f.root);
     let model_before = f.models.status().unwrap();
-    let first = token(&f.lookup(&f.lease)).to_owned();
+    let initial = f.lookup(&f.lease);
+    assert_eq!(initial["phase"], "retained");
+    let first = token(&initial).to_owned();
     assert_eq!(token(&f.lookup(&f.lease)), first, "same-owner retry reuses its capability");
     let other = Arc::new(WindowLease::default());
     assert_eq!(other.begin().unwrap(), f.epoch);

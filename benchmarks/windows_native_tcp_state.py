@@ -191,6 +191,22 @@ def _source_bindings(env, probe):
     return [env.binding(root/name) for name in sorted(names)]
 
 
+def _owner_completed(owner, raw, stderr):
+    try:
+        _obj(owner,('status','cleanup_complete','elapsed_ms','output_capture_complete',
+            'worker_returncode','stdout_bytes','stderr_bytes'),'owner')
+        _need(type(owner['status']) is str and owner['status'] == 'child_exited','owner')
+        _int(owner['worker_returncode'],0,0,'owner')
+        _int(owner['elapsed_ms'],0,2**63-1,'owner')
+        _int(owner['stdout_bytes'],0,MAX_REPORT,'owner')
+        _int(owner['stderr_bytes'],0,MAX_REPORT,'owner')
+        _need(owner['cleanup_complete'] is True and owner['output_capture_complete'] is True and
+              owner['stdout_bytes'] == len(raw) and owner['stderr_bytes'] == len(stderr) == 0,'owner')
+        return True
+    except NativeControlRefused:
+        return False
+
+
 def main(argv=None):
     import argparse
     import os
@@ -229,10 +245,7 @@ def main(argv=None):
     stable = _same(after,dict(binary=pin,sources=sources,python=python,owner=caller))
     raw = (out/'owner-stdout-v1.bin').read_bytes()
     stderr = (out/'owner-stderr-v1.bin').read_bytes()
-    qualified = owner['status'] == 'child_exited' and type(owner['worker_returncode']) is int and \
-        owner['worker_returncode'] == 0 and owner['cleanup_complete'] is True and \
-        owner['output_capture_complete'] is True and owner['stderr_bytes'] == len(stderr) == 0 and \
-        owner['stdout_bytes'] == len(raw) and stable and started_value is not None
+    qualified = _owner_completed(owner,raw,stderr) and stable and started_value is not None
     assessment,reason = None,None
     if qualified:
         try:

@@ -137,6 +137,10 @@ probe_before < force_stop < probe_after. Identity/session/admission/source/UID/
 APK/boot must agree. Baseline import/AUTHOR proofs use the unchanged current1.1
 reader. A record with the third method cannot be a prerequisite witness (acyclic
 validation). Metadata alone is not execution authentication.
+The prerequisite prefix has exactly one import and one AUTHOR, and no restart.
+The complete successful roster has exactly one of each; duplicated qualified
+rows cannot reuse a single claim. Top-level session pins must identify the
+canonical session file, not an identical copy elsewhere.
 
 Closed replay also derives each local artifact path from session.root and
 replays its qualified SDK listing, pre-hash, binary tar and post-hash records
@@ -173,6 +177,10 @@ import/author/death/restart/collect/completed. Reason null/checks_failed/deadlin
 resource_uncertain. Evidence pins remain null until observed; restart_artifacts
 always has the six original names, with nullable pins after a failure. Preserve
 partial files and unknown closure rather than inventing completion.
+Closed result qualification requires an explicit expected_caller identity from
+the external held worker owner, compares it with the session caller, and requires
+the SDK session budget to equal the1200-second request. A caller identity copied
+from the result itself is not an independent execution witness.
 
 Build admission has12 exact keys: version,scope,head,sources,compiled,build_files,
 fresh_lint_files,apks,counts,independent_build,independent_lint,process_probe_build.
@@ -184,6 +192,30 @@ command,environment,request,started,owner,compile,binary,elf,passed,
 feature_acceptance. Scope `android_author_process_probe_build_v1`, NDK29.0.14206865,
 target x86_64-linux-android35. Retain actual compiler-source/output paths; compare
 cross-worktree source bytes explicitly rather than rewriting provenance.
+The file-only build reader rehashes the declared current source set, requires
+the exact compiled-prefix subset, replays bound reports and parses the actual
+ELF/installed-tool recipe. The live wrapper additionally checks clean Git HEAD
+and tracked completeness. File metadata does not authenticate a compiler run;
+the actual held finite build owner remains separate evidence. The build started
+receipt records worker identity only, without a request/GO receipt binding.
+
+## Primary-source compatibility review
+
+The [Linux6.6 proc documentation](https://github.com/torvalds/linux/blob/ffc253263a1375a65fa6c9f62a893e9767fbebfa/Documentation/filesystems/proc.rst#L130)
+explains why an already opened proc PID directory cannot retarget a replacement
+process. The pinned [PIDFD syscall](https://github.com/torvalds/linux/blob/ffc253263a1375a65fa6c9f62a893e9767fbebfa/kernel/pid.c#L612)
+and [poll implementation](https://github.com/torvalds/linux/blob/ffc253263a1375a65fa6c9f62a893e9767fbebfa/kernel/fork.c#L2075)
+support the held-directory/PIDFD observation design and actual ESRCH boundary.
+These source facts do not establish the installed guest's capabilities.
+
+Android15 [domain rules](https://android.googlesource.com/platform/system/sepolicy/+/ad1c4255c49d57fe885894a8b690c0dfd542100b/private/domain.te#101),
+[shell rules](https://android.googlesource.com/platform/system/sepolicy/+/ad1c4255c49d57fe885894a8b690c0dfd542100b/private/shell.te#399)
+and [ADB group setup](https://android.googlesource.com/platform/packages/modules/adb/+/f8a7480bc3500502d5f12c8fd6d1aecc394a604f/daemon/main.cpp#107)
+inform the proposed read-only access. Vendor policy/seccomp/proc mounts remain
+live gates. [ActivityManager instrumentation completion](https://android.googlesource.com/platform/frameworks/base/+/4e43ad12e1b211f15152e9c5b16b0fe88e6b93f3/services/core/java/com/android/server/am/ActivityManagerService.java#16846)
+can already force-stop the target; preserve that state and the causality limit.
+The reviewed sources and initial429/503/404 retrieval failures remain private
+review evidence. No upstream source or new dependency is vendored here.
 
 ## Acceptance and limits
 

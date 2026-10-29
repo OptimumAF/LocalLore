@@ -225,3 +225,122 @@ Both human assessments remain **needs improvement**; original 30 absent causes,
 literal-v1 comparator limits and the finite semantic gap stay unchanged. Full
 D07.04/M05.03/M05.04 and dependency acceptance remain unchecked. Only this
 document is released at handoff; no cohort or capture repair is authorized.
+
+## Root interface precision before FIRST-test acceptance — 2026-10-29
+
+This append refines the proposal only. Claims before editing:
+[#29 comment6497214245](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6497214245),
+[#9 comment6497214624](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6497214624).
+Root still formally accepts the completed contract before allocating independent
+FIRST source. No implementation or test execution is authorized by this append.
+
+The proposed entry signatures mirror the existing Scene4 argument/return types:
+
+```rust
+// scene_v4
+pub fn run_comparison_with_narration_diagnostics_v1(
+    dir: &Path,
+    resume: bool,
+    kind: ComparisonKind,
+    cancel: &Cancellation,
+    max_new_scenes: usize,
+    factory: LaneFactory,
+    reference: Option<&ValidatedReference>,
+) -> Result<ComparisonReportV4>;
+
+// scene_v4::native, under the existing local-model feature
+pub fn run_native_comparison_with_narration_diagnostics_v1<R: SelectedNativeReservation>(
+    dir: &Path,
+    resume: bool,
+    kind: ComparisonKind,
+    cancel: &Cancellation,
+    max_new_scenes: usize,
+    reserve: impl FnOnce() -> Result<R>,
+    reference: Option<&ValidatedReference>,
+) -> NativeResult<ComparisonReportV4, R>;
+
+// scene_v4::desktop_api
+pub fn narration_diagnostic_v1(
+    run: &OpenedComparison,
+    expected_binding: &str,
+    row: &RowId,
+    observer: Observer,
+    native_inspection_granted: bool,
+) -> Result<Value>;
+```
+
+The native function is defined in the existing private native submodule and
+publicly re-exported from scene_v4 under local-model, like the current native
+entry. The public testable path is
+`scene_v4::run_native_comparison_with_narration_diagnostics_v1`.
+Do not make the module public. Result/NativeResult and reservation failure
+ownership keep their existing meanings; no new general execution/path interface.
+Codec functions/types remain private, accessible to their independent test child;
+they are not public constructors or another native authority.
+
+The reader reuses existing RowId/Arm and raw **Outputs** access checking:
+`shared::check_access(&EvidenceRequest::Outputs { observer }, native_inspection_granted)`
+must run before comparing binding, selecting a row or probing files/source.
+No new EvidenceRequest variant or capture kind. Resolve the retained row by
+exact turn/arm and its actual verified index 0..23, never a caller-supplied index.
+This refusal guarantee starts at the new method with an already opened native
+capability. Existing open_read_only itself does not check inspection privilege;
+any later cold-open wrapper must deny before invoking it. This proposal adds no
+wrapper or transport-wide zero-I/O claim.
+
+Every successful reader Value has exactly these common keys:
+
+```text
+{version:1, protocol_version:4, kind:"narration_diagnostic_v1",
+ binding:<validated existing source snapshot binding>,
+ row:{turn:<actual retained turn>, arm:"left"|"right"},
+ generation_grant:false, status:<closed status>}
+```
+
+| Closed status | Meaning / additional key |
+| --- | --- |
+| `no_declaration` | No declaration; omit observation |
+| `no_observation` | Valid declaration, no bound observation; omit observation |
+| `recorded` | Stored typed ok/recorded Host reply; include observation |
+| `host_unavailable` | Stored typed ok/unavailable Host reply; include observation |
+| `host_rejected` | Stored typed rejected Host reply; include observation |
+
+`observation` appears **only** in the final three variants and contains exactly
+the closed validated stored observation record defined above, including its
+typed query/reply. It is not null, a synthesized summary or an opaque JSON escape.
+There are no other success keys. Derive status from the typed Host envelope;
+Recorded does not mean the validator accepted or a turn committed. Source/binding,
+malformed/unsupported/partial/orphan/budget refusals remain fixed-code ResultErr,
+never an unavailable success. The existing snapshot binding supplies source
+attribution, not authentication of historical session or companion origin.
+
+If final StoredTurn4.trace lacks the exact latched identity/attempt, a present
+claim cannot pass binding. Producer refusal is deferred until the normal
+checkpoint, settlement and teardown have completed; do not alter the checkpoint,
+select another/latest attempt, fabricate trace or relabel the row. The strict
+reader likewise refuses a present mismatched claim. A missing file still means
+NoObservation. A successfully harvested reply does not waive final binding.
+
+The existing selected.rs single_link_file opens/checks a File but drops it before
+the caller reads. Merely widening that function's visibility would not pin a
+read. Add **only this guard reuse extraction** to future production scope:
+
+```rust
+// comparison/selected.rs: same existing ordinary/open/metadata/link-count logic
+pub(super) fn pin_single_link_file(path: &Path) -> Result<File>;
+// Existing private signature/behavior remains a wrapper:
+// fn single_link_file(path: &Path) -> Result<()> {
+//     pin_single_link_file(path).map(drop)
+// }
+```
+
+The new Scene4 reader keeps the returned File alive through bounded reading,
+hashing and revalidation, alongside existing directory pins/run lock. Reuse the
+exact existing open flags and metadata/link-count logic; no duplicate validator,
+new Win32 logic, generic store, changed selected roster or selected adoption.
+Future ownership therefore includes this narrow extraction in
+`crates/locallore-eval/src/local_lane/comparison/selected.rs`.
+No actual link/junction/reparse/canary/network/profile/isolation probe occurred.
+Independent fault/metadata controls and source checks must be labeled honestly;
+unavailable platform qualification is not a measured safety pass. This remains
+a source-only proposal; only the document is released after handoff.

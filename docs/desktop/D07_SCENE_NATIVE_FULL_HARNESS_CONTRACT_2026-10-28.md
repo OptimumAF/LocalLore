@@ -242,3 +242,50 @@ and skips normal restoration; its failed packet stays local. A known-closed
 success/failure attempts normal frontend/native restoration, records its hashes
 and never launches those restored products. These branches have not been
 timeout-calibrated by this author.
+
+## Supplemental Git-child barrier correction
+
+Source review identified a P2 gap in the initial implementation: raw Git
+`execFile` calls preceded Scene4 barrier initialization, and a Git failure during
+`sourceUnchanged()` could permit finally to attempt more children. Scene4 now
+initializes a single nonrecursive bounded child primitive before the first Git
+call. Both Git and app/build children use it; source checks remain outside the
+primitive. The legacy scripted/native3 Git `execFile` path is unchanged.
+
+Before initial Git discovery, Scene4 creates only its fresh UUID packet under
+the explicit existing ordinary physical D: artifact base. This permits bounded
+`scene-processes.json` evidence even when startup Git fails before revision or
+repository discovery. Every child record contains PID/null, args, close/error,
+timeout/output bounds, one-kill result/error, hashes and the permanent unknown
+flag. Timeout, output overflow or error with a PID starts one5s grace and marks
+unknown permanently, including when the direct child subsequently closes.
+Repeated error/timeout events cannot add a kill or reset grace. No subsequent
+Git, app, build or restoration child may launch after unknown drain. This is
+direct-child policy only; it does not qualify Windows descendant/Job cleanup.
+
+The focused checker imports no launcher and launches no OS child. It evaluates
+the exact fixed policy/Git/source-check/runner/restoration source blocks in an
+isolated test context with simulated child events and a deterministic clock.
+It covers successful close, missing executable, timeout with/without later
+close, exact5s grace, errors with PID, repeated errors, stdout/stderr overflow,
+failed kill, Git failures during initial/second source check and restoration,
+zero later launches, nonrecursive success, early initialization and unchanged
+legacy Git options. The test's use of a JavaScript VM is local test code, not a
+production execution hook, native IPC or debugging server.
+
+From the physical D: `apps/desktop` directory:
+
+```powershell
+$env:TEMP='D:/Dev/_Temp'
+$env:TMP=$env:TEMP
+node --check comparison-run-harness.mjs
+node --check comparison-run-process-policy-check.mjs
+node comparison-run-process-policy-check.mjs
+```
+
+Both syntax checks passed; the final focused checker passed all16 synthetic
+cases on Node v23.10.0 / win32. The combined command completed in0.2343272s.
+These are process-policy simulations and syntax checks only, with zero actual
+child launches inside the checker. No actual Git timeout/kill,
+native application, IPC, model, asset, build, render, Android or human-quality
+qualification was performed. The whole Scene4 model cohort remains unrun.

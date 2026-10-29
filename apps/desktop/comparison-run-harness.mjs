@@ -33,8 +33,105 @@ const guid = (value) =>
         value,
     );
 const safe = (value) => Number.isSafeInteger(value) && value >= 0;
-const git = async (...args) =>
-    (
+
+// BEGIN SCENE CHILD POLICY: extracted unchanged by the synthetic policy checker.
+// This primitive never inspects source or invokes Git, so the Git caller cannot
+// recursively bypass it. It is initialized before the first Scene4 child.
+function createSceneChildPolicy({ spawnChild, setTimer, clearTimer, sha256, now }) {
+    const records = [], unknownChildren = [];
+    let unknownDrain = false;
+    return {
+        records, unknownChildren,
+        get unknownDrain() { return unknownDrain; },
+        async run(label, command, args, options, timeoutMs) {
+            if (unknownDrain) throw Error("SceneOwnedDrainUnknown");
+            if (records.length >= 512) throw Error("SceneProcessRecordBudget");
+            const started = now(), output = { stdout: [], stderr: [] }, sizes = { stdout: 0, stderr: 0 };
+            const observed = { stdout: 0, stderr: 0 }, cap = 1024 * 1024;
+            let overflow = false, timedOut = false, pid = null;
+            let killAttempted = false, killReturned = null, killError = null, processError = null;
+            const result = await new Promise((resolve) => {
+                let child;
+                try { child = spawnChild(command, args, options); }
+                catch (error) { resolve({ exit: null, signal: null, closed: false, spawnError: error.code ?? "SpawnFailure" }); return; }
+                pid = child.pid ?? null;
+                let settled = false, grace = null, timer = null;
+                const finish = (value, detach = false) => {
+                    if (settled) return;
+                    settled = true;
+                    if (timer !== null) clearTimer(timer);
+                    if (grace !== null) clearTimer(grace);
+                    if (detach) { child.stdout.destroy(); child.stderr.destroy(); child.unref(); }
+                    resolve(value);
+                };
+                const stop = (reason) => {
+                    if (killAttempted) return;
+                    unknownDrain = true;
+                    unknownChildren.push({ label, command, args, pid, reason, processTreeContained: false });
+                    killAttempted = true;
+                    grace = setTimer(() => finish({ exit: null, signal: null, closed: false,
+                        spawnError: processError ?? "OwnedDrainUnknown" }, true), 5000);
+                    try { killReturned = child.kill(); } catch (error) { killError = error.code ?? "KillFailure"; }
+                };
+                for (const channel of ["stdout", "stderr"]) child[channel].on("data", (chunk) => {
+                    if (settled) return;
+                    observed[channel] += chunk.length;
+                    const room = cap - sizes[channel];
+                    if (room > 0) { const retained = chunk.subarray(0, room); output[channel].push(retained); sizes[channel] += retained.length; }
+                    if (chunk.length > room) { overflow = true; stop("OutputOverflow"); }
+                });
+                timer = setTimer(() => { timedOut = true; stop("DirectChildTimeout"); }, timeoutMs);
+                child.on("error", (error) => {
+                    if (settled) return;
+                    processError ??= error.code ?? "SpawnFailure";
+                    if (pid !== null) stop("ErrorWithPid");
+                    else finish({ exit: null, signal: null, closed: false, spawnError: processError });
+                });
+                child.once("close", (exit, signal) => finish({ exit, signal, closed: true, spawnError: processError }));
+            });
+            const stdout = Buffer.concat(output.stdout), stderr = Buffer.concat(output.stderr);
+            const record = { label, command, args, started, ended: now(), ...result, pid,
+                timeoutMs, timedOut, overflow, killAttempted, killReturned, killError,
+                ownedDrainUnknown: unknownDrain, processTreeContained: false,
+                stdoutBytes: stdout.length, stderrBytes: stderr.length,
+                observedStdoutBytes: observed.stdout, observedStderrBytes: observed.stderr,
+                stdoutSha256: sha256(stdout), stderrSha256: sha256(stderr) };
+            records.push(record);
+            return { stdout, stderr, record };
+        },
+    };
+}
+// END SCENE CHILD POLICY.
+const scenePolicy = createSceneChildPolicy({ spawnChild: spawn, setTimer: setTimeout,
+    clearTimer: clearTimeout, sha256: digest, now: () => new Date().toISOString() });
+// Startup Git can fail before revision/repository discovery. Its PID/reason
+// evidence must already have a physical D: packet, without launching a child.
+const sceneBase = sceneMode ? await existingDirectory("LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT") : null;
+let scenePacketFolder = null;
+if (sceneMode) {
+    await ordinarySceneDirectory(root);
+    await ordinarySceneDirectory(sceneBase);
+    scenePacketFolder = path.join(sceneBase, `full-comparison-native-${randomUUID()}`);
+    await mkdir(scenePacketFolder, { recursive: false });
+}
+async function saveSceneProcessEvidence() {
+    if (sceneMode) await writeFile(path.join(scenePacketFolder, "scene-processes.json"), JSON.stringify({ version: 1,
+        ownedDrainUnknown: scenePolicy.unknownDrain, unknownChildren: scenePolicy.unknownChildren,
+        processTreeContained: false, executions: scenePolicy.records }, null, 2));
+}
+const git = async (...args) => {
+    if (sceneMode) {
+        assert(["rev-parse HEAD", "rev-parse --show-toplevel", "status --porcelain"].includes(args.join(" ")), "ClosedSceneGitArguments");
+        const { stdout, record } = await scenePolicy.run(`git-${scenePolicy.records.length + 1}`, "git", args,
+            { cwd: root, shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
+                env: { ...process.env, TEMP: "D:/Dev/_Temp", TMP: "D:/Dev/_Temp" } }, 15000);
+        await saveSceneProcessEvidence();
+        if (scenePolicy.unknownDrain) throw Error("SceneOwnedDrainUnknown");
+        assert(record.closed && record.spawnError === null && !record.timedOut && !record.overflow, "SceneGitKnownProcessRequired");
+        assert.equal(record.exit, 0, "SceneGitExit");
+        return stdout.toString("utf8").trim();
+    }
+    return (
         await promisify(execFile)("git", args, {
             cwd: root,
             shell: false,
@@ -43,6 +140,7 @@ const git = async (...args) =>
             maxBuffer: 1024 * 1024,
         })
     ).stdout.trim();
+};
 const revision = await git("rev-parse", "HEAD");
 const repository = await git("rev-parse", "--show-toplevel");
 assert.equal(await git("status", "--porcelain"), "", "CleanSourceRequired");
@@ -60,7 +158,7 @@ async function existingDirectory(name) {
     );
     return path.resolve(value);
 }
-const base = await existingDirectory(
+const base = sceneBase ?? await existingDirectory(
     "LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT",
 );
 const target = await existingDirectory(
@@ -75,8 +173,8 @@ assert(
         path.isAbsolute(targetRelative),
     "ExternalBuildTargetRequired",
 );
-const folder = path.join(base, `full-comparison-native-${randomUUID()}`);
-await mkdir(folder, { recursive: false });
+const folder = scenePacketFolder ?? path.join(base, `full-comparison-native-${randomUUID()}`);
+if (!sceneMode) await mkdir(folder, { recursive: false });
 const launcherSha256 = digest(await readFile(fileURLToPath(import.meta.url)));
 const executable = path.join(target, "debug", "locallore-desktop-spike.exe");
 const executions = [],
@@ -98,11 +196,9 @@ let expectedInventory = null,
     executableSha256 = null;
 let nativeAssets = null;
 let sceneSourceHashes = null, sceneHarnessProducts = null, sceneRestoration = null;
-let sceneOwnedDrainUnknown = false;
-const sceneUnknownChildren = [];
 const sceneReviewSlots = ["courier-01", "courier-05", "courier-12", "courier-22"]
     .flatMap((turn) => ["left", "right"].map((arm) => ({ turn, arm, label: `full-scene-${turn}-${arm}` })));
-const sceneInputFiles = ["comparison-run-harness.mjs", "ui/comparison-run-native-journeys.ts", "ui/main.tsx",
+const sceneInputFiles = ["comparison-run-harness.mjs", "comparison-run-process-policy-check.mjs", "ui/comparison-run-native-journeys.ts", "ui/main.tsx",
     "ui/comparison-run-controller.ts", "ui/comparison-run-model.ts", "ui/comparison-run-view.tsx",
     "ui/comparison-reader-controller.ts", "ui/comparison-reader-model.ts", "ui/ComparisonReaderPanel.tsx",
     "src-tauri/src/main.rs", "src-tauri/src/harness.rs", "src-tauri/src/comparison_run_native_harness.rs",
@@ -207,6 +303,7 @@ async function saveExecutions() {
         path.join(folder, "executions.json"),
         JSON.stringify(executions, null, 2),
     );
+    await saveSceneProcessEvidence();
 }
 async function run(label, command, args, env = {}, timeout = 240000) {
     if (sceneMode) return runScene(label, command, args, env, timeout);
@@ -305,7 +402,7 @@ async function run(label, command, args, env = {}, timeout = 240000) {
 // New mode uses the reviewed bounded direct-child policy. The historical V3
 // runner remains above, including its original result/acceptance behavior.
 async function runScene(label, command, args, env = {}, timeout = 240000) {
-    if (sceneOwnedDrainUnknown) throw Error("SceneOwnedDrainUnknown");
+    if (scenePolicy.unknownDrain) throw Error("SceneOwnedDrainUnknown");
     await sourceUnchanged();
     if (command === executable) {
         assert.deepEqual(args, [], "SceneFixedExecutableArguments");
@@ -315,49 +412,17 @@ async function runScene(label, command, args, env = {}, timeout = 240000) {
     for (const key of Object.keys(environment)) if (key.startsWith("LOCALLORE_")) delete environment[key];
     Object.assign(environment, { TEMP: "D:/Dev/_Temp", TMP: "D:/Dev/_Temp", CARGO_BUILD_JOBS: "1",
         CARGO_INCREMENTAL: "0", CARGO_PROFILE_DEV_DEBUG: "0", CARGO_PROFILE_TEST_DEBUG: "0", LIBSQLITE3_FLAGS: "", ...env });
-    const started = new Date().toISOString(), output = { stdout: [], stderr: [] }, sizes = { stdout: 0, stderr: 0 };
-    let overflow = false, timedOut = false, pid = null, killAttempted = false, killReturned = null, killError = null;
-    const result = await new Promise((resolve) => {
-        const child = spawn(command, args, { cwd: root, shell: false, windowsHide: true,
-            stdio: ["ignore", "pipe", "pipe"], env: environment });
-        pid = child.pid ?? null;
-        let settled = false, grace = null;
-        const unknown = (reason) => { sceneOwnedDrainUnknown = true; sceneUnknownChildren.push({ label, pid, reason }); };
-        const finish = (value, detach = false) => {
-            if (settled) return; settled = true; clearTimeout(timer); if (grace !== null) clearTimeout(grace);
-            if (detach) { child.stdout.destroy(); child.stderr.destroy(); child.unref(); }
-            resolve(value);
-        };
-        const stop = (reason) => {
-            if (killAttempted) return;
-            unknown(reason); killAttempted = true;
-            grace = setTimeout(() => finish({ exit: null, signal: null, closed: false, spawnError: "OwnedDrainUnknown" }, true), 5000);
-            try { killReturned = child.kill(); } catch (error) { killError = error?.code ?? "KillFailure"; }
-        };
-        for (const channel of ["stdout", "stderr"]) child[channel].on("data", (chunk) => {
-            const room = limits.processOutputBytes - sizes[channel];
-            if (room > 0) { const retained = chunk.subarray(0, room); output[channel].push(retained); sizes[channel] += retained.length; }
-            if (chunk.length > room) { overflow = true; stop("OutputOverflow"); }
-        });
-        const timer = setTimeout(() => { timedOut = true; stop("DirectChildTimeout"); }, timeout);
-        child.once("error", (error) => { if (settled) return;
-            if (pid !== null) stop("ErrorWithPid");
-            else finish({ exit: null, signal: null, closed: false, spawnError: error.code ?? "SpawnFailure" }); });
-        child.once("close", (exit, signal) => finish({ exit, signal, closed: true, spawnError: null }));
-    });
-    const stdout = Buffer.concat(output.stdout), stderr = Buffer.concat(output.stderr);
+    const { stdout, stderr, record } = await scenePolicy.run(label, command, args,
+        { cwd: root, shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: environment }, timeout);
     await writeFile(path.join(folder, `${label}.stdout.log`), stdout, { flag: "wx" });
     await writeFile(path.join(folder, `${label}.stderr.log`), stderr, { flag: "wx" });
-    executions.push({ label, command, args, started, ended: new Date().toISOString(), ...result, pid,
-        timeoutMs: timeout, timedOut, overflow, killAttempted, killReturned, killError,
-        ownedDrainUnknown: sceneOwnedDrainUnknown, processTreeContained: false,
-        stdoutBytes: stdout.length, stderrBytes: stderr.length, stdoutSha256: digest(stdout), stderrSha256: digest(stderr) });
+    executions.push(record);
     await saveExecutions();
-    if (sceneOwnedDrainUnknown) throw Error("SceneOwnedDrainUnknown");
+    if (scenePolicy.unknownDrain) throw Error("SceneOwnedDrainUnknown");
     await sourceUnchanged();
     if (command === executable) assert.deepEqual(await sceneProducts(), sceneHarnessProducts, "SceneHarnessProductsChanged");
-    assert(!overflow && !timedOut && result.closed && result.spawnError === null, `${label}:SceneBoundedKnownProcess`);
-    assert.equal(result.exit, 0, `${label}:exit`);
+    assert(!record.overflow && !record.timedOut && record.closed && record.spawnError === null, `${label}:SceneBoundedKnownProcess`);
+    assert.equal(record.exit, 0, `${label}:exit`);
 }
 async function boundedFile(file, cap) {
     const metadata = await lstat(file);
@@ -1001,10 +1066,11 @@ try {
         message: String(error?.message ?? error).slice(0, 2048),
     };
 } finally {
+    // BEGIN SCENE RESTORATION POLICY: also exercised with synthetic children.
     if (sceneMode) {
-        if (sceneOwnedDrainUnknown) {
+        if (scenePolicy.unknownDrain) {
             sceneRestoration = { passed: false, skipped: true, launched: false,
-                reason: "SceneOwnedDrainUnknown", unknownChildren: sceneUnknownChildren };
+                reason: "SceneOwnedDrainUnknown", unknownChildren: scenePolicy.unknownChildren };
         } else {
             try {
                 await run("normal-frontend-restoration", process.execPath, ["build.mjs"]);
@@ -1012,17 +1078,18 @@ try {
                     "--locked", "--offline", "--no-default-features", "--bin", "locallore-desktop-spike", "--jobs", "1", "--target-dir", target], {}, 900000);
                 sceneRestoration = { passed: true, launched: false, products: await sceneProducts() };
             } catch (error) {
-                sceneRestoration = { passed: false, launched: false, ownedDrainUnknown: sceneOwnedDrainUnknown,
-                    unknownChildren: sceneUnknownChildren, error: String(error?.message ?? error).slice(0, 2048) };
+                sceneRestoration = { passed: false, launched: false, ownedDrainUnknown: scenePolicy.unknownDrain,
+                    unknownChildren: scenePolicy.unknownChildren, error: String(error?.message ?? error).slice(0, 2048) };
                 failure ??= { name: error?.name ?? "Error", message: String(error?.message ?? error).slice(0, 2048) };
             }
         }
         if (!sceneRestoration.passed) failure ??= { name: "Error", message: "SceneNormalRestorationUnqualified" };
         await writeFile(path.join(folder, "normal-restoration.json"), JSON.stringify(sceneRestoration, null, 2), { flag: "wx" });
     }
+    // END SCENE RESTORATION POLICY.
     let sourceClean = false,
         terminalSourceUnchanged = false;
-    if (!sceneMode || !sceneOwnedDrainUnknown) {
+    if (!sceneMode || !scenePolicy.unknownDrain) {
         try {
             sourceClean = (await git("status", "--porcelain")) === "";
             terminalSourceUnchanged = (await git("rev-parse", "HEAD")) === revision;
@@ -1042,8 +1109,9 @@ try {
         ...(sceneMode ? { protocolVersion: 4, reuseModelRoot: nativeAssets?.reuseRoot ?? null,
             weightsCopied: false, importedByHarness: false, sourceHashes: sceneSourceHashes,
             harnessProducts: sceneHarnessProducts, restoration: sceneRestoration,
-            ownedDrainUnknown: sceneOwnedDrainUnknown, unknownChildren: sceneUnknownChildren,
-            terminalSourceInspectionSkipped: sceneOwnedDrainUnknown,
+            ownedDrainUnknown: scenePolicy.unknownDrain, unknownChildren: scenePolicy.unknownChildren,
+            sceneProcessExecutions: scenePolicy.records,
+            terminalSourceInspectionSkipped: scenePolicy.unknownDrain,
             processTreeContained: false, reviewSlots: sceneReviewSlots, originalHumanAssessment: "needs improvement",
             human_rubric: "not_reviewed", quality_accepted: false } : {}),
         requestedNativeIpc: true,

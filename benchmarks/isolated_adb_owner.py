@@ -486,7 +486,7 @@ def _validate_request(value,pin):
 
 def _run_worker(request,request_pin,root):
     began=time.monotonic();runtime=WorkerRuntime(request,request_pin,root)
-    preflight_pin=readiness_pin=running_pin=None;proofs=[];reason="owner";requested=False;sources_after=None
+    preflight_pin=readiness_pin=running_pin=server_capture_pin=None;proofs=[];reason="owner";requested=False;sources_after=None
     preflight=None
     try:
         runtime.open_identity();runtime.wait_receipt()
@@ -524,6 +524,23 @@ def _run_worker(request,request_pin,root):
         if reason=="deadline" and running_pin is not None and time.monotonic()>=runtime.until:reason="expired"
     finally:
         cleanup,code=_cleanup(runtime)
+        if runtime.child is not None and runtime.server is not None and cleanup["server_wait_completed"] \
+                and cleanup["server_pipes_closed"] and runtime.capture is not None:
+            try:
+                sizes=runtime.capture.capture.sizes
+                _need(type(sizes) is list and len(sizes)==2 and all(type(n) is int and n>=0 for n in sizes)
+                    and sum(sizes)<=CAP,"capture")
+                stdout=_binding(root/"server-output-v1/owner-stdout-v1.bin")
+                stderr=_binding(root/"server-output-v1/owner-stderr-v1.bin")
+                _need(stdout["bytes"]==sizes[0] and stderr["bytes"]==sizes[1],"capture")
+                captured=dict(version=1,protocol=lease.PROTOCOL,server=copy.deepcopy(runtime.server),
+                    status="terminated" if cleanup["server_terminate_attempted"] else "exited",returncode=code,
+                    stdout=stdout,stderr=stderr,stdout_bytes=sizes[0],stderr_bytes=sizes[1],
+                    capture_complete=cleanup["server_output_capture_complete"],pipes_closed=cleanup["server_pipes_closed"])
+                env.create_json(root/"server-capture-v1.json",captured)
+                server_capture_pin=_binding(root/"server-capture-v1.json")
+            except BaseException:
+                reason="capture"
         if preflight is not None:
             cleanup["preflight_sockets_closed"]=preflight["created_mask"]==preflight["close_attempted_mask"]==preflight["closed_mask"]
         try:
@@ -539,7 +556,8 @@ def _run_worker(request,request_pin,root):
         value=dict(version=1,protocol=lease.PROTOCOL,admission=copy.deepcopy(request["admission"]),request=copy.deepcopy(request_pin),
             worker=copy.deepcopy(runtime.worker),server=copy.deepcopy(runtime.server),auth=copy.deepcopy(runtime.auth.descriptor),
             preflight=preflight_pin,readiness=readiness_pin,proofs=proofs,running=running_pin,stop_requested=requested,
-            reason=reason,elapsed_ms=round((time.monotonic()-began)*1000),server_returncode=code,cleanup=cleanup,sources_after=sources_after)
+            reason=reason,elapsed_ms=round((time.monotonic()-began)*1000),server_returncode=code,server_capture=server_capture_pin,
+            cleanup=cleanup,sources_after=sources_after)
         env.create_json(root/"worker-result-v1.json",value)
     return 0 if reason in ("stop_requested","expired") and running_pin is not None else 1
 

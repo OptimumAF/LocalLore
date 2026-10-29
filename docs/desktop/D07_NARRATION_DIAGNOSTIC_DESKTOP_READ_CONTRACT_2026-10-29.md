@@ -510,3 +510,115 @@ retains this frozen baseline, executes the original/additive roster after the
 current serialized batch, then owns the minimal typed selected-context Panel
 fix and separate actual verification. Release both paths; all native IPC/render/
 geometry/image, human quality, dependency and merge restrictions remain.
+
+## Root finite native-harness and policy-FIRST acceptance — 2026-10-29
+
+Claim: [#29 comment6502056719](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6502056719).
+This accepts source-only verification infrastructure, not a run or gate pass.
+Keep the original/additive 156-case SSR baseline `b76858a9` and its unfixed
+artifact-context finding intact until Root's actual baseline check.
+
+Add only `LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER=1` as a closed reader mode.
+It requires effective child D02/COMPARISON_READER_HARNESS/SCENE flags1,
+LITERAL/TEST_MEMORY and all other model/full-native/author/harness modes0.
+When absent/0, existing modes, scenarios and rosters keep their behavior.
+No main.tsx, main.rs, harness.rs capture whitelist, ACL, Host, provider, full-run
+or catalog change. Existing comparison-reading routing and native command remain.
+
+Freeze these two private pure functions in `comparison-reader-harness.mjs`,
+inside exactly one marked block `// reader-policy-v1:start` through
+`// reader-policy-v1:end`, before top-level mode/build/launch work:
+
+```text
+readerDiagnosticMode(environment) -> boolean
+readerChildEnvironment(environment) -> new environment object
+```
+
+The selector accepts absent/0/1 only; enabled requires Scene1 and Literal
+absent/0. Refuse ambiguous case-insensitive aliases for the selector and its
+Scene/Literal selectors rather than silently choosing one. The effective child
+receives fixed flags from the launcher; parent D02/reader flags need not already
+be set because the existing launcher supplies them. Reuse the existing
+`sceneReviewEnvironment` behavior: copy every non-LOCALLORE key and strip ALL
+case-insensitive LOCALLORE_* keys, including every model-root spelling, without
+mutating input. Never set a real MODEL_ROOT/publication/asset path. The launcher
+sets process-local TEMP/TMP to D:/Dev/_Temp; source/base/target are physical D:
+and validated before mkdir/build. No global environment or SDK setting changes.
+
+Independent FIRST owns only NEW
+`apps/desktop/comparison-reader-process-policy-check.mjs` and a handoff append
+here. Reuse the existing trusted marked-source extraction/policy-test pattern;
+it does not import the top-level launcher or expose code execution to a renderer.
+Freeze flag/malformed/alias cases, mixed-case model-root stripping, input
+preservation and fixed fake-child overlay. Missing helpers are setup, not RED.
+Any additional helper/marker boundary must return to Root before source.
+No author compiler, formatter, Node, app, model, device or probe execution.
+
+Later implementation owns only the existing `comparison_reader_harness.rs`,
+`ui/comparison-reader-journeys.ts`, `comparison-reader-harness.mjs` and narrow
+policy-check registration. It may add native State injection for the already
+managed ModelManager to the EXISTING fixed command, not renderer model arguments,
+a new manager API or privilege setter. Reuse
+`evaluation_observation_for_harness()` without filesystem work.
+
+Under the new mode only, `prepare` creates/validates six fixed synthetic folders
+under comparison-fixtures: diagnostic-recorded, diagnostic-legacy,
+diagnostic-missing, diagnostic-unavailable, diagnostic-rejected,
+diagnostic-malformed. Recorded is a fresh accepted opt-in scripted one-scene
+12-row/two-recipe run; Legacy uses the actual old default. The other four are
+ordinary byte copies before any cap opens: move the actual left00 admission's
+observation to a fixed retained sibling; change only the supported Host envelope
+to unavailable/rejected; or retain fixed malformed `{` bytes. Preserve controls.
+Provenance is external proof, never new artifact fields. Restart validates an
+already-frozen set and refuses partial/conflicting state rather than repairing.
+
+Accept only these new fixed chooser cases, mapped literally to those folders:
+choose-diagnostic-recorded, choose-diagnostic-legacy, choose-diagnostic-missing,
+choose-diagnostic-unavailable, choose-diagnostic-rejected,
+choose-diagnostic-malformed; plus `diagnostic-observation`. No path is derived
+from arbitrary scenario text. Unknown/cross-mode values refuse. Existing
+choose-paired/rollout/hold/release/cancel/lose-ack cases remain unchanged.
+
+The observation returns exactly version1,
+kind diagnostic_reader_model_observation_v1, reservation_sequence, owner_present,
+retained_evaluations. Prepare returns a distinct closed version1
+narration_diagnostic_reader_fixture_v1 proof: protocol4, synthetic true, six
+fixture entries with id/provenance/nullable expected_status/expected_error,
+fixture_inventory and model_observation. Stored unavailable/rejected and malformed
+controls are labeled trusted metadata, not actual Engine failures or origin proof.
+Malformed expects EvaluationIntegrity, never missing/unavailable success.
+
+Initial mode reuses exactly the existing 15 capture labels: open=recorded-left,
+receipt=accepted receipt, capture=trusted unavailable, outputs=trusted rejected,
+rollout=legacy absence, guard=missing observation, narrow=recorded-right narrow,
+mira/sable=actor clearing, pending=existing held-picker pending,
+unknown=malformed integrity refusal, recovered=explicit fresh Omni read,
+closed=closed cap, switched=local context/permission cleared, finished=closed.
+Restart uses comparison-restarted and comparison-finished only: cold fresh read
+then release. All 17 app-owned images require individual inspection. Explicitly
+map labels/provenance in the new-mode report; old-mode rosters stay unchanged.
+Native diagnostic dispatch must clear/busy synchronously, and same-turn row/
+observer/source/permission changes must fence its real late completion. No new
+held-I/O/timeout seam: picker-pending pixels are NOT diagnostic-I/O pixels;
+unavailable diagnostic-pending imagery is reported honestly. Mocks and Rust
+held-completion tests retain their separate meaning.
+
+Each new-mode checkpoint includes checked diagnostic, selected source/row/lens,
+before/after/base/attempt, receipt/fallback/phase, pending operation, visible error,
+semantic structure and finite positive artifact/header/context geometry. Keep
+context before raw details and inspect wide/narrow overlap. Bind relevant source/
+product hashes, including codec, turn execution, comparison/selected and models.
+Malformed refusal and direct actor denial retain their actual bounded broker
+error deltas as expected errors; do not relabel them lost ACK or claim zero total
+errors. The local Lab toggle proves frontend clearing, not Host grant revocation.
+Native !granted refusal remains the Rust-manager test; no privilege setter.
+
+After close/drain/dispose and app exit, compare complete frozen fixture bytes
+for initial/restart. Keep direct-child closure/unknown-drain limits and normal
+build restoration; no process-tree containment claim. Model construction creates
+no model directory or weight access. Ordinary shutdown does metadata-probe the
+absent task-owned candidate; do not claim zero model-path probes. Observed seq0,
+no owner and retained0 are not independent SDK-load telemetry. No real asset,
+publication, import/copy/link/load/reservation, original cohort or protected
+resource is needed. No desktop input/control/capture, unrelated app automation,
+network/debug server, new OS-isolation probe or release/settings change.

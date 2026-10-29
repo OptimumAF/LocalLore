@@ -195,3 +195,81 @@ limited to source/API/fixture/diff inspection and commit preparation: no Node,
 formatter, Cargo, app, asset/model, device or desktop action. Existing actual
 cohort captures stay frozen; the original human needs-improvement assessment,
 pending human review, canonical authority and acceptance gates remain unchanged.
+
+## Supplemental R3 visible artifact geometry freeze
+
+Frozen independently from `c3c13a2b`, before the CSS change. Refs #29 D07.06.
+This adds one closed optional `--artifact-geometry-v1` group to the existing
+checker and preserves its default176 cases. It asserts visible geometry and
+hit-testing, **not CSS rule text, a selector implementation, or a required
+`position` value**. The source author ran no Node/browser/formatter/Cargo/app,
+asset/model, profile/link probe, phone or desktop operation. This is an
+**UNRUN source freeze**; Root owns its first actual baseline and unchanged rerun.
+
+The existing package pins Playwright1.64.1 and the application-owned headless
+harness already uses Chromium. Root separately verified its installed browser
+prerequisites. The new group reuses the existing actual public controller
+fixture and real `ComparisonReaderPanel` React static markup, plus the complete
+current `ui/style.css`. It never launches the full Rust/stdio/native harness,
+starts a server, downloads a browser, connects to a user's browser or controls
+the desktop. A single newly launched persistent **headless** context gets a
+fresh UUID output/profile on physical D:. TEMP/TMP are set inside its actual
+Node process; inherited output redirection outside ordinary D: ancestry is
+refused before directory creation. Every page network request is aborted.
+
+One failed native4 transport row with actual selected metadata, retained raw
+body and no accepted receipt is reused. After the same
+`.comparison-evidence.scrollIntoView({block:'start'})` action at1280x900 and
+620x900, the actual evidence heading, source paragraph and case-phase/error
+paragraph must fit in the viewport. Top/middle/bottom point samples must hit
+their respective target elements or descendants. A sticky header painted over
+even the upper part of a phase line therefore fails, while labels elsewhere in
+the DOM cannot satisfy the check. The measured header positions are diagnostic,
+not expected CSS strings. Existing R3 semantic receipt/source/quality checks
+remain independent and unchanged.
+
+A fixture-only inert, aria-hidden900px scroll tail follows the actual Panel.
+It supplies one viewport of scroll range without overriding product CSS or
+changing the Panel. The artifact's actual bounding-box top must be within1px
+of the requested viewport start before any behavioral classification; missing
+scroll range is a setup/calibration failure, never a behavioral GREEN. The
+selection-only control likewise requires measured scrolling before checking
+its retained context. These synthetic fixture conditions do not establish the
+document geometry of the complete native app.
+
+Two controls prevent a blanket loss of context/privacy: after public
+`clearEvidence`, selected context must remain visible while scrolling at both
+widths; after public `setObserver({kind:'character',id:'mira'})`, summary/evidence
+must clear and the narrow view must expose neither private phase/error nor raw
+body. No controller-state stub, new authorization field or engine reconstruction
+is introduced. Five observations belong to one optional geometry case, making
+the proposed optional run177 cases only when setup succeeds. Setup failures are
+separate from a meaningful behavioral RED.
+
+The local result records actual selected browser executable and version, CSS
+and component/checker source hashes, bounded measurements, network/page errors
+and local viewport PNG hashes. Its explicit rendering class is headless
+Chromium, never native WebView2. No native rendering, actual model generation,
+canonical correctness, OS accessibility, runtime/Job/descendant cleanup or
+human-quality result follows from this group. Source fixtures contain only
+public synthetic markers; original native captures and raw outputs stay frozen.
+
+Root can later run from physical D: `apps/desktop`, after source review and
+with the existing installed browser:
+
+```powershell
+$env:TEMP='D:/Dev/_Temp'
+$env:TMP=$env:TEMP
+node check-scene-reader-review.mjs --artifact-geometry-v1
+```
+
+No install/download fallback exists. Bundle/browser/fixture/timeouts/cleanup
+failures remain setup failures with failed local evidence. Execution is bounded
+by a60s geometry deadline plus one10s close allowance. No second browser is
+admitted after a launch/close uncertainty; `browserDrainUnknown` cannot qualify
+success and Root must resolve ownership before starting later app work. This is
+not a claim that simulated bounds prove actual browser process-tree cleanup.
+Root will measure baseline first, apply the narrow production CSS change and
+repeat unchanged headless checks, then separately require actual native
+bounding-box checks and inspect every new application-owned render. Core work
+and quality/acceptance gates remain pending until that UI gate is handled.

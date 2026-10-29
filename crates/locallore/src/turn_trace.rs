@@ -207,7 +207,11 @@ impl NarrationValidationDiagnosticV1 {
         error: Option<ErrorCategory>,
         reason: Option<NarrationRejectionReasonV1>,
     ) -> Self {
-        Self { outcome, error, reason }
+        Self {
+            outcome,
+            error,
+            reason,
+        }
     }
     pub fn version(&self) -> u16 {
         1

@@ -53,7 +53,10 @@ impl From<Error> for NarrationValidationFailureV1 {
 }
 impl NarrationValidationFailureV1 {
     fn scene(reason: NarrationRejectionReasonV1) -> Self {
-        Self { error: Error::Narration, reason: Some(reason) }
+        Self {
+            error: Error::Narration,
+            reason: Some(reason),
+        }
     }
     pub(crate) fn into_engine_error(self) -> Error {
         self.error
@@ -1922,13 +1925,14 @@ fn execute_with_presentation_input(
     let before = trace.clock();
     let mut reason = None;
     let validation = trace.run(Stage::NarrationValidation, Outcome::Rejected, || {
-        staged.validate_detailed(engine, &record, presentation, literal, &|| {
-            cancel.is_cancelled()
-        })
-        .map_err(|failure| {
-            reason = failure.reason;
-            failure.into_engine_error()
-        })
+        staged
+            .validate_detailed(engine, &record, presentation, literal, &|| {
+                cancel.is_cancelled()
+            })
+            .map_err(|failure| {
+                reason = failure.reason;
+                failure.into_engine_error()
+            })
     });
     let (outcome, error) = match &validation {
         Ok(()) => (Outcome::Accepted, None),

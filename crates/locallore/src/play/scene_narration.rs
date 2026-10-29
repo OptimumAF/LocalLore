@@ -9,9 +9,9 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-mod renderer;
 #[cfg(test)]
 mod diagnostics_review_tests;
+mod renderer;
 pub use renderer::{render_scene_narrator_v1, RenderedSceneNarratorV1};
 
 pub const SCENE_PROMPT_VERSION_V1: &str = "locallore-play-v2.9-scene-frame-v1";

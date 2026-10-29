@@ -1,6 +1,11 @@
 // Read-only transport boundary. Rust owns source validation, eligibility and
 // canonical state. Parsed objects cannot reveal duplicate keys in raw JSON.
 import { checkedPageV2 } from "./v2-view-model";
+import { checkedNarrationValidationDataV1 } from "./narration-diagnostic-model";
+import type {
+    NarrationValidationDecisionV1,
+    NarrationValidationQueryV1,
+} from "./narration-diagnostic-model";
 import type {
     ObserverV2,
     ScopeV2,
@@ -1353,35 +1358,6 @@ export function checkedReaderEvidence(
     return o as ReaderEvidence;
 }
 
-const narrationDiagnosticCategories = [
-    "malformed",
-    "version",
-    "scope",
-    "rule",
-    "agency",
-    "deadline",
-    "retry_mismatch",
-    "too_large",
-    "author_ui_required",
-    "clarification_required",
-    "unknown_reference",
-    "dead_actor",
-    "location",
-    "inventory",
-    "resource",
-    "ability",
-    "knowledge",
-    "provider",
-    "corrupt_history",
-    "narration",
-    "cancelled",
-    "stale",
-] as const;
-const narrationDiagnosticReasons = [
-    "unclassified",
-    "scene_first_person",
-    "scene_unapproved_movement",
-] as const;
 const narrationDiagnosticHostErrors = [
     "TooLarge",
     "Malformed",
@@ -1427,12 +1403,7 @@ const narrationDiagnosticHostErrors = [
     "CorruptHistory",
     "Storage",
 ] as const;
-type NarrationDiagnosticDecisionV1 = {
-    version: 1;
-    outcome: "accepted" | "rejected" | "cancelled" | "stale";
-    error: (typeof narrationDiagnosticCategories)[number] | null;
-    reason: (typeof narrationDiagnosticReasons)[number] | null;
-};
+type NarrationDiagnosticDecisionV1 = NarrationValidationDecisionV1;
 type NarrationDiagnosticQueryV1 = {
     version: 1;
     command: {
@@ -1520,32 +1491,6 @@ export type ReaderNarrationDiagnosticV1 = {
     run_token: string;
     diagnostic: NarrationDiagnosticResultV1;
 };
-
-function narrationDiagnosticDecision(value: unknown): void {
-    const d = exact(value, ["version", "outcome", "error", "reason"]);
-    wire(d.version === 1);
-    const outcome = choices(d.outcome, [
-        "accepted",
-        "rejected",
-        "cancelled",
-        "stale",
-    ]);
-    nullable(d.error, (v) => choices(v, narrationDiagnosticCategories));
-    nullable(d.reason, (v) => choices(v, narrationDiagnosticReasons));
-    if (outcome === "accepted") wire(d.error === null && d.reason === null);
-    else if (outcome === "cancelled")
-        wire(d.error === "cancelled" && d.reason === null);
-    else if (outcome === "stale")
-        wire(d.error === "stale" && d.reason === null);
-    else if (d.error === "narration") wire(d.reason !== null);
-    else
-        wire(
-            d.error !== null &&
-                d.error !== "cancelled" &&
-                d.error !== "stale" &&
-                d.reason === null,
-        );
-}
 
 /** Decode inspection metadata only; Rust owns its manifest/checkpoint/ledger binding. */
 export function checkedReaderNarrationDiagnosticV1(
@@ -1660,34 +1605,22 @@ export function checkedReaderNarrationDiagnosticV1(
     } else {
         exact(reply, ["version", "status", "data"]);
         wire(reply.status === "ok" && status !== "host_rejected");
-        const data = object(reply.data),
-            recorded = status === "recorded";
-        exact(data, [
-            "version",
-            "session",
-            "scope",
-            "head",
-            "base_revision",
-            "turn",
-            "attempt",
-            "observer",
-            "generation_grant",
-            "status",
-            ...(recorded ? ["decision"] : []),
-        ]);
-        wire(
-            data.version === 1 &&
-                data.status === (recorded ? "recorded" : "unavailable") &&
-                id(data.session) === command.session &&
-                sameScope(scope(data.scope), scope(command.scope)) &&
-                integer(data.head) === command.expected_head &&
-                integer(data.base_revision) === command.base_revision &&
-                id(data.turn) === command.turn &&
-                integer(data.attempt, 0, 0xffff_ffff) === command.attempt &&
-                data.observer === "player" &&
-                data.generation_grant === false,
-        );
-        if (recorded) narrationDiagnosticDecision(data.decision);
+        try {
+            const data = checkedNarrationValidationDataV1(
+                reply.data,
+                command as NarrationValidationQueryV1,
+            );
+            wire(
+                data.status ===
+                    (status === "recorded" ? "recorded" : "unavailable"),
+            );
+        } catch (error) {
+            // Shared malformed data is Wire for live callers; this reader's
+            // established controller must retain its distinct error category.
+            if (error instanceof Error && error.message === "Wire")
+                throw Error("ComparisonReaderWire");
+            throw error;
+        }
     }
     wire(encoded(reply) <= 4096 && encoded(observation) <= 7168);
     return envelope as ReaderNarrationDiagnosticV1;

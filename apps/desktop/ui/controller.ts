@@ -1,5 +1,10 @@
 import { initialTrace, checkedTrace, attemptKey } from "./trace-model";
-import type { TraceQuery } from "./trace-model";
+import type {
+    TraceQuery,
+    TraceNarrationValidationEligibility,
+} from "./trace-model";
+import { checkedNarrationValidationDataV1 } from "./narration-diagnostic-model";
+import type { NarrationValidationQueryV1 } from "./narration-diagnostic-model";
 import { initialQuery, checkedPage } from "./query-model";
 import { checkedJsonV2, checkedPlaySnapshotV2 } from "./v2-view-model";
 import type { InspectionQuery, Source, Row } from "./query-model";
@@ -41,6 +46,15 @@ interface Operation {
     cancelled: boolean;
     promise: Promise<void>;
 }
+type TraceGameplayFence = Readonly<{
+    session: string;
+    story: string;
+    branch: string;
+    head: number;
+    player: string;
+    pending: boolean;
+    uncertain: boolean;
+}>;
 declare const __DEV_HARNESS__: boolean;
 const developmentSceneBuild =
     typeof __DEV_HARNESS__ !== "undefined" && __DEV_HARNESS__;
@@ -110,6 +124,8 @@ export class Controller {
     private queryEpoch = 0;
     private traceEpoch = 0;
     private traceControlPending = false;
+    private traceNarrationEpoch = 0;
+    private traceGameplayFence: TraceGameplayFence | null = null;
     private readSequence = 0;
     private nextTurn = 0;
     private operation: Operation | null = null;
@@ -203,6 +219,16 @@ export class Controller {
     };
     private patch(value: Partial<State>) {
         if (this.state.disposed) return;
+        if (value.pending) {
+            this.traceNarrationEpoch++;
+            value = {
+                ...value,
+                trace: {
+                    ...(value.trace ?? this.state.trace),
+                    narrationValidation: this.emptyTraceNarrationValidation(),
+                },
+            };
+        }
         this.state = { ...this.state, ...value };
         this.listeners.forEach((listener) => listener());
     }
@@ -755,6 +781,7 @@ export class Controller {
     async refresh() {
         const session = this.selected();
         if (!session) return;
+        this.clearTraceNarrationValidation();
         const epoch = this.epoch;
         const sequence = ++this.readSequence;
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -788,9 +815,22 @@ export class Controller {
                         this.scenePermitted()
                     ) {
                         this.clearQuery();
-                        this.clearTrace();
+                        const previous = this.state.play ?? this.state.playV2;
+                        if (
+                            !previous ||
+                            previous.revision !== thin.revision ||
+                            previous.player.observer !== thin.player.observer ||
+                            !sameScope(previous.scope, thin.scope)
+                        ) {
+                            this.clearTrace();
+                            this.tracePatch({
+                                baseRevision: Math.min(
+                                    this.state.trace.baseRevision,
+                                    thin.revision,
+                                ),
+                            });
+                        }
                         this.queryPatch({ shown: false });
-                        this.tracePatch({ shown: false });
                         this.patch({
                             play: null,
                             playV2: thin,
@@ -803,6 +843,7 @@ export class Controller {
                                     : s,
                             ),
                         });
+                        if (this.state.trace.shown) void this.readTrace();
                         return;
                     }
                 }
@@ -907,7 +948,9 @@ export class Controller {
     }
     private clearTrace(reset = false) {
         this.traceEpoch++;
+        this.traceNarrationEpoch++;
         this.tracePatch({
+            narrationValidation: this.emptyTraceNarrationValidation(),
             reply: null,
             selected: null,
             busy: false,
@@ -918,7 +961,7 @@ export class Controller {
     }
     private traceContext(): TraceQuery | null {
         const session = this.selected(),
-            play = this.state.play;
+            play = this.state.play ?? this.state.playV2;
         if (!session || !play || this.state.disposed) return null;
         const lens =
             this.state.view === "play" ? "player" : this.state.observer;
@@ -959,7 +1002,8 @@ export class Controller {
         if (
             !Number.isSafeInteger(baseRevision) ||
             baseRevision < 0 ||
-            baseRevision > (this.state.play?.revision ?? 0)
+            baseRevision >
+                ((this.state.play ?? this.state.playV2)?.revision ?? 0)
         )
             return;
         this.clearTrace();
@@ -971,8 +1015,10 @@ export class Controller {
         if (!query || !this.state.trace.shown) return;
         const sequence = ++this.traceEpoch,
             selected = this.state.trace.selected,
-            player = this.state.play!.player.observer;
+            player = (this.state.play ?? this.state.playV2)!.player.observer;
+        this.traceNarrationEpoch++;
         this.tracePatch({
+            narrationValidation: this.emptyTraceNarrationValidation(),
             busy: true,
             reply: null,
             selected: null,
@@ -981,7 +1027,7 @@ export class Controller {
         });
         try {
             const value = checkedTrace(
-                await this.gateway.call(query),
+                checkedJsonV2(await this.gateway.call(query), 65_536),
                 query,
                 player,
             );
@@ -1059,8 +1105,222 @@ export class Controller {
             this.state.trace.reply?.snapshot.attempts.some(
                 (a) => attemptKey(a) === selected,
             )
-        )
+        ) {
+            if (selected !== this.state.trace.selected)
+                this.clearTraceNarrationValidation();
             this.tracePatch({ selected });
+        }
+    }
+    private emptyTraceNarrationValidation(
+        status: "idle" | "unavailable" | "cancelled" = "idle",
+    ): State["trace"]["narrationValidation"] {
+        return Object.freeze({ status, query: null, reply: null, error: null });
+    }
+    private clearTraceNarrationValidation() {
+        this.traceNarrationEpoch++;
+        this.tracePatch({
+            narrationValidation: this.emptyTraceNarrationValidation(),
+        });
+    }
+    // Main supplies only a presentation lifetime fence. Rust still decides
+    // native grant, scope, owner and read admission on every host_call.
+    setTraceGameplayFence(value: TraceGameplayFence | null): void {
+        let fence: TraceGameplayFence | null = null;
+        try {
+            const candidate = checkedJsonV2(
+                value,
+                1024,
+            ) as TraceGameplayFence | null;
+            if (
+                candidate &&
+                Object.keys(candidate).sort().join() ===
+                    "branch,head,pending,player,session,story,uncertain" &&
+                [
+                    candidate.session,
+                    candidate.story,
+                    candidate.branch,
+                    candidate.player,
+                ].every(
+                    (v) =>
+                        typeof v === "string" &&
+                        /^[A-Za-z0-9_-]{1,64}$/.test(v),
+                ) &&
+                Number.isSafeInteger(candidate.head) &&
+                candidate.head >= 0 &&
+                typeof candidate.pending === "boolean" &&
+                typeof candidate.uncertain === "boolean"
+            )
+                fence = Object.freeze({ ...candidate });
+        } catch {
+            /* Malformed presentation context fails closed. */
+        }
+        if (structural(fence) === structural(this.traceGameplayFence)) return;
+        // Assign before notification: subscribers can immediately attempt a read.
+        this.traceGameplayFence = fence;
+        this.clearTraceNarrationValidation();
+    }
+    private traceNarrationEligibility(
+        ownPending = false,
+    ): TraceNarrationValidationEligibility {
+        type Reason = TraceNarrationValidationEligibility["reason"];
+        const denied = (reason: Exclude<Reason, null>) => ({
+            allowed: false,
+            reason,
+        });
+        const s = this.state,
+            t = s.trace,
+            source = s.play ?? s.playV2,
+            session = this.selected(),
+            fence = this.traceGameplayFence;
+        if (s.disposed) return denied("disposed");
+        if (!t.shown) return denied("hidden");
+        if (s.view !== "lab") return denied("not_story_lab");
+        if (s.observer !== "omniscient") return denied("not_omniscient");
+        if (
+            !session ||
+            !source ||
+            !sameScope(session.scope, source.scope) ||
+            !Number.isSafeInteger(source.revision) ||
+            source.revision < 0
+        )
+            return denied("source_unavailable");
+        if (
+            !fence ||
+            fence.session !== session.id ||
+            fence.story !== source.scope.story ||
+            fence.branch !== source.scope.branch ||
+            fence.head !== source.revision ||
+            fence.player !== source.player.observer
+        )
+            return denied("fence_unavailable");
+        if (
+            fence.pending ||
+            fence.uncertain ||
+            s.pending ||
+            this.operation ||
+            this.unresolved
+        )
+            return denied("gameplay_unresolved");
+        if (
+            t.busy ||
+            t.controlBusy ||
+            this.traceControlPending ||
+            (!ownPending && t.narrationValidation.status === "pending")
+        )
+            return denied("busy");
+        if (!t.reply || t.reply.snapshot.status === "disabled")
+            return denied("trace_unavailable");
+        const query = this.traceContext();
+        if (!query) return denied("source_unavailable");
+        // Recheck the retained metadata's complete tuple; external transport
+        // aliases must never redirect a read after the original wire check.
+        try {
+            checkedTrace(t.reply, query, source.player.observer);
+        } catch {
+            return denied("context_changed");
+        }
+        const selected = this.traceAttempt();
+        if (!selected) return denied("selection_unavailable");
+        if (
+            !sameScope(selected.identity.scope, source.scope) ||
+            selected.identity.base_revision !== t.baseRevision ||
+            selected.identity.observer !== source.player.observer
+        )
+            return denied("context_changed");
+        return { allowed: true, reason: null };
+    }
+    traceNarrationValidationEligibility(): TraceNarrationValidationEligibility {
+        return this.traceNarrationEligibility();
+    }
+    async readTraceNarrationValidation(): Promise<void> {
+        // A duplicate click must preserve the first latch and pending promise.
+        if (this.state.trace.narrationValidation.status === "pending") return;
+        if (!this.traceNarrationEligibility().allowed) {
+            this.traceNarrationEpoch++;
+            this.tracePatch({
+                narrationValidation:
+                    this.emptyTraceNarrationValidation("unavailable"),
+            });
+            return;
+        }
+        const source = (this.state.play ?? this.state.playV2)!,
+            selected = this.traceAttempt()!,
+            session = this.selected()!,
+            player = source.player.observer,
+            sequence = ++this.traceNarrationEpoch;
+        const query: NarrationValidationQueryV1 = Object.freeze({
+            op: "trace_narration_validation_read_v1",
+            session: session.id,
+            scope: Object.freeze({
+                story: source.scope.story,
+                branch: source.scope.branch,
+            }),
+            expected_head: source.revision,
+            base_revision: selected.identity.base_revision,
+            turn: selected.identity.turn,
+            attempt: selected.identity.attempt,
+        });
+        const current = () => {
+            if (
+                sequence !== this.traceNarrationEpoch ||
+                !this.traceNarrationEligibility(true).allowed
+            )
+                return false;
+            const now = this.state.play ?? this.state.playV2,
+                attempt = this.traceAttempt();
+            return (
+                now?.player.observer === player &&
+                this.selected()?.id === query.session &&
+                sameScope(now.scope, query.scope) &&
+                now.revision === query.expected_head &&
+                attempt?.identity.base_revision === query.base_revision &&
+                attempt.identity.turn === query.turn &&
+                attempt.identity.attempt === query.attempt
+            );
+        };
+        this.tracePatch({
+            narrationValidation: Object.freeze({
+                status: "pending",
+                query,
+                reply: null,
+                error: null,
+            }),
+        });
+        // A synchronous pending subscriber can retire this exact read before IPC.
+        if (!current()) return;
+        try {
+            const reply = checkedNarrationValidationDataV1(
+                await this.gateway.call(query),
+                query,
+            );
+            if (!current()) return;
+            this.tracePatch({
+                narrationValidation: Object.freeze({
+                    status: reply.status,
+                    query,
+                    reply,
+                    error: null,
+                }),
+            });
+        } catch (error) {
+            if (!current()) return;
+            this.tracePatch({
+                narrationValidation: Object.freeze({
+                    status: "refused",
+                    query,
+                    reply: null,
+                    error: category(error),
+                }),
+            });
+        }
+    }
+    cancelTraceNarrationValidation(): void {
+        if (this.state.trace.narrationValidation.status !== "pending") return;
+        this.traceNarrationEpoch++;
+        this.tracePatch({
+            narrationValidation:
+                this.emptyTraceNarrationValidation("cancelled"),
+        });
     }
     traceAttempt() {
         return (

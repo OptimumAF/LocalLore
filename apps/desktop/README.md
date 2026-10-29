@@ -291,6 +291,14 @@ restart/observer/refusal/recovery checks using synthetic inference. That earlier
 reader-only cohort refused protocol3 source transfer without consuming its
 capability; this is historical evidence, not the current selected-case limit.
 
+The [live selected-attempt narration diagnostic](../../docs/desktop/D06_LIVE_NARRATION_DIAGNOSTIC_QUALIFICATION_2026-10-29.md)
+adds an explicit read in Story Lab's omniscient turn debugger, including supported
+thin-snapshot metadata views. It displays the exact retained validation decision,
+absence or refusal separately from canonical commit and narrative quality. Local
+cancel retires only the displayed read. The record provides the closed scripted
+native harness command, actual IPC/render/restart evidence, retained failures and
+remaining native/real-model limits; it does not complete the broader D06 gate.
+
 The [Protocol4 narration diagnostic reader](../../docs/desktop/D07_NARRATION_DIAGNOSTIC_DESKTOP_READ_QUALIFICATION_2026-10-29.md)
 adds **Inspect narration diagnostic** for a selected scene-report row in the
 Omniscient Story Lab lens. It distinguishes legacy absence, a missing observation,

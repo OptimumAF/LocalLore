@@ -379,20 +379,20 @@ export function App({
             {nativeClose && <NativeCloseNotice controller={nativeClose} />}
             <a
                 href={
-                    s.playV2
-                        ? "#v2-play"
-                        : s.trace.shown
-                          ? "#trace-controls"
+                    s.trace.shown
+                        ? "#trace-controls"
+                        : s.playV2
+                          ? "#v2-play"
                           : s.query.shown
                             ? "#memory-controls"
                             : "#composer"
                 }
                 className="skip"
             >
-                {s.playV2
-                    ? "Skip to current timeline"
-                    : s.trace.shown
-                      ? "Skip to trace controls"
+                {s.trace.shown
+                    ? "Skip to trace controls"
+                    : s.playV2
+                      ? "Skip to current timeline"
                       : s.query.shown
                         ? "Skip to memory controls"
                         : "Skip to composer"}
@@ -463,7 +463,6 @@ export function App({
                         <button
                             onClick={() => void c.showTrace(!s.trace.shown)}
                             aria-pressed={s.trace.shown}
-                            disabled={!!s.playV2}
                         >
                             Turn debugger
                         </button>
@@ -818,6 +817,7 @@ export function App({
                     )}
                     {s.playV2 && v2 ? (
                         <div id="v2-play" tabIndex={-1}>
+                            <TurnDebugger controller={c} state={s} />
                             <ModelPanel controller={c} state={s} />
                             <V2PlayPanel
                                 controller={v2}
@@ -830,7 +830,7 @@ export function App({
                             />
                             <p className="muted">
                                 This timeline uses scoped native views. Legacy
-                                debugger, inspection exports, timeline
+                                receipt inspection, inspection exports, timeline
                                 navigation and derived-memory maintenance remain
                                 unavailable for this domain version until their
                                 shared adapters support it.

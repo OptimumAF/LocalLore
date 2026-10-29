@@ -27,6 +27,22 @@ export class FaultGateway implements Gateway {
     heldView: ReturnType<typeof gate> | null = null;
     heldQuery: ReturnType<typeof gate> | null = null;
     heldTrace: ReturnType<typeof gate> | null = null;
+    heldNarrationValidation: ReturnType<typeof gate> | null = null;
+    private readonly narrationValidationCommands: Extract<
+        Command,
+        {
+            op: "trace_narration_validation_read_v1";
+        }
+    >[] = [];
+    get narrationValidationCalls(): readonly Extract<
+        Command,
+        {
+            op: "trace_narration_validation_read_v1";
+        }
+    >[] {
+        return this.narrationValidationCommands;
+    }
+    gameplayCancelCalls = 0;
     heldLookup: ReturnType<typeof gate> | null = null;
     heldCommit: ReturnType<typeof gate> | null = null;
     failHeldPrepare = false;
@@ -87,6 +103,20 @@ export class FaultGateway implements Gateway {
         const phase = this.diagnosticPhase.slice(0, 128);
         let result: unknown;
         try {
+            if (command.op === "cancel") {
+                if (this.gameplayCancelCalls >= 64) throw Error("Wire");
+                this.gameplayCancelCalls++;
+            }
+            if (command.op === "trace_narration_validation_read_v1") {
+                if (this.narrationValidationCommands.length >= 64)
+                    throw Error("Wire");
+                this.narrationValidationCommands.push(
+                    Object.freeze({
+                        ...command,
+                        scope: Object.freeze({ ...command.scope }),
+                    }),
+                );
+            }
             result = await this.base.call(command);
         } catch (error) {
             const input = command as unknown as {
@@ -124,6 +154,15 @@ export class FaultGateway implements Gateway {
                 turn: typeof turn === "string" ? turn.slice(0, 64) : null,
             });
             throw error;
+        }
+        if (
+            command.op === "trace_narration_validation_read_v1" &&
+            this.heldNarrationValidation
+        ) {
+            const held = this.heldNarrationValidation;
+            this.heldNarrationValidation = null;
+            held.ready();
+            await held.waiting;
         }
         if (command.op === "trace_read" && this.heldTrace) {
             const held = this.heldTrace;

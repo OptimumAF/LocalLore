@@ -847,6 +847,10 @@ summary {
     padding: 1.5rem;
     border-bottom: 1px solid #354237;
 }
+.turn-debugger .scope {
+    font-size: 0.85em;
+    overflow-wrap: anywhere;
+}
 .trace-controls {
     display: flex;
     gap: 0.6rem;
@@ -903,10 +907,10 @@ summary {
     width: 34%;
 }
 .turn-debugger .trace-attempts th:nth-child(1) {
-    width: 45%;
+    width: 40%;
 }
 .turn-debugger .trace-attempts th:nth-child(2) {
-    width: 10%;
+    width: 15%;
 }
 .turn-debugger .trace-attempts th:nth-child(3) {
     width: 25%;

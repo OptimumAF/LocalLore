@@ -6,6 +6,7 @@ const root = new URL(".", import.meta.url);
 for (const args of [
     ["comparison-run-process-policy-check.mjs"],
     ["comparison-reader-process-policy-check.mjs"],
+    ["check-live-narration-process-policy-review.mjs"],
     ["build.mjs"],
     ["node_modules/typescript/bin/tsc", "--noEmit"],
     ["check-contract.mjs"],
@@ -28,6 +29,8 @@ for (const args of [
     ["check-model-cleanup-panel.mjs"],
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],
+    ["check-live-narration-diagnostic-review.mjs"],
+    ["check-main-live-narration-diagnostic-review.mjs"],
     ["check-capture-controller.mjs"],
     ["check-capture-review.mjs"],
     ["check-capture-session-close-review.mjs"],
@@ -90,6 +93,8 @@ const normal = await readFile(new URL("dist/app.js", root), "utf8");
 for (const marker of [
     "harness_checkpoint",
     "harness_scene_oracle",
+    "d06-live-recorded",
+    "heldNarrationValidation",
     "scene-native-pending",
     "SceneDeadline:",
     "memory-inspection-native-empty",

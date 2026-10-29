@@ -24,6 +24,19 @@ const SCENE_LABELS: &[&str] = &[
     "scene-native-restarted",
     "scene-native-recorded-diff",
 ];
+const LIVE_NARRATION_LABELS: &[&str] = &[
+    "d06-live-ready",
+    "d06-live-recorded",
+    "d06-live-pending",
+    "d06-live-local-cancel",
+    "d06-live-unavailable",
+    "d06-live-refused",
+    "d06-live-observer",
+    "d06-live-switched",
+    "d06-live-enlarged",
+    "d06-live-restarted",
+    "d06-live-failure",
+];
 
 pub(crate) const AUTHOR_LABELS: &[&str] = &[
     "author-native-consent",
@@ -364,6 +377,10 @@ impl HarnessState {
                     Ok("literal" | "memory")
                 )
                 && SCENE_LABELS.contains(&label))
+            || (active()
+                && std::env::var("LOCALLORE_D06_LIVE_NARRATION_HARNESS").as_deref() == Ok("1")
+                && std::env::var("LOCALLORE_D04_SCENE_HARNESS").as_deref() == Ok("literal")
+                && LIVE_NARRATION_LABELS.contains(&label))
             || (author_active() && AUTHOR_LABELS.contains(&label))
             || (active()
                 && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")

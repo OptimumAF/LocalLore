@@ -55,6 +55,7 @@ declare global {
             localplay?: boolean;
             inspecting?: boolean;
             debugging?: boolean;
+            liveNarrationDiagnostic?: boolean;
             capturing?: boolean;
             legacy?: boolean;
             evaluating?: boolean;
@@ -406,6 +407,7 @@ const author = new AuthorController(
     },
 );
 let authorNativeContext: { root: string; granted: boolean } | null = null;
+let stopping = false;
 let memorySelectionEpoch = 0,
     memorySelectionKey = "";
 const forkRecoveryKey = "locallore-fork-recovery-v1";
@@ -472,6 +474,25 @@ function syncV2Context() {
             : null,
     );
 }
+function syncTraceGameplayFence() {
+    const s = controller.get(),
+        selected = controller.selected(),
+        play = s.play ?? s.playV2,
+        gameplay = v2.get();
+    controller.setTraceGameplayFence(
+        !stopping && !s.disposed && selected && play
+            ? {
+                  session: selected.id,
+                  story: play.scope.story,
+                  branch: play.scope.branch,
+                  head: play.revision,
+                  player: play.player.observer,
+                  pending: !!s.pending || !!gameplay.pending,
+                  uncertain: !!gameplay.uncertain,
+              }
+            : null,
+    );
+}
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {
@@ -491,6 +512,7 @@ const syncEvaluationContext = () => {
         memorySelectionEpoch++;
     }
     syncV2Context();
+    syncTraceGameplayFence();
     author.contextChanged(authorContext());
     maintenance.contextChanged(memoryContext(controller, memorySelectionEpoch));
     memoryInspection.contextChanged(
@@ -585,9 +607,10 @@ function authorContext(): AuthorContext | null {
     };
 }
 const releaseEvaluationContext = controller.subscribe(syncEvaluationContext);
-const releaseV2Context = v2.subscribe(() =>
-    author.contextChanged(authorContext()),
-);
+const releaseV2Context = v2.subscribe(() => {
+    syncTraceGameplayFence();
+    author.contextChanged(authorContext());
+});
 const releaseAuthorContext = author.subscribe(syncV2Context);
 const releaseRetainedContext = brokerRetention.subscribe(syncEvaluationContext);
 syncEvaluationContext();
@@ -658,6 +681,8 @@ root.render(
     />,
 );
 const dispose = async () => {
+    stopping = true;
+    controller.setTraceGameplayFence(null);
     for (const release of releaseBrokerConsumption) release();
     releaseEvaluationContext();
     releaseV2Context();
@@ -722,6 +747,27 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   : driver.journeys;
     const sceneCase = window.__LOCALLORE_TEST__?.sceneCase;
     if (
+        __DEV_HARNESS__ &&
+        window.__LOCALLORE_TEST__?.liveNarrationDiagnostic === true &&
+        sceneHarnessModule &&
+        sceneCase === "literal"
+    ) {
+        const { liveNarrationNativeJourneys } =
+            await import("./live-narration-native-journeys");
+        await liveNarrationNativeJourneys({
+            controller,
+            v2,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: {
+                stage: window.__LOCALLORE_TEST__.stage,
+                sceneCase,
+                liveNarrationDiagnostic: true,
+            },
+        });
+    } else if (
         sceneHarnessModule &&
         (sceneCase === "literal" || sceneCase === "memory")
     ) {

@@ -41,6 +41,11 @@ def _port(value):
     return int.from_bytes((value & 0xffff).to_bytes(2, "little"), "big")
 
 
+def _scope_id(value):
+    # MIB_TCP6ROW_OWNER_PID stores scope IDs in network byte order too.
+    return int.from_bytes(value.to_bytes(4, "little"), "big")
+
+
 def decode_table(raw: bytes, family: int) -> tuple[TcpRow, ...]:
     """Decode the DWORD-aligned OWNER_PID ABI after the caller verifies layout.
 
@@ -70,7 +75,7 @@ def decode_table(raw: bytes, family: int) -> tuple[TcpRow, ...]:
             local, local_scope, local_port, remote, remote_scope, remote_port, state, pid = row.unpack_from(raw, offset)
             result.append(TcpRow(family, str(ipaddress.IPv6Address(local)), _port(local_port),
                 str(ipaddress.IPv6Address(remote)), _port(remote_port), state, pid,
-                local_scope, remote_scope))
+                _scope_id(local_scope), _scope_id(remote_scope)))
     return tuple(result)
 
 

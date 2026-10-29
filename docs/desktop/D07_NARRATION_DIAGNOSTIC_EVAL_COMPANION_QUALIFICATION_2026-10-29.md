@@ -232,3 +232,12 @@ command above exited0 in **9.7552782s**,
 the normal product remains **unlaunched**. No subsequent source, test, schema or
 frontend change is included in this companion branch: the qualification
 integration above the tested source changes this document only.
+
+## Scoped review gate
+
+Independent source/evidence review at `2c981581` found no blocker within this
+Core-companion scope. It verified the 16 original process records, counts,
+durations, hashes, versions, retained failures and unchanged production/test
+bytes above tested `272c8bb5`. This seal records that bounded review only;
+human quality, dependency acceptance, desktop-reader IPC/render and merge gates
+remain separate and unchanged.

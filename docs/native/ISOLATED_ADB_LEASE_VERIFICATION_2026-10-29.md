@@ -144,8 +144,9 @@ phone, model quality, ARM64, inference performance, cancellation during inferenc
 restart journey, accessibility or release acceptance follows from this host run.
 The original model name rejection remains failed and unchanged.
 
-**Next runnable task:** M10.02/M09.06 explicit target-specific SDK integration
-against a fresh owned v2 service, with no automatic/shared-server recovery; then
+**Next runnable task:** M10.02/M09.06 a separately versioned target-specific SDK
+and lease integration built on these owned mechanisms, with explicit target
+admission and no automatic/shared-server recovery; then
 current-source Android build/admission and the already authorized exact D8GiB/
 four-core/1800-second fresh guest, isolated app/local model import, one AUTHOR
 attempt and inference-free reopen. Do not reuse this closed descriptor or boot

@@ -168,3 +168,77 @@ Root must independently review, register missing Rust seams, compile/style/test,
 resolve actual failures, inspect renders and run the one serialized approved
 model cohort. No model/SDK, Android, offline, security, packaging, release,
 human-quality or whole D07 acceptance follows from this contract or code.
+
+## Source implementation handoff, still unrun
+
+The frozen contract commit is `cb81c0de`; the later implementation changes only
+the two allocated launcher/journey files plus this handoff section. Root's
+source-only review of the native registration and resolved-root alias fix is
+separate from their execution evidence. No Cargo, Node, formatter, app, worker,
+model, SDK, Android or asset-probe command was run by this author. The author's
+checks are Git status/diff/source reads and `git diff --check` only. No native
+render or inference result is claimed here.
+
+The exact additional Scene4-only checkpoint roster is:
+
+```text
+full-scene-courier-01-left
+full-scene-courier-01-right
+full-scene-courier-05-left
+full-scene-courier-05-right
+full-scene-courier-12-left
+full-scene-courier-12-right
+full-scene-courier-22-left
+full-scene-courier-22-right
+```
+
+Root must add these fixed labels to existing `harness_checkpoint` capture
+validation only under `native::scene_active()`. Keep the existing 40-capture
+limit and original fourteen initial/four restart labels. Scene mode requires
+exactly22 initial/four restart images. The snapshots bind the selected source,
+actual inspected observer, actual receipt/outputs or missing reason, phase,
+fallback, scene/input statuses and hashes. Full captured input stays in the
+immutable Rust-owned private run; the semantic snapshot records its evidence
+hash and availability, while retaining the actual receipt/output evidence.
+
+The launcher adds only a closed argument; no new runtime dependency or debug
+server exists. It records Node/platform/architecture, source hashes, approved
+asset identities, harness product hashes, bounded logs, exact report/PNG hashes
+and restoration state in the new UUID packet. Root must record Cargo/Rust,
+WebView2/runtime versions and each actual command/result in its execution
+evidence; those versions were not measured by this source author. The existing
+Rust source-input manifest remains authoritative for comparison source binding.
+
+After Root's narrow bootstrap/observation/label integration and independent
+review, with a clean physical D: source tree and all four existing launcher
+environment inputs explicitly selected from Root's ownership records:
+
+```powershell
+$env:TEMP='D:/Dev/_Temp'
+$env:TMP=$env:TEMP
+# Run from that source tree's physical D: apps/desktop directory.
+# Required existing D: inputs, never inferred or created by this author:
+# LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT
+# LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR
+# LOCALLORE_D04_REUSE_MODEL_ROOT (approved existing publication)
+# LOCALLORE_D04_WORKER_SOURCE (approved existing worker)
+node comparison-run-harness.mjs --native-scene-v1
+```
+
+This is a pending reproducible command, **not an executed result**. It hashes
+and reuses the approved model in place; worker-only staging uses the existing
+fixed stage script. Neither initial nor restart invokes import or ordinary load.
+The unchanged `node comparison-run-harness.mjs --native` remains the V3 cohort;
+no-argument remains the scripted cohort. Do not run any cohort to repair a
+captured failed sample or substitute a nicer frozen review slot.
+
+Before any actual execution, Root must independently compile/check this source,
+verify all guards and protocol/observation/label integration on the final head,
+confirm no overlapping owned app/model/build lease, and then conduct its one
+authorized serialized cohort. Later individual image review, eight-slot human
+packet and current GitHub evidence are Root-owned. Unknown direct-child drain
+permanently skips every later spawn, including source-inspection Git children,
+and skips normal restoration; its failed packet stays local. A known-closed
+success/failure attempts normal frontend/native restoration, records its hashes
+and never launches those restored products. These branches have not been
+timeout-calibrated by this author.

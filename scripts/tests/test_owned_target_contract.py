@@ -598,7 +598,7 @@ class ClosedTargetReaderTests(unittest.TestCase):
 class ActualOwnerMockTests(unittest.TestCase):
     def setUp(self):
         from benchmarks import owned_target_owner as owner
-        self.o=owner;self.f=ClosedTargetFixture();self.clock=100.0;self.wall=1800000010.0
+        self.o=owner;self.native_api_type=owner._ProcessApi;self.f=ClosedTargetFixture();self.clock=100.0;self.wall=1800000010.0
         self.identities={p['pid']:copy.deepcopy(p)for p in(self.f.d[k]for k in('owner','worker','server','launcher','guest'))}
         self.caller=dict(pid=7106,creation_filetime=107106,executable=self.f.a['python']['executable']['path']);self.identities[7106]=self.caller
         self.handles={};self.closed=[];self.next_handle=100;self.bad_pid=None
@@ -713,7 +713,7 @@ class ActualOwnerMockTests(unittest.TestCase):
         auth.assert_not_called();ports.assert_not_called();self.popen.assert_not_called();self.native_socket.assert_not_called()
 
     def test_current_job_return_struct_requires_complete_bounded_unique_positive_pid_roster(self):
-        api=object.__new__(self.o._ProcessApi)
+        api=object.__new__(self.native_api_type)
         def acquire(*,assigned=4,pids=(7102,7103,7104,7105),returned=None,success=True):
             def call(job,kind,pointer,size,returned_pointer):
                 self.assertIsNone(job);self.assertEqual(kind,3)
@@ -730,7 +730,7 @@ class ActualOwnerMockTests(unittest.TestCase):
                 with self.assertRaises(self.o.OwnerRefused):acquire(**change)
 
     def test_parent_pbi_native_return_struct_binds_queried_pid_size_and_actual_parent(self):
-        api=object.__new__(self.o._ProcessApi);api.identity=lambda handle:self.f.d['guest']
+        api=object.__new__(self.native_api_type);api.identity=lambda handle:self.f.d['guest']
         def acquire(*,status=0,size=48,pid=None,parent=None):
             def call(handle,kind,pointer,length,returned_pointer):
                 self.assertEqual((handle,kind,length),(901,0,48))

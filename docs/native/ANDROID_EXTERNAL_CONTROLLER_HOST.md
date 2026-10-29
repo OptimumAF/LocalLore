@@ -51,6 +51,17 @@ partial-fixture adoption or global ADB-server lifecycle operation.
 After the [build/server/component protocol](ANDROID_PROCESS_HOST_DRIVER.md)
 has actually passed for the current source and the owned guest remains live:
 
+New dispatch also requires at least the complete existing1100-second SDK
+session budget to remain on the owned deadline immediately before capture
+construction. The standard guest ceiling remains1200 seconds. Finish all build,
+integration and preparation work before launch, then dispatch promptly. A native
+component phase may consume too much time for same-installation continuation;
+its qualified source/artifact gate can instead admit another fresh guest with
+all three packages absent. Neither successful native10 nor a still-live owner
+waives the remaining-time check. See the
+[admission contract](ANDROID_OWNED_LIFETIME_ADMISSION.md) and
+[actual checkpoint verification](ANDROID_OWNED_LIFETIME_VERIFICATION_2026-10-26.md).
+
 ```powershell
 python -I -B benchmarks/android_external_controller.py --case restore_non_default --out "$evidence/root" --sdk "$sdk" --powershell "$powershell" --build "$evidence/build/result-v1.json" --gate "$evidence/components/result-v1.json" --proposal "$runProposal" --running "$runningReceipt" --server "$evidence/server/server-v1.json"
 ```

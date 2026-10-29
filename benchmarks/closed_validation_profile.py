@@ -19,6 +19,7 @@ if __package__ in (None, ""):
 from benchmarks import receipt_avd_environment as env
 from benchmarks import owned_restart_contract as contract
 from benchmarks import android_process_verification_v5 as reader
+from benchmarks import windows_tcp_control as output_control
 
 SCOPE = "closed-validation-cost-plan-v1"
 PHASES = ("inputs", "proof_before", "proof_after", "controller_refusal")
@@ -34,6 +35,7 @@ def need(value, reason):
 
 
 def pin(path):
+    need(isinstance(path, (str, Path)) and Path(path).suffix.lower() == ".json", "metadata_filename")
     path = env.safe_path(path)
     need(path.drive.upper() == "D:", "physical_D")
     need(path.stat().st_size <= CAP, "metadata_size")
@@ -42,6 +44,8 @@ def pin(path):
 
 def read(binding):
     need(type(binding) is dict and set(binding) == {"path", "bytes", "sha256"}, "binding")
+    need(type(binding["path"]) is str and type(binding["bytes"]) is int and 0 <= binding["bytes"] <= CAP and
+         type(binding["sha256"]) is str and re.fullmatch("[0-9a-f]{64}", binding["sha256"]) is not None, "binding")
     need(pin(binding["path"]) == binding, "binding_changed")
     return env.read_json(binding["path"], cap=CAP)
 
@@ -60,13 +64,35 @@ def terminal(value, code):
     need(type(value) is dict and value.get("status") == "child_exited" and
          type(value.get("worker_returncode")) is int and value["worker_returncode"] == code and
          value.get("cleanup_complete") is True and value.get("output_capture_complete") is True and
-         value.get("stderr_bytes") == value.get("stdout_bytes") == 0, "not_terminal")
+         all(type(value.get(k)) is int and value[k] == 0 for k in ("stderr_bytes", "stdout_bytes")) and
+         type(value.get("elapsed_ms")) is int and 0 <= value["elapsed_ms"] <= 2**63 - 1, "not_terminal")
+
+
+def role_filenames(plan):
+    names = dict(admission=r"target-admission-v[1-9][0-9]*\.json", running=r"running-v1\.json",
+        session=r"sdk-session-v5\.json", client=r"command-[0-9]{4,5}\.json",
+        controller_launch=r"launch-result-v1\.json", controller_started=r"started-v1\.json",
+        target_result=r"result-v1\.json", target_started=r"started-v1\.json",
+        controller_result=r"controller-result-v1\.json")
+    for role in ROLES:
+        binding = plan[role]
+        need(type(binding) is dict and set(binding) == {"path", "bytes", "sha256"} and
+             type(binding["path"]) is str and
+             re.fullmatch(names[role], Path(binding["path"]).name, flags=re.IGNORECASE) is not None, "role_filename")
+
+
+def existing_output(path):
+    """Reuse the missing-output validator on a child without creating that child."""
+    path = env.safe_path(path, directory=True)
+    output_control.validate_output(str(path / "profile-worker-output-guard-v1"))
+    return path
 
 
 def prepare(plan):
     """Join canonical closed files and independent started identities BEFORE timing."""
     need(type(plan) is dict and set(plan) == ROLES | {"version", "scope"} and
          type(plan["version"]) is int and plan["version"] == 1 and plan["scope"] == SCOPE, "plan")
+    role_filenames(plan)
     values = {role: read(plan[role]) for role in ROLES}
     admission = contract.validate_admission(values["admission"])
     running = contract.validate_running(values["running"], admission, plan["admission"])
@@ -117,9 +143,13 @@ def prepare(plan):
     proofs = {}
     for phase in ("before", "after"):
         binding = record["server_" + phase]
+        expected = case_root / "proofs" / ("command-%04d-%s.json" % (record["index"], phase))
+        need(type(binding) is dict and Path(binding["path"]) == expected, "canonical_path")
         context = dict(index=record["index"], phase=phase, label=record["label"],
                        operation_sha256=record["operation_sha256"], transport_id=record["transport_id"])
         proof = read(binding)
+        need(type(proof["queries"]) is dict and Path(proof["queries"]["path"]) ==
+             expected.with_name(expected.stem + "-queries-v1.json"), "canonical_path")
         need(proof["caller"] == started["worker"] and proof["context"] == context and
              proof["session"] == plan["session"], "proof_caller")
         proofs[phase] = (binding, context, proof["queries"])
@@ -149,19 +179,21 @@ class ReadObserver:
     """Python audit events only: not an OS sandbox or a measurement of disk IO."""
     DENIED = frozenset(("subprocess.Popen", "os.system", "os.exec", "os.posix_spawn",
                        "socket.__new__", "socket.connect", "os.remove", "os.rename",
-                       "os.mkdir", "os.rmdir", "os.truncate", "os.link", "os.symlink", "os.chmod"))
+                       "os.mkdir", "os.rmdir", "os.truncate", "os.link", "os.symlink", "os.chmod",
+                       "os.fork", "os.forkpty", "os.chdir", "os.utime", "os.chown"))
 
     def __init__(self):
         self.active = False
         self.allowed = {}
         self.counts = {}
         self.violation = False
+        self.failed = False
 
     def event(self, event, args):
         if not self.active:
             return
         try:
-            need(event not in self.DENIED, "side_effect")
+            need(event not in self.DENIED and not event.startswith(("socket.", "os.startfile", "os.posix_spawn")), "side_effect")
             if event == "open":
                 path, mode, flags = args
                 need(type(path) is str and os.path.isabs(path), "read_path")
@@ -171,11 +203,12 @@ class ReadObserver:
                 self.counts[key] = self.counts.get(key, 0) + 1
         except BaseException:
             self.violation = True
+            self.failed = True
             raise
 
     @contextlib.contextmanager
     def observe(self, allowed):
-        need(not self.active, "observer_active")
+        need(not self.active and not self.failed, "observer_active")
         self.allowed = {os.path.normcase(os.path.normpath(k)): v for k, v in allowed.items()}
         self.counts, self.violation = {}, False
         self.active = True
@@ -185,7 +218,7 @@ class ReadObserver:
             self.active = False
 
     def snapshot(self):
-        need(not self.active and not self.violation, "observer_failed")
+        need(not self.active and not self.violation and not self.failed, "observer_failed")
         rows = [dict(binding=self.allowed[key], read_open_calls=count,
                      declared_size_times_opens=self.allowed[key]["bytes"] * count)
                 for key, count in sorted(self.counts.items())]
@@ -196,6 +229,7 @@ class ReadObserver:
 
 
 def action(phase, plan, case):
+    need(phase in PHASES, "phase")
     if phase == "inputs":
         contract.revalidate_inputs(copy.deepcopy(case["admission"]))
         return "returned"
@@ -214,7 +248,7 @@ def action(phase, plan, case):
 
 def worker(output, request_sha):
     need(Path.cwd() == ROOT and ROOT.drive.upper() == "D:", "physical_D_cwd")
-    output = env.safe_path(output, directory=True)
+    output = existing_output(output)
     need(output.drive.upper() == "D:" and not output.is_relative_to(ROOT), "output")
     need(sys.stdin.buffer.read(len(GO)) == GO, "barrier")
     request_pin = pin(output / "request-v1.json")
@@ -272,8 +306,7 @@ def run(plan_path, plan_sha, output, repeat):
     need(re.fullmatch("[0-9a-f]{64}", plan_sha) is not None, "plan_sha")
     env.safe_path(ROOT, directory=True)
     need(Path.cwd() == ROOT and ROOT.drive.upper() == "D:", "physical_D_cwd")
-    output = env.safe_path(output, exists=False)
-    need(output.drive.upper() == "D:" and not output.is_relative_to(ROOT) and not output.exists(), "output")
+    output = output_control.validate_output(str(output))
     for key in ("TEMP", "TMP", "TMPDIR"):
         os.environ[key] = "D:/Dev/_Temp"
     plan_pin = pin(plan_path)
@@ -307,7 +340,7 @@ def run(plan_path, plan_sha, output, repeat):
 
 def main():
     if len(sys.argv) == 4 and sys.argv[1] == "_worker":
-        output = env.safe_path(sys.argv[2], directory=True)
+        output = existing_output(sys.argv[2])
         need(output.drive.upper() == "D:" and not output.is_relative_to(ROOT), "output")
         try:
             worker(output, sys.argv[3])

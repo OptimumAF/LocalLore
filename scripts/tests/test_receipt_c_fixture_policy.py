@@ -182,5 +182,21 @@ class SyntheticCFixturePolicyTests(unittest.TestCase):
             self.assertFalse(volume.root.exists())
         self.assertEqual(source.read_bytes(),b'preserve D source');self.assertEqual(list(self.backing.iterdir()),[]);self.restored()
 
+    def test_cached_path_info_refuses_C_and_UNC_before_any_real_query_but_preserves_D_info(self):
+        original_info=Path.info;normal=self.base/'normal-info.txt';normal.write_bytes(b'genuine D info')
+        real_exists=os.path.exists
+        def exists(path):
+            lexical=Path(path)
+            if lexical.drive.upper()=='C:'or str(lexical).startswith('\\\\'):
+                raise AssertionError('real C or UNC info query reached')
+            return real_exists(path)
+        volume=SyntheticCVolume(self.backing)
+        with volume,patch.object(os.path,'exists',side_effect=exists):
+            for path in(volume.root,Path('C:/__locallore_test__/foreign-info'),Path('\\\\synthetic-fixture-server\\share\\outside')):
+                with self.subTest(path=str(path)),self.assertRaises(ValueError):
+                    path.info
+            self.assertTrue(normal.info.exists());self.assertTrue(normal.info.is_file())
+        self.assertIs(Path.info,original_info);self.restored();self.assertEqual(normal.read_bytes(),b'genuine D info')
+
 
 if __name__=='__main__':unittest.main()

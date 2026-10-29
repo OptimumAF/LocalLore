@@ -4,8 +4,8 @@ use crate::{
     engine::{staged_play::NarratorEvidenceV22, Engine},
     inference::{generate, Budget, Cancellation, GenerationRequest, InferenceProvider, Input},
     turn_trace::{
-        Counts, ErrorCategory, Outcome, Stage, StageMeasurement, StageTimer, TokenBasis,
-        TokenCount, TraceSink,
+        Counts, ErrorCategory, NarrationRejectionReasonV1, NarrationValidationDiagnosticV1,
+        Outcome, Stage, StageMeasurement, StageTimer, TokenBasis, TokenCount, TraceSink,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -37,12 +37,50 @@ struct Trace<'a> {
     sink: Option<&'a mut dyn TraceSink>,
     overhead: Duration,
 }
+/// Crate-private propagation of the original error and its reached rule, if any.
+/// No text is re-examined and no validation or cancellation check is repeated.
+pub(crate) struct NarrationValidationFailureV1 {
+    error: Error,
+    reason: Option<NarrationRejectionReasonV1>,
+}
+impl From<Error> for NarrationValidationFailureV1 {
+    fn from(error: Error) -> Self {
+        Self {
+            reason: (error == Error::Narration).then_some(NarrationRejectionReasonV1::Unclassified),
+            error,
+        }
+    }
+}
+impl NarrationValidationFailureV1 {
+    fn scene(reason: NarrationRejectionReasonV1) -> Self {
+        Self {
+            error: Error::Narration,
+            reason: Some(reason),
+        }
+    }
+    pub(crate) fn into_engine_error(self) -> Error {
+        self.error
+    }
+}
 #[derive(Clone, Copy)]
 struct GameplayClock {
     started: Instant,
     overhead: Duration,
 }
 impl Trace<'_> {
+    fn narration_validation(&mut self, diagnostic: NarrationValidationDiagnosticV1) {
+        if let Some(sink) = self.sink.as_deref_mut() {
+            let before = Instant::now();
+            let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                sink.narration_validation(diagnostic)
+            }))
+            .is_err();
+            self.overhead = self.overhead.saturating_add(before.elapsed());
+            if failed {
+                self.sink = None;
+            }
+        }
+    }
     fn capture(&mut self, artifact: crate::turn_capture::Artifact<'_>) {
         if let Some(sink) = self.sink.as_deref_mut() {
             let before = Instant::now();
@@ -1482,18 +1520,18 @@ impl NarrationPreparation {
             Self::Scene(s) => Some(s.provenance().clone()),
         }
     }
-    fn validate(
+    fn validate_detailed(
         &self,
         engine: &Engine,
         record: &PlayRecord,
         presentation: bool,
         literal: bool,
         cancel: &dyn Fn() -> bool,
-    ) -> Result<(), Error> {
+    ) -> Result<(), NarrationValidationFailureV1> {
         let staged = match self {
             Self::Legacy(staged) => staged,
             Self::Scene(bound) => {
-                return scene_narration::validate_record(engine, bound, record, cancel)
+                return scene_narration::validate_record_detailed(engine, bound, record, cancel)
             }
         };
         if presentation && literal {
@@ -1531,6 +1569,7 @@ impl NarrationPreparation {
                 false,
             )
         }
+        .map_err(NarrationValidationFailureV1::from)
     }
     fn commit(
         self,
@@ -1884,11 +1923,30 @@ fn execute_with_presentation_input(
         scene: staged.scene(),
     };
     let before = trace.clock();
+    let mut reason = None;
     let validation = trace.run(Stage::NarrationValidation, Outcome::Rejected, || {
-        staged.validate(engine, &record, presentation, literal, &|| {
-            cancel.is_cancelled()
-        })
+        staged
+            .validate_detailed(engine, &record, presentation, literal, &|| {
+                cancel.is_cancelled()
+            })
+            .map_err(|failure| {
+                reason = failure.reason;
+                failure.into_engine_error()
+            })
     });
+    let (outcome, error) = match &validation {
+        Ok(()) => (Outcome::Accepted, None),
+        Err(error) => (
+            match error {
+                Error::Cancelled => Outcome::Cancelled,
+                Error::Stale => Outcome::Stale,
+                _ => Outcome::Rejected,
+            },
+            Some(ErrorCategory::from_engine(error)),
+        ),
+    };
+    // The original stage callback is first; a panic there disables this hook.
+    trace.narration_validation(NarrationValidationDiagnosticV1::new(outcome, error, reason));
     // The passive post-validation callback can cancel after validation returned.
     // Poll before an excluded fallback could mask that cancellation as Narration.
     if scene_recipe.is_some() {

@@ -1,6 +1,6 @@
 //! Additive source-bound narration construction. Native selection is not a
 //! knowledge grant, and persisted hashes are claims to regenerate, not proof.
-use super::{PlayContextPolicy, PlayRecord, PLAY_VERSION};
+use super::{NarrationValidationFailureV1, PlayContextPolicy, PlayRecord, PLAY_VERSION};
 use crate::{
     contracts::Error,
     engine::{staged_scene_play::BoundScenePlayV1, Engine},
@@ -9,6 +9,8 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+#[cfg(test)]
+mod diagnostics_review_tests;
 mod renderer;
 pub use renderer::{render_scene_narrator_v1, RenderedSceneNarratorV1};
 
@@ -74,6 +76,15 @@ pub(crate) fn validate_record(
     record: &PlayRecord,
     cancel: &dyn Fn() -> bool,
 ) -> Result<(), Error> {
+    validate_record_detailed(engine, bound, record, cancel)
+        .map_err(NarrationValidationFailureV1::into_engine_error)
+}
+pub(crate) fn validate_record_detailed(
+    engine: &Engine,
+    bound: &BoundScenePlayV1,
+    record: &PlayRecord,
+    cancel: &dyn Fn() -> bool,
+) -> Result<(), NarrationValidationFailureV1> {
     check(cancel)?;
     check_seed(engine, bound.recipe())?;
     record.profile.validate()?;
@@ -84,12 +95,12 @@ pub(crate) fn validate_record(
         || record.story_presentation
             != super::story_presentation::binding_for_presentation(bound.presentation())?
     {
-        return Err(Error::Narration);
+        return Err(Error::Narration.into());
     }
     match bound.recipe() {
         SceneRecipeV1::Memory(policy) => {
             if record.context_policy != Some(policy) {
-                return Err(Error::Narration);
+                return Err(Error::Narration.into());
             }
             super::validate_memory_context_record(engine, bound.approved(), record)?;
         }
@@ -104,7 +115,7 @@ pub(crate) fn validate_record(
         record,
     )?;
     if !record.fallback {
-        renderer::validate_generated(bound, &record.narration.text)?;
+        renderer::validate_generated_detailed(bound, &record.narration.text)?;
     }
-    check(cancel)
+    check(cancel).map_err(NarrationValidationFailureV1::from)
 }

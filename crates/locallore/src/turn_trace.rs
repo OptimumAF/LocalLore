@@ -183,6 +183,49 @@ impl ErrorCategory {
         }
     }
 }
+/// The actually reached finite narration refusal, not a semantic safety verdict.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NarrationRejectionReasonV1 {
+    Unclassified,
+    SceneFirstPerson,
+    SceneUnapprovedMovement,
+}
+
+/// Content-free metadata for one actual precommit validation call.
+/// Construction and attribution remain with the matched engine trace; this
+/// value grants no validation, commit, inspection or generation authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NarrationValidationDiagnosticV1 {
+    outcome: Outcome,
+    error: Option<ErrorCategory>,
+    reason: Option<NarrationRejectionReasonV1>,
+}
+impl NarrationValidationDiagnosticV1 {
+    pub(crate) fn new(
+        outcome: Outcome,
+        error: Option<ErrorCategory>,
+        reason: Option<NarrationRejectionReasonV1>,
+    ) -> Self {
+        Self {
+            outcome,
+            error,
+            reason,
+        }
+    }
+    pub fn version(&self) -> u16 {
+        1
+    }
+    pub fn outcome(&self) -> Outcome {
+        self.outcome
+    }
+    pub fn error(&self) -> Option<ErrorCategory> {
+        self.error
+    }
+    pub fn reason(&self) -> Option<NarrationRejectionReasonV1> {
+        self.reason
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TokenBasis {
@@ -309,6 +352,8 @@ pub trait TraceSink {
     fn record(&mut self, measurement: StageMeasurement);
     /// Optional private data hook. Existing metadata sinks retain their default no-op.
     fn capture(&mut self, _artifact: crate::turn_capture::Artifact<'_>) {}
+    /// Optional native metadata only; existing sinks do not retain a history.
+    fn narration_validation(&mut self, _diagnostic: NarrationValidationDiagnosticV1) {}
 }
 /// Short, nonblocking diagnostic adapter. Busy/poisoned locks and stale handles drop metadata.
 pub struct RingSink {

@@ -6,6 +6,7 @@ import io
 import os
 from pathlib import Path
 import shlex
+import struct
 import tarfile
 import tempfile
 import unittest
@@ -144,6 +145,43 @@ class ControllerFlow:
             return c.run(g.admission,g.running,self.build,self.output)
 
 
+class ClosedProbeBuild:
+    """Original byte-only ELF/tool/build metadata; no compiler is invoked."""
+    def __init__(self):
+        self.g=g=ClosedRestartGraph();self.root=g.base/'probe-build';self.ndk=g.base/'synthetic-ndk/29.0.14206865'
+        llvm=self.ndk/'toolchains/llvm/prebuilt/windows-x86_64'
+        paths=[self.ndk/'source.properties',llvm/'bin/clang.exe',llvm/'bin/ld.lld.exe',
+            llvm/'sysroot/usr/include/x86_64-linux-android/asm/unistd_64.h',llvm/'sysroot/usr/include/asm-generic/unistd.h']
+        tools=[g.save(path,b'Pkg.Revision = 29.0.14206865\n'if path.name=='source.properties'else b'original synthetic tool input\n')for path in sorted(paths)]
+        raw=bytearray(512);raw[:7]=b'\x7fELF\x02\x01\x01';struct.pack_into('<HH',raw,16,3,62)
+        struct.pack_into('<Q',raw,32,64);struct.pack_into('<HH',raw,54,56,3)
+        interp=b'/system/bin/linker64\0';raw[256:256+len(interp)]=interp
+        strings=b'\0libc.so\0';raw[400:400+len(strings)]=strings
+        segments=((1,4,0,4096,0,512,512,4096),(3,4,256,4352,0,len(interp),len(interp),1),(2,4,288,4384,0,64,64,8))
+        for index,segment in enumerate(segments):struct.pack_into('<IIQQQQQQ',raw,64+index*56,*segment)
+        for index,entry in enumerate(((5,4496),(10,len(strings)),(1,1),(0,0))):struct.pack_into('<QQ',raw,288+index*16,*entry)
+        self.binary=g.save(self.root/'android-author-process-probe-v1',bytes(raw));g.a['artifacts']['process_probe']=self.binary
+        source=g.a['artifacts']['process_probe_source'];builder=c.env.binding(c.ROOT/'scripts/build_android_author_process_probe.py')
+        command=[str(llvm/'bin/clang.exe'),'--no-default-config','--target=x86_64-linux-android35','--sysroot='+str(llvm/'sysroot'),
+            '-std=c11','-Wall','-Wextra','-Werror','-O2','-fPIE','-pie','-Wl,-z,relro,-z,now','-Wl,-z,max-page-size=16384',source['path'],'-o',self.binary['path']]
+        self.request=dict(version=1,scope='android_author_process_probe_build_v1',ndk_revision='29.0.14206865',target='x86_64-linux-android35',
+            source=source,builder=builder,tools=tools,command=command,environment={key:'D:\\Dev\\_Temp'for key in('TEMP','TMP','TMPDIR')},
+            ndk=str(self.ndk),output=str(self.root))
+        owner=dict(status='child_exited',worker_returncode=0,cleanup_complete=True,output_capture_complete=True,elapsed_ms=1,stdout_bytes=0,stderr_bytes=0)
+        compile_result=dict(returncode=0,capture_complete=True,timed_out=False,output_limit=False,
+            stdout=g.save(self.root/'compile.stdout.raw',b''),stderr=g.save(self.root/'compile.stderr.raw',b''))
+        for name in('stdout','stderr'):g.save(self.root/('owner-'+name+'-v1.bin'),b'')
+        self.value={key:copy.deepcopy(value)for key,value in self.request.items()if key not in('ndk','output')}
+        self.value.update(request=g.save(self.root/'request-v1.json',self.request),started=g.save(self.root/'started-v1.json',{'worker':g.d['worker']}),
+            owner=g.save(self.root/'owner-result-v1.json',owner),compile=g.save(self.root/'compile.json',compile_result),binary=self.binary,
+            elf=c._probe_elf(bytes(raw)),passed=True,feature_acceptance=False)
+        self.publish()
+    def publish(self):
+        self.value['request']=self.g.save(self.root/'request-v1.json',self.request)
+        self.pin=self.g.save(self.root/'result-v1.json',self.value)
+    def validate(self):return c._verify_process_probe_build(self.pin,self.g.a)
+
+
 @unittest.skipUnless(os.name=='nt','physical D controller fixtures')
 class ControllerBoundaryTests(unittest.TestCase):
     def test_package_getter_stderr_stops_before_any_following_sdk_operation(self):
@@ -188,6 +226,22 @@ class ControllerBoundaryTests(unittest.TestCase):
                 self.assertEqual(methods,['import','author']);self.assertIsNone(result['restart_instrumentation'])
                 self.assertFalse((flow.g.root/'claims-v1/restart-v1.json').exists())
                 self.assertTrue(all(sock.closed for sock in flow.sockets))
+
+    def test_original_closed_probe_build_replays_actual_elf_bytes_without_tool_execution(self):
+        fixture=ClosedProbeBuild();self.assertEqual(fixture.validate(),fixture.value)
+
+    def test_self_consistent_non_elf_empty_tools_or_changed_compile_recipe_refuses(self):
+        for mutation in('binary','tools','command'):
+            with self.subTest(mutation=mutation):
+                fixture=ClosedProbeBuild()
+                if mutation=='binary':
+                    raw=Path(fixture.binary['path']).read_bytes();pin=fixture.g.save(fixture.binary['path'],b'NOPE'+raw[4:])
+                    fixture.value['binary']=pin;fixture.g.a['artifacts']['process_probe']=pin
+                elif mutation=='tools':fixture.value['tools']=[];fixture.request['tools']=[]
+                else:
+                    fixture.value['command'][4]='-std=c89';fixture.request['command']=copy.deepcopy(fixture.value['command'])
+                fixture.publish()
+                with self.assertRaises((ValueError,c.env.EnvironmentRefused)):fixture.validate()
 
 
 if __name__=='__main__':unittest.main()

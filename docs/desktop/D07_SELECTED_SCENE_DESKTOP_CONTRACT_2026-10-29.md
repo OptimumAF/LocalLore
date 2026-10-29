@@ -504,3 +504,20 @@ frozen-record requirement above applies to the controller's recursively frozen
 published state, not a new standalone decoder freeze. FIRST must distinguish
 decoder detachment from immutable controller publication, preserving both owners
 without changing old tests or adding a special V3-only freeze rule.
+
+### Selected parsed-input hygiene precision before FIRST freeze
+
+For the existing public selected decoder/transport boundary, V1/V2/V3 valid
+parsed-JSON behavior stays compatible. Reject non-wire real objects/arrays such
+as accessor/toJSON payloads without invoking their getters or toJSON during a
+size check or copy. FIRST may assert those explicit counters along with finite
+wire errors, inherited/non-enumerable/symbol/extra keys, cycles, bigints,
+undefined and nonfinite values. Detached standalone outputs remain mutable;
+controller publications remain recursively frozen. Use a narrowly bounded
+selected input validator/copy or an established compatible helper, not a new
+schema, global serialization framework or persistence owner.
+
+This is not a promise to prevent arbitrary Proxy traps/JavaScript side effects,
+detect duplicate raw JSON keys from an already parsed object, authenticate input
+or replace native/Core permission enforcement. Preserve the old valid-wire tests;
+do not loosen their schemas or rewrite old fixtures to satisfy the new cases.

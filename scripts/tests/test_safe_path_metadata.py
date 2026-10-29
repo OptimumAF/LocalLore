@@ -1,5 +1,6 @@
 """Original safe-path metadata fixtures, with no real symlinks or privileges."""
 import errno
+import os
 from pathlib import Path
 import stat
 import tempfile
@@ -41,6 +42,7 @@ class Chain:
             return env.safe_path(str(self.target),exists=exists,directory=directory)
 
 
+@unittest.skipUnless(os.name=='nt','physical D fixtures and Windows absolute-path semantics')
 class SafePathMetadataTests(unittest.TestCase):
     def refused(self,call):
         with self.assertRaises((env.EnvironmentRefused,OSError)):call()

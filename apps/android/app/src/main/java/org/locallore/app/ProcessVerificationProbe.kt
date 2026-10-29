@@ -18,7 +18,8 @@ internal object ProcessVerificationProbe {
         "free_text", "submit", "prepare", "commit", "cancel", "other", "story_template", "create_named")
     // Known metadata/resource operations do not propose or apply gameplay.
     private val metadata = setOf("close", "capabilities", "model_status", "story_templates", "story_setup",
-        "story_presentation", "story_presentation_view")
+        "story_presentation", "story_presentation_view", "authoring_capabilities", "authoring_begin", "authoring_generate",
+        "authoring_review", "authoring_cancel", "authoring_status")
     private var proofRoot: File? = null
     private var run: String? = null
     private var processRun: String? = null
@@ -64,7 +65,7 @@ internal object ProcessVerificationProbe {
 
     @Synchronized fun operation(operation: String) {
         if (run == null || operation in metadata) return
-        val key = if (operation == "create_configured" || operation == "create_presented") "create_named"
+        val key = if (operation == "create_configured" || operation == "create_presented" || operation == "authoring_create") "create_named"
             else if (operation in operations) operation else "other"
         val count = checkNotNull(operations[key])
         check(count < 4096) { "Verification operation bound" }

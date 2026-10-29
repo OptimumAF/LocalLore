@@ -13,6 +13,7 @@ pub mod intent_guard;
 pub mod memory_coverage;
 pub mod play;
 pub mod scope;
+pub mod story_authoring;
 pub mod story_presentation;
 pub mod story_setup;
 pub mod turn_capture;

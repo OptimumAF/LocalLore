@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "premise": "An isolated mountain weather station must restore its warning bells before a dry lightning front crosses the pass.",
+  "player_name": "Iona",
+  "player_description": "A visiting instrument repairer carrying a small kit.",
+  "cast": [
+    {"name": "Sel", "description": "A quiet technician responsible for the cistern."},
+    {"name": "Marn", "description": "A weather observer waiting in the signal room."}
+  ],
+  "profile": "narrative_v1",
+  "presentation": {"version": 1, "tone": "plain", "excluded_phrases": []}
+}

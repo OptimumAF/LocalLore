@@ -71,7 +71,7 @@ class LiteRtWorkerTraceTest {
         assertEquals(1_000_000, LiteRtWorkerTrace.MAX_COUNT)
         assertEquals(180_000, LiteRtWorkerTrace.MAX_MS)
         assertEquals(3, LiteRtWorkerTrace.MAX_CREATIONS)
-        assertEquals(listOf("DIRECTOR", "NARRATOR"), LiteRtTraceRole.entries.map { it.name })
+        assertEquals(listOf("DIRECTOR", "NARRATOR", "AUTHOR"), LiteRtTraceRole.entries.map { it.name })
         assertEquals(listOf("NONE", "CANCELLED", "OTHER"), LiteRtTraceFailure.entries.map { it.name })
     }
 

@@ -199,6 +199,116 @@
           "additionalProperties": false,
           "properties": {
             "op": {
+              "const": "authoring_capabilities",
+              "type": "string"
+            }
+          },
+          "required": ["op"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "input": {
+              "$ref": "#/$defs/InitialStoryInputV1"
+            },
+            "op": {
+              "const": "authoring_begin",
+              "type": "string"
+            }
+          },
+          "required": ["op", "input"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_generate",
+              "type": "string"
+            }
+          },
+          "required": ["op", "job"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "input": {
+              "$ref": "#/$defs/InitialStoryInputV1"
+            },
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_review",
+              "type": "string"
+            },
+            "proposal": {
+              "$ref": "#/$defs/InitialWorldProposalV1"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "job", "input", "proposal", "title"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "creation_id": {
+              "type": "string"
+            },
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_create",
+              "type": "string"
+            },
+            "review_sha256": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "job", "review_sha256", "creation_id"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_cancel",
+              "type": "string"
+            }
+          },
+          "required": ["op", "job"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_status",
+              "type": "string"
+            }
+          },
+          "required": ["op", "job"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
               "const": "capabilities",
               "type": "string"
             }
@@ -919,6 +1029,262 @@
           "type": "object"
         }
       ]
+    },
+    "InitialBeliefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "believer": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "confidence": {
+          "$ref": "#/$defs/InitialConfidenceV1"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": ["believer", "text", "confidence"],
+      "type": "object"
+    },
+    "InitialCastHintV1": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "description"],
+      "type": "object"
+    },
+    "InitialCharacterV1": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "known_by": {
+          "items": {
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "location": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "description", "location", "known_by"],
+      "type": "object"
+    },
+    "InitialConfidenceV1": {
+      "enum": ["uncertain", "suspected", "believed"],
+      "type": "string"
+    },
+    "InitialFactV1": {
+      "additionalProperties": false,
+      "properties": {
+        "discoverable_at": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "known_by": {
+          "items": {
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": ["text", "known_by"],
+      "type": "object"
+    },
+    "InitialLocationV1": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "description"],
+      "type": "object"
+    },
+    "InitialPossessionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "return_to": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["name", "description", "owner"],
+      "type": "object"
+    },
+    "InitialRouteV1": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["from", "to"],
+      "type": "object"
+    },
+    "InitialRuleProfileV1": {
+      "enum": ["fantasy_v1", "narrative_v1"],
+      "type": "string"
+    },
+    "InitialStoryInputV1": {
+      "additionalProperties": false,
+      "properties": {
+        "cast": {
+          "items": {
+            "$ref": "#/$defs/InitialCastHintV1"
+          },
+          "type": "array"
+        },
+        "player_description": {
+          "type": "string"
+        },
+        "player_name": {
+          "type": "string"
+        },
+        "premise": {
+          "type": "string"
+        },
+        "presentation": {
+          "$ref": "#/$defs/StoryPresentationV1"
+        },
+        "profile": {
+          "$ref": "#/$defs/InitialRuleProfileV1"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "premise",
+        "player_name",
+        "player_description",
+        "cast",
+        "profile",
+        "presentation"
+      ],
+      "type": "object"
+    },
+    "InitialWorldProposalV1": {
+      "additionalProperties": false,
+      "properties": {
+        "beliefs": {
+          "items": {
+            "$ref": "#/$defs/InitialBeliefV1"
+          },
+          "type": "array"
+        },
+        "characters": {
+          "items": {
+            "$ref": "#/$defs/InitialCharacterV1"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/InitialFactV1"
+          },
+          "type": "array"
+        },
+        "locations": {
+          "items": {
+            "$ref": "#/$defs/InitialLocationV1"
+          },
+          "type": "array"
+        },
+        "player_location": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "possessions": {
+          "items": {
+            "$ref": "#/$defs/InitialPossessionV1"
+          },
+          "type": "array"
+        },
+        "routes": {
+          "items": {
+            "$ref": "#/$defs/InitialRouteV1"
+          },
+          "type": "array"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "locations",
+        "player_location",
+        "characters",
+        "routes",
+        "facts",
+        "beliefs",
+        "possessions"
+      ],
+      "type": "object"
     },
     "Intent": {
       "description": "This comes from explicit UI selection/clarification, never the model's interpretation alone.",

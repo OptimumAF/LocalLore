@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [original story authoring implementation](docs/native/ANDROID_ORIGINAL_STORY_AUTHORING_2026-10-27.md)
+adds a bounded premise/cast generation path, editable world review and explicit
+native creation. Its report distinguishes scripted plumbing, actual host/build
+checks and pending real-model/device qualification. It is not an accepted release.
+
 The [initial narration presentation](docs/native/ANDROID_STORY_PRESENTATION_2026-10-27.md)
 adds native-reviewed tone and literal phrase exclusions, retained with the story
 and checked before narration can commit. Its report separates host/build checks

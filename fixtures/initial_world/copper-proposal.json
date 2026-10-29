@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "locations": [
+    {"name": "Root hall", "description": "A stone hall follows the orchard's exposed roots."},
+    {"name": "Seed vault", "description": "Cool drawers preserve the cooperative's seed cells."},
+    {"name": "Pollination gallery", "description": "A raised walkway crosses the copper-leaf canopy."}
+  ],
+  "player_location": 0,
+  "characters": [
+    {"name": "Evi", "description": "Evi hides a sluice diagram in a sleeve (COPPER-NPC-263).", "location": 2, "known_by": [1]},
+    {"name": "Tor", "description": "Tor sorts empty seed envelopes beside the vault.", "location": 1, "known_by": [0, 1, 2]}
+  ],
+  "routes": [{"from": 0, "to": 2}, {"from": 2, "to": 1}, {"from": 1, "to": 0}],
+  "facts": [
+    {"text": "The cooperative waters the orchard before the evening shift.", "known_by": [0, 1, 2], "discoverable_at": null},
+    {"text": "The inspection sluice opens behind the pollination gallery (COPPER-SLUICE-468).", "known_by": [1], "discoverable_at": 2}
+  ],
+  "beliefs": [
+    {"believer": 2, "text": "All seed cells were sold last week (COPPER-RUMOR-853).", "confidence": "uncertain"}
+  ],
+  "possessions": [
+    {"name": "Seed cell", "description": "A viable seed cell for a copper-leaf tree.", "owner": 0, "return_to": null},
+    {"name": "Borrowed pruner", "description": "Tor's folding pruner must be returned.", "owner": 0, "return_to": 2}
+  ]
+}

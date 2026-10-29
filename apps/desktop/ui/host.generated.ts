@@ -2,6 +2,38 @@
 
 export type HostCommand =
     | {
+          op: "authoring_capabilities";
+      }
+    | {
+          input: InitialStoryInputV1;
+          op: "authoring_begin";
+      }
+    | {
+          job: string;
+          op: "authoring_generate";
+      }
+    | {
+          input: InitialStoryInputV1;
+          job: string;
+          op: "authoring_review";
+          proposal: InitialWorldProposalV1;
+          title: string;
+      }
+    | {
+          creation_id: string;
+          job: string;
+          op: "authoring_create";
+          review_sha256: string;
+      }
+    | {
+          job: string;
+          op: "authoring_cancel";
+      }
+    | {
+          job: string;
+          op: "authoring_status";
+      }
+    | {
           op: "capabilities";
       }
     | {
@@ -193,6 +225,8 @@ export type HostCommand =
           session: string;
       };
 export type StoryTone = "plain" | "warm" | "brisk";
+export type InitialRuleProfileV1 = "fantasy_v1" | "narrative_v1";
+export type InitialConfidenceV1 = "uncertain" | "suspected" | "believed";
 export type Mode =
     "accepted" | "delayed" | "malformed" | "rejected" | "failed" | "cancelled";
 /**
@@ -311,14 +345,67 @@ export interface Envelope {
     command: HostCommand;
     version: 1;
 }
-export interface Scope {
-    branch: string;
-    story: string;
+export interface InitialStoryInputV1 {
+    cast: InitialCastHintV1[];
+    player_description: string;
+    player_name: string;
+    premise: string;
+    presentation: StoryPresentationV1;
+    profile: InitialRuleProfileV1;
+    version: number;
+}
+export interface InitialCastHintV1 {
+    description: string;
+    name: string;
 }
 export interface StoryPresentationV1 {
     excluded_phrases: string[];
     tone: StoryTone;
     version: number;
+}
+export interface InitialWorldProposalV1 {
+    beliefs: InitialBeliefV1[];
+    characters: InitialCharacterV1[];
+    facts: InitialFactV1[];
+    locations: InitialLocationV1[];
+    player_location: number;
+    possessions: InitialPossessionV1[];
+    routes: InitialRouteV1[];
+    version: number;
+}
+export interface InitialBeliefV1 {
+    believer: number;
+    confidence: InitialConfidenceV1;
+    text: string;
+}
+export interface InitialCharacterV1 {
+    description: string;
+    known_by: number[];
+    location: number;
+    name: string;
+}
+export interface InitialFactV1 {
+    discoverable_at?: number | null;
+    known_by: number[];
+    text: string;
+}
+export interface InitialLocationV1 {
+    description: string;
+    name: string;
+}
+export interface InitialPossessionV1 {
+    description: string;
+    name: string;
+    owner: number;
+    return_to?: number | null;
+}
+export interface InitialRouteV1 {
+    from: number;
+    to: number;
+}
+export interface Scope {
+    branch: string;
+    story: string;
 }
 export interface Request {
     expected_revision: number;

@@ -274,6 +274,39 @@ impl Persistence for Repository {
             .map_err(storage)?;
         Ok((self.resume(&scope)?, created))
     }
+    fn lookup_original(
+        &mut self,
+        creation_id: &str,
+        review_sha256: &str,
+    ) -> Result<Option<Engine>, String> {
+        if !locallore::story_setup::valid_creation_id(creation_id) {
+            return Err("InvalidInput".into());
+        }
+        let scope = Scope {
+            story: format!("original-{creation_id}"),
+            branch: "main".into(),
+        };
+        let seed = match self.store.load_seed(&scope) {
+            Ok(seed) => seed,
+            Err(StorageError::NotFound) => return Ok(None),
+            Err(error) => return Err(storage(error)),
+        };
+        let origin = seed.initial_world.as_ref().ok_or("Conflict")?;
+        if locallore::story_authoring::origin_hash(origin)? != review_sha256 {
+            return Err("Conflict".into());
+        }
+        let starter = locallore::story_setup::prepare_original(origin, creation_id)?;
+        if starter.seed() != &seed {
+            return Err("Integrity".into());
+        }
+        // Recovery is read-only. Never route a captured creation through insert:
+        // another Store/process may delete it after this lookup.
+        let engine = self.resume(&scope)?;
+        if engine.seed() != starter.seed() {
+            return Err("Stale".into());
+        }
+        Ok(Some(engine))
+    }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String> {
         Ok(self.store.resume(scope).map_err(turn)?.engine)
     }

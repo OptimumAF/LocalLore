@@ -24,7 +24,7 @@ class LiteRtCallbackTraceTest {
     }
 
     @Test fun enumsWireAndConfiguredConstantsAreClosedAndSeparate() {
-        assertEquals(listOf("DIRECTOR", "NARRATOR"), LiteRtCallbackRole.entries.map { it.name })
+        assertEquals(listOf("DIRECTOR", "NARRATOR", "AUTHOR"), LiteRtCallbackRole.entries.map { it.name })
         assertEquals(listOf("OUTPUT_CHUNKS", "OUTPUT_BYTES", "DONE", "CANCELLED", "SDK_JNI", "OTHER"), LiteRtCallbackCounter.entries.map { it.name })
         assertEquals(listOf("CANCELLED", "SDK_JNI", "OTHER"), LiteRtCallbackError.entries.map { it.name })
         assertEquals(3, LiteRtCallbackTrace.MAX_CALLS); assertEquals(1000000, LiteRtCallbackTrace.MAX_COUNT)

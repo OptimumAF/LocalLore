@@ -74,7 +74,7 @@ internal data class LiteRtWorkerConfig(
     internal fun validateRequest(request: LocalInferenceRequest) {
         request.validate()
         check(request.contextTokens == contextTokens && request.threads == 4)
-        check(request.maxTokens <= if (request.role == "director") directorTokens else narratorTokens)
+        check(request.maxTokens <= when(request.role) { "director" -> directorTokens; "narrator" -> narratorTokens; "author" -> 1024; else -> error("Role") })
     }
 
     /** Runs on IO before SDK construction. Does not create directories, copy files or fall back. */
@@ -215,17 +215,19 @@ internal class LiteRtRoleWorker(
                 trace?.record(LiteRtWorkerEvent.CONVERSATION_CREATE_ENTERED)
                 // Configured byte lengths are not tokenizer usage. Diagnostics cannot change admission.
                 val observation = try { callbackTrace?.begin(
-                    if (request.role == "director") LiteRtCallbackRole.DIRECTOR else LiteRtCallbackRole.NARRATOR,
+                    when(request.role) { "director" -> LiteRtCallbackRole.DIRECTOR; "narrator" -> LiteRtCallbackRole.NARRATOR; "author" -> LiteRtCallbackRole.AUTHOR; else -> error("Role") },
                     request.contextTokens, request.maxTokens, localUtf8(request.prompt).size, localUtf8(request.schemaJson).size,
                 ) } catch (_: Throwable) { null }
-                // Request validation above admits only these two closed roles. No prompt/schema
+                // Request validation admits only closed roles. No prompt/schema
                 // or exception string enters the passive observation.
                 creationOrdinal = trace?.creationEntered(when (request.role) {
                     "director" -> LiteRtTraceRole.DIRECTOR
-                    else -> LiteRtTraceRole.NARRATOR
+                    "narrator" -> LiteRtTraceRole.NARRATOR
+                    "author" -> LiteRtTraceRole.AUTHOR
+                    else -> error("Role")
                 }) ?: 0
                 val conversation = resource.conversation(request)
-                val call = OwnedCall(conversation, observation)
+                val call = OwnedCall(conversation, observation, if(request.role=="author") 8192 else 16_384)
                 synchronized(lock) { roles += call }
                 // Retain the returned resource before doing diagnostic work.
                 creationReturned = true
@@ -273,6 +275,7 @@ internal class LiteRtRoleWorker(
     private inner class OwnedCall(
         private val resource: LiteRtConversationResource,
         private val observation: LiteRtCallbackCall?,
+        private val responseCap: Int,
     ) : LocalRoleCall, LiteRtCallbacks {
         private val state = Any()
         private val cancelScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -311,12 +314,12 @@ internal class LiteRtRoleWorker(
                 val before = bytes.size()
                 check(chunk.modelRole && !chunk.nonText && !chunk.channels && !chunk.tools)
                 chunk.text.forEach {
-                    check(it.length <= 16_384)
+                    check(it.length <= responseCap)
                     val value = localUtf8(it)
-                    check(bytes.size() + value.size <= 16_384)
+                    check(bytes.size() + value.size <= responseCap)
                     bytes.write(value)
                 }
-                val text = localText(bytes.toByteArray(), 16_384)
+                val text = localText(bytes.toByteArray(), responseCap)
                 check(!text.contains("<think>", ignoreCase = true) && !text.contains("</think>", ignoreCase = true))
                 // Only bytes that passed the original chunk/buffer checks, not SDK tokens or all callbacks.
                 try { observation?.output(bytes.size() - before) } catch (_: Throwable) { }

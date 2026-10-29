@@ -5,12 +5,12 @@ import java.util.Collections
 import java.util.EnumMap
 import java.util.EnumSet
 
-internal enum class LiteRtCallbackRole { DIRECTOR, NARRATOR }
+internal enum class LiteRtCallbackRole { DIRECTOR, NARRATOR, AUTHOR }
 internal enum class LiteRtCallbackCounter { OUTPUT_CHUNKS, OUTPUT_BYTES, DONE, CANCELLED, SDK_JNI, OTHER }
 internal enum class LiteRtCallbackError { CANCELLED, SDK_JNI, OTHER }
 
-private fun callbackMetadata(context: Int, output: Int, prompt: Int, schema: Int) {
-    require(context in 512..4096 && output in 1..350 && prompt in 0..32768 && schema in 2..32768 &&
+private fun callbackMetadata(role: LiteRtCallbackRole, context: Int, output: Int, prompt: Int, schema: Int) {
+    require(context in 512..4096 && output in 1..(if(role==LiteRtCallbackRole.AUTHOR) 1024 else 350) && prompt in 0..32768 && schema in 2..32768 &&
         prompt.toLong() + schema <= 32768) { "Invalid callback metadata" }
 }
 
@@ -27,7 +27,7 @@ internal class LiteRtCallbackTrace {
 
     @Synchronized fun begin(role: LiteRtCallbackRole, contextTokens: Int, maxOutputTokens: Int,
         promptBytes: Int, schemaBytes: Int): LiteRtCallbackCall? {
-        callbackMetadata(contextTokens, maxOutputTokens, promptBytes, schemaBytes)
+        callbackMetadata(role, contextTokens, maxOutputTokens, promptBytes, schemaBytes)
         if (requests < MAX_COUNT) requests++ else requestsSaturated = true
         if (slots.size == MAX_CALLS) return null
         return LiteRtCallbackCall(this).also {
@@ -95,7 +95,7 @@ internal class LiteRtCallbackCallSnapshot(
     )
     init {
         require(ordinal in 1..LiteRtCallbackTrace.MAX_CALLS)
-        callbackMetadata(contextTokens, maxOutputTokens, promptBytes, schemaBytes)
+        callbackMetadata(role, contextTokens, maxOutputTokens, promptBytes, schemaBytes)
         require(this.counts.keys == LiteRtCallbackCounter.entries.toSet() && this.counts.values.all { it in 0..LiteRtCallbackTrace.MAX_COUNT })
         require(this.saturated.all { this.counts.getValue(it) == LiteRtCallbackTrace.MAX_COUNT })
     }

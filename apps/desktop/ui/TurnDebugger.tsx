@@ -93,13 +93,13 @@ export function TurnDebugger({
                 accepted history.
             </p>
             <p>
-                <strong>{lens}</strong> · actual head r
+                <strong>{lens}</strong> · displayed head r
                 {play?.revision ?? "unavailable"} · captured basis r
                 {t.baseRevision}
             </p>
             {stale && (
                 <p role="alert">
-                    Metadata context is stale. Current head{" "}
+                    Metadata context is stale. Displayed head{" "}
                     {play ? `r${play.revision}` : "unavailable"}.
                     {query ? ` Requested head r${query.expected_head}.` : ""}{" "}
                     Reconcile gameplay, refresh metadata and select an attempt
@@ -216,7 +216,7 @@ export function TurnDebugger({
                     <p className="scope">
                         Story {query.scope.story} · branch {query.scope.branch}{" "}
                         · session {query.session}
-                        {" · "}current head{" "}
+                        {" · "}displayed head{" "}
                         {play ? `r${play.revision}` : "unavailable"}
                         {" · "}read head r{query.expected_head} · original basis
                         r{query.base_revision}
@@ -287,7 +287,7 @@ export function TurnDebugger({
                     <table className="query-table trace-attempts">
                         <caption>
                             Retained attempts · basis r{reply.base_revision} ·
-                            current head r{reply.head}
+                            metadata head r{reply.head}
                         </caption>
                         <thead>
                             <tr>

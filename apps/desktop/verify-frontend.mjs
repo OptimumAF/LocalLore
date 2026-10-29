@@ -38,6 +38,7 @@ for (const args of [
     ["check-selected-evaluation-controller.mjs"],
     ["check-literal-selected-evaluation.mjs"],
     ["check-selected-scene-v4-review.mjs"],
+    ["check-selected-scene-resume-identity-review.mjs"],
     ["check-selected-source-freshness-review.mjs"],
     ["check-comparison-run.mjs"],
     ["check-comparison-run-native.mjs"],

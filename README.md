@@ -21,8 +21,13 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [compiled Windows TCP control](docs/native/WINDOWS_NATIVE_TCP_STATE_VERIFICATION_2026-10-29.md)
+passes 355 host tests and reproduces inconsistent listener states using native
+SDK definitions outside Python FFI. Its acquired diagnostic remains inconsistent;
+current emulator/model qualification still requires trustworthy service admission.
+
 The [explicit SDK3 bridge](docs/native/ANDROID_SDK3_VERIFICATION_2026-10-29.md)
-adds source-bound host receipts and passes307 host tests. Its first live
+adds source-bound host receipts and passes 307 host tests. Its first live
 pre-command ownership proof refuses an unsupported raw server state; no SDK,
 emulator or model command ran. Fresh runtime qualification remains gated.
 

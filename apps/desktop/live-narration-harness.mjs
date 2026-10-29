@@ -138,6 +138,30 @@ async function gitRead(args) {
             resolve(value);
         };
         for (const channel of ["stdout", "stderr"])
+            child[channel].on("error", () => {
+                if (settled) return;
+                latchUnknown("GitPipeError", { pid, args, channel });
+                // Keep the pipe failure as the primary observation even if a
+                // best-effort stop synchronously emits close. No drain is claimed.
+                finish(
+                    {
+                        code: null,
+                        signal: null,
+                        error: "GitPipeError",
+                        closed: false,
+                    },
+                    true,
+                );
+                if (!killAttempted) {
+                    killAttempted = true;
+                    try {
+                        killReturned = child.kill();
+                    } catch (error) {
+                        killError = error?.code ?? "KillFailure";
+                    }
+                }
+            });
+        for (const channel of ["stdout", "stderr"])
             child[channel].on("data", (chunk) => {
                 const left = 262144 - buffers[channel].length;
                 if (chunk.length > left) {
@@ -347,11 +371,23 @@ const processes = [],
     artifacts = {},
     reports = [];
 async function measureStorage() {
-    lastStorage = {
-        target: await footprint(target),
-        source: await footprint(root, true),
-        packet: await footprint(folder),
-    };
+    if (storageBreached) throw Error("StorageBudgetLatched");
+    try {
+        lastStorage = {
+            target: await footprint(target),
+            source: await footprint(root, true),
+            packet: await footprint(folder),
+        };
+    } catch (error) {
+        // A failed observation cannot later become permission to build again.
+        storageBreached = true;
+        lastStorage = {
+            unavailable: true,
+            reason: "StorageInventoryFailure",
+            lastKnown: lastStorage,
+        };
+        throw error;
+    }
     lastStorage.targetGrowth = Math.max(
         0,
         lastStorage.target.bytes - initialStorage.target.bytes,
@@ -464,6 +500,28 @@ async function run(command, args, additions = {}) {
             }
             resolve(value);
         };
+        for (const channel of ["stdout", "stderr"])
+            child[channel].on("error", () => {
+                if (settled) return;
+                latchUnknown("ChildPipeError", { sequence, pid, channel });
+                finish(
+                    {
+                        code: null,
+                        signal: null,
+                        error: "ChildPipeError",
+                        closed: false,
+                    },
+                    true,
+                );
+                if (!killAttempted) {
+                    killAttempted = true;
+                    try {
+                        killReturned = child.kill();
+                    } catch (error) {
+                        killError = error?.code ?? "KillFailure";
+                    }
+                }
+            });
         for (const channel of ["stdout", "stderr"])
             child[channel].on("data", (chunk) => {
                 const left = 262144 - buffers[channel].length;
@@ -851,11 +909,16 @@ try {
         }
     await write("retention-measurement.json", {
         initialStorage,
-        final: ownedDrainUnknown ? null : lastStorage,
-        lastKnown: lastStorage,
+        final:
+            ownedDrainUnknown || lastStorage?.unavailable ? null : lastStorage,
+        lastKnown: lastStorage?.unavailable
+            ? lastStorage.lastKnown
+            : lastStorage,
         finalObservation: ownedDrainUnknown
             ? "unavailable-owned-drain-unknown"
-            : "observed-after-owned-closure",
+            : lastStorage?.unavailable
+              ? "unavailable-storage-inventory"
+              : "observed-after-owned-closure",
         limits,
         storageBreached,
         retained: true,

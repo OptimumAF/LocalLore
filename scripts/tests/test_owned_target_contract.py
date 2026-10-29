@@ -736,4 +736,137 @@ class ActualOwnerMockTests(unittest.TestCase):
             else:self.assertLess(events.index('launcher-wait'),events.index('server-terminate'));self.assertTrue(cleanup['guest_process_handle_closed'])
 
 
+class ClosedLifecycleFixture:
+    """Every write is contained in a new synthetic D tree, never the prepared AVD."""
+    def __init__(self):
+        from benchmarks import receipt_avd_environment as env
+        self.env=env;self.base=Path(tempfile.mkdtemp(prefix='locallore-target-lifecycle-',dir='D:/Dev/_Temp')).resolve(strict=True)
+        self.root=self.base/'owner';self.guest_root=self.base/'synthetic-guest';self.writes=[]
+        self.a=admission();self.a.update(root=str(self.root));self.a['server']['root']=str(self.root/'server');self.a['guest']['root']=str(self.guest_root)
+        config=self.save(self.guest_root/'avd/config.ini',b'avd.name=synthetic\n')
+        prepare_proposal=self.save(self.base/'prepare-proposal.json',dict(original='synthetic data only'))
+        prepared=self.save(self.base/'prepared.json',dict(proposal_sha256=prepare_proposal['sha256'],avd_name='locallore_receipt_api35_v1',
+          guest_boot_verified=False,userdata_absent=True,immutable=[config]))
+        prepare_result=self.save(self.base/'prepare-result.json',dict(version=1,proposal_sha256=prepare_proposal['sha256'],status='completed',
+          closure_verified=True,child_cleanup_complete=True,prepared_created=True))
+        proposal=dict(version=1,phase='run',paths=dict(root=str(self.guest_root)),serial='emulator-5592',memory_mib=8192,cores=4,
+          max_seconds=1800,console_port=5592,adb_path=self.a['server']['adb']['path'],prepared=prepared,prepare_result=prepare_result,
+          prepare_proposal=prepare_proposal,token=dict(original_metadata='synthetic token metadata, no credential bytes'),
+          old_avd=dict(original_metadata='synthetic old registry'),bindings=[pin('C:/Synthetic/installed-sdk-tool.exe')],host_free_min={'D:':40*1024**3})
+        self.a['guest']['proposal']=self.save(self.base/'run-proposal.json',proposal)
+        self.a['guest']['authorization']=self.save(self.base/'run-authorization.json',dict(version=1,phase='run',
+          proposal_sha256=self.a['guest']['proposal']['sha256'],allow_environment_calls=True,root_go_pending=False))
+        self.admission=self.save(self.base/'admission-v1.json',self.a);self.d=running(self.a);self.d['admission']=self.admission
+        script=next(p for p in self.a['sources']if PureWindowsPath(p['path']).name=='owned_target_owner.py')
+        self.request=self.save(self.root/'request-v1.json',dict(version=1,protocol=PROTOCOL,admission=self.admission,validated_admission=self.a,
+          owner=self.d['owner'],sources=self.a['sources'],python=self.a['python'],worker_script=script,owner_seconds=1230))
+        self.auth=dict(path=self.a['server']['auth_key'],native_profile='C:\\Users\\Synthetic',metadata=dict(volume_serial=3,file_index=9,
+          bytes=2048,attributes=0x20,creation_filetime=1001,write_filetime=1002,links=1))
+        empty=host_fixture.observation();pre=dict(observation=empty,tables=table_metadata(empty),created_mask=1,close_attempted_mask=1,closed_mask=1,exclusive_bind_succeeded=True)
+        preflight=self.save(self.root/'server/preflight-v1.json',pre)
+        guest_empty=dict(version=1,ports=[5592,5593],families=[2,23],rows=[])
+        guest_preflight=self.save(self.root/'guest-preflight-v1.json',dict(observation=guest_empty,tables=table_metadata(guest_empty),
+          created_mask=15,close_attempted_mask=15,closed_mask=15,exclusive_bind_succeeded=True))
+        server_admission=self.save(self.root/'server/admission-v1.json',self.a['server'])
+        helper=SimpleNamespace(admission=self.a['server'],admission_pin=server_admission,auth=self.auth,tables=table_metadata)
+        for kind,port,history in(('version',43101,()),('devices',43102,(43101,))):
+            p=host_fixture.ClosedLeaseFixture.proof(helper,kind,port,history)
+            p.update(worker=self.d['worker'],client=self.d['worker'],server=self.d['server'])
+            for b in p['brackets'].values():b.update(worker=self.d['worker'],server=self.d['server'])
+            self.save(self.root/'server'/('proof-'+kind+'-v1.json'),p)
+        obs=host_fixture.observation(host_fixture.row4(pid=self.d['server']['pid']))
+        self.save(self.root/'server/readiness-v1.json',[dict(observation=obs,tables=table_metadata(obs))])
+        identities={key:copy.deepcopy(self.d[key])for key in('worker','server','launcher','guest')}
+        job=self.save(self.root/'guest-job-v1.json',dict(version=1,protocol=PROTOCOL,worker=self.d['worker'],
+          processes=sorted(p['pid']for p in identities.values()),identities=identities,checked=True,
+          source='QueryInformationJobObject(NULL,JobObjectBasicProcessIdList)'))
+        s=session(self.a);s.update(admission=self.admission,running=None,descriptor=self.d,caller=self.d['worker'])
+        registration=self.save(self.root/'target-registration-v1.json',query_bundle(s))
+        ready_value=ready(self.a,self.d);ready_value.update(guest_job=job,queries=registration)
+        ready_pin=self.save(self.root/'target-ready-v1.json',ready_value);self.d['ready']=ready_pin
+        running_pin=self.save(self.root/'running-v1.json',self.d)
+        readiness=self.save(self.root/'readiness-v1.json',[
+          dict(elapsed_ms=1,stage='guest_process',observation=None,tables=None,queries=None),
+          dict(elapsed_ms=2,stage='guest_ports',observation=ready_value['guest_observation'],tables=ready_value['guest_tables'],queries=None),
+          dict(elapsed_ms=3,stage='registration',observation=ready_value['guest_observation'],tables=ready_value['guest_tables'],queries=registration)])
+        guest_inputs=self.save(self.root/'guest-inputs-v1.json',dict(version=1,protocol=PROTOCOL,admission=self.admission,
+          proposal=self.a['guest']['proposal'],authorization=self.a['guest']['authorization'],prepared=prepared,prepare_result=prepare_result,
+          token=proposal['token'],original_avd=proposal['old_avd'],configuration=[config],tools=proposal['bindings'],
+          facts=dict(free_bytes={'D:':50*1024**3},available_memory=16*1024**3,logical_cpus=12,commit_capacity={}),
+          timer=dict(key='test.quitAfterBootTimeOut',actual=None,effective=-1,default_used=True,enabled=False)))
+        boot=self.save(self.guest_root/'owned-target-boot-claim-v1.json',dict(version=1,protocol=PROTOCOL,admission=self.admission,
+          worker=self.d['worker'],proposal=self.a['guest']['proposal']))
+        terminal=self.save(self.root/'guest-terminal-v1.json',dict(version=1,protocol=PROTOCOL,guest=self.d['guest'],
+          terminate_attempted=True,wait_completed=True,returncode=1,handle_closed=True))
+        self.result=dict(version=1,protocol=PROTOCOL,admission=self.admission,request=self.request,worker=self.d['worker'],
+          server=self.d['server'],launcher=self.d['launcher'],guest=self.d['guest'],guest_ancestry=self.d['guest_ancestry'],auth=self.auth,
+          preflight=preflight,guest_preflight=guest_preflight,readiness=readiness,ready=ready_pin,running=running_pin,
+          server_capture=self.capture('server',self.d['server'],7),guest_capture=self.capture('guest',self.d['launcher'],1),
+          server_returncode=7,guest_returncode=1,reason='stop_requested',cleanup={key:True for key in n.CLEANUP_KEYS},
+          sources_after=dict(sources=self.a['sources'],python=self.a['python'],tools=self.a['server']['tools'],auth=self.auth),
+          stop_requested=True,elapsed_ms=1000,guest_job=job,guest_inputs=guest_inputs,guest_terminal=terminal,boot_claim=boot)
+        self.save(self.root/'stop-v1.json',dict(version=1,protocol=PROTOCOL,admission_sha256=self.admission['sha256'],action='stop'))
+        self.result_pin=self.save(self.root/'worker-result-v1.json',self.result)
+
+    def save(self,path,value):
+        path=Path(path).resolve(strict=False)
+        if path.drive.upper()!='D:'or not path.is_relative_to(self.base):raise AssertionError('synthetic write escaped test root')
+        path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(value if type(value)is bytes else self.env.encoded(value));self.writes.append(path)
+        return self.env.binding(path)
+
+    def capture(self,kind,identity,code):
+        stdout=self.save(self.root/(kind+'-output-v1/owner-stdout-v1.bin'),b'original synthetic '+kind.encode()+b' output\n')
+        stderr=self.save(self.root/(kind+'-output-v1/owner-stderr-v1.bin'),b'')
+        return self.save(self.root/(kind+'-capture-v1.json'),dict(version=1,protocol=PROTOCOL,server=identity,status='terminated',returncode=code,
+          stdout=stdout,stderr=stderr,stdout_bytes=stdout['bytes'],stderr_bytes=0,capture_complete=True,pipes_closed=True))
+
+    def mutate(self,key,change):
+        value=self.env.read_json(self.result[key]['path']);change(value);self.result[key]=self.save(self.result[key]['path'],value)
+        self.result_pin=self.save(self.result_pin['path'],self.result)
+
+    def validate(self):
+        from benchmarks import android_process_verification_v4 as reader
+        with patch.object(n,'GUEST_ROOT',PureWindowsPath(str(self.guest_root))),patch.object(n,'revalidate_inputs'):
+            return reader.verify_owned_target_result(self.result_pin,self.a,self.admission,self.request,self.d['worker'])
+
+
+@unittest.skipUnless(os.name=='nt','physical D synthetic full lifecycle graph')
+class ClosedLifecycleReaderTests(unittest.TestCase):
+    def refused(self,call):
+        from benchmarks.receipt_avd_environment import EnvironmentRefused
+        with self.assertRaises((n.TargetRefused,EnvironmentRefused,OSError)):call()
+
+    def test_complete_original_lifecycle_graph_replays_with_all_writes_in_synthetic_tree(self):
+        original=n.GUEST_ROOT;f=ClosedLifecycleFixture();self.assertEqual(f.validate(),f.result)
+        self.assertEqual(n.GUEST_ROOT,original);self.assertTrue(all(p.is_relative_to(f.base)for p in f.writes))
+        self.assertNotEqual(PureWindowsPath(str(f.guest_root)),original);self.assertEqual(f.result['server_returncode'],7)
+
+    def test_every_failed_cleanup_flag_and_missing_required_stage_refuses(self):
+        f=ClosedLifecycleFixture()
+        for key in n.CLEANUP_KEYS:
+            value=copy.deepcopy(f.result);value['cleanup'][key]=False;f.result_pin=f.save(f.result_pin['path'],value);self.refused(f.validate)
+        f.result_pin=f.save(f.result_pin['path'],f.result)
+        for key in('guest_inputs','guest_terminal','boot_claim','ready','guest_job','server_capture'):
+            value=copy.deepcopy(f.result);value[key]=None;f.result_pin=f.save(f.result_pin['path'],value);self.refused(f.validate)
+
+    def test_bound_capture_counts_process_identity_and_actual_terminal_return_are_required(self):
+        for key,change in(('server_capture',lambda v:v.update(stdout_bytes=v['stdout_bytes']+1)),
+                           ('guest_capture',lambda v:v['server'].update(pid=999)),
+                           ('guest_terminal',lambda v:v.update(wait_completed=False)),
+                           ('guest_terminal',lambda v:v.update(handle_closed=False))):
+            f=ClosedLifecycleFixture();f.mutate(key,change);self.refused(f.validate)
+
+    def test_guest_authorization_timer_and_prepared_configuration_cannot_be_reinterpreted(self):
+        for change in(lambda v:v['timer'].update(actual='60',effective=60,default_used=False,enabled=True),
+                      lambda v:v['facts'].update(available_memory=4*1024**3),
+                      lambda v:v.update(proposal=pin('D:/Synthetic/foreign-proposal.json'))):
+            f=ClosedLifecycleFixture();f.mutate('guest_inputs',change);self.refused(f.validate)
+
+    def test_raw_table_abi_masks_query_closure_and_job_membership_fail_closed(self):
+        for key,change in(('guest_preflight',lambda v:v.update(closed_mask=7)),
+                           ('ready',lambda v:v['guest_tables'][0].update(abi_checked=False)),
+                           ('guest_job',lambda v:v['processes'].pop())):
+            f=ClosedLifecycleFixture();f.mutate(key,change);self.refused(f.validate)
+
+
 if __name__=='__main__':unittest.main()

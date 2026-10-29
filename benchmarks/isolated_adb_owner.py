@@ -81,6 +81,11 @@ def _load_admission(path,sha):
 
 
 def _guards(admission,binding):
+    # Reject credential-named or wrong-format references before any shared
+    # byte validator can open them. Auth key metadata has its own path below.
+    for key,suffix in (("capabilities",".json"),("source_review",".md")):
+        path=file_guard._existing_D_file(admission[key]["path"],"source")
+        _need(path.suffix.lower()==suffix and path.name.casefold() not in ("adbkey","adbkey.pub"),"auth")
     lease.revalidate_inputs(admission)
     _need(_same(lease.source_bindings(),admission["sources"]),"source")
     _need(_same(file_guard._python_bindings(),admission["python"]),"python")

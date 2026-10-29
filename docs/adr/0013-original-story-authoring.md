@@ -69,3 +69,11 @@ LiteRT-LM public JSON-schema path handles non-finite schemas; the finite literal
 codec remains unchanged. A real author turn on the pinned model is a separate
 measurement gate. Scripted tests cannot establish creative quality, semantic
 consistency, physical-device performance or joined native callback drain.
+
+The portable provider schema enumerates every ordered unique visibility array
+over references0..3 (64 nonempty character choices,65 fact choices including
+empty). This replaces the pinned compiler's unsupported `uniqueItems` keyword
+without sorting or narrowing accepted proposal/provenance values. Existing
+native cross-field checks remain authoritative. The isolated strict native
+compiler/mask result and its Android/model limits are recorded in the
+[portability report](../native/AUTHOR_SCHEMA_PORTABILITY_2026-10-27.md).

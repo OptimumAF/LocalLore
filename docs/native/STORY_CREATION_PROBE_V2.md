@@ -1,5 +1,13 @@
 # Explicit starter creation and process probe v2
 
+Status: historical introduction of probe2 at the starter-creation checkpoint.
+The controller-result1 descriptions below preserve that checkpoint's scope.
+Current controller admission uses the later
+[creation/restoration result2 contract](CREATION_RESTORATION_RESULT_V2.md),
+which exports separate saved/command creation maps for both old producers.
+Its runtime evidence is recorded in the dated reports; historical decoding
+does not qualify a current run. The product probe remains version2.
+
 This source compatibility slice supports M09.02/M10.02. It is not new Android
 execution evidence. Earlier process-restoration results retain their original
 source, APK and probe-v1 attribution. The coordinator must compile and execute

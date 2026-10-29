@@ -52,8 +52,9 @@ def _same(left, right):
     return file_guard._same(left, right)
 
 
-def _read_json(pin, cap=2 * 1024 * 1024):
-    contract.binding(copy.deepcopy(pin))
+def _read_json(pin, cap=2 * 1024 * 1024, *, _contract=None):
+    selected = contract if _contract is None else _contract
+    selected.binding(copy.deepcopy(pin))
     _, value = file_guard._read_bound(Path(pin["path"]), pin["sha256"], cap, "source")
     environment.check_binding(pin)
     return value
@@ -186,8 +187,16 @@ def _check_ancestry(api, handles, chain):
               parent["creation_filetime"] <= child["creation_filetime"], "ancestry")
 
 
-class LiveOwnedTarget:
+class _LiveOwnedTarget:
     """One observer's held handles; never a borrowed job or target lifecycle owner."""
+
+    @property
+    def _contract(self):
+        raise OwnerRefused("owner_type")
+
+    @property
+    def _verification(self):
+        raise OwnerRefused("owner_type")
 
     def __init__(self, admission_binding, running_binding):
         self._closed = True
@@ -199,11 +208,11 @@ class LiveOwnedTarget:
             _need(os.name == "nt", "platform")
             self._admission_binding = copy.deepcopy(admission_binding)
             self._running_binding = copy.deepcopy(running_binding)
-            self._admission = contract.validate_admission(_read_json(self._admission_binding))
-            self._descriptor = contract.validate_running(_read_json(self._running_binding),
+            self._admission = self._contract.validate_admission(_read_json(self._admission_binding, _contract=self._contract))
+            self._descriptor = self._contract.validate_running(_read_json(self._running_binding, _contract=self._contract),
                 self._admission, self._admission_binding)
             _need(Path(self._running_binding["path"]) == Path(self._admission["root"]) / "running-v1.json", "binding")
-            contract.revalidate_inputs(self._admission)
+            self._contract.revalidate_inputs(self._admission)
             self._api = _ProcessApi()
             self._handles = primitives.ProcessHandles(self._api)
             _, self._caller = self._handles.add(os.getpid())
@@ -254,7 +263,7 @@ class LiveOwnedTarget:
         _check_ancestry(self._api, self._handles, self._descriptor["guest_ancestry"])
         stop = Path(self._admission["root"]) / "stop-v1.json"
         if os.path.lexists(stop):
-            contract.check_stop(_read_json(environment.binding(stop)), self._admission_binding["sha256"])
+            self._contract.check_stop(_read_json(environment.binding(stop), _contract=self._contract), self._admission_binding["sha256"])
             raise OwnerRefused("stop")
 
     def guard(self, min_seconds=0):
@@ -262,25 +271,33 @@ class LiveOwnedTarget:
         self.fast_guard()
         _need(self._deadline - time.monotonic() >= min_seconds and
               self._descriptor["deadline_epoch"] - time.time() >= min_seconds, "deadline")
-        contract.revalidate_inputs(self._admission)
-        _need(_same(_read_json(self._admission_binding), self._admission) and
-              _same(_read_json(self._running_binding), self._descriptor), "source")
+        self._contract.revalidate_inputs(self._admission)
+        _need(_same(_read_json(self._admission_binding, _contract=self._contract), self._admission) and
+              _same(_read_json(self._running_binding, _contract=self._contract), self._descriptor), "source")
         observation, tables = _observe(self._api, guest=True)
-        contract.validate_guest_observation(observation, self._descriptor["guest"], self._descriptor["server"])
+        self._contract.validate_guest_observation(observation, self._descriptor["guest"], self._descriptor["server"])
         server_contract._tables(tables, observation)
         self.fast_guard()
 
     def _bracket(self):
         self.guard()
         result = {key: copy.deepcopy(self._descriptor[key]) for key in ("owner", "worker", "server", "launcher", "guest")}
-        result.update(sources=contract.source_bindings(), python=file_guard._python_bindings(),
+        result.update(sources=self._contract.source_bindings(), python=file_guard._python_bindings(),
                       server_alive=True, guest_alive=True)
         return result
 
     def claim_once(self, kind, operation_sha256):
         self.guard()
-        _need(kind in ("import", "author") and type(operation_sha256) is str and
+        _need(kind in self._contract.CLAIM_KINDS and type(operation_sha256) is str and
               re.fullmatch("[0-9a-f]{64}", operation_sha256) is not None, "claim")
+        prerequisite = None
+        if kind == "restart":
+            path = Path(self._admission["root"]) / "restart-prerequisite-v1.json"
+            prerequisite = environment.binding(path)
+            self._verification.verify_restart_prerequisite(copy.deepcopy(prerequisite), self.admission,
+                self.admission_binding, self.running_binding, self.caller)
+            environment.check_binding(prerequisite)
+            self.guard()
         root = Path(self._admission["root"]) / "claims-v1"
         if not os.path.lexists(root):
             try:
@@ -290,9 +307,10 @@ class LiveOwnedTarget:
         environment.safe_path(root, directory=True)
         path = output_control.validate_output(str(root / (kind + "-v1.json")))
         # A durable claim is spent even if a later pre-dispatch guard refuses.
-        environment.create_json(path, dict(version=1, protocol=contract.PROTOCOL,
-            admission_sha256=self._admission_binding["sha256"], kind=kind,
-            operation_sha256=operation_sha256, caller=self.caller))
+        environment.create_json(path, self._contract.claim_record(self.admission_binding,
+            self.caller, kind, operation_sha256, prerequisite=copy.deepcopy(prerequisite)))
+        if prerequisite is not None:
+            environment.check_binding(prerequisite)
         self.guard()
 
     def _query(self, kind):
@@ -312,12 +330,12 @@ class LiveOwnedTarget:
             item.bind(("127.0.0.1", 0))
             record["anchor"] = _anchor(item)
             item.settimeout(_left(until))
-            item.connect(("127.0.0.1", contract.PORT))
+            item.connect(("127.0.0.1", self._contract.PORT))
             record["endpoint"] = _endpoint(item)
             record["brackets"]["before"] = self._bracket()
             observation, tables = _observe(self._api)
             record["observation_before"], record["tables_before"] = observation, tables
-            contract.validate_observation(observation, self._descriptor["server"], self._caller,
+            self._contract.validate_observation(observation, self._descriptor["server"], self._caller,
                 record["endpoint"], self._descriptor["guest"], after=False)
             server_contract._tables(tables, observation)
             _need(_same(_anchor(item), record["anchor"]), "tuple")
@@ -329,14 +347,14 @@ class LiveOwnedTarget:
                 _need(bytes(received) == b"OKAY00040029", "version")
             else:
                 if self._descriptor["transport_id"] is None:
-                    _waiting_devices(bytes(received)[8:])
+                    _waiting_devices(bytes(received)[8:], _contract=self._contract)
                 else:
-                    _need(contract.device_transport(bytes(received)[8:]) == self._descriptor["transport_id"], "target")
+                    _need(self._contract.device_transport(bytes(received)[8:]) == self._descriptor["transport_id"], "target")
             _need(_same(_anchor(item), record["anchor"]) and
                   _same(_endpoint(item), record["endpoint"]), "tuple")
             observation, tables = _observe(self._api)
             record["observation_after"], record["tables_after"] = observation, tables
-            contract.validate_observation(observation, self._descriptor["server"], self._caller,
+            self._contract.validate_observation(observation, self._descriptor["server"], self._caller,
                 record["endpoint"], self._descriptor["guest"], after=True)
             server_contract._tables(tables, observation)
             record["brackets"]["after"] = self._bracket()
@@ -359,20 +377,20 @@ class LiveOwnedTarget:
     def prove(self, path, session, context, socket, anchor, after=False):
         """Observe the same held client socket, plus two separately closed queries."""
         self.guard()
-        session = contract.validate_session(copy.deepcopy(session), self._admission)
+        session = self._contract.validate_session(copy.deepcopy(session), self._admission)
         _need(_same(session["descriptor"], self._descriptor) and
               _same(session["caller"], self._caller) and type(after) is bool, "session")
         expected = Path(session["root"]) / "proofs" / ("command-%04d-%s.json" % (context["index"], context["phase"]))
         _need(Path(path) == expected and context["phase"] == ("after" if after else "before"), "proof")
         path = output_control.validate_output(str(path))
-        session_binding = environment.binding(Path(session["root"]) / "sdk-session-v4.json")
-        _need(_same(_read_json(session_binding), session), "session")
+        session_binding = environment.binding(Path(session["root"]) / self._contract.SESSION_FILE)
+        _need(_same(_read_json(session_binding, _contract=self._contract), session), "session")
         _need(_same(_anchor(socket), anchor), "tuple")
         endpoint = _endpoint(socket)
         begin = time.monotonic()
         before = self._bracket()
         observation, tables = _observe(self._api)
-        contract.validate_observation(observation, self._descriptor["server"], self._caller,
+        self._contract.validate_observation(observation, self._descriptor["server"], self._caller,
             endpoint, self._descriptor["guest"], after=after)
         server_contract._tables(tables, observation)
         queries = []
@@ -381,27 +399,27 @@ class LiveOwnedTarget:
             query, failure = self._query(kind)
             queries.append(query)
             if failure is not None:
-                environment.create_json(query_path, dict(version=1, protocol=contract.PROOF_PROTOCOL,
+                environment.create_json(query_path, dict(version=1, protocol=self._contract.PROOF_PROTOCOL,
                     admission=self.admission_binding, running=self.running_binding, caller=self.caller, queries=queries))
                 raise OwnerRefused("query") from None
-        environment.create_json(query_path, dict(version=1, protocol=contract.PROOF_PROTOCOL,
+        environment.create_json(query_path, dict(version=1, protocol=self._contract.PROOF_PROTOCOL,
             admission=self.admission_binding, running=self.running_binding, caller=self.caller, queries=queries))
-        contract.validate_query_bundle(_read_json(environment.binding(query_path)), self._descriptor,
+        self._contract.validate_query_bundle(_read_json(environment.binding(query_path), _contract=self._contract), self._descriptor,
             self._caller, self.admission_binding, self.running_binding)
         _need(_same(_anchor(socket), anchor) and _same(_endpoint(socket), endpoint), "tuple")
         after_bracket = self._bracket()
-        proof = dict(version=1, protocol=contract.PROOF_PROTOCOL, session=session_binding,
+        proof = dict(version=1, protocol=self._contract.PROOF_PROTOCOL, session=session_binding,
             context=copy.deepcopy(context), admission=self.admission_binding, running=self.running_binding,
             caller=self.caller, endpoint=endpoint, anchor=copy.deepcopy(anchor),
             brackets=dict(before=before, after=after_bracket), observation=observation, tables=tables,
             version_response_hex=queries[0]["response_hex"], devices_response_hex=queries[1]["response_hex"],
             queries=environment.binding(query_path), after_request=after,
             elapsed_ms=math.ceil(max(0, time.monotonic() - begin) * 1000))
-        contract.validate_proof(copy.deepcopy(proof), session, copy.deepcopy(context))
+        self._contract.validate_proof(copy.deepcopy(proof), session, copy.deepcopy(context))
         self.guard()
         environment.create_json(path, proof)
         binding = environment.binding(path)
-        verification.verify_proof(binding, session, copy.deepcopy(context))
+        self._verification.verify_proof(binding, session, copy.deepcopy(context))
         self.guard()
         return binding
 
@@ -409,6 +427,23 @@ class LiveOwnedTarget:
         self._closed = True
         return self._handles.close() if self._handles is not None else True
 
+
+
+class LiveOwnedTarget(_LiveOwnedTarget):
+    """Fixed original owner profile; no caller-selected executable policy."""
+    def __init__(self, admission_binding, running_binding):
+        _need(type(self) is LiveOwnedTarget, "owner_type")
+        super().__init__(admission_binding, running_binding)
+
+    @property
+    def _contract(self):
+        _need(type(self) is LiveOwnedTarget, "owner_type")
+        return contract
+
+    @property
+    def _verification(self):
+        _need(type(self) is LiveOwnedTarget, "owner_type")
+        return verification
 
 def _left(until):
     value = until - time.monotonic()
@@ -450,8 +485,9 @@ def _receive_host(item, received, until, guard):
             _need(expected <= 4104 and len(received) <= expected, "framing")
 
 
-def _waiting_devices(raw):
-    state, transport = contract.device_status(raw)
+def _waiting_devices(raw, *, _contract=None):
+    selected = contract if _contract is None else _contract
+    state, transport = selected.device_status(raw)
     return transport if state == "device" else None
 
 
@@ -468,18 +504,30 @@ class _InitialServerView:
         return getattr(self.runtime, key)
 
     def guard(self):
-        self.runtime.guard()
+        # No frame or connection is authorized by this cheap outer check.
+        # Each proof bracket below still performs the complete byte guard.
+        self.runtime.fast_guard()
+        self.auth.check()
         environment.check_binding(self.binding)
 
     def bracket(self, item, anchor):
-        self.guard()
+        self.runtime.guard()
+        environment.check_binding(self.binding)
         _need(_same(_anchor(item), anchor), "tuple")
         return dict(worker=copy.deepcopy(self.worker), server=copy.deepcopy(self.server),
             sources=server_contract.source_bindings(), tools=copy.deepcopy(self.admission["tools"]),
             auth=self.auth.check(), server_alive=True, socket=copy.deepcopy(anchor))
 
 
-class _TargetRuntime:
+class _TargetRuntimeCore:
+    @property
+    def _contract(self):
+        raise OwnerRefused("owner_type")
+
+    @property
+    def _verification(self):
+        raise OwnerRefused("owner_type")
+
     def __init__(self, request, request_binding, root):
         self.request = copy.deepcopy(request)
         self.request_binding = copy.deepcopy(request_binding)
@@ -530,10 +578,10 @@ class _TargetRuntime:
             self.processes.guard()
             _left(until)
             time.sleep(.02)
-        value = _read_json(environment.binding(path))
+        value = _read_json(environment.binding(path), _contract=self._contract)
         _need(_same(value, dict(worker=self.worker, request=self.request_binding)), "receipt")
         self.processes.guard()
-        contract.revalidate_inputs(self.admission)
+        self._contract.revalidate_inputs(self.admission)
         self.started_epoch = time.time()
         self.until = self._deadline = time.monotonic() + self.admission["seconds"]
 
@@ -550,14 +598,14 @@ class _TargetRuntime:
                 capture.guard()
         stop = self.root / "stop-v1.json"
         if os.path.lexists(stop):
-            contract.check_stop(_read_json(environment.binding(stop)), self.binding["sha256"])
+            self._contract.check_stop(_read_json(environment.binding(stop), _contract=self._contract), self.binding["sha256"])
             self.stop_requested = True
             raise OwnerRefused("stop_requested")
         _left(self.until)
 
     def guard(self):
         self.fast_guard()
-        contract.revalidate_inputs(self.admission)
+        self._contract.revalidate_inputs(self.admission)
         environment.check_binding(self.binding)
         environment.check_binding(self.request_binding)
         self.auth.check()
@@ -615,7 +663,7 @@ class _TargetRuntime:
         actual = configuration.get("test.quitAfterBootTimeOut")
         _need(actual in (None, "-1", "0"), "timer")
         facts = environment.resource_facts(self.proposal)
-        value = dict(version=1, protocol=contract.PROTOCOL, admission=self.admission_binding,
+        value = dict(version=1, protocol=self._contract.PROTOCOL, admission=self.admission_binding,
             proposal=copy.deepcopy(guest["proposal"]), authorization=copy.deepcopy(guest["authorization"]),
             prepared=copy.deepcopy(self.proposal["prepared"]), prepare_result=copy.deepcopy(self.proposal["prepare_result"]),
             token=copy.deepcopy(self.proposal["token"]), original_avd=copy.deepcopy(self.proposal["old_avd"]),
@@ -624,7 +672,7 @@ class _TargetRuntime:
                 effective=-1 if actual is None else int(actual), default_used=actual is None, enabled=False))
         path = self.root / "guest-inputs-v1.json"
         environment.create_json(path, value)
-        verification.verify_guest_inputs(environment.binding(path), self.admission, self.binding)
+        self._verification.verify_guest_inputs(environment.binding(path), self.admission, self.binding)
         self.guard()
         return environment.binding(path)
 
@@ -632,8 +680,8 @@ class _TargetRuntime:
         self.guard()
         _need(self.proposal is not None, "guest")
         environment.verify_prepared(self.proposal, initial=True)
-        claim_path = Path(self.admission["guest"]["root"]) / "owned-target-boot-claim-v1.json"
-        environment.create_json(claim_path, dict(version=1, protocol=contract.PROTOCOL,
+        claim_path = Path(self.admission["guest"]["root"]) / self._contract.BOOT_CLAIM_FILE
+        environment.create_json(claim_path, dict(version=1, protocol=self._contract.PROTOCOL,
             admission=self.admission_binding, worker=copy.deepcopy(self.worker),
             proposal=copy.deepcopy(self.admission["guest"]["proposal"])))
         scoped = environment.scoped_env(self.proposal)
@@ -643,7 +691,7 @@ class _TargetRuntime:
         for key in ("ANDROID_AVD_HOME", "ANDROID_USER_HOME", "ANDROID_EMULATOR_HOME", "ANDROID_SDK_ROOT", "ANDROID_HOME"):
             if key in scoped:
                 child_env[key] = scoped[key]
-        child_env["ANDROID_ADB_SERVER_PORT"] = str(contract.PORT)
+        child_env["ANDROID_ADB_SERVER_PORT"] = str(self._contract.PORT)
         command = environment.emulator_command(self.proposal) + ["-adb-path", self.admission["guest"]["refuser"]["path"]]
         _need("-no-direct-adb" not in command and not any("quit-after-boot" in arg for arg in command), "guest")
         self.guest_capture = primitives.ServerCapture(self.root / "guest-output-v1")
@@ -723,7 +771,7 @@ class _TargetRuntime:
             for _ in range(120):
                 self.guard()
                 observation, tables = _observe(self.api, guest=True)
-                contract.validate_guest_prefix(observation, self.guest, self.server)
+                self._contract.validate_guest_prefix(observation, self.guest, self.server)
                 server_contract._tables(tables, observation)
                 records.append(dict(elapsed_ms=math.ceil((time.monotonic() - begin) * 1000),
                     stage="guest_ports", observation=observation, tables=tables, queries=None))
@@ -731,7 +779,7 @@ class _TargetRuntime:
                 listeners = {(row["local_port"], row["family"]) for row in observation["rows"]
                     if row["remote_port"] == 0}
                 if {(5592, 2), (5593, 2)} <= listeners:
-                    contract.validate_guest_observation(observation, self.guest, self.server)
+                    self._contract.validate_guest_observation(observation, self.guest, self.server)
                     break
                 time.sleep(min(.25, _left(until)))
             else:
@@ -742,7 +790,7 @@ class _TargetRuntime:
                 self.guard()
                 _left(until)
                 observation, tables = _observe(self.api, guest=True)
-                contract.validate_guest_observation(observation, self.guest, self.server)
+                self._contract.validate_guest_observation(observation, self.guest, self.server)
                 queries = []
                 failure = None
                 for kind in ("version", "devices"):
@@ -754,16 +802,16 @@ class _TargetRuntime:
                         break
                 transport_id = None
                 if failure is None:
-                    transport_id = _waiting_devices(bytes.fromhex(queries[1]["response_hex"])[8:])
+                    transport_id = _waiting_devices(bytes.fromhex(queries[1]["response_hex"])[8:], _contract=self._contract)
                 path = self.root / ("target-registration-v1.json" if transport_id is not None else
                                     "registration-%04d-v1.json" % index)
-                bundle = dict(version=1, protocol=contract.PROOF_PROTOCOL, admission=self.admission_binding,
+                bundle = dict(version=1, protocol=self._contract.PROOF_PROTOCOL, admission=self.admission_binding,
                     running=None, caller=self.caller, queries=queries)
                 environment.create_json(path, bundle)
                 records.append(dict(elapsed_ms=math.ceil((time.monotonic() - begin) * 1000),
                     stage="registration", observation=observation, tables=tables, queries=environment.binding(path)))
                 _need(failure is None, "registration")
-                contract.validate_query_bundle(bundle, self._descriptor, self._caller, self.binding, None,
+                self._contract.validate_query_bundle(bundle, self._descriptor, self._caller, self.binding, None,
                     require_device=False)
                 _left(until)
                 if transport_id is not None:
@@ -774,29 +822,29 @@ class _TargetRuntime:
                     _need(all(value["pid"] in roster for value in identities.values()), "job")
                     environment.create_json(readiness_path, records)
                     job_path = self.root / "guest-job-v1.json"
-                    environment.create_json(job_path, dict(version=1, protocol=contract.PROTOCOL,
+                    environment.create_json(job_path, dict(version=1, protocol=self._contract.PROTOCOL,
                         worker=copy.deepcopy(self.worker), processes=roster, identities=identities, checked=True,
                         source="QueryInformationJobObject(NULL,JobObjectBasicProcessIdList)"))
-                    ready = dict(version=1, protocol=contract.PROTOCOL, admission=self.admission_binding,
+                    ready = dict(version=1, protocol=self._contract.PROTOCOL, admission=self.admission_binding,
                         identities={key: copy.deepcopy(self._descriptor[key]) for key in
                             ("owner", "worker", "server", "launcher", "guest")},
                         guest_ancestry=copy.deepcopy(self.guest_ancestry), guest_job=environment.binding(job_path),
                         guest_observation=observation, guest_tables=tables, queries=environment.binding(path),
-                        sources=contract.source_bindings(), python=file_guard._python_bindings())
+                        sources=self._contract.source_bindings(), python=file_guard._python_bindings())
                     ready_path = self.root / "target-ready-v1.json"
                     self.guard()
                     environment.create_json(ready_path, ready)
-                    descriptor = dict(version=1, protocol=contract.PROTOCOL, admission=self.admission_binding,
+                    descriptor = dict(version=1, protocol=self._contract.PROTOCOL, admission=self.admission_binding,
                         run_id=self.admission["run_id"], root=self.admission["root"],
                         **{key: copy.deepcopy(self._descriptor[key]) for key in ("owner", "worker", "server", "launcher", "guest")},
                         guest_ancestry=copy.deepcopy(self.guest_ancestry), started_epoch=self.started_epoch,
-                        deadline_epoch=self.started_epoch + self.admission["seconds"], sdk_port=contract.PORT,
+                        deadline_epoch=self.started_epoch + self.admission["seconds"], sdk_port=self._contract.PORT,
                         console_port=5592, adb_port=5593, serial="emulator-5592", transport_id=transport_id,
-                        sources=contract.source_bindings(), python=file_guard._python_bindings(), ready=environment.binding(ready_path))
-                    contract.validate_running(descriptor, self.admission, self.binding)
-                    contract.validate_ready(ready, descriptor, self.admission)
-                    contract.validate_guest_job(_read_json(environment.binding(job_path)), descriptor)
-                    contract.validate_query_bundle(bundle, descriptor, self.worker, self.binding, None)
+                        sources=self._contract.source_bindings(), python=file_guard._python_bindings(), ready=environment.binding(ready_path))
+                    self._contract.validate_running(descriptor, self.admission, self.binding)
+                    self._contract.validate_ready(ready, descriptor, self.admission)
+                    self._contract.validate_guest_job(_read_json(environment.binding(job_path), _contract=self._contract), descriptor)
+                    self._contract.validate_query_bundle(bundle, descriptor, self.worker, self.binding, None)
                     environment.create_json(self.root / "running-v1.json", descriptor)
                     self._descriptor = descriptor
                     self._running_binding = environment.binding(self.root / "running-v1.json")
@@ -809,13 +857,30 @@ class _TargetRuntime:
             if not os.path.lexists(readiness_path):
                 environment.create_json(readiness_path, records)
 
-    _query = LiveOwnedTarget._query
-    _bracket = LiveOwnedTarget._bracket
+    _query = _LiveOwnedTarget._query
+    _bracket = _LiveOwnedTarget._bracket
 
 
-def _guest_preflight(api):
+
+class _TargetRuntime(_TargetRuntimeCore):
+    def __init__(self, request, request_binding, root):
+        _need(type(self) is _TargetRuntime, "owner_type")
+        super().__init__(request, request_binding, root)
+
+    @property
+    def _contract(self):
+        _need(type(self) is _TargetRuntime, "owner_type")
+        return contract
+
+    @property
+    def _verification(self):
+        _need(type(self) is _TargetRuntime, "owner_type")
+        return verification
+
+def _guest_preflight(api, *, _contract=None):
+    selected = contract if _contract is None else _contract
     observation, tables = _observe(api, guest=True)
-    contract._rows(observation, "ports", [5592, 5593])
+    selected._rows(observation, "ports", [5592, 5593])
     server_contract._tables(tables, observation)
     _need(not observation["rows"], "port")
     created = attempted = closed = 0
@@ -880,7 +945,8 @@ def _close_popen(child, capture, *, allow_terminate):
     return result, code
 
 
-def _capture_binding(runtime, kind, result, code):
+def _capture_binding(runtime, kind, result, code, *, _contract=None):
+    selected = contract if _contract is None else _contract
     child = runtime.child if kind == "server" else runtime.guest_child
     identity = runtime.server if kind == "server" else runtime.launcher
     capture = runtime.capture if kind == "server" else runtime.guest_capture
@@ -891,7 +957,7 @@ def _capture_binding(runtime, kind, result, code):
     sizes = capture.capture.sizes
     _need(type(sizes) is list and len(sizes) == 2 and all(type(n) is int and n >= 0 for n in sizes), "capture")
     root = runtime.root / (kind + "-output-v1")
-    value = dict(version=1, protocol=contract.PROTOCOL, server=copy.deepcopy(identity),
+    value = dict(version=1, protocol=selected.PROTOCOL, server=copy.deepcopy(identity),
         status="not_started" if child is None else "terminated" if result["terminate_attempted"] else "exited",
         returncode=code, stdout=environment.binding(root / "owner-stdout-v1.bin"),
         stderr=environment.binding(root / "owner-stderr-v1.bin"), stdout_bytes=sizes[0], stderr_bytes=sizes[1],
@@ -902,8 +968,9 @@ def _capture_binding(runtime, kind, result, code):
     return environment.binding(path)
 
 
-def _cleanup(runtime, preflight, guest_preflight):
-    cleanup = {key: False for key in contract.CLEANUP_KEYS}
+def _cleanup(runtime, preflight, guest_preflight, *, _contract=None):
+    selected = contract if _contract is None else _contract
+    cleanup = {key: False for key in selected.CLEANUP_KEYS}
     cleanup["preflight_sockets_closed"] = (preflight is not None and
         preflight["created_mask"] == preflight["close_attempted_mask"] == preflight["closed_mask"] == 1)
     cleanup["guest_preflight_sockets_closed"] = (guest_preflight is not None and
@@ -926,7 +993,7 @@ def _cleanup(runtime, preflight, guest_preflight):
         except (OSError, ValueError):
             pass
         vm_closed = runtime.processes.release(runtime.guest_stop_handle)
-        terminal = dict(version=1, protocol=contract.PROTOCOL, guest=copy.deepcopy(runtime.guest),
+        terminal = dict(version=1, protocol=selected.PROTOCOL, guest=copy.deepcopy(runtime.guest),
             terminate_attempted=vm_terminate, wait_completed=vm_wait, returncode=vm_code, handle_closed=vm_closed)
         path = runtime.root / "guest-terminal-v1.json"
         try:
@@ -949,11 +1016,11 @@ def _cleanup(runtime, preflight, guest_preflight):
         cleanup["server_" + key] = value
     server_capture = guest_capture = None
     try:
-        server_capture = _capture_binding(runtime, "server", server_result, server_code)
+        server_capture = _capture_binding(runtime, "server", server_result, server_code, _contract=selected)
     except (OSError, ValueError, KeyError):
         cleanup["server_output_capture_complete"] = False
     try:
-        guest_capture = _capture_binding(runtime, "guest", guest_result, guest_code)
+        guest_capture = _capture_binding(runtime, "guest", guest_result, guest_code, _contract=selected)
     except (OSError, ValueError, KeyError):
         cleanup["guest_output_capture_complete"] = False
     try:
@@ -973,28 +1040,30 @@ def _reason(error, default="owner"):
     return value if value in allowed else default
 
 
-def _validate_request(value, binding):
+def _validate_request(value, binding, *, _contract=None):
+    selected = contract if _contract is None else _contract
     keys = {"version", "protocol", "admission", "validated_admission", "owner", "sources", "python",
             "worker_script", "owner_seconds"}
     _need(type(value) is dict and set(value) == keys, "receipt")
-    contract._int(value["version"], 1, 1)
-    _need(value["protocol"] == contract.PROTOCOL, "receipt")
-    admitted = contract.validate_admission(copy.deepcopy(value["validated_admission"]))
-    _need(_same(_read_json(value["admission"]), admitted), "admission")
+    selected._int(value["version"], 1, 1)
+    _need(value["protocol"] == selected.PROTOCOL, "receipt")
+    admitted = selected.validate_admission(copy.deepcopy(value["validated_admission"]))
+    _need(_same(_read_json(value["admission"], _contract=selected), admitted), "admission")
     _need(Path(binding["path"]) == Path(admitted["root"]) / "request-v1.json" and
           _same(value["sources"], admitted["sources"]) and _same(value["python"], admitted["python"]) and
           type(value["owner_seconds"]) is int and value["owner_seconds"] == admitted["seconds"] + 30,
           "receipt")
-    contract._process(value["owner"])
+    selected._process(value["owner"])
     _need(value["owner"]["executable"] == admitted["python"]["executable"]["path"] and
-          _same(value["worker_script"], environment.binding(Path(__file__).resolve())), "source")
-    contract.revalidate_inputs(admitted)
+          _same(value["worker_script"], environment.binding((ROOT / "benchmarks" / selected.OWNER_SCRIPT))), "source")
+    selected.revalidate_inputs(admitted)
     return copy.deepcopy(value)
 
 
-def _run_worker(request, request_binding, root):
+def _run_worker(request, request_binding, root, *, _runtime_type=_TargetRuntime):
     begin = time.monotonic()
-    runtime = _TargetRuntime(request, request_binding, root)
+    runtime = _runtime_type(request, request_binding, root)
+    selected = runtime._contract
     preflight = guest_preflight = None
     preflight_binding = guest_preflight_binding = inputs_binding = ready_binding = job_binding = None
     sources_after = None
@@ -1015,7 +1084,7 @@ def _run_worker(request, request_binding, root):
         runtime.start_server()
         runtime.initial_server()
         inputs_binding = runtime.prepare_guest()
-        guest_preflight = _guest_preflight(runtime.api)
+        guest_preflight = _guest_preflight(runtime.api, _contract=selected)
         environment.create_json(root / "guest-preflight-v1.json", guest_preflight)
         guest_preflight_binding = environment.binding(root / "guest-preflight-v1.json")
         _need(guest_preflight["created_mask"] == guest_preflight["close_attempted_mask"] ==
@@ -1029,24 +1098,24 @@ def _run_worker(request, request_binding, root):
         reason = _reason(error)
     finally:
         try:
-            contract.revalidate_inputs(runtime.admission)
+            selected.revalidate_inputs(runtime.admission)
             environment.check_binding(runtime.binding)
             environment.check_binding(request_binding)
             _need(runtime.auth.key is not None and runtime.auth.descriptor is not None, "auth")
-            sources_after = dict(sources=contract.source_bindings(), python=file_guard._python_bindings(),
+            sources_after = dict(sources=selected.source_bindings(), python=file_guard._python_bindings(),
                 tools=copy.deepcopy(runtime.admission["server"]["tools"]), auth=runtime.auth.check())
         except BaseException as error:
             if reason in ("stop_requested", "expired"):
                 reason = _reason(error, "source")
-        cleanup, server_code, guest_code, server_capture, guest_capture, terminal = _cleanup(runtime, preflight, guest_preflight)
+        cleanup, server_code, guest_code, server_capture, guest_capture, terminal = _cleanup(runtime, preflight, guest_preflight, _contract=selected)
         if reason in ("stop_requested", "expired") and (
                 not all(cleanup.values()) or terminal is None or server_capture is None or guest_capture is None):
             reason = "cleanup"
         if runtime.auth.failed_close or runtime.processes is not None and runtime.processes.failed_close:
             reason = "cleanup"
         readiness = root / "readiness-v1.json"
-        boot_claim = Path(runtime.admission["guest"]["root"]) / "owned-target-boot-claim-v1.json"
-        value = dict(version=1, protocol=contract.PROTOCOL, admission=copy.deepcopy(runtime.binding),
+        boot_claim = Path(runtime.admission["guest"]["root"]) / selected.BOOT_CLAIM_FILE
+        value = dict(version=1, protocol=selected.PROTOCOL, admission=copy.deepcopy(runtime.binding),
             request=copy.deepcopy(request_binding), worker=copy.deepcopy(runtime.worker),
             server=copy.deepcopy(runtime.server), launcher=copy.deepcopy(runtime.launcher), guest=copy.deepcopy(runtime.guest),
             guest_ancestry=copy.deepcopy(runtime.guest_ancestry), auth=copy.deepcopy(runtime.auth.descriptor),
@@ -1058,33 +1127,37 @@ def _run_worker(request, request_binding, root):
             stop_requested=runtime.stop_requested, elapsed_ms=math.ceil(max(0, time.monotonic() - begin) * 1000),
             guest_job=job_binding, guest_inputs=inputs_binding, guest_terminal=terminal,
             boot_claim=environment.binding(boot_claim) if os.path.lexists(boot_claim) else None)
-        _need(set(value) == contract.WORKER_KEYS, "output")
+        _need(set(value) == selected.WORKER_KEYS, "output")
         environment.create_json(root / "worker-result-v1.json", value)
     return 0 if reason in ("stop_requested", "expired") and runtime.running_binding is not None else 1
 
 
-def _worker():
+def _worker(*, _contract=None, _runtime_type=_TargetRuntime):
+    selected = contract if _contract is None else _contract
     try:
         raw = sys.stdin.buffer.read(131073)
         _need(type(raw) is bytes and raw.startswith(BARRIER) and len(raw) <= 131072, "receipt")
         value = environment.decode_json(raw[len(BARRIER):])
         _need(type(value) is dict and set(value) == {"request"}, "receipt")
         binding = value["request"]
-        request = _validate_request(_read_json(binding), binding)
-        return _run_worker(request, binding, Path(request["validated_admission"]["root"]))
+        request = _validate_request(_read_json(binding, _contract=selected), binding, _contract=selected)
+        return _run_worker(request, binding, Path(request["validated_admission"]["root"]), _runtime_type=_runtime_type)
     except BaseException as error:
         print(json.dumps(dict(qualified_target=False, reason=_reason(error), feature_acceptance=False)), flush=True)
         return 1
 
 
-def _inputs(admission, binding):
-    contract.revalidate_inputs(copy.deepcopy(admission))
-    _need(_same(_read_json(binding), admission), "admission")
+def _inputs(admission, binding, *, _contract=None):
+    selected = contract if _contract is None else _contract
+    selected.revalidate_inputs(copy.deepcopy(admission))
+    _need(_same(_read_json(binding, _contract=selected), admission), "admission")
 
 
-def _parent(admission_binding, admission):
+def _parent(admission_binding, admission, *, _contract=None, _verification=None):
+    selected = contract if _contract is None else _contract
+    reader = verification if _verification is None else _verification
     out = output_control.validate_output(admission["root"])
-    _inputs(admission, admission_binding)
+    _inputs(admission, admission_binding, _contract=selected)
     output_control._prepare_environment()
     api, handles = _ProcessApi(), None
     qualified, reason = False, "owner"
@@ -1096,11 +1169,11 @@ def _parent(admission_binding, admission):
         owner_handle, owner_identity = handles.add(os.getpid())
         _need(owner_identity["executable"] == admission["python"]["executable"]["path"], "identity")
         out.mkdir(exist_ok=False)
-        request = dict(version=1, protocol=contract.PROTOCOL, admission=copy.deepcopy(admission_binding),
+        request = dict(version=1, protocol=selected.PROTOCOL, admission=copy.deepcopy(admission_binding),
             validated_admission=copy.deepcopy(admission), owner=copy.deepcopy(owner_identity),
             sources=copy.deepcopy(admission["sources"]), python=copy.deepcopy(admission["python"]),
-            worker_script=environment.binding(Path(__file__).resolve()), owner_seconds=admission["seconds"] + 30)
-        _need(set(request) == contract.REQUEST_KEYS, "output")
+            worker_script=environment.binding((ROOT / "benchmarks" / selected.OWNER_SCRIPT)), owner_seconds=admission["seconds"] + 30)
+        _need(set(request) == selected.REQUEST_KEYS, "output")
         environment.create_json(out / "request-v1.json", request)
         request_binding = environment.binding(out / "request-v1.json")
         # The legacy supervisor owns a different stop schema. Its bounded raw
@@ -1113,7 +1186,7 @@ def _parent(admission_binding, admission):
             handles.guard()
             _, expected_worker = handles.add(child.pid)
             _need(expected_worker["executable"] == admission["python"]["executable"]["path"], "identity")
-            _inputs(admission, admission_binding)
+            _inputs(admission, admission_binding, _contract=selected)
             environment.check_binding(request_binding)
             pending = out / "started.pending-v1.json"
             environment.create_json(pending, dict(worker=copy.deepcopy(expected_worker), request=copy.deepcopy(request_binding)))
@@ -1123,22 +1196,22 @@ def _parent(admission_binding, admission):
             started_binding = environment.binding(out / "started-v1.json")
             return True
 
-        owner = environment.supervise([sys.executable, "-I", "-S", "-B", str(Path(__file__).resolve()), "_worker"],
+        owner = environment.supervise([sys.executable, "-I", "-S", "-B", str((ROOT / "benchmarks" / selected.OWNER_SCRIPT)), "_worker"],
             BARRIER + environment.encoded(dict(request=request_binding)), worker_output, admission["seconds"] + 30, started)
         environment.create_json(out / "owner-result-v1.json", owner)
         owner_binding = environment.binding(out / "owner-result-v1.json")
         _need(primitives._owner_ok(owner, worker_output) and started_binding is not None, "owner")
-        _need(_same(_read_json(started_binding), dict(worker=expected_worker, request=request_binding)), "receipt")
-        _inputs(admission, admission_binding)
+        _need(_same(_read_json(started_binding, _contract=selected), dict(worker=expected_worker, request=request_binding)), "receipt")
+        _inputs(admission, admission_binding, _contract=selected)
         worker_binding = environment.binding(out / "worker-result-v1.json")
-        record = verification.verify_owned_target_result(worker_binding, admission, admission_binding,
+        record = reader.verify_owned_target_result(worker_binding, admission, admission_binding,
             request_binding, expected_worker)
-        _inputs(admission, admission_binding)
+        _inputs(admission, admission_binding, _contract=selected)
         current_owner = api.identity(owner_handle)
         _need(api.alive(owner_handle) and _same(current_owner, owner_identity), "identity")
         handles_closed = handles.close() is True
         _need(handles_closed, "cleanup")
-        after = dict(admission=copy.deepcopy(admission_binding), sources=contract.source_bindings(),
+        after = dict(admission=copy.deepcopy(admission_binding), sources=selected.source_bindings(),
             python=file_guard._python_bindings(), tools=copy.deepcopy(admission["server"]["tools"]),
             owner=current_owner, process_handles_closed=handles_closed)
         _need(_same(after, dict(admission=admission_binding, sources=admission["sources"], python=admission["python"],
@@ -1147,7 +1220,7 @@ def _parent(admission_binding, admission):
         after_binding = environment.binding(out / "after-v1.json")
         for pin in (admission_binding, request_binding, started_binding, worker_binding, owner_binding, after_binding):
             environment.check_binding(pin)
-        _inputs(admission, admission_binding)
+        _inputs(admission, admission_binding, _contract=selected)
         qualified, reason = True, record["reason"]
     except BaseException as error:
         reason = _reason(error)
@@ -1162,7 +1235,7 @@ def _parent(admission_binding, admission):
             if not handles_closed:
                 qualified, reason = False, "cleanup"
     _need(out.is_dir(), "output")
-    result = dict(version=1, protocol=contract.PROTOCOL, admission=copy.deepcopy(admission_binding),
+    result = dict(version=1, protocol=selected.PROTOCOL, admission=copy.deepcopy(admission_binding),
         request=request_binding, started=started_binding, worker_result=worker_binding, owner=owner_binding,
         after=after_binding, qualified_target=qualified, reason=reason, feature_acceptance=False)
     environment.create_json(out / "result-v1.json", result)
@@ -1170,23 +1243,28 @@ def _parent(admission_binding, admission):
     return 0 if qualified else 1
 
 
-def main(argv=None):
+def _main_profile(argv=None, *, _contract=None, _verification=None, _runtime_type=_TargetRuntime):
+    selected = contract if _contract is None else _contract
     args = sys.argv[1:] if argv is None else argv
     try:
         _need(os.name == "nt", "platform")
         if args == ["_worker"]:
             output_control._prepare_environment()
-            return _worker()
+            return _worker() if _contract is None else _worker(_contract=selected, _runtime_type=_runtime_type)
         _need(type(args) is list and len(args) == 4 and args[0] == "--admission" and args[2] == "--admission-sha256" and
               type(args[1]) is str and type(args[3]) is str and re.fullmatch("[0-9a-f]{64}", args[3]) is not None, "admission")
         path = file_guard._existing_D_file(args[1], "admission")
         _need(path.suffix == ".json", "admission")
         binding, value = file_guard._read_bound(path, args[3], 2 * 1024 * 1024, "admission")
-        admitted = contract.validate_admission(value)
-        return _parent(binding, admitted)
+        admitted = selected.validate_admission(value)
+        return _parent(binding, admitted) if _contract is None else _parent(binding, admitted, _contract=selected, _verification=_verification)
     except BaseException as error:
         print(json.dumps(dict(qualified_target=False, reason=_reason(error), feature_acceptance=False)), flush=True)
         return 1
+
+
+def main(argv=None):
+    return _main_profile(argv)
 
 
 if __name__ == "__main__":

@@ -39,7 +39,11 @@ protocol; the spent SDK4 boot/import/AUTHOR claims cannot authorize this method.
 The method requires the same app UID/package and a process start strictly later
 than the original AUTHOR process. Numeric PID difference alone is insufficient.
 The host must independently establish the exact old process death before this
-method; a test method cannot prove that death itself. All files/directories are
+method in the same Android boot; a test method cannot prove that death itself.
+Elapsed process-start times are not comparable across OS/VM reboot. Restarting
+the retained stopped emulator cannot promote its older AUTHOR proof into this
+case. A future live cohort must capture AUTHOR and the external app-process
+restart within one independently admitted guest boot. All files/directories are
 fixed under actual Context.noBackupFilesDir, regular/owned/non-symlink, bounded
 and create-only. New output namespace: `original-author-restart-proof-v1`.
 Use a fresh archive staging child within that namespace, never a model path.

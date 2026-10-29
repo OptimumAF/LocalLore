@@ -143,6 +143,8 @@ function SelectedExperiment({
         sourceProtocolVersion === 4;
     const source =
         snapshot.clientId &&
+        snapshot.status?.phase === "ready" &&
+        snapshot.status.running === false &&
         snapshot.status?.run_token &&
         snapshot.source &&
         supportedSourceProtocol

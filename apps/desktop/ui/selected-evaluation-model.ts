@@ -321,9 +321,11 @@ function detached(v: unknown, max: number): unknown {
             }
             requireWire(typeof value === "object" && !ancestors.has(value));
             const sequence = Array.isArray(value);
+            const prototype = Object.getPrototypeOf(value);
             requireWire(
-                Object.getPrototypeOf(value) ===
-                    (sequence ? Array.prototype : Object.prototype),
+                sequence
+                    ? prototype === Array.prototype
+                    : prototype === Object.prototype || prototype === null,
             );
             const descriptors = Object.getOwnPropertyDescriptors(value);
             const keys = Reflect.ownKeys(descriptors);

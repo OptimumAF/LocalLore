@@ -34,8 +34,14 @@ function between(start, end) {
 // such as D06's disk/product declarations to retain a particular position.
 function helper(name) {
     const start = `async function ${name}(`;
-    const first = source.indexOf(start), last = source.indexOf("\n}", first + start.length);
-    assert(first >= 0 && last > first && source.indexOf(start, first + start.length) === -1, `UniqueActualHelper:${name}`);
+    const first = source.indexOf(start),
+        last = source.indexOf("\n}", first + start.length);
+    assert(
+        first >= 0 &&
+            last > first &&
+            source.indexOf(start, first + start.length) === -1,
+        `UniqueActualHelper:${name}`,
+    );
     return source.slice(first, last + 2);
 }
 let blocks;
@@ -181,10 +187,18 @@ function sandbox(options = {}) {
                         }),
                     );
                 else if (spec.mode === "pipe") {
-                    child[spec.channel ?? "stdout"].emit("error", Object.assign(Error("synthetic pipe refusal"), { code: "SYNTHETIC_PIPE" }));
+                    child[spec.channel ?? "stdout"].emit(
+                        "error",
+                        Object.assign(Error("synthetic pipe refusal"), {
+                            code: "SYNTHETIC_PIPE",
+                        }),
+                    );
                     child.close();
                 } else if (spec.mode === "overflow") {
-                    child[spec.channel ?? "stdout"].emit("data", Buffer.alloc(262145, 120));
+                    child[spec.channel ?? "stdout"].emit(
+                        "data",
+                        Buffer.alloc(262145, 120),
+                    );
                     child.close();
                 } else {
                     if (spec.stdout !== undefined)
@@ -242,7 +256,10 @@ function sandbox(options = {}) {
         revision,
         sourceHashes,
         sourceInputs: ["fixed-source"],
-        initialStorage: { target: { bytes: options.initialTargetBytes ?? 0 }, source: { bytes: options.initialSourceBytes ?? 0 } },
+        initialStorage: {
+            target: { bytes: options.initialTargetBytes ?? 0 },
+            source: { bytes: options.initialSourceBytes ?? 0 },
+        },
         limits: {
             targetGrowth: 2 * 1024 ** 3,
             sourceGrowth: 128 * 1024 ** 2,
@@ -251,7 +268,11 @@ function sandbox(options = {}) {
         },
         process: {
             execPath: node,
-            argv: [node, "D:\\synthetic-policy\\source\\selected-evaluation-harness.mjs", "--scene"],
+            argv: [
+                node,
+                "D:\\synthetic-policy\\source\\selected-evaluation-harness.mjs",
+                "--scene",
+            ],
             env: {
                 PATH: "synthetic-installed-tools",
                 TEMP: "bad-parent-temp",
@@ -939,149 +960,468 @@ await check(
 // D07 additions exercise the selected source, not a copied D06 implementation.
 // No host child/files/timers are used by these policy simulations.
 function gitFault(fault) {
-    return fault === "known-nonzero" ? { mode: "success", code: 1 }
-        : fault === "spawn-throw" ? { mode: "throw" }
-        : fault === "no-pid" ? { mode: "error", noPid: true }
-        : fault === "pid-error" ? { mode: "error" }
-        : fault.endsWith("-pipe") ? { mode: "pipe", channel: fault.split("-")[0] }
-        : fault.endsWith("-overflow") ? { mode: "overflow", channel: fault.split("-")[0] }
-        : { mode: "manual" };
+    return fault === "known-nonzero"
+        ? { mode: "success", code: 1 }
+        : fault === "spawn-throw"
+          ? { mode: "throw" }
+          : fault === "no-pid"
+            ? { mode: "error", noPid: true }
+            : fault === "pid-error"
+              ? { mode: "error" }
+              : fault.endsWith("-pipe")
+                ? { mode: "pipe", channel: fault.split("-")[0] }
+                : fault.endsWith("-overflow")
+                  ? { mode: "overflow", channel: fault.split("-")[0] }
+                  : { mode: "manual" };
 }
-for (const kind of ["git", "child"]) await check(`${kind}:exit-alone-never-proves-owned-pipe-closure`, async () => {
-    const h = sandbox(), outcome = h.start(kind); await h.flush();
-    const child = h.last(); child.emit("exit", 0, null); await h.flush();
-    assert.equal(outcome.settled, false); assert.equal(h.api.observe().ownedDrainUnknown, false);
-    child.close(); await h.finish(outcome); assert.equal(outcome.ok, true);
-});
-await check("child:fixed-frontend-deadline-is240s-distinct-from960s-app", async () => {
-    const h = sandbox(), outcome = h.start("child", { mode: "manual" }, node); await h.flush();
-    assert.equal([...h.timers.values()][0].ms, 240000); await h.advance(239999); assert.equal(h.last().kills, 0);
-    await h.advance(1); assert.equal(h.last().kills, 1); await h.advance(5000); await h.finish(outcome);
-    assert.equal(outcome.ok, false); await h.blocked(); await h.blocked("git");
-});
+for (const kind of ["git", "child"])
+    await check(
+        `${kind}:exit-alone-never-proves-owned-pipe-closure`,
+        async () => {
+            const h = sandbox(),
+                outcome = h.start(kind);
+            await h.flush();
+            const child = h.last();
+            child.emit("exit", 0, null);
+            await h.flush();
+            assert.equal(outcome.settled, false);
+            assert.equal(h.api.observe().ownedDrainUnknown, false);
+            child.close();
+            await h.finish(outcome);
+            assert.equal(outcome.ok, true);
+        },
+    );
+await check(
+    "child:fixed-frontend-deadline-is240s-distinct-from960s-app",
+    async () => {
+        const h = sandbox(),
+            outcome = h.start("child", { mode: "manual" }, node);
+        await h.flush();
+        assert.equal([...h.timers.values()][0].ms, 240000);
+        await h.advance(239999);
+        assert.equal(h.last().kills, 0);
+        await h.advance(1);
+        assert.equal(h.last().kills, 1);
+        await h.advance(5000);
+        await h.finish(outcome);
+        assert.equal(outcome.ok, false);
+        await h.blocked();
+        await h.blocked("git");
+    },
+);
 await check("child:fixed-scene-app-deadline-is960s-without-reset", async () => {
-    const h = sandbox(), outcome = h.start("child"); await h.flush();
-    assert.equal([...h.timers.values()][0].ms, 960000); await h.advance(959999); assert.equal(h.last().kills, 0);
-    await h.advance(1); assert.equal(h.last().kills, 1); await h.advance(5000); await h.finish(outcome);
-    assert.equal(outcome.ok, false); await h.blocked(); await h.blocked("git");
+    const h = sandbox(),
+        outcome = h.start("child");
+    await h.flush();
+    assert.equal([...h.timers.values()][0].ms, 960000);
+    await h.advance(959999);
+    assert.equal(h.last().kills, 0);
+    await h.advance(1);
+    assert.equal(h.last().kills, 1);
+    await h.advance(5000);
+    await h.finish(outcome);
+    assert.equal(outcome.ok, false);
+    await h.blocked();
+    await h.blocked("git");
 });
-await check("git:128-record-cap-is-finite-without-inventing-an-unknown-child", async () => {
-    const h = sandbox();
-    for (let i = 0; i < 128; i++) { const outcome = h.start("git", { mode: "success" }); await h.finish(outcome); assert.equal(outcome.ok, true); }
-    const before = h.spawns.length, last = h.start("git", { mode: "success" }); await h.finish(last);
-    assert.equal(last.ok, false); assert.equal(h.spawns.length, before); assert.equal(h.api.observe().gitChildren.length, 128);
-    assert.equal(h.api.observe().ownedDrainUnknown, false);
-});
-await check("unknown:actual-latch-is-sticky-bounded-and-blocks-native-Git-and-restore", async () => {
-    const h = sandbox();
-    for (let i = 0; i < 75; i++) h.api.latchUnknown("synthetic-explicit-unknown", { pid: i + 1 });
-    const before = h.spawns.length; assert.equal(h.api.observe().ownedDrainUnknown, true);
-    assert.equal(h.api.observe().unknownChildren.length, 64);
-    assert(h.api.observe().unknownChildren.every((r) => r.processTreeContained === false));
-    await h.blocked(); await h.blocked("git"); const restoring = h.track(h.api.restore()); await h.finish(restoring);
-    assert.equal(h.spawns.length, before); assert.equal(h.api.observe().restoration.skipped, true);
-});
-await check("child:fixed-scene-additions-replace-every-case-alias-without-retaining-model-root", async () => {
-    const h = sandbox(), additions = Object.freeze({ LOCALLORE_D02_HARNESS: "1", LOCALLORE_D07_SELECTED_HARNESS: "1", LOCALLORE_D07_SCENE_COMPARISON_READER: "1", LOCALLORE_D07_LITERAL_COMPARISON_READER: "0", LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER: "0" });
-    const outcome = h.start("child", { mode: "manual" }, paths.executable, additions); await h.flush();
-    const env = h.spawns[0].options.env;
-    assert.deepEqual(Object.keys(env).filter((key) => /^LOCALLORE_/i.test(key)).sort(), Object.keys(additions).sort());
-    assert(Object.keys(env).every((key) => !/^LOCALLORE_D04_MODEL_ROOT$/i.test(key)));
-    assert.equal(env.CARGO_HOME, "D:/synthetic-cache"); assert.equal(env.TEMP, "D:/Dev/_Temp"); assert.equal(env.TMP, "D:/Dev/_Temp");
-    h.last().close(); await h.finish(outcome); assert.equal(outcome.ok, true);
-});
-await check("git:case-insensitive-harness-and-model-root-aliases-never-reach-Git", async () => {
-    const h = sandbox(), outcome = h.start("git"); await h.flush();
-    const env = h.spawns[0].options.env; assert(!Object.keys(env).some((key) => /^LOCALLORE_/i.test(key)));
-    assert.equal(env.PATH, "synthetic-installed-tools"); assert.equal(env.CARGO_HOME, "D:/synthetic-cache");
-    h.last().stdout.emit("data", Buffer.from(`${revision}\n`)); h.last().close(); await h.finish(outcome); assert.equal(outcome.ok, true);
-});
-for (const unsafe of [-1, 0.5, Number.NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) await check(`storage:unsafe-file-size-${String(unsafe)}-never-grants-work`, async () => {
-    const h = sandbox(); h.files.set(paths.target, [{ name: "unsafe-size", size: unsafe }]);
-    const measuring = h.track(h.api.measureStorage()); await h.finish(measuring);
-    assert.equal(measuring.ok, false); assert.equal(h.api.observe().storageBreached, true);
-    assert.equal(h.api.observe().lastStorage.unavailable, true); h.files.set(paths.target, []);
-    await h.blocked(); await h.blocked("git"); const restoring = h.track(h.api.restore()); await h.finish(restoring);
-    assert.equal(h.api.observe().restoration.skipped, true); assert.equal(h.spawns.length, 0);
-});
-await check("storage:unsafe-sum-overflow-remains-an-unavailable-measurement", async () => {
-    const h = sandbox(); h.files.set(paths.target, [{ name: "first", size: Number.MAX_SAFE_INTEGER }, { name: "second", size: 1 }]);
-    const measuring = h.track(h.api.measureStorage()); await h.finish(measuring);
-    assert.equal(measuring.ok, false); assert.equal(h.api.observe().lastStorage.unavailable, true);
-    await h.blocked("git"); await h.blocked();
-});
-for (const area of ["target", "source", "packet"]) await check(`storage:${area}-checks-total-of-individually-bounded-files`, async () => {
-    const h = sandbox(), directory = area === "target" ? paths.target : area === "source" ? paths.root : paths.folder;
-    const cap = area === "target" ? 2 * 1024 ** 3 : area === "source" ? 128 * 1024 ** 2 : 255 * 1024 ** 2;
-    h.files.set(directory, [{ name: "part-one", size: Math.floor(cap / 2) }, { name: "part-two", size: Math.ceil(cap / 2) }, { name: "one-too-many", size: 1 }]);
-    const measuring = h.track(h.api.measureStorage()); await h.finish(measuring); assert.equal(measuring.ok, false); assert.equal(h.api.observe().storageBreached, true);
-    h.files.set(directory, []); await h.blocked("git"); await h.blocked();
-    const restoring = h.track(h.api.restore()); await h.finish(restoring); assert.equal(h.api.observe().restoration.skipped, true);
-});
-await check("storage:known-baseline-deltas-and-exact-caps-remain-admissible", async () => {
-    const initialTargetBytes = 1024 ** 3, initialSourceBytes = 64 * 1024 ** 2;
-    const h = sandbox({ initialTargetBytes, initialSourceBytes });
-    h.files.set(paths.target, [{ name: "existing-plus-growth", size: initialTargetBytes + 2 * 1024 ** 3 }]);
-    h.files.set(paths.root, [{ name: "existing-plus-source", size: initialSourceBytes + 128 * 1024 ** 2 }]);
-    h.files.set(paths.folder, [{ name: "packet-reserving-final-metadata", size: 255 * 1024 ** 2 }]);
-    const measuring = h.track(h.api.measureStorage()); await h.finish(measuring); assert.equal(measuring.ok, true);
-    assert.equal(h.api.observe().storageBreached, false); assert.equal(h.api.observe().lastStorage.targetGrowth, 2 * 1024 ** 3);
-    assert.equal(h.api.observe().lastStorage.sourceGrowth, 128 * 1024 ** 2);
-});
-await check("storage:last-good-observation-is-retained-and-never-replaced-by-a-later-good-permission", async () => {
-    const h = sandbox(); h.files.set(paths.target, [{ name: "known", size: 25 }]);
-    const known = h.track(h.api.measureStorage()); await h.finish(known); assert.equal(known.ok, true);
-    const lastKnown = plain(h.api.observe().lastStorage); h.control.ioError = true;
-    const failed = h.track(h.api.measureStorage()); await h.finish(failed); assert.equal(failed.ok, false);
-    assert.equal(h.api.observe().lastStorage.unavailable, true); assert.deepEqual(plain(h.api.observe().lastStorage.lastKnown), lastKnown);
-    h.control.ioError = false; const retry = h.track(h.api.measureStorage()); await h.finish(retry); assert.equal(retry.ok, false);
-    await h.blocked(); await h.blocked("git"); const restoring = h.track(h.api.restore()); await h.finish(restoring);
-    const retention = h.metadata.find((v) => v.name === "retention-measurement.json").value;
-    assert.equal(retention.final, null); assert.equal(retention.finalObservation, "unavailable-storage-inventory");
-    assert.deepEqual(retention.lastKnown, lastKnown); assert.equal(retention.cleanupAttempted, false);
-});
-for (const which of ["revision", "dirty-status"]) await check(`actual-admission:${which}-known-refusal-never-starts-program-or-creates-packet`, async () => {
-    const h = sandbox(); h.control.gitFaultAt = which === "revision" ? 1 : 2;
-    h.control.gitFault = { mode: "success", stdout: which === "revision" ? "not-a-commit\n" : " M tracked-input\n" };
-    const admitting = h.track(h.api.admit()); await h.finish(admitting); assert.equal(admitting.ok, false);
-    assert.equal(h.api.observe().ownedDrainUnknown, false); assert(h.spawns.every((v) => v.command === "git"));
-    assert.equal(h.writes.length, 0); assert.equal(h.metadata.length, 0);
-});
-for (const position of [1, 2]) for (const fault of ["known-nonzero", "spawn-throw", "no-pid", "pid-error", "stdout-pipe", "stderr-pipe", "stdout-overflow", "stderr-overflow", "timeout"]) await check(`actual-admission:Git${position}-${fault}-cannot-create-packet-or-launch-work`, async () => {
-    const h = sandbox(); h.control.gitFaultAt = position; h.control.gitFault = gitFault(fault);
-    const unknown = !["known-nonzero", "spawn-throw", "no-pid"].includes(fault), admitting = h.track(h.api.admit());
-    await h.flush(); if (fault === "timeout") { await h.advance(15000); await h.advance(5000); }
-    await h.finish(admitting); assert.equal(admitting.ok, false); assert.equal(h.api.observe().ownedDrainUnknown, unknown);
-    assert.equal(h.control.gitCount, position); assert(h.spawns.every((v) => v.command === "git"));
-    assert.equal(h.writes.length, 0); assert.equal(h.metadata.length, 0);
-    if (unknown) { await h.blocked(); await h.blocked("git"); const count = h.spawns.length, restoring = h.track(h.api.restore()); await h.finish(restoring); assert.equal(h.spawns.length, count); assert.equal(h.api.observe().restoration.skipped, true); }
-});
-for (const position of [1, 2, 3, 4, 5, 6, 7, 8]) for (const fault of ["known-nonzero", "spawn-throw", "no-pid", "pid-error", "stdout-pipe", "stderr-pipe", "stdout-overflow", "stderr-overflow", "timeout"]) await check(`actual-restore:Git${position}-${fault}-prevents-unverified-followup`, async () => {
-    const h = sandbox({ actualSource: true }); h.control.gitFaultAt = position;
-    const unknown = !["known-nonzero", "spawn-throw", "no-pid"].includes(fault);
-    h.control.gitFault = gitFault(fault);
-    const restoring = h.track(h.api.restore()); await h.flush();
-    if (fault === "timeout") { await h.advance(15000); await h.advance(5000); }
-    await h.finish(restoring); assert.equal(h.api.observe().restoration.passed, false);
-    assert.equal(h.api.observe().ownedDrainUnknown, unknown); assert.equal(h.control.gitCount, position);
-    const programs = h.spawns.filter((v) => v.command !== "git");
-    assert.deepEqual(programs.map((v) => v.command), position <= 2 ? [] : position <= 6 ? [node] : [node, "cargo"]);
-    assert(!h.spawns.some((v) => v.command === paths.executable), "normal restoration never starts an app");
-    if (unknown) {
-        const count = h.spawns.length; await h.blocked(); await h.blocked("git");
-        const again = h.track(h.api.restore()); await h.finish(again); assert.equal(h.spawns.length, count); assert.equal(h.api.observe().restoration.skipped, true);
-    }
-});
-await check("actual-source:known-closed-program-failure-restores-only-normal-builds-after-fresh-source-checks", async () => {
-    const h = sandbox({ actualSource: true }), running = h.start("child", { mode: "success", code: 1 }); await h.finish(running);
-    assert.equal(running.ok, false); assert.equal(h.api.observe().ownedDrainUnknown, false);
-    const count = h.spawns.length, restoring = h.track(h.api.restore()); await h.finish(restoring);
-    assert.equal(h.api.observe().restoration.passed, true);
-    const later = h.spawns.slice(count); assert.deepEqual(later.filter((v) => v.command !== "git").map((v) => v.command), [node, "cargo"]);
-    assert(later.filter((v) => v.command !== "git").every((v) => !Object.keys(v.options.env).some((key) => /^LOCALLORE_/i.test(key))));
-    assert(later.filter((v) => v.command !== "git").every((v) => v.command !== paths.executable));
-    assert(later.filter((v) => v.command === "git").length >= 8);
-});
+await check(
+    "git:128-record-cap-is-finite-without-inventing-an-unknown-child",
+    async () => {
+        const h = sandbox();
+        for (let i = 0; i < 128; i++) {
+            const outcome = h.start("git", { mode: "success" });
+            await h.finish(outcome);
+            assert.equal(outcome.ok, true);
+        }
+        const before = h.spawns.length,
+            last = h.start("git", { mode: "success" });
+        await h.finish(last);
+        assert.equal(last.ok, false);
+        assert.equal(h.spawns.length, before);
+        assert.equal(h.api.observe().gitChildren.length, 128);
+        assert.equal(h.api.observe().ownedDrainUnknown, false);
+    },
+);
+await check(
+    "unknown:actual-latch-is-sticky-bounded-and-blocks-native-Git-and-restore",
+    async () => {
+        const h = sandbox();
+        for (let i = 0; i < 75; i++)
+            h.api.latchUnknown("synthetic-explicit-unknown", { pid: i + 1 });
+        const before = h.spawns.length;
+        assert.equal(h.api.observe().ownedDrainUnknown, true);
+        assert.equal(h.api.observe().unknownChildren.length, 64);
+        assert(
+            h.api
+                .observe()
+                .unknownChildren.every((r) => r.processTreeContained === false),
+        );
+        await h.blocked();
+        await h.blocked("git");
+        const restoring = h.track(h.api.restore());
+        await h.finish(restoring);
+        assert.equal(h.spawns.length, before);
+        assert.equal(h.api.observe().restoration.skipped, true);
+    },
+);
+await check(
+    "child:fixed-scene-additions-replace-every-case-alias-without-retaining-model-root",
+    async () => {
+        const h = sandbox(),
+            additions = Object.freeze({
+                LOCALLORE_D02_HARNESS: "1",
+                LOCALLORE_D07_SELECTED_HARNESS: "1",
+                LOCALLORE_D07_SCENE_COMPARISON_READER: "1",
+                LOCALLORE_D07_LITERAL_COMPARISON_READER: "0",
+                LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER: "0",
+            });
+        const outcome = h.start(
+            "child",
+            { mode: "manual" },
+            paths.executable,
+            additions,
+        );
+        await h.flush();
+        const env = h.spawns[0].options.env;
+        assert.deepEqual(
+            Object.keys(env)
+                .filter((key) => /^LOCALLORE_/i.test(key))
+                .sort(),
+            Object.keys(additions).sort(),
+        );
+        assert(
+            Object.keys(env).every(
+                (key) => !/^LOCALLORE_D04_MODEL_ROOT$/i.test(key),
+            ),
+        );
+        assert.equal(env.CARGO_HOME, "D:/synthetic-cache");
+        assert.equal(env.TEMP, "D:/Dev/_Temp");
+        assert.equal(env.TMP, "D:/Dev/_Temp");
+        h.last().close();
+        await h.finish(outcome);
+        assert.equal(outcome.ok, true);
+    },
+);
+await check(
+    "git:case-insensitive-harness-and-model-root-aliases-never-reach-Git",
+    async () => {
+        const h = sandbox(),
+            outcome = h.start("git");
+        await h.flush();
+        const env = h.spawns[0].options.env;
+        assert(!Object.keys(env).some((key) => /^LOCALLORE_/i.test(key)));
+        assert.equal(env.PATH, "synthetic-installed-tools");
+        assert.equal(env.CARGO_HOME, "D:/synthetic-cache");
+        h.last().stdout.emit("data", Buffer.from(`${revision}\n`));
+        h.last().close();
+        await h.finish(outcome);
+        assert.equal(outcome.ok, true);
+    },
+);
+for (const unsafe of [
+    -1,
+    0.5,
+    Number.NaN,
+    Infinity,
+    Number.MAX_SAFE_INTEGER + 1,
+])
+    await check(
+        `storage:unsafe-file-size-${String(unsafe)}-never-grants-work`,
+        async () => {
+            const h = sandbox();
+            h.files.set(paths.target, [{ name: "unsafe-size", size: unsafe }]);
+            const measuring = h.track(h.api.measureStorage());
+            await h.finish(measuring);
+            assert.equal(measuring.ok, false);
+            assert.equal(h.api.observe().storageBreached, true);
+            assert.equal(h.api.observe().lastStorage.unavailable, true);
+            h.files.set(paths.target, []);
+            await h.blocked();
+            await h.blocked("git");
+            const restoring = h.track(h.api.restore());
+            await h.finish(restoring);
+            assert.equal(h.api.observe().restoration.skipped, true);
+            assert.equal(h.spawns.length, 0);
+        },
+    );
+await check(
+    "storage:unsafe-sum-overflow-remains-an-unavailable-measurement",
+    async () => {
+        const h = sandbox();
+        h.files.set(paths.target, [
+            { name: "first", size: Number.MAX_SAFE_INTEGER },
+            { name: "second", size: 1 },
+        ]);
+        const measuring = h.track(h.api.measureStorage());
+        await h.finish(measuring);
+        assert.equal(measuring.ok, false);
+        assert.equal(h.api.observe().lastStorage.unavailable, true);
+        await h.blocked("git");
+        await h.blocked();
+    },
+);
+for (const area of ["target", "source", "packet"])
+    await check(
+        `storage:${area}-checks-total-of-individually-bounded-files`,
+        async () => {
+            const h = sandbox(),
+                directory =
+                    area === "target"
+                        ? paths.target
+                        : area === "source"
+                          ? paths.root
+                          : paths.folder;
+            const cap =
+                area === "target"
+                    ? 2 * 1024 ** 3
+                    : area === "source"
+                      ? 128 * 1024 ** 2
+                      : 255 * 1024 ** 2;
+            h.files.set(directory, [
+                { name: "part-one", size: Math.floor(cap / 2) },
+                { name: "part-two", size: Math.ceil(cap / 2) },
+                { name: "one-too-many", size: 1 },
+            ]);
+            const measuring = h.track(h.api.measureStorage());
+            await h.finish(measuring);
+            assert.equal(measuring.ok, false);
+            assert.equal(h.api.observe().storageBreached, true);
+            h.files.set(directory, []);
+            await h.blocked("git");
+            await h.blocked();
+            const restoring = h.track(h.api.restore());
+            await h.finish(restoring);
+            assert.equal(h.api.observe().restoration.skipped, true);
+        },
+    );
+await check(
+    "storage:known-baseline-deltas-and-exact-caps-remain-admissible",
+    async () => {
+        const initialTargetBytes = 1024 ** 3,
+            initialSourceBytes = 64 * 1024 ** 2;
+        const h = sandbox({ initialTargetBytes, initialSourceBytes });
+        h.files.set(paths.target, [
+            {
+                name: "existing-plus-growth",
+                size: initialTargetBytes + 2 * 1024 ** 3,
+            },
+        ]);
+        h.files.set(paths.root, [
+            {
+                name: "existing-plus-source",
+                size: initialSourceBytes + 128 * 1024 ** 2,
+            },
+        ]);
+        h.files.set(paths.folder, [
+            { name: "packet-reserving-final-metadata", size: 255 * 1024 ** 2 },
+        ]);
+        const measuring = h.track(h.api.measureStorage());
+        await h.finish(measuring);
+        assert.equal(measuring.ok, true);
+        assert.equal(h.api.observe().storageBreached, false);
+        assert.equal(h.api.observe().lastStorage.targetGrowth, 2 * 1024 ** 3);
+        assert.equal(h.api.observe().lastStorage.sourceGrowth, 128 * 1024 ** 2);
+    },
+);
+await check(
+    "storage:last-good-observation-is-retained-and-never-replaced-by-a-later-good-permission",
+    async () => {
+        const h = sandbox();
+        h.files.set(paths.target, [{ name: "known", size: 25 }]);
+        const known = h.track(h.api.measureStorage());
+        await h.finish(known);
+        assert.equal(known.ok, true);
+        const lastKnown = plain(h.api.observe().lastStorage);
+        h.control.ioError = true;
+        const failed = h.track(h.api.measureStorage());
+        await h.finish(failed);
+        assert.equal(failed.ok, false);
+        assert.equal(h.api.observe().lastStorage.unavailable, true);
+        assert.deepEqual(
+            plain(h.api.observe().lastStorage.lastKnown),
+            lastKnown,
+        );
+        h.control.ioError = false;
+        const retry = h.track(h.api.measureStorage());
+        await h.finish(retry);
+        assert.equal(retry.ok, false);
+        await h.blocked();
+        await h.blocked("git");
+        const restoring = h.track(h.api.restore());
+        await h.finish(restoring);
+        const retention = h.metadata.find(
+            (v) => v.name === "retention-measurement.json",
+        ).value;
+        assert.equal(retention.final, null);
+        assert.equal(
+            retention.finalObservation,
+            "unavailable-storage-inventory",
+        );
+        assert.deepEqual(retention.lastKnown, lastKnown);
+        assert.equal(retention.cleanupAttempted, false);
+    },
+);
+for (const which of ["revision", "dirty-status"])
+    await check(
+        `actual-admission:${which}-known-refusal-never-starts-program-or-creates-packet`,
+        async () => {
+            const h = sandbox();
+            h.control.gitFaultAt = which === "revision" ? 1 : 2;
+            h.control.gitFault = {
+                mode: "success",
+                stdout:
+                    which === "revision"
+                        ? "not-a-commit\n"
+                        : " M tracked-input\n",
+            };
+            const admitting = h.track(h.api.admit());
+            await h.finish(admitting);
+            assert.equal(admitting.ok, false);
+            assert.equal(h.api.observe().ownedDrainUnknown, false);
+            assert(h.spawns.every((v) => v.command === "git"));
+            assert.equal(h.writes.length, 0);
+            assert.equal(h.metadata.length, 0);
+        },
+    );
+for (const position of [1, 2])
+    for (const fault of [
+        "known-nonzero",
+        "spawn-throw",
+        "no-pid",
+        "pid-error",
+        "stdout-pipe",
+        "stderr-pipe",
+        "stdout-overflow",
+        "stderr-overflow",
+        "timeout",
+    ])
+        await check(
+            `actual-admission:Git${position}-${fault}-cannot-create-packet-or-launch-work`,
+            async () => {
+                const h = sandbox();
+                h.control.gitFaultAt = position;
+                h.control.gitFault = gitFault(fault);
+                const unknown = ![
+                        "known-nonzero",
+                        "spawn-throw",
+                        "no-pid",
+                    ].includes(fault),
+                    admitting = h.track(h.api.admit());
+                await h.flush();
+                if (fault === "timeout") {
+                    await h.advance(15000);
+                    await h.advance(5000);
+                }
+                await h.finish(admitting);
+                assert.equal(admitting.ok, false);
+                assert.equal(h.api.observe().ownedDrainUnknown, unknown);
+                assert.equal(h.control.gitCount, position);
+                assert(h.spawns.every((v) => v.command === "git"));
+                assert.equal(h.writes.length, 0);
+                assert.equal(h.metadata.length, 0);
+                if (unknown) {
+                    await h.blocked();
+                    await h.blocked("git");
+                    const count = h.spawns.length,
+                        restoring = h.track(h.api.restore());
+                    await h.finish(restoring);
+                    assert.equal(h.spawns.length, count);
+                    assert.equal(h.api.observe().restoration.skipped, true);
+                }
+            },
+        );
+for (const position of [1, 2, 3, 4, 5, 6, 7, 8])
+    for (const fault of [
+        "known-nonzero",
+        "spawn-throw",
+        "no-pid",
+        "pid-error",
+        "stdout-pipe",
+        "stderr-pipe",
+        "stdout-overflow",
+        "stderr-overflow",
+        "timeout",
+    ])
+        await check(
+            `actual-restore:Git${position}-${fault}-prevents-unverified-followup`,
+            async () => {
+                const h = sandbox({ actualSource: true });
+                h.control.gitFaultAt = position;
+                const unknown = ![
+                    "known-nonzero",
+                    "spawn-throw",
+                    "no-pid",
+                ].includes(fault);
+                h.control.gitFault = gitFault(fault);
+                const restoring = h.track(h.api.restore());
+                await h.flush();
+                if (fault === "timeout") {
+                    await h.advance(15000);
+                    await h.advance(5000);
+                }
+                await h.finish(restoring);
+                assert.equal(h.api.observe().restoration.passed, false);
+                assert.equal(h.api.observe().ownedDrainUnknown, unknown);
+                assert.equal(h.control.gitCount, position);
+                const programs = h.spawns.filter((v) => v.command !== "git");
+                assert.deepEqual(
+                    programs.map((v) => v.command),
+                    position <= 2
+                        ? []
+                        : position <= 6
+                          ? [node]
+                          : [node, "cargo"],
+                );
+                assert(
+                    !h.spawns.some((v) => v.command === paths.executable),
+                    "normal restoration never starts an app",
+                );
+                if (unknown) {
+                    const count = h.spawns.length;
+                    await h.blocked();
+                    await h.blocked("git");
+                    const again = h.track(h.api.restore());
+                    await h.finish(again);
+                    assert.equal(h.spawns.length, count);
+                    assert.equal(h.api.observe().restoration.skipped, true);
+                }
+            },
+        );
+await check(
+    "actual-source:known-closed-program-failure-restores-only-normal-builds-after-fresh-source-checks",
+    async () => {
+        const h = sandbox({ actualSource: true }),
+            running = h.start("child", { mode: "success", code: 1 });
+        await h.finish(running);
+        assert.equal(running.ok, false);
+        assert.equal(h.api.observe().ownedDrainUnknown, false);
+        const count = h.spawns.length,
+            restoring = h.track(h.api.restore());
+        await h.finish(restoring);
+        assert.equal(h.api.observe().restoration.passed, true);
+        const later = h.spawns.slice(count);
+        assert.deepEqual(
+            later.filter((v) => v.command !== "git").map((v) => v.command),
+            [node, "cargo"],
+        );
+        assert(
+            later
+                .filter((v) => v.command !== "git")
+                .every(
+                    (v) =>
+                        !Object.keys(v.options.env).some((key) =>
+                            /^LOCALLORE_/i.test(key),
+                        ),
+                ),
+        );
+        assert(
+            later
+                .filter((v) => v.command !== "git")
+                .every((v) => v.command !== paths.executable),
+        );
+        assert(later.filter((v) => v.command === "git").length >= 8);
+    },
+);
 
 assert.equal(
     hash(await readFile(sourceUrl, "utf8")),
@@ -1091,7 +1431,8 @@ assert.equal(
 const report = {
     version: 1,
     kind: "d07_selected_scene_process_policy_first_v1",
-    contractSource: "e3c5cf51 helper/marker interface and read 53df4d3f fixture-reference/mixed-mode precision",
+    contractSource:
+        "e3c5cf51 helper/marker interface and read 53df4d3f fixture-reference/mixed-mode precision",
     sourceSHA256: hash(source),
     extractedSHA256: blocks
         ? Object.fromEntries(

@@ -29,6 +29,7 @@ mod local_recording;
 pub mod memory_comparison;
 pub mod memory_comparison_v2;
 pub mod memory_comparison_v3;
+pub mod scene_capture_v1;
 
 pub const VERSION: u16 = 1;
 pub const MAX_REPORT: usize = 2 * 1024 * 1024;

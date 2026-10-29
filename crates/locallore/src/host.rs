@@ -358,10 +358,21 @@ pub enum HostPlayConstructionV1 {
     PlayerLiteralV1,
     /// Explicit opt-in; never repoint the immutable PlayerLiteralV1 mapping.
     PlayerLiteralPresentationV1,
+    /// Additive scene recipes; defaults and historical mappings stay unchanged.
+    MemorySceneV1(crate::play::PlayContextPolicy),
+    PlayerLiteralSceneV1,
 }
 impl HostPlayConstructionV1 {
     fn labels(self, presentation: bool) -> (&'static str, &'static str) {
         match self {
+            Self::MemorySceneV1(_) => (
+                crate::play::scene_narration::SCENE_PROMPT_VERSION_V1,
+                "locallore-play-v2",
+            ),
+            Self::PlayerLiteralSceneV1 => (
+                crate::play::scene_narration::LITERAL_SCENE_PROMPT_VERSION_V1,
+                "locallore-director-literal-v1",
+            ),
             Self::Memory(_) if presentation => (
                 crate::play::PRESENTATION_PROMPT_VERSION,
                 "locallore-play-v2",
@@ -2357,13 +2368,18 @@ impl Host {
         {
             let construction = local.construction;
             let snapshot = match construction {
-                HostPlayConstructionV1::Memory(_) => self
-                    .generation_snapshot(session, scope, work.request.expected_revision, &|| {
-                        work.cancel.is_cancelled()
-                    })
-                    .map(|s| (s.engine, Some(s.coverage))),
+                HostPlayConstructionV1::Memory(_) | HostPlayConstructionV1::MemorySceneV1(_) => {
+                    self.generation_snapshot(
+                        session,
+                        scope,
+                        work.request.expected_revision,
+                        &|| work.cancel.is_cancelled(),
+                    )
+                    .map(|s| (s.engine, Some(s.coverage)))
+                }
                 HostPlayConstructionV1::PlayerLiteralV1
-                | HostPlayConstructionV1::PlayerLiteralPresentationV1 => self
+                | HostPlayConstructionV1::PlayerLiteralPresentationV1
+                | HostPlayConstructionV1::PlayerLiteralSceneV1 => self
                     .literal_generation_engine(
                         session,
                         scope,
@@ -2378,6 +2394,7 @@ impl Host {
                         construction,
                         HostPlayConstructionV1::PlayerLiteralV1
                             | HostPlayConstructionV1::PlayerLiteralPresentationV1
+                            | HostPlayConstructionV1::PlayerLiteralSceneV1
                     ) && engine.domain_version() != 1
                     {
                         return self.finish_work(work, Err(Error::Version));
@@ -2398,6 +2415,42 @@ impl Host {
                         .clone()
                         .map(|handle| RingSink::new(Arc::clone(&self.trace), handle));
                     match local.construction {
+                        HostPlayConstructionV1::MemorySceneV1(policy) => {
+                            // Reject unsupported seed recipes before constructing a provider.
+                            let recipe =
+                                crate::play::scene_narration::SceneRecipeV1::Memory(policy);
+                            crate::play::scene_narration::check_seed(&engine, recipe)?;
+                            crate::play::execute_traced_with_scene_recipe_v1(
+                                &mut engine,
+                                &work.request,
+                                &mut *(local.provider)(),
+                                &work.cancel,
+                                &local.profile,
+                                sink.as_mut().map(|s| s as &mut dyn turn_trace::TraceSink),
+                                crate::play::scene_narration::ScenePlayConstructionInput {
+                                    recipe,
+                                    coverage: Some(
+                                        work.coverage.as_ref().expect("coherent free-text input"),
+                                    ),
+                                },
+                            )
+                        }
+                        HostPlayConstructionV1::PlayerLiteralSceneV1 => {
+                            let recipe = crate::play::scene_narration::SceneRecipeV1::LiteralV1;
+                            crate::play::scene_narration::check_seed(&engine, recipe)?;
+                            crate::play::execute_traced_with_scene_recipe_v1(
+                                &mut engine,
+                                &work.request,
+                                &mut *(local.provider)(),
+                                &work.cancel,
+                                &local.profile,
+                                sink.as_mut().map(|s| s as &mut dyn turn_trace::TraceSink),
+                                crate::play::scene_narration::ScenePlayConstructionInput {
+                                    recipe,
+                                    coverage: None,
+                                },
+                            )
+                        }
                         HostPlayConstructionV1::Memory(policy) => {
                             crate::play::execute_traced_with_policy(
                                 &mut engine,

@@ -1,5 +1,4 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
-#![cfg(test)]
 //! Independent FIRST oracle freeze after contract 5a4bdaa5. SOURCE ONLY / UNRUN.
 //! Root registers this child only after its retained-native render gate. Missing
 //! diagnostic types/methods are SETUP, not a behavioral RED. Original synthetic
@@ -355,7 +354,7 @@ impl TraceSink for Probe {
         if self.panic_fired {
             self.calls_after_panic += 1;
         }
-        if self.diagnostics.len() >= 1 {
+        if !self.diagnostics.is_empty() {
             self.faults.push("duplicate validation event");
         }
         if let Some((stage, _, _)) = self.stages.last() {

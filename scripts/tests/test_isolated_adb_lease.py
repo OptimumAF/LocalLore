@@ -18,7 +18,7 @@ from unittest.mock import Mock,patch
 from benchmarks import isolated_adb_lease as n
 
 
-PROTOCOL='isolated-adb-lease-v1'
+PROTOCOL='isolated-adb-lease-v2'
 PORT=15937
 CLIENT_PORT=43101
 OLD_PORT=43102
@@ -162,8 +162,18 @@ class AdmissionTests(unittest.TestCase):
 
     def test_foreground_command_has_no_daemon_recovery_or_target_route(self):
         value=admission();command=n.server_command(value)
-        self.assertEqual(command,[value['adb']['path'],'-L','tcp:127.0.0.1:15937','server','nodaemon'])
+        self.assertEqual(command,[value['adb']['path'],'-L','tcp:localhost:15937','server','nodaemon'])
         self.assertNotIn('--one-device',command);self.assertEqual(value,admission())
+
+    def test_prior_v1_admission_stop_and_running_are_refused_without_normalization(self):
+        old='isolated-adb-lease-v1'
+        value=admission();value['protocol']=old;before=copy.deepcopy(value)
+        self.refused(lambda:n.validate_admission(value));self.assertEqual(value,before)
+        self.refused(lambda:n.server_command(value));self.assertEqual(value,before)
+        stop=dict(version=1,protocol=old,admission_sha256='a'*64,action='stop');before=copy.deepcopy(stop)
+        self.refused(lambda:n.check_stop(stop,'a'*64));self.assertEqual(stop,before)
+        value=running();value['protocol']=old;before=copy.deepcopy(value)
+        self.refused(lambda:n.validate_running(value,admission(),admitted_binding()));self.assertEqual(value,before)
 
     def test_process_local_environment_purges_case_insensitive_inherited_aliases(self):
         value=admission();inherited=dict(PATH='synthetic PATH',SystemRoot='C:\\Windows',HOME='C:\\Users\\Synthetic',

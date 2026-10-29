@@ -14,29 +14,54 @@ import time
 
 
 class ProfileCapture:
-    """Observe one current-thread action without replacing another profiler."""
+    """Observe one cooperative action without replacing another profiler.
+
+    Monitoring tool names/masks identify cooperative ownership only: they do
+    not authenticate malicious same-name callback replacement or grant any
+    execution/validation authority.
+    """
 
     def __init__(self):
         self._state = "new"
         self._profile = None
         self._result = None
         self._wall_start = self._cpu_start = None
+        self._monitoring = getattr(sys, "monitoring", None)
+        self._backend = self._events = None
+
+    def _owns_hook(self):
+        if self._backend == "monitoring":
+            return (self._monitoring.get_tool(self._monitoring.PROFILER_ID) == "cProfile" and
+                    self._monitoring.get_events(self._monitoring.PROFILER_ID) == self._events)
+        return sys.getprofile() is self._profile
 
     def __enter__(self):
         if self._state != "new":
             raise ValueError("profile_lifecycle")
         self._state = "entering"
-        if sys.getprofile() is not None:
+        if (sys.getprofile() is not None or
+                self._monitoring is not None and
+                self._monitoring.get_tool(self._monitoring.PROFILER_ID) is not None):
             self._state = "failed"
             raise ValueError("profile_already_active")
-        self._profile = cProfile.Profile(timer=time.perf_counter_ns, timeunit=1e-9)
+        # The built-in monotonic timer avoids an extra Python timer callback
+        # per profiling event. pstats seconds are rounded to integer ns below.
+        self._profile = cProfile.Profile()
         try:
             self._wall_start = time.perf_counter_ns()
             self._cpu_start = time.process_time_ns()
             self._profile.enable()
+            if sys.getprofile() is self._profile:
+                self._backend = "legacy"
+            elif (sys.getprofile() is None and self._monitoring is not None and
+                  self._monitoring.get_tool(self._monitoring.PROFILER_ID) == "cProfile"):
+                self._backend = "monitoring"
+                self._events = self._monitoring.get_events(self._monitoring.PROFILER_ID)
+            else:
+                raise ValueError("profile_changed")
         except BaseException:
             self._state = "failed"
-            if sys.getprofile() is self._profile:
+            if self._owns_hook():
                 self._profile.disable()
             raise
         self._state = "active"
@@ -47,9 +72,10 @@ class ProfileCapture:
             raise ValueError("profile_lifecycle")
         self._state = "closing"
         try:
-            # A replacement installed by the action belongs to that action.
-            # Our profiler is already detached: do not disable its successor.
-            if sys.getprofile() is not self._profile:
+            # On Python's monitoring backend sys.getprofile() remains None;
+            # a later legacy callback can coexist but invalidates this sample.
+            expected = self._profile if self._backend == "legacy" else None
+            if sys.getprofile() is not expected or not self._owns_hook():
                 raise ValueError("profile_changed")
             self._profile.disable()
             cpu_end = time.process_time_ns()
@@ -77,9 +103,9 @@ class ProfileCapture:
             if exc_type is None:
                 raise
         finally:
-            # Only detach our own hook. Never clear a profiler installed by
-            # the action while this context was active.
-            if sys.getprofile() is self._profile:
+            # Disabling our monitoring collector leaves an action-installed
+            # legacy callback untouched; a legacy replacement is not ours.
+            if self._owns_hook():
                 try:
                     self._profile.disable()
                 except BaseException:

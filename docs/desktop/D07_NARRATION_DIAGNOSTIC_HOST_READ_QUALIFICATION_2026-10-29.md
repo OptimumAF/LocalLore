@@ -1,10 +1,12 @@
-# Narration diagnostic Host read v1: partial qualification
+# Narration diagnostic Host read v1: scoped qualification
 
 2026-10-29. Refs #9 **M05.03/M05.04**, #29 **D07.04**.
-**Implemented; focused/schema/frontend compatibility measured; broad gates pending.**
+**Implemented; focused, broad and scoped native compatibility checks measured.**
 Measured source: `fab59b0761a0585ff57cc8b8e315d7134f8805e2`.
-This Host adapter is not UI adoption, Eval persistence, native IPC/WebView,
-model/device evidence, human-quality acceptance or full task acceptance.
+The new operation has direct Rust Host evidence, without UI/Eval adoption or
+native-IPC execution of that operation. The separately measured existing native
+reader journey is compatibility evidence, not model/device, human-quality or
+full task acceptance.
 
 ## Scope and preserved boundaries
 

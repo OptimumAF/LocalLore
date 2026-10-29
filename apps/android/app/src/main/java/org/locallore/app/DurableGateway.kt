@@ -394,12 +394,22 @@ internal class DurableGateway(
         }
         closeSession()
     }
-    override suspend fun preview(): StoryCreationPreview {
+    override suspend fun templates(): List<StoryTemplateOption> {
         if (closed.get()) throw WorkspaceFailure("Closed")
         if (operation != null) throw WorkspaceFailure("Busy")
-        val data = call(command("story_template").put("template", "lantern-quay-v1"))
+        val data = call(command("story_templates"))
         if (closed.get()) throw WorkspaceFailure("Closed")
-        return StoryCreationWire.preview(data)
+        return StoryCreationWire.templates(data)
+    }
+    override suspend fun preview(): StoryCreationPreview = previewTemplate(DEFAULT_STORY_TEMPLATE)
+    override suspend fun previewTemplate(template: String): StoryCreationPreview {
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        if (operation != null) throw WorkspaceFailure("Busy")
+        val data = call(command("story_template").put("template", template))
+        if (closed.get()) throw WorkspaceFailure("Closed")
+        val preview = StoryCreationWire.preview(data)
+        if (preview.template != template) throw WorkspaceFailure("Malformed")
+        return preview
     }
     override suspend fun create(request: StoryCreationRequest): SavedSnapshot {
         if (closed.get()) throw WorkspaceFailure("Closed")

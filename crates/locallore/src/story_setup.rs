@@ -7,7 +7,41 @@ use sha2::{Digest, Sha256};
 
 pub const TEMPLATE: &str = "lantern-quay-v1";
 pub const MAX_TITLE_SCALARS: usize = 80;
-const SEED: &[u8] = include_bytes!("../../../fixtures/lantern_quay.json");
+pub const NARRATIVE_TEMPLATE: &str = "bracken-harbor-v1";
+struct Template {
+    id: &'static str,
+    bytes: &'static [u8],
+    title: &'static str,
+    description: &'static str,
+}
+const TEMPLATES: &[Template] = &[
+    Template {
+        id: TEMPLATE,
+        bytes: include_bytes!("../../../fixtures/lantern_quay.json"),
+        title: "Lantern Quay",
+        description: "An original local starter set at Lantern Quay. Review your starting facts below, then choose how the story develops.",
+    },
+    Template {
+        id: NARRATIVE_TEMPLATE,
+        bytes: include_bytes!("../../../fixtures/bracken_harbor.json"),
+        title: "Bracken Harbor",
+        description: "An original local starter at Bracken Harbor. Keep a borrowed lantern safe, help the harbor neighbors, and decide what to do about a missing ferry ledger.",
+    },
+];
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct StoryTemplateDescriptorV1 {
+    pub template: String,
+    pub default_title: String,
+    pub description: String,
+    pub profile: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct StoryTemplateCatalogV1 {
+    pub version: u16,
+    pub templates: Vec<StoryTemplateDescriptorV1>,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct StoryTemplatePreviewV1 {
@@ -41,19 +75,54 @@ pub fn valid_title(title: &str) -> bool {
             matches!(c, '\u{2028}' | '\u{2029}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
 }
 
-fn seed_hash() -> String {
-    format!("{:x}", Sha256::digest(SEED))
+fn definition(template: &str) -> Result<&'static Template, &'static str> {
+    TEMPLATES
+        .iter()
+        .find(|entry| entry.id == template)
+        .ok_or("UnsupportedSeed")
+}
+fn seed_hash(template: &str) -> Result<String, &'static str> {
+    Ok(format!("{:x}", Sha256::digest(definition(template)?.bytes)))
+}
+fn profile_name(profile: &crate::contracts::Profile) -> &'static str {
+    match profile {
+        crate::contracts::Profile::FantasyV1 => "fantasy_v1",
+        crate::contracts::Profile::NarrativeV1 => "narrative_v1",
+    }
 }
 fn bundled_seed(template: &str) -> Result<Seed, &'static str> {
-    if template != TEMPLATE {
-        return Err("UnsupportedSeed");
-    }
-    let seed: Seed = serde_json::from_slice(SEED).map_err(|_| "Integrity")?;
-    if seed.id != TEMPLATE || seed.scope.branch != "main" {
+    let seed: Seed =
+        serde_json::from_slice(definition(template)?.bytes).map_err(|_| "Integrity")?;
+    if seed.id != template || seed.scope.branch != "main" {
         return Err("Integrity");
     }
     Engine::new(seed.clone()).map_err(|_| "Integrity")?;
     Ok(seed)
+}
+
+/// Only public starter metadata. No session, storage, inference or full Seed is exposed.
+pub fn template_catalog() -> Result<StoryTemplateCatalogV1, &'static str> {
+    let mut templates = Vec::new();
+    for template in TEMPLATES {
+        let seed = bundled_seed(template.id)?;
+        templates.push(StoryTemplateDescriptorV1 {
+            template: template.id.into(),
+            default_title: template.title.into(),
+            description: template.description.into(),
+            profile: profile_name(&seed.profile).into(),
+        });
+    }
+    let catalog = StoryTemplateCatalogV1 {
+        version: 1,
+        templates,
+    };
+    if catalog.templates.is_empty()
+        || catalog.templates.len() > 8
+        || serde_json::to_vec(&catalog).map_err(|_| "Integrity")?.len() > 16384
+    {
+        return Err("TooLarge");
+    }
+    Ok(catalog)
 }
 
 pub fn prepare_named(
@@ -63,7 +132,7 @@ pub fn prepare_named(
     creation_id: &str,
 ) -> Result<NamedStarter, &'static str> {
     let mut seed = bundled_seed(template)?;
-    if expected_hash != seed_hash() {
+    if expected_hash != seed_hash(template)? {
         return Err("Stale");
     }
     if !valid_title(title) {
@@ -85,6 +154,7 @@ pub fn prepare_named(
 }
 
 pub fn template_preview(template: &str) -> Result<StoryTemplatePreviewV1, &'static str> {
+    let definition = definition(template)?;
     let seed = bundled_seed(template)?;
     let engine = Engine::new(seed.clone()).map_err(|_| "Integrity")?;
     let visible = engine
@@ -156,13 +226,15 @@ pub fn template_preview(template: &str) -> Result<StoryTemplatePreviewV1, &'stat
             ));
         }
     }
-    let preview = StoryTemplatePreviewV1 { version: 1, template: TEMPLATE.into(), seed_sha256: seed_hash(),
-        default_title: "Lantern Quay".into(),
-        description: "An original local starter set at Lantern Quay. Review your starting facts below, then choose how the story develops.".into(),
-        profile: match seed.profile {
-            crate::contracts::Profile::FantasyV1 => "fantasy_v1",
-            crate::contracts::Profile::NarrativeV1 => "narrative_v1",
-        }.into(), details };
+    let preview = StoryTemplatePreviewV1 {
+        version: 1,
+        template: template.into(),
+        seed_sha256: seed_hash(template)?,
+        default_title: definition.title.into(),
+        description: definition.description.into(),
+        profile: profile_name(&seed.profile).into(),
+        details,
+    };
     if preview.details.len() > 64
         || preview.details.iter().any(|line| line.len() > 2048)
         || serde_json::to_vec(&preview).map_err(|_| "Integrity")?.len() > 16384

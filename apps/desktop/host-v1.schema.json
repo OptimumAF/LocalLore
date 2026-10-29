@@ -263,6 +263,17 @@
           "additionalProperties": false,
           "properties": {
             "op": {
+              "const": "story_templates",
+              "type": "string"
+            }
+          },
+          "required": ["op"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
               "const": "story_template",
               "type": "string"
             },

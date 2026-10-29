@@ -5,6 +5,8 @@ use crate::turn_trace::{
     Provenance, Reader, Revision, RingSink, Selection, Stage, StageTimer, TraceOwner, TraceRing,
 };
 #[cfg(test)]
+mod starter_catalog_tests;
+#[cfg(test)]
 mod story_creation_tests;
 use crate::{
     contracts::*,
@@ -95,6 +97,7 @@ pub enum HostCommand {
     Create {
         seed: String,
     },
+    StoryTemplates {},
     StoryTemplate {
         template: String,
     },
@@ -1324,6 +1327,10 @@ impl Host {
                     )
                 }
             }
+            HostCommand::StoryTemplates {} => match crate::story_setup::template_catalog() {
+                Ok(catalog) => ok(json!(catalog)),
+                Err(error) => reject(error),
+            },
             HostCommand::StoryTemplate { template } => {
                 match crate::story_setup::template_preview(&template) {
                     Ok(preview) => ok(json!(preview)),
@@ -1699,6 +1706,9 @@ impl Host {
                     }
                     Ok(reply)
                 }
+                HostCommand::StoryTemplates {} => Ok(ok(json!(
+                    crate::story_setup::template_catalog().map_err(reject)?
+                ))),
                 HostCommand::StoryTemplate { template } => Ok(ok(json!(
                     crate::story_setup::template_preview(template).map_err(reject)?
                 ))),

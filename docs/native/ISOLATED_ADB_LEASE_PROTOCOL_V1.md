@@ -156,8 +156,9 @@ trusted Python worker under the existing finite job supervisor. The worker waits
 for BOTH its binary start barrier and parent's actual `started-v1.json` matching
 its own PID/birth/executable before any auth/port/server action. This closes the
 legacy late-announcement race without changing that supervisor. Parent callback
-creates that receipt; a missing/malformed/mismatched receipt times out before
-server startup. Parent budget admitted seconds+30, maximum1730 seconds.
+creates that receipt; a missing receipt times out and malformed/mismatched
+receipts refuse before server startup. Parent budget admitted seconds+30,
+maximum1730 seconds.
 Publish the receipt from a closed, flushed pending file using a create-only
 Windows rename. The legacy supervisor captures worker output under a separate
 `worker-output-v1` directory; it cannot consume the isolated worker's stop file

@@ -78,7 +78,7 @@ def role_filenames(plan):
         binding = plan[role]
         need(type(binding) is dict and set(binding) == {"path", "bytes", "sha256"} and
              type(binding["path"]) is str and
-             re.fullmatch(names[role], Path(binding["path"]).name, flags=re.IGNORECASE) is not None, "role_filename")
+             re.fullmatch(names[role], Path(binding["path"]).name, flags=re.IGNORECASE) is not None, "canonical_path")
 
 
 def existing_output(path):

@@ -366,5 +366,26 @@ class RestartPrerequisiteGraphTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 g=ClosedRestartGraph(duplicate_kind=kind);self.refused(g.validate)
 
+    def test_same_byte_session_copy_outside_its_declared_sdk_root_is_not_authority(self):
+        g=ClosedRestartGraph();g.prerequisite['session']=g.save(g.base/'borrowed-session-v5.json',Path(g.session['path']).read_bytes())
+        self.publish(g);self.refused(g.validate)
+
+    def test_same_byte_author_sidecar_copy_outside_canonical_collection_refuses(self):
+        g=ClosedRestartGraph();name='worker-v2.json';original=g.prerequisite['author_artifacts'][name]
+        g.prerequisite['author_artifacts'][name]=g.save(g.base/'borrowed-author'/name,Path(original['path']).read_bytes())
+        self.publish(g);self.refused(g.validate)
+
+    def test_qualified_sdk_tar_cannot_disagree_with_retained_original_author_files(self):
+        g=ClosedRestartGraph();row=next(row for row in g.all_rows if row['label']=='sidecar-tar'and
+            'no_backup/original-author-proof-v1/proof-v1.json'in row['operation']['argv'])
+        original=Path(row['stdout']['path']).read_bytes();stream=io.BytesIO()
+        with tarfile.open(fileobj=io.BytesIO(original),mode='r:')as source,tarfile.open(fileobj=stream,mode='w')as target:
+            for member in source.getmembers():
+                raw=source.extractfile(member).read()
+                if member.name.endswith('/worker-v2.json'):raw=raw.replace(b'"',b' ',1)
+                target.addfile(member,io.BytesIO(raw))
+        row['stdout']=g.save(row['stdout']['path'],stream.getvalue());g.save(g.all_row_pins[row['index']-1]['path'],row)
+        self.assertNotEqual(original,stream.getvalue());self.refused(g.validate)
+
 
 if __name__=='__main__':unittest.main()

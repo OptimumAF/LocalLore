@@ -238,6 +238,10 @@ fn original_generation_is_noncanonical_until_reviewed_create_and_two_worlds_stay
         .load_seed(&scope(&first))
         .unwrap();
     assert_eq!(old.initial_world.as_ref().unwrap().reviewed, a);
+    let generation = &old.initial_world.as_ref().unwrap().generation;
+    assert_eq!(generation.prompt_version, core::PROMPT_VERSION);
+    assert_eq!(generation.prompt_version, "initial-world-v1.1");
+    assert_eq!(generation.schema_version, core::SCHEMA_VERSION);
     assert_eq!(
         old.initial_world
             .as_ref()

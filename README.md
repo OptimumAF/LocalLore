@@ -21,6 +21,49 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [owned-target model run](docs/native/OWNED_TARGET_VERIFICATION_2026-10-29.md)
+now verifies one real local-model import/AUTHOR/internal-reopen case on an
+explicitly approved emulator. The [external restart follow-up](docs/native/ORIGINAL_AUTHOR_RESTART_VERIFICATION_2026-10-29.md)
+adds actual host process-death/PLAYER retry checks and a compiled passive Android
+method. Android external process death remains unrun; physical-device and broad
+story-quality gates remain separate.
+
+The [same-boot restart controller](docs/native/ORIGINAL_AUTHOR_RESTART_CONTROLLER_VERIFICATION_2026-10-29.md)
+adds a separately admitted SDK5 path. Its first approved fresh guest preparation
+passes, but initial private-server proof exceeds the unchanged three-second
+limit before any guest boot or model operation. The report preserves that
+failure and the tested guard optimization. A subsequent approved run verifies
+local model transfer/import, one accepted AUTHOR creation, idempotent retry and
+ordinary reopen. Its fixed session expires during later package checks;
+external process death and passive restart remain unverified. The owned guest
+and private service close with all15 recorded cleanup checks passing.
+
+The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
+passes77 focused checks and one actual finite host-only readiness/stop lease.
+It preserves the first unsupported-listener failure and uses a distinct corrected
+protocol. Its subsequent target-specific integration and model case are recorded above;
+the completed test service is closed.
+
+The [compiled Windows TCP control](docs/native/WINDOWS_NATIVE_TCP_STATE_VERIFICATION_2026-10-29.md)
+passes 355 host tests and reproduces inconsistent listener states using native
+SDK definitions outside Python FFI. Its acquired diagnostic remains inconsistent;
+current emulator/model qualification still requires trustworthy service admission.
+
+The [explicit SDK3 bridge](docs/native/ANDROID_SDK3_VERIFICATION_2026-10-29.md)
+adds source-bound host receipts and passes 307 host tests. Its first live
+pre-command ownership proof refuses an unsupported raw server state; no SDK,
+emulator or model command ran. Fresh runtime qualification remains gated.
+
+The [player/NPC AUTHOR contract](docs/native/AUTHOR_PLAYER_CONTRACT_VERIFICATION_2026-10-28.md)
+clarifies player and NPC identities and preserves versioned native provenance.
+Its original host/build checks and blocked listener attempt remain preserved;
+the separately admitted owned-target run above records the later model result.
+
+The [original AUTHOR refusal diagnosis](docs/native/ORIGINAL_AUTHOR_DIAGNOSTIC_VERIFICATION_2026-10-27.md)
+adds opt-in private response capture and one native diagnostic validator. Fresh
+real-model import passes; native AUTHOR validation rejects the proposal's names.
+The report preserves that failure and separates diagnostic evidence from creation.
+
 The [original story authoring implementation](docs/native/ANDROID_ORIGINAL_STORY_AUTHORING_2026-10-27.md)
 adds a bounded premise/cast generation path, editable world review and explicit
 native creation. Its report distinguishes scripted plumbing, actual host/build

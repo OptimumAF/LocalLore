@@ -1,0 +1,29 @@
+import groovy.json.JsonOutput
+
+// Inspect only the configured task input. No dependency executes the native build.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.findProject(':app')
+    if (app == null) {
+        throw new GradleException('LocalLore Android app project missing')
+    }
+    app.tasks.register('inspectLocalLoreModelPublication') {
+        group = 'verification'
+        description = 'Check native model publication feature selection for the configured profile.'
+        doLast {
+            def liteRt = app.providers.gradleProperty('localLoreLiteRtVerification').orNull == 'true'
+            def setup = app.providers.gradleProperty('localLoreModelSetupVerification').orNull == 'true'
+            def actual = app.tasks.named('buildRustAndroid').get().inputs.properties['modelProvisioning']
+            def expected = liteRt || setup
+            if (!(actual instanceof Boolean)) {
+                throw new GradleException('LocalLore model publication input missing')
+            }
+            def record = [version: 1, scope: 'litert_publication_feature_model_v1',
+                          task: ':app:buildRustAndroid', lite_rt: liteRt, model_setup: setup,
+                          model_provisioning: actual, expected_model_provisioning: expected]
+            println('LOCALLORE_LITERT_PUBLICATION_PROBE_V1=' + JsonOutput.toJson(record))
+            if (actual != expected) {
+                throw new GradleException('LocalLore model publication feature selection mismatch')
+            }
+        }
+    }
+}

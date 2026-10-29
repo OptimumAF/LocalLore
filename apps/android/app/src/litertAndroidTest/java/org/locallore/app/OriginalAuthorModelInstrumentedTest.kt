@@ -82,6 +82,8 @@ class OriginalAuthorModelInstrumentedTest {
     @Test fun recordsOneRealAuthorCreationAndInferenceFreeReopen() = runBlocking {
         val phase = AuthorProof()
         var artifacts: Artifacts? = null
+        var diagnostics: DiagnosticArtifacts? = null
+        var responseCapture: AuthorResponseCapture? = null
         var transport: NativeWorkspaceTransport? = null
         var owner: LocalInferenceOwner? = null
         var handle = 0L
@@ -115,6 +117,12 @@ class OriginalAuthorModelInstrumentedTest {
                 phase.prior = sha(priorRaw)
                 val root = freshDirectory(anchor, AUTHOR_ROOT)
                 artifacts = Artifacts(root)
+                diagnostics = DiagnosticArtifacts(freshDirectory(anchor, DIAGNOSTIC_ROOT))
+                val diagnostic = checkNotNull(diagnostics)
+                val input = fixture()
+                val inputRaw = localUtf8(OriginalStoryWire.input(input).toString())
+                check(sha(inputRaw) == INPUT_SHA256) // Explicit synthetic consent before enabling raw capture.
+                diagnostic.put("input-v1.json", inputRaw)
                 val isolated = object : ContextWrapper(app) {
                     override fun getApplicationContext(): Context = this
                     override fun getNoBackupFilesDir(): File = root
@@ -135,6 +143,7 @@ class OriginalAuthorModelInstrumentedTest {
                 }
                 phase.profile = parse(config.profileBytes())
                 owner = config.createOwner(trace = worker, sendTrace = send, callbackTrace = callbacks, statusTrace = statuses)
+                responseCapture = checkNotNull(owner).installAuthorResponseCapture()
                 tracesObserved = true
                 transport = NativeWorkspaceTransport(isolated, owner)
                 val actual = checkNotNull(transport)
@@ -142,16 +151,28 @@ class OriginalAuthorModelInstrumentedTest {
                 phase.stage = "native_open"
                 val before = recorded(output, actual, "workspace-before-v1.json", command("workspace"))
                 check(before.getJSONArray("stories").length() == 0)
+                diagnostic.put("workspace-before-v1.json", read(File(output.root, "workspace-before-v1.json"), ARTIFACT_CAP))
                 handle = actual.forkHandle()
-                val input = fixture()
-                output.put("input-v1.json", localUtf8(OriginalStoryWire.input(input).toString()))
+                output.put("input-v1.json", inputRaw)
                 phase.stage = "begin"
                 val begun = recorded(output, actual, "begin-v1.json", command("authoring_begin").put("input", OriginalStoryWire.input(input)))
                 val job = OriginalStoryWire.job(begun)
                 check(job.provider == "local")
                 phase.job = job.job; phase.inputHash = job.inputSha256
                 phase.stage = "generate"
-                val generated = OriginalStoryWire.generated(recorded(output, actual, "generated-v1.json", command("authoring_generate").put("job", job.job)))
+                val generatedReply = actual.exchange(command("authoring_generate").put("job", job.job))
+                val generatedRaw = localUtf8(generatedReply.toString())
+                output.put("generated-v1.json", generatedRaw)
+                diagnostic.put("generated-v1.json", generatedRaw)
+                // Only a returned operation with known SDK ownership permits this passive query.
+                // Retain the rejected envelope before attempting to decode its successful data.
+                closedAuthor(worker.snapshot(), send.snapshot(), callbacks.snapshot(), statuses.snapshot())
+                check(!checkNotNull(owner).quarantined)
+                val afterGeneration = actual.exchange(command("workspace"))
+                diagnostic.put("workspace-after-v1.json", localUtf8(afterGeneration.toString()))
+                same(before, data(afterGeneration))
+                diagnostic.conserved = true
+                val generated = OriginalStoryWire.generated(data(generatedReply))
                 check(generated.job == job.job && generated.provider == "local" && generated.input == input)
                 same(before, recorded(output, actual, "workspace-generated-v1.json", command("workspace")))
                 closedAuthor(worker.snapshot(), send.snapshot(), callbacks.snapshot(), statuses.snapshot())
@@ -246,7 +267,10 @@ class OriginalAuthorModelInstrumentedTest {
                     output.put("callback-v1.json", localUtf8(callbacks.snapshot().json()))
                     output.put("status-v1.json", localUtf8(statuses.snapshot().json()))
                 }
-                writeNew(File(output.root, "proof-v1.json"), localUtf8(phase.json(output).toString()))
+                val proofRaw = localUtf8(phase.json(output).toString())
+                writeNew(File(output.root, "proof-v1.json"), proofRaw)
+                diagnostics?.finish(proofRaw, responseCapture,
+                    phase.reason == "resource_uncertain" || owner?.quarantined == true)
             }
         } } catch (_: Throwable) { fail("Original author proof capture refused") }
         if (phase.reason != null || phase.stage != "completed") fail("Original author probe refused: ${phase.stage}/${phase.reason ?: "checks_failed"}")
@@ -308,11 +332,50 @@ class OriginalAuthorModelInstrumentedTest {
         fun bindings(names: List<String>) = JSONObject().also { result -> names.forEach { result.put(it, saved[it] ?: JSONObject.NULL) } }
     }
 
+    /** Private synthetic evidence only. No response is logged or used to decide a world outcome. */
+    private class DiagnosticArtifacts(val root: File) {
+        private val saved = mutableMapOf<String, JSONObject>()
+        private var total = 0L
+        var conserved = false
+        fun put(name: String, raw: ByteArray) {
+            check(name in DIAGNOSTIC_FILES && name !in saved)
+            val cap = when (name) { "input-v1.json" -> 4096; "response-v1.bin" -> 8192; else -> 262144 }
+            check(raw.size in 1..cap && total + raw.size <= ARTIFACT_CAP)
+            writeNew(File(root, name), raw); total += raw.size
+            saved[name] = JSONObject().put("bytes", raw.size).put("sha256", sha(raw))
+        }
+        fun finish(proofRaw: ByteArray, capture: AuthorResponseCapture?, uncertain: Boolean) {
+            val snapshot = capture?.snapshot()
+            snapshot?.responseBytes()?.let { put("response-v1.bin", it) }
+            val state: Any = when (snapshot?.state) {
+                AuthorResponseCaptureState.EMPTY -> "empty"
+                AuthorResponseCaptureState.RECORDED -> "recorded"
+                AuthorResponseCaptureState.DUPLICATE -> "duplicate"
+                AuthorResponseCaptureState.INVALID -> "invalid"
+                null -> JSONObject.NULL
+            }
+            val complete = !uncertain && conserved && state == "recorded" && snapshot?.calls == 1 &&
+                saved.keys == DIAGNOSTIC_FILES.toSet() && saved["input-v1.json"]?.getString("sha256") == INPUT_SHA256
+            val value = JSONObject().put("version", 1).put("scope", "original_author_diagnostic_v1")
+                .put("status", if (complete) "completed" else "refused")
+                .put("reason", if (complete) JSONObject.NULL else if (uncertain) "resource_uncertain" else "checks_failed")
+                .put("feature_acceptance", false).put("input_sha256", saved["input-v1.json"]?.getString("sha256") ?: JSONObject.NULL)
+                .put("author_proof_sha256", sha(proofRaw))
+                .put("capture", JSONObject().put("state", state).put("calls", snapshot?.calls ?: JSONObject.NULL)
+                    .put("response", saved["response-v1.bin"] ?: JSONObject.NULL))
+                .put("files", JSONObject().also { files -> DIAGNOSTIC_FILES.forEach { files.put(it, saved[it] ?: JSONObject.NULL) } })
+            val raw = localUtf8(value.toString()); check(raw.size <= 32768)
+            writeNew(File(root, "diagnostic-v1.json"), raw)
+        }
+    }
+
     companion object {
         private const val PACKAGE = "org.locallore.app.litertverify"
         private const val SOURCE_ROOT = "original-author-source-v1"
         private const val IMPORT_ROOT = "original-author-import-proof-v1"
         private const val AUTHOR_ROOT = "original-author-proof-v1"
+        private const val DIAGNOSTIC_ROOT = "original-author-diagnostic-v1"
+        private const val INPUT_SHA256 = "1180137865b47041f2827df2e5aac05bc8170b740da49970105648a191b37abb"
         private const val MODEL_BYTES = 2_588_147_712L
         private const val RESERVE = 2L * 1_073_741_824
         private const val PHASE_MS = 180_000L
@@ -322,6 +385,7 @@ class OriginalAuthorModelInstrumentedTest {
         private val RECORDS = listOf("input-v1.json", "begin-v1.json", "generated-v1.json", "review-v1.json", "create-v1.json", "retry-v1.json",
             "workspace-before-v1.json", "workspace-generated-v1.json", "workspace-reviewed-v1.json", "workspace-created-v1.json", "snapshot-created-v1.json", "snapshot-reopened-v1.json", "archive-v1.json")
         private val TRACES = listOf("worker-v2.json", "send-v2.json", "callback-v1.json", "status-v1.json")
+        private val DIAGNOSTIC_FILES = listOf("input-v1.json", "response-v1.bin", "generated-v1.json", "workspace-before-v1.json", "workspace-after-v1.json")
         private fun fixture() = OriginalInput("At a tiny island lantern hut, Eira asks keeper Tavi for a weather note. A single room, a brief shared fact, no possessions, and no beliefs are enough.",
             "Eira", "An island visitor.", listOf(OriginalCast("Tavi", "A quiet lantern keeper.")), "narrative_v1", StoryPresentation("plain", emptyList()))
         private fun selected(method: String): Context {

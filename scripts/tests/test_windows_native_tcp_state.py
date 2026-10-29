@@ -11,7 +11,10 @@ import json
 import os
 from pathlib import Path
 import struct
+import subprocess
 import tempfile
+import threading
+import time
 from types import SimpleNamespace
 import unittest
 from contextlib import ExitStack,redirect_stdout
@@ -329,7 +332,7 @@ class NativeLauncherTests(unittest.TestCase):
             stack.enter_context(patch.object(n,'_source_bindings',side_effect=lambda *_:[env.binding(source)]))
             stack.enter_context(patch.object(env,'process_identity',side_effect=identity))
             stack.enter_context(patch.object(os,'getpid',return_value=9001))
-            owner=stack.enter_context(patch.object(env,'supervise',side_effect=supervise))
+            owner=stack.enter_context(patch.object(n,'_supervise',side_effect=supervise))
             stack.enter_context(redirect_stdout(io.StringIO()))
             code=n.main(['--binary',str(binary),'--binary-sha256',pin['sha256'],'--output',str(output)])
         owner.assert_called_once()
@@ -385,10 +388,187 @@ class NativeLauncherTests(unittest.TestCase):
         base=Path(tempfile.mkdtemp(prefix='locallore-native-tcp-preflight-',dir='D:/Dev/_Temp'))
         binary=base/'control.exe';binary.write_bytes(b'synthetic executable; never run');out=base/'output'
         fake_control=SimpleNamespace(_prepare_environment=lambda:None,validate_output=control.validate_output)
-        with patch.object(n,'_runtime',return_value=(env,fake_control,SimpleNamespace())),patch.object(env,'supervise')as owner:
+        with patch.object(n,'_runtime',return_value=(env,fake_control,SimpleNamespace())),patch.object(n,'_supervise')as owner:
             with self.assertRaises(n.NativeControlRefused):
                 n.main(['--binary',str(binary),'--binary-sha256','0'*64,'--output',str(out)])
         owner.assert_not_called();self.assertFalse(out.exists())
+
+    def test_all_owner_counts_and_closed_keys_are_required(self):
+        for change in(dict(elapsed_ms=False),dict(elapsed_ms=1.0),dict(private_rows='SYNTHETIC_PRIVATE_CANARY')):
+            with self.subTest(change=change):
+                code,result,_,_=self.run_launcher(owner_change=change)
+                self.assertEqual(code,1);self.assertFalse(result['qualified_acquisition'])
+
+
+class FakeFlag:
+    def __init__(self):self.value=False
+    def set(self):self.value=True
+    def is_set(self):return self.value
+
+
+class FakeCapture:
+    def __init__(self,events,*,fail=False,overflow=False,close_fail=False):
+        self.events=events;self.failed=FakeFlag();self.overflow=FakeFlag();self.sizes=[0,0]
+        self.fail,self.limit,self.close_fail=fail,overflow,close_fail
+    def append(self,channel,data):
+        self.events.append(('capture',channel))
+        if self.fail:self.failed.set();return False
+        if self.limit:self.overflow.set();return False
+        self.sizes[channel]+=len(data);return True
+    def close(self):
+        self.events.append('capture-close')
+        if self.close_fail:raise OSError('synthetic capture close')
+
+
+class FakeInput:
+    def __init__(self,events,*,chunk=None,bad=None):
+        self.events=events;self.chunk=chunk;self.bad=bad;self.sent=bytearray();self.closed=False
+    def write(self,data):
+        self.events.append('stdin-write')
+        if self.bad is not None:return self.bad
+        count=len(data)if self.chunk is None else min(self.chunk,len(data))
+        self.sent.extend(bytes(data[:count]));return count
+    def close(self):self.events.append('stdin-close');self.closed=True
+
+
+class FakeOutput:
+    def __init__(self,events,name,data=b'',*,read_fail=False,close_fail=False):
+        self.events=events;self.name=name;self.data=data;self.read_fail=read_fail;self.close_fail=close_fail
+    def read(self,limit):
+        self.events.append(self.name+'-read')
+        if self.read_fail:raise OSError('synthetic reader failure')
+        data=self.data[:limit];self.data=self.data[limit:];return data
+    def close(self):
+        self.events.append(self.name+'-close')
+        if self.close_fail:raise OSError('synthetic pipe close')
+
+
+class FakeChild:
+    def __init__(self,events,*,chunk=None,bad=None,read_fail=False,stream_close_fail=False,wait_fail=False,hang=False):
+        self.pid=PID;self.events=events;self.returncode=None;self.wait_fail=wait_fail;self.hang=hang
+        self.stdin=FakeInput(events,chunk=chunk,bad=bad)
+        self.stdout=FakeOutput(events,'stdout',b'original synthetic output',read_fail=read_fail,close_fail=stream_close_fail)
+        self.stderr=FakeOutput(events,'stderr')
+    def poll(self):
+        self.events.append('poll')
+        if self.stdin.closed and not self.hang:self.returncode=0
+        return self.returncode
+    def kill(self):self.events.append('kill-own-child');self.returncode=-9
+    def wait(self,timeout):
+        self.events.append('wait-own-child')
+        if self.wait_fail:raise subprocess.TimeoutExpired('synthetic-child',timeout)
+        return self.returncode
+
+
+class FakeJob:
+    def __init__(self,events,child,*,closed=True):self.events=events;self.child=child;self.closed=closed
+    def close(self):
+        self.events.append('job-close')
+        if self.child.returncode is None:self.child.returncode=-9
+        return self.closed
+
+
+class FakeReaderThread:
+    def __init__(self,*,target,args,daemon):self.target=target;self.args=args;self.daemon=daemon;self.stalled=False
+    def start(self):self.target(*self.args)
+    def join(self,timeout):pass
+    def is_alive(self):return self.stalled
+
+
+@unittest.skipUnless(os.name=='nt','Windows scoped-supervisor contract')
+class NativeSupervisorTests(unittest.TestCase):
+    def supervise(self,*,callback='true',chunk=None,bad=None,job_fail=False,job_closed=True,
+                  read_fail=False,capture_fail=False,overflow=False,capture_close_fail=False,
+                  stream_close_fail=False,wait_fail=False,hang=False,stalled=False,create_capture_fail=False):
+        events=[];child=FakeChild(events,chunk=chunk,bad=bad,read_fail=read_fail,
+          stream_close_fail=stream_close_fail,wait_fail=wait_fail,hang=hang)
+        capture=FakeCapture(events,fail=capture_fail,overflow=overflow,close_fail=capture_close_fail)
+        def create(root):
+            events.append('capture-create')
+            if create_capture_fail:raise OSError('synthetic create refusal')
+            return capture
+        def popen(*args,**kwargs):events.append('popen-own-child');return child
+        def job(pid):
+            self.assertEqual(pid,child.pid);events.append('assign-own-job')
+            if job_fail:raise OSError('synthetic job assignment refusal')
+            return FakeJob(events,child,closed=job_closed)
+        def started(actual):
+            self.assertIs(actual,child);self.assertEqual(actual.pid,PID);events.append('identity-recorded')
+            if callback=='false':return False
+            if callback=='throw':raise ValueError('synthetic identity refusal')
+            if callback=='cancel':raise KeyboardInterrupt()
+            return True
+        def thread(**kwargs):
+            value=FakeReaderThread(**kwargs);value.stalled=stalled;return value
+        env=SimpleNamespace(LiveOutput=create,host=SimpleNamespace(WindowsJob=job),EnvironmentRefused=RuntimeError)
+        clock=lambda:2.0 if hang and child.stdin.closed else 0.0
+        with patch.object(n,'_runtime',return_value=(env,None,None)), \
+             patch.object(subprocess,'Popen',side_effect=popen)as process, \
+             patch.object(threading,'Thread',side_effect=thread),patch.object(time,'monotonic',side_effect=clock):
+            result=n._supervise(['D:\\Synthetic\\never-executed.exe'],n.BARRIER,Path('D:/Synthetic/capture'),1,started)
+        if create_capture_fail:process.assert_not_called()
+        else:process.assert_called_once()
+        return result,events,child,capture
+
+    def test_actual_child_identity_is_recorded_before_any_stdin_release(self):
+        result,events,child,_=self.supervise()
+        self.assertLess(events.index('assign-own-job'),events.index('identity-recorded'))
+        self.assertLess(events.index('identity-recorded'),events.index('stdin-write'))
+        self.assertEqual(bytes(child.stdin.sent),n.BARRIER)
+        self.assertEqual(result['status'],'child_exited');self.assertTrue(result['cleanup_complete'])
+        self.assertTrue(result['output_capture_complete']);self.assertEqual(result['worker_returncode'],0)
+
+    def test_false_throwing_or_cancelled_identity_never_releases_barrier(self):
+        for callback in('false','throw','cancel'):
+            with self.subTest(callback=callback):
+                result,events,child,_=self.supervise(callback=callback)
+                self.assertNotIn('stdin-write',events);self.assertEqual(child.stdin.sent,b'')
+                self.assertIn('job-close',events);self.assertNotEqual(result['status'],'child_exited')
+
+    def test_partial_writes_release_each_barrier_byte_exactly_once(self):
+        result,events,child,_=self.supervise(chunk=3)
+        self.assertEqual(bytes(child.stdin.sent),n.BARRIER);self.assertGreater(events.count('stdin-write'),1)
+        self.assertEqual(result['status'],'child_exited');self.assertTrue(result['cleanup_complete'])
+
+    def test_zero_boolean_negative_or_oversized_write_refuses(self):
+        for bad in(0,True,-1,len(n.BARRIER)+1):
+            with self.subTest(bad=bad):
+                result,events,child,_=self.supervise(bad=bad)
+                self.assertEqual(child.stdin.sent,b'');self.assertEqual(result['status'],'owner_failed')
+                self.assertEqual(events.count('stdin-write'),1);self.assertIn('job-close',events)
+
+    def test_failed_job_assignment_kills_only_own_still_blocked_child(self):
+        result,events,child,_=self.supervise(job_fail=True)
+        self.assertNotIn('stdin-write',events);self.assertNotIn('identity-recorded',events)
+        self.assertEqual(events.count('kill-own-child'),1);self.assertIn('wait-own-child',events)
+        self.assertEqual(result['status'],'owner_failed');self.assertTrue(result['cleanup_complete'])
+
+    def test_reader_or_capture_failure_never_claims_complete_capture(self):
+        for changes in(dict(read_fail=True),dict(capture_fail=True),dict(capture_close_fail=True)):
+            with self.subTest(changes=changes):
+                result,events,_,_=self.supervise(**changes)
+                self.assertEqual(result['status'],'evidence_failed');self.assertFalse(result['output_capture_complete'])
+                self.assertIn('job-close',events)
+
+    def test_output_overflow_and_total_budget_expiry_are_failures(self):
+        for changes,status in((dict(overflow=True),'output_limit'),(dict(hang=True),'expired')):
+            with self.subTest(changes=changes):
+                result,events,_,_=self.supervise(**changes)
+                self.assertEqual(result['status'],status);self.assertIn('job-close',events)
+
+    def test_uncertain_job_pipe_wait_or_reader_closure_is_not_promoted(self):
+        for changes in(dict(job_closed=False),dict(stream_close_fail=True),dict(wait_fail=True),dict(stalled=True)):
+            with self.subTest(changes=changes):
+                result,events,_,_=self.supervise(**changes)
+                self.assertFalse(result['cleanup_complete']);self.assertIn('job-close',events)
+                if changes.get('stalled'):
+                    self.assertEqual(result['status'],'evidence_failed');self.assertIsNone(result['stdout_bytes'])
+                    self.assertFalse(result['output_capture_complete'])
+
+    def test_capture_creation_failure_prevents_process_dispatch(self):
+        result,events,_,_=self.supervise(create_capture_fail=True)
+        self.assertNotIn('popen-own-child',events);self.assertFalse(result['cleanup_complete'])
+        self.assertFalse(result['output_capture_complete']);self.assertEqual(result['status'],'evidence_failed')
 
 
 if __name__=='__main__':unittest.main()

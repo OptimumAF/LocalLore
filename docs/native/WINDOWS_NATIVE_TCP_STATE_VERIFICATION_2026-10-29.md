@@ -17,8 +17,8 @@ No existing gate or failed historical result is changed.
 See the [frozen protocol](WINDOWS_NATIVE_TCP_STATE_PROTOCOL_V1.md).
 `benchmarks/native/windows_tcp_state_control.c` uses actual Microsoft SDK
 definitions, compile-time sizeof/offsetof/table-class assertions and direct
-native calls. It creates only three self-owned exclusive/ephemeral loopback
-sockets, refusing port5037. Its10-second work budget and nonblocking socket
+native calls. It creates one exclusive ephemeral loopback listener, its client
+and accepted socket, refusing port5037. Its10-second work budget and nonblocking socket
 operations sit under a30-second owned job, with additional bounded cleanup.
 One sizing/data pair per query, fixed phases, raw row ordinals and finite
 partial send/receive prevent favorable polling, reconnect or replay.
@@ -168,6 +168,35 @@ ZIP and are separately committed/pushed.
 
 Producer actually exits0 in9,834ms, checking every original/copy/ZIP byte and
 source Git blob. This is preservation, not replay or device qualification.
+
+Independent V2 readback actually exits0 in2,718ms: all1,124 original/copy pairs,
+1,433,383 original bytes, exact1,126 ZIP members,2,044 source Git blob files and
+238 actual directory entries. It uses one Git tree read, checks the four admitted
+control digests, exact25 tested source bytes/final48 subset and closed test/build/
+fast/native records. No test, build, diagnostic or native observation is rerun;
+installed headers/tools are retained metadata for this recovery check, not
+reopened by that verifier. Its2,721-byte result SHA256 is
+`1455f7f04a51d2c348d6a37986a80400c928475178fa83b8557e33f535653589`;
+corrected23,403-byte verifier SHA256 is
+`d60bf311607b927639c38372aedc2c82f4e734a6466c3de783dd70bbaf3de2cf`.
+
+The first verifier assumes an uncontracted ZIP prefix and refuses after checking
+originals/copies but before Git. Its unchanged source and explicitly labeled
+tool-output transcription remain preserved. V2 corrects only the ZIP prefix to
+`evidence/packet/...` and `evidence/fixtures/...`; exact unique rosters, admitted
+digests and every byte check remain. No evidence or source line ending is
+normalized to make a check pass.
+
+Later verifier source/failure/result artifacts and their helper are copied
+separately to
+`D:/Dev/Archives/LocalLore/2026-10-29-native-tcp-state-readback-v1`. Root's producer
+actually exits0 and rechecks all five original/copy pairs plus the six-member
+ZIP. Index2,463 bytes/SHA256
+`13b64428c1d30f7a369b5ebcccfb4749f7070c1097859769d8e1bd083759aa91`;
+ZIP20,637 bytes/SHA256
+`4573ba5c9d307b81eccdd53b9f94817d3329d70ae165274c3521c1a285c258ef`.
+This small supplement has Root copy/readback evidence; the independent1,124-file
+result is not silently extended to it. The original seal stays unchanged.
 
 M10.02 supporting implementation is proposed for review. M09.06/M01.01 current
 runtime remains blocked on trustworthy service admission; fresh full Android

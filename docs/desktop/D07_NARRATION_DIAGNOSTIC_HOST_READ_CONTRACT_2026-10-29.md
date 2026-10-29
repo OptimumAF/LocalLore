@@ -202,3 +202,67 @@ later execution and integration; no production, schema generation or runtime
 operation is authorized before the independent test-source handoff. This is
 interface acceptance, not implementation, behavioral RED, milestone or merge
 acceptance. Both negative human assessments and unmerged dependencies stand.
+
+## Independent FIRST Host oracle freeze — 2026-10-29
+
+The independent author owns only NEW
+`crates/locallore/src/host/narration_diagnostic_read_review_tests.rs` and this
+append, on `test/d07-narration-diagnostic-host-read-v1` from exact accepted
+`27c2607ac1f80e19eedf49ffd83aa590798d3d66`. Claims before edits:
+[#9 comment6494841618](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6494841618),
+[#29 comment6494842098](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6494842098).
+Root retains registration, separate-author production, generation and execution.
+No production, existing test, registration, schema or generated type is changed.
+
+The 555-line source freezes six test functions. SHA256:
+`2afb14de702bbcc9ceeeb5519122f6a77750c7324ebb64857b670f4c17a8d94a`.
+These are original synthetic fixtures, not private Native4 prose or a model run:
+
+1. Real Host/Engine/Play/RingSink reads for both Scene recipes: accepted, actual
+   first-person/movement refusals, first-predicate precedence, earlier generic
+   and non-Narration rejection. Read before/after commit preserves the decision;
+   provider counts, old trace/private-capture bytes and canonical state remain.
+   A synthetic nonliteral player actor ID proves lookup derives the actor while
+   the wire observer remains the literal player label.
+2. Valid non-Lab requests refuse before poisoned State, admission or trace-poison
+   recovery. A real-Engine admission-only spy counts relevant source/lifecycle
+   seams; an explicit queued attachment detects owner retirement/cancellation.
+   Oversized/malformed/invalid UTF-8, version, required-field, extra-authority,
+   numeric-type/u64-overflow and unknown-op precedence remain distinct. Existing
+   player-host metadata access is an unchanged-operation control, not Android
+   JNI/device execution or a transport-wide zero-I/O assertion.
+3. Authorized Closed/Scope, validate/resume failures, NotFound reconciliation
+   and Stale precede selector errors. Native overflow precedes the shared Core
+   invalid-selector result across disabled/live/busy/poisoned trace states.
+   The only proposed visibility dependency is the accepted existing selector
+   helper; no new product helper or duplicated authorization predicate is assumed.
+4. Exact session/owner/base/turn/attempt binding, returned session, lifecycle,
+   ordinary finish versus truncation, count eviction and missing/disabled slots.
+   Busy reads use a five-second test-only wait, release the held lock and join
+   before asserting, so a blocking regression cannot leave that fixture hanging.
+   Poison inspection is test-only: the Host must neither clear poison nor delete
+   the retained slot. No app recovery behavior is inferred from a recovered guard.
+5. Closed bound/decision fields, nullable keys and generation_grant=false;
+   explicit trusted private tuple controls cover all accepted current tuples and
+   constructible inconsistent/unsupported outcomes/categories. They are not
+   actual Engine failures or authenticated-origin evidence. A long private
+   session-map alias tests the 4,096-byte entire-reply cap; it is not a normal
+   public session capability. No unsupported future version/reason can be
+   constructed with current getters/enums; those branches remain source review.
+6. Actual read/no-read provider/request/receipt parity, exact same-Engine retry
+   and replay, cancellation after a retained decision, zero-request ability
+   guards, unchanged old trace/capture bytes and character knowledge. Separate
+   executions normalize only previously accepted receipt stage elapsed values;
+   request deadlines remain positive, bounded and nonincreasing. Same-Engine
+   receipts/canonical bytes and captured wire objects are never normalized.
+
+The new child is UNREGISTERED; the op/schema and selector visibility are absent
+at this base: **SETUP / UNCOMPILED / UNRUN**, never behavioral RED or acceptance.
+No hypothetical future-version, negative-Serde-trait, Eval/Report4 execution,
+SDK/model, native IPC/render or device proof is manufactured by these tests.
+Schema/type generation, existing schema equality/frontend checks, default-Core,
+Android-host and broader compatibility checks remain Root-owned and unrun here.
+The independent author verifies source/oracles, fixture-path resolution, exact
+two-path diff, whitespace and hashes only: no compiler, formatter, Cargo, Node,
+browser, app, model/assets, phone or desktop execution. Handoff releases these
+two paths to Root with the frozen commit/hash before any production edit.

@@ -40,7 +40,10 @@ export function ComparisonRunView({
     const [batch, setBatch] = useState(1);
     const [savedId, setSavedId] = useState("");
     const status = s.allowed ? s.status : null;
-    const scene = status?.protocol_version === 4 || (s.allowed && s.catalog?.protocol_version === 4);
+    const protocol =
+        status?.protocol_version ??
+        (s.allowed ? s.catalog?.protocol_version : undefined);
+    const scene = protocol === 4;
     const ready =
         !!status &&
         status.report_ready &&
@@ -74,18 +77,26 @@ export function ComparisonRunView({
             <h2 id={`${section}-title`}>Run full comparison</h2>
             {scene ? (
                 <p>
-                    Protocol 4 · scene construction. Requests the approved installed local model
-                    through the existing Rust owner. Human quality is not established.
-                    This development cohort reuses an approved publication; model availability
-                    is checked before execution.
+                    Protocol 4 · scene construction. Requests the approved
+                    installed local model through the existing Rust owner. Human
+                    quality is not established. This development cohort reuses
+                    an approved publication; model availability is checked
+                    before execution.
                 </p>
-            ) : native ? (
+            ) : native && protocol === 3 ? (
                 <p>
                     Requests the approved installed local model. Availability is
                     checked when you start. No fake inference fallback. Human
                     quality is not established. Import a supported model using
                     the existing model controls; this action never downloads
                     one.
+                </p>
+            ) : native ? (
+                <p>
+                    Native comparison details are not yet available. Refresh
+                    saved metadata to check the reported configuration. Model
+                    availability is checked before execution. Human quality is
+                    not established.
                 </p>
             ) : (
                 <p>
@@ -219,7 +230,7 @@ export function ComparisonRunView({
                                   ? "Current source"
                                   : "Historical or mismatched source; resume may be refused"}
                         </dd>
-                        <dt>Worker running</dt>
+                        <dt>Operation active · last reported</dt>
                         <dd>
                             {status.running
                                 ? native

@@ -1610,7 +1610,10 @@ export function checkedReaderNarrationDiagnosticV1(
                 reply.data,
                 command as NarrationValidationQueryV1,
             );
-            wire(data.status === (status === "recorded" ? "recorded" : "unavailable"));
+            wire(
+                data.status ===
+                    (status === "recorded" ? "recorded" : "unavailable"),
+            );
         } catch (error) {
             // Shared malformed data is Wire for live callers; this reader's
             // established controller must retain its distinct error category.

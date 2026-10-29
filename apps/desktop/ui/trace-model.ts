@@ -5,17 +5,32 @@ import type {
 } from "./narration-diagnostic-model";
 export type TraceQuery = Extract<Command, { op: "trace_read" }>;
 export type TraceNarrationValidationState = Readonly<{
-    status: "idle" | "pending" | "recorded" | "unavailable" | "refused" | "cancelled";
+    status:
+        | "idle"
+        | "pending"
+        | "recorded"
+        | "unavailable"
+        | "refused"
+        | "cancelled";
     query: NarrationValidationQueryV1 | null;
     reply: NarrationValidationDataV1 | null;
     error: string | null;
 }>;
 export type TraceNarrationValidationEligibility = Readonly<{
     allowed: boolean;
-    reason: "disposed" | "hidden" | "not_story_lab" | "not_omniscient"
-        | "source_unavailable" | "fence_unavailable" | "gameplay_unresolved"
-        | "busy" | "trace_unavailable" | "selection_unavailable"
-        | "context_changed" | null;
+    reason:
+        | "disposed"
+        | "hidden"
+        | "not_story_lab"
+        | "not_omniscient"
+        | "source_unavailable"
+        | "fence_unavailable"
+        | "gameplay_unresolved"
+        | "busy"
+        | "trace_unavailable"
+        | "selection_unavailable"
+        | "context_changed"
+        | null;
 }>;
 export const traceStages = [
     "intent",
@@ -111,7 +126,12 @@ export const initialTrace = (): TraceState => ({
     selected: null,
     error: null,
     notice: "",
-    narrationValidation: { status: "idle", query: null, reply: null, error: null },
+    narrationValidation: {
+        status: "idle",
+        query: null,
+        reply: null,
+        error: null,
+    },
 });
 export const attemptKey = (a: TraceAttempt) =>
     `${a.identity.turn}:${a.identity.attempt}`;

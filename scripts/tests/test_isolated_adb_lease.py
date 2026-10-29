@@ -7,8 +7,10 @@ import copy
 import hashlib
 import ipaddress
 import math
+import os
 from pathlib import Path,PureWindowsPath
 import struct
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -215,6 +217,24 @@ class AdmissionTests(unittest.TestCase):
                       dict(admission_sha256='b'*64),dict(pid=SERVER['pid'])):
             with self.subTest(change=change):self.refused(lambda:n.check_stop(dict(value,**change),digest))
 
+    def test_windows_reserved_alias_extensions_and_unc_roots_refuse(self):
+        for bad in('D:\\Synthetic\\con.txt','D:\\Synthetic\\lPt1.log',
+                   '\\\\host\\share\\lease','\\\\?\\D:\\Synthetic\\lease'):
+            value=admission();value['root']=bad
+            with self.subTest(root=bad):self.refused(lambda:n.validate_admission(value))
+        value=admission();value['root']="D:\\Synthetic\\Éowyn's notes\\lease-v1"
+        self.assertEqual(n.validate_admission(value),value)
+
+    def test_running_proof_binding_paths_cannot_swap_or_escape_private_root(self):
+        for field,bad in(('version_proof',running()['devices_proof']),
+                         ('devices_proof',pin('C:\\Synthetic\\proof-devices-v1.json'))):
+            value=running();value[field]=bad
+            with self.subTest(field=field):self.refused(lambda:n.validate_running(value,admission(),admitted_binding()))
+
+    def test_environment_does_not_export_changes_to_this_process(self):
+        before=dict(os.environ);n.child_environment(admission(),dict(before,ADB_VENDOR_KEYS='synthetic vendor path'))
+        self.assertEqual(dict(os.environ),before)
+
 
 class ObservationTests(unittest.TestCase):
     def check(self,value,*,client=None,ep=None,**kwargs):
@@ -349,6 +369,128 @@ class ObservationTests(unittest.TestCase):
         value=connected();value['rows'].extend((row4(role='server',pid=0,rp=OLD_PORT,ordinal=10),
                                                row4(role='server',pid=0,rp=OLD_PORT,ordinal=11)))
         self.refused(lambda:self.check(value,client=CLIENT,ep=endpoint(),completed_ports=(OLD_PORT,)))
+
+    def test_exact_ordinal_cap_and_family_numeric_types(self):
+        self.assertIsNone(self.check(observation(row4(ordinal=16383))))
+        self.refused(lambda:self.check(observation(row4(ordinal=16384))))
+        for families in([2.0,23],[2,23.0]):
+            with self.subTest(families=families):self.refused(lambda:self.check(dict(observation(row4()),families=families)))
+
+    def test_empty_preflight_and_history_container_cannot_borrow_later_authority(self):
+        for kwargs in(dict(completed_ports=(OLD_PORT,)),dict(after_request=True)):
+            with self.subTest(kwargs=kwargs):
+                self.refused(lambda:n.validate_observation(observation(),None,None,None,require_empty=True,**kwargs))
+        for ports in([OLD_PORT],None,{'port':OLD_PORT},str(OLD_PORT)):
+            with self.subTest(type=type(ports).__name__):self.refused(lambda:self.check(observation(row4()),completed_ports=ports))
+
+    def test_two_verified_history_ports_are_distinct_from_current_connection(self):
+        value=connected();value['rows'].extend((row4(role='server',pid=0,rp=OLD_PORT,ordinal=10),
+                                               row4(role='server',pid=SERVER['pid'],rp=OLDER_PORT,ordinal=11)))
+        self.assertIsNone(self.check(value,client=CLIENT,ep=endpoint(),completed_ports=(OLD_PORT,OLDER_PORT)))
+
+
+@unittest.skipUnless(os.name=='nt','physical D: capability files require Windows')
+class CapabilityReadbackTests(unittest.TestCase):
+    def setUp(self):
+        from benchmarks import receipt_avd_environment as env
+        self.env=env;self.base=Path(tempfile.mkdtemp(prefix='locallore-isolated-capability-',dir='D:/Dev/_Temp'))
+        self.value=admission();self.value['root']=str(self.base/'lease-v1')
+        version=b'Android Debug Bridge version 1.0.41\nVersion 37.0.1-15733141\nInstalled as synthetic path\n'
+        help_text=b'Original synthetic offline help\n-L SOCKET\nserver nodaemon\nADB_LOCAL_TRANSPORT_MAX_PORT\nADB_MDNS_AUTO_CONNECT\n'
+        self.rows=[]
+        for index,command,raw in((1,'version',version),(2,'help',help_text)):
+            path=self.base/('command-%02d.stdout.bin'%index);path.write_bytes(raw)
+            self.rows.append(dict(index=index,argv=[self.value['adb']['path'],command],
+              owner=dict(status='completed',elapsed_ms=7,returncode=0,cleanup_complete=True,stderr_bytes=0),
+              stdout=env.binding(path)))
+        self.cap=dict(version=1,passed=True,offline_CLI_calls=2,server_requests=0,device_calls=0,sources_equal=True,rows=self.rows)
+        self.path=self.base/'capabilities-v1.json';self.save()
+        review=self.base/'source-review-v1.json';review.write_bytes(b'{"synthetic_source_review":true}\n')
+        self.value['source_review']=env.binding(review)
+
+    def save(self,raw=None):
+        self.path.write_bytes(self.env.encoded(self.cap)if raw is None else raw)
+        self.value['capabilities']=self.env.binding(self.path)
+
+    def refused(self,call):
+        # Explicit filesystem helpers may retain the existing fixed IO refusal
+        # types. None of these paths may turn an IO failure into qualification.
+        with self.assertRaises((n.LeaseRefused,self.env.EnvironmentRefused,OSError))as error:call()
+        self.assertNotIn('SYNTHETIC_PRIVATE_CANARY',str(error.exception))
+
+    def read(self):return n.validate_capabilities(self.value['capabilities'],self.value)
+
+    def test_original_offline_capability_bytes_are_read_not_executed(self):
+        with patch('subprocess.Popen',side_effect=AssertionError('no SDK execution')):
+            result=self.read()
+        self.assertEqual(result,self.cap);result['rows'][0]['owner']['elapsed_ms']=999
+        self.assertEqual(self.env.read_json(self.path),self.cap)
+
+    def test_capability_closed_keys_owner_and_no_device_or_server_claims(self):
+        changes=(lambda x:x.update(server_requests=1),lambda x:x.update(device_calls=1),
+          lambda x:x.update(passed=1),lambda x:x.update(offline_CLI_calls=True),
+          lambda x:x.update(private_rows='SYNTHETIC_PRIVATE_CANARY'),
+          lambda x:x['rows'][0]['owner'].update(returncode=True),
+          lambda x:x['rows'][1]['owner'].update(cleanup_complete=False),
+          lambda x:x['rows'][0].update(argv=[self.value['adb']['path'],'devices','-l']))
+        original=copy.deepcopy(self.cap)
+        for index,change in enumerate(changes):
+            self.cap=copy.deepcopy(original);change(self.cap);self.save()
+            with self.subTest(index=index):self.refused(self.read)
+
+    def test_capability_stdout_hash_and_exact_private_filenames_are_bound(self):
+        raw_path=Path(self.rows[0]['stdout']['path']);raw_path.write_bytes(b'changed synthetic output')
+        self.refused(self.read)
+        # A new original adversarial record cannot substitute a differently named file.
+        other=self.base/'foreign-output.bin';other.write_bytes(b'original synthetic bytes')
+        self.cap['rows'][0]['stdout']=self.env.binding(other);self.save();self.refused(self.read)
+
+    def test_capability_version_and_help_tokens_are_required(self):
+        original=copy.deepcopy(self.cap)
+        original_bytes=[Path(row['stdout']['path']).read_bytes()for row in original['rows']]
+        for index,raw in((0,b'Android Debug Bridge version 1.0.41\nVersion 37.0.0\n'),(1,b'original help missing startup controls')):
+            self.cap=copy.deepcopy(original)
+            for row,data in zip(self.cap['rows'],original_bytes):Path(row['stdout']['path']).write_bytes(data)
+            path=Path(self.cap['rows'][index]['stdout']['path']);path.write_bytes(raw)
+            self.cap['rows'][index]['stdout']=self.env.binding(path);self.save()
+            with self.subTest(index=index):self.refused(self.read)
+
+    def test_strict_capability_json_and_record_hash_refuse(self):
+        original=self.env.encoded(self.cap)
+        for raw in(b'{"version":1,"version":1}',b'{"x":NaN}',b'\xff'):
+            self.save(raw)
+            with self.subTest(raw_type=raw[:1]):self.refused(self.read)
+        self.save(original);self.path.write_bytes(original+b' ')
+        self.refused(self.read)
+
+    def revalidate(self,*,markers=True,source_changed=False):
+        from benchmarks import adb_held_socket_probe as probe
+        checked=[];read_pins=[];original=n._read_bound
+        def check(pin_value):checked.append(copy.deepcopy(pin_value))
+        def read_bound(pin_value,**kwargs):
+            read_pins.append(copy.deepcopy(pin_value))
+            if pin_value['path']==self.value['adb']['path']:
+                return b'original synthetic executable ADB_USB\0ADB_EMU\0ADB_MDNS\0'if markers else b'no startup markers'
+            return original(pin_value,**kwargs)
+        sources=copy.deepcopy(self.value['sources'])
+        if source_changed:sources[0]['sha256']='0'*64
+        with patch.object(n,'source_bindings',return_value=sources), \
+             patch.object(probe,'_python_bindings',return_value=self.value['python']), \
+             patch.object(self.env,'check_binding',side_effect=check),patch.object(n,'_read_bound',side_effect=read_bound):
+            result=n.revalidate_inputs(self.value)
+        return result,checked,read_pins
+
+    def test_revalidation_checks_bound_sources_tools_and_markers_without_key_read(self):
+        result,checked,read_pins=self.revalidate()
+        self.assertIsNone(result)
+        expected=self.value['sources']+self.value['tools']+[self.value['source_review']]
+        self.assertTrue(all(pin_value in checked for pin_value in expected))
+        self.assertTrue(any(p['path']==self.value['adb']['path']for p in read_pins))
+        self.assertNotIn(self.value['auth_key'],[p['path']for p in read_pins+checked])
+
+    def test_revalidation_refuses_missing_startup_markers_or_changed_source(self):
+        self.refused(lambda:self.revalidate(markers=False))
+        self.refused(lambda:self.revalidate(source_changed=True))
 
 
 if __name__=='__main__':unittest.main()

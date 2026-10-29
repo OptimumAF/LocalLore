@@ -261,6 +261,25 @@ fn prepared_valid(value: &Value) -> bool {
             ) && serde_json::to_value(locallore_eval::memory_comparison_v3::arm_descriptors())
                 .is_ok_and(|expected| value["constructions"] == expected)
         }
+        Some(versioned::Protocol::V3) => {
+            keys(
+                value,
+                &[
+                    "version",
+                    "kind",
+                    "binding",
+                    "source_binding",
+                    "lane",
+                    "selection",
+                    "arms",
+                    "source_protocol_version",
+                    "constructions",
+                ],
+            ) && value["lane"] == "scripted_selected_case"
+                && value["source_binding"].as_str().is_some_and(hex)
+                && serde_json::to_value(locallore_eval::memory_comparison_v4::arm_descriptors())
+                    .is_ok_and(|expected| value["constructions"] == expected)
+        }
         None => false,
     };
     version_valid
@@ -329,6 +348,7 @@ pub(super) fn failure(error: &str) -> String {
             "InvalidEvaluationInput"
         }
         "NativeFeatureUnavailable"
+        | "SelectedNativeUnavailable"
         | "UnsupportedPlatform"
         | "RuntimeWorkerUnavailable"
         | "RuntimeModelInvalid" => "NativeUnavailable",
@@ -601,6 +621,8 @@ impl EvaluationManager {
             || index.created > SAFE
             || !hex(&index.source_binding)
             || !prepared_valid(&index.prepared)
+            || (versioned::prepared_protocol(&index.prepared) == Some(versioned::Protocol::V3)
+                && index.prepared["source_binding"].as_str() != Some(index.source_binding.as_str()))
             || index.prepared["lane"].as_str()
                 != Some(SelectedInputLane::parse(&index.lane)?.stored())
         {
@@ -620,6 +642,9 @@ impl EvaluationManager {
     fn selected_make_index(&self, client: &str, run: &str, prepared: &Prepared) -> Result<Index> {
         if !prepared_valid(&prepared.metadata)
             || versioned::prepared_protocol(&prepared.metadata) != Some(prepared.plan.protocol())
+            || (prepared.plan.protocol() == versioned::Protocol::V3
+                && prepared.metadata["source_binding"].as_str()
+                    != Some(prepared.source_binding.as_str()))
         {
             return Err("EvaluationIntegrity".into());
         }
@@ -1513,7 +1538,12 @@ impl EvaluationManager {
                             self.selected_reserve(models, epoch, operation)
                         }) {
                             Ok(_) => Ok(()),
-                            Err(error) => return Outcome::native(error),
+                            Err(versioned::NativeDispatchFailure::Unavailable) => {
+                                return Outcome::plain(Err("NativeUnavailable".into()));
+                            }
+                            Err(versioned::NativeDispatchFailure::Owned(error)) => {
+                                return Outcome::native(error);
+                            }
                         }
                     }
                 };
@@ -1616,7 +1646,12 @@ impl EvaluationManager {
                             cancel,
                             || self.selected_reserve(models, epoch, operation),
                         ) {
-                            return Outcome::native(error);
+                            return match error {
+                                versioned::NativeDispatchFailure::Unavailable => {
+                                    Outcome::plain(Err("NativeUnavailable".into()))
+                                }
+                                versioned::NativeDispatchFailure::Owned(error) => Outcome::native(error),
+                            };
                         }
                     }
                 }

@@ -144,6 +144,7 @@ class WindowsBackend:
         self._file_fds = set()
         self._uncertain_file_fds = set()
         self._file_close_failed = False
+        self._held_file_pin = None
         self._socket = None
         self._socket_anchor = None
         self._socket_handle = None
@@ -243,6 +244,12 @@ class WindowsBackend:
         return [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
 
     @staticmethod
+    def _birth(info):
+        birth = getattr(info, 'st_birthtime_ns', None)
+        _need(type(birth) is int and birth >= 0, 'identity')
+        return birth
+
+    @staticmethod
     def _regular_stat(path):
         for component in (path, *path.parents):
             info = component.lstat()
@@ -259,12 +266,21 @@ class WindowsBackend:
         path = Path(expected['path'])
         self._remaining(deadline)
         before = self._regular_stat(path)
-        _need(self._identity(before) == expected['identity'], 'identity')
+        path_identity = self._identity(before)
+        path_birth = self._birth(before)
+        _need(path_identity == expected['identity'], 'identity')
         fd = os.open(path, os.O_RDONLY | getattr(os, 'O_BINARY', 0))
         self._file_fds.add(fd)
         try:
             held = os.fstat(fd)
-            _need(self._identity(held) == expected['identity'], 'identity')
+            held_identity = self._identity(held)
+            held_birth = self._birth(held)
+            # Windows path stat and descriptor fstat can expose different ctime
+            # projections. Retain each API's complete identity independently;
+            # join their shared file identity and explicit birth time only.
+            held_pin = (tuple(held_identity), held_birth)
+            _need(held_identity[:4] == path_identity[:4] and held_birth == path_birth
+                  and (self._held_file_pin is None or self._held_file_pin == held_pin), 'identity')
             count = 0
             hashed = hashlib.sha256()
             while True:
@@ -276,9 +292,14 @@ class WindowsBackend:
                 _need(count <= expected['bytes'], 'identity')
                 hashed.update(block)
             self._remaining(deadline)
+            held_after = os.fstat(fd)
+            path_after = self._regular_stat(path)
             _need(count == expected['bytes'] and hashed.hexdigest() == expected['sha256']
-                  and self._identity(os.fstat(fd)) == expected['identity']
-                  and self._identity(self._regular_stat(path)) == expected['identity'], 'identity')
+                  and self._identity(held_after) == held_identity
+                  and self._birth(held_after) == held_birth
+                  and self._identity(path_after) == path_identity
+                  and self._birth(path_after) == path_birth, 'identity')
+            self._held_file_pin = held_pin
             return copy.deepcopy(expected)
         finally:
             try:

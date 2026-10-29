@@ -92,16 +92,12 @@ impl Plan {
         reserve: impl FnOnce() -> Result<R>,
     ) -> std::result::Result<(), NativeDispatchFailure<R>> {
         match self {
-            Self::V1(plan) => {
-                producer::run_native_selected(*plan, path, cancel, reserve)
-                    .map(|_| ())
-                    .map_err(NativeDispatchFailure::Owned)
-            }
-            Self::V2(plan) => {
-                literal::run_native_selected(*plan, path, cancel, reserve)
-                    .map(|_| ())
-                    .map_err(NativeDispatchFailure::Owned)
-            }
+            Self::V1(plan) => producer::run_native_selected(*plan, path, cancel, reserve)
+                .map(|_| ())
+                .map_err(NativeDispatchFailure::Owned),
+            Self::V2(plan) => literal::run_native_selected(*plan, path, cancel, reserve)
+                .map(|_| ())
+                .map_err(NativeDispatchFailure::Owned),
             Self::V3(_) => Err(NativeDispatchFailure::Unavailable),
         }
     }
@@ -132,11 +128,9 @@ impl Plan {
                     .map(|_| ())
                     .map_err(NativeDispatchFailure::Owned)
             }
-            Protocol::V2 => {
-                literal::resume_native_selected(path, source, binding, cancel, reserve)
-                    .map(|_| ())
-                    .map_err(NativeDispatchFailure::Owned)
-            }
+            Protocol::V2 => literal::resume_native_selected(path, source, binding, cancel, reserve)
+                .map(|_| ())
+                .map_err(NativeDispatchFailure::Owned),
             Protocol::V3 => Err(NativeDispatchFailure::Unavailable),
         }
     }

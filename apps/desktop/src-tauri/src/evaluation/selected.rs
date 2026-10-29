@@ -1650,7 +1650,9 @@ impl EvaluationManager {
                                 versioned::NativeDispatchFailure::Unavailable => {
                                     Outcome::plain(Err("NativeUnavailable".into()))
                                 }
-                                versioned::NativeDispatchFailure::Owned(error) => Outcome::native(error),
+                                versioned::NativeDispatchFailure::Owned(error) => {
+                                    Outcome::native(error)
+                                }
                             };
                         }
                     }

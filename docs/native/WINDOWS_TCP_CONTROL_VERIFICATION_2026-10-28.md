@@ -133,6 +133,48 @@ established by the independent audit; both0 and1 fail LISTEN2. The initial
 source ZIP remains unchanged, preserving that historical report alongside this
 correction. The diagnostic did not rerun or modify any captured observation.
 
+## D: evidence recovery
+
+The create-only producer and independent verifier both actually exit0. Recovery
+at `D:/Dev/Archives/LocalLore/2026-10-28-listener-observation-v1` contains115
+original/copy entries,116 ZIP members and118 files totaling17,470,536 bytes.
+Both passes find zero missing/mismatched bytes and exact output/ZIP rosters.
+Selection is a fixed finite list of closed test/control families, private
+helpers/reviews/audits, source-only controls, the source ZIP and its metadata,
+and the separately attributed corrected report. No broad input inventory,
+model weights, caches, emulator state, credentials, saves or APKs are included.
+Originals and earlier recovery sets remain untouched.
+
+The independent verifier repeats every original/copy/ZIP hash, closed owner
+chain, exact same26 test/source/ordered-ID RED/GREEN comparison, final28 and
+integrated71 counts, source snapshot binding and public failed consistency
+outcome. The exact26 test bytes are recovered from Git with CRLF conversion
+matching both captured request hashes. The decoder import-only RED is retained
+with its narrower attribution. A pre-execution review also corrects the
+verifier's initial assumption that Root's inline owners use separate owner files;
+the corrected verifier runs against the original recorded formats.
+
+| Private artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| Source ZIP at3b800160 | 8,602,900 | `ad7c447b766a9207c1d58298f1a5ad6e63994da13003c45c13b52f01b7f19a74` |
+| Recovery index | 76,345 | `10dfb6aa0e2ac76fa0565737c7652f8ba7c0e8c8d7678f3ce25082a26ef25ea2` |
+| Recovery ZIP | 8,426,485 | `628e1b3099786efeaeec5d24b74bfaccf403ba998953632ac4074c6ddc6d9386` |
+| Producer result | 846 | `7027610499ce973f135a89a0e0419c44c85d78788549d32f6af8fb3dfa02abd7` |
+| Independent verification | 2,039 | `dfa2dc0f18edada189c42f763f244606a81b68202a39509ab00ce1793a5f6ef9` |
+
+Producer source is22,334 bytes/SHA256
+`025eaba9377a14e51363f96efe564a24ffb7daa69f10063d8e6764180000cdab`;
+independent verifier24,944 bytes/SHA256
+`4b1b8017c0172c5b4b5b2bc92e235bed38db1c59756c9a2f0ceae67c97a2e270`.
+Root's `run-preservation-v1.py` creates the exact admitted selection and invokes
+the producer; `verify-listener-v1.py` runs with all four actual admission/index/
+archive/result digests. Both commands use `python -I -B` from the physical D:
+checkout with D: TEMP/TMP. Source archive metadata binds exactly3b800160 and the
+Git ZIP comment, not full Git history. Its initial prose and c0a1f6be's correction
+are separately preserved. This later recovery paragraph is committed/pushed in
+Git after that immutable seal; it is not inside that source ZIP. Private recovery
+proof establishes byte preservation, never feature acceptance.
+
 ## Next admission task
 
 The legacy observer, default, record schemas and25 client tests are unchanged.

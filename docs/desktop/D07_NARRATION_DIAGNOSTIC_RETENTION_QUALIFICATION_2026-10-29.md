@@ -161,8 +161,12 @@ unchanged.
 
 Host/Eval/IPC/wire/UI retention or display requires separate contracts and
 claims. Historical absent causes stay Unavailable. Full M05.03/M05.04 and D07.04
-remain in progress and unchecked. Next: independent final evidence review of the
-completed records and an update to the existing
-[PR #253](https://github.com/OptimumAF/LocalLore/pull/253), stacked above the
-Phase1 [PR #251](https://github.com/OptimumAF/LocalLore/pull/251) dependencies.
+remain in progress and unchecked. Independent final evidence review at
+`e3413cc0b768e1965e8b1f72d10a131b5b1f1013` verified the completed records,
+commands, durations, hashes and source attribution with no blockers. It ran no
+new checks and does not replace runtime, human or dependency acceptance.
+The existing [PR #253](https://github.com/OptimumAF/LocalLore/pull/253) remains
+stacked above the Phase1 [PR #251](https://github.com/OptimumAF/LocalLore/pull/251)
+dependencies. Next: separately contract the opt-in Host metadata read, including
+permission refusal before Host session/storage probes and passive lock behavior.
 This document authorizes no merge, release or acceptance of that stack.

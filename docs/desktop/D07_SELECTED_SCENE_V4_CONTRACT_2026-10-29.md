@@ -270,3 +270,65 @@ and individually inspected app-owned images. No desktop control, real inference,
 asset/SDK/device/OS experiment, quality acceptance or full epic completion follows
 from source tests. Core shared gate first; desktop scripted integration is the next
 runnable stage, and native selected4 remains a separately owned later task.
+
+## Root accepted shared interface, before FIRST source
+
+Root accepts this proposal for the bounded **shared scripted** gate on
+`a6f235ae74c4e3ade80175a499ecd7fc20751314`, which includes accepted D06 PR265.
+The inspected Scene4, selected1/2, Store and ledger production bytes are unchanged
+from the proposal's accepted f4 source. The original 272-line proposal is retained;
+this append fixes binding names, scope and test construction before any production.
+No runtime, model, desktop selected control or complete D07 acceptance follows.
+
+Use exactly the proposed public module
+`local_lane::comparison::scene_v4::selected_v3`, its five producer/inspection
+functions, opaque PreparedSelectedPlan, SelectedComparisonReportV3 and nested
+desktop_read API. Keep selected artifact version3 / source_protocol_version4
+distinct from full Protocol3. The following identities are not interchangeable:
+
+| Argument/field | Exact authority |
+| --- | --- |
+| prepare_selected expected_source_binding | The actual Scene4 OpenedComparison snapshot binding, not its full manifest run key. |
+| prepared_metadata binding | The new selected manifest binding; this is the destination resume identity. |
+| prepared_metadata source_binding | The validated original full Scene4 read snapshot binding. |
+| resume_selected expected_binding | The selected destination manifest binding, as in existing selected2; source binding is freshly checked against the sealed manifest's source_binding. |
+| desktop_read evidence/diagnostics expected_binding | The separately sealed OpenedSelected read snapshot binding returned by summary, not the resume or source binding. |
+
+ScriptedBaseline is the only execution lane. Preserve pure cancellation and
+public scalar/client/binding validation precedence, then refuse ApprovedNative
+with SelectedNativeUnavailable before source/target I/O, profile/asset lookup,
+reservation or provider construction in both feature configurations. Do not call
+the existing native profile helper to reach that refusal. No native entry point,
+worker/asset owner, download or opt-in model operation is introduced here.
+
+Root owns the existing Scene4 registration/snapshot bridge and final integration.
+The only proposed production bridge is comparison-private snapshot visibility
+and a just-opened typed accessor, matching the accepted selected2 design. Retain
+source locks and pins; a cached accessor is not fresh revalidation. Producer/read
+implementation allocation follows independent FIRST release; no existing selected
+schema, provider, evaluator, ledger semantics or canonical persistence changes.
+
+Independent FIRST must exercise the actual public producer/read functions and
+derive supported source inputs through existing actual producers/Store paths.
+No forged full report or report-to-Engine reconstruction can establish a source.
+For a deterministic between-arm cancellation, a fixed cfg(test)-only
+thread-local CANCEL_AFTER_ARM Cell<bool> in the new module is permitted, matching
+existing selected2. It may only request the existing Cancellation after a real
+arm checkpoint/settlement; no callback, path, model configuration or production
+hook. FIRST must disclose this seam rather than call it an external interruption.
+File tamper/loss controls operate only on newly generated, task-owned synthetic
+fixtures. Do not seed private report/controller/Engine state to force a pass.
+
+Report any public-path construction gap before freezing or production; do not
+invent a divergent source, inaccessible failure cause or missing checkpoint.
+Missing APIs/module registration are SETUP/unrun, not behavioral RED. Pure source
+and fault-path precedence are not independent zero-filesystem/SDK telemetry.
+Preserve old selected1/2 tests and frozen report/quality evidence unchanged.
+
+FIRST sources and any failed fixture evidence must remain on physical D. Authors
+run source/Git/hash checks only; Root separately admits finite execution/storage,
+sets TEMP/TMP and owns the single heavy slot. Do not add automatic recursive
+cleanup of new failed fixtures or accumulated evidence. No model, Android/SDK,
+emulator, targeted OS or desktop-control experiment is admitted by this document.
+Later desktop wiring must keep its current selected4-unavailable state until its
+own contract, independent tests, actual IPC/render checks and review are accepted.

@@ -112,6 +112,12 @@ SHA256 `6953986bd489354d3a9a1b5cf26fb2c837c0f51030711f4690d80027f2f6e6da`;
 `qualified_lease:true`, `reason:stop_requested`, `feature_acceptance:false`.
 Saved readiness is historical after this known closure.
 
+Independent closed replay verifies40 reachable file bindings twice, ten exact
+Git source pins plus the frozen test, installed tools/Python, scoped raw row
+decoding, request/started/running/after/stop joins and actual capture bytes.
+It makes no new native/process/key/service query. Its failures list is empty;
+audit SHA256 `289201829437aa2c2b266fa423a5142a6538468bb4681297dc84a303442ed712`.
+
 ## Reproduction, recovery and limits
 
 Run from a physical D checkout, with process-local TEMP/TMP/TMPDIR set to
@@ -136,6 +142,18 @@ verified D recovery set; index SHA256
 `5fcf61199d2355edd5ee0dcdcf8f045a824225eee456d49e5649cc9b0e411cc9`.
 These are bounded checkpoints, not claims to preserve all ignored historical
 workspaces, global caches or OS-managed data.
+
+Final D recovery independently verifies all195 original/copy/ZIP triples and
+exact file/directory rosters, plus2051 Git blobs/238 directories at documentation
+checkpoint `42eb1a34`. Each source ZIP file is compared directly with its Git
+blob. Earlier checkpoints remain untouched. Final index SHA256
+`f7dce9cd1d5464e4f8c8f49365c3e164ba85ebd6b6e9cfc7e19b174d64a7f0e7`;
+packet ZIP `67ec471a4aaa742cec40439b38a7bd240f28706ea989780fa70d66be4385ce17`;
+source ZIP `60fe18352423e19ee9e31927bc6db3da8df6413b916865a20b0bee4aa9fc7d12`;
+independent readback
+`a445fc131704a40cf9a3b28a93e909257998559af181be0410f3844b9c15d6a3`.
+This later public seal paragraph is preserved by the subsequent Git commit,
+not retroactively inserted into that frozen source ZIP.
 
 The empty devices reply qualifies only that observation. Exact installed source
 provenance, universal absence of transport side effects and every inherited

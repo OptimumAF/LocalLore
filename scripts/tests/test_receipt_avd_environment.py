@@ -16,6 +16,7 @@ import unittest
 from unittest import mock
 
 from benchmarks import receipt_avd_environment as env
+from scripts.tests.receipt_c_fixture import SyntheticCVolume
 
 # Exact 3201-byte generated profile from the stopped prepare; no device/model data.
 # SHA256 5774eccd6c920ec3157a7a43710620645284c7e064a9f06933915f12d05aa6ac
@@ -469,11 +470,14 @@ class EnvironmentTests(unittest.TestCase):
         self.assertFalse(self.root.exists())
 
     def c_root(self):
-        scratch = tempfile.TemporaryDirectory(prefix="receipt-c-root-test-", dir=Path(os.environ["LOCALAPPDATA"]) / "Temp")
-        self.addCleanup(scratch.cleanup)
-        parent = Path(scratch.name).resolve()
-        self.assertEqual(parent.drive.upper(), "C:")
-        return parent / "new-avd"
+        # Keep lexical C policy/provenance while every actual IO stays on D.
+        number = len(getattr(self, "_synthetic_c_volumes", ()))
+        volume = SyntheticCVolume(self.base / ("synthetic-c-volume-%d" % number))
+        volume.__enter__()
+        self.addCleanup(volume.__exit__, None, None, None)
+        self._synthetic_c_volumes = [*getattr(self, "_synthetic_c_volumes", ()), volume]
+        self.assertEqual(volume.root.drive.upper(), "C:")
+        return volume.root
 
     def test_explicit_c_plan_binds_stronger_floors_without_changing_d_plan(self):
         fixture = self.proposal()

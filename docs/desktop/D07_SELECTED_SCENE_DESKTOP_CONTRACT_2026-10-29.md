@@ -6,7 +6,8 @@ Refs #29 D07.04/D07.06 and
 Author branch: `plan/d07-selected-scene-desktop-v1` from `a3f6025d`.
 Accepted desktop source anchor: `a6f235ae74c4e3ade80175a499ecd7fc20751314`.
 The shared [selected Scene4 contract](D07_SELECTED_SCENE_V4_CONTRACT_2026-10-29.md)
-is the prerequisite, including its Root binding and source-fixture clarifications.
+is the prerequisite, including its Root binding, source-fixture and preparation
+reservation clarifications (the latter recorded in append `ea464324`).
 Its new FIRST source at this proposal base is not implementation or qualification.
 This document does not enable a control, accept a test, admit execution or close D07.
 
@@ -50,11 +51,12 @@ independent FIRST files and production writers receive disjoint allocations.
 | `apps/desktop/ui/App.tsx` | Pass actual reader source4 identity/version into the existing selected surface. |
 | `apps/desktop/ui/ComparisonReaderPanel.tsx` | Replace the blanket selected4-unavailable sentence only at the accepted desktop gate. |
 | `crates/locallore-eval/src/local_lane/comparison/scene_v4/desktop_api.rs` | Narrow unavailable-note supersession described below; keep full reader read-only. |
+| `crates/locallore-eval/src/local_lane/comparison/scene_v4/selected_v3.rs` | Narrow current report-writer GUI-unavailable note supersession only; preserve stored historical reports, projections and accounting evidence. |
 | `apps/desktop/src-tauri/src/selected_harness.rs`, `apps/desktop/ui/selected-evaluation-journeys.ts`, `apps/desktop/selected-evaluation-harness.mjs` | Fixed development-only source4 discriminators/journeys and bounded launcher qualification, if reused. |
-| `apps/desktop/src-tauri/src/harness.rs`, `apps/desktop/ui/Main.tsx` | Only necessary fixed labels/mode wiring after a frozen harness contract; no generic execution facility. |
+| `apps/desktop/src-tauri/src/harness.rs`, `apps/desktop/ui/main.tsx` | Only necessary fixed labels/mode wiring after a frozen harness contract; no generic execution facility. |
 
-New native/frontend FIRST sources, their module/check registration, the three
-specific obsolete assertion sites below, qualification documentation and the
+New native/frontend FIRST sources, their module/check registration, the specific
+availability/scripted-refusal assertion sites below, qualification documentation and the
 normal frontend check entry must be separately named in Root's allocation.
 This proposal author owns only this new document. No production/test paths are
 claimed by the author, and no architecture-wide refactor is proposed.
@@ -248,13 +250,22 @@ no new selected3 bucket may evade the aggregate. Keep all existing safe integer,
 directory/entry/link and output caps. No automatic evidence expiry/deletion.
 The shared ledger limits and entry-origin clock from the prerequisite contract
 remain unchanged; frontend polling is not a deadline/reset authority.
+As clarified by Root in `ea464324`, PREPARATION_MS=120,000 is the existing durable
+preparation reservation and aggregate-capacity allowance, not a hard timeout for
+blocking filesystem/snapshot work. Retain the run/resume entry Instant across
+refresh and both ledgers, charge actual known opening work (including work above
+that reservation), and preserve full unknown reservations. Keep the unchanged
+30-minute aggregate accounting and 60-second absolute turn/watchdog machinery.
+Do not invent physical model-load/elapsed evidence, reset that clock or claim an
+independent hard filesystem cutoff from source wiring or reservation-capacity
+tests. Those tests do not advance a physical 120-second opening or 60-second turn.
 
 Scripted selected3 does not need a model reservation or setup. Reuse its actual
 Store copies, not live workspace registration/import. Source immutability means
 whole retained file inventory checked where asserted, including reference files.
 Cooperative locks/pins are not universal filesystem-race or OS isolation proof.
 
-## Narrow supersession of three obsolete unavailable assertions
+## Narrow supersession of identified availability and scripted-refusal assertions
 
 Changing availability requires an explicit reviewed behavior change, not removal
 of inconvenient invariants. Retain the original source in Git and identify the
@@ -278,6 +289,54 @@ original/derived oracle hashes. Independent new behavior tests freeze first.
    the precise native-unavailable note and read-only/no-execution checks. Do not
    alter its source/request/prefix, recovery, cancellation, access or accounting
    oracles. Root must allocate this existing test path explicitly before editing.
+4. `crates/locallore-eval/tests/scene_comparison_reader_v4.rs:145` asserts the exact
+   old unavailable array. Supersede only that note expectation. Preserve report
+   equality, protocol/arm descriptors, read-only/no-execution, human0/unreviewed/
+   unaccepted state, actual row/turn count, source hashes/heads and all subsequent
+   evidence/observer and source-immutability assertions.
+5. `apps/desktop/src-tauri/src/evaluation/comparison_run/scene_native_review.rs:908`
+   has another exact old-array assertion. Its enclosing
+   `separate_actual_scripted_scene_source_is_raw_readable_but_both_selected_lanes_refuse_before_consent`
+   also panics on consent and requires failure for both lanes. Explicitly split
+   only that obsolete scripted-refusal branch into actual scripted preparation/
+   consent expectations; keep the ApprovedNative refusal before consent, null
+   plan/run capabilities on refusal and no selected destination. Preserve actual
+   source/report row assertions, whole source inventory, native runtime/cleanup
+   ownership and `f.sequence()==0` (no real-model execution). No ownership/runtime
+   assertion is waived to permit scripted preparation. Update the availability
+   note only to the same precise value; Root must allocate this test path too.
+6. `apps/desktop/ui/comparison-reader-journeys.ts:1334` currently requires the old
+   blanket sentence in `actual-protocol4-visible-scope-and-limits`. Supersede only
+   that text clause with the precise scripted-available/native-unavailable copy.
+   Preserve its literal/relevant scene labels, recorded narrator-input check,
+   needs-improvement assessment and all other actual IPC/render assertions. Root
+   must explicitly allocate this existing journey path before the UI copy changes.
+7. The pending shared writer in
+   `crates/locallore-eval/src/local_lane/comparison/scene_v4/selected_v3.rs` currently
+   emits `selected_protocol4_gui_unavailable` from `report` (inspected at shared
+   branch commit `ea464324`, not claimed accepted main). That note is truthful for
+   the current shared-only stage and must remain unchanged there. The later desktop
+   gate must explicitly allocate only its replacement with
+   `selected_protocol4_native_rerun_unavailable`. Keep all other unavailable/
+   limitation entries and row, ledger, timing and human-quality evidence unchanged.
+   `SelectedEvaluationView` displays the actual diagnostics.unavailable list; do
+   not suppress the old note only in the UI to conceal an inconsistent current
+   writer. Preserve all historical report.json/HTML and frozen evidence bytes;
+   no migration, backfill or stored-file rewrite is authorized. A newly computed
+   read projection may describe current adapter availability without recasting
+   an original stored report as having been generated with desktop support.
+
+Accepted anchors were inspected at main `a6f235ae`, with the pending shared writer
+explicitly anchored separately above; refresh the actual
+symbol/assertion sites before implementation rather than assuming line numbers
+or this list are exhaustive. Source-only changes in this proposal and the current
+shared gate do not change any of these production notes or test expectations.
+`apps/desktop/check-scene-reader-review.mjs` also retains an old-note mock snapshot
+and its lossless-decoding expectation, and
+`apps/desktop/check-narration-diagnostic-reader-review.mjs` has an old-note mock
+fixture. These may remain historical reader-fixture compatibility cases unchanged;
+do not relabel their data as current desktop availability or infer that their old
+note grants execution. Changing a real note does not require rewriting history.
 
 Selected1/2 behavior tests and unrelated reader/harness oracles stay unchanged.
 Missing APIs or registrations are SETUP/unrun; do not report zero selected tests

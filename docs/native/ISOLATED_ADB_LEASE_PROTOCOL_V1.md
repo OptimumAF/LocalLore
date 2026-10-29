@@ -72,9 +72,12 @@ def child_environment(admission: dict, inherited: dict) -> dict: ...
 def source_bindings() -> list[dict]: ...
 def validate_running(value: dict, admission: dict, admission_binding: dict) -> dict: ...
 def check_stop(value: dict, admission_sha256: str) -> None: ...
-def validate_observation(value: dict, server: dict, client: dict | None,
+def validate_observation(value: dict, server: dict | None, client: dict | None,
                          endpoint: dict | None, *, require_empty=False,
-                         after_request=False) -> None: ...
+                         after_request=False, completed_ports=()) -> None: ...
+
+def validate_capabilities(binding: dict, admission: dict) -> dict: ...  # explicit IO
+def revalidate_inputs(admission: dict) -> None: ...  # local byte checks only
 ```
 
 Admission exact keys: `version`=1, `protocol`, `run_id` (32 lowercase hex),
@@ -119,6 +122,16 @@ positive/distinct/non5037. All other local15937 rows remain recorded; live
 foreign nonzero PID refuses. PID0 teardown rows may be retained only after a
 request, without asserting ownership or current connection state for them.
 Pre-send proof may not hide ambiguity with a PID filter.
+
+`completed_ports` is an exact tuple of at most two unique non5037/non15937 local
+ports from already fully validated and closed earlier proofs. Serialized proof
+metadata uses a list; the parent re-derives its exact history in fixed order.
+Only server-local rows whose loopback peer port matches that verified history
+may remain as old PID0/serverPID teardown observations. No foreign nonzero PID,
+unrelated connection or current pre-send PID0 is permitted. Current local port
+must differ from history. This explicit provenance avoids treating a prior
+completed exchange's teardown row as evidence about a later held connection.
+`require_empty` uses server/client/endpoint None, no history and no after flag.
 
 `after_request=True` is selected only for the final held-socket observation:
 listener and process ownership remain mandatory, reciprocal tuples may disappear

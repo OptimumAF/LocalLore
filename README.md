@@ -32,7 +32,11 @@ The [same-boot restart controller](docs/native/ORIGINAL_AUTHOR_RESTART_CONTROLLE
 adds a separately admitted SDK5 path. Its first approved fresh guest preparation
 passes, but initial private-server proof exceeds the unchanged three-second
 limit before any guest boot or model operation. The report preserves that
-failure and the subsequent host-only guard optimization and regression checks.
+failure and the tested guard optimization. A subsequent approved run verifies
+local model transfer/import, one accepted AUTHOR creation, idempotent retry and
+ordinary reopen. Its fixed session expires during later package checks;
+external process death and passive restart remain unverified. The owned guest
+and private service close with all15 recorded cleanup checks passing.
 
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.

@@ -1,12 +1,137 @@
-# Original AUTHOR restart controller: host checkpoint, 2026-10-29
+# Original AUTHOR restart controller: bounded verification, 2026-10-29
 
 Refs #13 (M09.06), #14 (M10.02); draft PR #257, stacked on open/unmerged #256.
 Supporting implementation is in_review. Full tasks remain unchecked. This
-checkpoint records host checks and the offline native build. Subsequent
-current-source Android build/admission, closed-result replay and handoff evidence
-belong in the [M10 ticket](https://github.com/OptimumAF/LocalLore/issues/14) and
-[PR](https://github.com/OptimumAF/LocalLore/pull/257), the canonical live trackers.
-No earlier guest, grant or spent claim is reused.
+report preserves the bounded runtime outcome and earlier host checkpoints with
+their original source attribution. The [M10 ticket](https://github.com/OptimumAF/LocalLore/issues/14)
+and [PR](https://github.com/OptimumAF/LocalLore/pull/257) remain the live trackers.
+Earlier spent guest scopes and claims are not reused; the still-unused approval
+for this packet's first boot is retained as described below.
+
+## Latest actual run: import and AUTHOR pass; external restart incomplete
+
+At frozen executable/build source `f589f270b323726f5f07e53b86197593535e135b`,
+the guard optimization passes **686 Python tests**, zero failures/errors/skips,
+with2,079 unchanged source inputs (239,828ms finite owner, exit0). The current
+offline Android build passes **588 rerun JVM tests/58 XML reports** and both APK
+audits (48,176ms0). Separate fresh lint passes in118,282ms0: actual analyzer work,
+zero errors/fatal findings and10 warnings. Independent build/lint readback passes.
+These are host/build results, not Android restart acceptance.
+
+Current build admission binds2,079 tracked/936 compiled inputs. The rebuilt APK
+paths remain under `sdk-build-v2`; their bytes/hash match the original approved
+APKs, rather than relabeling the old paths as a new build:
+
+| Artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| Product APK |78,289,152|`0ad6f03adf0179438570c7d4a7933f2ef7b1fd929ce7361c2627749168439fa9`|
+| Test APK |2,272,447|`215731ef23e46f1dd1d97f9fb846672eaa954467332069f8723520f3101a0221`|
+
+The original explicit human reply remains immutable. A separate execution
+binding connects that same still-unused first-boot/import/AUTHOR approval to
+the current host-only correction, unchanged APK/helper/model content and the
+same prepared fresh guest. It claims no new human reply and expands no action
+or lifetime. The failed first owner namespace and original source/build records
+remain intact. New admission SHA256:
+`fb274727568f4646ee92837e8a3a0bc7ff6379a343036f3d1fd4d5c461144a22`;
+current build admission `2b47ddceb16eb5ba13b2f76c799e291358c62b8b3000f731c9b89948d4579b24`.
+
+The second isolated owner passes its unchanged3,000ms initial version/devices
+proofs in1,427ms/1,777ms, including complete replies and checked socket/client
+closure. Its API35/x86_64 guest uses the approved8GiB/four cores. Exact ownership,
+registration, Android profile, package identities and guest storage checks pass.
+Both APKs and the13,848B read-only helper are installed and verified; the helper
+actually runs for the initial boot-ID observation. The binary-transfer probe
+passes. The existing2,588,147,712B local Gemma model transfers in77,213ms and its
+full device hash matches
+`181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`.
+No model download or external upload occurs. The existing runtime profile pins
+revision `bda624851d74be34d4e1f7fac1fc4155939539c7`.
+
+Actual import instrumentation31 passes (41,224ms client), followed by AUTHOR
+instrumentation43 (54,903ms client). Both return0 with empty stderr. Original
+proof validators, JUnit witnesses and recorded listing/pre-hash/binary-tar/
+post-hash collections agree. The engine accepts one creation; exact retry has
+`created=false`, the same scope/revision, and an ordinary native reopen returns
+the same snapshot bytes. Worker evidence records exactly one AUTHOR conversation
+creation, settled drain and known conversation/engine close. This is one
+synthetic-premise model result, not broad story-quality or performance evidence.
+
+The controller does **not** complete external restart. During later package
+checks in phase `death`, command55 returns0/completed with empty stderr and
+recorded socket/input/sender/cleanup flags true, but its measured7,932ms exceeds
+the remaining effective7,872ms. Its final client guard necessarily encounters
+session expiry by then. The first caught body exception is not serialized, so
+the earliest rejecting invocation cannot be identified. The poisoned capture
+maps to generic `resource_uncertain`; this is not evidence of a resource leak.
+The controller result is refused,55 clients,1,223,032ms including finalization;
+finite parent ends child1 at1,248,240ms with known capture/cleanup and empty
+streams. No old-PID snapshot, AUTHOR force-stop, restart prerequisite/claim,
+passive restart method, six restart sidecars or new PLAYER turn is produced.
+
+The fixed stop launcher publishes only this admission's stop after known
+controller termination. The actual owner ends0 in1,404,498ms with
+`qualified_target=true, stop_requested`; **all15 cleanup flags pass**, with
+guest termination/wait and captures preceding private-server closure. Source
+and launcher checks remain stable. No operation stops the other emulator,
+changes system settings or operates the shared ADB lifecycle. No merge/release.
+
+A separate finite expected-refusal audit passes in16,363ms0, empty streams and
+111 unchanged source/interpreter pins. It binds the actual started controller
+worker separately from the actual started target-owner worker. The unchanged
+full controller reader refuses `capability`; the audit independently verifies
+the54 qualified clients, both command55 proofs, original import/AUTHOR/JUnit/
+collection graph, refusal and closed owner. Audit success does not qualify the
+controller. Key private evidence hashes, with no private contents published:
+
+| Record | SHA256 |
+| --- | --- |
+| Refused controller result |`de2fb5ba2f3f2f8953f76bb0c2f7b597ea15b8d795b9efe62a30ee394f70c7ea`|
+| Command55 |`84878c52b0fcfba9a9f0733a48f61cab8a72930fbb2badf137ec2c4e5884c793`|
+| Closed target owner |`9f1bf54e82720f8dc17c720457f95125a7bb4a64a175fd41535f6665c410f033`|
+| Expected-refusal audit worker |`c6d6e2f9e10b09dd13dd9fd5a240619a408f8f2f64fa1fde49f59a10c360cd45`|
+| Independent timing review |`d91cdbdab41c8a98aa789378e07c7f9453513126d579658684233c2003d5d271`|
+
+The closed timing review totals616,718ms across saved client elapsed windows.
+Those include after-proofs and are not shell-only latencies. Before-proof
+internal timing adds272,149ms outside those windows; after-proof272,108ms is
+already nested inside them. The220 version/devices query exchanges total
+403,221ms nested inside proof timing. The remaining334,165ms mixes guards,
+validation, initialization, persistence and close without stage timestamps.
+These observations identify substantial validation cost but cannot attribute
+every gap or establish phone/model latency. All full before-connect,
+before-send and after-response checks, both queries, deep readers and the
+1,200s session budget remain unchanged.
+
+The drivers ran from the physical D Root checkout with TEMP/TMP/TMPDIR set
+to `D:/Dev/_Temp`. Private create-only drivers and captures remain under
+`D:/Dev/Experiments/LocalLore/2026-10-29-author-restart-controller-v1` (`<B>`).
+These entry points identify the executed drivers; their retained requests bind
+the exact child commands and source inputs:
+
+```text
+python -I -B <B>/check-integrated-v2.py guardfix
+python -I -B <B>/build-sdk-v2.py
+python -I -B <B>/lint-current-v2.py
+python -I -S -B benchmarks/owned_restart_owner.py --admission <B>/target-admission-v2.json --admission-sha256 fb274727568f4646ee92837e8a3a0bc7ff6379a343036f3d1fd4d5c461144a22
+python -I -S -B <B>/run-restart-controller-v2.py run
+python -I -S -B <B>/run-restart-controller-v2.py stop
+python -I -S -B <B>/closed-review-v2/failure-audit-v2.py run
+```
+
+The original host-only success-audit draft remains unrun; a distinct failure
+audit preserves the actual refusal. A separate D recovery already verifies
+453 runtime metadata/raw files totaling9,552,350B by original/copy hashes.
+The closed guest's bulk recovery is recorded separately after completion;
+original failures, spent claims, guest state, models and prior backups stay
+preserved. No private diagnostics, saves, weights or credentials enter Git.
+
+M09.06/M10.02 supporting code remains **in_review**; full tasks stay unchecked.
+The external-restart gate is blocked for this spent case. Next runnable work is
+bounded host phase timing/hash-work accounting within the unchanged full guards
+and pure replays, followed by a tested justified optimization. Another guest or
+model attempt needs a new concrete scope and applicable approval. Phone/ARM64,
+accessibility, quality, performance and complete journey acceptance remain open.
 
 ## Implemented boundary
 

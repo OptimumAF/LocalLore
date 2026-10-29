@@ -246,7 +246,7 @@ class AdapterTests(unittest.TestCase):
         value, api = self.opened(); data = b'synthetic'
         expected = copy.deepcopy(f.admission()['adb_file']); expected['sha256'] = hashlib.sha256(data).hexdigest()
         value._admission['adb_file'] = expected
-        info = types.SimpleNamespace(st_dev=3, st_ino=7, st_size=9, st_mtime_ns=100, st_ctime_ns=101)
+        info = types.SimpleNamespace(st_dev=3, st_ino=7, st_size=9, st_mtime_ns=100, st_ctime_ns=101, st_birthtime_ns=77)
         with patch.object(value, '_regular_stat', return_value=info), \
              patch.object(w.os, 'open', return_value=911), patch.object(w.os, 'fstat', return_value=info), \
              patch.object(w.os, 'read', side_effect=[data, b'']), patch.object(w.os, 'close') as close:
@@ -255,7 +255,7 @@ class AdapterTests(unittest.TestCase):
 
     def test_file_pin_hash_failure_still_closes_descriptor(self):
         value, api = self.opened()
-        info = types.SimpleNamespace(st_dev=3, st_ino=7, st_size=9, st_mtime_ns=100, st_ctime_ns=101)
+        info = types.SimpleNamespace(st_dev=3, st_ino=7, st_size=9, st_mtime_ns=100, st_ctime_ns=101, st_birthtime_ns=77)
         with patch.object(value, '_regular_stat', return_value=info), \
              patch.object(w.os, 'open', return_value=912), patch.object(w.os, 'fstat', return_value=info), \
              patch.object(w.os, 'read', side_effect=[b'incorrect', b'']), patch.object(w.os, 'close') as close:
@@ -277,7 +277,7 @@ class AdapterTests(unittest.TestCase):
     def test_file_pin_failed_close_sticky_and_other_resources_still_close(self):
         value, api = self.opened(); data = b'synthetic'
         value._admission['adb_file']['sha256'] = hashlib.sha256(data).hexdigest()
-        info = types.SimpleNamespace(st_dev=3, st_ino=7, st_size=9, st_mtime_ns=100, st_ctime_ns=101)
+        info = types.SimpleNamespace(st_dev=3, st_ino=7, st_size=9, st_mtime_ns=100, st_ctime_ns=101, st_birthtime_ns=77)
         with patch.object(value, '_regular_stat', return_value=info), \
              patch.object(w.os, 'open', return_value=913), patch.object(w.os, 'fstat', return_value=info), \
              patch.object(w.os, 'read', side_effect=[data, b'']), \
@@ -286,6 +286,96 @@ class AdapterTests(unittest.TestCase):
             self.assertFalse(value.close()['process_handles_closed'])
             close.assert_called_once_with(913)
         self.assertFalse(value._handles)
+
+    def pin_context(self, value, path_info, held_infos, blocks):
+        from contextlib import ExitStack
+        stack = ExitStack()
+        stack.enter_context(patch.object(value, '_regular_stat',
+                                        **({'side_effect':path_info} if type(path_info) is list else {'return_value':path_info})))
+        stack.enter_context(patch.object(w.os, 'open', return_value=914))
+        stack.enter_context(patch.object(w.os, 'fstat', side_effect=held_infos))
+        stack.enter_context(patch.object(w.os, 'read', side_effect=blocks))
+        stack.enter_context(patch.object(w.os, 'close'))
+        return stack
+
+    def pin_fixture(self, *, held_ctime=202, held_birth=77, path_birth=77):
+        value, api = self.opened(); data = b'synthetic'
+        value._admission['adb_file']['sha256'] = hashlib.sha256(data).hexdigest()
+        path_info = types.SimpleNamespace(st_dev=3, st_ino=7, st_size=9, st_mtime_ns=100,
+                                          st_ctime_ns=101, st_birthtime_ns=path_birth)
+        held_info = types.SimpleNamespace(st_dev=3, st_ino=7, st_size=9, st_mtime_ns=100,
+                                          st_ctime_ns=held_ctime, st_birthtime_ns=held_birth)
+        return value, data, path_info, held_info
+
+    def test_same_birthtime_separately_stable_different_ctimes_are_accepted(self):
+        value, data, path_info, held_info = self.pin_fixture()
+        with self.pin_context(value,path_info,[held_info,held_info],[data,b'']):
+            result = w.WindowsBackend._pin_file(value,103.0)
+        self.assertEqual(result,value._admission['adb_file'])
+        self.assertEqual(result['identity'][-1],101, 'PATH5 admission is preserved exactly')
+
+    def test_missing_cross_api_birthtime_refuses_without_fallback(self):
+        value, data, path_info, held_info = self.pin_fixture(held_ctime=101)
+        del held_info.st_birthtime_ns
+        with self.pin_context(value,path_info,[held_info,held_info],[data,b'']):
+            self.refused('identity',lambda:w.WindowsBackend._pin_file(value,103.0))
+
+    def test_mismatched_cross_api_birthtime_refuses(self):
+        value, data, path_info, held_info = self.pin_fixture(held_ctime=101,held_birth=78)
+        with self.pin_context(value,path_info,[held_info,held_info],[data,b'']):
+            self.refused('identity',lambda:w.WindowsBackend._pin_file(value,103.0))
+
+    def test_held_ctime_mutation_during_read_refuses(self):
+        value, data, path_info, held_info = self.pin_fixture()
+        changed = copy.deepcopy(held_info); changed.st_ctime_ns += 1
+        with self.pin_context(value,path_info,[held_info,changed],[data,b'']):
+            self.refused('identity',lambda:w.WindowsBackend._pin_file(value,103.0))
+
+    def test_held_ctime_mutation_across_brackets_refuses(self):
+        value, data, path_info, held_info = self.pin_fixture()
+        changed = copy.deepcopy(held_info); changed.st_ctime_ns += 1
+        with self.pin_context(value,path_info,[held_info,held_info,changed,changed],[data,b'',data,b'']):
+            self.assertEqual(w.WindowsBackend._pin_file(value,103.0),value._admission['adb_file'])
+            self.refused('identity',lambda:w.WindowsBackend._pin_file(value,103.0))
+
+    def test_birthtime_missing_or_malformed_on_either_api_refuses(self):
+        for api_name in ('path','held'):
+            for bad in (None,True,77.0,-1):
+                with self.subTest(api=api_name,birth=bad):
+                    value, data, path_info, held_info = self.pin_fixture()
+                    selected = path_info if api_name == 'path' else held_info
+                    if bad is None: del selected.st_birthtime_ns
+                    else: selected.st_birthtime_ns = bad
+                    with self.pin_context(value,path_info,[held_info,held_info],[data,b'']):
+                        self.refused('identity',lambda:w.WindowsBackend._pin_file(value,103.0))
+
+    def test_shared_cross_api_identity_fields_must_match(self):
+        for field in ('st_dev','st_ino','st_size','st_mtime_ns'):
+            with self.subTest(field=field):
+                value, data, path_info, held_info = self.pin_fixture()
+                setattr(held_info,field,getattr(held_info,field)+1)
+                with self.pin_context(value,path_info,[held_info,held_info],[data,b'']):
+                    self.refused('identity',lambda:w.WindowsBackend._pin_file(value,103.0))
+
+    def test_each_api_identity_field_mutation_during_read_refuses(self):
+        for api_name in ('path','held'):
+            for field in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_birthtime_ns'):
+                with self.subTest(api=api_name,field=field):
+                    value, data, path_info, held_info = self.pin_fixture()
+                    path_after = copy.deepcopy(path_info); held_after = copy.deepcopy(held_info)
+                    selected = path_after if api_name == 'path' else held_after
+                    setattr(selected,field,getattr(selected,field)+1)
+                    with self.pin_context(value,[path_info,path_after],[held_info,held_after],[data,b'']):
+                        self.refused('identity',lambda:w.WindowsBackend._pin_file(value,103.0))
+
+    def test_changed_birthtime_on_both_apis_across_brackets_refuses(self):
+        value, data, path_info, held_info = self.pin_fixture()
+        path_changed = copy.deepcopy(path_info); path_changed.st_birthtime_ns += 1
+        held_changed = copy.deepcopy(held_info); held_changed.st_birthtime_ns += 1
+        with self.pin_context(value,[path_info,path_info,path_changed,path_changed],
+                              [held_info,held_info,held_changed,held_changed],[data,b'',data,b'']):
+            self.assertEqual(w.WindowsBackend._pin_file(value,103.0),value._admission['adb_file'])
+            self.refused('identity',lambda:w.WindowsBackend._pin_file(value,103.0))
 
 
 if __name__ == '__main__': unittest.main()

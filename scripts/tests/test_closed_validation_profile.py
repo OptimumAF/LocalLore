@@ -90,16 +90,21 @@ class PlanFixture:
 
 
 def inventory_worker_fixture(mutation):
-    """Existing ordinary synthetic inventory; never an executable SDK/model."""
+    """Synthetic records plus existing pinned SDK files; no SDK is executed."""
     g = f.ClosedRestartGraph()
     sdk = g.base / 'synthetic-sdk'
+    installed = Path(os.environ.get('ANDROID_SDK_ROOT') or
+        str(Path(os.environ.get('LOCALAPPDATA', 'C:/unavailable')) / 'Android/Sdk'))
+    platform = installed / 'platform-tools'
+    if not (platform / 'adb.exe').is_file():
+        raise unittest.SkipTest('requires an existing read-only byte-pinned platform-tools fixture')
+    adb = p.env.binding(platform / 'adb.exe')
+    if adb['sha256'] != g.a['server']['adb']['sha256']:
+        raise unittest.SkipTest('installed ADB differs from the existing fixed compatibility pin')
     tools = []
     for old in g.a['server']['tools']:
         name = Path(old['path']).name
-        data = b'synthetic tool data, never executed\n'
-        if name == 'adb.exe':
-            data += b'ADB_USB\0ADB_EMU\0ADB_MDNS\0'
-        tools.append(g.save(sdk / 'platform-tools' / name, data))
+        tools.append(p.env.binding(platform / name))
     tools.sort(key=lambda item: item['path'])
     g.a['server']['tools'] = tools
     g.a['server']['adb'] = next(item for item in tools if Path(item['path']).name == 'adb.exe')
@@ -503,7 +508,7 @@ class ProfileLauncherBoundaryTests(unittest.TestCase):
                     return actual_check(binding)
                 with patch.object(p.sys, 'stdin', type('Input', (), {'buffer': io.BytesIO(p.GO)})()), \
                      patch.object(p.env, 'check_binding', side_effect=guarded):
-                    with self.assertRaises(ValueError):
+                    with self.assertRaisesRegex(ValueError, r'^(canonical_path|binding|metadata_size|binding_changed)$'):
                         p.worker(output, p.env.digest(request))
                 self.assertEqual(touched, [])
 

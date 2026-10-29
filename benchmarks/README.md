@@ -79,3 +79,23 @@ own explicitly versioned integration and execution. The
 [verification report](../docs/native/ADB_HELD_SOCKET_VERIFICATION_2026-10-28.md)
 records 163 host tests and one actual host-only query, plus preserved failures
 and the remaining runtime bridge.
+
+
+## Finite owned-emulator verification
+
+`owned_target_owner.py` and `android_process_client_v4.py` provide the separately
+admitted `owned-emulator-target-v1` / `sdk-owned-target-v1` boundary. They bind one
+explicitly approved prepared D: guest to a new private service and direct binary
+shell-v2 frames. Create-only boot/import/AUTHOR claims prevent automatic retries;
+closed descriptors cannot authorize future work. These are opt-in verification
+helpers, not a general emulator manager. Imports launch nothing.
+
+Read the [protocol](../docs/native/OWNED_TARGET_PROTOCOL_V1.md) before preparing
+an admission. The [actual source-bound verification](../docs/native/OWNED_TARGET_VERIFICATION_2026-10-29.md)
+records529 host checks,588 JVM tests, fresh lint, one real local-model
+import/AUTHOR/internal-reopen case, the preserved first controller failure,
+independent closed replay and measured owned shutdown. Physical-phone/ARM64,
+external post-creation process-death and actual cancellation gates remain separate.
+Keep raw diagnostics, model weights, guest state and private capture/recovery
+files on D outside Git; no implicit shared-service recovery or emulator boot is
+authorized by reading this documentation.

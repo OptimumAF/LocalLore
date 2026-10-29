@@ -221,7 +221,12 @@ export class ComparisonReaderController {
         return this.invoke("evaluation_comparison", { action, query });
     }
     private clearPrivate(): Partial<ComparisonReaderState> {
-        return { summary: null, evidence: null, diagnostic: null, selected: null };
+        return {
+            summary: null,
+            evidence: null,
+            diagnostic: null,
+            selected: null,
+        };
     }
     private rememberRetired(client: string | null, token: string | null): void {
         if (!client || (!this.nativeClients.has(client) && token === null))
@@ -753,7 +758,12 @@ export class ComparisonReaderController {
                 observer: { kind: "omniscient" },
             });
             if (!this.live(ticket)) return;
-            const diagnostic = checkedReaderNarrationDiagnosticV1(raw, token, source, selected);
+            const diagnostic = checkedReaderNarrationDiagnosticV1(
+                raw,
+                token,
+                source,
+                selected,
+            );
             if (!this.live(ticket)) return;
             this.patch({ diagnostic, busy: false });
         } catch (error) {

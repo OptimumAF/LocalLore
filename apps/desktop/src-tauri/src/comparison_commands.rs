@@ -164,15 +164,17 @@ fn parse(action: &str, query: &Value) -> Result<Action> {
                 Some("right") => Arm::Right,
                 _ => return invalid(),
             };
-            Ok(Action::NarrationDiagnosticV1(ComparisonNarrationDiagnosticRequestV1 {
-                token: guid(&query["runToken"])?,
-                binding,
-                row: RowId {
-                    turn: identifier(&query["turnId"])?,
-                    arm,
+            Ok(Action::NarrationDiagnosticV1(
+                ComparisonNarrationDiagnosticRequestV1 {
+                    token: guid(&query["runToken"])?,
+                    binding,
+                    row: RowId {
+                        turn: identifier(&query["turnId"])?,
+                        arm,
+                    },
+                    observer: observer(&query["observer"])?,
                 },
-                observer: observer(&query["observer"])?,
-            }))
+            ))
         }
         "evidence" => {
             keys(query, &["runToken", "binding", "turnId", "arm", "request"])?;
@@ -362,4 +364,3 @@ mod tests {
         }
     }
 }
-

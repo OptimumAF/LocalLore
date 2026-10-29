@@ -17,7 +17,9 @@ impl WindowLease {
         Arc::downgrade(&self.identity)
     }
     pub(crate) fn owns_identity(&self, identity: &Weak<()>) -> bool {
-        identity.upgrade().is_some_and(|owner| Arc::ptr_eq(&self.identity, &owner))
+        identity
+            .upgrade()
+            .is_some_and(|owner| Arc::ptr_eq(&self.identity, &owner))
     }
     pub fn begin(&self) -> Result<u64, &'static str> {
         let epoch = self.epoch.load(Ordering::SeqCst);

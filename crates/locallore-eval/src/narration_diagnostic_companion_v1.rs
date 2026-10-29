@@ -798,7 +798,7 @@ pub(crate) fn publish(
     if present(&path)? {
         let (_file, existing) = held(&path, RECORD_CAP)?;
         let prior: Observation = serde_json::from_slice(&existing).map_err(|_| wire())?;
-        if prior != ob {
+        if existing != encoded || prior != ob {
             return Err(binding());
         }
         prior.validate()?;

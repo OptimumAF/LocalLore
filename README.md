@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
+passes77 focused checks and one actual finite host-only readiness/stop lease.
+It preserves the first unsupported-listener failure and uses a distinct corrected
+protocol. Target-specific integration remains required before fresh emulator or
+model testing; the completed test service is closed.
+
 The [compiled Windows TCP control](docs/native/WINDOWS_NATIVE_TCP_STATE_VERIFICATION_2026-10-29.md)
 passes 355 host tests and reproduces inconsistent listener states using native
 SDK definitions outside Python FFI. Its acquired diagnostic remains inconsistent;

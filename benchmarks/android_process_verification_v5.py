@@ -336,7 +336,8 @@ def verify_restart_prerequisite(pin, admission, admission_binding, running_bindi
                 {'import-v1.json': value['import_proof']}, identity['uid'],
                 import_record['index'], author_record['index'])
     _collection(rows, session, 'no_backup/original-author-proof-v1', 'author-proof',
-                {'proof-v1.json': value['author_proof'], **value['author_artifacts']}, identity['uid'],
+                {'proof-v1.json': value['author_proof'],
+                 **{name: value['author_artifacts'][name] for name in author.RECORDS+author.TRACES}}, identity['uid'],
                 author_record['index'], package_indices[0])
     _current_sources(a)
     return copy.deepcopy(value)
@@ -422,7 +423,8 @@ def verify_controller_result(binding, admission, admission_binding, running_bind
     newer = {name: _raw(value['restart_artifacts'][name], restart.MAX_ARTIFACT) for name in restart.RECORDS}
     baseline = {name: _raw(prior['author_artifacts'][name], author.MAX_ARTIFACT) for name in author.RECORDS+author.TRACES}
     _collection(records, session, 'no_backup/original-author-restart-proof-v1', 'restart-proof',
-                {'proof-v1.json': value['restart_proof'], **value['restart_artifacts']},
+                {'proof-v1.json': value['restart_proof'],
+                 **{name: value['restart_artifacts'][name] for name in restart.RECORDS}},
                 author.validate_import(_raw(prior['import_proof']))['process']['uid'],
                 selected['index'], final_boot['index'])
     restart.validate_restart(_raw(value['restart_proof'], restart.MAX_PROOF), newer,

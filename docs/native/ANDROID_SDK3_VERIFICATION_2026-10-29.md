@@ -142,6 +142,18 @@ observed server5 and keeps that narrower original attribution; it does not
 guarantee every subsequent observation. No repeat capture, favorable polling,
 state normalization, relaxed gate or failed-result reclassification occurred.
 
+An independent closed audit verifies all four selected IPv4 rows (one initial,
+three pre-send), raw hashes and 24-byte ABI by a separate `<6I` decode and the
+public pure decoder. Tuple/PID/scope/endpoint joins match; the pure ownership
+join refuses the server0 row. No decoder correction is supported by these
+bytes. The report's `client_raw_state=null` is correct because that assignment
+occurs only after the complete join succeeds; client5 remains in the raw stage.
+The inner worker exits0 in 363 ms, recording a refused protocol result; that
+exit does not qualify the proof. Independent audit SHA256:
+`179656373ec8726be60b28d8d5038239107276a88e5bf9064cecbd159ce4bf0b`.
+This audit performs no new native/service/SDK call and does not re-observe
+installed binaries. It is a new report outside the earlier616-file seal.
+
 ## Preservation and next gate
 
 The create-only D: recovery snapshot binds executed public HEAD5a43640c and 616
@@ -160,7 +172,7 @@ Recovery root: `D:/Dev/Archives/LocalLore/2026-10-29-sdk3-bridge-v1`.
 | Index | 513,488 | `32ad069c38cfc254b58a4226eac5b00263bdd58cc5b82b2a1451fdc30994c594` |
 | Evidence ZIP | 8,827,723 | `a33fe991094968850ac7fa849353efbf0dd5a37974fe41077a2ad923202ae574` |
 | Source ZIP | 8,674,754 | `88766f98a2d17781f95217cb53ebed6906b10a663778492ad72bf4500fd2816d` |
-| Producer result | recorded privately | `93cc9fb471594039006b0e3999925d1b8c9d964fb23d18fdb74cbd5faf25f14b` |
+| Producer result | 745 | `93cc9fb471594039006b0e3999925d1b8c9d964fb23d18fdb74cbd5faf25f14b` |
 
 Producer v3 actually exits0 after two pre-destination refusals. Those first two
 helpers omitted original synthetic XML/APK and UNLISTED fixtures from their
@@ -169,12 +181,43 @@ are included. No raw capture is invented for those tool outputs. V3 preserves
 the full finite selection and verifies original/copy/ZIP bytes plus source Git
 blob hashes. This is preservation evidence, not another test or service attempt.
 
+Independent V2 readback actually exits0 in 28,362 ms. It verifies all616
+original/copy pairs (1,045,751 evidence bytes), exact618 ZIP members, all2,039
+source Git blob hashes and237 source directory entries, the four admitted
+archive/control digests, final private source/result bindings, selected public
+test receipts and the failed live proof/known owners. It uses one Git tree read
+and no test/probe/SDK/build/service/device/model execution. Result3,837 bytes/
+SHA256 `c734f658e2907eae01af3d12c46ec4f647b4c8218ae2e76bc33c278edf10bf2f`;
+verifier16,619 bytes/SHA256
+`e7e0066a8bc37db0d2fb2b1d3a65d20d8735931cebded225a4c421fdcb51518b`.
+
+The first verifier incorrectly required ordinal sorting that the index format
+did not promise. Its unchanged executed source and explicitly labeled failure
+transcription remain bound by V2. Removing only that additional ordering
+assertion retains exact unique rosters and every byte/hash check. V2 also records
+that historical expanded client32 uses an earlier reader-source pin; final307
+and final reader34 match the executed source ZIP. The earlier32 result keeps
+its actual source attribution. Empty clients is verified in the original;
+the evidence ZIP preserves the finite file roster, not empty directories.
+
+The five later audit/verifier/result files and their separate copy helper are
+retained at `D:/Dev/Archives/LocalLore/2026-10-29-sdk3-bridge-readback-v1` without
+altering the earlier seal. Root's create-only producer actually exits0 and checks
+all six original/copy files plus the exact seven-member ZIP. Supplement index
+2,860 bytes/SHA256
+`f1a6ce4f72f10d583a8e1c0392d1bccdfa43018358f20c45cdf6870654a91241`;
+ZIP21,303 bytes/SHA256
+`93729522bb50899b9a44bc7334d1f24a1c5507a3f94fc83fc6705d788eaaa0aa`.
+This later small supplement has Root copy/readback verification; do not extend
+the independent616-file result to it or call integrity hashes authentication.
+
 Plan discovery: source/tested SDK3 integration is now available, but reliable
 current service admission remains unproven. Preserve IDs M10.02/M09.06/M01.01 and
-the full gates. Next runnable work is a closed-capture review of raw-state
-provenance and a bounded diagnostic design using authoritative OS evidence;
-retain the current refusal. Any replacement protocol requires an explicit
-decision and independent negative tests, not a hidden fallback. After admission
+the full gates. The closed-capture review is complete and supports the refusal.
+Next runnable work is a separately specified controlled provider-state diagnostic
+using authoritative OS evidence; retain the current refusal. Any replacement
+protocol requires an explicit decision and independent negative tests, not a
+hidden fallback. After admission
 is trustworthy, freeze sources and perform a **fresh** full offline Android/JVM/
 lint/audit/build and native CLI admission before consuming the existing fresh-D
 8GiB/four-core/30-minute approval for import, one AUTHOR and inference-free reopen.

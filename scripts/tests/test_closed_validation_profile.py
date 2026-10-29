@@ -488,6 +488,64 @@ class ProfilePlanTests(unittest.TestCase):
 
 
 @unittest.skipUnless(os.name == 'nt', 'physical D launcher wiring boundaries')
+class CapabilityOutputAdmissionTests(unittest.TestCase):
+    """New helper API coverage with ordinary own bytes, no runtime verdict."""
+    def fixture(self):
+        root = directory()
+        outputs = []
+        for index, data in ((1, b'ordinary version bytes'), (2, b'')):
+            path = root / ('command-%02d.stdout.bin' % index)
+            path.write_bytes(data)
+            outputs.append(p.env.binding(path))
+        return root, outputs
+
+    def admission(self, root, outputs):
+        path = root / 'result-v1.json'
+        p.env.create_json(path, dict(rows=[dict(stdout=pin) for pin in outputs]))
+        return dict(server=dict(capabilities=p.pin(path)))
+
+    def test_two_canonical_outputs_accept_actual_bytes_including_empty(self):
+        root, outputs = self.fixture()
+        self.assertEqual(p.capability_outputs(self.admission(root, outputs)), outputs)
+
+    def test_both_shapes_and_paths_are_checked_before_either_output_read(self):
+        for mutation in ('alias', 'extra', 'bool', 'float', 'negative', 'cap', 'sha'):
+            with self.subTest(mutation=mutation):
+                root, outputs = self.fixture()
+                if mutation == 'alias': outputs[1] = dict(outputs[1], path=str(root / 'harmless-alias.bin'))
+                elif mutation == 'extra': outputs[1] = dict(outputs[1], extra=1)
+                elif mutation == 'bool': outputs[1] = dict(outputs[1], bytes=False)
+                elif mutation == 'float': outputs[1] = dict(outputs[1], bytes=0.0)
+                elif mutation == 'negative': outputs[1] = dict(outputs[1], bytes=-1)
+                elif mutation == 'cap': outputs[1] = dict(outputs[1], bytes=p.CAP + 1)
+                else: outputs[1] = dict(outputs[1], sha256='x' * 64)
+                admission = self.admission(root, outputs)
+                actual = p.bounded_bytes
+                opened = []
+                def guarded(path, **kwargs):
+                    opened.append(str(path))
+                    if str(path) in {pin['path'] for pin in outputs}:
+                        raise AssertionError('stdout opened before all shapes and paths admitted')
+                    return actual(path, **kwargs)
+                with patch.object(p, 'bounded_bytes', side_effect=guarded):
+                    with self.assertRaises(ValueError):
+                        p.capability_outputs(admission)
+                self.assertEqual(opened, [admission['server']['capabilities']['path']])
+
+    def test_output_count_and_changed_actual_bytes_refuse(self):
+        for mutation in ('one_row', 'three_rows', 'changed', 'actual_cap'):
+            with self.subTest(mutation=mutation):
+                root, outputs = self.fixture()
+                if mutation == 'one_row': outputs = outputs[:1]
+                elif mutation == 'three_rows': outputs = outputs + outputs[:1]
+                admission = self.admission(root, outputs)
+                if mutation == 'changed': Path(outputs[0]['path']).write_bytes(b'changed')
+                elif mutation == 'actual_cap': Path(outputs[0]['path']).write_bytes(b'x' * (p.CAP + 1))
+                with self.assertRaises(ValueError):
+                    p.capability_outputs(admission)
+
+
+@unittest.skipUnless(os.name == 'nt', 'physical D launcher wiring boundaries')
 class ProfileLauncherBoundaryTests(unittest.TestCase):
     def test_worker_rejects_capability_output_alias_and_bounds_before_asset_hash(self):
         for mutation in ('alias', 'bool_bytes', 'declared_overcap', 'actual_overcap'):

@@ -77,3 +77,40 @@ It does not authorize a guest, revive a spent grant, extend the fixed session,
 or retag the preserved 4c53 restart refusal. Host tests with fake native/process
 and SDK fixtures establish instrumentation behavior only. No current live-phase
 measurements, runtime speedup, phone or ARM64 result is claimed.
+
+## Actual host verification, 2026-10-29
+
+Tested integration checkpoint `2f9f8fb2` has2,223 tracked raw files. The full
+Python discovery passes **2,252 tests**, zero failures/errors/skips/exclusions;
+finite owner466,071ms/exit0, known capture/cleanup and empty stderr. All source
+hashes remain stable. Cooperative Python auditing records no forbidden D-policy
+or production-migration IO attempts; eight exact stdlib null-sink opens are
+separate. This is not an OS sandbox or proof about arbitrary native IO.
+
+Independent original guard integration assertions first pass the original
+operation sequence on both SDK4/SDK5, then fail only the missing snapshot getter
+(two assertion subtest failures, zero errors). The unchanged integration method
+is included in the twelve-method GREEN collector cohort,6,800ms/exit0. It covers
+clock types/regression, cancellation identity, saturation, state/privacy,
+snapshot mutation, incomplete/unknown closure and nonblocking concurrency.
+
+Three original controller-flow assertions first fail missing diagnostic output
+or write attempt (88,229ms/exit1, three failures/zero errors), while outcome and
+cleanup assertions already pass. Exact same three pass97,905ms/exit0 with real
+central schema validation. Eight separately added helper boundaries pass5,678ms/
+exit0; they cover no-clobber, identity drift, unknown closure, private-field
+rejection, ordinary errors and interrupt/primary-failure rules. Do not describe
+the expanded eleven-method file as an identical RED/GREEN cohort.
+
+Independent AST review proves the guard body exact after removing only timing
+contexts; fast guard/query/proof operations and imports are unchanged. It also
+proves the original controller module exact after removing only the diagnostic
+imports/helpers/identity assignment/export call. Reviews execute no target.
+The pre-execution fixture helper correction is retained separately; it was not
+an executed product failure. All actual RED/source/capture records remain under
+`D:/Dev/Experiments/LocalLore/2026-10-29-host-guard-phases-v1`.
+
+No guest/model/SDK/service/system-setting/retirement/merge action occurs in this
+packet. The prior closed4c53 runtime and source/build/guest recovery remain
+untouched. The new code needs its own later source/build admission; no existing
+runtime evidence is relabelled.

@@ -352,3 +352,86 @@ checker registration in `verify-frontend.mjs`. No full-run/index/selected/Host
 schema/provider changes. Every author check is source/Git/hash/whitespace only;
 no formatter/compiler/Cargo/Node/browser/app/model/assets/device/OS-probe or
 desktop execution. Full task, dependency and negative human-review gates remain.
+
+## Independent FIRST source handoff — 2026-10-29
+
+Agent `model_guard_review`, exact accepted base `4bdf9c24`, branch
+`test/d07-narration-diagnostic-desktop-read-first-v1`. Claim:
+[#29 comment6500395518](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6500395518).
+Own only the three NEW files allocated above and this handoff append. Existing
+fixtures/helpers/registrations, production, companion code and its corrected
+immutable test SHA256 `eaa714033d023d0892602abd668bf08687b97db843ed6410b9b85550cac8788b`
+are unchanged. Root registers the children/checker later.
+
+The nested native-manager child authors **six test functions**. One ordinary
+opted-in scripted one-scene/12-row template is produced through accepted Core
+entry/actual Host harvest; every test copies bytes before opening a capability.
+Both recipe reads retain the exact actual observation. Legacy NoDeclaration is
+actual default output; NoObservation moves one retained fixture file outside
+the run. Stored HostUnavailable/HostRejected are explicitly trusted metadata
+controls, not claims of those actual Engine outcomes. No new provider is added.
+Native envelopes are checked for exact keys and <=8,192 serialized bytes.
+
+The other groups freeze permission before invalid scalars/lease/expiry/corrupt
+source, authorized expiry, V2/V3 refusal despite a corrupt companion filename,
+foreign owner/epoch/token, invalid selector, integrity/budget errors, cached old
+summary stability, busy/close/retirement and held completion. The existing
+before_publish barriers are the only hold seam. The sixth function waits the
+**actual unchanged 30-second response timeout** once, observes the still-owned
+worker, then explicitly closes/releases/drains it. This function is authored
+but unrun; it is not a shortened clock, cancellation or hard I/O-deadline proof.
+Complete inventories are compared only before capability acquisition and after
+release/drain; known fixture mutations are retained or restored explicitly.
+
+The parser child authors **three test functions**: exact action/three requested
+lenses, closed fields/types/identifiers and refusal of execution/path/grant
+selectors, and unchanged existing action/overflow behavior. The future private
+variant is exactly `Action::NarrationDiagnosticV1`. >4,096-byte compact queries
+remain InvalidEvaluationInput; no raw duplicate-key proof is asserted for Value.
+
+The independent frontend checker authors **151 source-enumerated cases**:
+five status round-trips, 25 finite decision tuples, 43 fixed Host rejection
+codes, closed nested shapes/foreign tuples/unsafe numbers/prototypes/getters/
+symbols/cycles, actual controller dispatch and lifecycle clearing, and actual
+Panel static HTML. This is an authored roster, not an executed count. It keeps
+the entire distinct checked envelope, and deliberately uses different snapshot
+and run-binding hashes. Old Source/Summary/Status DTOs have a separate fixture
+calibration; missing APIs or bad calibration are SETUP, not behavioral RED.
+Subscriber observations are asserted outside callbacks so existing subscriber
+exception isolation cannot hide a failed clearing assertion.
+
+The controller cases cover five statuses, exact closed dispatch, immutable data,
+pending/error display, no automatic retry, synchronous pre-dispatch observer
+switch, delayed results across observer/row/context/permission/dispose/close,
+query/ordinary-read/clear clearing and unsupported Protocol3 refusal. Static
+Panel checks require selected source/turn/arm/revisions/observer/phase, distinct
+diagnostic status, fallback and unreviewed quality, with no dispatch during
+render and no private diagnostic text after switching to an actor lens.
+The intended output is bounded local JSON plus up to13 static HTML documents;
+there is no browser/geometry mode, PNG, native IPC or WebView claim here.
+
+Constructibility limits are preserved. No arbitrary Value/accounting seam forces
+a native8KiB overflow for a valid finite closed record. The oversized frontend
+DTO also violates the identifier bound: it is an adversarial refusal control,
+not an isolated8KiB boundary proof. Exact response-cap enforcement still needs
+source review. No new companion-specific link/reparse/isolation probe, model,
+device or desktop operation is authored. Existing unrelated OS-guard regression
+fixtures in broad suites do not qualify this new companion boundary.
+
+Original unformatted test-source SHA256 values:
+
+| Source | Lines / authored roster | SHA256 |
+| --- | --- | --- |
+| Nested manager child | 256 / 6 functions | `606cf2c8c226fa71c047d55aac84f5c5332ddb65006b91ede651545f4aee3b14` |
+| Parser child | 56 / 3 functions | `797a6e24c148f837f2976a3c3e954810d41136326d57b5a8c72a0314cbddc5f4` |
+| Frontend checker | 275 / 151 cases by source enumeration | `46e7f0cecdb15cfeaf9de2d16b9f2965c4118b54a9470ed7f32214b40375a92f` |
+
+All author checks are source/Git/line/function/hash/whitespace inspection only.
+**UNREGISTERED / UNCOMPILED / UNRUN**: no syntax checker, compiler, formatter,
+Cargo, Node, app/browser, assets/model, device, new OS probe or desktop execution.
+Missing methods/decoder/state/action/registration remain setup prerequisites.
+This frozen source releases the four owned paths to Root for registration,
+format-equality proof, separate-author production and actual verification after
+the companion gate. Actual hidden-WebView/IPC, wide/narrow geometry/images and
+individual image inspection remain later gates. Both needs-improvement human
+assessments, historical absent causes and dependency/merge restrictions stand.

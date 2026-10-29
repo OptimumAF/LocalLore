@@ -5,6 +5,7 @@ import os
 from pathlib import Path, PureWindowsPath
 import struct
 import tempfile
+import threading
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock,patch
@@ -648,6 +649,25 @@ class ActualOwnerMockTests(unittest.TestCase):
             else:self.f.save(self.f.root/'stop-v1.json',dict(version=1,protocol=PROTOCOL,admission_sha256=self.f.admission['sha256'],action='stop'))
             with self.assertRaises(self.o.OwnerRefused):live.fast_guard()
             live.close()
+
+    def test_concurrent_fast_guards_serialize_monotonic_read_check_and_update(self):
+        live=self.live();older_read=threading.Event();newer_finished=threading.Event();errors=[]
+        original_finite=self.o.math.isfinite
+        def tick():return 100.1 if threading.current_thread().name=='target-older'else 100.2
+        def finite(value):
+            if threading.current_thread().name=='target-older'and value==100.1:
+                older_read.set();newer_finished.wait(timeout=.1)
+            return original_finite(value)
+        def run():
+            try:live.fast_guard()
+            except BaseException as error:errors.append((threading.current_thread().name,type(error).__name__,str(error)))
+            finally:
+                if threading.current_thread().name=='target-newer':newer_finished.set()
+        with patch.object(self.o.time,'monotonic',side_effect=tick),patch.object(self.o.math,'isfinite',side_effect=finite):
+            older=threading.Thread(target=run,name='target-older');newer=threading.Thread(target=run,name='target-newer')
+            older.start();self.assertTrue(older_read.wait(timeout=1));newer.start();older.join(timeout=2);newer.join(timeout=2)
+        self.assertFalse(older.is_alive());self.assertFalse(newer.is_alive());self.assertEqual(errors,[],'overlapping valid monotonic samples must not manufacture rollback')
+        live.close()
 
     def test_actual_claim_is_create_only_admission_wide_across_observers_and_spent_after_guard_failure(self):
         first=self.live();second=self.live();digest='a'*64;first.claim_once('import',digest)

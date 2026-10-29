@@ -469,9 +469,13 @@ class FakeJob:
 
 
 class FakeReaderThread:
-    def __init__(self,*,target,args,daemon):self.target=target;self.args=args;self.daemon=daemon;self.stalled=False
-    def start(self):self.target(*self.args)
-    def join(self,timeout):pass
+    def __init__(self,*,target,args,daemon):
+        self.target=target;self.args=args;self.daemon=daemon;self.stalled=False;self.started=False;self.start_fail=False
+    def start(self):
+        if self.start_fail:raise RuntimeError('synthetic thread resource exhaustion')
+        self.started=True;self.target(*self.args)
+    def join(self,timeout):
+        if not self.started:raise RuntimeError('cannot join thread before it is started')
     def is_alive(self):return self.stalled
 
 
@@ -479,7 +483,7 @@ class FakeReaderThread:
 class NativeSupervisorTests(unittest.TestCase):
     def supervise(self,*,callback='true',chunk=None,bad=None,job_fail=False,job_closed=True,
                   read_fail=False,capture_fail=False,overflow=False,capture_close_fail=False,
-                  stream_close_fail=False,wait_fail=False,hang=False,stalled=False,create_capture_fail=False):
+                  stream_close_fail=False,wait_fail=False,hang=False,stalled=False,create_capture_fail=False,start_fail=False):
         events=[];child=FakeChild(events,chunk=chunk,bad=bad,read_fail=read_fail,
           stream_close_fail=stream_close_fail,wait_fail=wait_fail,hang=hang)
         capture=FakeCapture(events,fail=capture_fail,overflow=overflow,close_fail=capture_close_fail)
@@ -499,8 +503,9 @@ class NativeSupervisorTests(unittest.TestCase):
             if callback=='cancel':raise KeyboardInterrupt()
             return True
         def thread(**kwargs):
-            value=FakeReaderThread(**kwargs);value.stalled=stalled;return value
-        env=SimpleNamespace(LiveOutput=create,host=SimpleNamespace(WindowsJob=job),EnvironmentRefused=RuntimeError)
+            value=FakeReaderThread(**kwargs);value.stalled=stalled;value.start_fail=start_fail;return value
+        class FakeEnvironmentRefused(RuntimeError):pass
+        env=SimpleNamespace(LiveOutput=create,host=SimpleNamespace(WindowsJob=job),EnvironmentRefused=FakeEnvironmentRefused)
         clock=lambda:2.0 if hang and child.stdin.closed else 0.0
         with patch.object(n,'_runtime',return_value=(env,None,None)), \
              patch.object(subprocess,'Popen',side_effect=popen)as process, \
@@ -569,6 +574,20 @@ class NativeSupervisorTests(unittest.TestCase):
         result,events,_,_=self.supervise(create_capture_fail=True)
         self.assertNotIn('popen-own-child',events);self.assertFalse(result['cleanup_complete'])
         self.assertFalse(result['output_capture_complete']);self.assertEqual(result['status'],'evidence_failed')
+
+    def test_failed_job_close_still_attempts_all_owned_stopped_pipes(self):
+        result,events,_,_=self.supervise(job_closed=False)
+        self.assertFalse(result['cleanup_complete'])
+        for event in('stdin-close','stdout-close','stderr-close','capture-close'):
+            self.assertIn(event,events)
+
+    def test_thread_start_resource_failure_never_escapes_or_releases_child(self):
+        result,events,child,_=self.supervise(start_fail=True)
+        self.assertNotIn('stdin-write',events);self.assertEqual(child.stdin.sent,b'')
+        for event in('job-close','wait-own-child','stdin-close','stdout-close','stderr-close','capture-close'):
+            self.assertIn(event,events)
+        self.assertFalse(result['cleanup_complete']);self.assertFalse(result['output_capture_complete'])
+        self.assertNotEqual(result['status'],'child_exited')
 
 
 if __name__=='__main__':unittest.main()

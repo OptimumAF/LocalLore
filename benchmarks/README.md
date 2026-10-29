@@ -117,3 +117,8 @@ records the follow-up host change: one fresh no-follow query per ancestor,
 original adversarial failures and passing checks, a fixed benign cost sample,
 and the six legacy C: fixture tests left unrun under D: storage policy. It does
 not requalify the old runtime admission or establish device/model performance.
+
+The later [D-resident fixture migration](../docs/native/D_ONLY_RECEIPT_FIXTURES_2026-10-29.md)
+keeps the six original C-policy test bodies while moving all their fixture IO
+to D:. Its final host suite passes all 2,169 checks without exclusions; C: paths
+are explicitly simulated, and device/runtime gates remain separate.

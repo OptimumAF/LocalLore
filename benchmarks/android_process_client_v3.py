@@ -261,16 +261,21 @@ class HeldServerSdkCapture:
             self.count = index
             stem = self.directory/("command-%04d" % index)
             trusted = True
+            dispatched_command = copy.deepcopy(command)
             try:
-                result = legacy._result(host.run_process(copy.deepcopy(command),request=b"",deadline=effective,max_output=cap),cap)
+                result = legacy._result(host.run_process(dispatched_command,request=b"",deadline=effective,max_output=cap),cap)
             except BaseException:
                 # No trusted owner measurement exists; do not infer terminal
                 # cleanup, zero elapsed time or a safely available post-proof.
                 result = host.ProcessResult("spawn_failed",None,cleanup_complete=False)
                 trusted = False
+            # Preserve a trusted returned result even if the runner changed
+            # its supplied argv. Such a command cannot qualify or acquire a
+            # post-proof for an intent that is now uncertain.
+            command_unchanged = held_probe._same(dispatched_command,command)
             self._write_stdout(stem,result.stdout)
             after, post_verified = None, False
-            if trusted and result.cleanup_complete is True:
+            if trusted and command_unchanged and result.cleanup_complete is True:
                 try:
                     after = self._prove("command",index,"after",label,command)
                     post_verified = True

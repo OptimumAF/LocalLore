@@ -63,6 +63,7 @@ declare global {
             selectedEvaluating?: boolean;
             fullComparing?: boolean;
             nativeFullComparing?: boolean;
+            sceneModelGuard?: boolean;
             nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
@@ -797,6 +798,9 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
             dispose,
             config: window.__LOCALLORE_TEST__,
         });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.sceneModelGuard) {
+        const { sceneModelGuardJourneys } = await import("./scene-model-guard-journeys");
+        await sceneModelGuardJourneys({ invoke, dispose, errors });
     } else if (
         __DEV_HARNESS__ &&
         window.__LOCALLORE_TEST__?.nativeFullComparing

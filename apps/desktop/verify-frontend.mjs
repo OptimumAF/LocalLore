@@ -96,6 +96,7 @@ for (const marker of [
     "NativeConsentAbortAckInvalid",
     "__D07_MAIN_REVIEW_PROPS",
     "harness_native_comparison_case",
+    "harness_scene_model_guards",
     "native_full_comparison_fixture",
     "native-port-denied-actual-native-context-grant-false",
     "uncertain-commit-retry-original-id-once",

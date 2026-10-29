@@ -349,6 +349,24 @@ class WindowsTcpControlPreflightTests(unittest.TestCase):
             dispatch.assert_not_called()
         self.assertFalse(output.exists())
 
+    @unittest.skipUnless(os.name=='nt','physical D: fixture requires Windows')
+    def test_broken_git_marker_still_protects_historical_worktree(self):
+        parent = Path(tempfile.mkdtemp(prefix='listener-control-git-marker-',dir='D:/Dev/_Temp'))
+        output,marker = parent/'new-control',parent/'.git'
+        original_exists,original_lexists = Path.exists,os.path.lexists
+
+        def exists(path):
+            return False if path==marker else original_exists(path)
+
+        def lexists(path):
+            return True if Path(path)==marker else original_lexists(path)
+
+        with patch.object(t.Path,'exists',exists), patch.object(t.os.path,'lexists',lexists), \
+             patch.object(t,'_dispatch',return_value=0) as dispatch, redirect_stdout(io.StringIO()):
+            self.assertEqual(t.main(['--output',str(output)]),1)
+            dispatch.assert_not_called()
+        self.assertFalse(output.exists())
+
 
 if __name__=='__main__':
     unittest.main()

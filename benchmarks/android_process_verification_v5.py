@@ -398,7 +398,7 @@ def verify_guest_inputs(*args, **kwargs):
     return _REPLAY.verify_guest_inputs(*args, **kwargs)
 
 
-def verify_controller_result(binding, admission, admission_binding, running_binding):
+def verify_controller_result(binding, admission, admission_binding, running_binding, expected_caller):
     admission = c.validate_admission(admission)
     _current_sources(admission)
     value = _json(binding)
@@ -431,6 +431,8 @@ def verify_controller_result(binding, admission, admission_binding, running_bind
     c._need(PureWindowsPath(binding['path']) == root/'controller-result-v1.json' and
             PureWindowsPath(value['request']['path']) == root/'request-v1.json', 'binding')
     session = c.validate_session(_json(value['session']), admission)
+    c._process(expected_caller)
+    _same(session['caller'], expected_caller, 'identity')
     _same(session['root'], request['root'])
     _same(session['seconds'], request['seconds'], 'budget')
     verify_restart_prerequisite(value['prerequisite'], admission, admission_binding, running_binding, session['caller'])

@@ -177,3 +177,68 @@ formatter, build, app, approved asset/model, phone or desktop execution is
 authorized for this source allocation. Root receives this committed contract
 and proposed interfaces/risks before author implementation. Source checks,
 compilation, native execution, image review and acceptance stay distinct.
+
+## Source implementation handoff, still unrun
+
+First contract commit: `aa054056`. Root approved the plan before dependent
+implementation, including exact helper names `review_active()` and
+`review_webview_profile(workspace: &Path) -> Result<PathBuf, String>` in the
+existing native harness. Main must call both helpers, emit existing stage
+`review`, and reject a malformed review request under incomplete flags before
+workspace/model setup writes. The launcher preflight requires these helper and
+Main source-call markers before building or launching review. The native output
+leaf is exactly `review`; its profile is `webview-profile` beneath that leaf's
+new UUID parent, not beneath the retained workspace. These are Root-owned
+integration requirements, not implemented or tested by the Node/TS author.
+
+The launcher pins the one original bounded qualification metadata SHA256
+`d01dcc97c8e4595c4ddffc0354f8bbaf6219580e106049d1dbe839201bc926df`,
+source `7bd21c7b`, initial/restart2072-file digest
+`f22cd3ec7c40c8870684b025fe1bcd909a4664e34f92f552779f2068bce429e5`
+and original reopened identity. It compares every new slot's phase, failure,
+fallback, source/availability and input/scene metadata with the original
+qualification. New reader evidence is actual IPC output and separately hashed;
+it is not repaired to match an old token or reconstructed from that JSON.
+The retained summary's roles/setup/load/status counts must also match their
+original recorded values. Those fields are explicitly recorded evidence only,
+not current-process generation. The completed-resume owner must keep the same
+actual client/run identity in either outcome.
+
+The existing controller publishes a typed worker status error without adding a
+transport-error callback record. An authoritative historical source refusal is
+therefore kept in `retainedResume`, actual native status/state history and a
+zero-added-error evidence boundary. Only genuinely observed bounded poll
+recoveries contribute Transport records. The harness does not invent a
+Transport event to accompany a service error, classify it as a deliberate lost
+ACK, or waive another unexpected error. A resumed historical report remains an
+honest refusal rather than an accepted no-load resume.
+
+Missing seam/metadata/resource pins refuse before product mutation; that review
+preflight failure skips unnecessary normal builds. Once harness builds can
+change products, known-closed restoration follows the existing policy.
+Unknown drain still takes precedence and blocks every later child. The retained
+run inventory is checked again after known-closed restoration, with the absent
+original in-memory workspace address checked before and after. Source/build
+roots cannot contain the retained packet or receive outputs inside it.
+
+Root can later reproduce from a clean physical D: `apps/desktop` directory,
+after independent review, seam integration and ownership/resource preflight:
+
+```powershell
+$env:TEMP='D:/Dev/_Temp'
+$env:TMP=$env:TEMP
+# Existing explicit D: artifact base, external target, approved publication and
+# worker inputs use the established FULL_COMPARISON/REUSE_MODEL_ROOT conventions.
+# Set LOCALLORE_D07_SCENE_REVIEW_PACKET_ROOT to the one retained owned packet.
+node comparison-run-harness.mjs --native-scene-review-v1
+```
+
+This command is **not run by the author**. The author read only bounded
+qualification/source metadata, including the original2072-file digest and
+absent in-memory SQLite address; no raw prose or installed assets were read.
+No Node (including syntax), formatter, Cargo, build, app, phone, model or desktop
+operation was run. `git diff --check` and source/API inspection are the only
+implementation verification. Root must compile, run appropriate unchanged
+process-policy/frontend/native checks, then conduct and inspect the authorized
+retained review. Missing native helpers, source-only code and historical source
+refusal limitations must remain explicit in the final PR/evidence.

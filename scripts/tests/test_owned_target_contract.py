@@ -95,6 +95,27 @@ def query_bundle(s=None):
     return dict(version=1,protocol='owned-target-socket-proof-v1',admission=s['admission'],running=s['running'],caller=s['caller'],queries=queries)
 
 
+def table_metadata(observation):
+    result=[]
+    for family,stride in((2,24),(23,56)):
+        rows=[row for row in observation['rows']if row['family']==family]
+        count=max((row['ordinal']for row in rows),default=-1)+1;raw=bytearray(struct.pack('<I',count)+b'\0'*(count*stride))
+        for row in rows:raw[4+row['ordinal']*stride:4+(row['ordinal']+1)*stride]=bytes.fromhex(row['raw_hex'])
+        result.append(dict(family=family,table_class=5,allocated_bytes=len(raw),returned_bytes=len(raw),count=count,
+          raw_sha256=hashlib.sha256(raw).hexdigest(),abi_checked=True))
+    return result
+
+
+def ready(a=None,d=None):
+    a=admission()if a is None else a;d=running(a)if d is None else d
+    obs=dict(version=1,ports=[5592,5593],families=[2,23],rows=[host_fixture.row4(lp=5592,pid=d['guest']['pid'],ordinal=1),
+      host_fixture.row4(lp=5593,pid=d['guest']['pid'],ordinal=2)])
+    return dict(version=1,protocol=PROTOCOL,admission=d['admission'],identities={key:copy.deepcopy(d[key])for key in('owner','worker','server','launcher','guest')},
+      guest_ancestry=copy.deepcopy(d['guest_ancestry']),guest_job=pin(PureWindowsPath(a['root'])/'guest-job-v1.json'),
+      guest_observation=obs,guest_tables=table_metadata(obs),queries=pin(PureWindowsPath(a['root'])/'target-registration-v1.json'),
+      sources=copy.deepcopy(a['sources']),python=copy.deepcopy(a['python']))
+
+
 class AdmissionContractTests(unittest.TestCase):
     def refused(self,call):
         with self.assertRaises(n.TargetRefused)as error:call()
@@ -453,6 +474,17 @@ class QueryReadyJobTests(unittest.TestCase):
         with self.assertRaises(n.TargetRefused):n.validate_guest_observation(value,d['guest'],d['server'])
         value['rows']=[host_fixture.row4(lp=5593,pid=999,ordinal=1)]
         with self.assertRaises(n.TargetRefused):n.validate_guest_prefix(value,d['guest'],d['server'])
+
+    def test_ready_requires_complete_guest_actual_five_identities_and_bound_startup_evidence(self):
+        a=admission();d=running(a);value=ready(a,d)
+        self.assertEqual(n.validate_ready(value,d,a),value)
+        for change in(lambda v:v['identities'].update(guest=copy.deepcopy(d['launcher'])),
+                      lambda v:v['guest_ancestry'].reverse(),lambda v:v['guest_observation']['rows'].pop(),
+                      lambda v:v['guest_job'].update(path='D:/Synthetic/foreign-job.json'),
+                      lambda v:v['queries'].update(path='D:/Synthetic/legacy-v2-proof.json'),
+                      lambda v:v['guest_tables'][0].update(count=1)):
+            bad=copy.deepcopy(value);change(bad)
+            with self.assertRaises(n.TargetRefused):n.validate_ready(bad,d,a)
 
 
 

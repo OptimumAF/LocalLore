@@ -1,7 +1,7 @@
 # Narration-validation diagnostics v1: partial qualification
 
 2026-10-29. Refs #9 **M05.03/M05.04**; supports #29 **D07.04**.
-**Implemented; focused and portable checks measured; broader gates pending.**
+**Implemented; focused, portable and Eval checks measured; compatibility gates pending.**
 This note records coordinator-run evidence at source
 `223b6a3f22eb35d9c2d1aedb7b6ed4e5c7f8ea19`. It is not task acceptance,
 release qualification, a model-quality result or permission to merge.
@@ -69,8 +69,9 @@ cargo test --workspace --exclude locallore-desktop-spike --all-features --locked
 | --- | --- | --- |
 | Focused host-enabled library filter | 10 passed, 0 failed, 0 ignored; 73 filtered | 0.29s test; 8.7440136s command |
 | Portable workspace, excluding desktop | 1,029 passed, 0 failed, 11 ignored across 142 test/doc-test result groups | 511.1091717s command |
+| Full Eval with `local-model` feature | 274 passed, 0 failed, 17 ignored across 33 test/doc-test result groups | 3132.3080431s command |
 
-Both process records report exit0, source unchanged and an empty dirty list.
+These process records report exit0, source unchanged and an empty dirty list.
 The aggregate was independently recounted from the bounded portable log.
 The focused run uses the real Engine/Play pipeline, a recording synthetic
 provider and TraceRing-backed test sinks. Its ten functions cover:
@@ -92,6 +93,24 @@ Earlier setup failures remain distinct:
 | --- | --- |
 | `cargo fmt --manifest-path Cargo.toml` on the virtual workspace | Missing `--all`; “Failed to find targets”; no source change. Setup failure. |
 | Initial focused command at `26fea6ff`, otherwise as above but omitting `--lib --features host` | Existing `m08_narration_ownership_review` import of host-gated `locallore::inspection` failed to compile; exit101 in 35.2000800s, source unchanged. No ten-test execution or behavioral RED. |
+| First strict all-feature/all-target workspace Clippy at `223b6a3f` | Exit101 in 37.6264941s: duplicate test-only attribute and `Vec::len() >= 1` in the new test child. No production warning or lint allowance. |
+
+Test-only `d4dc966d` removes the redundant inner `cfg(test)` while preserving the
+parent's test-only registration, and uses equivalent `!is_empty()`. Assertions,
+fixtures and all four production files remain unchanged. Focused tests and strict
+lint will be repeated after those corrections; the earlier broad passes remain
+at their actual `223b6a3f` source and are not relabeled as reruns.
+
+The additional measured Eval command was:
+
+```text
+cargo test --manifest-path crates/locallore-eval/Cargo.toml --features local-model --locked --offline --target-dir <owned-D-target> -- --test-threads=1
+```
+
+The feature enables the existing local-runtime test surfaces. These are Rust
+synthetic/recorded-fixture regressions, not a new approved-model invocation or
+another human-quality cohort. Explicitly ignored genuine/historical tests remain
+ignored; no frozen packet is regenerated.
 
 Root's recorded environment is Windows, Rust/Cargo1.93.1, one heavy job,
 one Cargo build job, incremental disabled and dev/test debug0. TEMP/TMP were
@@ -101,9 +120,8 @@ no compiler, formatter, Node, browser, app, model/assets, device or desktop tool
 
 ## Pending gates and limits
 
-At this documentation freeze, Eval/local-model tests are running. Strict
-workspace Clippy, Android Rust host compatibility and corrected workspace format
-verification remain queued; normal/dev desktop native checks, frontend
+At this documentation update, corrected strict workspace Clippy, Android Rust
+host compatibility and workspace formatting remain unqualified; native and frontend
 compatibility and any justified no-inference native read/resume remain pending.
 No completion is inferred from a running log or an earlier branch's results.
 Android Rust host checks will not qualify an Android ABI, emulator or physical
@@ -121,7 +139,7 @@ causes. No captured prose, report, input, recipe or human assessment is repaired
 Both original and newer human assessments remain **needs improvement**.
 This slice does not improve semantic grounding or model prose.
 
-The planned focused PR remains stacked above open, unmerged draft
+The focused [PR #251](https://github.com/OptimumAF/LocalLore/pull/251) remains a draft stacked above open, unmerged draft
 [PR #247](https://github.com/OptimumAF/LocalLore/pull/247) and its dependencies;
 the other owner's open, unmerged draft
 [PR #225](https://github.com/OptimumAF/LocalLore/pull/225) is not accepted or

@@ -513,6 +513,78 @@ await check("lost cold-open ACK recovery catalog pins native4 before forbidden n
     assert.equal(f.c.get().uncertain, true);
 });
 
+// Independent display regression freeze against actual View/controller source
+// at7bd21c7b. The existing71 cases are unchanged. SOURCE ONLY / UNRUN; Root must
+// measure these three additions before editing production or claiming a pass.
+const visibleText = (markup) => markup.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+function nativeIntroduction(markup) {
+    const match = markup.match(/<h2\b[^>]*>Run full comparison<\/h2>\s*<p>([\s\S]*?)<\/p>/);
+    assert.ok(match, "actual native View has its introductory paragraph after its heading");
+    return visibleText(match[1]);
+}
+function neutralNativeIntroduction(markup) {
+    const text = nativeIntroduction(markup);
+    assert.match(text, /\b(?:comparison|protocol|configuration|model)\b.*\b(?:not (?:yet )?(?:been )?(?:available|reported|known)|unavailable|unknown)\b/i,
+        "unavailable native details are stated explicitly, rather than inferred from missing metadata");
+    assert.doesNotMatch(visibleText(markup), /\bProtocol\s*[34]\b|\bscene construction\b|\b(?:literal_player_v1|relevant_memory_v1|literal_scene_v1|relevant_memory_scene_v1)\b/i,
+        "absent status/catalog does not identify either protocol or construction");
+    assert.doesNotMatch(text, /\b(?:import|reimport|reuse|reused|publication)\b|LOCALLORE_D04|\bmodel root\b|\bexisting model controls\b/i,
+        "missing metadata cannot prescribe ordinary import or development publication/root configuration");
+    return text;
+}
+await check("native View without status or catalog reports neutral unavailable details without protocol or setup guesses", () => {
+    const f = fixture();
+    assert.equal(f.c.get().mode, "approved_native"); assert.equal(f.c.get().allowed, true);
+    assert.equal(f.c.get().status, null); assert.equal(f.c.get().catalog, null);
+    assert.equal(f.c.get().clientId, null); assert.deepEqual(f.calls, []);
+    const markup = render(f);
+    assert.match(markup, /<section\b[^>]*id="comparison-run-native"/);
+    neutralNativeIntroduction(markup);
+    assert.deepEqual(f.calls, [], "rendering unavailable metadata dispatches no request or configuration action");
+});
+await check("acknowledged native4 context retirement returns the same neutral unavailable View when status and catalog retire", async () => {
+    const f = fixture(); await f.c.loadCatalog(); await f.c.open(RUN); current4(f);
+    assert.equal(f.c.get().catalog?.protocol_version, 4);
+    f.c.setContext("native4-retired-neutral-context", true);
+    await f.c.close(); // Public retirement reconciliation; no private controller mutation.
+    assert.equal(f.c.get().context, "native4-retired-neutral-context");
+    assert.equal(f.c.get().allowed, true); assert.equal(f.c.get().mode, "approved_native");
+    assert.equal(f.c.get().status, null); assert.equal(f.c.get().catalog, null);
+    assert.equal(f.c.get().clientId, null); assert.equal(f.c.get().uncertain, false);
+    assert.ok(f.calls.some((call) => call.action === "close" && call.query.runToken === TOKEN),
+        "the actual acknowledged native4 access was reconciled before observing the retired View");
+    assert.equal(generated(f).length, 0);
+    const callsBeforeRender = f.calls.length, markup = render(f), fresh = fixture();
+    assert.equal(nativeIntroduction(markup), nativeIntroduction(render(fresh)),
+        "retired metadata does not preserve a protocol or setup guess absent in a fresh native View");
+    neutralNativeIntroduction(markup);
+    assert.equal(f.calls.length, callsBeforeRender, "retired View guidance cannot dispatch replacement work");
+});
+await check("awaiting native confirmation reports the active operation without claiming a physical model worker", async () => {
+    const f = fixture();
+    f.hooks.set("start", (q) => { const value = status(4, { client_id: q.clientId,
+        phase: "awaiting_confirmation", running: true, report_ready: false, completed_scenes: 0 });
+        f.setCurrent(value); return value; });
+    const work = f.c.start("paired", 1);
+    try {
+        await until(() => f.c.get().status?.phase === "awaiting_confirmation" && f.c.get().status?.running === true);
+        current4(f); assert.equal(f.c.get().status.operation_id, 1);
+        const markup = render(f);
+        assert.match(visibleText(markup), /Waiting for native confirmation/i);
+        const pairs = [...markup.matchAll(/<dt>([\s\S]*?)<\/dt>\s*<dd>([\s\S]*?)<\/dd>/g)]
+            .map((entry) => ({ label: visibleText(entry[1]), value: visibleText(entry[2]) }));
+        const operation = pairs.filter(({ label }) => /\boperation\b/i.test(label) &&
+            /\bactive\b/i.test(label) && /\breported\b/i.test(label));
+        assert.equal(operation.length, 1, "one actual dt labels reported active operation, not physical inference");
+        assert.match(operation[0].value, /\byes\b/i);
+        assert.ok(pairs.every(({ label }) => !/\b(?:worker|model|inference)\b.*\brunning\b/i.test(label)),
+            "the pending native operation is not reported as a running physical model worker");
+    } finally {
+        f.setCurrent(status(4, { ...(f.getCurrent() ?? {}), phase: "paused", running: false }));
+        f.c.setContext("confirmation-view-finally", false); await work;
+    }
+});
+
 for (const f of fixtures) f.c.dispose();
 await tick();
 const sourceAfter = await hashes();

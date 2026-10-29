@@ -84,3 +84,43 @@ no-copy asset reuse, runtime owner/drain, IPC/WebView, render images, Android,
 completed native4 no-load resume and human quality remain separate gates. The
 original human assessment remains “needs improvement.” No release or task
 completion is established by this freeze.
+
+## Supplemental unavailable-details and operation-label freeze
+
+Frozen independently from `7bd21c7b`, before the later display-copy production
+fix. Refs #29 D07.03/.05/.06. The three additions are source-only and **UNRUN**;
+the original71 cases and their existing transport/controller/native3 semantics
+remain unchanged. They use the same actual controller methods, existing closed
+synthetic transport and real React static View renderer. They add no production
+prop, state injection, request key, authorization field or native hook.
+
+1. A fresh allowed native controller with null status/catalog must show explicit
+   unavailable/unreported/unknown comparison details in its actual introductory
+   paragraph. Missing metadata cannot identify Protocol3/4 or scene/arm
+   construction, prescribe ordinary model import, or tell a user to configure
+   the development reused publication/root. Rendering dispatches no request.
+2. After actual controller adoption of an acknowledged native4 catalog/owner,
+   `setContext` and public `close` reconciliation retire status/catalog. The
+   allowed native View then shows the same neutral introduction as a fresh
+   native View, with no replacement generation or presentation of retired
+   protocol/setup assumptions. This observes public lifecycle transitions, not
+   fabricated controller state.
+3. An actual controller start acknowledged as `awaiting_confirmation` with
+   `running:true` renders the waiting-confirmation state. One actual definition
+   label must identify the **reported active operation**, with a yes/active
+   value; no definition label may call that a running physical worker, model or
+   inference. The native running flag describes the reported operation. This
+   oracle establishes no physical model/runtime activity. Its bounded synthetic
+   start is retired/released in `finally` even when the copy assertion fails.
+
+The neutral wording is tested for its meaning, not one exact sentence. Existing
+actual native3/scripted decoder calibration runs remain part of the checker.
+Every assertion stays inside a separately reported behavioral case; a missing
+API, bundling problem or failed setup cannot count as a successful behavioral
+baseline. Root must run the frozen74-case checker before changing production,
+retain actual failures, and rerun the unchanged checker after the display fix.
+No Node, formatter, Cargo, app, asset/model, phone, native render or desktop
+operation was run by this source author. The concurrently frozen native model
+cohort and its private packets are untouched. Static HTML remains distinct from
+native IPC, mounted UI/layout, WebView pixels and human-quality qualification;
+the original human assessment remains needs improvement.

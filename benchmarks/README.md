@@ -57,3 +57,25 @@ but inconsistent observations, and1 for acquisition failure. Every outcome has
 `feature_acceptance=false`; even consistent owned controls do not qualify ADB,
 an emulator, a phone or inference. See the
 [actual verification and remaining gate](../docs/native/WINDOWS_TCP_CONTROL_VERIFICATION_2026-10-28.md).
+
+## Explicit held-socket ADB proof
+
+`adb_held_socket_probe.py` implements the separately selected
+`adb-held-socket-server-owner-v1` protocol. It binds one held client socket to
+an exact kernel-observed server connection and pinned process/file before one
+fixed host-version exchange. The existing listener observer and SDK2 readers
+keep their original defaults and requirements.
+
+Read the [protocol and admission format](../docs/native/ADB_HELD_SOCKET_PROTOCOL_V1.md)
+before execution. The CLI requires a reviewed existing-process admission JSON,
+its exact SHA256, and a new physical-D output folder outside any Git ancestor.
+`python -B -m benchmarks.adb_held_socket_probe --help` shows its explicit options.
+It never starts/stops a server or selects a device. All output is private local
+evidence, including selected socket/process metadata; do not upload it.
+
+A verified result establishes the narrow held-connection proof. Every result
+retains `feature_acceptance=false`; SDK/device/model qualification requires its
+own explicitly versioned integration and execution. The
+[verification report](../docs/native/ADB_HELD_SOCKET_VERIFICATION_2026-10-28.md)
+records 163 host tests and one actual host-only query, plus preserved failures
+and the remaining runtime bridge.

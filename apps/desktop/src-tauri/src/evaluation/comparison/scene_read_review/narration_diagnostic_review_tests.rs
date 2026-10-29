@@ -277,8 +277,8 @@ fn permission_precedes_scalars_retired_lease_token_expiry_and_corrupt_source_wor
         err(read(&f, token, binding, shared::Arm::Left)),
         "UnknownEvaluationRun"
     );
+    assert_eq!(f.close(&client, Some(token))["phase"], "closed");
     f.manager.drain(f.epoch);
-    f.close(&client, Some(token));
     reacquire4(&path);
     assert_eq!(inventory(&path), before);
 }

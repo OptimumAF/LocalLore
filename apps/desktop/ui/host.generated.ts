@@ -171,6 +171,15 @@ export type HostCommand =
           turn?: string | null;
       }
     | {
+          attempt: number;
+          base_revision: number;
+          expected_head: number;
+          op: "trace_narration_validation_read_v1";
+          scope: Scope;
+          session: string;
+          turn: string;
+      }
+    | {
           expected_head: number;
           op: "trace_clear";
           scope: Scope;

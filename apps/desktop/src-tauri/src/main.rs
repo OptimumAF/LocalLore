@@ -176,6 +176,10 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         .map_err(std::io::Error::other)?;
     let testing = cfg!(feature = "dev-harness")
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
+    #[cfg(feature = "dev-harness")]
+    let reviewing = comparison_run_native_harness::review_active();
+    #[cfg(not(feature = "dev-harness"))]
+    let reviewing = false;
     let script = if testing {
         format!(
             "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},sceneFullComparing:{},sceneModelGuard:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},inspectingMemory:{},authoring:{},sceneCase:'{}',archiveStage:'{}',stage:'{}'}};",
@@ -237,12 +241,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             },
             if reopened {
                 "reopened"
-            } else if {
-                #[cfg(feature = "dev-harness")]
-                { comparison_run_native_harness::review_active() }
-                #[cfg(not(feature = "dev-harness"))]
-                { false }
-            } {
+            } else if reviewing {
                 "review"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
                 "restart"
@@ -356,7 +355,10 @@ fn harness_reopen(
 fn main() {
     // Refuse malformed retained-review requests before any workspace/model setup.
     #[cfg(feature = "dev-harness")]
-    if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("review") {
+    if std::env::var("LOCALLORE_TEST_RESTART").is_ok_and(|stage| {
+        stage == "review"
+            || (comparison_run_native_harness::scene_requested() && stage != "0" && stage != "1")
+    }) {
         let valid = comparison_run_native_harness::review_active()
             && std::env::var_os("LOCALLORE_TEST_WORKSPACE").is_some_and(|path| {
                 comparison_run_native_harness::review_webview_profile(&std::path::PathBuf::from(

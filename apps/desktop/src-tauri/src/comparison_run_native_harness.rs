@@ -54,7 +54,7 @@ pub fn review_webview_profile(workspace: &Path) -> Result<PathBuf, String> {
                 .any(|part| matches!(part, Component::ParentDir | Component::CurDir))
             && matches!(path.components().next(), Some(Component::Prefix(prefix))
                 if matches!(prefix.kind(), std::path::Prefix::Disk(drive) | std::path::Prefix::VerbatimDisk(drive)
-                    if drive.to_ascii_uppercase() == b'D'))
+                    if drive.eq_ignore_ascii_case(&b'D')))
     }
     if !review_active() || !physical_d(workspace) {
         return Err("Forbidden".into());

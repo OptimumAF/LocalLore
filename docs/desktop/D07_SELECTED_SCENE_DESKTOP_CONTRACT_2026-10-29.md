@@ -424,3 +424,73 @@ GitHub #29 owns claim/evidence/task status; this contract does not duplicate tha
 tracker. Full D07, real-model quality, Android runtime parity and stopped platform
 security gates remain separate. Do not merge another owner's PR, change settings,
 publish a release or affect the protected concurrent chat/resources.
+
+## Root accepted desktop interface before independent FIRST
+
+Root accepts this corrected proposal for the bounded scripted desktop adapter on
+accepted main `4c83ed79e0e42bb489a46fbd777aecdcfc2838d8`, merged PR268. Its tree
+matches the reviewed shared gate. Postmerge types, seven shared clock tests,
+Android Rust Windows-host check and normal unlaunched desktop build pass.
+Original proposal dd2f8ca1 and correction bfeb7ce1 remain in history. The original
+426-line proposal is retained above; this append updates acceptance and fixes
+test-facing interface choices before any desktop implementation or supersession.
+
+Use the proposed V3/source4 closed native Protocol/Plan/Opened/prepared/index
+dispatch and private NativeDispatchFailure<R> wrapper. Owned V1/V2 failures keep
+their existing retained-cleanup behavior; V3 Unavailable never calls reservation.
+Map SelectedNativeUnavailable to NativeUnavailable before generic Selected*
+integrity handling. Require prepared3 source_binding to equal the native retained
+source binding both when creating and loading an index, before destination writes.
+V3 permits only scripted_selected_case. No Core native-failure visibility or
+reservation interface is widened, and no new IPC field or action is introduced.
+
+Keep SelectedSourceIdentity exactly its current three keys. The controller's
+prepare(source,row,lane,expectedSourceProtocol?) optional fourth argument is
+presentation-only type 2|3|4. It never goes into the request body. Bind prepare
+response version to any supplied expected protocol and bind every prepared3
+source_binding to the actual requested source binding. Preserve three-argument
+old callers, all existing context/client/operation/read epochs and unknown-ACK
+cleanup behavior. Do not turn an untrusted returned value into its own expectation.
+App passes the actual ready reader's source version. A source4 native option is
+disabled and stale local lane state normalized before enabling scripted Prepare;
+an explicitly displayed native choice must not silently dispatch scripted work.
+
+If sharing the existing private sceneConstruction validator, export the narrow
+alias checkedReaderSceneConstruction. Retain its existing reader error category;
+the selected decoder translates errors to SelectedEvaluationWire. All prepared3,
+summary3 and diagnostics3 key sets/nulls/bounds above are accepted exactly.
+Preserve source2/selected1 and source3/selected2 behavior and old default lanes.
+
+Independent FIRST paths are proposed as only NEW
+apps/desktop/check-selected-scene-v4-review.mjs and
+apps/desktop/src-tauri/src/evaluation/selected/scene_v4_review_tests.rs. Root will
+claim them separately before authoring. The native file is a child of existing
+selected::tests, registered by Root using the existing #[path] pattern, so it can
+reuse actual manager/lease/ModelManager fixtures and public Scene4 producers
+without exposing fixture helpers or creating another model owner. Prefer actual
+existing manager APIs; report any construction gap before freeze, never fabricate
+a plan, index, report-to-Engine authority or source receipt. New source fixtures
+may be generated only by Root's later admitted execution. Source-only authors
+do not format, compile, run tools/workers or create fixture roots.
+
+The listed existing scripted-refusal/note/writer/UI assertions are approved only
+for those narrow stage supersessions after new FIRST release. Preserve their
+original source/hashes/history and all remaining ownership/privacy/state/runtime
+oracles. An informed player may read the fact explicitly granted by the seed;
+character/history exclusions and exact Rust Query2 equality remain required.
+Do not reproduce the shared gate's corrected blanket sentinel assumption.
+
+Actual hidden WebView/IPC journeys, fixed native fixtures/labels and bounded
+launcher policy require a separate frozen harness allocation before editing those
+paths. The Core cfg(test) after-arm control is not an app test hook. Distinguish
+controlled fixture loss, manager cancellation and post-IPC reply holds from actual
+between-arm native interruption or held Rust inference. No new real-model cohort,
+assets, SDK/device/emulator, OS probe, desktop input/capture/activation or generic
+debugging service is admitted. Later execution has its own cumulative storage
+baseline/budget; this acceptance admits source-only FIRST, not a runtime root.
+
+Root owns coordination, existing shared registrations/note supersessions and
+integration; disjoint native/frontend production paths follow independent test
+freeze. Source authors keep each new contribution below1MiB on physical D and
+preserve the current shared gate's original failed/qualified packets unchanged.
+This acceptance does not enable the UI, accept the later adapter or close D07.

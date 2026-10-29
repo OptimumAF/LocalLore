@@ -491,7 +491,9 @@ async function validateScenePacketStorage(folder) {
 function outsideReviewPacket(destination, disjoint = false) {
     const relative = path.relative(reviewPacketRoot, path.resolve(destination));
     assert(
-        relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative),
+        relative === ".." ||
+            relative.startsWith(`..${path.sep}`) ||
+            path.isAbsolute(relative),
         "RetainedPacketMustNotReceiveOutputs",
     );
     if (disjoint) {
@@ -500,7 +502,9 @@ function outsideReviewPacket(destination, disjoint = false) {
             reviewPacketRoot,
         );
         assert(
-            reverse.startsWith(`..${path.sep}`) || path.isAbsolute(reverse),
+            reverse === ".." ||
+                reverse.startsWith(`..${path.sep}`) ||
+                path.isAbsolute(reverse),
             "RetainedPacketMustNotBeInsideBuildOrSourceRoot",
         );
     }

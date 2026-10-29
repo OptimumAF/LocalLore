@@ -17,6 +17,12 @@ pub struct ComparisonEvidenceRequest {
     pub row: shared::RowId,
     pub request: shared::EvidenceRequest,
 }
+pub struct ComparisonNarrationDiagnosticRequestV1 {
+    pub token: String,
+    pub binding: String,
+    pub row: shared::RowId,
+    pub observer: Observer,
+}
 // Constructed only after affirmative native picker selection and shared open.
 struct ReaderGrant;
 // One existing reader lifecycle; the variant cannot become execution permission.
@@ -56,6 +62,19 @@ impl OpenedRead {
             Self::V2(opened) => shared::evidence(opened, binding, row, request, true),
             Self::V3(opened) => literal::evidence(opened, binding, row, request, true),
             Self::V4(opened) => scene::evidence(opened, binding, row, request, true),
+        }
+    }
+    fn narration_diagnostic_v1(
+        &self,
+        binding: &str,
+        row: &shared::RowId,
+        observer: Observer,
+    ) -> Result<Value> {
+        match self {
+            Self::V4(opened) => {
+                scene::narration_diagnostic_v1(opened, binding, row, observer, true)
+            }
+            Self::V2(_) | Self::V3(_) => Err("Unsupported".into()),
         }
     }
 }
@@ -209,6 +228,33 @@ fn actor_raw(request: &shared::EvidenceRequest) -> bool {
             !matches!(observer, Observer::Omniscient)
         }
     }
+}
+// Only the new read uses these additional fixed categories. Existing actions
+// retain their original projection and no companion failure text is forwarded.
+fn narration_diagnostic_failure(error: String) -> String {
+    match error.as_str() {
+        "DiagnosticWire" | "DiagnosticBinding" => "EvaluationIntegrity".into(),
+        "DiagnosticBudget" => "EvaluationBudget".into(),
+        "DiagnosticIo" | "Io" => "EvaluationIo".into(),
+        "Reparse" | "AliasedDestination" => "UnsafeEvaluationPath".into(),
+        _ => failure(error),
+    }
+}
+fn valid_narration_diagnostic(input: &ComparisonNarrationDiagnosticRequestV1) -> bool {
+    valid_id(&input.token)
+        && !input.token.bytes().any(|b| b.is_ascii_uppercase())
+        && input.binding.len() == 64
+        && input
+            .binding
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        && !input.row.turn.is_empty()
+        && input.row.turn.len() <= 64
+        && input
+            .row
+            .turn
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
 }
 fn valid_evidence(input: &ComparisonEvidenceRequest) -> bool {
     let actor = match &input.request {
@@ -609,6 +655,88 @@ impl EvaluationManager {
         })?;
         // A response timeout does not pretend to stop native IO. Status/close
         // retain the exact admitted operation until this same worker finishes.
+        receive
+            .recv_timeout(Duration::from_secs(30))
+            .map_err(|_| "EvaluationIo".to_owned())?
+    }
+
+    pub fn comparison_narration_diagnostic_v1(
+        self: &Arc<Self>,
+        lease: &Arc<WindowLease>,
+        epoch: u64,
+        granted: bool,
+        input: ComparisonNarrationDiagnosticRequestV1,
+    ) -> Result<Value> {
+        // The requested lens grants nothing. Refuse before scalar validation,
+        // expiry, lease/token/source lookup or any new filesystem work.
+        if !granted || !matches!(&input.observer, Observer::Omniscient) {
+            return Err("Forbidden".into());
+        }
+        if !valid_narration_diagnostic(&input) {
+            return Err("InvalidEvaluationInput".into());
+        }
+        self.comparison_expire(lease, epoch)?;
+        let client = lease.dispatch(epoch, || {
+            let state = self.comparison_lock()?;
+            state
+                .records
+                .values()
+                .find(|r| {
+                    r.owns(lease, epoch)
+                        && !r.expired
+                        && r.granted
+                        && r.token.as_deref() == Some(input.token.as_str())
+                })
+                .map(|r| r.client.clone())
+                .ok_or_else(|| "UnknownEvaluationRun".into())
+        })?;
+        let token = input.token.clone();
+        let prepare_client = client.clone();
+        let (send, receive) = mpsc::sync_channel(1);
+        self.comparison_launch(
+            lease,
+            epoch,
+            client,
+            move |state, operation, cancel| {
+                let r = state
+                    .records
+                    .get_mut(&prepare_client)
+                    .filter(|r| {
+                        r.owns(lease, epoch)
+                            && !r.expired
+                            && r.granted
+                            && r.token.as_deref() == Some(token.as_str())
+                    })
+                    .ok_or("UnknownEvaluationRun")?;
+                if r.running {
+                    return Err("EvaluationBusy".into());
+                }
+                let cap = r.cap.take().ok_or("UnknownEvaluationRun")?;
+                r.running = true;
+                r.phase = "reading";
+                r.operation = Some(operation);
+                r.cancel = cancel.clone();
+                r.touched = Instant::now();
+                Ok(cap)
+            },
+            Some(send),
+            move |cap: Capability, _manager, _owner, _epoch, _client, _operation, _cancel| {
+                let result = cap
+                    .opened
+                    .narration_diagnostic_v1(&input.binding, &input.row, input.observer)
+                    .map_err(narration_diagnostic_failure)
+                    .and_then(|diagnostic| {
+                        bounded(
+                            json!({"version":1,"kind":"comparison_reader_narration_diagnostic_v1",
+                                "run_token":input.token,"diagnostic":diagnostic}),
+                            8192,
+                        )
+                    });
+                Ok(WorkResult::Read(cap, result))
+            },
+        )?;
+        // A timeout does not cancel the same still-owned worker or filesystem
+        // operation. Existing status/close/drain remain authoritative.
         receive
             .recv_timeout(Duration::from_secs(30))
             .map_err(|_| "EvaluationIo".to_owned())?

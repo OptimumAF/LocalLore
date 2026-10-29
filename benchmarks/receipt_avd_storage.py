@@ -296,6 +296,10 @@ def record_closed(root, closure_path, registry=DEFAULT_REGISTRY):
         proofs = _closed(read_json(closure_path), entry["proposal_sha256"])
         check_binding(closure)
         measured = _logical_bytes(list(_files(Path(root)).values()) + proofs + [Path(closure_path)])
+        # Only the first verified closure releases the live reservation. Replaying
+        # closure after external truncation is not evidence of retirement.
+        if entry["state"] == "closed":
+            measured = max(entry["reserved_bytes"], measured)
         entry.update(state="closed", reserved_bytes=measured, closure=closure, retirement=None)
         _atomic_write(registry / "ledger-v1.json", ledger)
 

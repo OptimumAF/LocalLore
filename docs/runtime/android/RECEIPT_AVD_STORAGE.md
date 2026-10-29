@@ -32,6 +32,9 @@ guest reserves 40 GiB: 8 GiB SD base, up to 8 GiB SD overlay, 12 GiB userdata,
 do not fit the budget. A verified closed guest instead charges the measured
 logical bytes of **all** files still under its root. Closed roots are measured
 again before admission, using at least their previous recorded charge.
+Repeating verified closure also preserves that previous closed charge; external
+truncation alone cannot release capacity. The first closure may replace the live
+40 GiB reservation with measured bytes. Verified retirement is a separate path.
 These are conservative admission estimates, not guaranteed free space or limits
 on writes by the emulator, Windows or another process. Existing free-space
 admission remains necessary.

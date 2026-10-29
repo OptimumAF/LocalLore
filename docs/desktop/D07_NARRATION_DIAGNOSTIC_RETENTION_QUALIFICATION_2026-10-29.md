@@ -1,4 +1,4 @@
-# Native narration diagnostic retention: partial qualification
+# Native narration diagnostic retention: scoped qualification
 
 2026-10-29. Refs #29 **D07.04**; supports #9 **M05.03/M05.04**.
 **Implemented; focused, portable and development native checks measured.**
@@ -122,8 +122,27 @@ a new matching tail can then record it. This is an after-implementation follow-u
 not part of the original FIRST freeze or a behavioral RED. Root's byte-prefix
 proof preserves all original 37,623 bytes and ten tests exactly. New source SHA256:
 `3b5c686b2aad2e04f0098aad3647b2488f1bf53709f033810f3abf46ee36d8db`.
-The eleven-test source is integrated, but its execution and final normal-native
-build/lint checks remain pending at this update. Production is unchanged.
+At clean, unchanged `c902d625ee141ded76991fcf085960b6bd66d543`, production
+remains byte-identical to `ea8bdc2a`. Only the additive test and qualification
+documentation intervene. The final sequential checks completed:
+
+| Check | Actual result | Command duration |
+| --- | --- | --- |
+| Same retention filter, now eleven tests | 11 passed, 0 failed, 0 ignored; 83 filtered; 0.27s test | 8.8980404s |
+| Workspace formatting | Passed | 1.8619277s |
+| Same strict workspace Clippy | Passed | 13.3386863s |
+| Normal Windows native build; unlaunched | Passed | 15.2741225s |
+| Normal Windows all-target strict Clippy | Passed | 9.5147272s |
+
+```text
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --target-dir <owned-D-target>
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --all-targets --target-dir <owned-D-target> -- -D warnings
+```
+
+The repeated filter, formatting and workspace-Clippy commands are exactly those
+listed above. All five process records report exit0, unchanged clean source and
+empty dirty lists. The original broad results retain their `ea8bdc2a` attribution;
+they are not claimed as reruns at the documentation/additive-test source.
 
 An initial derived portable summary rounded duration through implicit DateTime
 string conversion. The retained corrected summary uses exact original ISO8601
@@ -142,8 +161,8 @@ unchanged.
 
 Host/Eval/IPC/wire/UI retention or display requires separate contracts and
 claims. Historical absent causes stay Unavailable. Full M05.03/M05.04 and D07.04
-remain in progress and unchecked. Next: Root records the final focused/build
-checks, obtains independent evidence review and updates the existing
+remain in progress and unchecked. Next: independent final evidence review of the
+completed records and an update to the existing
 [PR #253](https://github.com/OptimumAF/LocalLore/pull/253), stacked above the
 Phase1 [PR #251](https://github.com/OptimumAF/LocalLore/pull/251) dependencies.
 This document authorizes no merge, release or acceptance of that stack.

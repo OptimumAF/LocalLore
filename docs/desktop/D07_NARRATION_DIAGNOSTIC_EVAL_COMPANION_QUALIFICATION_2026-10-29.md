@@ -1,7 +1,8 @@
-# Narration diagnostic Eval companion v1: partial qualification
+# Narration diagnostic Eval companion v1: scoped qualification
 
 2026-10-29. Refs #29 **D07.04**, supporting #9 **M05.03/M05.04**.
-**Implemented; focused regression and build checks measured; broad checks pending.**
+**Implemented; focused, full Eval and desktop component checks measured;
+independent evidence review pending.**
 Current measured source: `272c8bb5d74209d44eb17fcb330e3c59ea9d4f5c`.
 This is the bounded full-protocol4 opt-in metadata slice defined by the
 [accepted contract](D07_NARRATION_DIAGNOSTIC_EVAL_COMPANION_CONTRACT_2026-10-29.md),
@@ -148,22 +149,48 @@ cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offlin
 
 The first command is the original failing ten-group run; the second is both the
 separate additive RED and GREEN invocation. The next two are corrected-group
-runs. This table does not claim a complete current eleven-group suite pass.
-The same-day recorded tool inventory is Windows NT10.0.26300.0, PowerShell7.6.5,
-rustc/Cargo1.93.1 and Node24.22.1; its source stamp is `2401fcd3`, not a fresh
-tool-version probe at `272c8bb5`. Root used the existing serialized build setup.
+runs. The narrow table is separate from the completed full suite below.
+The fresh version-only record at exact `272c8bb5`, recorded
+2026-10-29T14:29:18.7911899Z, confirms Windows NT10.0.26300.0, PowerShell7.6.5,
+rustc1.93.1 (`01f6ddf75`, 2026-02-11), Cargo1.93.1 (`083ac5135`, 2025-12-15),
+rustfmt1.8.0-stable (`01f6ddf758`, 2026-02-11) and Node24.22.1. This supersedes
+the earlier `2401fcd3` tool-inventory attribution; version reads are not builds
+or runtime/UI execution. Root used the existing serialized build setup.
 A read-only PowerShell summary-helper parse error was corrected with an array
 wrapper; it changed no check/source/artifact and is not a product failure.
 
-## Pending checks and limits
+## Completed full Eval and desktop component suites
 
-At this documentation freeze, the full local-model Eval suite is running;
-its log has no terminal process record/result yet. The development desktop
-component/contract suite has not started. These remain **pending**, including a
-complete corrected eleven-group result within the broad suite. Later records
-must identify exact source, positive matched counts and retained failures.
-Desktop Rust component tests will not establish IPC/WebView/native UI execution.
+Both completed process records identify clean, unchanged exact `272c8bb5`,
+exit0 and empty dirty lists. No result from the later unmerged desktop-read
+implementation is attributed to this source.
+
+| Suite | Actual result | Command duration |
+| --- | --- | --- |
+| Full local-model Eval | 285 passed, 0 failed, 17 ignored; 33 result groups | 6183.3710572s |
+| Development desktop component/contract | 282 unit + 2 contract passed, 0 failed, 11 ignored; 699.73s unit-test time | 741.1751851s |
+
+```text
+cargo test --manifest-path crates/locallore-eval/Cargo.toml --features local-model --locked --offline --target-dir <owned-D-target> -- --test-threads=1
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --target-dir <owned-D-target> -- --test-threads=1
+```
+
+Full Eval ran 2026-10-29T14:22:38.7036945Z–16:05:42.0747517Z. Its original
+log SHA256 is `1fee148648790d84563ed6d2c7b1fc6b3df902fe54092ce544154917306cd1fb`.
+All eleven corrected companion groups are explicitly matched passing within its
+143-pass/7-ignored unit group. The whole-suite count includes integration
+results; zero-test groups add no passes. The earlier original8/2 fixture failure
+and additive RED remain separately recorded above, unchanged.
+
+The desktop suite ran 2026-10-29T16:05:42.0896147Z–16:18:03.2647998Z.
+Original log SHA256:
+`1682b685ceec561dcf5aab0c99d3d17934cb65e9513b19434fd0528dfc9b05ae`.
+These are Rust desktop component/contract checks. They do not execute the new
+companion operation through desktop IPC, native WebView/UI or a physical SDK
+model load. Normal product build/lint above leave the product unlaunched.
 Android Rust host compilation is not Android ABI/device qualification.
+
+## Remaining gates and limits
 
 Actual synthetic Host/Engine/Play/RingSink harvest and scripted cold reading are
 component evidence. The 25 stored tuple controls, stored unavailable/rejected
@@ -174,10 +201,15 @@ it is not a successful stored-unavailable journey. Finite owned-job controls
 simulate failures, partial writes and interruption; they are not OS crash tests.
 The native entry is checked only for canceled-before-reservation signature/path.
 
-No model/assets/runtime, new companion IPC/UI consumer, new render capture,
-phone or desktop-control execution is claimed. No full valid64 boundary,
-isolated512KiB overflow, actual link/reparse/case-alias/isolation probe, universal
-race proof, SDK-load measurement or semantic improvement is established.
+No model execution/assets/runtime qualification, new companion IPC/UI consumer,
+new render capture, phone or desktop-control execution is claimed for this slice.
+The unchanged broad regression roster includes the existing selected-prefix
+hardlink refusal and native archive pinned-ancestor/junction guard fixtures.
+Those existing OS-guard regressions are distinct from any **new companion-specific**
+link/reparse/case-alias/isolation qualification, which remains unmeasured; no
+new standalone OS probe was introduced. No full valid64 boundary, isolated512KiB
+overflow, universal race proof, SDK-load measurement or semantic improvement is
+established.
 No historical30 causes are reconstructed. Old Report4/StoredTurn4/recording/
 trace/capture formats, captured model samples and literal-v1 comparator limits
 remain unchanged; both original and newer human assessments remain
@@ -186,5 +218,7 @@ completion, D07/D02 acceptance or quality approval follows from this slice.
 
 The documentation author performed source/bounded-record/Git reads and whitespace
 checks only. Root owns actual execution, remaining evidence updates and separate
-review. The next runnable step is to finish the current serial Eval/component
-batch, reconcile its exact records, then obtain independent evidence review.
+review. The next runnable step is independent evidence review of this bounded
+Core companion slice, then a focused reviewable PR. Desktop-reader source on
+separate branches still requires its own integration, tests and IPC/render gate;
+this document grants no execution promotion or merge authority.

@@ -122,6 +122,39 @@ const SELECTED_LABELS: &[&str] = &[
     "selected-finished",
     "selected-restarted",
 ];
+const SELECTED_SCENE_LABELS: &[&str] = &[
+    "selected-scene-prepared",
+    "selected-scene-completed",
+    "selected-scene-summary",
+    "selected-scene-left-after",
+    "selected-scene-right-after",
+    "selected-scene-receipt",
+    "selected-scene-capture",
+    "selected-scene-outputs",
+    "selected-scene-constructions",
+    "selected-scene-mira",
+    "selected-scene-sable",
+    "selected-scene-guard",
+    "selected-scene-guard-results",
+    "selected-scene-native-unavailable",
+    "selected-scene-unknown",
+    "selected-scene-recovered",
+    "selected-scene-consent-pending",
+    "selected-scene-consent-actor",
+    "selected-scene-consent-cancelled",
+    "selected-scene-consent-denied",
+    "selected-scene-context-retired",
+    "selected-scene-enlarged-wide",
+    "selected-scene-enlarged-narrow",
+    "selected-scene-resumed",
+    "selected-scene-finished",
+    "selected-scene-restarted",
+    "selected-scene-restart-receipt",
+    "selected-scene-restart-actor",
+    "selected-scene-restart-resumed",
+    "selected-scene-restart-finished",
+    "selected-scene-failure",
+];
 const COMPARISON_READER_LABELS: &[&str] = &[
     "comparison-open",
     "comparison-receipt",
@@ -323,6 +356,16 @@ fn comparison_reader_active() -> bool {
     active() && std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1")
 }
 
+// Keep this label-only guard self-contained: this module is also compiled by
+// the standalone artifact-contract target, without the application managers.
+fn selected_scene_active() -> bool {
+    comparison_reader_active()
+        && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_SCENE_COMPARISON_READER").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_LITERAL_COMPARISON_READER").as_deref() != Ok("1")
+        && std::env::var("LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER").as_deref() != Ok("1")
+}
+
 struct Progress {
     labels: HashSet<String>,
     finished: bool,
@@ -385,6 +428,7 @@ impl HarnessState {
             || (active()
                 && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
                 && SELECTED_LABELS.contains(&label))
+            || (selected_scene_active() && SELECTED_SCENE_LABELS.contains(&label))
             || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label))
             || (active()
                 && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")

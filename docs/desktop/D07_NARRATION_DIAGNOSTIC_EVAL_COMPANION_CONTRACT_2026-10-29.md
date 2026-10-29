@@ -366,3 +366,127 @@ probe is authorized by this test allocation. Missing interfaces/registration
 remain setup, not behavioral RED. Root owns later implementation allocation,
 source integration, actual checks and separate review. Both negative human
 assessments, old missing causes and unmerged dependencies remain unchanged.
+
+## Accepted finite FIRST lifecycle seam — 2026-10-29
+
+Root accepts this private, `cfg(test)`-only interface before original test source
+and before production. Claims: [#29 comment6497480529](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6497480529),
+[#9 comment6497480974](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6497480974).
+The seam is scoped to one owned `LiveTurnJob`/`ActualTurn`, never global,
+environment-driven, renderer-accessible or a general callback/path/action hook.
+
+```rust
+// comparison::turn_execution, all cfg(test), pub(super)
+enum NarrationDiagnosticTestFaultV1 {
+    None, NoExactTrace, DisableTraceBeforeRead, CloseHostBeforeRead,
+    MalformedHarvestReply, CheckpointFailure, SettlementFailure,
+    ObservationCreateFailure, PartialObservation, ConflictingObservation,
+    StopAfterCheckpoint, StopAfterSettlement,
+}
+enum NarrationDiagnosticMilestoneV1 {
+    FirstTraceSelected, NoExactTrace, DiagnosticHostRead, HarvestDecodeError,
+    RecordedHarvested, HostUnavailableHarvested, HostRejectedHarvested,
+    CanonicalOutcome, CheckpointSaved, LedgerSettled, CompanionCreated,
+    CaptureRevoked, HostClosed, CompanionErrorReturned,
+}
+// Clone; immutable fault plus shared observations for this job only.
+struct NarrationDiagnosticTestControlV1;
+impl NarrationDiagnosticTestControlV1 {
+    fn new(fault: NarrationDiagnosticTestFaultV1) -> Self;
+    fn milestones(&self) -> Vec<NarrationDiagnosticMilestoneV1>; // at most 16
+    fn host_read_count(&self) -> usize; // actual new-op calls only, 0 or 1
+}
+fn execute_with_narration_diagnostics_test_v1(
+    job: LiveTurnJob<'_>, ledger: &mut Ledger,
+    control: NarrationDiagnosticTestControlV1,
+) -> Result<ActualTurn>;
+```
+
+The production opt-in and this seam use the same narrow actual execution,
+collector and checkpoint path. Default old execution has no control or new
+collection. ActualTurn retains the control only in test builds for checkpoint
+and teardown observations; milestones report only actions actually completed.
+No new clock, owner registry, public constructor, provider or wire data follows.
+
+`NoExactTrace` clears only this owned trace before its first selection. Disable
+and Close occur after that selection and before the actual new Host request;
+their responses are actual Host replies. Close can cancel a live turn through
+explicit interference; it is not evidence that passive collection causes cancel.
+Malformed replaces one reply with a fixed invalid-version reply after the real
+call: trusted transport control, not an Engine or real-model failure. The error
+is latched until checkpoint, settlement and teardown.
+
+Checkpoint/settlement/stop controls simulate finite failure/crash boundaries,
+not OS crashes. Create/partial/conflict controls act only at the derived fixed
+owned companion filename after checkpoint and settlement. Partial retains a
+fixed JSON prefix; conflict retains a fixed closed mismatched record. Neither
+accepts arbitrary bytes/paths. Preserve those bytes and existing canonical/
+ledger behavior; no rollback, refund, Report4 rephase, retry or repair. Existing
+earlier failures keep their semantics and Drop cleanup. Tests drop any owned
+turn before asserting fully observed cleanup where necessary.
+
+Valid caps total at most 452KiB, so an independently isolated 512KiB overflow is
+not constructible without violating a file/count cap first. Freeze exact file
+caps using JSON whitespace, plus one-byte overflow and overlapping namespace/
+count refusals; checked aggregate arithmetic remains source-reviewed. No new
+accounting seam is accepted just to force an unreachable independent case.
+
+Source inspection identified a stricter construction limit before freezing:
+disabling trace after selection can return actual HostUnavailable but the later
+successful empty trace snapshot removes the exact final checkpoint identity.
+That case must refuse publication **after** checkpoint/settlement/teardown;
+it is not a successful HostUnavailable artifact journey. The three Harvested
+milestones above record actual supported reply decoding only, not publication.
+Cold-reader HostUnavailable coverage remains a labeled trusted metadata control.
+Closed replies may publish only while the original exact identity genuinely
+survives in final trace; otherwise the same deferred binding refusal applies.
+Never repair trace, pick another attempt or weaken binding to make a case pass.
+
+## Independent FIRST source handoff — 2026-10-29
+
+Agent `main_window_backport_review`, branch
+`test/d07-narration-diagnostic-eval-companion-v1`, exact accepted base `d6aceb58`.
+Own only the NEW Scene4 child
+`crates/locallore-eval/src/local_lane/comparison/scene_v4/narration_diagnostic_companion_review_tests.rs`
+and this append. No optional second child is needed: the accepted private seam
+is accessible from the existing Scene4 test scope. Root registers it later.
+Original source: **832 lines, 10 test functions**, SHA256
+`7b43bdb623248888fe60c6d800f3fd75606c43ed1d0847aba9cd16359712d03e`.
+
+The finite groups freeze actual scripted both-recipe producer/Host collection
+and cold-reader bindings; authorization before bad binding/row/source probes;
+five distinct statuses; exact tuple/final-trace binding; closed keys, required
+nullable fields, duplicate keys, versions and finite codes; exact file caps and
+overlapping namespace/count refusals; legacy refusal/completed resume without
+backfill; actual harvested states; synthetic failure/teardown ordering; and
+default canonical/receipt/recording/old-wire parity plus recovery absence.
+Ordinary reader controls use one immutable one-scene/12-row template, copied
+before mutation. Only completed-resume controls use a separate four-scene/48-row
+template. No existing test, production, registration, fixture or schema changes.
+
+Distinguish evidence origins: both recipes and the per-owned-job collector use
+actual synthetic Host/Engine/Play/RingSink. The 25 allowed decision tuples,
+stored rejected/unavailable envelopes, coordinated snapshot hashes and codec
+tampering are trusted metadata controls, not new observed Engine failures or
+authenticated origin. DisableTrace requires actual unavailable harvest followed
+by deferred final-binding refusal. Malformed reply and I/O/stop/partial/conflict
+controls are the finite accepted seam, not OS crash qualification. The native
+entry under local-model is checked only for its cancellation-before-reservation
+signature/path; no assets/runtime are opened by that test.
+
+Limits remain explicit: no isolated 512KiB overflow, full valid 64-observation
+boundary, actual link/reparse/case-alias/isolation/network/profile probe, hard
+filesystem timing, independent SDK-load count, arbitrary provider failure or
+native/model/device/render qualification. Default new-op absence and held-file
+guard implementation still require production source review; byte/role parity
+is not a universal call-count proof. Receipt normalization changes only separate-
+run `play.stages[].elapsed_ms`; current captured bytes/errors are never repaired.
+No original 30 causes are reconstructed; both human assessments stay negative.
+
+Author checks are source/fixture-shape reading, exact Git scope and whitespace,
+line/function counts and SHA256 only. **UNREGISTERED / UNCOMPILED / UNRUN**:
+missing APIs/accepted seam are setup, not behavioral RED. No compiler, formatter,
+Cargo, Node, browser, app, model/assets, device or desktop execution occurred.
+This immutable source freeze releases these two paths to Root for registration,
+formatter-equality proof and separate-author implementation/verification. Full
+task/dependency/quality gates remain unchecked; this note grants no merge authority.

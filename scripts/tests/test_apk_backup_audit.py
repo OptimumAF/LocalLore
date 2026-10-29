@@ -65,7 +65,7 @@ class ApkBackupAuditTests(unittest.TestCase):
         def run(argv,**kwargs):
             self.assertIs(kwargs['shell'],False);self.assertIs(kwargs['check'],True)
             self.assertIs(kwargs['capture_output'],True);self.assertEqual(kwargs['encoding'],'utf-8')
-            self.assertEqual(argv[:2],['D:/Synthetic/aapt2.exe','dump']);calls.append(list(argv))
+            self.assertEqual(argv[:2],[str(Path('D:/Synthetic/aapt2.exe')),'dump']);calls.append(list(argv))
             if argv[2]=='badging':kind,value='badging',fixtures.BADGING
             elif argv[2]=='resources':kind,value='resources',resources
             elif argv[2]=='xmltree':

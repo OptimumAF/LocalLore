@@ -116,6 +116,7 @@ class OwnedClientFlowTests(unittest.TestCase):
         self.lease.admission_binding=copy.deepcopy(self.admission_pin);self.lease.running_binding=copy.deepcopy(self.running_pin)
         self.lease.caller=copy.deepcopy(self.descriptor['worker']);self.lease.guard.side_effect=self.guard;self.lease.fast_guard.side_effect=self.guard
         self.lease.prove.side_effect=self.prove;self.lease.claim_once.side_effect=self.claim
+        self.enter(patch.object(c,'_lease_class',return_value=type(self.lease)))
         self.enter(patch.object(c.time,'monotonic',side_effect=lambda:self.clock));self.enter(patch.object(c.time,'time',return_value=1800000010.0))
         self.enter(patch.object(c.threading,'Thread',InlineSender))
         self.socket=FakeSocket(self.response());self.factory=self.enter(patch.object(c.socket,'socket',side_effect=lambda *args:self.socket))
@@ -160,6 +161,18 @@ class OwnedClientFlowTests(unittest.TestCase):
         owner=self.owner();owner.target['transport_id']=99;self.assertEqual(owner.target,{'transport_id':7})
         with self.assertRaises(c.ClientRefused):owner.target={'transport_id':7}
         self.poisoned(owner);self.factory.assert_not_called()
+
+    def test_unrelated_duck_type_and_live_subclass_refuse_before_guard_or_output(self):
+        from benchmarks.owned_target_owner import LiveOwnedTarget
+        class Derived(LiveOwnedTarget):pass
+        derived=object.__new__(Derived);derived.guard=Mock()
+        for lease in(self.lease,derived):
+            parent=self.base/('invalid-'+type(lease).__name__);parent.mkdir()
+            with patch.object(c,'_lease_class',return_value=LiveOwnedTarget),patch.object(c.output_control,'validate_output')as output:
+                with self.assertRaises(c.ClientRefused):c.OwnedTargetSdkCapture(parent/'clients',100,lease)
+            lease.guard.assert_not_called();output.assert_not_called()
+            self.assertEqual(list(parent.iterdir()),[])
+        self.factory.assert_not_called()
 
     def test_bad_operation_legacy_adb_and_wrong_target_never_connect(self):
         for argv in(['adb','-P','5037','shell','id'],['host:transport-id:8'],['sh','-c','id']):

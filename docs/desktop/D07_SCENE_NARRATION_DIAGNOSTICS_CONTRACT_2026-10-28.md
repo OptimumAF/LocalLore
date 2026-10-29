@@ -312,3 +312,93 @@ application, model, SDK/assets, phone, desktop control, merge or release.
 Handoff is the contract commit/SHA256, proposed interfaces, affected paths and
 finite cases to Root. Ownership of this document is released after handoff;
 Root records acceptance or amendments before any dependent work.
+## Independent FIRST test-source freeze — 2026-10-29
+
+Root accepted the proposed public hook/type/getter/three-code interface after
+`5a4bdaa5`; Core production still waits for its retained-native-render gate.
+Claims before editing:
+[#29 comment6490112979](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6490112979)
+and [#9 comment6490113271](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6490113271).
+The independent author reuses the released source checkout on NEW
+`test/d07-scene-narration-diagnostics` from exact `5a4bdaa5`.
+
+This freeze changes only NEW
+`crates/locallore/src/play/scene_narration/diagnostics_review_tests.rs` and this
+append. The new child is explicitly test-only and **unregistered**; Root owns
+`#[cfg(test)] mod diagnostics_review_tests;` in the parent, missing API setup,
+production code, formatting, execution and acceptance. No existing test body,
+production path, Cargo file or renderer/native source is changed here.
+
+Ten test functions use the real Domain1 Engine/Play pipeline, a queued recording
+synthetic provider, actual generated requests and a real TraceRing-backed sink:
+
+1. Provided default-method implementer, explicit no-op, actual disabled and
+   cleared-owner RingSink handles, and mismatched attempt identity preserve
+   semantic outcomes/request limits. No synthetic Engine/status/report stub.
+2. Actual reached first-person/unapproved-movement branches, a both-predicate
+   first-failure case, and accepted real Move control; exactly one reason event
+   after the existing stage record, exact fallback and two provider calls.
+3. Earlier ordinary dialogue/speaker/event-ID/text failures and actual malformed
+   JSON retain generic classification and the earlier Parsing measurement; an
+   actual hidden-actor Knowledge refusal keeps its category and no scene code.
+4. Valid accepted control and an original unsupported environmental assertion
+   both report Accepted/None under the **existing finite semantic limitation**;
+   this is characterization, never a new quality or safety approval.
+5. Existing stage-record callback cancellation and new-hook cancellation retain
+   Cancelled before an independently excluded exact mechanical fallback, with
+   actual rejected validation metadata and exact unchanged source bytes.
+6. Cancellation after an accepted validation decision prevents commit without
+   relabeling that earlier decision; exact unchanged source bytes.
+7. Original stage and new diagnostic observer panics disable later callbacks;
+   fallback, request/call limits and canonical semantic outcomes remain.
+8. One justified private helper case: public Cancellation token APIs cannot count
+   predicate polls. An actual source-bound synthetic Memory record is borrowed
+   by existing `validate_record` and proposed `validate_record_detailed`, with
+   `into_engine_error` preserving the result. The existing Memory source calls
+   the cancellation predicate twice for a valid record, once before a finite
+   generated-prose refusal, and twice when the final predicate cancels. Each
+   separate control invocation has these exact counts; no production validator
+   is rerun to infer a reason. Source remains byte-for-byte unchanged.
+9. Actual invalid-ability/stale guards, exact recorded retry after cancellation,
+   exact replay, and legacy Memory/Literal first-person behavior retain their
+   established boundaries. Retry/replay use exact canonical/receipt bytes, not
+   normalized copies; absent stages do not fabricate diagnostics.
+10. Copy/Eq/fixed-size metadata getters, content-free synthetic-sentinel checks,
+    forward-compatible consumer match, exact old PlayRecord/trace-v1 key sets
+    and unchanged scene policy/prompt/frame versions. Absence of Serialize and
+    public constructors also remains a Root source/API review requirement;
+    these unit tests do not claim a negative trait proof.
+
+### Pre-execution timing calibration
+
+Source inspection, before any test execution, shows that actual receipts embed
+measured `PlayRecord.stages[].elapsed_ms`. Root accepted the following explicit
+parity calibration: across independently executed controls, normalize **only**
+those measured elapsed values and compare exact remaining receipt fields,
+events/projection/identities and stage names/order/count. Assert actual elapsed
+values remain within existing bounds. Compare exact provider prompt/schema/
+identity/fixed-cap/count fields, while checking actual remaining deadline values
+against their unchanged profile bound; do not equate independent wall-clock
+measurements or add a fake clock. No captured record is modified. Same-Engine
+cancellation/retry/replay oracles retain exact `canonical_bytes` and receipt
+bytes. This is a source-derived fixture design, not a weakened failed assertion.
+
+The private helper case uses the proposed internal name already in this
+contract; its API/module visibility absence is setup, not behavior. Core tests
+cannot establish native SDK/consent/reservation counts, window retirement,
+whole-app rendering or device/model execution. No such evidence is fabricated.
+
+Author checks are source/API/fixture review and Git whitespace/path/hash checks
+only. **No Cargo/compiler/test/Node/formatter/app/model/assets/SDK/phone/desktop
+execution.** The accepted public types/method and private detailed helper do not
+exist on this frozen base. Missing imports/module/API therefore mean
+UNCOMPILED/SETUP, never behavioral RED. A filter finding zero tests is not a pass.
+
+After the retained-render gate and Root's independent source review, Root may
+register the unchanged child, implement its separate four-file production scope
+and run the exact ten-function filter with one test thread, preserving original
+setup failures and actual results. Existing scene recipe/legacy/cancellation
+and appropriate broad checks remain required. No adapter/Eval/UI reporting,
+model rerun, historical report rewriting or full D07/M05 completion follows.
+The author hands off the first source commit/hash and releases these two paths;
+Root records interface/fixture amendments explicitly before changing them.

@@ -587,6 +587,19 @@ class OwnerResourceTests(unittest.TestCase):
                 with self.assertRaises(self.o.OwnerRefused):runtime.wait_receipt()
             auth.assert_not_called();port.assert_not_called();process.assert_not_called()
 
+    def test_credential_named_or_wrong_suffix_references_refuse_before_byte_readers(self):
+        for key,path in(('capabilities','D:\\Synthetic\\.android\\adbkey'),
+                         ('source_review','D:\\Synthetic\\.android\\adbkey.pub'),
+                         ('capabilities','D:\\Synthetic\\caps.md'),('source_review','D:\\Synthetic\\review.json')):
+            value=admission();value[key]=pin(path)
+            with patch.object(n,'_read_bound')as read,patch.object(self.env,'check_binding')as check:
+                with self.assertRaises(n.LeaseRefused):n.revalidate_inputs(value)
+            read.assert_not_called();check.assert_not_called()
+            with patch.object(self.o.lease,'revalidate_inputs')as revalidate, \
+                 patch.object(self.o.file_guard,'_existing_D_file',side_effect=lambda value,reason:Path(value)):
+                with self.assertRaises(self.o.OwnerRefused):self.o._guards(value,admitted_binding())
+            revalidate.assert_not_called()
+
 
 class ClosedLeaseFixture:
     """Complete original, closed receipts. All process/tool/key values are fake."""
@@ -753,6 +766,162 @@ class DeepReceiptTests(unittest.TestCase):
         self.refused(self.f.validate)
         f=ClosedLeaseFixture();pin=dict(f.result_pin,sha256='0'*64)
         self.refused(lambda:n.validate_worker_result(pin,f.admission,f.admission_pin,f.request_pin,CLIENT))
+
+
+@unittest.skipUnless(os.name=='nt','physical D: mocked parent receipts require Windows')
+class ParentOwnerTests(unittest.TestCase):
+    def setUp(self):
+        from benchmarks import isolated_adb_owner as owner
+        self.o=owner;self.f=ClosedLeaseFixture(create=False)
+
+    def parent(self,*,owner_change=None,partial=False,forged=False,output=b'',existing_receipt=False):
+        f=self.f;o=self.o;real_binding=o.env.binding;real_rename=Path.rename;renames=[]
+        script=next(p for p in f.admission['sources']if PureWindowsPath(p['path']).name=='isolated_adb_owner.py')
+        def bind(path):
+            return copy.deepcopy(script)if Path(path)==Path(o.__file__)else real_binding(path)
+        def identity(pid):
+            self.assertIn(pid,(OWNER['pid'],CLIENT['pid']));return copy.deepcopy(OWNER if pid==OWNER['pid']else CLIENT)
+        def rename(source,target):
+            self.assertEqual(source,f.root/'started.pending-v1.json');self.assertEqual(target,f.root/'started-v1.json')
+            value=f.env.read_json(source)
+            self.assertEqual(value,dict(worker=CLIENT,request=f.env.binding(f.root/'request-v1.json')))
+            renames.append((source,target));return real_rename(source,target)
+        def supervise(command,envelope,capture_root,seconds,started):
+            self.assertEqual(capture_root,f.root/'worker-output-v1');self.assertEqual(seconds,150)
+            self.assertEqual(command,[PYTHON,'-I','-S','-B',str(Path(o.__file__).resolve()),'_worker'])
+            request=o.env.decode_json(envelope[len(o.BARRIER):])
+            self.assertEqual(request,dict(request=o.env.binding(f.root/'request-v1.json')))
+            f.env.create_json(f.root/'stop-v1.json',dict(version=1,protocol=PROTOCOL,admission_sha256=f.admission_pin['sha256'],action='stop'))
+            self.assertFalse((capture_root/'stop-v1.json').exists())
+            if existing_receipt:(f.root/'started-v1.json').write_bytes(b'original synthetic existing receipt')
+            self.assertTrue(started(SimpleNamespace(pid=CLIENT['pid'])))
+            self.assertFalse((f.root/'started.pending-v1.json').exists())
+            f.write(request_existing=True)
+            if partial:f.save('worker-result-v1.json',dict(version=1,reason='stop_requested'))
+            if forged:f.mutate_document('server-capture-v1.json',lambda c:c.update(capture_complete=False))
+            (capture_root/'owner-stdout-v1.bin').write_bytes(output);(capture_root/'owner-stderr-v1.bin').write_bytes(b'')
+            value=dict(status='child_exited',cleanup_complete=True,elapsed_ms=17,output_capture_complete=True,
+                       worker_returncode=0,stdout_bytes=len(output),stderr_bytes=0)
+            value.update(owner_change or {});return value
+        from contextlib import ExitStack,redirect_stdout
+        import io
+        with ExitStack()as stack:
+            stack.enter_context(patch.object(o,'_guards'))
+            stack.enter_context(patch.object(o,'_binding',side_effect=bind))
+            stack.enter_context(patch.object(o.lease,'source_bindings',return_value=f.admission['sources']))
+            stack.enter_context(patch.object(o.file_guard,'_python_bindings',return_value=f.admission['python']))
+            stack.enter_context(patch.object(o.env,'process_identity',side_effect=identity))
+            stack.enter_context(patch.object(o.os,'getpid',return_value=OWNER['pid']))
+            stack.enter_context(patch.object(o.sys,'executable',PYTHON))
+            stack.enter_context(patch.object(o.output_control,'_prepare_environment'))
+            stack.enter_context(patch.object(Path,'rename',autospec=True,side_effect=rename))
+            supervisor=stack.enter_context(patch.object(o.env,'supervise',side_effect=supervise))
+            stack.enter_context(redirect_stdout(io.StringIO()))
+            code=o._parent(f.admission_pin,f.admission)
+        supervisor.assert_called_once();self.assertEqual(len(renames),1)
+        return code,f.env.read_json(f.root/'result-v1.json')
+
+    def test_complete_mocked_parent_uses_distinct_stop_namespace_and_real_deep_reader(self):
+        code,result=self.parent();self.assertEqual(code,0);self.assertTrue(result['qualified_lease']);self.assertFalse(result['feature_acceptance'])
+        self.assertEqual(result['reason'],'stop_requested')
+
+    def test_partial_or_forged_worker_capture_is_not_parent_qualification(self):
+        for case in('partial','forged'):
+            self.f=ClosedLeaseFixture(create=False)
+            with self.subTest(case=case):
+                code,result=self.parent(**{case:True});self.assertEqual(code,1);self.assertFalse(result['qualified_lease'])
+
+    def test_failed_uncaptured_or_nonempty_worker_terminal_never_qualifies(self):
+        for change in(dict(owner_change=dict(cleanup_complete=False)),dict(owner_change=dict(worker_returncode=True)),
+                      dict(owner_change=dict(output_capture_complete=False)),dict(output=b'forged success text')):
+            self.f=ClosedLeaseFixture(create=False)
+            with self.subTest(change=change):
+                code,result=self.parent(**change);self.assertEqual(code,1);self.assertFalse(result['qualified_lease'])
+
+    def test_atomic_started_publication_does_not_replace_existing_receipt(self):
+        with self.assertRaises(FileExistsError):self.parent(existing_receipt=True)
+        self.assertEqual((self.f.root/'started-v1.json').read_bytes(),b'original synthetic existing receipt')
+        self.assertTrue((self.f.root/'started.pending-v1.json').exists())
+
+
+class FakeExchangeSocket:
+    def __init__(self,*,chunks=None,local_port=CLIENT_PORT,close_fail=False):
+        self.handle=77;self.local_port=local_port;self.chunks=list(chunks or [b'OK',b'AY0004',b'0029',b''])
+        self.sent=bytearray();self.connects=[];self.timeouts=[];self.close_fail=close_fail;self.closed=False
+    def fileno(self):return self.handle
+    def getsockname(self):return('127.0.0.1',self.local_port)
+    def getpeername(self):return('127.0.0.1',PORT)
+    def setsockopt(self,*args):pass
+    def bind(self,address):
+        if address!=('127.0.0.1',0):raise AssertionError('unexpected bind')
+    def settimeout(self,value):self.timeouts.append(value)
+    def connect(self,address):self.connects.append(address)
+    def send(self,data):
+        count=min(3,len(data));self.sent.extend(data[:count]);return count
+    def recv(self,limit):
+        value=self.chunks.pop(0)
+        if isinstance(value,BaseException):raise value
+        return value
+    def close(self):
+        self.closed=True
+        if self.close_fail:raise OSError('synthetic socket close failure')
+        self.handle=-1
+
+
+@unittest.skipUnless(os.name=='nt','mocked Windows socket semantics')
+class ExchangeAlgorithmTests(unittest.TestCase):
+    def exchange(self,*,chunks=None,kind='version',close_fail=False,guard_failure=False,handle_close=True):
+        from benchmarks import isolated_adb_owner as o
+        f=ClosedLeaseFixture();history=[]if kind=='version'else[CLIENT_PORT]
+        port=CLIENT_PORT if kind=='version'else OLD_PORT
+        sock=FakeExchangeSocket(chunks=chunks,local_port=port,close_fail=close_fail)
+        processes=SimpleNamespace(add=Mock(return_value=(901,copy.deepcopy(CLIENT))),release=Mock(return_value=handle_close))
+        runtime=SimpleNamespace(admission=f.admission,binding=f.admission_pin,worker=CLIENT,server=SERVER,until=103.0,
+          completed_ports=history,clients_closed=True,processes=processes,api=object(),guard=Mock(),auth=SimpleNamespace(check=lambda:copy.deepcopy(f.auth)))
+        if guard_failure:runtime.guard.side_effect=[None,o.OwnerRefused('source')]
+        def bracket(item,anchor):
+            return o.WorkerRuntime.bracket(runtime,item,anchor)
+        runtime.bracket=bracket
+        template=f.proof(kind,port,tuple(history));views=[(template['observations']['before_send'],template['tables']['before_send']),
+                                                       (template['observations']['after_request'],template['tables']['after_request'])]
+        with patch.object(o.socket,'socket',return_value=sock)as factory,patch.object(o,'_observe',side_effect=views)as observe, \
+             patch.object(o.time,'monotonic',return_value=100.0),patch.object(o.os,'getpid',return_value=CLIENT['pid']), \
+             patch.object(o.lease,'source_bindings',return_value=f.admission['sources']):
+            proof,failure=o._exchange(runtime,kind)
+        factory.assert_called_once_with(o.socket.AF_INET,o.socket.SOCK_STREAM)
+        return proof,failure,sock,runtime,observe,f
+
+    def test_fragmented_version_bytes_exact_eof_and_partial_sends_pass_real_proof_reader(self):
+        proof,failure,sock,runtime,observe,f=self.exchange()
+        self.assertIsNone(failure);self.assertEqual(bytes(sock.sent),b'000Chost:version');self.assertEqual(sock.connects,[('127.0.0.1',PORT)])
+        self.assertEqual(observe.call_count,2);self.assertTrue(proof['socket_closed']);self.assertTrue(proof['client_handle_closed'])
+        binding=f.save('proof-version-v1.json',proof)
+        self.assertEqual(n.validate_proof(binding,f.admission,f.admission_pin,CLIENT,SERVER,'version'),proof)
+
+    def test_devices_exchange_is_empty_and_binds_verified_prior_port_history(self):
+        proof,failure,sock,_,_,f=self.exchange(kind='devices',chunks=[b'OK',b'AY',b'0000',b''])
+        self.assertIsNone(failure);self.assertEqual(bytes(sock.sent),b'000Ehost:devices-l')
+        binding=f.save('proof-devices-v1.json',proof)
+        self.assertEqual(n.validate_proof(binding,f.admission,f.admission_pin,CLIENT,SERVER,'devices',completed_ports=(CLIENT_PORT,)),proof)
+
+    def test_extra_truncated_wrong_and_timed_out_responses_are_retained_refusals(self):
+        for chunks in([b'OKAY00040029X'],[b'OKAY0004',b''],[b'FAIL0000',b''],[TimeoutError('synthetic timeout')]):
+            with self.subTest(chunks=type(chunks[0]).__name__):
+                proof,failure,sock,_,_,_=self.exchange(chunks=chunks)
+                self.assertIsNotNone(failure);self.assertFalse(proof['response_complete']);self.assertTrue(proof['socket_closed'])
+                self.assertEqual(bytes(sock.sent),b'000Chost:version');self.assertEqual(len(sock.connects),1)
+
+    def test_source_guard_failure_occurs_before_connect_or_send_and_attempts_cleanup(self):
+        proof,failure,sock,_,observe,_=self.exchange(guard_failure=True)
+        self.assertEqual(failure,'source');self.assertEqual(sock.sent,b'');self.assertEqual(sock.connects,[]);observe.assert_not_called()
+        self.assertTrue(proof['socket_closed'])
+
+    def test_socket_or_handle_close_failure_poison_proof_without_false_completion(self):
+        for options in(dict(close_fail=True),dict(handle_close=False)):
+            with self.subTest(options=options):
+                proof,failure,sock,runtime,_,_=self.exchange(**options)
+                self.assertEqual(failure,'cleanup');self.assertTrue(sock.closed);runtime.processes.release.assert_called_once_with(901)
+                if options.get('close_fail'):self.assertFalse(runtime.clients_closed);self.assertFalse(proof['socket_closed'])
 
 
 if __name__=='__main__':unittest.main()

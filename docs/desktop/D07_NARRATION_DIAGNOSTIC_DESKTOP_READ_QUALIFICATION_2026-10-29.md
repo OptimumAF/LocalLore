@@ -271,3 +271,41 @@ Local records use `d07-diag-desktop-native-focused-corrected1`,
 `d07-diag-desktop-harness-clippy1`, `d07-diag-desktop-android-host1`,
 `d07-diag-desktop-root-format1`, `d07-diag-desktop-frontend-format1` and
 `d07-diag-desktop-harness-frontend1`, each retaining original logs/process JSON.
+
+## First actual native execution and retained harness failure
+
+At clean, unchanged `fd57ce5510d35ed4b2918ef32301b4234711286f`, changed frontend
+formatting passed in 0.5223339s and the full frontend suite in 15.4034497s.
+Independent harness review first corrected capture targeting: a CSS selector
+list chooses document order, so `fd57ce55` explicitly prefers diagnostic, then
+evidence, then selection context, then controls. No assertions changed.
+
+The first actual hidden/unfocused WebView2/native-IPC run then exited 1 in
+120.4823624s. Packet `comparison-reader-native-6a855ced-5024-4d63-8c9d-9d348dbbdf59`
+retains all original reports, six PNGs, semantic snapshots and logs. It exercised
+recorded-left, accepted receipt, trusted stored unavailable/rejected, narrow
+recorded-right and Mira clearing. Every generated image was individually
+inspected: artifact-local source, revisions, status, receipt and quality framing
+were visible; Mira showed its selected context with no diagnostic/private report.
+This is partial actual native execution, not completion of the 17-image cohort.
+
+Failure `comparison-mira-context-not-covered-by-sticky-header` is an independently
+confirmed harness-oracle defect: with no artifact, the sticky header is both
+target/context and alleged obstruction. The snapshot records identical bounds
+for each: top -0.453125, bottom 113.296875, height 113.75. Positive area, viewport,
+hit testing and private-state clearing passed before the impossible self-overlap
+predicate. Correction `adeab968` exempts only exact `node === header` identity;
+distinct-header overlap, positive-area, viewport and hit-test checks remain.
+No product CSS, permission, fixture or state assertion changes.
+
+The app exited without timeout, unknown-owned-drain was false, and the launcher
+restored normal frontend/native builds without launching the product. A separate
+bounded read-only collection after known direct app exit found all 641 fixture
+file hashes equal to the frozen map: 660 entries, 5,313,354 bytes. The external
+freeze is 74,900 bytes, SHA256
+`c3ba3bbe60d0ff06b60d5b9ee881f0a1347b139470b1e42ad6b46d06a65551a3`.
+The unchanged 256KiB proof and 128MiB collector ceilings fit this measured set;
+they are ceilings, not runtime budget increases or a proof for every valid set.
+Record `d07-diag-desktop-native-first1-postexit-fixtures.json` preserves this
+collection separately without modifying the failed packet. A fresh synthetic
+cohort remains required; no restart or remaining journey result is inferred.

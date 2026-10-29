@@ -498,10 +498,10 @@ fn player_process(root: &Path) {
         data(free_text(&host, &session, &request))["phase"],
         "queued"
     );
-    assert_eq!(
-        data(turn(&host, &session, &request, "prepare"))["phase"],
-        "ready"
-    );
+    let prepared = turn(&host, &session, &request, "prepare");
+    saved(root, "player-prepare.json", &prepared);
+    saved(root, "player-prepare-generation.json", &counts.value());
+    assert_eq!(data(prepared)["phase"], "ready");
     let committed = turn(&host, &session, &request, "commit");
     assert_eq!(data(committed.clone())["phase"], "committed");
     let after = snapshot(root);

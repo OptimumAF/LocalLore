@@ -198,10 +198,17 @@ def probe(backend, admission):
     try:
         admitted = validate_admission(admission); report['admission'] = admitted
         started = _now(backend); until = started+MAX_SECONDS
+        last = started
+        def tick():
+            nonlocal last
+            current = _now(backend)
+            _need(last <= current < until,'deadline')
+            last = current
         def call(name,*args):
-            _need(_now(backend) < until,'deadline')
-            result = getattr(backend,name)(*args,until)
-            _need(_now(backend) < until,'deadline')
+            tick()
+            # Components receive isolated inputs, never the preserved admission.
+            result = getattr(backend,name)(*copy.deepcopy(args),until)
+            tick()
             return result
         call('open',admitted)
         initial = _bracket(call('bracket',admitted),admitted)
@@ -250,8 +257,9 @@ def probe(backend, admission):
             report['status'],report['reason'] = 'refused','cleanup'
         if started is not None:
             try:
-                elapsed = _now(backend)-started
-                _need(elapsed >= 0,'deadline')
+                current = _now(backend)
+                _need(current >= last,'deadline')
+                elapsed = current-started
                 report['elapsed_ms'] = int(elapsed*1000)
                 if elapsed >= MAX_SECONDS:
                     report['status'],report['reason'] = 'refused','deadline'

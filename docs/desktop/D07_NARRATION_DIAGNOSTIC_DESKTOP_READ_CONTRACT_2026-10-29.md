@@ -1,0 +1,264 @@
+# Desktop narration diagnostic read v1: proposed contract
+
+2026-10-29. Refs #29 **D07.04/D07.06**.
+**PROPOSED / DOCUMENT ONLY / NO IMPLEMENTATION / UNCOMPILED / UNRUN.**
+Base `272c8bb5d74209d44eb17fcb330e3c59ea9d4f5c`; branch
+`plan/d07-narration-diagnostic-desktop-read-v1`. Claim before editing:
+[#29 comment6499452729](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6499452729).
+Only this new document is owned. Root must accept the interfaces and allocate
+independent FIRST tests after the companion gates, before implementation.
+
+## Scope and existing authority
+
+Expose the accepted full Protocol4 companion **reader only** through the existing
+desktop comparison reader capability, worker, IPC and selected-turn view. Reuse
+the [companion contract](D07_NARRATION_DIAGNOSTIC_EVAL_COMPANION_CONTRACT_2026-10-29.md)
+and its closed artifact protocol1, five statuses, finite Host projection and
+exact source/checkpoint/attempt binding. Do not reinterpret stored causes.
+
+Preserve old Host/schema, trace-v1, capture-v1, RecordingFile, StoredTurn4,
+Report4, ReaderEvidence and existing action/result schemas. Add a separate
+closed action/result, not an opaque field in old evidence. No new Host operation,
+provider, store, catalog, selected-Protocol4 feature, execution owner or grant.
+Normal native execution remains Protocol3; reading an eligible Protocol4 source
+does not enable generation. Existing full-run/default start/resume stay unchanged.
+
+Explicitly exclude future-run opt-in and all admission/index changes. Those need
+a separate durable client/idempotency/restart contract: current FullComparisonStart
+and retry identity bind only client/kind/batch; IndexWire is closed. A transient
+checkbox or later declaration cannot safely bind intent before admission.
+The current manager's completed-resume early return also precedes Core execution;
+any future opt-in adapter must validate its companion before that return. This
+proposal neither fixes nor adopts that future execution path.
+
+## Proposed native and IPC interface
+
+Existing seams are `evaluation/comparison.rs::OpenedRead::V4`, Capability,
+ReaderGrant, Record and `comparison_launch`; `comparison_commands.rs` already
+parses closed actions for `evaluation_comparison`. Reuse these owners. Proposed
+new native input and method in the existing evaluation module:
+
+```rust
+pub struct ComparisonNarrationDiagnosticRequestV1 {
+    pub token: String,
+    pub binding: String,
+    pub row: locallore_eval::local_lane::comparison::desktop_api::RowId,
+    pub observer: locallore::inspection_query::Observer,
+}
+pub fn comparison_narration_diagnostic_v1(
+    self: &Arc<Self>,
+    lease: &Arc<WindowLease>,
+    epoch: u64,
+    granted: bool,
+    input: ComparisonNarrationDiagnosticRequestV1,
+) -> Result<Value>;
+```
+
+The already registered `evaluation_comparison` command gains exactly action
+`"narration_diagnostic_v1"` with this closed query:
+
+```text
+{runToken:<lower-case UUID>, binding:<64 lower-case hex>,
+ turnId:<1..64-byte existing identifier>, arm:"left"|"right",
+ observer:{kind:"omniscient"}|{kind:"player"}|{kind:"character",id:<identifier>}}
+```
+
+No renderer path, source directory, admission, attempt, session, owner, grant,
+protocol switch, model option or execution flag. The observer is a requested
+lens, never privilege. Existing native picker/managed-read consent remains the
+only way to obtain the read capability. No extra picker or consent is required
+for another authorized read of that same live capability.
+
+Request compact UTF-8 bound is **4,096 bytes**, with exact keys/types and current
+identifier/UUID rules. Existing transport supplies Value: raw duplicate keys
+have already been lost; do not claim duplicate-key detection at this layer.
+Bounded envelope parsing may refuse invalid input before authorization.
+
+After valid parsing, manager admission order is fixed:
+
+1. Deny `!granted` or any non-Omniscient observer with `Forbidden`, before input
+   binding/row lookup, lease dispatch, expiry, token/source or filesystem probes.
+2. Validate native input scalars, then use existing live lease/epoch admission,
+   TTL/record pruning and exact same-owner token lookup. Token is scoped to the
+   retained reader, not a full-run execution token or a new permission.
+3. Transfer the existing Capability to the same admitted comparison worker,
+   using the existing busy/operation/cancellation/close lifecycle. No source I/O
+   under manager/window metadata locks and no second owner registry or worker.
+4. For OpenedRead::V4 only, call the unchanged accepted Core method below.
+   V2/V3 return fixed `Unsupported`; do not probe companion files or reopen the
+   source with another protocol to seek success.
+5. Bound/return the closed result only through the existing current owner,
+   epoch/client/token/operation and cancellation completion fences. Retired,
+   closed or replaced contexts cannot install private results or resurrect caps.
+
+```rust
+scene_v4::desktop_api::narration_diagnostic_v1(
+    opened: &scene_v4::desktop_api::OpenedComparison,
+    expected_binding: &str,
+    row: &RowId,
+    observer: Observer,
+    native_inspection_granted: bool,
+) -> Result<Value>
+```
+
+This is the existing function's signature, not a new Core wrapper/variant.
+The Core Outputs access check still precedes its binding/row/source probes.
+Manager admission does not replace it. Keep existing four-client/900-second
+retention, operation bounds, one-worker rule and close-after-revocation behavior.
+The 30-second response timeout is not cancellation or a hard I/O deadline;
+retain the actual operation for explicit status/close recovery until it finishes.
+
+The access guarantee starts at the new manager/method with an already opened
+native read capability. Existing `WorkspaceState::get` can initialize/open
+storage before Host permission is read; `open_read_only` itself is not an access
+check. No transport-wide zero-filesystem promise or workspace change is implied.
+
+## Closed response, statuses and errors
+
+Proposed successful IPC envelope, compact UTF-8 bound **8,192 bytes**:
+
+```text
+{version:1, kind:"comparison_reader_narration_diagnostic_v1",
+ run_token:<exact requested token>, diagnostic:<unchanged Core result>}
+```
+
+Core result keys remain exactly:
+
+```text
+{version:1, protocol_version:4, kind:"narration_diagnostic_v1",
+ binding:<exact source snapshot binding>, row:{turn:<exact turn>,arm:<exact arm>},
+ generation_grant:false, status:<one status>, [observation:<typed record>]}
+```
+
+| Status | Observation key | Meaning |
+| --- | --- | --- |
+| `no_declaration` | Absent | No declaration; legacy absence is not a cause |
+| `no_observation` | Absent | Declared, no bound retained observation |
+| `recorded` | Required | Actual stored supported validation decision |
+| `host_unavailable` | Required | Stored supported Host unavailable reply |
+| `host_rejected` | Required | Stored fixed-code Host rejection, not validation |
+
+The observation is the exact closed validated record from the accepted protocol:
+version/kind/declaration/run/source hashes, arm/index/admission/checkpoint hash,
+typed host_query/host_reply and generation_grant:false. Nullable decision fields
+remain required and finite tuples/codes are exactly those of the accepted
+companion/Host contracts. No extension keys, arbitrary errors, prose, raw prompts,
+paths, null observation or synthesized summary. Rust owns integrity and binding.
+Hashes establish consistency; they do not authenticate historical origin/session.
+
+Keep failures as fixed-code ResultErr, never successful unavailable data. Use a
+new narrow diagnostic error projection without changing old action semantics:
+
+| Source error | Desktop error |
+| --- | --- |
+| Forbidden / InspectionForbidden | Forbidden |
+| DiagnosticWire / DiagnosticBinding / SnapshotMismatch | EvaluationIntegrity |
+| DiagnosticBudget / bounded envelope overflow | EvaluationBudget |
+| DiagnosticIo / Io | EvaluationIo |
+| Reparse / AliasedDestination / unsafe path | UnsafeEvaluationPath |
+| UnsupportedPlatform / wrong supported reader protocol | Unsupported |
+| Invalid native input / UnknownRow | InvalidEvaluationInput |
+| Lease closed / unknown, foreign, expired or retired token / busy | Existing Closed / UnknownEvaluationRun / EvaluationBusy |
+| Existing strict source/receipt/checkpoint/ledger failures | Existing fixed failure projection |
+| Unrecognized internal failure | EvaluationIo; never pass through text |
+
+No partial result on overflow/error. A present malformed/orphan/conflicting file
+is an integrity refusal; do not display it as NoObservation. Read permission
+grants no generation, knowledge, retry, replay, validation, mutation or resume.
+
+## Frontend controller and presentation
+
+Propose `ComparisonReaderController.inspectNarrationDiagnosticV1(): Promise<void>`
+and `diagnostic: ReaderNarrationDiagnosticV1 | null` state, separate from existing
+evidence/summary. Store the immutable whole checked IPC envelope, including its
+token; do not discard that binding or retain arbitrary JSON. Proposed decoder:
+
+```typescript
+function checkedReaderNarrationDiagnosticV1(
+    raw: unknown, token: string, source: ReaderSource, row: RowId,
+): ReaderNarrationDiagnosticV1;
+```
+
+`ReaderNarrationDiagnosticV1` is exactly the new IPC envelope above. Its diagnostic
+uses a discriminated closed union: the two absence statuses prohibit observation;
+the other three require the accepted typed observation and matching Host branch.
+Use the
+existing selected row, source snapshot and beginRead/live ticket lifecycle;
+refuse non-Omniscient/currently ineligible/other-protocol requests before dispatch.
+No caller-supplied binding/row bypass, auto-retry or diagnostic polling.
+
+The decoder rejects unknown/prototype/accessor/symbol keys, wrong envelope/status/version,
+foreign token/binding/row/scope, query/reply disagreement, invented grants and
+invalid finite tuples. Query head equals the selected source BEFORE head; scope
+and turn match the selected row. Do not reselect an attempt, infer a reason from
+old trace/prose, or authenticate a session string. Require every numeric field
+to be a finite nonnegative safe integer; attempts fit u32, index<24/admission<32.
+Unsafe u64 heads/base revisions refuse the frontend reply rather than round or
+change existing wire numbers. Exact Core validation remains authoritative.
+
+Clear diagnostic data synchronously in clearPrivate, observer/row/query/source/
+permission/context changes, pending reads, close, failed binding and dispose.
+Use the existing request/context/lifecycle fences after every await and pending
+notification; old delayed replies cannot refill a cleared character/player lens.
+Returning to Omniscient requires an explicit fresh read. No change to any actor's
+Engine knowledge, Query2 eligibility or generation context.
+
+In ComparisonReaderPanel, an Omniscient-only Protocol4 button requests the new
+read. Keep selected story/branch/arm/source, before/after revision, observer,
+pending read and fixed error visible before metadata. Display the immutable base
+and actual attempt when present. Label validation decision separately from final
+phase/receipt/fallback/scenario/quality. NoDeclaration and NoObservation do not
+mean validation was not run; HostRejected is not narration rejection. Preserve
+both human needs-improvement assessments and the original missing historical
+causes. Use existing evidence-context layout; do not reintroduce sticky-header
+overlap or hide a failed/no-receipt case below a raw JSON body.
+
+## FIRST and application-owned proof gate
+
+Proposed owned implementation paths: comparison_commands.rs; evaluation.rs
+exports and evaluation/comparison.rs only; comparison-reader-model/controller,
+ComparisonReaderPanel; narrow developer documentation. No full-run/index,
+selected, Host/schema/generator or provider path is owned by this slice.
+Root allocates separate independent FIRST tests before implementation.
+
+The smallest finite roster is:
+
+1. Rust parser/manager: exact closed requests, early denied/bad-source/bad-token
+   precedence; all statuses/errors/caps; V2/V3 refusal; live and foreign lease/
+   epoch/token; busy/close/timeout/retirement and late completion. Preserve old
+   read actions and worker/lock behavior; inventory only after releasing locks.
+2. Actual frontend controller with mocked IPC: exact dispatch/decoder, unsafe
+   numbers, delayed result across observer/row/source/dispose, pending/error and
+   no automatic retry. Headless actual component wide/narrow structure, positive
+   visible context boxes/hit tests and no private actor-lens text. Label mocks
+   and headless output explicitly; neither is native IPC/render evidence.
+3. Extend only the existing fixed development comparison-reader fixture/journey
+   (`comparison_reader_harness.rs`, comparison-reader-journeys.ts and
+   comparison-reader-harness.mjs). Generate new synthetic scripted Scene4 inputs
+   using accepted Core entries, plus a legacy fixture. Actual Recorded and
+   absence paths are separate from explicitly labeled trusted stored-envelope
+   HostUnavailable/HostRejected/malformed controls. Labels/provenance belong in
+   local external evidence, not new artifact fields. No new provider or model.
+4. Run that same controller -> native IPC -> manager -> accepted Core reader in
+   actual hidden, unfocused WebView2. Capture bounded semantic state and app-owned
+   PNGs for all five statuses, visible refusal and cleared actor lens; include
+   wide/narrow selected context, receipt/fallback distinction and visible errors.
+   Inspect every image individually and check nonzero context geometry/no header
+   overlap. Preserve original bytes, all expected refusals and unexpected errors.
+5. After capability/process release, compare the complete synthetic fixture
+   inventory byte-for-byte. Record zero model execution/import/copy/reservation,
+   bounded local errors, known child closure/unknown states, exact source/runtime
+   versions and unavailable checks. Observation counters are not SDK-load proof.
+
+Any needed held-read test seam must be explicitly frozen before production;
+existing provider faults are not I/O/latency hooks. No arbitrary action/path,
+code/file/shell execution, general debug server, desktop control/capture or
+unrelated application automation. Outputs stay local/gitignored on physical D:;
+TEMP/TMP remain process-local D:/Dev/_Temp. No private cohort or protected owner
+resource is read, modified, regenerated or uploaded.
+
+This author performed source/Git/whitespace inspection only. No implementation,
+test, registration, compiler, formatter, Cargo, Node, browser/app, model/assets,
+device or desktop execution. Next: Root accepts/refines this proposed contract
+after companion gates, then allocates independent FIRST source. This note grants
+no merge/release authority or full task, quality, device or dependency acceptance.

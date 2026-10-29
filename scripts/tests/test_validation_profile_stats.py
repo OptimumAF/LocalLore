@@ -26,13 +26,31 @@ def _nested():
     return _leaf()+_leaf()
 
 
+def _profiler_state():
+    monitoring=getattr(sys,'monitoring',None)
+    if monitoring is None:return sys.getprofile(),None,None
+    tool=monitoring.PROFILER_ID
+    return sys.getprofile(),monitoring.get_tool(tool),monitoring.get_events(tool)
+
+
 class ValidationProfileStatsTests(unittest.TestCase):
     def setUp(self):
         self.original=sys.getprofile()
         self.assertIsNone(self.original,'finite test worker must start without an external profiler')
-        self.addCleanup(sys.setprofile,self.original)
+        self.assertIsNone(_profiler_state()[1],'finite test worker must start without a monitoring profiler')
+        self.addCleanup(self.restore_test_owned_profilers)
+
+    def restore_test_owned_profilers(self):
+        # This finite worker starts with no profiler. Any tool installed by
+        # these tests is test-owned; release it even after a failing assertion
+        # so one observed leak cannot manufacture later independent failures.
+        monitoring=getattr(sys,'monitoring',None)
+        if monitoring is not None and monitoring.get_tool(monitoring.PROFILER_ID)is not None:
+            monitoring.free_tool_id(monitoring.PROFILER_ID)
+        sys.setprofile(self.original)
 
     def shape(self,value):
+        self.assertIsNone(_profiler_state()[1],'owned monitoring profiler must be released before snapshot')
         self.assertIs(type(value),dict);self.assertEqual(set(value),TOP)
         self.assertIs(type(value['version']),int);self.assertEqual(value['version'],1)
         self.assertEqual(value['scope'],'python-cprofile-cost-v1')
@@ -113,10 +131,11 @@ class ValidationProfileStatsTests(unittest.TestCase):
         with self.assertRaises(ValueError):ProfileCapture().snapshot()
         with self.assertRaises(ValueError):ProfileCapture().__exit__(None,None,None)
         with ProfileCapture()as capture:
-            active=sys.getprofile();self.assertIsNotNone(active)
+            active=_profiler_state();self.assertTrue(active[0]is not None or active[1]is not None)
             with self.assertRaises(ValueError):capture.snapshot()
-            self.assertIs(sys.getprofile(),active)
+            self.assertEqual(_profiler_state(),active)
         self.assertIsNone(sys.getprofile())
+        self.assertIsNone(_profiler_state()[1])
 
     def test_existing_external_profiler_is_never_disabled_or_replaced_by_refused_entry(self):
         def external(frame,event,arg):return None
@@ -126,12 +145,21 @@ class ValidationProfileStatsTests(unittest.TestCase):
         sys.setprofile(None)
         with self.assertRaises(ValueError):capture.__enter__()
         self.assertIsNone(sys.getprofile())
+        monitoring=getattr(sys,'monitoring',None)
+        if monitoring is not None:
+            calls=[];tool=monitoring.PROFILER_ID;events=monitoring.events.PY_START
+            monitoring.use_tool_id(tool,'original-synthetic-external-profiler')
+            monitoring.register_callback(tool,events,lambda *args:calls.append('observed'))
+            monitoring.set_events(tool,events);state=_profiler_state()
+            with self.assertRaises(ValueError):ProfileCapture().__enter__()
+            self.assertEqual(_profiler_state(),state);before=len(calls);_leaf();self.assertGreater(len(calls),before)
+            monitoring.free_tool_id(tool)
 
     def test_nested_capture_refuses_while_retaining_outer_profiler_and_outer_statistics(self):
         with ProfileCapture()as outer:
-            active=sys.getprofile()
+            active=_profiler_state()
             with self.assertRaises(ValueError):ProfileCapture().__enter__()
-            self.assertIs(sys.getprofile(),active);_leaf()
+            self.assertEqual(_profiler_state(),active);_leaf()
         self.assertIsNone(sys.getprofile());self.assertEqual(self.entry(outer.snapshot(),_leaf)['calls'],1)
 
     def test_context_cannot_be_reused_after_successful_or_exceptional_action(self):
@@ -147,9 +175,9 @@ class ValidationProfileStatsTests(unittest.TestCase):
 
     def test_reentrant_entry_does_not_disable_its_active_owned_profiler(self):
         with ProfileCapture()as capture:
-            active=sys.getprofile()
+            active=_profiler_state()
             with self.assertRaises(ValueError):capture.__enter__()
-            self.assertIs(sys.getprofile(),active)
+            self.assertEqual(_profiler_state(),active)
         self.assertIsNone(sys.getprofile())
 
     def test_action_installed_external_profiler_is_preserved_and_incomplete_capture_refuses(self):
@@ -158,6 +186,7 @@ class ValidationProfileStatsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             with capture:_leaf();sys.setprofile(external)
         self.assertIs(sys.getprofile(),external)
+        self.assertIsNone(_profiler_state()[1])
         with self.assertRaises(ValueError):capture.snapshot()
         self.assertIs(sys.getprofile(),external)
 
@@ -169,6 +198,7 @@ class ValidationProfileStatsTests(unittest.TestCase):
         except BaseException as observed:self.assertIs(observed,error)
         else:self.fail('action error suppressed')
         self.assertIs(sys.getprofile(),external)
+        self.assertIsNone(_profiler_state()[1])
         with self.assertRaises(ValueError):capture.snapshot()
         self.assertIs(sys.getprofile(),external)
 

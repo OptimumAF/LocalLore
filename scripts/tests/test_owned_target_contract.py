@@ -794,8 +794,8 @@ class ClosedLifecycleFixture:
           max_seconds=1800,console_port=5592,adb_path=self.a['server']['adb']['path'],prepared=prepared,prepare_result=prepare_result,
           prepare_proposal=prepare_proposal,token=dict(original_metadata='synthetic token metadata, no credential bytes'),
           old_avd=dict(original_metadata='synthetic old registry'),bindings=[pin('C:/Synthetic/installed-sdk-tool.exe')],
-          host_free_min={'D:':40*1024**3}if resource_floors is None else resource_floors)
-        if host_memory_min is not None:proposal['host_available_memory_min']=host_memory_min
+          host_free_min={'C:':16*1024**3,'D:':40*1024**3}if resource_floors is None else resource_floors)
+        proposal['host_available_memory_min']=12*1024**3 if host_memory_min is None else host_memory_min
         self.a['guest']['proposal']=self.save(self.base/'run-proposal.json',proposal)
         self.a['guest']['authorization']=self.save(self.base/'run-authorization.json',dict(version=1,phase='run',
           proposal_sha256=self.a['guest']['proposal']['sha256'],allow_environment_calls=True,root_go_pending=False))
@@ -835,8 +835,10 @@ class ClosedLifecycleFixture:
         guest_inputs=self.save(self.root/'guest-inputs-v1.json',dict(version=1,protocol=PROTOCOL,admission=self.admission,
           proposal=self.a['guest']['proposal'],authorization=self.a['guest']['authorization'],prepared=prepared,prepare_result=prepare_result,
           token=proposal['token'],original_avd=proposal['old_avd'],configuration=[config],tools=proposal['bindings'],
-          facts=dict(free_bytes={'D:':50*1024**3}if observed_free is None else observed_free,available_memory=16*1024**3,logical_cpus=12,
-            commit_capacity={}if commit_snapshot is None else commit_snapshot),
+          facts=dict(free_bytes={'C:':50*1024**3,'D:':50*1024**3}if observed_free is None else observed_free,available_memory=16*1024**3,logical_cpus=12,
+            commit_capacity=dict(version=1,commit_total_bytes=48*1024**3,commit_limit_bytes=64*1024**3,
+              available_commit_bytes=16*1024**3,guest_memory_bytes=8*1024**3,required_commit_bytes=10*1024**3,
+              reserve_bytes=2*1024**3)if commit_snapshot is None else commit_snapshot),
           timer=dict(key='test.quitAfterBootTimeOut',actual=None,effective=-1,default_used=True,enabled=False)))
         boot=self.save(self.guest_root/'owned-target-boot-claim-v1.json',dict(version=1,protocol=PROTOCOL,admission=self.admission,
           worker=self.d['worker'],proposal=self.a['guest']['proposal']))

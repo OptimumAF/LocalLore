@@ -1,8 +1,12 @@
 """Original fixed-profile restart authority fixtures; no device/kernel/model IO."""
 import copy
+import hashlib
+import io
 import json
 import os
 from pathlib import Path,PureWindowsPath
+import sys
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -82,25 +86,37 @@ def junit_bytes(kind):
 
 class ClosedRestartGraph:
     """Fresh synthetic complete SDK records and original prerequisite sidecars."""
-    def __init__(self):
+    def __init__(self,*,duplicate_kind=None):
         from benchmarks import receipt_avd_environment as env
         self.env=env;self.base=Path(tempfile.mkdtemp(prefix='locallore-restart-graph-',dir='D:/Dev/_Temp')).resolve(strict=True)
         self.root=self.base/'owner';self.sdk=self.base/'sdk';self.writes=[]
         self.a=admission();self.a.update(root=str(self.root));self.a['server']['root']=str(self.root/'server')
+        self.a['sources']=r.source_bindings()
+        self.a['server']['sources']=[copy.deepcopy(row)for row in self.a['sources']if PureWindowsPath(row['path']).name in legacy.base.SOURCE_NAMES|{'__init__.py'}]
+        dll=Path(sys.executable).with_name('python%d%d.dll'%sys.version_info[:2])
+        self.a['python']=dict(executable=env.binding(Path(sys.executable)),runtime_dll=env.binding(dll)if dll.is_file()else None)
+        self.a['server']['python']=copy.deepcopy(self.a['python'])
+        self.a['artifacts']['process_probe_source']=env.binding(Path(r.__file__).parent/'native/android_author_process_probe.c')
         self.admission=self.save(self.base/'admission-v1.json',self.a);self.d=running(self.a);self.d['admission']=self.admission
         self.running=self.save(self.root/'running-v1.json',self.d);self.s=session(self.a)
         self.s.update(root=str(self.sdk),admission=self.admission,running=self.running,descriptor=self.d)
         self.session=self.save(self.sdk/'sdk-session-v5.json',self.s);self.rows=[];self.row_pins=[]
         baseline=author_fixture.fixture(author_fixture.CURRENT);bf=author_fixture.f
-        self.import_proof=self.save(self.base/'import-proof/import-v1.json',baseline['imported'])
+        self.import_proof=self.save(self.sdk/'import-proof/import-v1.json',baseline['imported'])
         self.author=baseline['author'];self.author_raw=bf.raw(self.author)
-        self.author_proof=self.save(self.base/'author-proof/proof-v1.json',self.author_raw)
-        self.author_artifacts={name:self.save(self.base/'author-proof'/name,raw)for name,raw in baseline['artifacts'].items()}
-        for name in('workspace-v1','archive-staging'):(self.base/'author-proof'/name).mkdir()
+        self.author_proof=self.save(self.sdk/'author-proof/proof-v1.json',self.author_raw)
+        self.author_artifacts={name:self.save(self.sdk/'author-proof'/name,raw)for name,raw in baseline['artifacts'].items()}
+        for name in('workspace-v1','archive-staging'):(self.sdk/'author-proof'/name).mkdir()
         pid=self.author['process']['pid'];uid=self.author['process']['uid']
         boot=self.add([PROBE_PATH,'--boot'],self.encode(process_packet(mode='boot')),'boot-initial')
         imported=self.add(instrumentation('import'),junit_bytes('import'),'import')
+        self.collection('no_backup/original-author-import-proof-v1',{'import-v1.json':baseline['imported']},uid)
+        if duplicate_kind=='import':self.add(instrumentation('import'),junit_bytes('import'),'duplicate-import')
         authored=self.add(instrumentation('author'),junit_bytes('author'),'author')
+        author_names=('proof-v1.json',*author_fixture.f.p.RECORDS,*author_fixture.f.p.TRACES)
+        self.collection('no_backup/original-author-proof-v1',
+          {name:self.author_raw if name=='proof-v1.json'else baseline['artifacts'][name]for name in author_names},uid)
+        if duplicate_kind=='author':self.add(instrumentation('author'),junit_bytes('author'),'duplicate-author')
         packages={}
         for kind,name,package_uid,apk in(('product',r.APP,uid,'product_apk'),('tests',r.TEST,uid+1,'test_apk')):
             path='/data/app/~~original-'+kind+'/base.apk'
@@ -116,6 +132,12 @@ class ClosedRestartGraph:
           author_artifacts=self.author_artifacts,import_instrumentation=imported,author_instrumentation=authored,
           boot_initial=boot,probe_before=before,force_stop=stop,probe_after=after,package_checks=packages)
         self.prerequisite_pin=self.save(self.root/'restart-prerequisite-v1.json',self.prerequisite)
+        # Keep the original twelve selected-witness view stable for earlier
+        # negative bodies; all actual SDK rows/indices remain separately kept.
+        self.all_rows=self.rows;self.all_row_pins=self.row_pins
+        selected=[boot,imported,authored,*[packages[kind][key]for kind in('product','tests')for key in('uid','path','sha256')],before,stop,after]
+        self.rows=[self.all_rows[self.env.read_json(pin['path'])['index']-1]for pin in selected]
+        self.row_pins=selected
 
     def encode(self,value):return self.env.encoded(value)
     def save(self,path,value):
@@ -140,6 +162,20 @@ class ClosedRestartGraph:
             kind=r.instrumentation_kind(argv)
             self.save(self.root/'claims-v1'/(kind+'-v1.json'),r.claim_record(self.admission,self.s['caller'],kind,digest))
         return pin
+
+    def collection(self,remote,values,uid):
+        names=tuple(values);paths=[remote+'/'+name for name in names]
+        dirs=('workspace-v1','archive-staging')if remote.endswith('/original-author-proof-v1')else()
+        prefix=['run-as',r.APP,'--user','0']
+        self.add(prefix+['ls',remote],('\n'.join((*names,*dirs))+'\n').encode(),'sidecar-list')
+        hashes=''.join(hashlib.sha256(values[name]).hexdigest()+'  '+path+'\n'for name,path in zip(names,paths)).encode()
+        self.add(prefix+['sha256sum',*paths],hashes,'sidecar-hash')
+        stream=io.BytesIO()
+        with tarfile.open(fileobj=stream,mode='w')as archive:
+            for name,path in zip(names,paths):
+                item=tarfile.TarInfo(path);item.uid=uid;item.size=len(values[name]);archive.addfile(item,io.BytesIO(values[name]))
+        self.add(prefix+['tar','-cf','-',*paths],stream.getvalue(),'sidecar-tar')
+        self.add(prefix+['sha256sum',*paths],hashes,'sidecar-post-hash')
 
     def validate(self):
         return reader.verify_restart_prerequisite(self.prerequisite_pin,self.a,self.admission,self.running,self.s['caller'])

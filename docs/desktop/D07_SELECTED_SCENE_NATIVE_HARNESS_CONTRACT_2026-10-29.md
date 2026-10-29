@@ -397,3 +397,28 @@ legacy selected mode journey changes. Source-only contributions each stay below
 1MiB on D. Root owns registrations/integration; later production ownership and
 runtime admission will be claimed separately. This accepts interfaces and source
 FIRST allocation, not the app gate or whole D07.
+
+### Reply and mode refusal precision before FIRST freeze
+
+The scene-only actual prepare reply keeps existing top-level synthetic,
+protocol_version, paired_rows, rollout_rows, models_executed and scene_proof.
+Its fixture_inventory becomes exactly the bounded reference object with keys
+version, kind, sha256, source_protocol_version, file_count, entry_count and
+total_bytes. Constants are1, selected_scene_source_freeze_ref_v1 and4; sha256
+is the external freeze's raw-byte lowercase SHA256. All counts/bytes equal the
+validated full inventory. No source filename map appears in this reply, a stage
+report or checkpoint. Legacy prepare reply shapes remain unchanged. FIRST may
+require these exact reference keys and compare them with the retained freeze.
+
+The new-mode inventory keeps2048 hashed files/64MiB/depth8/8MiB-file limits
+independent of diagnostic environment flags, with an additional8192 total-entry
+ceiling counting directories and files. Freeze schema/count/byte/digest checks
+use checked arithmetic and strict duplicate rejection. This adds a bounded entry
+limit without increasing the existing file or byte allowance.
+
+A requested selected+scene combination that fails exact-mode checks must return
+Forbidden before diagnostic/legacy prepare or picker/consent dispatch. False
+exact-mode detection must never mean fallback into a producer. Preserve default
+selected1, selected+literal2 and standalone diagnostic reader behavior. Native
+FIRST can exercise the environment-free flag helper; actual entry guard wiring
+also requires source review and the later fixed application run.

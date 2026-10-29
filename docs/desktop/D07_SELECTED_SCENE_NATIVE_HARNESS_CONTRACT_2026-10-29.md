@@ -422,3 +422,65 @@ exact-mode detection must never mean fallback into a producer. Preserve default
 selected1, selected+literal2 and standalone diagnostic reader behavior. Native
 FIRST can exercise the environment-free flag helper; actual entry guard wiring
 also requires source review and the later fixed application run.
+
+### Accepted fixture identity and artifact accounting refinements
+
+Before journey implementation, public catalog/summary inspection demonstrated
+that paired and rollout selections at courier-05 can share scope and heads;
+their public projections intentionally omit source_binding. Use the smaller
+metadata-only fixture distinction accepted in issue comment6510724335: paired
+clicks courier-05/index4/right, rollout clicks courier-05/index4/left. Both still
+execute the exact original two-arm inputs at index4; no fixture/action changes.
+Restart requires exactly one rollout tuple and externally compares its actual
+reopenedRun/resumedRun with initial runRoles.rollout, not just membership. Initial
+runRoles also records actual paired/guard IDs; all three saved IDs/library bytes
+remain unchanged. No source guess, resume probe or new handoff/RPC is introduced.
+
+The existing app artifact writer now has an independently frozen private scene
+budget: fixed64MiB per process, checked reserved-byte sum before file opening,
+permanent failure and no refunds after attempted I/O. Legacy modes keep their
+original writer behavior. First I/O failure stays ArtifactWriteFailed; later
+writes, including zero bytes, return ArtifactWriteBudget. The seven independent
+tests precede this implementation. This bounds JSON/PNG/capture/report writes
+owned by HarnessState; it is not an atomic quota for browser profiles, SQLite,
+build products or the whole packet. Those retain child-boundary measurements.
+
+### Whole qualification baseline binding before launcher amendment
+
+Source review found that a launcher's base-only cumulative measurement can omit
+the shared packet, compatibility roots and provenance retained elsewhere. Its
+fresh target measurement also cannot reset the coordinator's original target
+baseline. Freeze this small development-only admission contract before adding
+the amendment's independent test and production change.
+
+For --scene, read only fixed basename
+selected-scene-budget-v1-<actual40hexGitRevision>.json under the already verified
+artifact base, before creating a new packet or launching a child. Bound it to
+4096bytes. Exact keys are version, kind, source_revision, target_path_sha256,
+original_target_bytes, external_evidence_bytes and cumulative_limit_bytes.
+Constants are1, selected_scene_budget_v1 and536870912. Integers must be safe,
+nonnegative and within their allowed caps; original target bytes cannot exceed
+the measured current target. Bind revision to actual clean Git and target hash
+to SHA256 of the verified target's lowercase resolved path encoded as UTF-8.
+Reject unknown, missing, duplicate or malformed fields; never create/repair this
+record or substitute a new current baseline. The coordinator writes it
+create-new after measuring all retained external qualification roots. It grants
+no execution/canonical permission and contains no path or command selector.
+
+Private checkedSceneBudget(bytes,revision,target,currentTargetBytes) returns
+only validated originalTargetBytes and externalEvidenceBytes. The launcher adds
+externalEvidenceBytes to existing base bytes before cumulative admission and
+every subsequent packet measurement; preserve the1MiB final-metadata reserve.
+The target-growth check uses originalTargetBytes. Additional per-run baselines
+may be recorded for diagnosis but cannot replace these qualification baselines.
+Retain the admission record hash in local proof. Default/literal behavior stays
+unchanged. No new environment/renderer request field, Tauri command, general file
+reader/server, shared storage owner or authorization mechanism is introduced.
+
+An independent source-first check will exercise this actual bounded decoder and
+actual measureStorage via disclosed VM doubles: exact revision/target binding,
+safe counts, duplicate/key/limit rejection, original-target growth, external+base+
+packet arithmetic, overflow/permanent latch and no subsequent work. Missing helper
+is setup/unrun. Existing155 policy oracles stay unchanged. Runtime admission still
+requires the coordinator's exact measured external roster and remaining512MiB
+budget; no historical failure is deleted or moved to regain allowance.

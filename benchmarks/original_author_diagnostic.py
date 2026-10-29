@@ -37,7 +37,7 @@ def _need(value, reason):
         raise DiagnosticRefused(reason)
 
 
-def _diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw):
+def _diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw, expected_prompt_version):
     value = p._object(p._json(raw, MAX_MANIFEST), ("version", "scope", "status", "reason", "feature_acceptance", "input_sha256", "author_proof_sha256", "capture", "files"))
     _need(type(value["version"]) is int and value["version"] == 1 and value["scope"] == "original_author_diagnostic_v1", "identity")
     _need(value["status"] == "completed" and value["reason"] is None and value["feature_acceptance"] is False, "incomplete")
@@ -78,7 +78,8 @@ def _diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw):
     for name in expected:
         p._binding((records if name in p.RECORDS else traces)[name], author_artifacts[name])
     if author["status"] == "completed":
-        p.validate_author(author_raw, author_artifacts, prior_import_raw)
+        p.validate_author(author_raw, author_artifacts, prior_import_raw,
+                          expected_prompt_version=expected_prompt_version)
     for name in ("input-v1.json", "generated-v1.json", "workspace-before-v1.json"):
         _need(name in author_artifacts and files[name] == author_artifacts[name], "binding")
     _need("begin-v1.json" in author_artifacts and set(p.TRACES) <= set(author_artifacts), "incomplete")
@@ -103,10 +104,12 @@ def _diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw):
     return value
 
 
-def validate_diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw):
+def validate_diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw, *,
+                        expected_prompt_version="initial-world-v1"):
     """Bind captured bytes/known trace observations; never qualify device or creation."""
     try:
-        return _diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw)
+        expected = p._expected_prompt_version(expected_prompt_version)
+        return _diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw, expected)
     except DiagnosticRefused:
         raise
     except p.ProofRefused as error:
@@ -115,10 +118,12 @@ def validate_diagnostic(raw, files, author_raw, author_artifacts, prior_import_r
         raise DiagnosticRefused("malformed") from None
 
 
-def validate_native_report(report_raw, raw, files, author_raw, author_artifacts, prior_import_raw):
+def validate_native_report(report_raw, raw, files, author_raw, author_artifacts, prior_import_raw, *,
+                           expected_prompt_version="initial-world-v1"):
     """Bind an independently executed native diagnostic; do not repeat engine rules."""
     try:
-        validate_diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw)
+        validate_diagnostic(raw, files, author_raw, author_artifacts, prior_import_raw,
+                            expected_prompt_version=expected_prompt_version)
         report = p._object(p._json(report_raw, MAX_MANIFEST), ("version", "scope", "input_sha256", "response_sha256", "input_bytes", "response_bytes", "status", "category", "error"))
         _need(type(report["version"]) is int and report["version"] == 1 and report["scope"] == "original_author_native_diagnostic_v1", "identity")
         for stem, name in (("input", "input-v1.json"), ("response", "response-v1.bin")):

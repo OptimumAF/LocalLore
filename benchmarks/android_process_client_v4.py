@@ -380,8 +380,9 @@ class _OwnedTargetSdkCapture:
             effective_ms = math.ceil(effective * 1000)
             started = self._now()
             deadline = started + effective
-            kind = self._contract.instrumentation_kind(operation["argv"])
-            if kind is not None:
+            if operation["argv"][:2] == ["am", "instrument"]:
+                kind = self._contract.instrumentation_kind(operation["argv"])
+                _need(kind in self._contract.CLAIM_KINDS, "claim")
                 self.lease.claim_once(kind, operation_sha)
                 self._fast_guard(deadline)
             # Dispatch is counted exactly once, immediately before the first

@@ -33,8 +33,21 @@ RUNNING_KEYS={'version','protocol','admission','run_id','root','owner','worker',
 SESSION_KEYS={'version','protocol','admission','running','descriptor','caller','sources','python','root','seconds','started_epoch','deadline_epoch'}
 CONTEXT_KEYS={'index','phase','label','operation_sha256','transport_id'}
 PROOF_KEYS={'version','protocol','session','context','admission','running','caller','endpoint','anchor','brackets',
- 'observation','tables','version_response_hex','devices_response_hex','after_request','elapsed_ms'}
+ 'observation','tables','version_response_hex','devices_response_hex','queries','after_request','elapsed_ms'}
+QUERY_BUNDLE_KEYS={'version','protocol','admission','running','caller','queries'}
+QUERY_KEYS={'kind','request_hex','response_hex','endpoint','anchor','brackets','observation_before','observation_after',
+ 'tables_before','tables_after','eof','socket_closed','elapsed_ms'}
 BRACKET_KEYS={'owner','worker','server','launcher','guest','sources','python','server_alive','guest_alive'}
+READY_KEYS={'version','protocol','admission','identities','guest_ancestry','guest_job','guest_observation','guest_tables','queries','sources','python'}
+JOB_KEYS={'version','protocol','worker','processes','identities','checked','source'}
+REQUEST_KEYS={'version','protocol','admission','validated_admission','owner','sources','python','worker_script','owner_seconds'}
+WORKER_KEYS={'version','protocol','admission','request','worker','server','launcher','guest','guest_ancestry','auth','preflight',
+ 'guest_preflight','readiness','ready','running','server_capture','guest_capture','server_returncode','guest_returncode',
+ 'reason','cleanup','sources_after','stop_requested','elapsed_ms','guest_job'}
+WORKER_KEYS|={'guest_inputs','guest_terminal','boot_claim'}
+CLEANUP_KEYS={prefix+suffix for prefix in('server_','guest_')for suffix in
+ ('terminate_attempted','wait_completed','process_handle_closed','pipes_closed','output_capture_complete')}|{
+ 'auth_handle_closed','process_handles_closed','preflight_sockets_closed','guest_preflight_sockets_closed','client_sockets_closed'}
 CLIENT_KEYS={'version','protocol','session','index','label','operation','operation_sha256','transport_id','status','returncode',
  'cleanup_complete','elapsed_ms','effective_deadline_ms','stdout','stderr','stdin_sha256','stdin_bytes','stdin_complete',
  'server_before','server_after','client_qualified','socket_closed','sender_joined','input_closed'}
@@ -234,7 +247,7 @@ def validate_observation(value,server,caller,endpoint,guest,after=False):
     _need(listen==1 and sr<=1 and cr<=1 and(after or sr==cr==1),'observation')
 
 
-def validate_guest_observation(value,guest,server):
+def _guest_observation(value,guest,server,complete):
     _process(guest);_process(server);listeners=set()
     for r in _rows(value,'ports',[5592,5593]):
         loop='127.0.0.1'if r['family']==2 else'::1';unspecified='0.0.0.0'if r['family']==2 else'::'
@@ -245,18 +258,34 @@ def validate_guest_observation(value,guest,server):
                 _need(r['pid']==guest['pid'],'identity')
             else:_need(r['local_port']==5593 and r['remote_address']==loop and r['remote_port']>0 and r['pid']in(0,guest['pid']),'identity')
         else:_need(r['remote_port']==5593 and r['remote_address']==loop and r['pid']in(0,server['pid'],guest['pid']),'identity')
-    _need((5592,2)in listeners and(5593,2)in listeners,'observation')
+    _need(not complete or(5592,2)in listeners and(5593,2)in listeners,'observation')
 
 
-def device_transport(raw):
-    _need(type(raw)is bytes and 0<len(raw)<=4096,'capability')
+def validate_guest_observation(value,guest,server):
+    return _guest_observation(value,guest,server,True)
+
+
+def validate_guest_prefix(value,guest,server):
+    return _guest_observation(value,guest,server,False)
+
+
+def device_status(raw):
+    _need(type(raw)is bytes and len(raw)<=4096,'capability')
+    if not raw:return 'empty',None
     try:lines=raw.decode('ascii').splitlines()
     except UnicodeError:raise TargetRefused('capability')from None
     _need(len(lines)==1,'capability');words=lines[0].split()
-    _need(len(words)>=3 and words[:2]==['emulator-5592','device'],'identity')
+    _need(len(words)>=2 and words[0]=='emulator-5592'and words[1]in('device','offline'),'identity')
     ids=[x[13:]for x in words[2:]if x.startswith('transport_id:')]
-    _need(len(ids)==1 and re.fullmatch('[1-9][0-9]*',ids[0])is not None,'identity')
-    result=int(ids[0]);_int(result,1,2**31-1,'identity');return result
+    _need(len(ids)<=1 and(not ids or re.fullmatch('[1-9][0-9]*',ids[0])is not None),'identity')
+    result=None if not ids else int(ids[0])
+    if result is not None:_int(result,1,2**31-1,'identity')
+    _need(words[1]!='device'or result is not None,'identity')
+    return words[1],result
+
+
+def device_transport(raw):
+    state,transport=device_status(raw);_need(state=='device'and transport is not None,'identity');return transport
 
 
 def validate_proof(value,session,context):
@@ -266,6 +295,8 @@ def validate_proof(value,session,context):
       type(context['label'])is str and re.fullmatch('[a-z][a-z0-9_-]{0,47}',context['label'])is not None,'binding')
     _need(type(context['operation_sha256'])is str and re.fullmatch('[0-9a-f]{64}',context['operation_sha256'])is not None,'binding')
     d=session['descriptor'];_need(type(context['transport_id'])is int and context['transport_id']==d['transport_id'],'identity')
+    binding(value['queries']);_need(PureWindowsPath(value['queries']['path'])==PureWindowsPath(session['root'])/'proofs'/
+      ('command-%04d-%s-queries-v1.json'%(context['index'],context['phase'])),'binding')
     binding(value['session']);_need(PureWindowsPath(value['session']['path'])==PureWindowsPath(session['root'])/'sdk-session-v4.json','binding')
     for key in('admission','running','caller'):_need(_same(value[key],session[key]),'binding')
     _need(value['after_request']is(context['phase']=='after'),'observation')
@@ -286,6 +317,83 @@ def validate_proof(value,session,context):
     data=bytes.fromhex(raw);_need(data[:4]==b'OKAY'and re.fullmatch(b'[0-9a-fA-F]{4}',data[4:8])is not None,'capability')
     _need(len(data)==8+int(data[4:8],16)and device_transport(data[8:])==d['transport_id'],'capability')
     _int(value['elapsed_ms'],0,15000,'budget');return copy.deepcopy(value)
+
+
+def _brackets(value,descriptor):
+    _obj(value,('before','after'),'identity')
+    for b in value.values():
+        _obj(b,BRACKET_KEYS,'identity')
+        for key in('owner','worker','server','launcher','guest','sources','python'):
+            _need(_same(b[key],descriptor[key]),'identity')
+        _need(b['server_alive']is True and b['guest_alive']is True,'identity')
+
+
+def validate_query_bundle(value,descriptor,caller,admission_binding,running_binding,*,require_device=True):
+    _need(type(require_device)is bool and(require_device or running_binding is None),'capability')
+    _obj(value,QUERY_BUNDLE_KEYS);_int(value['version'],1,1)
+    _need(value['protocol']==PROOF_PROTOCOL and _same(value['admission'],admission_binding)and
+          _same(value['running'],running_binding)and _same(value['caller'],caller),'binding')
+    _need(type(value['queries'])is list and len(value['queries'])==2,'capability')
+    transport=None
+    for q,kind,request in zip(value['queries'],('version','devices'),(b'000Chost:version',b'000Ehost:devices-l')):
+        _obj(q,QUERY_KEYS);_need(q['kind']==kind and q['request_hex']==request.hex(),'capability')
+        _obj(q['anchor'],('handle','socket_id','local_address','local_port'),'tuple')
+        for key in('handle','socket_id'):_int(q['anchor'][key],1,2**64-1,'tuple')
+        _need(q['anchor']['local_address']==q['endpoint']['local_address']and
+          type(q['anchor']['local_port'])is int and q['anchor']['local_port']==q['endpoint']['local_port'],'tuple')
+        _brackets(q['brackets'],descriptor)
+        for phase,after in(('before',False),('after',True)):
+            obs=q['observation_'+phase]
+            validate_observation(obs,descriptor['server'],caller,q['endpoint'],descriptor['guest'],after=after)
+            base._tables(q['tables_'+phase],obs)
+        _need(q['eof']is True and q['socket_closed']is True,'capability');_int(q['elapsed_ms'],0,3000,'budget')
+        raw=q['response_hex'];_need(type(raw)is str and re.fullmatch('[0-9a-f]+',raw)is not None and len(raw)<=8224,'capability')
+        data=bytes.fromhex(raw)
+        if kind=='version':_need(data==b'OKAY00040029','version')
+        else:
+            _need(data[:4]==b'OKAY'and re.fullmatch(b'[0-9a-fA-F]{4}',data[4:8])is not None,'capability')
+            _need(len(data)==8+int(data[4:8],16),'capability')
+            if require_device:transport=device_transport(data[8:])
+            else:_,transport=device_status(data[8:])
+    return transport
+
+
+def validate_guest_job(value,descriptor):
+    _obj(value,JOB_KEYS);_int(value['version'],1,1);_need(value['protocol']==PROTOCOL)
+    _need(value['checked']is True and value['source']=='QueryInformationJobObject(NULL,JobObjectBasicProcessIdList)','identity')
+    _need(_same(value['worker'],descriptor['worker']),'identity')
+    _obj(value['identities'],('worker','server','launcher','guest'),'identity')
+    pids=value['processes'];_need(type(pids)is list and 1<=len(pids)<=512,'identity')
+    for pid in pids:_int(pid,1,reason='identity')
+    _need(pids==sorted(set(pids)),'identity')
+    for key in('worker','server','launcher','guest'):
+        _need(_same(value['identities'][key],descriptor[key])and descriptor[key]['pid']in pids,'identity')
+    return copy.deepcopy(value)
+
+
+def validate_ready(value,descriptor,admission):
+    a=validate_admission(admission);_obj(value,READY_KEYS);_int(value['version'],1,1)
+    _need(value['protocol']==PROTOCOL and _same(value['admission'],descriptor['admission']),'binding')
+    _obj(value['identities'],('owner','worker','server','launcher','guest'),'identity')
+    for key in value['identities']:_need(_same(value['identities'][key],descriptor[key]),'identity')
+    _need(_same(value['guest_ancestry'],descriptor['guest_ancestry'])and
+      _same(value['sources'],a['sources'])and _same(value['python'],a['python']),'source')
+    for key in('guest_job','queries'):binding(value[key])
+    root=PureWindowsPath(a['root'])
+    _need(PureWindowsPath(value['guest_job']['path'])==root/'guest-job-v1.json'and
+          PureWindowsPath(value['queries']['path'])==root/'target-registration-v1.json','binding')
+    validate_guest_observation(value['guest_observation'],descriptor['guest'],descriptor['server'])
+    base._tables(value['guest_tables'],value['guest_observation'])
+    return copy.deepcopy(value)
+
+
+def validate_claim(value,admission_binding,caller,kind,operation_sha256):
+    _obj(value,('version','protocol','admission_sha256','kind','operation_sha256','caller'))
+    _int(value['version'],1,1);_need(value['protocol']==PROTOCOL and kind in('import','author'),'binding')
+    _need(value['admission_sha256']==admission_binding['sha256']and value['kind']==kind and
+          value['operation_sha256']==operation_sha256 and _same(value['caller'],caller),'binding')
+    _need(type(operation_sha256)is str and re.fullmatch('[0-9a-f]{64}',operation_sha256)is not None,'binding')
+    return copy.deepcopy(value)
 
 
 def validate_client_record(value,session):
@@ -332,6 +440,9 @@ def revalidate_inputs(admission):
     a=validate_admission(admission);base.revalidate_inputs(a['server'])
     _need(_same(a['sources'],source_bindings())and _same(a['python'],probe._python_bindings()),'source')
     for pin in a['sources']+[a['compatibility']]+[a['guest'][k]for k in('proposal','authorization','emulator','qemu','refuser','refuser_source')]:env.check_binding(pin)
+    root=Path(__file__).resolve().parents[1]
+    _need(_same(a['guest']['refuser_source'],env.binding(root/'benchmarks/native/deny_adb_client.c'))and
+          _same(a['artifacts']['probe'],env.binding(root/'benchmarks/fixtures/physical_model_probe_v1.txt')),'source')
     # Large model/APK byte hashing belongs to explicit build/transfer gates, not
     # every streaming liveness poll. No credential bytes enter this function.
     return None

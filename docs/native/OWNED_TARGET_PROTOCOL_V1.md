@@ -64,7 +64,8 @@ Source-verified emulator `ANDROID_ADB_SERVER_PORT=15937` confines automatic
 never a second127.0.0.1:5593 alias. No manual generic TCP registration. Strip all
 inherited ADB/ANDROID aliases; retain direct transport exclusions and physical D
 AVD/user/emulator/cache/temp locations. Freeze headless/no snapshots/no metrics,
-test.quitAfterBootTimeOut=0 and approved8GiB/four-core profile. Set `-adb-path`
+test.quitAfterBootTimeOut disabled (actual installed default-1, or explicit0),
+no -quit-after-boot argument, and approved8GiB/four-core profile. Set `-adb-path`
 to a pinned D native refuser which unconditionally returns64 and performs no
 process/network/file action. Do not select `-no-direct-adb`. Official headless
 pre-override source paths permit offline adb-version/raw host-version probes
@@ -189,3 +190,32 @@ never substitute the launcher's PID for endpoint ownership.
 the entire source/session/context/proof/raw graph and exact roster, not a
 caller flag. Old SDK2/3 and model proofs remain unchanged. Current app proof
 bytes receive separate original native/canonical validators after SDK4 coverage.
+
+The explicit proof `queries` binding points at sibling
+`command-NNNN-{before,after}-queries-v1.json`. Bundle exactly
+`{version:1,protocol,admission,running,caller,queries:[version,devices]}`. Each
+query exactly `kind,request_hex,response_hex,endpoint,anchor,brackets,
+observation_before,observation_after,tables_before,tables_after,eof,
+socket_closed,elapsed_ms`; both actual sockets are guarded, closed and bounded3s.
+Full replay checks query hex against the main proof. Startup registration alone
+uses running:null; explicit waiting prefixes are empty or sole owned emulator
+offline, never a foreign/unauthorized/duplicate row. Final SDK proofs require
+one exact device transport and the actual running binding.
+
+Each instrumentation attempt first consumes create-only
+`admission.root/claims-v1/{import,author}-v1.json`, exactly version/protocol/
+admission_sha256/kind/operation_sha256/caller. A refused attempt stays spent;
+another client session cannot repeat it. A separate create-only guest-root
+`owned-target-boot-claim-v1.json` binds version/protocol/admission/worker/proposal
+immediately before sole launch after rechecking initial prepared state.
+
+Worker result and15 cleanup booleans are the exact WORKER_KEYS/CLEANUP_KEYS in
+the shared module. Guest VM cleanup uses its actual held termination handle,
+wait/exit measurement and checked close before waiting/closing the launcher and
+then stopping the server. It does not use a PID string or assume launcher exit
+means qemu exited. `guest_terminal` binds version/protocol/guest/
+terminate_attempted/wait_completed/returncode/handle_closed. Parent's final own
+job closure covers remaining descendants; no claim is made that every helper
+exited before server cleanup. Startup current-job membership is measured in
+`guest_job`; a later observer in another job rechecks identities/ancestry/ports,
+not a falsely claimed same-job query.

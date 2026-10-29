@@ -1,7 +1,8 @@
 //! Protocol4 scene narration comparison over the existing owners.
-//! Native execution requires its trusted lease entry; selected/UI and CLI
-//! native execution remain unavailable pending their separate integration.
+//! Native execution requires its trusted lease entry. Native selected execution,
+//! desktop selected integration and CLI native execution remain unavailable.
 pub mod desktop_api;
+pub mod selected_v3;
 use super::*;
 #[cfg(test)]
 mod narration_diagnostic_companion_review_tests;

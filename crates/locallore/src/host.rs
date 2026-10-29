@@ -310,7 +310,9 @@ struct HostNarrationValidationReplyV1<'a> {
 #[serde(tag = "status", rename_all = "snake_case")]
 enum HostNarrationValidationResultV1 {
     Unavailable,
-    Recorded { decision: HostNarrationValidationDecisionV1 },
+    Recorded {
+        decision: HostNarrationValidationDecisionV1,
+    },
 }
 #[derive(Serialize)]
 struct HostNarrationValidationDecisionV1 {
@@ -326,7 +328,9 @@ impl HostNarrationValidationDecisionV1 {
             return None;
         }
         let (outcome, error, reason) = match (
-            diagnostic.outcome(), diagnostic.error(), diagnostic.reason(),
+            diagnostic.outcome(),
+            diagnostic.error(),
+            diagnostic.reason(),
         ) {
             (Outcome::Accepted, None, None) => ("accepted", None, None),
             (Outcome::Cancelled, Some(ErrorCategory::Cancelled), None) => {
@@ -339,9 +343,15 @@ impl HostNarrationValidationDecisionV1 {
             (Outcome::Rejected, Some(ErrorCategory::Narration), Some(Reason::SceneFirstPerson)) => {
                 ("rejected", Some("narration"), Some("scene_first_person"))
             }
-            (Outcome::Rejected, Some(ErrorCategory::Narration), Some(Reason::SceneUnapprovedMovement)) => {
-                ("rejected", Some("narration"), Some("scene_unapproved_movement"))
-            }
+            (
+                Outcome::Rejected,
+                Some(ErrorCategory::Narration),
+                Some(Reason::SceneUnapprovedMovement),
+            ) => (
+                "rejected",
+                Some("narration"),
+                Some("scene_unapproved_movement"),
+            ),
             (Outcome::Rejected, Some(error), None) => {
                 let code = match error {
                     ErrorCategory::Malformed => "malformed",
@@ -369,7 +379,12 @@ impl HostNarrationValidationDecisionV1 {
             }
             _ => return None,
         };
-        Some(Self { version: 1, outcome, error, reason })
+        Some(Self {
+            version: 1,
+            outcome,
+            error,
+            reason,
+        })
     }
 }
 fn narration_validation_read_error(error: turn_trace::ReadError) -> Value {
@@ -1074,7 +1089,10 @@ impl Host {
             }
             // This new private read must refuse before State/admission/storage,
             // including get_session's existing NotFound retirement behavior.
-            if matches!(&envelope.command, HostCommand::TraceNarrationValidationReadV1 { .. }) {
+            if matches!(
+                &envelope.command,
+                HostCommand::TraceNarrationValidationReadV1 { .. }
+            ) {
                 output_limit = MAX_NARRATION_VALIDATION_REPLY_V1;
                 if !self.story_lab {
                     return reject("Forbidden");
@@ -1271,7 +1289,11 @@ impl Host {
             }
             match command {
                 HostCommand::TraceNarrationValidationReadV1 {
-                    session, base_revision, turn, attempt, ..
+                    session,
+                    base_revision,
+                    turn,
+                    attempt,
+                    ..
                 } => {
                     let attempt = u32::try_from(*attempt).map_err(|_| reject("InvalidRequest"))?;
                     let selection = Selection {
@@ -1315,7 +1337,9 @@ impl Host {
                         generation_grant: false,
                         result,
                     };
-                    Ok(ok(serde_json::to_value(data).map_err(|_| reject("Internal"))?))
+                    Ok(ok(
+                        serde_json::to_value(data).map_err(|_| reject("Internal"))?
+                    ))
                 }
                 HostCommand::TraceCaptureConfigure {
                     enabled, consent, ..

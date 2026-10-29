@@ -1,7 +1,7 @@
 # Native narration diagnostic retention: partial qualification
 
 2026-10-29. Refs #29 **D07.04**; supports #9 **M05.03/M05.04**.
-**Implemented; focused and scoped compatibility checks measured; broad checks pending.**
+**Implemented; focused, portable and development native checks measured.**
 Measured source: `ea8bdc2a6f4d165feca9c30807f55893995c33a3`.
 This is a native in-memory collector slice, not full cause reporting, task
 acceptance, model-quality qualification, device evidence or merge authority.
@@ -29,8 +29,8 @@ including after Failed/Cancelled/Stale finish. That decision is not relabeled
 as final commit or fallback. Clear, disable/re-enable, owner cleanup/retirement,
 eviction and stale opaque handles cannot revive a slot.
 
-Frozen tests require the Option payload to be at most32 bytes and at most1,024
-bytes across the existing32-attempt ceiling. Existing24-stage/65,536-byte
+Frozen tests require the Option payload to be at most 32 bytes and at most 1,024
+bytes across the existing 32-attempt ceiling. Existing 24-stage/65,536-byte
 serialized budgets and trace-v1 keys remain unchanged. There is no new registry,
 owner, history, persistence, Serde field, capture kind, PlayRecord/Report4 field,
 provider/validator/cancellation pass or permission. Scoped native readers still
@@ -101,14 +101,37 @@ Cargo cache, targets and local records reside on D:. The documentation author
 performed source and bounded record reads plus Git checks only, with no compiler,
 formatter, Cargo, Node, browser, app, model/assets, device or desktop execution.
 
-## Pending gates and next step
+## Completed broad checks and additive follow-up
 
-At this freeze the coordinator's serialized portable-workspace/development-native
-sequence is in progress. Neither completed process record exists yet; both broad
-results remain pending here. No prior Phase1 suite result is relabeled as a
-Phase2 rerun. Independent source/evidence review and later qualification updates
-remain Root-owned. Android host compilation is not an Android ABI/device run;
-these Rust tests are not native IPC/WebView rendering or model inference.
+At clean, unchanged `ea8bdc2a`, the serialized sequence completed:
+
+| Check | Actual result | Command duration |
+| --- | --- | --- |
+| Portable workspace excluding desktop | 1,039 passed, 0 failed, 11 ignored; 142 result groups | 521.2777656s |
+| Development native suite | 282 unit + 2 contract passed, 0 failed, 11 ignored | 741.7206960s; 700.22s unit test time |
+
+```text
+cargo test --workspace --exclude locallore-desktop-spike --all-features --locked --offline --target-dir <owned-D-target> -- --test-threads=1
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --target-dir <owned-D-target> -- --test-threads=1
+```
+
+Independent production source review at `ea8bdc2a` found no blocker. The reviewer
+then authored additive test `d99d1222`, integrated as `4c88b92c`: a matching
+validation stage followed by another stage must refuse a first diagnostic write;
+a new matching tail can then record it. This is an after-implementation follow-up,
+not part of the original FIRST freeze or a behavioral RED. Root's byte-prefix
+proof preserves all original 37,623 bytes and ten tests exactly. New source SHA256:
+`3b5c686b2aad2e04f0098aad3647b2488f1bf53709f033810f3abf46ee36d8db`.
+The eleven-test source is integrated, but its execution and final normal-native
+build/lint checks remain pending at this update. Production is unchanged.
+
+An initial derived portable summary rounded duration through implicit DateTime
+string conversion. The retained corrected summary uses exact original ISO8601
+timestamps; original process/log and counts are unchanged. No prior Phase1 result
+is relabeled as a Phase2 rerun. Android host compilation is not an Android
+ABI/device run; these Rust native-component tests are not native IPC/WebView
+rendering or model inference. Frontend code is unchanged; Phase1's frontend and
+actual retained WebView evidence keep their original source attribution.
 
 Local `d07-narration-retention-*-process.json`/logs and the format-equality record
 retain bounded evidence. Private absolute paths and raw model material stay out
@@ -119,7 +142,8 @@ unchanged.
 
 Host/Eval/IPC/wire/UI retention or display requires separate contracts and
 claims. Historical absent causes stay Unavailable. Full M05.03/M05.04 and D07.04
-remain in progress and unchecked. Next: Root records completed broad results,
-obtains independent review and prepares the focused retention PR stacked above
-the Phase1 [PR #251](https://github.com/OptimumAF/LocalLore/pull/251) dependencies.
+remain in progress and unchecked. Next: Root records the final focused/build
+checks, obtains independent evidence review and updates the existing
+[PR #253](https://github.com/OptimumAF/LocalLore/pull/253), stacked above the
+Phase1 [PR #251](https://github.com/OptimumAF/LocalLore/pull/251) dependencies.
 This document authorizes no merge, release or acceptance of that stack.

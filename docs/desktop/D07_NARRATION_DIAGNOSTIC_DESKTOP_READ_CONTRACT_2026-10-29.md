@@ -622,3 +622,51 @@ no owner and retained0 are not independent SDK-load telemetry. No real asset,
 publication, import/copy/link/load/reservation, original cohort or protected
 resource is needed. No desktop input/control/capture, unrelated app automation,
 network/debug server, new OS-isolation probe or release/settings change.
+
+## Independent reader policy FIRST source freeze — 2026-10-29
+
+Claim: [#29 comment6502148704](https://github.com/OptimumAF/LocalLore/issues/29#issuecomment-6502148704).
+D07.04/D07.06 is in_review, with this author's two-path ownership released at
+handoff. Branch `test/d07-narration-diagnostic-reader-policy-first-v1` starts at
+accepted `70aceb728ff0b8f63428bffb8febeef472b66501` in the released physical-D
+Reader checkout. This append preserves the entire preceding contract byte prefix.
+
+Only NEW `apps/desktop/comparison-reader-process-policy-check.mjs` and this
+handoff append change. The 218-line original checker SHA256 is
+`a5b61e581ed6f3a3c50505f4d70502fc47bac7669836052fb9f7f57c0bc6271f`.
+The source-enumerated roster has 61 checks in eight bounded groups:
+
+1. All 27 absent/0/1 selector, Scene and Literal combinations; disabled mode
+   leaves the launcher's existing legacy exclusivity policy in place.
+2. Nine malformed new selector values refuse.
+3. Twelve malformed enabled-mode prerequisite values refuse.
+4. Three single case aliases work; six equal/conflicting duplicate aliases refuse.
+5. Complete case-insensitive LOCALLORE namespace stripping, including mixed-case
+   model roots; unrelated tool settings and the frozen input remain unchanged.
+6. No inherited D02/reader prerequisite: the launcher owns their fixed child flags.
+7. The one actual selector call and marked helper block precede packet creation
+   and builds, rather than leaving a correct unused helper beside unsafe setup.
+8. The actual existing run function and initial/restart call site execute only
+   inside a trusted-source VM with fake children, writes and timers. Assert both
+   exact child namespaces, explicit zero modes, hidden/no-shell launch options,
+   owned workspace/artifact/restart values and absence of inherited model roots.
+
+The checker extracts only the accepted `reader-policy-v1:start/end` block and
+existing `run`/`inventory` and fixed initial/restart call-site boundaries. No new
+helper/marker/API is required. The fake context supplies the local new-mode name
+`diagnosticMode`, plus existing `sceneMode`/`literalMode`. It imports no launcher,
+spawns no OS child, performs no artifact writes or model/path probe and waits on
+no actual timer. VM input is repository source, not a renderer execution endpoint.
+Actual native shutdown's absent task-owned candidate probe remains a separate
+accepted limitation; this policy simulation does not measure SDK-load activity.
+
+Author verification is limited to source inspection, path/scope and SHA256,
+original document-prefix equality and Git whitespace checks. **UNCOMPILED / UNRUN**:
+no Node, syntax checker, formatter, compiler/Cargo, app/browser/native IPC/render,
+model/assets/device/desktop or OS probe. Helpers are absent at this freeze; this
+is SETUP, not behavioral RED. No test pass, native safety or acceptance is claimed.
+Root retains the original freeze, implements separately and later runs
+`node apps/desktop/comparison-reader-process-policy-check.mjs` from the physical-D
+repository with TEMP/TMP on D:/Dev/_Temp. No registration or product source changes
+are included. Existing fixture/capture, byte preservation, error provenance,
+quality/dependency and merge gates remain unchanged.

@@ -69,6 +69,16 @@ const ADDITIONAL_CASES: &[&str] = &[
     "disabled-other-harness",
 ];
 
+// Additive first freeze at 5145c5fa: ordinary metadata only, never model files.
+const BOUNDARY_CASES: &[&str] = &[
+    "casefold-lower-memory-harness",
+    "casefold-mixed-legacy-harness",
+    "casefold-mixed-test-storage-failure",
+    "publication-contains-output",
+    "publication-inside-output",
+    "publication-disjoint-output",
+];
+
 #[derive(Debug, PartialEq, Eq)]
 enum Entry {
     Directory,
@@ -203,7 +213,7 @@ fn case_alias(path: &Path) -> PathBuf {
 
 #[test]
 fn retained_review_profile_matrix_is_pure_and_child_environment_is_isolated() {
-    for case in CASES.iter().chain(ADDITIONAL_CASES.iter()) {
+    for case in CASES.iter().chain(ADDITIONAL_CASES.iter()).chain(BOUNDARY_CASES.iter()) {
         let fixture = Fixture::new();
         let old_root = fixture.workspace.parent().unwrap();
         let mut workspace = fixture.workspace.clone();
@@ -219,7 +229,7 @@ fn retained_review_profile_matrix_is_pure_and_child_environment_is_isolated() {
             "--test-threads=1",
         ]);
         for (key, _) in std::env::vars_os() {
-            if key.to_string_lossy().starts_with("LOCALLORE_") {
+            if key.to_string_lossy().to_ascii_uppercase().starts_with("LOCALLORE_") {
                 command.env_remove(key);
             }
         }
@@ -361,6 +371,30 @@ fn retained_review_profile_matrix_is_pure_and_child_environment_is_isolated() {
             "disabled-other-harness" => {
                 command.env("LOCALLORE_UNRECOGNIZED_HARNESS", "0");
             }
+            "casefold-lower-memory-harness" => {
+                command.env("locallore_m07_memory_harness", "1");
+            }
+            "casefold-mixed-legacy-harness" => {
+                command.env("LoCaLlOrE_m07_LeGaCy_HaRnEsS", "1");
+            }
+            "casefold-mixed-test-storage-failure" => {
+                command.env("LoCaLlOrE_TeSt_StOrAgE_FaIlUrE", "1");
+            }
+            "publication-contains-output" | "publication-inside-output" | "publication-disjoint-output" => {
+                let publication = if *case == "publication-inside-output" {
+                    fixture.new_root.join("synthetic-publication")
+                } else {
+                    fixture.outer.join("synthetic-publication")
+                };
+                fs::create_dir(&publication).unwrap();
+                fs::write(publication.join("metadata-sentinel.txt"), b"synthetic-directory-only-not-a-model").unwrap();
+                if *case == "publication-contains-output" {
+                    let nested_output = publication.join(fixture.new_root.file_name().unwrap());
+                    fs::create_dir(&nested_output).unwrap();
+                    output = nested_output.join("review");
+                }
+                command.env("LOCALLORE_D04_MODEL_ROOT", publication);
+            }
             "missing-output" | "safe-fresh-d-output" => {}
             _ => unreachable!(),
         }
@@ -450,7 +484,8 @@ fn retained_review_profile_matrix_is_pure_and_child_environment_is_isolated() {
 #[ignore = "fixed child only; parent supplies an isolated synthetic environment"]
 fn fixed_review_profile_case_child() {
     let case = std::env::var(CASE_ENV).unwrap();
-    assert!(CASES.contains(&case.as_str()) || ADDITIONAL_CASES.contains(&case.as_str()));
+    assert!(CASES.contains(&case.as_str()) || ADDITIONAL_CASES.contains(&case.as_str())
+        || BOUNDARY_CASES.contains(&case.as_str()));
     let outer = PathBuf::from(std::env::var_os(ROOT_ENV).unwrap());
     let argument = PathBuf::from(std::env::var_os(ARG_ENV).unwrap());
     let new_root = PathBuf::from(std::env::var_os(NEW_ENV).unwrap());
@@ -463,6 +498,36 @@ fn fixed_review_profile_case_child() {
         inventory(&outer),
         "helpers must not create, write or remove files: {case}"
     );
+    if BOUNDARY_CASES.contains(&case.as_str()) {
+        assert!(review_requested());
+        if case.starts_with("casefold-") {
+            let key = match case.as_str() {
+                "casefold-lower-memory-harness" => "LOCALLORE_M07_MEMORY_HARNESS",
+                "casefold-mixed-legacy-harness" => "LOCALLORE_M07_LEGACY_HARNESS",
+                "casefold-mixed-test-storage-failure" => "LOCALLORE_TEST_STORAGE_FAILURE",
+                _ => unreachable!(),
+            };
+            assert_eq!(std::env::var(key).as_deref(), Ok("1"),
+                "Windows resolves the injected alias through the ordinary uppercase lookup");
+            assert!(!active, "environment-name aliases must not bypass review conflicts");
+            assert!(first.is_err() && second.is_err());
+        } else {
+            assert!(active, "optional metadata publication does not change the flag predicate");
+            assert!(std::env::var_os("LOCALLORE_D04_MODEL_ROOT").is_some());
+            if case == "publication-disjoint-output" {
+                let expected = new_root.join("webview-profile");
+                assert_eq!(first.unwrap(), expected);
+                assert_eq!(second.unwrap(), expected);
+                assert!(!expected.exists());
+                assert!(!new_root.join("review").exists());
+                assert!(!argument.exists());
+            } else {
+                assert!(first.is_err() && second.is_err(), "output/publication overlap must refuse in either direction");
+            }
+        }
+        println!("fixed-retained-review-profile-case:{case}:pure");
+        return;
+    }
     if ADDITIONAL_CASES.contains(&case.as_str()) {
         assert!(
             review_requested(),

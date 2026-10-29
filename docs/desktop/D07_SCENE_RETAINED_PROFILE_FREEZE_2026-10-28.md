@@ -187,3 +187,82 @@ exercises the two pure tests. These commands remain UNRUN by this author.
 No Node/Cargo/formatter, build/app, model/assets, phone or desktop action was
 performed. Root must retain setup failures, actual before/after measurements
 and all D09 probe restrictions while advancing the narrow production fix.
+
+## Additive environment-alias and publication/output boundary freeze
+
+Frozen from exact `5145c5fac7e80bea36e6b112f7c6660a3128348f`, before Root's
+next production correction. **SOURCE ONLY, UNRUN, UNCOMPILED AND UNFORMATTED.**
+This section does not replace the 24 original cases, the 14 later cases, their
+assertions, the two simulated metadata tests or the 16 original process-policy
+cases. Prior measured success applies only to its exact source and old scope.
+
+Six new native child cases extend the same ordinary-fixture matrix to 44:
+
+- Lowercase M07 memory and mixed-case M07 legacy harness names, plus a mixed-case
+  storage-failure test flag, must resolve through their uppercase Windows env
+  lookup yet refuse review activation/profile access. Each child first checks
+  the alias actually resolves, so a missing test input cannot manufacture a pass.
+- With optional native `LOCALLORE_D04_MODEL_ROOT` supplied, a synthetic
+  publication containing the output root and a publication nested inside the
+  output root must both refuse. A disjoint publication is a positive control.
+  All three publication fixtures are ordinary fresh D: directories containing
+  only a small `metadata-sentinel.txt`, never a model/worker basename or bytes.
+
+The original 38 fixtures leave that optional model-root input absent, preserving
+their API and assertions. The native child-command scrub now normalizes env
+names before removing inherited `LOCALLORE_*` aliases; it never changes the
+parent environment. All new cases retain complete directory/file-byte before/
+after comparisons. No profile is created, and no app or seed path is invoked.
+Root owns native publication ancestry pinning/canonical disjointness and Main's
+pre-setup refusal; the tests do not add model validation or an SDK owner.
+
+The Node checker freezes two private pure helpers in
+`comparison-run-harness.mjs`:
+
+```javascript
+// BEGIN SCENE STORAGE/ENVIRONMENT HELPERS.
+function sceneStorageDisjoint(left, right) { /* Root implementation */ }
+function sceneReviewEnvironment(env) { /* Root implementation */ }
+// END SCENE STORAGE/ENVIRONMENT HELPERS.
+```
+
+The marker block contains pure helpers/support only, with no filesystem,
+process or ambient environment access. The existing local checker evaluates
+that exact bounded block in its existing isolated test context. Missing
+markers/functions are reported as `boundary_setup_failure`, not behavioral RED;
+the existing 16 process-policy cases remain separate. No general execution
+hook or remote debugging service is added to the product.
+
+Five additive Node groups require:
+
+1. Bidirectional Windows path disjointness across nine supplied string pairs:
+   equal/case-alias paths, both nesting directions, a prospective not-yet-created
+   output beneath publication, independent siblings, a common-prefix neighbor
+   and normalized dot/separator spelling. These are strings, not link probes.
+2. A fresh environment copy with **all** case-insensitive `LOCALLORE_*` keys
+   removed, unrelated keys retained and the original frozen input unchanged.
+3. The exact existing `runScene` source uses that sanitizer before explicit
+   review flags are applied. Only simulated children and captured env objects
+   are used; inherited alias flags cannot reach the fake build/app slot.
+4. A hoisted `async validateScenePacketStorage(folder)` is actually awaited as
+   `validateScenePacketStorage(scenePacketFolder)` immediately before the first
+   packet mkdir and before initial revision Git. This source-order assertion
+   prevents a refusal check added after publication was already written.
+5. The pure helper source block contains no filesystem/child actions or
+   `process.env` access. The async read-only preflight is outside that block.
+
+Root implements the actual preflight and bidirectional publication/output
+refusal before any packet/log/profile creation, then independently reviews its
+caller wiring. Pure relation tests and source-order checks do not by themselves
+prove all filesystem races or all startup behavior. The checker retains its
+original process-policy counters and reports the five new groups separately;
+setup gaps make its overall result unsuccessful without being called RED.
+
+No author Node/Cargo/formatter/build/app, approved asset/model/SDK/profile,
+phone or desktop operation occurred. No symlink, junction, reparse canary,
+dangling object or new C: fixture was created. Actual future commands are the
+same native matrix filter (now 44 cases), the two existing metadata-unit filter,
+and `node apps/desktop/comparison-run-process-policy-check.mjs` from the physical
+D: checkout. They remain UNRUN by this author. Root must preserve old failure
+records, run only the safe ordinary/simulated tests, and keep later native
+retained-review/render acceptance distinct.

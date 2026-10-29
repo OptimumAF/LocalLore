@@ -71,3 +71,31 @@ remain in their original locations.
 Android execution, complete restart proof, real-model/physical/ARM64 performance
 and full app journeys remain separate gates. The other emulator, shared ADB
 service and system settings remain untouched. No merge or release occurs.
+
+## Frozen-source host verification
+
+Actual executable/build source is
+`778f6f78d94b323b3b12f73c6def3e92bb1254a0`, kept clean in
+`D:/Worktrees/LocalLore-m10-buffered-build-v1` on
+`build/m10-buffered-restart-frozen-v1`. Its own raw checkout has **2,232 tracked
+files / 985 compiled-prefix entries**. No cross-worktree newline normalization,
+tracked alignment or old generated native-library copy was applied.
+
+Full Python discovery from that physical worktree passes **2,269 unique tests**,
+zero failures/errors/skips/exclusions. The finite owner exits 0 in **439,104 ms**,
+with known cleanup/capture and empty stderr. All 2,232 source hashes stay stable;
+covered Python auditing records zero forbidden IO attempts and eight separate
+exact standard-library null-sink opens. The audit is not an OS/native sandbox.
+
+With process-local `TEMP`, `TMP`, `TMPDIR=D:\Dev\_Temp`, the exact command is:
+
+```powershell
+python -I -S -B D:/Dev/Experiments/LocalLore/2026-10-29-buffered-restart-admission-v1/check-host-v1.py all frozen-full-host-v1
+```
+
+Fixture runner SHA256:
+`ba9f5350facf9dfa60a36cf6dc81e5e9eb5e94eee43f194e87cd5f9d832a6ca2`.
+Actual full result SHA256:
+`7210514f130559515d1686bc4153a0f43312dac3bfde4efa24649e9484cec19b`.
+This later verification text is not substituted into the frozen source or its
+build/admission bindings. No runtime outcome follows from a host-suite pass.

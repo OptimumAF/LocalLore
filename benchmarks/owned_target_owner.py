@@ -19,6 +19,7 @@ import re
 import socket
 import subprocess
 import sys
+import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -193,6 +194,7 @@ class LiveOwnedTarget:
         self._api = None
         self._handles = None
         self._last_time = None
+        self._clock_lock = threading.Lock()
         try:
             _need(os.name == "nt", "platform")
             self._admission_binding = copy.deepcopy(admission_binding)
@@ -241,10 +243,11 @@ class LiveOwnedTarget:
 
     def fast_guard(self):
         _need(not self._closed, "closed")
-        current = time.monotonic()
-        _need(type(current) in (int, float) and math.isfinite(current) and
-              (self._last_time is None or current >= self._last_time) and current < self._deadline, "deadline")
-        self._last_time = current
+        with self._clock_lock:
+            current = time.monotonic()
+            _need(type(current) in (int, float) and math.isfinite(current) and
+                  (self._last_time is None or current >= self._last_time) and current < self._deadline, "deadline")
+            self._last_time = current
         wall = time.time()
         _need(self._descriptor["started_epoch"] <= wall < self._descriptor["deadline_epoch"], "deadline")
         self._handles.guard()

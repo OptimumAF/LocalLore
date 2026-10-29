@@ -212,6 +212,16 @@ export function TurnDebugger({
                         Cancel metadata read locally
                     </button>
                 </div>
+                {!query && session && play && (
+                    <p className="scope">
+                        Local selection · story {play.scope.story} · branch{" "}
+                        {play.scope.branch} · session {session.id}
+                        {" · "}displayed head r{play.revision} · selected basis
+                        r{t.baseRevision} · turn{" "}
+                        {selected?.identity.turn ?? "none"} · attempt{" "}
+                        {selected?.identity.attempt ?? "none"} · {lens}
+                    </p>
+                )}
                 {query && (
                     <p className="scope">
                         Story {query.scope.story} · branch {query.scope.branch}{" "}

@@ -1,13 +1,16 @@
-# Protocol4 desktop reader: partial qualification and retained failures
+# Protocol4 desktop reader: native qualification and retained failures
 
-2026-10-27. Refs #29 D07.06, supporting #25 D04.04. **In review; native
-cohort gate FAILED and remains open.** This draft records the integrated delta
+2026-10-27. Refs #29 D07.06, supporting #25 D04.04. **In review; the bounded
+two-stage reader cohort passes at `8af4f9f9`.** This draft records the integrated delta
 from owned base `939a6f8e80b1efa8dc599ad3b2b7734ee1494d9b` through
-`97106af761bb4f26354a3b484be89e36fc7f29d9`. Native Rust controls and frontend
-decoder/regressions pass at the sources below. Both attempted application
-cohorts failed; the second produced14 individually inspected initial images,
-no finished image and no restart stage. Neither cohort qualifies the planned
-two-stage native journey. The original eight-sample human judgment remains
+`8af4f9f92354c7d76309909dc3c5027e0f64bd22`. Native Rust controls and frontend
+decoder/regressions retain their exact source attribution below. The first two
+application cohorts failed and remain unchanged; the second produced14 initial
+images and no restart stage. The third passes 137 checks in each stage and
+produces 30 individually reviewed application-owned native WebView images.
+This qualifies the fixed reader journey, not the whole D07 milestone, native
+Protocol4 comparison execution, installed assets or release. The original
+eight-sample human judgment remains
 **needs improvement**. No new model inference or prose-quality result exists.
 
 ## Implemented scope and authority
@@ -76,6 +79,8 @@ unchanged source. Local evidence is under gitignored
 | d07-scene-reader-harness-first-rustfmt1 | 9868de4f | Rust format PASS; exit0 | 3.3528041 |
 | d07-scene-reader-diagnostics-frontend1 | 97106af7 | full frontend PASS; exit0 | 17.9810746 |
 | d07-scene-reader-diagnostics-clippy1 | 97106af7 | strict native Clippy PASS; exit0 | 10.6376864 |
+| d07-capture-session-close-final-frontend1 | 8af4f9f9 | full frontend, including unchanged five capture-close checks PASS; exit0 | 17.8190379 |
+| d07-scene-reader-native-cohort-third1 | 8af4f9f9 | actual initial137 +restart137 checks PASS; exit0 | 261.0713470 |
 
 The native8 controls are Rust manager/actual shared Store tests, **not Tauri
 IPC/WebView execution**. They cover version4 data, observer edges/receipt,
@@ -199,14 +204,151 @@ is retained in actual summary metadata; it is not inferred from a passed row.
 | comparison-rollout.png | rollout table with actual rows and cached source4 header | 6d0d8aefa988060fb4c044365882a490631c25f8b924c2f7c65539e99bf676a8 |
 | comparison-switched.png | no report open, private presentation retired | 57001a7ff38057d966c3cbbcde1c6255101e697cc93781683ae7a4d155516848 |
 
-## Reproduction and remaining gate
+## Capture retirement correction and third native cohort
+
+The [capture-close contract](D07_CAPTURE_SESSION_CLOSE_CONTRACT_2026-10-27.md)
+retains the independent ordered-transport regression and its measured failures.
+Its original four checks first measured 1 pass/3 failures, then 4 passes unchanged.
+An additional subscriber-failure oracle then measured 4 passes/1 failure and,
+after the private closing-count `finally` correction, 5 passes unchanged. These
+are synthetic ordered Host-session transport tests using actual controllers,
+not native timing or proof of the exact operation behind the second cohort's
+Closed. The production correction forwards the actual closing Session through
+the existing coordinator, retires matching capture access before Host close,
+and preserves unrelated capture B and listener-failure recovery. It does not
+suppress Closed globally or waive any native assertion.
+
+Third packet `comparison-reader-native-9186da8c-40c9-40a4-99df-f7c299585914`
+records clean, unchanged `8af4f9f92354c7d76309909dc3c5027e0f64bd22`.
+The command exits 0 in 261.0713470s, including builds and normal restoration.
+Initial and restart each pass 137 check evaluations; these are two executions
+of the fixed journey, not 274 distinct independent oracles. Both use actual
+mounted controls/public controllers, Tauri IPC and a hidden, unfocused native
+WebView2. The shared scripted producer creates real Store/Host/capture evidence
+for two paired scenes and one rollout scene; `modelExecution=false` and
+`realModelGeneration=false`. Native picker doubles are fixed application-owned
+cases; OS dialogs are not automated.
+
+Both stages validate actual source/report descriptors, receipts, narrator
+captures, recorded role outputs and preserved source-bound row count. They
+exercise Mira/Sable/Player query edges, actor raw refusal before binding/row
+probes, stale binding, guard receipt absence, disabled selected4 admission,
+pending close/late picker, deliberate lost ACK/same-client recovery, rollout,
+real Host session close/new session and Play/lens retirement. Live gameplay canon
+is unchanged. Every one of 626 fixture file hashes matches the original after
+initial reads and again after cold restart. This is observed bounded byte
+equality for these fixture files, not universal filesystem or execution-origin
+authentication.
+
+Each stage retains exactly one expected native Transport error from the
+deliberately lost acknowledgement, with no Closed error. App stderr is 0 bytes
+in both stages; app stdout records `D02_NATIVE_HARNESS PASS`. The strict final
+error oracle passes unchanged. There is no claim of an error-free application
+in all circumstances, nor of actual process-death or unknown-drain testing.
+
+| Actual execution | Exit | Wall seconds | App stderr bytes |
+| --- | --- | --- | --- |
+| Harness frontend build | 0 | 0.365 | — |
+| Harness native build | 0 | 13.794 | — |
+| Initial native app | 0 | 148.332 | 0 |
+| Restart native app | 0 | 79.916 | 0 |
+| Normal frontend restoration | 0 | 0.366 | — |
+| Normal native restoration | 0 | 15.375 | — |
+
+All six direct children report known closure, no timeout, no kill attempt and no
+unknown owned drain. The normal products are restored and **UNLAUNCHED**.
+This does not qualify Job/descendant containment or the unexecuted timeout path.
+The fixed launcher still refuses any later spawn/restoration after unknown
+owned drain; ordinary ancestor checks do not pin against hostile replacement.
+
+The broad 259-unit +2-contract Rust result remains attributed to `6a38af11`.
+Source comparison shows later Rust changes in `comparison_reader_harness.rs`
+and `main.rs`; do not report that broad suite as a full run at8af. Conversely,
+there is no `.rs`, Cargo manifest or Cargo.lock delta between `97106af7` and
+`8af4f9f9`, so the strict native Clippy record at971 applies to those unchanged
+Rust bytes. The final full frontend result and actual native build/journey are
+directly measured at8af. No additional broad Rust/Android/model suite is inferred.
+
+The retained source manifest binds all inputs. Selected SHA256 values are:
+
+| Input/product | SHA256 |
+| --- | --- |
+| comparison-reader-harness.mjs | f6621fde316e19b8d88d3ebe76d033d1a981f15474527797105c8e5b9316d921 |
+| ui/comparison-reader-journeys.ts | cf2e90a5e1d5592a8d404e96ec24545872ad8e99eccbbacf99cfb25e910fac09 |
+| ui/ComparisonReaderPanel.tsx | eb547a1f8db83100634e383a4b2b3a95e06736b52d0528ba8f9b18999bcdaf89 |
+| Harness app.js | 9b0ecb585e5d4d1aff62b24aa579ac6bc03acb895dcd0fa435afe2ea115044b9 |
+| Harness executable | 4296fa956880cd68778b7d7f639115b678d88375e86a79810c64ad94a7e206a9 |
+| Restored normal app.js | fd331de282f7936dcf0159869a003c832e23d1be40c3135b876422478888508b |
+| Restored normal executable | 7b94650b182c5a258ea9c08094688192306de30f3fc15d9db60eca19f4e1c4d9 |
+
+The process record SHA256 is
+`8ae2c06b15d457c6a79dad8528704fefb0d3b524f132048f319beb987912e457`;
+qualification JSON:
+`25a2a96bde8197e4a9e199a1700f2fa2fa8a1e2d16f82b1288b3401bb2f88e8d`;
+source manifest:
+`5ea8542aac98cbfd8cc9afb13ee21b3e495b1e59c113b670c4664329f02a4812`;
+product manifest:
+`2c791fc2202f4ddcc3a0ae7aa90082fc54542f97e9af0c1b803abbc71d609afd`;
+normal-restoration record:
+`4b523bb880ad17b9c4d8915f7e382931296dc668b80627e37f627fca4e620c36`.
+These hashes identify private retained evidence; no raw evidence is committed.
+
+## Third cohort: all 30 individual render reviews
+
+The independent contract reviewer inspected all 15 initial PNGs individually,
+against initial report SHA256
+`0a95cfb1c5cef7bdeea8962683c1996a8e214f44a01a3ebc2a2689c8c32b4626`.
+Root inspected all 15 restart PNGs individually and recorded
+`restart-individual-render-review.json`, SHA256
+`dcb2c8ca73ab2775707b1260c1393a1b832700bad5ca8f344e72afb3684ab36f`.
+Restart report SHA256 is
+`6ae8bbdbd1e3c30e7d021cfa7f10a27bf39de303222a4b97cf1d4268b1e8f90e`.
+This documentation update reads those handoffs and actual file hashes; it does
+not claim its author personally re-viewed the 30 images or ran the app.
+
+All wide images are 1280×900; the two narrow images are 620×900. Reviews found
+selected scope/heads/lens/phase and bounded receipt/input/output readable,
+prompt/schema/frame hashes wrapping in the narrow target, Mira's witnessed
+dialogue and Sable's empty history, explicit guard receipt unavailability, and
+coherent pending/closed/unknown/recovered/retired states. No material target
+layout defect was reported. Evidence/table scrolling and partial surrounding
+content are intentional. Finite visible targets are not whole-page access,
+universal privacy, keyboard/screen-reader or human prose-quality proof.
+
+The following roster names all 30 PNGs. Each pair's SHA256 was independently
+read from both actual files and is equal; equality is not a claim of universal
+byte reproducibility or model determinism.
+
+| Initial PNG | Restart PNG | SHA256 of each |
+| --- | --- | --- |
+| initial/comparison-open.png | restart/comparison-restarted.png | a1bc337253acea1a213c40e8c04d838b28d0e22fa808f22265cef93694079a69 |
+| initial/comparison-receipt.png | restart/comparison-receipt.png | e2df478b3b9d9e7077764782fda608aeb5d02a09f3c81b4c97f2907b852d9a34 |
+| initial/comparison-capture.png | restart/comparison-capture.png | be88ff039dcc0e8ad95ba3024e7fc5fae0b26583c0d79f7db50db3ef51f35753 |
+| initial/comparison-outputs.png | restart/comparison-outputs.png | 133762b48a89223748baadbc11a4fa0d7e05dee0888f490d2ee7257717de3b7d |
+| initial/comparison-narrow.png | restart/comparison-narrow.png | 5b42bfbb178e862fc149a13eaa1dab8c06fef0e81b88edc5a42f7e90a9f90ae9 |
+| initial/comparison-mira.png | restart/comparison-mira.png | f715cc7706bc80aeab2b88f05643bf50cbc5e10f3cea02ca8c0a22c593e99339 |
+| initial/comparison-sable.png | restart/comparison-sable.png | 625a9b84d6f4e6b9b5a4e5a9d16ed3d8245bf8c3a152e761a150368e8a7c8061 |
+| initial/comparison-guard.png | restart/comparison-guard.png | 92f8bab97457290896be1f6c6f8f1f974db29de3efc36e9a141c2b1ba4ded076 |
+| initial/comparison-pending.png | restart/comparison-pending.png | 80fccebf8ddcfa8d12a565e99d56908c50e93c07a547a363319691c54c864dfd |
+| initial/comparison-closed.png | restart/comparison-closed.png | 893a2c66b1e94345b6365a3ddf649240cb2472920f5c390361f3ee6fd6dc5772 |
+| initial/comparison-unknown.png | restart/comparison-unknown.png | c1e137b4d49bd00e7012e840b9d2c7c750dadb4879f267480eb1a53417f4d9d7 |
+| initial/comparison-recovered.png | restart/comparison-recovered.png | b3f3e7d5c33a623d88de65ffc46585c5c94bc8e032f6fa893944155eccf38e0e |
+| initial/comparison-rollout.png | restart/comparison-rollout.png | 6d0d8aefa988060fb4c044365882a490631c25f8b924c2f7c65539e99bf676a8 |
+| initial/comparison-switched.png | restart/comparison-switched.png | ddec69c569e82e0d3182fe7eb5ddf171948e168b3117e1f5845b9c4e8add305f |
+| initial/comparison-finished.png | restart/comparison-finished.png | ddec69c569e82e0d3182fe7eb5ddf171948e168b3117e1f5845b9c4e8add305f |
+
+## Reproduction and remaining gates
 
 Use the existing exact-lock offline cache, ordinary private artifact/target/TEMP
 directories, one heavy slot and recorded Windows x64 environment. Retained
 provisioned versions are Rust/Cargo1.93.1, Node24.22.1, Windows10.0.26300;
 the current batch's process records do not reprint a new toolchain-version probe.
-Locked package versions include esbuild0.28.2, TypeScript7.0.2 and Prettier3.9.10.
-No dependency/model download or upgrade accompanies this slice.
+Locked package versions include esbuild0.28.2, TypeScript7.0.2, React19.3.1,
+Prettier3.9.10, Tauri2.12.5, Wry0.57.0 and Tao0.37.1. The third cohort's actual
+wide/narrow semantic snapshots record Chromium/Edge155.0.0.0 in their Windows
+x64 user agent. That is a WebView user-agent observation; no independent
+installed WebView2 runtime-version inventory was recorded. No dependency/model
+download or upgrade accompanies this slice.
 
 From the repository root, command forms (substitute existing owned paths) are:
 
@@ -218,22 +360,36 @@ cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --features dev-ha
 cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --check
 ```
 
-From apps/desktop the fixed launcher accepts no arguments. Set
-LOCALLORE_D07_SCENE_COMPARISON_READER=1 and its existing trusted
-LOCALLORE_D07_COMPARISON_READER_ARTIFACT_ROOT/TARGET_DIR variables, then run
-`node comparison-reader-harness.mjs`. It builds harness products, runs initial/
+From apps/desktop the fixed launcher accepts no arguments. With clean source,
+the existing locked offline cache, no SQLite custom flags and ordinary existing
+task-owned directories, its command form is:
+
+```powershell
+$env:LOCALLORE_D07_LITERAL_COMPARISON_READER = "0"
+$env:LOCALLORE_D07_SCENE_COMPARISON_READER = "1"
+$env:LOCALLORE_D07_COMPARISON_READER_ARTIFACT_ROOT = $ownedArtifacts
+$env:LOCALLORE_D07_COMPARISON_READER_TARGET_DIR = $ownedTarget
+node comparison-reader-harness.mjs
+```
+
+The launcher builds harness products, runs initial/
 restart against the same new UUID fixtures, checks source/products/semantic
 artifacts/inventory and restores normal frontend/native builds in finally only
 after known direct-child closure. Every failed attempt must remain retained.
 
-Next runnable task is an independent ordered session-close/capture-retirement
-regression and bounded operation provenance for unexpected Closed, followed by
-a focused source fix, unchanged checks and a new explicitly attributed native
-cohort. Both complete stages, every expected image and inventory/error check
-must pass before claiming native qualification. No stage/check is waived here.
-No new Android compatibility/device cohort, model comparison, offline security,
-accessibility or human-quality gate ran for this slice; those remain unavailable
-as current-source evidence. Protected chat/resources were untouched and no
-desktop control was used. This documentation author ran no tests/builds or apps;
-it reads bounded owner-produced logs/JSON and individually views14 app images.
-No task checkbox, merge/release/settings or quality approval follows.
+The ordered capture-close/listener regressions and the complete third native
+cohort now provide the bounded reviewable gate; neither historical failure is
+reclassified. Next is coordinator review of this packet/PR #243, followed by
+the separately owned native Protocol4 comparison service/transport qualification.
+That work needs its own source, asset availability, consent/runtime ownership
+and genuine completed-native resume evidence. This reader packet grants none
+of those capabilities and does not qualify future native model harness changes.
+
+No new Android compatibility/device cohort, model comparison, D09 offline
+security, general accessibility or human-quality gate ran for this slice.
+Selected source4 execution remains unavailable. The original human
+needs-improvement assessment remains unchanged. Protected chat/resources were
+untouched and no desktop control was used. This documentation update ran no
+tests/builds, formatter or apps; it reads bounded owner-produced records and
+attributes the individual render reviews explicitly above. No task checkbox,
+merge/release/settings change or quality approval follows.

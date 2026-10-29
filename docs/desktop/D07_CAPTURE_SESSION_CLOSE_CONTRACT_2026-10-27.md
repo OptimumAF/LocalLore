@@ -107,3 +107,65 @@ all original error/layout/inventory checks and both stages. Headless doubles are
 neither proof of actual Tauri/Host timing nor permission to mark the two failed
 native cohorts passed. No Android/model/human qualification follows; the original
 human needs-improvement assessment remains unchanged.
+
+## Root execution and independent failure-cleanup correction
+
+This section records later actual owner execution; it does not change the
+historical source-only first-freeze status above. Process JSON/logs remain local
+and gitignored under author-integration-artifacts. Every row below reports clean,
+unchanged source and runs Node24.22.1 `check-capture-session-close-review.mjs`
+from apps/desktop. Durations are process wall time, not native latency:
+
+| Evidence prefix | Exact source | Actual result | Seconds |
+| --- | --- | --- | --- |
+| d07-capture-session-close-baseline1 | e86befb124f2118168d63bcad92fac98a662c7a8 | Original4:1 passed,3 failed; exit1 | 0.2967524 |
+| d07-capture-session-close-first-green1 | d811f4684de73211ce293a52dbac1d915430770d | Unchanged original4 passed,0 failed; exit0 | 0.2465065 |
+| d07-capture-session-close-listener-baseline1 | 843809274fd5e29117a7de0cf9405ce15aecd03a | Original4 passed; new listener case failed; exit1 | 0.2468925 |
+| d07-capture-session-close-listener-green1 | 9c04722b532d405052076c747f67693c4b0f61ac | Same5 passed,0 failed; exit0 | 0.3885606 |
+
+The first baseline fails on missing pre-close Host revoke, post-close old-scope
+Host calls and clearing an unrelated B capture; the default compatibility control
+passes. The correction forwards the actual closing Session through the existing
+coordinator and reuses the private capture control queue. Matching context
+retirement queues actual revocation before Host close. A private identity/count
+map prevents repeated matching notifications reattaching an owner while any close
+is pending; normal metadata semantics remain unchanged. The closing branch does
+not globally revoke/clear another owner B or patch B in an old async finally.
+No Closed error suppression, accepted-state constructor or native API is added.
+
+Independent source review of d811 identified a second concrete failure path:
+the map increment preceded contextChanged retirement outside try/finally. A
+synchronous public subscriber exception could leave the count permanently held,
+preventing a still-open session from recovering after the bad listener was
+removed. Independently frozen `ce906218e8f591ec597c05782fd197136b30e767` adds
+exactly35 checker lines while preserving original4 assertions. It injects one
+listener throw at explicit matching retirement, verifies no Host close, truthful
+selected-session/Transport error and cleared private data, removes the listener,
+then requires normal context recovery, fresh consent/read and a successful retry.
+The35 lines were integrated verbatim at84380927 against the formatted checker;
+its measured failure is `failed retirement released its private closing identity`
+with false!==true. This is actual behavioral RED rather than API/setup absence.
+
+9c04722b moves that same matching-owner retirement inside the existing try, so
+the reference-count finally covers synchronous listener failure as well as
+queued work failure. It does not hide the original error: the unchanged fifth
+case still requires visible/frontend Transport and no Host close before recovery.
+Independent source-only rereview confirms the finding is closed and found no
+other concrete blocker in that delta. The author ran no checker or application.
+
+Listener-baseline process-record SHA256:
+`824670ee4ba1a2181969951533d54499f91668528a14ab289abcd449d7dbaa51`;
+listener-GREEN process-record SHA256:
+`6db913d008bcc154d55d907ede775393173564f7c888f4944259af992000406e`.
+The original additive checker SHA256 atce906218 is
+`715f6c88936f2697a0a06302b3773530a1cb944c2b88e6877a2303a0e9654c0a`.
+Hashes bind retained observations, not execution authenticity.
+
+A preceding full frontend run at a301fa1a6c0a1d91443ead9de8598640ba3aa46e
+passed in19.0489807s, before the additive listener test/fix. A later formatted
+five-case/full-frontend result and post-fix actual native Reader4 cohort are
+not established by this append. Both historical native cohort failures and14
+initial images remain separately retained; these five headless ordered-transport
+checks cannot turn them into a pass. Actual Host/Tauri timing, both native stages,
+complete error/inventory/render checks, Android, model and human-quality gates
+retain their separate limits. The original needs-improvement assessment is unchanged.

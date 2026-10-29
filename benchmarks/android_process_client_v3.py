@@ -52,6 +52,7 @@ class HeldServerSdkCapture:
         try:
             legacy._integer(seconds)
             self.until = self._now()+seconds
+            self._deadline_limit = self.until
             self.directory = output_control.validate_output(str(directory))
             _need(self.directory.name == "clients")
             parent = self.directory.parent
@@ -140,7 +141,8 @@ class HeldServerSdkCapture:
 
     def _guard(self):
         _need(self.clean is True and self._failed is False,"client_closed")
-        _need(self._now() < self.until,"client_deadline")
+        _need(type(self.until) in (int,float) and math.isfinite(self.until) and
+              self.until <= self._deadline_limit and self._now() < self.until,"client_deadline")
         self._directory_guard()
         environment.check_binding(self._session_binding)
         _need(held_probe._same(self._session["sdk_sources"],verification.sdk_source_bindings()) and
@@ -160,21 +162,22 @@ class HeldServerSdkCapture:
 
     def _command(self, command):
         _need(command != legacy._server_command(self.powershell))
-        verification.validate_command(command,str(self.adb_path),self._target_id)
+        verification.validate_command(copy.deepcopy(command),str(self.adb_path),self._target_id)
         return True
 
     def _prove(self, kind, index, phase, label, command=None):
         self._last_acquired = None
         self._guard()
         context = dict(kind=kind,index=index,phase=phase,label=label,
-            command_sha256=None if command is None else verification.command_digest(command),
+            command_sha256=None if command is None else verification.command_digest(copy.deepcopy(command)),
             transport_id=self._target_id)
         name = "check-%04d" % index if kind == "check" else "%s-%04d-%s" % (kind,index,phase)
         seconds = math.floor(min(45,self.until-self._now()))
         _need(seconds > 0,"client_deadline")
-        binding = verification.acquire_owned_server_bundle(self._proofs/name,self.session_binding,context,seconds)
+        binding = copy.deepcopy(verification.acquire_owned_server_bundle(
+            self._proofs/name,self.session_binding,copy.deepcopy(context),seconds))
         self._last_acquired = copy.deepcopy(binding)
-        _need(verification.verify_owned_server_bundle(binding,self.session,context) is True,"server_changed")
+        _need(verification.verify_owned_server_bundle(copy.deepcopy(binding),self.session,copy.deepcopy(context)) is True,"server_changed")
         self._guard()
         _need(self._target_id == context["transport_id"],"target_changed")
         return copy.deepcopy(binding)
@@ -195,7 +198,7 @@ class HeldServerSdkCapture:
             legacy._integer(index)
             _need(type(phase) is str and phase in ("before","after") and self._target_id is not None)
             self._command(command)
-            context = (index,label,verification.command_digest(command),self._target_id)
+            context = (index,label,verification.command_digest(copy.deepcopy(command)),self._target_id)
             if phase == "before":
                 _need(self._external is None and index > self._external_index)
                 binding = self._prove("external",index,phase,label,command)
@@ -224,14 +227,15 @@ class HeldServerSdkCapture:
             os.fsync(sink.fileno())
         self._directory_guard()
 
-    def _persist_record(self, result, command, label, stem, effective_ms, before, after):
+    def _persist_record(self, result, command, label, stem, effective_ms, before, after, qualified):
         self._directory_guard()
         record = dict(version=3,index=self.count,label=label,status=result.status,returncode=result.returncode,
             cleanup_complete=result.cleanup_complete,stdout_bytes=len(result.stdout),
             stdout_sha256=hashlib.sha256(result.stdout).hexdigest(),stderr_bytes=result.stderr_bytes,
             elapsed_ms=result.elapsed_ms,effective_deadline_ms=effective_ms,protocol=verification.SDK_PROTOCOL,
+            client_qualified=qualified,
             server_admission=copy.deepcopy(self._session["server_admission"]),server_before=before,server_after=after,
-            transport_id=self._target_id,command_sha256=verification.command_digest(command),argv=copy.deepcopy(command))
+            transport_id=self._target_id,command_sha256=verification.command_digest(copy.deepcopy(command)),argv=copy.deepcopy(command))
         _need(verification.client_record_shape_v3(record) is True,"persistence_failed")
         environment.create_json(stem.with_suffix(".json"),record)
         self._directory_guard()
@@ -258,7 +262,7 @@ class HeldServerSdkCapture:
             stem = self.directory/("command-%04d" % index)
             trusted = True
             try:
-                result = legacy._result(host.run_process(command,request=b"",deadline=effective,max_output=cap),cap)
+                result = legacy._result(host.run_process(copy.deepcopy(command),request=b"",deadline=effective,max_output=cap),cap)
             except BaseException:
                 # No trusted owner measurement exists; do not infer terminal
                 # cleanup, zero elapsed time or a safely available post-proof.
@@ -272,10 +276,18 @@ class HeldServerSdkCapture:
                     post_verified = True
                 except BaseException:
                     after = copy.deepcopy(self._last_acquired)
-            self._persist_record(result,command,label,stem,effective_ms,before,after)
-            legacy._completed(result)
-            _need(post_verified,"server_changed")
-            self._guard()
+            qualified = False
+            try:
+                legacy._completed(result)
+                _need(post_verified,"server_changed")
+                self._guard()
+                qualified = True
+            except BaseException:
+                pass
+            # The command's result remains truthful even if a later proof or
+            # final guard refused. Qualification is a separate, closed flag.
+            self._persist_record(result,command,label,stem,effective_ms,before,after,qualified)
+            _need(qualified,"capture_failed")
             return result.stdout
         except BaseException:
             self._poison()

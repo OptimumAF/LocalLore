@@ -306,7 +306,7 @@ PROOF_KEYS = {'version','protocol','kind','admission','worker','server','client'
     'observations','tables','request_hex','request_sent','response_hex','response_complete','elapsed_ms',
     'socket_closed','client_handle_closed','completed_ports'}
 WORKER_KEYS = {'version','protocol','admission','request','worker','server','auth','preflight','readiness',
-    'proofs','running','stop_requested','reason','elapsed_ms','server_returncode','cleanup','sources_after'}
+    'proofs','running','stop_requested','reason','elapsed_ms','server_returncode','server_capture','cleanup','sources_after'}
 
 
 def _json_bound(pin):
@@ -404,6 +404,21 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     _int(value['elapsed_ms'],0,(admitted['seconds']+30)*1000,'budget')
     _int(value['server_returncode'],-2**31,2**32-1,'identity')
     _obj(value['cleanup'],CLEANUP_KEYS,'identity'); _need(all(v is True for v in value['cleanup'].values()),'identity')
+    _binding(value['server_capture'],project=True)
+    _need(PureWindowsPath(value['server_capture']['path']) == root/'server-capture-v1.json','binding')
+    capture = _json_bound(value['server_capture'])
+    _obj(capture,('version','protocol','server','status','returncode','stdout','stderr','stdout_bytes','stderr_bytes',
+                  'capture_complete','pipes_closed'),'binding')
+    _int(capture['version'],1,1); _need(capture['protocol'] == PROTOCOL)
+    _need(_same(capture['server'],server) and capture['status'] == 'terminated' and
+          type(capture['returncode']) is int and capture['returncode'] == value['server_returncode'] and
+          capture['capture_complete'] is True and capture['pipes_closed'] is True,'identity')
+    for channel in ('stdout','stderr'):
+        _int(capture[channel+'_bytes'],0,262144,'binding')
+        _binding(capture[channel],project=True)
+        _need(PureWindowsPath(capture[channel]['path']) == root/'server-output-v1'/('owner-'+channel+'-v1.bin'),'binding')
+        raw = _read_bound(capture[channel]); _need(len(raw) == capture[channel+'_bytes'],'binding')
+    _need(capture['stdout_bytes']+capture['stderr_bytes'] <= 262144,'binding')
     after = value['sources_after']; _obj(after,('sources','python','tools','auth'),'source')
     _need(_same(after,dict(sources=admitted['sources'],python=admitted['python'],tools=admitted['tools'],auth=value['auth'])),'source')
     _binding(value['preflight'],project=True)

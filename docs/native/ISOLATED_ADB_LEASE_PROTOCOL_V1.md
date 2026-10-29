@@ -78,6 +78,12 @@ def validate_observation(value: dict, server: dict | None, client: dict | None,
 
 def validate_capabilities(binding: dict, admission: dict) -> dict: ...  # explicit IO
 def revalidate_inputs(admission: dict) -> None: ...  # local byte checks only
+
+def validate_proof(binding, admission, admission_binding, worker, server, kind,
+                   *, completed_ports=()) -> dict: ...  # closed bound replay
+
+def validate_worker_result(binding, admission, admission_binding,
+                           request_binding, expected_worker) -> dict: ...
 ```
 
 Admission exact keys: `version`=1, `protocol`, `run_id` (32 lowercase hex),
@@ -92,6 +98,8 @@ profile key path), `capabilities` (bound offline version/help result),
 `{path,bytes,sha256}`. Processes are exactly `{pid,creation_filetime,executable}`.
 No source report, flag, hash or supplied key path grants authority by itself.
 The live owner revalidates actual byte/source/profile/capability/OS path inputs.
+Capability references must end in `.json`, review references in `.md`, and neither
+may have a `.android` path component. These checks precede byte access.
 
 Running exact keys: `version`=1, `protocol`, `admission` (byte binding), `run_id`,
 `port`, `owner`, `worker`, `server` (three distinct actual process identities),
@@ -150,6 +158,10 @@ its own PID/birth/executable before any auth/port/server action. This closes the
 legacy late-announcement race without changing that supervisor. Parent callback
 creates that receipt; a missing/malformed/mismatched receipt times out before
 server startup. Parent budget admitted seconds+30, maximum1730 seconds.
+Publish the receipt from a closed, flushed pending file using a create-only
+Windows rename. The legacy supervisor captures worker output under a separate
+`worker-output-v1` directory; it cannot consume the isolated worker's stop file
+with its incompatible legacy schema. Its job and deadline behavior stay intact.
 
 Worker locks existing auth key, checks no IPv4/IPv6 row on15937, confirms an
 exclusive loopback bind and closes only its own preflight socket. Then starts
@@ -176,6 +188,13 @@ requested termination need not produce server exit0; do not fabricate one.
 Every failure still attempts owned cleanup, retains captures and poisons the
 lease. Parent closes its own job on every exit and validates worker/source
 evidence independently. No blanket unchecked CloseHandle success assertion.
+
+The closed worker result binds `server-capture-v1.json` to the actual server
+identity, termination status and return code, exact stdout/stderr byte bindings
+and measured counts, completed capture and closed pipes. The parent reopens the
+bound raw files and verifies counts, hashes and the combined262144-byte cap;
+boolean cleanup claims alone cannot qualify capture. Partial or absent stages
+stay null and cannot qualify the lease.
 
 V1 device/model/target actions remain zero. Future SDK/guest integrations require
 their own explicit target/lease/current-build admission; they cannot use an

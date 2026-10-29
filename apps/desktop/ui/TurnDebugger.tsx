@@ -462,7 +462,7 @@ export function TurnDebugger({
                     prompts or model output.{" "}
                     {s.playV2
                         ? "Private capture and legacy inspection are unavailable through this metadata surface."
-                        : "Story Lab omniscient inspection can explicitly opt into separate future-attempt private capture."}
+                        : "Story Lab omniscient inspection can explicitly opt into separate future-attempt private capture."}{" "}
                     Summary maintenance and model hidden reasoning are
                     unavailable.
                 </p>

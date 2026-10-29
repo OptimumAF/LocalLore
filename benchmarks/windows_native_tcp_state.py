@@ -282,8 +282,11 @@ def _supervise(command, request, root, seconds, on_started):
                 cleaned = False
             for thread in readers:
                 thread.join(timeout=2)
-            cleaned = cleaned and not any(t.is_alive() for t in readers)
-            if cleaned:
+            readers_stopped = not any(t.is_alive() for t in readers)
+            cleaned = cleaned and readers_stopped
+            # A failed job close must not suppress safe pipe-close attempts.
+            # Never race a still-running reader over its own stream.
+            if readers_stopped:
                 for stream in (child.stdin,child.stdout,child.stderr):
                     try:
                         stream.close()

@@ -55,6 +55,7 @@ declare global {
             localplay?: boolean;
             inspecting?: boolean;
             debugging?: boolean;
+            liveNarrationDiagnostic?: boolean;
             capturing?: boolean;
             legacy?: boolean;
             evaluating?: boolean;
@@ -746,6 +747,27 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   : driver.journeys;
     const sceneCase = window.__LOCALLORE_TEST__?.sceneCase;
     if (
+        __DEV_HARNESS__ &&
+        window.__LOCALLORE_TEST__?.liveNarrationDiagnostic === true &&
+        sceneHarnessModule &&
+        sceneCase === "literal"
+    ) {
+        const { liveNarrationNativeJourneys } =
+            await import("./live-narration-native-journeys");
+        await liveNarrationNativeJourneys({
+            controller,
+            v2,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+            config: {
+                stage: window.__LOCALLORE_TEST__.stage,
+                sceneCase,
+                liveNarrationDiagnostic: true,
+            },
+        });
+    } else if (
         sceneHarnessModule &&
         (sceneCase === "literal" || sceneCase === "memory")
     ) {

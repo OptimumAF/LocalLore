@@ -92,6 +92,8 @@ const normal = await readFile(new URL("dist/app.js", root), "utf8");
 for (const marker of [
     "harness_checkpoint",
     "harness_scene_oracle",
+    "d06-live-recorded",
+    "heldNarrationValidation",
     "scene-native-pending",
     "SceneDeadline:",
     "memory-inspection-native-empty",

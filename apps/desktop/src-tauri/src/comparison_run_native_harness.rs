@@ -96,6 +96,12 @@ pub fn model_root(workspace: &Path) -> Result<PathBuf, String> {
             || root.starts_with(parent)
         { return Err("ModelInvalid".into()); }
         let _publication=pins(&root)?;
+        // Ordinary Windows paths may name the same nested directory through
+        // different case or an 8.3 alias. Compare resolved identities after
+        // both ancestor chains are pinned, not just the supplied spellings.
+        let resolved_root=std::fs::canonicalize(&root).map_err(|_|"ModelInvalid".to_owned())?;
+        let resolved_parent=std::fs::canonicalize(parent).map_err(|_|"ModelInvalid".to_owned())?;
+        if resolved_root.starts_with(&resolved_parent) {return Err("ModelInvalid".into());}
         return Ok(root);
     }
     Ok(parent.join("model-native-v1"))

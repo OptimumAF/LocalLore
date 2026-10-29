@@ -9,6 +9,7 @@ import type {
     SelectedLane,
     SelectedSourceIdentity,
     SelectedDiagnosticRow,
+    SelectedEvidence,
 } from "./selected-evaluation-model";
 import type { ViewV2 } from "./v2-view-model";
 import { sameReaderObserver } from "./comparison-reader-model";
@@ -208,6 +209,106 @@ export function SelectedEvaluationView({
         else if (now.observer.kind === "omniscient")
             void c.readEvidence(arm, { kind, observer: now.observer });
     };
+    const attemptContext = (
+        shown?: SelectedEvidence,
+        diagnosticRow?: SelectedDiagnosticRow,
+    ) => {
+        // Only artifact-owned identity belongs beside a recorded artifact. A
+        // different linked reader row is a candidate, never this saved attempt.
+        const metadata = s.allowed ? (summary ?? prepared) : null;
+        const selectedTurn =
+            diagnosticRow?.turn ?? shown?.row.turn ?? metadata?.selection.turn;
+        const selectedArm =
+            diagnosticRow?.arm ??
+            shown?.row.arm ??
+            metadata?.selection.clicked_arm;
+        const heads = shown
+            ? [
+                  {
+                      arm: shown.row.arm,
+                      scope: shown.scope,
+                      before_head: shown.before_head,
+                      after_head: shown.after_head,
+                  },
+              ]
+            : (metadata?.arms.filter(
+                  (item) => !diagnosticRow || item.arm === diagnosticRow.arm,
+              ) ?? []);
+        const awaitingAcknowledgement =
+            s.pending?.operationId === null &&
+            ["prepare", "start", "resume", "open"].includes(s.pending.action);
+        const visibleError =
+            s.error ??
+            (awaitingAcknowledgement
+                ? "Unavailable until acknowledgement"
+                : (status?.error ?? (status ? "None" : "Unavailable")));
+        return (
+            <div
+                className="selected-attempt-context"
+                role="group"
+                aria-label="Selected attempt context"
+            >
+                <p>
+                    <strong>Selected attempt</strong> · selection:{" "}
+                    {selectedTurn
+                        ? `${selectedTurn} · ${selectedArm} arm`
+                        : "Unavailable until preparation or read access returns"}
+                </p>
+                {heads.length ? (
+                    heads.map((item) => (
+                        <p key={item.arm}>
+                            Story {item.scope.story} · branch{" "}
+                            {item.scope.branch}
+                            {" · "}
+                            {item.arm} before {item.before_head} → after{" "}
+                            {"after_head" in item
+                                ? (item.after_head ?? "Unavailable")
+                                : "Unavailable"}
+                        </p>
+                    ))
+                ) : (
+                    <p>
+                        Story / branch: Unavailable · before / after:
+                        Unavailable.
+                    </p>
+                )}
+                <p>
+                    Observer: {lens} · workflow phase:{" "}
+                    {label(status?.phase ?? "idle")} · last acknowledged
+                    operation: {status?.operation_id ?? "Unavailable"}.
+                    {s.uncertain ? " Outcome not confirmed." : ""}
+                </p>
+                <p>
+                    Pending:{" "}
+                    {s.pending
+                        ? `${label(s.pending.action)} · operation ${s.pending.operationId ?? "Unavailable until acknowledgement"}`
+                        : status?.running
+                          ? `native work · operation ${status.operation_id ?? "Unavailable"}`
+                          : "None"}
+                    . Receipt:{" "}
+                    {shown?.body.kind === "receipt"
+                        ? "Displayed"
+                        : "Not displayed"}
+                    . Visible error: {visibleError}.
+                </p>
+                {diagnosticRow && (
+                    <p>
+                        Row phase: {label(diagnosticRow.phase)} · row error:{" "}
+                        {diagnosticRow.error
+                            ? boundedText(diagnosticRow.error)
+                            : "None recorded"}
+                        .
+                    </p>
+                )}
+                <p>
+                    {metadata?.lane === "scripted_selected_case" ||
+                    status?.lane === "scripted_baseline"
+                        ? "Fake inference · quality not established."
+                        : "Quality not established."}
+                </p>
+            </div>
+        );
+    };
     return (
         <section
             id="selected-evaluation"
@@ -392,6 +493,7 @@ export function SelectedEvaluationView({
                     .
                 </p>
             )}
+            {attemptContext()}
 
             {s.allowed && prepared && (
                 <div
@@ -399,6 +501,7 @@ export function SelectedEvaluationView({
                     aria-label="Prepared experiment identity"
                 >
                     <h3>Prepared original turn: {prepared.selection.turn}</h3>
+                    {attemptContext()}
                     <p>
                         {laneLabel(prepared.lane)} · original index{" "}
                         {prepared.selection.index} · clicked{" "}
@@ -523,6 +626,7 @@ export function SelectedEvaluationView({
                     className="comparison-selected"
                     aria-label="Selected experiment summary"
                 >
+                    {attemptContext()}
                     <h3>Opened original turn: {summary.selection.turn}</h3>
                     <p>
                         {laneLabel(summary.lane)} · index{" "}
@@ -729,6 +833,7 @@ export function SelectedEvaluationView({
                         Displayed evidence: {evidence.row.turn} ·{" "}
                         {evidence.row.arm} · {evidence.body.kind}
                     </h4>
+                    {attemptContext(evidence)}
                     <p>
                         Story {evidence.scope.story} · branch{" "}
                         {evidence.scope.branch} · before {evidence.before_head}{" "}
@@ -792,6 +897,7 @@ export function SelectedEvaluationView({
                                 {item.turn} · {item.arm} ·{" "}
                                 {armLabel(item.arm, diagnostics.version)}
                             </h4>
+                            {attemptContext(undefined, item)}
                             <dl>
                                 <dt>Expected</dt>
                                 <dd>{boundedText(item.expected)}</dd>

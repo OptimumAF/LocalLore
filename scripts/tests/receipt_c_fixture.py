@@ -7,7 +7,7 @@ Use only in serial tests: all contexts share narrowly patched Path IO methods.
 from contextlib import ExitStack
 import hashlib
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import stat
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 _RAW_LSTAT = Path.lstat
 _RAW_INFO = getattr(Path, "info", None)
+_IS_RESERVED = getattr(os.path, "isreserved", None)
 _RAW = {name: getattr(Path, name) for name in (
     "open", "mkdir", "stat", "lstat", "exists", "is_file", "is_dir",
     "is_symlink", "iterdir", "resolve",
@@ -36,9 +37,19 @@ def _refuse(reason="synthetic_c_scope"):
 
 def _canonical(value, drive):
     path = Path(value)
+    if _IS_RESERVED is not None:
+        reserved = _IS_RESERVED(str(path))
+    else:
+        # isreserved arrived in Python 3.13. The older pure-path check is
+        # lexical too, but checks only the last component on older runtimes.
+        components = path.parts[1:]
+        reserved = any(PureWindowsPath(part).is_reserved() or
+                       part.endswith((".", " ")) or
+                       any(ord(char) < 32 or char in ':*?"<>|' for char in part)
+                       for part in components)
     if (not path.is_absolute() or path.drive.upper() != drive or
             str(path) != os.path.abspath(str(path)) or ".." in path.parts or
-            os.path.isreserved(str(path))):
+            reserved):
         _refuse()
     return path
 

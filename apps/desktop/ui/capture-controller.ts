@@ -30,6 +30,7 @@ export class CaptureController {
     private disposed = false;
     private controls: Promise<unknown> = Promise.resolve();
     private pendingControls = 0;
+    private closingSessions = new Map<string, number>();
     private listeners = new Set<() => void>();
     constructor(
         private gateway: Gateway,
@@ -111,6 +112,14 @@ export class CaptureController {
         permitted: boolean,
         attempt: TraceAttempt | null,
     ) {
+        // The gameplay controller still selects the old session while native
+        // revocation/close is pending. Those notifications cannot reattach it.
+        if (session && this.closingSessions.has(this.sessionKey(session))) {
+            session = null;
+            head = 0;
+            permitted = false;
+            attempt = null;
+        }
         const context = `${session?.id}|${session?.scope.story}|${session?.scope.branch}|${permitted}`;
         const selection = JSON.stringify([head, attempt?.identity]);
         if (context !== this.context) {
@@ -216,7 +225,36 @@ export class CaptureController {
         if (epoch === this.epoch)
             this.patch({ enabled: revoked ? false : null });
     }
-    async metadataControl(work: () => Promise<void>) {
+    private sessionKey(session: Session): string {
+        return JSON.stringify([
+            session.id,
+            session.scope.story,
+            session.scope.branch,
+        ]);
+    }
+    async metadataControl(work: () => Promise<void>, closingSession?: Session) {
+        if (closingSession) {
+            const key = this.sessionKey(closingSession);
+            this.closingSessions.set(
+                key,
+                (this.closingSessions.get(key) ?? 0) + 1,
+            );
+            try {
+                if (this.session && this.sessionKey(this.session) === key) {
+                    // Existing context retirement clears private data immediately
+                    // and queues its revocation before the Host close below.
+                    this.contextChanged(null, 0, false, null);
+                }
+                await this.control(work);
+            } finally {
+                const remaining = (this.closingSessions.get(key) ?? 1) - 1;
+                if (remaining) this.closingSessions.set(key, remaining);
+                else this.closingSessions.delete(key);
+            }
+            // A newer session owns its own state; this old close must not
+            // clear its capture or globally revoke its exported preview.
+            return;
+        }
         this.epoch++;
         this.clear();
         this.patch({ enabled: null });

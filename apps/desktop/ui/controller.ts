@@ -122,6 +122,7 @@ export class Controller {
         private prefix = `desktop-${crypto.randomUUID()}`,
         private coordinatePrivateMetadata: (
             work: () => Promise<void>,
+            closingSession?: Session,
         ) => Promise<void> = (work) => work(),
         private developmentScene = false,
     ) {}
@@ -692,11 +693,13 @@ export class Controller {
         if (!session) return;
         await this.invalidate();
         try {
-            await this.gateway.call({
-                op: "close",
-                session: session.id,
-                scope: session.scope,
-            });
+            await this.coordinatePrivateMetadata(async () => {
+                await this.gateway.call({
+                    op: "close",
+                    session: session.id,
+                    scope: session.scope,
+                });
+            }, session);
         } catch (error) {
             this.fail(error);
             return;

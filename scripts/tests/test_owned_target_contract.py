@@ -779,7 +779,7 @@ class ActualOwnerMockTests(unittest.TestCase):
 
 class ClosedLifecycleFixture:
     """Every write is contained in a new synthetic D tree, never the prepared AVD."""
-    def __init__(self):
+    def __init__(self,*,resource_floors=None,observed_free=None,commit_snapshot=None,host_memory_min=None):
         from benchmarks import receipt_avd_environment as env
         self.env=env;self.base=Path(tempfile.mkdtemp(prefix='locallore-target-lifecycle-',dir='D:/Dev/_Temp')).resolve(strict=True)
         self.root=self.base/'owner';self.guest_root=self.base/'synthetic-guest';self.writes=[]
@@ -793,7 +793,9 @@ class ClosedLifecycleFixture:
         proposal=dict(version=1,phase='run',paths=dict(root=str(self.guest_root)),serial='emulator-5592',memory_mib=8192,cores=4,
           max_seconds=1800,console_port=5592,adb_path=self.a['server']['adb']['path'],prepared=prepared,prepare_result=prepare_result,
           prepare_proposal=prepare_proposal,token=dict(original_metadata='synthetic token metadata, no credential bytes'),
-          old_avd=dict(original_metadata='synthetic old registry'),bindings=[pin('C:/Synthetic/installed-sdk-tool.exe')],host_free_min={'D:':40*1024**3})
+          old_avd=dict(original_metadata='synthetic old registry'),bindings=[pin('C:/Synthetic/installed-sdk-tool.exe')],
+          host_free_min={'D:':40*1024**3}if resource_floors is None else resource_floors)
+        if host_memory_min is not None:proposal['host_available_memory_min']=host_memory_min
         self.a['guest']['proposal']=self.save(self.base/'run-proposal.json',proposal)
         self.a['guest']['authorization']=self.save(self.base/'run-authorization.json',dict(version=1,phase='run',
           proposal_sha256=self.a['guest']['proposal']['sha256'],allow_environment_calls=True,root_go_pending=False))
@@ -833,7 +835,8 @@ class ClosedLifecycleFixture:
         guest_inputs=self.save(self.root/'guest-inputs-v1.json',dict(version=1,protocol=PROTOCOL,admission=self.admission,
           proposal=self.a['guest']['proposal'],authorization=self.a['guest']['authorization'],prepared=prepared,prepare_result=prepare_result,
           token=proposal['token'],original_avd=proposal['old_avd'],configuration=[config],tools=proposal['bindings'],
-          facts=dict(free_bytes={'D:':50*1024**3},available_memory=16*1024**3,logical_cpus=12,commit_capacity={}),
+          facts=dict(free_bytes={'D:':50*1024**3}if observed_free is None else observed_free,available_memory=16*1024**3,logical_cpus=12,
+            commit_capacity={}if commit_snapshot is None else commit_snapshot),
           timer=dict(key='test.quitAfterBootTimeOut',actual=None,effective=-1,default_used=True,enabled=False)))
         boot=self.save(self.guest_root/'owned-target-boot-claim-v1.json',dict(version=1,protocol=PROTOCOL,admission=self.admission,
           worker=self.d['worker'],proposal=self.a['guest']['proposal']))
@@ -920,6 +923,24 @@ class ClosedLifecycleReaderTests(unittest.TestCase):
         f=ClosedLifecycleFixture();value=f.env.read_json(f.root/'target-registration-v1.json')
         value['queries'][0]['elapsed_ms']+=1;different=f.save(f.root/'other-valid-registration-v1.json',value)
         f.mutate('readiness',lambda entries:entries[-1].update(queries=different));self.refused(f.validate)
+
+    @staticmethod
+    def commit_evidence(available):
+        gib=1024**3
+        return dict(version=1,commit_total_bytes=64*gib-available,commit_limit_bytes=64*gib,available_commit_bytes=available,
+          guest_memory_bytes=8*gib,required_commit_bytes=10*gib,reserve_bytes=2*gib)
+
+    def test_fully_bound_typed_but_insufficient_commit_measurement_refuses(self):
+        gib=1024**3
+        f=ClosedLifecycleFixture(resource_floors={'C:':16*gib,'D:':40*gib},observed_free={'C:':50*gib,'D:':50*gib},
+          commit_snapshot=self.commit_evidence(4*gib),host_memory_min=12*gib)
+        self.refused(f.validate)
+
+    def test_fully_rebound_zero_disk_floors_and_measurements_cannot_weaken_profile(self):
+        gib=1024**3
+        f=ClosedLifecycleFixture(resource_floors={'C:':0,'D:':0},observed_free={'C:':0,'D:':0},
+          commit_snapshot=self.commit_evidence(16*gib),host_memory_min=12*gib)
+        self.refused(f.validate)
 
 
 if __name__=='__main__':unittest.main()

@@ -77,7 +77,8 @@ or human quality acceptance. Frozen behavioral oracles were not changed.
 ## Executed evidence
 
 Local evidence root (physically on D, outside source Git):
-`D:/CodexLocalLore/01a165d9-ff25-7500-a550-1099087d4e37/author-integration-artifacts`.
+`<task-owned-D-evidence>/author-integration-artifacts` (a sanitized placeholder;
+exact private task paths remain in local process records).
 Each process record includes source, clean/unchanged status, exact command,
 timestamps, exit, TEMP/TMP and Cargo home. Full logs remain local.
 

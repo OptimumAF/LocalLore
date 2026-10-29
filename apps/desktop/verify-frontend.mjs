@@ -13,6 +13,7 @@ for (const args of [
     ["check-v2-receipt-evidence-review.mjs"],
     ["check-v2-recorded-turn-review.mjs"],
     ["check-v2-provenance-fields-review.mjs"],
+    ["check-scene-bootstrap-review.mjs"],
     ["check-author-controller.mjs"],
     ["check-author-callback-review.mjs"],
     ["check-author-panel-recovery-review.mjs"],
@@ -82,6 +83,9 @@ for (const args of [
 const normal = await readFile(new URL("dist/app.js", root), "utf8");
 for (const marker of [
     "harness_checkpoint",
+    "harness_scene_oracle",
+    "scene-native-pending",
+    "SceneDeadline:",
     "memory-inspection-native-empty",
     "memory_inspection_fixture",
     "harness_reopen",

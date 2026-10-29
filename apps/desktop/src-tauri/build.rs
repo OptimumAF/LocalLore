@@ -47,6 +47,7 @@ fn main() {
                 "evaluation_selected",
                 "harness_selected_case",
                 "harness_native_comparison_case",
+                "harness_scene_model_guards",
                 "harness_comparison_reader_case",
                 "evaluation_start",
                 "evaluation_open",

@@ -819,6 +819,49 @@
         {
           "additionalProperties": false,
           "properties": {
+            "attempt": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "base_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_narration_validation_read_v1",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head",
+            "base_revision",
+            "turn",
+            "attempt"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
             "expected_head": {
               "format": "uint64",
               "minimum": 0,

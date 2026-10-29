@@ -13,6 +13,7 @@ mod native_selected_workflow;
 mod native_startup;
 #[cfg(test)]
 mod outcome_review_tests;
+pub mod scene_v4;
 pub mod selected;
 mod turn_execution;
 use super::*;
@@ -332,23 +333,84 @@ fn private_read(
     before: &Engine,
     r: &Request,
 ) -> (Option<Value>, Option<Value>) {
+    let first = private_read_first(host, session, before, r, false);
+    (first.capture, first.trace)
+}
+
+struct FirstPrivateRead {
+    capture: Option<Value>,
+    trace: Option<Value>,
+    query: Result<Option<crate::narration_diagnostic_companion_v1::Query>>,
+}
+
+fn private_read_first(
+    host: &Host,
+    session: &str,
+    before: &Engine,
+    r: &Request,
+    diagnostics: bool,
+) -> FirstPrivateRead {
     let trace = call(
         host,
         json!({"op":"trace_read","session":session,"scope":r.scope,"expected_head":before.revision(),"base_revision":r.expected_revision,"observer":{"kind":"player"},"turn":r.turn,"attempt":null}),
     );
-    let attempt = trace["data"]["snapshot"]["attempts"]
-        .as_array()
-        .and_then(|a| a.last())
-        .and_then(|a| a["identity"]["attempt"].as_u64());
+    let query = if diagnostics {
+        crate::narration_diagnostic_companion_v1::select_query(
+            &trace,
+            session,
+            before.revision(),
+            &before.seed().player,
+            r,
+        )
+    } else {
+        Ok(None)
+    };
+    let attempt = if diagnostics {
+        query
+            .as_ref()
+            .ok()
+            .and_then(Option::as_ref)
+            .map(|q| u64::from(q.attempt()))
+    } else {
+        trace["data"]["snapshot"]["attempts"]
+            .as_array()
+            .and_then(|a| a.last())
+            .and_then(|a| a["identity"]["attempt"].as_u64())
+    };
     let capture=attempt.map(|attempt|call(host,json!({"op":"trace_capture_read","session":session,"scope":r.scope,"expected_head":before.revision(),"base_revision":r.expected_revision,"turn":r.turn,"attempt":attempt})));
-    (
+    FirstPrivateRead {
         capture,
-        if trace["status"] == "ok" {
+        trace: if trace["status"] == "ok" {
             Some(trace["data"]["snapshot"].clone())
         } else {
             None
         },
-    )
+        query,
+    }
+}
+
+// The codec receives bytes from this held, existing guard rather than reopening
+// a previously checked path. This is internal fixed-protocol I/O, not an RPC.
+pub(crate) fn read_narration_diagnostic_file_v1(
+    path: &Path,
+    cap: usize,
+) -> Result<(File, Vec<u8>)> {
+    use std::io::Read;
+    let mut file = selected::pin_single_link_file(path)?;
+    let metadata = file.metadata().map_err(|_| "DiagnosticIo")?;
+    if metadata.len() > cap as u64 {
+        return Err("DiagnosticBudget".into());
+    }
+    let mut bytes = Vec::new();
+    (&mut file)
+        .take(cap as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "DiagnosticIo")?;
+    if bytes.len() > cap || file.metadata().map_err(|_| "DiagnosticIo")?.len() != bytes.len() as u64
+    {
+        return Err("DiagnosticBudget".into());
+    }
+    Ok((file, bytes))
 }
 struct Observation<'a> {
     step: &'a protocol::Step,

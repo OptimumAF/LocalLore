@@ -4,6 +4,7 @@ use super::*;
 use locallore::inspection_query::Observer;
 use locallore_eval::local_lane::comparison::desktop_api as shared;
 use locallore_eval::local_lane::comparison::literal_v3::desktop_api as literal;
+use locallore_eval::local_lane::comparison::scene_v4::desktop_api as scene;
 use std::sync::{mpsc, Weak};
 
 const TTL: Duration = Duration::from_secs(900);
@@ -22,6 +23,7 @@ struct ReaderGrant;
 enum OpenedRead {
     V2(shared::OpenedComparison),
     V3(literal::OpenedComparison),
+    V4(scene::OpenedComparison),
 }
 impl OpenedRead {
     fn open(path: &Path) -> Result<Self> {
@@ -29,8 +31,11 @@ impl OpenedRead {
             Ok(opened) => Ok(Self::V2(opened)),
             Err(original) => match literal::open_read_only(path) {
                 Ok(opened) => Ok(Self::V3(opened)),
-                // Preserve the existing V2 failure category on invalid sources.
-                Err(_) => Err(original),
+                Err(_) => match scene::open_read_only(path) {
+                    Ok(opened) => Ok(Self::V4(opened)),
+                    // Preserve the existing V2 failure category on invalid sources.
+                    Err(_) => Err(original),
+                },
             },
         }
     }
@@ -38,6 +43,7 @@ impl OpenedRead {
         match self {
             Self::V2(opened) => shared::summary(opened, true),
             Self::V3(opened) => literal::summary(opened, true),
+            Self::V4(opened) => scene::summary(opened, true),
         }
     }
     fn evidence(
@@ -49,6 +55,7 @@ impl OpenedRead {
         match self {
             Self::V2(opened) => shared::evidence(opened, binding, row, request, true),
             Self::V3(opened) => literal::evidence(opened, binding, row, request, true),
+            Self::V4(opened) => scene::evidence(opened, binding, row, request, true),
         }
     }
 }
@@ -70,6 +77,7 @@ impl SelectedSource {
         match &self.opened {
             OpenedRead::V2(_) => 2,
             OpenedRead::V3(_) => 3,
+            OpenedRead::V4(_) => 4,
         }
     }
     pub(super) fn into_origin(self) -> (PathBuf, String) {
@@ -876,5 +884,7 @@ impl EvaluationManager {
 
 #[cfg(test)]
 mod literal_read_review;
+#[cfg(test)]
+mod scene_read_review;
 #[cfg(test)]
 mod tests;

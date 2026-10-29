@@ -24,8 +24,45 @@ export async function comparisonRunNativeJourneys({
     errors: ErrorBuffer;
     invoke: (name: string, args?: Record<string, unknown>) => Promise<unknown>;
     dispose: () => Promise<void>;
-    config: { stage: string };
+    config: { stage: string; scene?: boolean };
 }) {
+    // The native bootstrap chooses this test expectation. It is not a native
+    // request selector or permission to change a run's construction/protocol.
+    const scene = config.scene === true;
+    const retainedReview = config.stage === "review";
+    let retainedResume: {
+        outcome: "completed" | "source_mismatch";
+        error: "EvaluationSourceMismatch" | null;
+    } | null = null;
+    const sceneSlots = [
+        "courier-01",
+        "courier-05",
+        "courier-12",
+        "courier-22",
+    ].flatMap((turn) =>
+        (["left", "right"] as const).map((arm) => ({
+            turn,
+            arm,
+            label: `full-scene-${turn}-${arm}`,
+        })),
+    );
+    const reviewSlots: Record<string, unknown>[] = [];
+    let sceneReview: Record<string, unknown> | null = null;
+    type Observation = {
+        version: 1;
+        kind: "native_scene_execution_observation";
+        protocol_version: 4;
+        reservation_sequence: number;
+        consent_calls: number;
+        owner_present: boolean;
+        retained_evaluations: number;
+    };
+    const observationProofs: {
+        name: string;
+        before: Observation;
+        after: Observation;
+        unchanged: boolean;
+    }[] = [];
     const checks: string[] = [],
         captureLabels: string[] = [],
         savedRuns: string[] = [];
@@ -63,7 +100,12 @@ export async function comparisonRunNativeJourneys({
             operation: state.status?.operation_id ?? null,
             running: state.status?.running ?? null,
             error: state.error,
-            cause: state.status?.version === 2 ? state.status.cause : null,
+            cause:
+                scene && state.status?.version === 3
+                    ? state.status.cause
+                    : state.status?.version === 2
+                      ? state.status.cause
+                      : null,
             pending: state.pending?.action ?? null,
             uncertain: state.uncertain,
             cleanup: state.mode === "approved_native" ? state.cleanup : null,
@@ -142,6 +184,44 @@ export async function comparisonRunNativeJourneys({
         | "consent-status";
     const fixture = (scenario: Scenario) =>
         invoke("harness_native_comparison_case", { scenario });
+    const observation = async (): Promise<Observation> => {
+        check(scene, "native-scene-observation-only-in-closed-scene-journey");
+        const value = (await invoke("harness_native_comparison_case", {
+            scenario: "execution-observation",
+        })) as Observation;
+        check(
+            value &&
+                Object.keys(value).sort().join(",") ===
+                    "consent_calls,kind,owner_present,protocol_version,reservation_sequence,retained_evaluations,version" &&
+                value.version === 1 &&
+                value.kind === "native_scene_execution_observation" &&
+                value.protocol_version === 4 &&
+                [
+                    value.reservation_sequence,
+                    value.consent_calls,
+                    value.retained_evaluations,
+                ].every(
+                    (number) => Number.isSafeInteger(number) && number >= 0,
+                ) &&
+                typeof value.owner_present === "boolean",
+            "native-scene-closed-native-execution-observation",
+        );
+        return value;
+    };
+    const ownerFree = (value: Observation) =>
+        !value.owner_present && value.retained_evaluations === 0;
+    const unchangedObservation = (
+        before: Observation,
+        after: Observation,
+        name: string,
+    ) => {
+        const same =
+            structural(before) === structural(after) &&
+            ownerFree(before) &&
+            ownerFree(after);
+        observationProofs.push({ name, before, after, unchanged: same });
+        check(same, name);
+    };
     const hold = async () => {
         await fixture("hold-execution-consent");
         held = true;
@@ -241,12 +321,21 @@ export async function comparisonRunNativeJourneys({
                 f.get().status?.running === false,
             `${name}-terminal`,
         );
-        check(
-            f.get().clientId === client &&
-                f.get().status?.version === 2 &&
-                f.get().status?.input_lane === "approved_native",
-            `${name}-native-v2-identity`,
-        );
+        if (scene)
+            check(
+                f.get().clientId === client &&
+                    f.get().status?.version === 3 &&
+                    f.get().status?.protocol_version === 4 &&
+                    f.get().status?.input_lane === "approved_native",
+                `${name}-native-v3-scene4-identity`,
+            );
+        else
+            check(
+                f.get().clientId === client &&
+                    f.get().status?.version === 2 &&
+                    f.get().status?.input_lane === "approved_native",
+                `${name}-native-v2-identity`,
+            );
         if (success)
             check(
                 f.get().error === null && f.get().status?.error === null,
@@ -385,6 +474,7 @@ export async function comparisonRunNativeJourneys({
         "full-switched",
         "full-restarted",
         "full-finished",
+        ...(scene ? sceneSlots.map((slot) => slot.label) : []),
     ]);
     const capture = async (
         label: string,
@@ -402,7 +492,9 @@ export async function comparisonRunNativeJourneys({
         const targetSelector =
             selector === "#comparison-reader" &&
             !["full-denied"].includes(label)
-                ? ["full-receipt", "full-narrow"].includes(label)
+                ? ["full-receipt", "full-narrow"].includes(label) ||
+                  (retainedReview && label === "full-reader") ||
+                  label.startsWith("full-scene-")
                     ? ".comparison-evidence"
                     : ".comparison-selected"
                 : selector;
@@ -449,6 +541,110 @@ export async function comparisonRunNativeJourneys({
             );
         }
         const evidence = reader.evidence;
+        // Observe actual layout in the retained-review mode. Text presence and
+        // horizontal-fit checks alone cannot detect an opaque sticky header
+        // covering the artifact's source or case outcome.
+        const artifactGeometry =
+            retainedReview && targetSelector === ".comparison-evidence"
+                ? (() => {
+                      const header = panel!.querySelector<HTMLElement>(
+                          ".comparison-selection-context",
+                      );
+                      const headerBox = header?.getBoundingClientRect();
+                      const position = header
+                          ? getComputedStyle(header).position
+                          : null;
+                      const paragraphs = [
+                          ...target!.querySelectorAll<HTMLElement>("p"),
+                      ];
+                      const items = [
+                          {
+                              kind: "heading",
+                              node: target!.querySelector<HTMLElement>("h4"),
+                          },
+                          {
+                              kind: "source",
+                              node: paragraphs.find((node) =>
+                                  node.textContent?.startsWith("Source story "),
+                              ),
+                          },
+                          ...(evidence?.observer.kind === "omniscient"
+                              ? [
+                                    {
+                                        kind: "case-outcome",
+                                        node: paragraphs.find((node) =>
+                                            node.textContent?.startsWith(
+                                                "Case phase:",
+                                            ),
+                                        ),
+                                    },
+                                ]
+                              : []),
+                      ].map(({ kind, node }) => {
+                          if (!node)
+                              return {
+                                  kind,
+                                  missing: true,
+                                  positiveArea: false,
+                                  insideViewport: false,
+                                  selectionHeaderOverlap: false,
+                              };
+                          const box = node.getBoundingClientRect();
+                          const overlap =
+                              headerBox !== undefined &&
+                              (position === "sticky" || position === "fixed") &&
+                              box.top < headerBox.bottom &&
+                              box.bottom > headerBox.top &&
+                              box.left < headerBox.right &&
+                              box.right > headerBox.left;
+                          return {
+                              kind,
+                              missing: false,
+                              top: box.top,
+                              bottom: box.bottom,
+                              left: box.left,
+                              right: box.right,
+                              width: box.width,
+                              height: box.height,
+                              positiveArea:
+                                  [
+                                      box.top,
+                                      box.bottom,
+                                      box.left,
+                                      box.right,
+                                      box.width,
+                                      box.height,
+                                  ].every(Number.isFinite) &&
+                                  box.width > 0 &&
+                                  box.height > 0,
+                              insideViewport:
+                                  box.top >= -1 &&
+                                  box.bottom <= innerHeight + 1 &&
+                                  box.left >= -1 &&
+                                  box.right <= innerWidth + 1,
+                              selectionHeaderOverlap: overlap,
+                          };
+                      });
+                      return {
+                          selectionHeader: headerBox
+                              ? {
+                                    top: headerBox.top,
+                                    bottom: headerBox.bottom,
+                                    position,
+                                }
+                              : null,
+                          items,
+                          visible:
+                              headerBox !== undefined &&
+                              items.every(
+                                  (item) =>
+                                      item.positiveArea &&
+                                      item.insideViewport &&
+                                      !item.selectionHeaderOverlap,
+                              ),
+                      };
+                  })()
+                : null;
         const snapshot = {
             synthetic: true,
             semanticVersion: 2,
@@ -527,13 +723,24 @@ export async function comparisonRunNativeJourneys({
                           quality_accepted:
                               reader.summary.report.quality_accepted,
                           constructions:
-                              reader.summary.report.version === 3
+                              reader.summary.report.version === 3 ||
+                              (scene && reader.summary.report.version === 4)
                                   ? reader.summary.report.arms
                                   : null,
+                          ...(scene && reader.summary.report.version === 4
+                              ? {
+                                    source_bound_committed_rows:
+                                        reader.summary.report
+                                            .source_bound_committed_rows,
+                                    human_rubric:
+                                        reader.summary.report.human_rubric,
+                                }
+                              : {}),
                       }
                     : null,
             },
             inventoryProofs,
+            ...(scene ? { sceneReview, observationProofs } : {}),
             checks: [...checks],
             errors: errors.snapshot(),
             semantic: {
@@ -568,6 +775,7 @@ export async function comparisonRunNativeJourneys({
                     top: target!.getBoundingClientRect().top,
                     bottom: target!.getBoundingClientRect().bottom,
                 },
+                artifactGeometry,
             },
         };
         check(
@@ -577,6 +785,10 @@ export async function comparisonRunNativeJourneys({
         );
         await invoke("harness_checkpoint", { label, snapshot });
         captureLabels.push(label);
+        check(
+            artifactGeometry === null || artifactGeometry.visible,
+            `${label}-artifact-framing-visible-without-selection-header-overlap`,
+        );
         check(
             !pageOverflow && !panelOverflow,
             `${label}-no-horizontal-overflow`,
@@ -620,32 +832,90 @@ export async function comparisonRunNativeJourneys({
             );
             return;
         }
-        check(
-            r.get().status?.phase === "ready" &&
-                !!r.get().status?.run_token &&
-                r.get().source?.protocol_version === 3,
-            "native-full-managed-protocol3-reader",
-        );
+        if (scene)
+            check(
+                r.get().status?.phase === "ready" &&
+                    !!r.get().status?.run_token &&
+                    r.get().source?.protocol_version === 4,
+                "native-scene-managed-actual-protocol4-reader",
+            );
+        else
+            check(
+                r.get().status?.phase === "ready" &&
+                    !!r.get().status?.run_token &&
+                    r.get().source?.protocol_version === 3,
+                "native-full-managed-protocol3-reader",
+            );
         r.setObserver({ kind: "omniscient" });
         await r.loadSummary();
         const report = r.get().summary?.report;
-        check(
-            report?.version === 3 &&
-                report.kind === "paired_snapshots" &&
-                report.source_matches === true &&
-                report.completed === completed &&
-                report.completed_scenes === (completed ? 4 : 1) &&
-                report.turns.length === (completed ? 48 : 12),
-            completed
-                ? "native-full-actual-completed-proof"
-                : "native-full-actual-paired-partial",
-        );
-        check(
-            report?.version === 3 &&
-                report.arms[0]?.arm === "literal_player_v1" &&
-                report.arms[1]?.arm === "relevant_memory_v1",
-            "native-full-actual-construction-descriptors",
-        );
+        if (scene) {
+            check(
+                report?.version === 4 &&
+                    report.kind === "paired_snapshots" &&
+                    (retainedReview
+                        ? typeof report.source_matches === "boolean"
+                        : report.source_matches === true) &&
+                    report.completed === completed &&
+                    report.completed_scenes === (completed ? 4 : 1) &&
+                    report.turns.length === (completed ? 48 : 12),
+                completed
+                    ? "native-scene-actual-completed-proof"
+                    : "native-scene-actual-paired-partial",
+            );
+            check(
+                report?.version === 4 &&
+                    report.arms[0]?.arm === "literal_scene_v1" &&
+                    report.arms[1]?.arm === "relevant_memory_scene_v1",
+                "native-scene-actual-construction-descriptors",
+            );
+            if (report?.version === 4) {
+                const bound = report.turns.filter(
+                    (row) =>
+                        row.construction_evidence_status ===
+                        "validated_committed_scene_narrator_v1",
+                );
+                check(
+                    report.source_bound_committed_rows === bound.length &&
+                        bound.every(
+                            (row) =>
+                                row.phase === "committed" &&
+                                [
+                                    row.narrator_prompt_sha256,
+                                    row.narrator_schema_sha256,
+                                    row.scene_frame_sha256,
+                                ].every(
+                                    (hash) =>
+                                        typeof hash === "string" &&
+                                        /^[0-9a-f]{64}$/.test(hash),
+                                ),
+                        ),
+                    "native-scene-finite-committed-narrator-input-gate-counted-not-output-authentication",
+                );
+                check(
+                    report.human_rubric === "not_reviewed",
+                    "native-scene-human-rubric-remains-unreviewed",
+                );
+            }
+        } else {
+            check(
+                report?.version === 3 &&
+                    report.kind === "paired_snapshots" &&
+                    report.source_matches === true &&
+                    report.completed === completed &&
+                    report.completed_scenes === (completed ? 4 : 1) &&
+                    report.turns.length === (completed ? 48 : 12),
+                completed
+                    ? "native-full-actual-completed-proof"
+                    : "native-full-actual-paired-partial",
+            );
+            check(
+                report?.version === 3 &&
+                    report.arms[0]?.arm === "literal_player_v1" &&
+                    report.arms[1]?.arm === "relevant_memory_v1",
+                "native-full-actual-construction-descriptors",
+            );
+        }
         check(
             report?.human_reviewed === 0 && report.quality_accepted === false,
             "native-full-no-invented-quality-acceptance",
@@ -682,6 +952,38 @@ export async function comparisonRunNativeJourneys({
                 failures: report.turns.filter((row) => !row.passed).length,
                 human_reviewed: report.human_reviewed,
                 quality_accepted: report.quality_accepted,
+                ...(scene && report.version === 4
+                    ? {
+                          protocol_version: 4,
+                          ...(retainedReview
+                              ? {
+                                    recordedEvidenceOnly: true,
+                                    source_matches: report.source_matches,
+                                }
+                              : {}),
+                          native_load: report.native_load,
+                          profile: report.profile,
+                          source_bound_committed_rows:
+                              report.source_bound_committed_rows,
+                          construction_statuses: report.turns.reduce<
+                              Record<string, number>
+                          >((counts, row) => {
+                              counts[row.construction_evidence_status] =
+                                  (counts[row.construction_evidence_status] ??
+                                      0) + 1;
+                              return counts;
+                          }, {}),
+                          privacy_statuses: report.turns.reduce<
+                              Record<string, number>
+                          >((counts, row) => {
+                              counts[row.privacy_evidence_status] =
+                                  (counts[row.privacy_evidence_status] ?? 0) +
+                                  1;
+                              return counts;
+                          }, {}),
+                          human_rubric: report.human_rubric,
+                      }
+                    : {}),
             });
         }
     };
@@ -705,7 +1007,306 @@ export async function comparisonRunNativeJourneys({
             "native-full-evidence-observer-bound",
         );
     };
+    const sceneRead = async (request: EvidenceRequest) => {
+        const selected = r.get().selected;
+        const row = selected
+            ? r
+                  .get()
+                  .source?.rows.find(
+                      (entry) =>
+                          entry.row.turn === selected.turn &&
+                          entry.row.arm === selected.arm,
+                  )
+            : undefined;
+        check(
+            scene && row,
+            "native-scene-inspection-has-actual-selected-source",
+        );
+        const changed = !sameReaderObserver(r.get().observer, request.observer);
+        r.setObserver(request.observer);
+        check(
+            !changed || r.get().evidence === null,
+            "native-scene-lens-synchronously-retires-prior-body",
+        );
+        await r.inspect(request);
+        const evidence = r.get().evidence;
+        check(
+            !r.get().busy &&
+                r.get().error === null &&
+                evidence &&
+                sameReaderObserver(evidence.observer, request.observer) &&
+                evidence.row.turn === selected!.turn &&
+                evidence.row.arm === selected!.arm &&
+                evidence.binding === r.get().source?.binding &&
+                structural(evidence.scope) === structural(row!.source.scope) &&
+                evidence.before_head === row!.source.before_head &&
+                evidence.after_head === row!.source.after_head &&
+                evidence.read_only === true &&
+                evidence.generation_grant === false,
+            "native-scene-evidence-keeps-actual-row-and-lens",
+        );
+        const available =
+            request.kind === "query" ||
+            (request.kind === "receipt"
+                ? row!.receipt_available
+                : request.kind === "capture"
+                  ? row!.capture_available
+                  : row!.recording_available);
+        const missing =
+            request.kind === "receipt"
+                ? "no_accepted_receipt"
+                : request.kind === "capture"
+                  ? "capture_unavailable"
+                  : "recording_unavailable";
+        check(
+            available
+                ? evidence!.body.kind === request.kind
+                : evidence!.body.kind === "missing" &&
+                      evidence!.body.reason === missing,
+            `native-scene-actual-${request.kind}-${available ? "available" : "unavailable"}`,
+        );
+        return evidence!;
+    };
+    const evidenceHash = async (value: unknown) =>
+        [
+            ...new Uint8Array(
+                await crypto.subtle.digest(
+                    "SHA-256",
+                    new TextEncoder().encode(JSON.stringify(value)),
+                ),
+            ),
+        ]
+            .map((byte) => byte.toString(16).padStart(2, "0"))
+            .join("");
+    const sceneReviewJourney = async () => {
+        // Prior player/actor lens changes intentionally retired the private
+        // summary. Read it again through the same current native reader token.
+        r.setObserver({ kind: "omniscient" });
+        await r.loadSummary();
+        const report = r.get().summary?.report;
+        check(report?.version === 4, "native-scene-review-uses-actual-report4");
+        if (report?.version !== 4) throw Error("SceneReportRequired");
+        for (const slot of sceneSlots) {
+            const row = r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.row.turn === slot.turn &&
+                        entry.row.arm === slot.arm,
+                );
+            const result = report.turns.find(
+                (entry) => entry.turn === slot.turn && entry.arm === slot.arm,
+            );
+            check(
+                row && result,
+                `native-scene-fixed-review-slot-${slot.turn}-${slot.arm}-retained`,
+            );
+            r.select(row!.row);
+            const receipt = await sceneRead({
+                kind: "receipt",
+                observer: { kind: "omniscient" },
+            });
+            const captureEvidence = await sceneRead({
+                kind: "capture",
+                observer: { kind: "omniscient" },
+            });
+            const outputs = await sceneRead({
+                kind: "outputs",
+                observer: { kind: "omniscient" },
+            });
+            const retained = {
+                turn: slot.turn,
+                arm: slot.arm,
+                label: slot.label,
+                phase: result!.phase,
+                passed: result!.passed,
+                error: result!.error,
+                fallback: result!.fallback,
+                receipt_available: row!.receipt_available,
+                capture_available: row!.capture_available,
+                recording_available: row!.recording_available,
+                source: row!.source,
+                input_semantic_sha256: result!.input_semantic_sha256,
+                construction_evidence_status:
+                    result!.construction_evidence_status,
+                construction_evidence_reason:
+                    result!.construction_evidence_reason,
+                privacy_evidence_status: result!.privacy_evidence_status,
+                narrator_prompt_sha256: result!.narrator_prompt_sha256,
+                narrator_schema_sha256: result!.narrator_schema_sha256,
+                scene_frame_sha256: result!.scene_frame_sha256,
+                receipt_evidence_sha256: await evidenceHash(receipt),
+                capture_evidence_sha256: await evidenceHash(captureEvidence),
+                outputs_evidence_sha256: await evidenceHash(outputs),
+                human_rubric: "not_reviewed",
+                quality_accepted: false,
+                original_human_assessment: "needs improvement",
+            };
+            reviewSlots.push(retained);
+            // Full input artifacts stay in the Rust-owned run. Their evidence
+            // hash binds this observation without duplicating a whole prompt
+            // into a bounded semantic checkpoint. Actual receipt and outputs
+            // are retained here; unavailable slots remain unavailable.
+            sceneReview = {
+                version: 1,
+                ...retained,
+                receiptEvidence: receipt,
+                captureBodyKind: captureEvidence.body.kind,
+                outputsEvidence: outputs,
+            };
+            try {
+                await capture(slot.label, "#comparison-reader");
+            } finally {
+                sceneReview = null;
+            }
+        }
+        check(
+            reviewSlots.length === 8,
+            "native-scene-eight-frozen-review-slots-no-substitution",
+        );
+    };
+    const sceneReaderJourney = async (extended: boolean) => {
+        const client = f.get().clientId,
+            operation = f.get().status?.operation_id;
+        await managedRead(true);
+        const row =
+            r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.receipt_available &&
+                        entry.capture_available &&
+                        entry.recording_available,
+                ) ?? r.get().source!.rows[0];
+        check(row, "native-scene-actual-source-row-without-assuming-a-commit");
+        r.select(row.row);
+        for (const edge of ["before", "after"] as const) {
+            const body = await sceneRead({
+                kind: "query",
+                edge,
+                observer: { kind: "player" },
+                view: "history",
+            });
+            const head =
+                edge === "before"
+                    ? row.source.before_head
+                    : row.source.after_head;
+            check(
+                body.body.kind === "query" &&
+                    body.body.page.head === head &&
+                    body.body.page.revision === head &&
+                    structural(body.scope) === structural(row.source.scope),
+                `native-scene-${edge}-actual-Store-cut`,
+            );
+        }
+        await capture("full-reader", "#comparison-reader");
+        if (extended) {
+            const knowledgeRow = r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.row.turn === "courier-01" &&
+                        entry.row.arm === "left",
+                );
+            check(
+                knowledgeRow,
+                "native-scene-original-player-only-knowledge-cut",
+            );
+            r.select(knowledgeRow!.row);
+            const known = await sceneRead({
+                kind: "query",
+                edge: "before",
+                observer: { kind: "player" },
+                view: "knowledge",
+            });
+            check(
+                known.body.kind === "query" &&
+                    JSON.stringify(known.body.page).includes("SECRET-TIDE-731"),
+                "native-scene-player-positive-private-knowledge-canary",
+            );
+            for (const id of ["mira", "sable"] as const) {
+                r.select(knowledgeRow!.row);
+                const body = await sceneRead({
+                    kind: "query",
+                    edge: "before",
+                    observer: { kind: "character", id },
+                    view: "knowledge",
+                });
+                check(
+                    !JSON.stringify(body).includes("SECRET-TIDE-731"),
+                    `native-scene-${id}-no-player-private-secret`,
+                );
+                check(
+                    f.get().clientId === client &&
+                        f.get().status?.operation_id === operation,
+                    `native-scene-${id}-lens-does-not-rekey-generation`,
+                );
+                await capture(
+                    id === "mira" ? "full-mira" : "full-sable",
+                    "#comparison-reader",
+                );
+            }
+            r.select(row.row);
+            const nativeStatus = r.get().status!;
+            for (const kind of ["receipt", "capture", "outputs"] as const) {
+                let denied = "";
+                try {
+                    await invoke("evaluation_comparison", {
+                        action: "evidence",
+                        query: {
+                            runToken: nativeStatus.run_token,
+                            binding: r.get().source!.binding,
+                            turnId: row.row.turn,
+                            arm: row.row.arm,
+                            request: {
+                                kind,
+                                observer: { kind: "character", id: "sable" },
+                            },
+                        },
+                    });
+                } catch (error) {
+                    denied = String(error);
+                }
+                check(
+                    denied === "Forbidden",
+                    `native-scene-actor-${kind}-refused-before-availability`,
+                );
+            }
+            await sceneRead({
+                kind: "receipt",
+                observer: { kind: "omniscient" },
+            });
+            await capture("full-receipt", "#comparison-reader");
+            await sceneRead({
+                kind: "capture",
+                observer: { kind: "omniscient" },
+            });
+            await sceneRead({
+                kind: "outputs",
+                observer: { kind: "omniscient" },
+            });
+            await invoke("harness_viewport", { preset: "capture-narrow" });
+            await capture("full-narrow", "#comparison-reader");
+            await invoke("harness_viewport", { preset: "wide" });
+            await sceneReviewJourney();
+        } else
+            await sceneRead({
+                kind: "receipt",
+                observer: { kind: "omniscient" },
+            });
+        r.setObserver({ kind: "player" });
+        check(
+            r.get().evidence === null && r.get().summary === null,
+            "native-scene-player-lens-retires-private-body",
+        );
+        check(
+            f.get().clientId === client &&
+                f.get().status?.operation_id === operation,
+            "native-scene-reader-keeps-execution-identity",
+        );
+    };
     const readerJourney = async (extended: boolean) => {
+        if (scene) return sceneReaderJourney(extended);
         const client = f.get().clientId,
             operation = f.get().status?.operation_id;
         await managedRead(true);
@@ -880,19 +1481,44 @@ export async function comparisonRunNativeJourneys({
         rendering: "native-webview2",
         desktopInput: false,
         nativeDialogsAutomated: false,
-        doubles: [
-            "execution-consent",
-            "read-consent",
-            "model-picker",
-            "lost-start-ack",
-        ],
+        ...(scene
+            ? {
+                  protocolVersion: 4,
+                  reviewSlots,
+                  observationProofs,
+                  originalHumanAssessment: "needs improvement",
+                  human_rubric: "not_reviewed",
+                  quality_accepted: false,
+                  ...(retainedReview
+                      ? { retainedReview: true, retainedResume }
+                      : {}),
+              }
+            : {}),
+        doubles: retainedReview
+            ? ["read-consent"]
+            : scene
+              ? ["execution-consent", "read-consent", "lost-start-ack"]
+              : [
+                    "execution-consent",
+                    "read-consent",
+                    "model-picker",
+                    "lost-start-ack",
+                ],
         unavailable: [
             "human-quality-acceptance",
             "real-OS-dialog-interaction",
             "physical-phone-qualification",
             "whole-process-resource-qualification",
-            "independent-no-asset-call-counter-on-restart",
+            ...(scene
+                ? ["counter-observation-is-not-an-independent-SDK-load-count"]
+                : ["independent-no-asset-call-counter-on-restart"]),
             "presentation-poll-deadline-is-not-native-execution-budget",
+            ...(retainedReview
+                ? [
+                      "pending-confirmation-native-render-unavailable-without-a-new-start",
+                      "retained-native-profile-is-not-current-process-model-execution",
+                  ]
+                : []),
         ],
         ...(!passed
             ? {
@@ -907,7 +1533,9 @@ export async function comparisonRunNativeJourneys({
     });
     try {
         check(
-            config.stage === "initial" || config.stage === "restart",
+            config.stage === "initial" ||
+                config.stage === "restart" ||
+                (retainedReview && scene),
             "native-full-closed-stage",
         );
         check(
@@ -939,7 +1567,23 @@ export async function comparisonRunNativeJourneys({
             lane!.value === "approved_native",
             "native-full-App-lane-selected",
         );
-        if (config.stage === "initial") {
+        if (scene) {
+            await c.refreshModel();
+            check(
+                c.get().model?.imported === true &&
+                    c.get().model?.loaded === false &&
+                    !c.get().modelBusy &&
+                    c.get().model?.error === null,
+                "native-scene-existing-approved-publication-retained-unloaded-without-import",
+            );
+            const initialObservation = await observation();
+            check(
+                initialObservation.reservation_sequence === 0 &&
+                    initialObservation.consent_calls === 0 &&
+                    ownerFree(initialObservation),
+                "native-scene-fresh-application-owner-and-consent-counts-zero",
+            );
+        } else if (config.stage === "initial") {
             await c.modelAction("model_import");
             check(
                 c.get().model?.imported === true &&
@@ -956,14 +1600,169 @@ export async function comparisonRunNativeJourneys({
                 "native-full-restart-import-retained-unloaded",
             );
         }
+        if (retainedReview) {
+            check(
+                f.get().status === null && f.get().catalog === null,
+                "native-scene-review-fresh-metadata-unavailable",
+            );
+            await capture("full-idle");
+        }
         await f.loadCatalog();
-        check(
-            f.get().catalog?.version === 2 &&
-                f.get().catalog?.input_lane === "approved_native",
-            "native-full-actual-v2-native-catalog",
-        );
-        await capture("full-idle");
-        if (config.stage === "restart") {
+        if (scene)
+            check(
+                f.get().catalog?.version === 3 &&
+                    f.get().catalog?.protocol_version === 4 &&
+                    f.get().catalog?.input_lane === "approved_native",
+                "native-scene-actual-v3-protocol4-native-catalog",
+            );
+        else
+            check(
+                f.get().catalog?.version === 2 &&
+                    f.get().catalog?.input_lane === "approved_native",
+                "native-full-actual-v2-native-catalog",
+            );
+        if (!retainedReview) await capture("full-idle");
+        if (retainedReview) {
+            const before = await inventory(),
+                beforeObservation = await observation();
+            check(
+                before.file_count === 2072 &&
+                    beforeObservation.reservation_sequence === 0 &&
+                    beforeObservation.consent_calls === 0 &&
+                    ownerFree(beforeObservation),
+                "native-scene-review-retained-source-and-fresh-owner",
+            );
+            const paired = f
+                .get()
+                .catalog!.runs.filter(
+                    (run) =>
+                        run.comparison_kind === "paired" &&
+                        run.initial_batch === 1,
+                )
+                .sort((a, b) => b.created_ms - a.created_ms)[0];
+            check(paired, "native-scene-review-actual-catalog-paired-identity");
+            await terminal(
+                f.open(paired!.run_id),
+                "native-scene-review-retained-open",
+            );
+            reopenedRun = paired!.run_id;
+            check(
+                f.get().status?.completed === true &&
+                    f.get().status?.completed_scenes === 4 &&
+                    f.get().status?.report_ready === true,
+                "native-scene-review-opened-completed-before-any-resume",
+            );
+            await capture("full-restarted");
+            await managedRead(true);
+            await sceneReviewJourney();
+            const failed = r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.row.turn === "courier-01" &&
+                        entry.row.arm === "left",
+                );
+            check(
+                failed && !failed.receipt_available,
+                "native-scene-review-frozen-failed-slot-without-substitution",
+            );
+            r.select(failed!.row);
+            await sceneRead({
+                kind: "outputs",
+                observer: { kind: "omniscient" },
+            });
+            await invoke("harness_viewport", { preset: "capture-narrow" });
+            await capture("full-reader", "#comparison-reader");
+            await invoke("harness_viewport", { preset: "wide" });
+            await r.close();
+            const reviewClient = f.get().clientId;
+            const errorsBeforeResume = errors.snapshot().length;
+            const recoveriesBeforeResume = timeoutRecoveries;
+            await terminal(
+                f.resume(1),
+                "native-scene-review-one-completed-resume",
+                false,
+            );
+            check(
+                f.get().clientId === reviewClient &&
+                    f.get().status?.run_id === reopenedRun,
+                "native-scene-review-resume-keeps-the-retained-owner-identity",
+            );
+            if (f.get().error === null && f.get().status?.error === null) {
+                check(
+                    f.get().status?.completed === true &&
+                        f.get().status?.completed_scenes === 4,
+                    "native-scene-review-completed-resume-actually-completed",
+                );
+                retainedResume = { outcome: "completed", error: null };
+            } else {
+                check(
+                    f.get().error === "EvaluationSourceMismatch" &&
+                        f.get().status?.error === "EvaluationSourceMismatch",
+                    "native-scene-review-historical-resume-authoritative-source-refusal",
+                );
+                const added = errors.snapshot().slice(errorsBeforeResume);
+                // publish() carries a typed worker status error without calling
+                // the transport-error callback. Preserve that real service
+                // refusal; only separately observed poll recoveries add records.
+                check(
+                    added.length ===
+                        timeoutRecoveries - recoveriesBeforeResume &&
+                        added.every(
+                            (entry) =>
+                                entry.source === "native" &&
+                                entry.category === "Transport",
+                        ),
+                    "native-scene-review-source-refusal-is-typed-status-not-invented-transport",
+                );
+                errorEvidence.push({
+                    boundary:
+                        "retained-completed-resume-native-status-source-mismatch",
+                    added: 0,
+                });
+                retainedResume = {
+                    outcome: "source_mismatch",
+                    error: "EvaluationSourceMismatch",
+                };
+            }
+            await close();
+            c.setView("play");
+            await until(
+                () => !f.get().allowed && !r.get().allowed,
+                "native-scene-review-context-retired",
+            );
+            c.requestLab();
+            c.acknowledgeLab(true);
+            await until(
+                () =>
+                    f.get().allowed &&
+                    r.get().allowed &&
+                    !f.get().busy &&
+                    !f.get().uncertain,
+                "native-scene-review-clean-context-reentry",
+            );
+            check(
+                f.get().status === null &&
+                    f.get().catalog === null &&
+                    f.get().clientId === null,
+                "native-scene-review-retired-native-metadata-remains-unavailable",
+            );
+            unchangedObservation(
+                beforeObservation,
+                await observation(),
+                "native-scene-retained-review-no-consent-or-reservation",
+            );
+            unchanged(
+                before,
+                await inventory(),
+                "retained-open-read-resume-close-whole-run-byte-read-only",
+            );
+            check(
+                !actualGenerationObserved &&
+                    (await fixtureStatus()).held === false,
+                "native-scene-review-no-new-generation-or-held-consent",
+            );
+        } else if (config.stage === "restart") {
             const paired = f
                 .get()
                 .catalog!.runs.filter(
@@ -974,6 +1773,7 @@ export async function comparisonRunNativeJourneys({
                 .sort((a, b) => b.created_ms - a.created_ms)[0];
             check(paired, "native-full-cold-catalog-paired-identity");
             const before = await inventory();
+            const coldObservation = scene ? await observation() : null;
             await terminal(f.open(paired!.run_id), "native-full-cold-open");
             reopenedRun = paired!.run_id;
             check(
@@ -986,6 +1786,12 @@ export async function comparisonRunNativeJourneys({
             await terminal(f.resume(1), "native-full-cold-completed-resume");
             await readerJourney(false);
             await close();
+            if (scene)
+                unchangedObservation(
+                    coldObservation!,
+                    await observation(),
+                    "native-scene-cold-open-read-completed-resume-no-consent-or-reservation",
+                );
             unchanged(
                 before,
                 await inventory(),
@@ -1153,6 +1959,14 @@ export async function comparisonRunNativeJourneys({
             );
             await capture("full-switched");
 
+            if (scene) {
+                const prior = await observation();
+                check(
+                    prior.reservation_sequence === 0 && ownerFree(prior),
+                    "native-scene-consent-cancel-deny-retirement-never-reserved-a-model",
+                );
+            }
+
             await terminal(
                 f.start("paired", 1),
                 "native-full-genuine-paired-first-scene",
@@ -1185,6 +1999,7 @@ export async function comparisonRunNativeJourneys({
             );
             await cleanup();
             const beforeRetry = await inventory();
+            const completedObservation = scene ? await observation() : null;
             await terminal(
                 f.resume(1),
                 "native-full-completed-readonly-resume",
@@ -1194,6 +2009,12 @@ export async function comparisonRunNativeJourneys({
                 await inventory(),
                 "completed-resume-entire-output-byte-read-only",
             );
+            if (scene)
+                unchangedObservation(
+                    completedObservation!,
+                    await observation(),
+                    "native-scene-completed-resume-no-consent-or-reservation",
+                );
             await capture("full-completed");
             const beforeRead = await inventory();
             await readerJourney(true);
@@ -1234,10 +2055,13 @@ export async function comparisonRunNativeJourneys({
         );
         const records = errors.snapshot();
         check(
-            config.stage === "initial"
+            retainedReview
                 ? records.length === accountedErrors &&
-                      accountedErrors === 1 + timeoutRecoveries
-                : records.length === 0,
+                      accountedErrors === timeoutRecoveries
+                : config.stage === "initial"
+                  ? records.length === accountedErrors &&
+                    accountedErrors === 1 + timeoutRecoveries
+                  : records.length === 0,
             "native-full-only-boundary-accounted-errors",
         );
         const final = await inventory();
@@ -1245,7 +2069,14 @@ export async function comparisonRunNativeJourneys({
         finalInventoryCount = final.file_count;
         await capture("full-finished");
         check(
-            captureLabels.length === (config.stage === "initial" ? 14 : 4),
+            captureLabels.length ===
+                (retainedReview
+                    ? 12
+                    : config.stage === "initial"
+                      ? scene
+                          ? 22
+                          : 14
+                      : 4),
             "native-full-exact-bounded-captures",
         );
         disposalStarted = true;

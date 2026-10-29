@@ -183,51 +183,67 @@ impl EvaluationManager {
                 literal_v3::run_comparison(
                     &output,
                     resume,
-                    expected.kind,
+                    expected.kind(),
                     cancel,
                     batch,
                     LaneFactory::ScriptedBaseline,
                     reference.as_deref(),
                 )
+                .map(Report::Literal)
                 .map_err(failure),
             ),
             Some(NativeExecution { models, consent })
-                if expected.lane().ok() == Some(ComparisonLane::Native) =>
+                if expected.lane().is_ok_and(|lane| lane.native()) =>
             {
-                let metadata = json!({"version":1,"kind":"full_comparison_execution","protocol_version":3,"input_lane":"approved_native","run_id":expected.run_id,"client_id":expected.client_id,"comparison_kind":kind_name(expected.kind),"batch":batch,"max_admissions":expected.binding.max_admissions,"max_roles":expected.binding.max_roles,"max_active_ms":expected.binding.max_active_ms});
+                let metadata = expected.execution_metadata(batch);
                 let mut consent_error = None;
-                let result = literal_v3::run_native_comparison(
-                    &output,
-                    resume,
-                    expected.kind,
-                    cancel,
-                    batch,
-                    || {
-                        if !lease.valid(epoch) || cancel.is_cancelled() {
-                            return Err("Interrupted".into());
-                        }
-                        self.full_confirming(lease, epoch, operation, &expected.run_id, cancel)
-                            .map_err(|_| "Interrupted".to_owned())?;
-                        if !lease.valid(epoch) || cancel.is_cancelled() {
-                            return Err("Interrupted".into());
-                        }
-                        // This callback precedes any reservation/assets. Catch
-                        // only this safe boundary, never the post-owner body.
-                        let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            consent(&metadata)
-                        }))
-                        .unwrap_or_else(|_| Err("EvaluationInternal".into()));
-                        let accepted = answer.map_err(|error| {
-                            consent_error = Some(super::super::selected::failure(&error));
-                            "Interrupted".to_owned()
-                        })?;
-                        if !accepted || !lease.valid(epoch) || cancel.is_cancelled() {
-                            return Err("Interrupted".into());
-                        }
-                        self.reserve_owned(&models, JobKind::ComparisonRun, epoch, operation)
-                    },
-                    reference.as_deref(),
-                );
+                let reserve = || {
+                    if !lease.valid(epoch) || cancel.is_cancelled() {
+                        return Err("Interrupted".into());
+                    }
+                    self.full_confirming(lease, epoch, operation, expected.run_id(), cancel)
+                        .map_err(|_| "Interrupted".to_owned())?;
+                    if !lease.valid(epoch) || cancel.is_cancelled() {
+                        return Err("Interrupted".into());
+                    }
+                    // This callback precedes any reservation/assets. Catch
+                    // only this safe boundary, never the post-owner body.
+                    let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        consent(&metadata)
+                    }))
+                    .unwrap_or_else(|_| Err("EvaluationInternal".into()));
+                    let accepted = answer.map_err(|error| {
+                        consent_error = Some(super::super::selected::failure(&error));
+                        "Interrupted".to_owned()
+                    })?;
+                    if !accepted || !lease.valid(epoch) || cancel.is_cancelled() {
+                        return Err("Interrupted".into());
+                    }
+                    self.reserve_owned(&models, JobKind::ComparisonRun, epoch, operation)
+                };
+                let result = if expected.lane().ok() == Some(ComparisonLane::SceneNative) {
+                    core::scene_v4::run_native_comparison(
+                        &output,
+                        resume,
+                        expected.kind(),
+                        cancel,
+                        batch,
+                        reserve,
+                        reference.as_deref(),
+                    )
+                    .map(Report::Scene)
+                } else {
+                    literal_v3::run_native_comparison(
+                        &output,
+                        resume,
+                        expected.kind(),
+                        cancel,
+                        batch,
+                        reserve,
+                        reference.as_deref(),
+                    )
+                    .map(Report::Literal)
+                };
                 let mut outcome = match result {
                     Ok(report) => FullOutcome::plain(Ok(report)),
                     Err(error) => FullOutcome::native(error),
@@ -299,11 +315,11 @@ impl EvaluationManager {
             match outcome.result {
                 Ok(report) => {
                     record.report = Some((
-                        report.completed_scenes,
-                        report.completed,
-                        report.source_matches,
+                        report.completed_scenes(),
+                        report.completed(),
+                        report.source_matches(),
                     ));
-                    record.phase = if report.completed {
+                    record.phase = if report.completed() {
                         "completed"
                     } else {
                         "paused"

@@ -29,6 +29,8 @@ mod local_recording;
 pub mod memory_comparison;
 pub mod memory_comparison_v2;
 pub mod memory_comparison_v3;
+pub mod memory_comparison_v4;
+mod narration_diagnostic_companion_v1;
 pub mod scene_capture_v1;
 
 pub const VERSION: u16 = 1;

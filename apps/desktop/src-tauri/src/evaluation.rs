@@ -1064,6 +1064,7 @@ mod fresh_budget_review;
 mod selected;
 
 pub use comparison::ComparisonEvidenceRequest;
+pub(crate) use comparison_run::FullComparisonProtocol;
 pub use comparison_run::{FullComparisonNativeResume, FullComparisonStart};
 #[cfg(test)]
 #[path = "evaluation/retirement_review.rs"]

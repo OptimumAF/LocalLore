@@ -2,7 +2,110 @@
 //! Checkpoint writers retain protocol-specific codecs; reservations are settled
 //! only through checkpoint_and_settle after the checkpoint is durable.
 use super::*;
+use crate::narration_diagnostic_companion_v1 as diagnostic;
 use locallore::host::HostPlayConstructionV1;
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum NarrationDiagnosticTestFaultV1 {
+    None,
+    NoExactTrace,
+    DisableTraceBeforeRead,
+    CloseHostBeforeRead,
+    MalformedHarvestReply,
+    CheckpointFailure,
+    SettlementFailure,
+    ObservationCreateFailure,
+    PartialObservation,
+    ConflictingObservation,
+    StopAfterCheckpoint,
+    StopAfterSettlement,
+}
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum NarrationDiagnosticMilestoneV1 {
+    FirstTraceSelected,
+    NoExactTrace,
+    DiagnosticHostRead,
+    HarvestDecodeError,
+    RecordedHarvested,
+    HostUnavailableHarvested,
+    HostRejectedHarvested,
+    CanonicalOutcome,
+    CheckpointSaved,
+    LedgerSettled,
+    CompanionCreated,
+    CaptureRevoked,
+    HostClosed,
+    CompanionErrorReturned,
+}
+#[cfg(test)]
+#[derive(Clone)]
+pub(super) struct NarrationDiagnosticTestControlV1 {
+    fault: NarrationDiagnosticTestFaultV1,
+    observed: Arc<Mutex<(Vec<NarrationDiagnosticMilestoneV1>, usize)>>,
+}
+#[cfg(test)]
+impl NarrationDiagnosticTestControlV1 {
+    pub(super) fn new(fault: NarrationDiagnosticTestFaultV1) -> Self {
+        Self {
+            fault,
+            observed: Arc::new(Mutex::new((vec![], 0))),
+        }
+    }
+    pub(super) fn milestones(&self) -> Vec<NarrationDiagnosticMilestoneV1> {
+        self.observed.lock().unwrap().0.clone()
+    }
+    pub(super) fn host_read_count(&self) -> usize {
+        self.observed.lock().unwrap().1
+    }
+    fn mark(&self, mark: NarrationDiagnosticMilestoneV1) {
+        if let Ok(mut state) = self.observed.lock() {
+            if state.0.len() < 16
+                && !(mark == NarrationDiagnosticMilestoneV1::HostClosed && state.0.contains(&mark))
+            {
+                state.0.push(mark);
+            }
+            if mark == NarrationDiagnosticMilestoneV1::DiagnosticHostRead {
+                state.1 = state.1.saturating_add(1);
+            }
+        }
+    }
+}
+struct DiagnosticExecution {
+    enabled: bool,
+    #[cfg(test)]
+    control: Option<NarrationDiagnosticTestControlV1>,
+}
+impl DiagnosticExecution {
+    fn new(enabled: bool) -> Self {
+        Self {
+            enabled,
+            #[cfg(test)]
+            control: None,
+        }
+    }
+    #[cfg(test)]
+    fn fault(&self, fault: NarrationDiagnosticTestFaultV1) -> bool {
+        self.control.as_ref().is_some_and(|c| c.fault == fault)
+    }
+    #[cfg(test)]
+    fn mark(&self, mark: NarrationDiagnosticMilestoneV1) {
+        if let Some(c) = &self.control {
+            c.mark(mark);
+        }
+    }
+}
+#[cfg(test)]
+struct DiagnosticDropObservation(Option<NarrationDiagnosticTestControlV1>);
+#[cfg(test)]
+impl Drop for DiagnosticDropObservation {
+    fn drop(&mut self) {
+        if let Some(c) = &self.0 {
+            c.mark(NarrationDiagnosticMilestoneV1::HostClosed);
+        }
+    }
+}
 
 pub(super) struct OutcomeAssessment {
     pub expected_ok: bool,
@@ -128,8 +231,24 @@ pub(super) struct ActualTurn {
     pub recording_file: String,
     owned: OwnedHost,
     session: String,
+    diagnostic: Option<Result<Option<diagnostic::Harvest>>>,
+    #[cfg(test)]
+    control: Option<NarrationDiagnosticTestControlV1>,
+    // Declared after OwnedHost, so its Drop has completed before this observer.
+    #[cfg(test)]
+    _diagnostic_drop: DiagnosticDropObservation,
 }
 impl ActualTurn {
+    #[cfg(test)]
+    fn mark(&self, mark: NarrationDiagnosticMilestoneV1) {
+        if let Some(c) = &self.control {
+            c.mark(mark);
+        }
+    }
+    #[cfg(test)]
+    fn fault(&self, fault: NarrationDiagnosticTestFaultV1) -> bool {
+        self.control.as_ref().is_some_and(|c| c.fault == fault)
+    }
     pub(super) fn checkpoint_and_settle<T: Serialize>(
         &self,
         dir: &Path,
@@ -137,18 +256,127 @@ impl ActualTurn {
         checkpoint: &T,
         ledger: &mut Ledger,
     ) -> Result<()> {
+        #[cfg(test)]
+        if self.fault(NarrationDiagnosticTestFaultV1::CheckpointFailure) {
+            return Err("DiagnosticTestCheckpoint".into());
+        }
         saved(&checkpoint_path(dir, index), checkpoint, 256 * 1024)?;
+        #[cfg(test)]
+        self.mark(NarrationDiagnosticMilestoneV1::CheckpointSaved);
+        #[cfg(test)]
+        if self.fault(NarrationDiagnosticTestFaultV1::StopAfterCheckpoint)
+            || self.fault(NarrationDiagnosticTestFaultV1::SettlementFailure)
+        {
+            return Err("DiagnosticTestSettlement".into());
+        }
         ledger.settle(self.admission, self.elapsed_ms, self.recording.roles)?;
-        call(
+        #[cfg(test)]
+        self.mark(NarrationDiagnosticMilestoneV1::LedgerSettled);
+        #[cfg(test)]
+        if self.fault(NarrationDiagnosticTestFaultV1::StopAfterSettlement) {
+            return Err("DiagnosticTestStopped".into());
+        }
+        let observation = self.publish_diagnostic(dir, index, checkpoint);
+        let revoked = call(
             &self.owned.0,
             json!({"op":"trace_capture_revoke","session":self.session,"scope":self.before.scope()}),
         );
+        #[cfg(not(test))]
+        let _ = revoked;
+        #[cfg(test)]
+        if revoked["status"] == "ok" {
+            self.mark(NarrationDiagnosticMilestoneV1::CaptureRevoked);
+        }
         self.owned.0.close_all();
+        #[cfg(test)]
+        self.mark(NarrationDiagnosticMilestoneV1::HostClosed);
+        #[cfg(test)]
+        if observation.is_err() {
+            self.mark(NarrationDiagnosticMilestoneV1::CompanionErrorReturned);
+        }
+        observation
+    }
+    fn publish_diagnostic<T: Serialize>(
+        &self,
+        dir: &Path,
+        index: usize,
+        checkpoint: &T,
+    ) -> Result<()> {
+        let Some(result) = &self.diagnostic else {
+            return Ok(());
+        };
+        let Some(harvest) = result.as_ref().map_err(Clone::clone)? else {
+            return Ok(());
+        };
+        #[cfg(test)]
+        if self.fault(NarrationDiagnosticTestFaultV1::ObservationCreateFailure) {
+            return Err("DiagnosticTestWrite".into());
+        }
+        let (_pin, bytes) =
+            read_narration_diagnostic_file_v1(&checkpoint_path(dir, index), 256 * 1024)?;
+        let checkpoint = serde_json::to_value(checkpoint).map_err(|_| "DiagnosticWire")?;
+        #[cfg(test)]
+        if self.fault(NarrationDiagnosticTestFaultV1::PartialObservation)
+            || self.fault(NarrationDiagnosticTestFaultV1::ConflictingObservation)
+        {
+            diagnostic::write_test_fault(
+                dir,
+                index,
+                self.admission,
+                &checkpoint,
+                &bytes,
+                &self.before.seed().player,
+                (
+                    harvest,
+                    self.fault(NarrationDiagnosticTestFaultV1::PartialObservation),
+                ),
+            )?;
+            return Err("DiagnosticTestWrite".into());
+        }
+        diagnostic::publish(
+            dir,
+            index,
+            self.admission,
+            &checkpoint,
+            &bytes,
+            &self.before.seed().player,
+            harvest,
+        )?;
+        #[cfg(test)]
+        self.mark(NarrationDiagnosticMilestoneV1::CompanionCreated);
         Ok(())
     }
 }
 
 pub(super) fn execute(job: LiveTurnJob<'_>, ledger: &mut Ledger) -> Result<ActualTurn> {
+    execute_inner(job, ledger, DiagnosticExecution::new(false))
+}
+pub(super) fn execute_with_narration_diagnostics_v1(
+    job: LiveTurnJob<'_>,
+    ledger: &mut Ledger,
+) -> Result<ActualTurn> {
+    execute_inner(job, ledger, DiagnosticExecution::new(true))
+}
+#[cfg(test)]
+pub(super) fn execute_with_narration_diagnostics_test_v1(
+    job: LiveTurnJob<'_>,
+    ledger: &mut Ledger,
+    control: NarrationDiagnosticTestControlV1,
+) -> Result<ActualTurn> {
+    execute_inner(
+        job,
+        ledger,
+        DiagnosticExecution {
+            enabled: true,
+            control: Some(control),
+        },
+    )
+}
+fn execute_inner(
+    job: LiveTurnJob<'_>,
+    ledger: &mut Ledger,
+    diagnostics: DiagnosticExecution,
+) -> Result<ActualTurn> {
     let LiveTurnJob {
         dir,
         path,
@@ -264,7 +492,95 @@ pub(super) fn execute(job: LiveTurnJob<'_>, ledger: &mut Ledger) -> Result<Actua
     if cancel.is_cancelled() || Instant::now() >= deadline {
         reply = op(&host, &session, before.scope(), step.id(), "cancel");
     }
-    let (capture, trace) = private_read(&host, &session, &before, &request);
+    #[cfg(test)]
+    if diagnostics.fault(NarrationDiagnosticTestFaultV1::NoExactTrace) {
+        call(
+            &host,
+            json!({"op":"trace_clear","session":session,"scope":before.scope(),"expected_head":before.revision()}),
+        );
+    }
+    let first = if diagnostics.enabled {
+        private_read_first(&host, &session, &before, &request, true)
+    } else {
+        let (capture, trace) = private_read(&host, &session, &before, &request);
+        FirstPrivateRead {
+            capture,
+            trace,
+            query: Ok(None),
+        }
+    };
+    let capture = first.capture;
+    let trace = first.trace;
+    let diagnostic = if diagnostics.enabled {
+        Some(match first.query {
+            Err(error) => {
+                #[cfg(test)]
+                diagnostics.mark(NarrationDiagnosticMilestoneV1::HarvestDecodeError);
+                Err(error)
+            }
+            Ok(None) => {
+                #[cfg(test)]
+                diagnostics.mark(NarrationDiagnosticMilestoneV1::NoExactTrace);
+                Ok(None)
+            }
+            Ok(Some(query)) => {
+                #[cfg(test)]
+                diagnostics.mark(NarrationDiagnosticMilestoneV1::FirstTraceSelected);
+                #[cfg(test)]
+                if diagnostics.fault(NarrationDiagnosticTestFaultV1::DisableTraceBeforeRead) {
+                    call(
+                        &host,
+                        json!({"op":"trace_configure","session":session,"scope":before.scope(),"expected_head":before.revision(),"enabled":false}),
+                    );
+                }
+                #[cfg(test)]
+                if diagnostics.fault(NarrationDiagnosticTestFaultV1::CloseHostBeforeRead) {
+                    host.close_all();
+                }
+                match query.bytes() {
+                    Err(error) => Err(error),
+                    Ok(bytes) => {
+                        #[cfg(test)]
+                        diagnostics.mark(NarrationDiagnosticMilestoneV1::DiagnosticHostRead);
+                        let reply = host.call(&bytes);
+                        #[cfg(test)]
+                        let reply = if diagnostics
+                            .fault(NarrationDiagnosticTestFaultV1::MalformedHarvestReply)
+                        {
+                            json!({"version":2,"status":"ok"})
+                        } else {
+                            reply
+                        };
+                        match diagnostic::Harvest::decode(query, &reply) {
+                            Ok(harvest) => {
+                                #[cfg(test)]
+                                diagnostics.mark(match harvest.kind() {
+                                    diagnostic::HarvestKind::Recorded => {
+                                        NarrationDiagnosticMilestoneV1::RecordedHarvested
+                                    }
+                                    diagnostic::HarvestKind::Unavailable => {
+                                        NarrationDiagnosticMilestoneV1::HostUnavailableHarvested
+                                    }
+                                    diagnostic::HarvestKind::Rejected => {
+                                        NarrationDiagnosticMilestoneV1::HostRejectedHarvested
+                                    }
+                                });
+                                Ok(Some(harvest))
+                            }
+                            Err(error) => {
+                                #[cfg(test)]
+                                diagnostics
+                                    .mark(NarrationDiagnosticMilestoneV1::HarvestDecodeError);
+                                Err(error)
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    } else {
+        None
+    };
     let recorded = captured_recording(dir, admission, &recording)?;
     validate_recording(dir, admission, &recorded)?;
     let capture_file = capture
@@ -339,6 +655,8 @@ pub(super) fn execute(job: LiveTurnJob<'_>, ledger: &mut Ledger) -> Result<Actua
         trace
     };
     let elapsed = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+    #[cfg(test)]
+    diagnostics.mark(NarrationDiagnosticMilestoneV1::CanonicalOutcome);
     Ok(ActualTurn {
         receipt: receipt.cloned(),
         before,
@@ -358,6 +676,11 @@ pub(super) fn execute(job: LiveTurnJob<'_>, ledger: &mut Ledger) -> Result<Actua
         recording_file,
         owned: _owned,
         session,
+        diagnostic,
+        #[cfg(test)]
+        control: diagnostics.control.clone(),
+        #[cfg(test)]
+        _diagnostic_drop: DiagnosticDropObservation(diagnostics.control),
     })
 }
 
@@ -562,7 +885,7 @@ pub(super) fn record_setup(ledgers: &mut [Ledger; 2], setup: Setup<'_>) -> Resul
         status,
         load,
     } = setup;
-    if !matches!(version, 2 | 3) {
+    if !matches!(version, 2..=4) {
         return Err("SetupIntegrity".into());
     }
     let record = SetupRecord {

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 const root = new URL(".", import.meta.url);
 for (const args of [
+    ["comparison-run-process-policy-check.mjs"],
     ["build.mjs"],
     ["node_modules/typescript/bin/tsc", "--noEmit"],
     ["check-contract.mjs"],
@@ -28,12 +29,14 @@ for (const args of [
     ["check-trace-controller.mjs"],
     ["check-capture-controller.mjs"],
     ["check-capture-review.mjs"],
+    ["check-capture-session-close-review.mjs"],
     ["check-evaluation-controller.mjs"],
     ["check-selected-evaluation-controller.mjs"],
     ["check-literal-selected-evaluation.mjs"],
     ["check-selected-source-freshness-review.mjs"],
     ["check-comparison-run.mjs"],
     ["check-comparison-run-native.mjs"],
+    ["check-scene-native-transport-review.mjs"],
     ["check-comparison-reader-native.mjs"],
     ["check-main-comparison-run-native.mjs"],
     ["check-native-comparison-admission-review.mjs"],
@@ -42,6 +45,7 @@ for (const args of [
     ["check-native-comparison-abort-review.mjs"],
     ["check-comparison-reader.mjs"],
     ["check-literal-comparison-reader.mjs"],
+    ["check-scene-reader-review.mjs"],
     ["check-comparison-main-review.mjs"],
     ["check-comparison-capability-review.mjs"],
     ["check-archive-controller.mjs"],
@@ -94,6 +98,7 @@ for (const marker of [
     "NativeConsentAbortAckInvalid",
     "__D07_MAIN_REVIEW_PROPS",
     "harness_native_comparison_case",
+    "harness_scene_model_guards",
     "native_full_comparison_fixture",
     "native-port-denied-actual-native-context-grant-false",
     "uncertain-commit-retry-original-id-once",

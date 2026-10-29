@@ -1,0 +1,128 @@
+# Fixed Protocol4 native reader harness: source contract
+
+2026-10-27. Refs #29 D07.06, supporting #25 D04.04. First contract frozen
+before implementation from16488b3d. **SOURCE ONLY, UNCOMPILED/UNRUN**; missing
+implementation or future execution is not behavioral RED or native evidence.
+Root owns independent review, compilation, serial execution and individual
+render inspection. The original human assessment remains needs improvement.
+
+## Closed native mode and interfaces
+
+Owned files are `comparison_reader_harness.rs`, `comparison-reader-journeys.ts`
+and `comparison-reader-harness.mjs`, plus this contract. Existing scenario IPC,
+bootstrap and fixed capture labels suffice; no new native command, renderer
+path/exec/model input, Model/Panel/controller/schema or runtime owner is added.
+`LOCALLORE_D07_SCENE_COMPARISON_READER=1` is trusted development-only native
+configuration, mutually exclusive with existing literal3 mode. Old default2
+and literal3 fixture branches retain their construction/acceptance meaning.
+
+The existing pinned fresh `comparison-reader-native-UUID` workspace creates
+actual scene_v4 scripted paired two-scene and rollout one-scene fixtures through
+the shared reference, existing Host/Store/capture and strict Core reader.
+Fixed prepare metadata reports protocol4,24 paired/12 rollout rows, actual
+validated committed-input counts and human0/qualityfalse. It never labels the
+scripted provider as a model. Existing choose/hold/cancel/release/lost-ack cases
+remain closed; no caller provides paths or arbitrary action text.
+
+## Frozen journeys and evidence
+
+Use the mounted actual Main/ComparisonReaderPanel, existing controller/native
+IPC and actual Store evidence. Protocol4 mode exercises actual mounted open,
+summary, row/evidence controls where available; public controller operations
+retain the same production paths for races. Faults hold/drop acknowledgements
+only; no fabricated source, receipt, capture or query result is substituted.
+Verify exact version4 descriptors/status/hash fields, source-bound input count,
+human0/not_reviewed/qualityfalse and honest synthetic/source-gate limits.
+
+Read accepted receipt, actual capture and recorded role outputs; verify binding
+and actual selected scope/edges. Query Player/Mira/Sable through Rust Query2;
+deny actor raw access before identity probes. Inspection never changes actor
+knowledge or generation context. Guard rows cannot invent receipts or privacy
+success. Protocol4 selected execution remains explicitly unavailable and its
+mounted admission button disabled; separate native8 already owns actual
+both-lane early refusal, not a new execution claim from this harness.
+
+Preserve pending close/cancel, late reply suppression, lost open acknowledgement
+same-client recovery, surrounding session/lens retirement and live gameplay
+canon invariance. Both fixed stages initial/restart reopen the same retained
+fixtures and preserve every original fixture byte. Source/model/generation work
+is not inferred from an unchanged inventory; actual scene producer entry is
+called only when fixture directories are absent.
+
+Reuse the existing15 labels in each stage: open (restarted replaces open in
+restart), receipt, capture, outputs, narrow, Mira, Sable, guard, pending, closed,
+unknown, recovered, rollout, switched and finished, all with comparison- prefix.
+Each snapshot binds selected report/story/observer/revision, pending identity,
+displayed receipt/error, actual source projection and semantic DOM structure.
+App-owned CapturePreview images must show target receipt/knowledge/status/hash
+content below a retained scope header, with narrow/wide/no-overflow checks.
+The first actual images may reveal defects; do not weaken bounds or assertions
+to label incomplete images passed. No desktop input/capture/control is used.
+
+## Launcher closure and failure ownership
+
+Launcher accepts no command-line arguments. Existing trusted local artifact/
+target roots must be absolute ordinary directories with ordinary ancestors.
+Create-new UUID workspace/artifacts, source revision/cleanliness/input hashes
+and frontend/executable product hashes are checked across all runs. Scrub all
+inherited harness/test controls before setting fixed stage/protocol flags.
+Bound stdout/stderr, reports, files and captures; retain process records and
+original failure evidence locally/gitignored.
+
+Reuse the source-reviewed scene launcher policy:900s Cargo/240s other commands,
+except the fixed scene4 app cohort uses a900s app watchdog and960s launcher
+limit. The first actual attempt at9868de4f wrote its paired/rollout fixture
+reports116/125s after process start, then failed its first mounted open and
+hit the ordinary180s app watchdog before shutdown completed. No render was
+produced; the original failure and successful normal restoration are retained.
+These development cohort budgets include fixture production, fresh source
+validation and15 render journeys; they are not production operation deadlines
+or latency claims. Existing literal2/3 budgets stay unchanged. The frontend
+failure record preserves bounded state before cleanup and per-check elapsed
+times, so cleanup cannot replace the original failure diagnosis.
+
+Retain
+one direct-child kill attempt and5s grace. A timeout/live-PID error makes owned
+drain unknown even if the direct child subsequently closes. Detach only owned
+pipes/handle, block every later spawn and skip/unqualify restoration. Do not
+claim Job/process-tree containment, known descendant reap or executed timeout
+qualification. Ordinary success/known-closed failure rebuilds normal frontend
+and native products in finally, both unlaunched. No cleanup of old directories,
+unrelated process control, retry loop, network server or model download.
+
+Qualification requires coordinator execution of the exact two-stage launcher,
+source/product/complete fixture inventories, semantic/error assertions and
+individual inspection of every produced PNG. Frontend/headless checks, native
+Rust tests and native IPC/WebView execution remain separately attributed.
+No model, offline, device, accessibility, human-quality or whole-D07 approval
+follows from source authoring or later synthetic native success.
+
+## Source implementation handoff boundary
+
+The scene prepare branch now also opens/drops the actual strict Core facade and
+compares its report before returning finite native fixture proof. Existing
+scenario commands and15 labels are reused, so no bootstrap/allowlist/API change
+is required. Mode4 uses actual mounted picker/summary/row/query/raw-evidence
+controls, plus existing public controllers for held-close/lost-ack races. It
+checks cancelled picker, exact actor-raw denial before bad binding/row probes,
+actual stale-binding refusal, same-story Host session close/reopen retirement,
+separate lens retirement and byte-invariant cold fixture reads. Native selected
+execution refusal remains separately owned by the existing eight native cases;
+this journey additionally checks the actual mounted disabled admission control.
+
+Captures depend on Root-owned production presentation seams926f94d8/a0e7ed2d:
+`.comparison-selection-context` above selected evidence, and
+`.comparison-report-context` above an unselected whole-report table. The
+harness adds no CSS/label mock. Unselected scope stays null, with actual report
+protocol/binding recorded; selected evidence retains actual scope/heads/observer.
+Target data, sticky-context nonoverlap and table/status/hash bounds are strict
+and remain unrun. Long preformatted evidence scrolls within its actual bounded
+element to the fixed original content; no evidence is replaced or rewritten.
+
+Launcher guards include frontend JS/CSS/HTML and executable products, actual
+source inputs, complete original fixture file hashes and exact per-stage artifact
+rosters/hashes. Normal builds restore in finally only after known-closed runs;
+unknown owned drain remains failed/unqualified. All implementation, compilation,
+timeout, lifecycle and render checks are **UNRUN at author handoff**. Root must
+merge the presentation seams and separately reviewed source3 label calibration
+before first serial verification; original failures must remain attributable.

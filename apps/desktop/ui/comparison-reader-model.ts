@@ -69,7 +69,7 @@ export type RowAvailability = {
 };
 export type ReaderSource = {
     binding: string;
-    protocol_version: 2 | 3;
+    protocol_version: 2 | 3 | 4;
     rows: RowAvailability[];
     read_only: true;
     execution_available: false;
@@ -162,7 +162,46 @@ export type ComparisonTurnV3 = Omit<
     literal_selected_units: number | null;
     forwarded_director_estimates: ForwardedEstimate[] | null;
 };
-export type ComparisonTurn = ComparisonTurnV2 | ComparisonTurnV3;
+export type ComparisonArmDescriptorV4 = Omit<
+    ComparisonArmDescriptorV3,
+    "arm" | "narration_policy"
+> & {
+    arm: "literal_scene_v1" | "relevant_memory_scene_v1";
+    narration_policy: "grounded-prose-v2.4-scene-frame-v1";
+    narrator_schema_id: "locallore-narrator-v2";
+    scene_frame_version: 1;
+    scene_capture_gate_version: 1;
+};
+export type ComparisonTurnV4 = Omit<
+    ComparisonTurnV2,
+    | "policy"
+    | "policy_matches"
+    | "context_evidence_available"
+    | "context_requirement"
+    | "privacy_passed"
+    | "mandatory_sha256"
+    | "optional_detail_selected"
+    | "director_private_target_present"
+    | "selected_context_bytes"
+    | "estimated_context_tokens"
+    | "forwarded_director_estimates"
+> & {
+    construction: ComparisonArmDescriptorV4;
+    construction_matches: boolean;
+    construction_evidence_status:
+        | "validated_committed_scene_narrator_v1"
+        | "not_applicable_guard"
+        | "not_applicable_dependency"
+        | "unavailable";
+    construction_evidence_reason: string | null;
+    narrator_prompt_sha256: string | null;
+    narrator_schema_sha256: string | null;
+    scene_frame_sha256: string | null;
+    privacy_evidence_status:
+        "checked_finite_sentinels" | "not_applicable_guard" | "unavailable";
+};
+export type ComparisonTurn =
+    ComparisonTurnV2 | ComparisonTurnV3 | ComparisonTurnV4;
 export type ComparisonProfile = {
     id: string;
     model_sha256: string;
@@ -212,7 +251,17 @@ export type ComparisonReportV3 = Omit<
     arms: ComparisonArmDescriptorV3[];
     turns: ComparisonTurnV3[];
 };
-export type ComparisonReport = ComparisonReportV2 | ComparisonReportV3;
+export type ComparisonReportV4 = Omit<
+    ComparisonReportV2,
+    "version" | "turns"
+> & {
+    version: 4;
+    arms: ComparisonArmDescriptorV4[];
+    turns: ComparisonTurnV4[];
+    source_bound_committed_rows: number;
+};
+export type ComparisonReport =
+    ComparisonReportV2 | ComparisonReportV3 | ComparisonReportV4;
 export type ReaderSummary = ReaderSource & {
     version: 1;
     report: ComparisonReport;
@@ -619,7 +668,9 @@ function sourceValue(v: unknown, binding: string): ReaderSource {
     hash(o.binding);
     wire(
         o.binding === binding &&
-            (o.protocol_version === 2 || o.protocol_version === 3),
+            (o.protocol_version === 2 ||
+                o.protocol_version === 3 ||
+                o.protocol_version === 4),
     );
     readonly(o);
     rows(o.rows);
@@ -730,6 +781,155 @@ export function checkedReaderConstruction(
     physicalArm?: unknown,
 ): ComparisonArmDescriptorV3 {
     return construction(v, physicalArm);
+}
+// Closed transport metadata; Rust alone checks the actual scene input source.
+const sceneConstructionValues = [
+    {
+        arm: "literal_scene_v1",
+        prompt_version:
+            "locallore-play-v2.10-literal-director-v1-scene-frame-v1",
+        narration_policy: "grounded-prose-v2.4-scene-frame-v1",
+        director_schema_id: "locallore-director-literal-v1",
+        narrator_schema_id: "locallore-narrator-v2",
+        context_policy: null,
+        compiler_version: null,
+        context_version: null,
+        literal_source_version: 1,
+        literal_render_version: 1,
+        literal_schema_version: 1,
+        literal_packing_version: 1,
+        forwarded_budget_version: 1,
+        scene_frame_version: 1,
+        scene_capture_gate_version: 1,
+    },
+    {
+        arm: "relevant_memory_scene_v1",
+        prompt_version: "locallore-play-v2.9-scene-frame-v1",
+        narration_policy: "grounded-prose-v2.4-scene-frame-v1",
+        director_schema_id: "locallore-director-v2",
+        narrator_schema_id: "locallore-narrator-v2",
+        context_policy: "state_relevant_memory_v1",
+        compiler_version: 2,
+        context_version: 2,
+        literal_source_version: null,
+        literal_render_version: null,
+        literal_schema_version: null,
+        literal_packing_version: null,
+        forwarded_budget_version: 1,
+        scene_frame_version: 1,
+        scene_capture_gate_version: 1,
+    },
+] as const;
+function sceneConstruction(
+    v: unknown,
+    physicalArm?: unknown,
+): ComparisonArmDescriptorV4 {
+    const o = exact(v, Object.keys(sceneConstructionValues[0]));
+    choices(o.arm, ["literal_scene_v1", "relevant_memory_scene_v1"]);
+    const index = o.arm === "literal_scene_v1" ? 0 : 1;
+    if (physicalArm !== undefined)
+        wire(physicalArm === (index === 0 ? "left" : "right"));
+    wire(
+        Object.entries(sceneConstructionValues[index]).every(
+            ([key, value]) => o[key] === value,
+        ),
+    );
+    return o as ComparisonArmDescriptorV4;
+}
+function sceneTurn(v: unknown): void {
+    const o = exact(v, [
+        "turn",
+        "scene",
+        "arm",
+        "construction",
+        "phase",
+        "error",
+        "expected",
+        "passed",
+        "failures",
+        "quality_flags",
+        "roles",
+        "roles_known",
+        "recovered_without_checkpoint",
+        "admission",
+        "elapsed_ms",
+        "first_final_response_ms",
+        "commit_elapsed_ms",
+        "input_semantic_sha256",
+        "output_semantic_sha256",
+        "mechanical_sha256",
+        "construction_matches",
+        "construction_evidence_status",
+        "construction_evidence_reason",
+        "narrator_prompt_sha256",
+        "narrator_schema_sha256",
+        "scene_frame_sha256",
+        "actual_receipt_sha256",
+        "privacy_evidence_status",
+        "fallback",
+        "repairs",
+        "narration",
+        "capture_sha256",
+        "recording_sha256",
+        "raw_sha256",
+        "role_metrics",
+        "trace",
+        "stages",
+        "source_fallback_reason",
+        "compiler_fallback_reason",
+    ]);
+    id(o.turn);
+    integer(o.scene, 0, 255);
+    choices(o.arm, ["left", "right"]);
+    sceneConstruction(o.construction, o.arm);
+    choices(o.construction_evidence_status, [
+        "validated_committed_scene_narrator_v1",
+        "not_applicable_guard",
+        "not_applicable_dependency",
+        "unavailable",
+    ]);
+    choices(o.privacy_evidence_status, [
+        "checked_finite_sentinels",
+        "not_applicable_guard",
+        "unavailable",
+    ]);
+    [o.phase, o.expected].forEach(text);
+    [
+        o.error,
+        o.construction_evidence_reason,
+        o.source_fallback_reason,
+        o.compiler_fallback_reason,
+        o.narration,
+    ].forEach((v) => nullable(v, text));
+    [
+        o.passed,
+        o.roles_known,
+        o.recovered_without_checkpoint,
+        o.construction_matches,
+    ].forEach(bool);
+    nullable(o.fallback, bool);
+    [o.failures, o.quality_flags].forEach(strings);
+    [o.roles, o.elapsed_ms].forEach((v) => integer(v));
+    [o.admission, o.first_final_response_ms, o.commit_elapsed_ms].forEach((v) =>
+        nullable(v, (v) => integer(v)),
+    );
+    nullable(o.repairs, (v) => integer(v, 0, 255));
+    [
+        o.input_semantic_sha256,
+        o.output_semantic_sha256,
+        o.mechanical_sha256,
+    ].forEach(hash);
+    [
+        o.narrator_prompt_sha256,
+        o.narrator_schema_sha256,
+        o.scene_frame_sha256,
+        o.actual_receipt_sha256,
+        o.capture_sha256,
+        o.recording_sha256,
+    ].forEach((v) => nullable(v, hash));
+    list(o.raw_sha256, hash);
+    list(o.stages, () => {});
+    // role_metrics and trace are opaque bounded JSON already detached above.
 }
 function turn(v: unknown, protocol: 2 | 3 = 2): void {
     const o = exact(
@@ -885,10 +1085,11 @@ function turn(v: unknown, protocol: 2 | 3 = 2): void {
 }
 function report(v: unknown): ComparisonReport {
     const version = object(v).version;
-    wire(version === 2 || version === 3);
+    wire(version === 2 || version === 3 || version === 4);
     const o = exact(v, [
         "version",
-        ...(version === 3 ? ["arms"] : []),
+        ...(version !== 2 ? ["arms"] : []),
+        ...(version === 4 ? ["source_bound_committed_rows"] : []),
         "kind",
         "lane",
         "source_matches",
@@ -915,17 +1116,19 @@ function report(v: unknown): ComparisonReport {
         "reference_sha256",
         "limitations",
     ]);
-    let descriptors: ComparisonArmDescriptorV3[] = [];
-    if (version === 3) {
-        descriptors = list(
-            o.arms,
-            (v) => construction(v),
-            2,
-        ) as ComparisonArmDescriptorV3[];
+    let descriptors: (ComparisonArmDescriptorV3 | ComparisonArmDescriptorV4)[] =
+        [];
+    if (version !== 2) {
+        const decodeConstruction =
+            version === 4 ? sceneConstruction : construction;
+        descriptors = list(o.arms, (v) => decodeConstruction(v), 2) as (
+            ComparisonArmDescriptorV3 | ComparisonArmDescriptorV4
+        )[];
         wire(descriptors.length === 2);
-        construction(descriptors[0], "left");
-        construction(descriptors[1], "right");
+        decodeConstruction(descriptors[0], "left");
+        decodeConstruction(descriptors[1], "right");
     }
+    if (version === 4) integer(o.source_bound_committed_rows, 0, 48);
     choices(o.kind, ["paired_snapshots", "continuous_rollout"]);
     text(o.lane);
     [o.source_matches, o.completed, o.quality_accepted].forEach(bool);
@@ -951,11 +1154,11 @@ function report(v: unknown): ComparisonReport {
     nullable(o.reference_sha256, hash);
     const turns = list(
         o.turns,
-        (value) => turn(value, version),
+        (value) => (version === 4 ? sceneTurn(value) : turn(value, version)),
         48,
     ) as ComparisonTurn[];
     wire(new Set(turns.map(readerRowKey)).size === turns.length);
-    if (version === 3)
+    if (version !== 2)
         turns.forEach((value) => {
             wire("construction" in value);
             const expected = descriptors[value.arm === "left" ? 0 : 1];
@@ -986,7 +1189,9 @@ export function checkedReaderSummary(
     ]);
     wire(
         o.version === 1 &&
-            (o.protocol_version === 2 || o.protocol_version === 3) &&
+            (o.protocol_version === 2 ||
+                o.protocol_version === 3 ||
+                o.protocol_version === 4) &&
             hash(o.binding) === binding,
     );
     readonly(o);

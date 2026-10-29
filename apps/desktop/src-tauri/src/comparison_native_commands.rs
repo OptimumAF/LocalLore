@@ -1,6 +1,8 @@
 //! Closed native full-comparison transport; native code owns scope and assets.
 use crate::{
-    evaluation::{EvaluationManager, FullComparisonNativeResume, FullComparisonStart},
+    evaluation::{
+        EvaluationManager, FullComparisonNativeResume, FullComparisonProtocol, FullComparisonStart,
+    },
     models::ModelManager,
     WorkspaceState,
 };
@@ -160,6 +162,10 @@ pub async fn evaluation_comparison_native(
     query: Value,
 ) -> Result<Value> {
     let action = parse(&action, &query)?;
+    #[cfg(not(feature = "dev-harness"))]
+    let protocol = FullComparisonProtocol::LiteralV3;
+    #[cfg(feature = "dev-harness")]
+    let protocol: FullComparisonProtocol = crate::comparison_run_native_harness::protocol()?;
     let epoch = workspace
         .lease
         .capture(window.label())
@@ -174,7 +180,7 @@ pub async fn evaluation_comparison_native(
     ) {
         return tauri::async_runtime::spawn_blocking(move || match action {
             Action::Close(token) => {
-                manager.full_comparison_close_native(&lease, epoch, false, &token)
+                manager.full_comparison_close_native_for(&lease, epoch, false, protocol, &token)
             }
             Action::CleanupStatus => manager.selected_cleanup_status(&lease, epoch),
             Action::RetryCleanup => manager.selected_retry_cleanup(&lease, &models, epoch),
@@ -223,32 +229,41 @@ pub async fn evaluation_comparison_native(
         crate::exports::confirm_native_comparison_execution(owner, metadata)
     };
     let result = tauri::async_runtime::spawn_blocking(move || match action {
-        Action::Catalog => manager.full_comparison_catalog_native(&lease, epoch, granted),
-        Action::Start(input) => {
-            manager.full_comparison_start_native(&lease, &models, epoch, granted, input, consent)
+        Action::Catalog => {
+            manager.full_comparison_catalog_native_for(&lease, epoch, granted, protocol)
         }
+        Action::Start(input) => manager.full_comparison_start_native_for(
+            &lease, &models, epoch, granted, protocol, input, consent,
+        ),
         Action::Lookup(client) => {
-            manager.full_comparison_lookup_native(&lease, epoch, granted, &client)
+            manager.full_comparison_lookup_native_for(&lease, epoch, granted, protocol, &client)
         }
-        Action::Open(run) => manager.full_comparison_open_native(&lease, epoch, granted, &run),
+        Action::Open(run) => {
+            manager.full_comparison_open_native_for(&lease, epoch, granted, protocol, &run)
+        }
         Action::Status(token) => {
-            manager.full_comparison_status_native(&lease, epoch, granted, &token)
+            manager.full_comparison_status_native_for(&lease, epoch, granted, protocol, &token)
         }
-        Action::Resume(input) => {
-            manager.full_comparison_resume_native(&lease, &models, epoch, granted, input, consent)
-        }
-        Action::Cancel(token, operation) => {
-            manager.full_comparison_cancel_native(&lease, epoch, granted, &token, operation)
-        }
-        Action::Managed(client, run) => {
-            manager.full_comparison_pick_native(&lease, epoch, granted, &client, &run, move || {
+        Action::Resume(input) => manager.full_comparison_resume_native_for(
+            &lease, &models, epoch, granted, protocol, input, consent,
+        ),
+        Action::Cancel(token, operation) => manager
+            .full_comparison_cancel_native_for(&lease, epoch, granted, protocol, &token, operation),
+        Action::Managed(client, run) => manager.full_comparison_pick_native_for(
+            &lease,
+            epoch,
+            granted,
+            protocol,
+            &client,
+            &run,
+            move || {
                 #[cfg(feature = "dev-harness")]
                 if let Some((path, state)) = &read_test {
                     return crate::comparison_run_native_harness::read_consent(path, state);
                 }
                 crate::exports::confirm_comparison_read(owner)
-            })
-        }
+            },
+        ),
         _ => Err("EvaluationInternal".into()),
     })
     .await

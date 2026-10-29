@@ -227,4 +227,5 @@ retain evidence; private paths/raw material stay outside this public document.
 Next: independent evidence review and an update to the existing
 [PR #255](https://github.com/OptimumAF/LocalLore/pull/255), stacked above
 [PR #253](https://github.com/OptimumAF/LocalLore/pull/253). Full M05.03/M05.04,
-D07.04 and dependency acceptance remain unchecked; no merge/release is authorized.
+D07.04 and dependency acceptance remain unchecked. This note grants no
+merge/release authority.

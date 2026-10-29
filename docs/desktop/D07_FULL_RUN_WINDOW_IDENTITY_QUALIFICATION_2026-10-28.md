@@ -66,13 +66,11 @@ The local gitignored evidence root contains the following `.log` and
 `-process.json` pairs. Times are complete command durations, including compilation
 where applicable, rather than turn/runtime latency measurements.
 
-For the command transcriptions below, `<owned D: target>` expands exactly to
-`D:/CodexLocalLore/01a165d9-ff25-7500-a550-1099087d4e37/d07-comparison-reader-native-target`.
-The recorded source checkout was
-`D:/CodexLocalLore/01a165d9-ff25-7500-a550-1099087d4e37/source-d07-main-native-review`,
-and `CARGO_HOME` was
-`D:/CodexLocalLore/01a165d9-ff25-7500-a550-1099087d4e37/d07-consumer-cargo-home-20261026-restore1`.
-The evidence root was the sibling `author-integration-artifacts` directory.
+For reproduction, substitute an existing task-owned physical D: target for
+`<owned D: target>`, run from the owned D: checkout and set `CARGO_HOME` to the
+owned D: cache containing the exact locked packages. Original local process
+records retain the exact private checkout, cache, target and evidence paths;
+their basenames and SHA256 anchors below identify the measured executions.
 
 | Evidence prefix | Source | Exit and measured result | Command seconds |
 | --- | --- | --- | ---: |

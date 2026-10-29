@@ -312,7 +312,8 @@ class OriginalAuthorRestartInstrumentedTest {
             check(Looper.myLooper() != Looper.getMainLooper())
             return app
         }
-        private fun anchor(context: Context) = context.noBackupFilesDir.absoluteFile.also { directory(it) }
+        // Resolve only the trusted Context alias; every constructed descendant remains strict.
+        private fun anchor(context: Context) = context.noBackupFilesDir.canonicalFile.also { directory(it) }
         private fun exists(file: File) = Files.exists(file.toPath(), NOFOLLOW_LINKS)
         private fun directory(file: File, parent: File? = null) {
             check(file.isAbsolute && file.toPath().normalize() == file.toPath())

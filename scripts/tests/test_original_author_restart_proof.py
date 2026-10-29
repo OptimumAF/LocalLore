@@ -86,7 +86,7 @@ class OriginalAuthorRestartProofTests(unittest.TestCase):
 
     def test_complete_requires_observed_false_pending_and_true_checked_closure(self):
         for field in('pending_before','pending_after','workspace_closed','archive_closed'):
-            for bad in(None,0,1,'false',not field.startswith('pending')):
+            for bad in(None,0,1,'false',field.startswith('pending')):
                 v=RestartFixture();v.proof[field]=bad
                 with self.subTest(field=field,bad=bad):self.refused(v.validate)
 

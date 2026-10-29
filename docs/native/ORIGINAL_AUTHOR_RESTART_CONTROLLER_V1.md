@@ -39,6 +39,9 @@ guest_root/boot_claim_file/source_names, instrumentation map, artifact keys.
 All nested validation calls must carry the same selected profile; no fallback.
 New module also exposes `instrumentation_kind(argv)` and `claim_record(...)`.
 Legacy results/claim keys remain exact; new claims add only `prerequisite`.
+The restart executable closure has23 benchmark files, plus an optional package
+initializer when present. The C source and builder are separately bound build
+inputs; the former must be the current Root Git source, not a basename match.
 
 New `LiveOwnedRestartTarget` reuses the held native owner implementation with a
 fixed restart contract. New `OwnedRestartSdkCapture` reuses the binary wire
@@ -98,6 +101,10 @@ pidfd_opened true, pidfd_closed true,error null,errno0; alive poll_revents0,
 exited POLLIN and/or POLLHUP (1,16,17). Any other result refuses. Refused packets
 preserve native observations/nulls and a fixed error category; never fabricate
 successful fields. No retry of an uncertain numerical FD close.
+Refused error categories are exactly pidfd_unsupported, pidfd_permission,
+proc_permission, proc_race, uid_mismatch, io, close and malformed. Nullable
+observations remain nullable; a root UID observed during a mismatch is retained
+as0, never rewritten to the requested application UID.
 
 ## Controller and prerequisite
 
@@ -131,12 +138,52 @@ APK/boot must agree. Baseline import/AUTHOR proofs use the unchanged current1.1
 reader. A record with the third method cannot be a prerequisite witness (acyclic
 validation). Metadata alone is not execution authentication.
 
+Closed replay also derives each local artifact path from session.root and
+replays its qualified SDK listing, pre-hash, binary tar and post-hash records
+between the corresponding instrumentation and the next phase. Exact names,
+UID, bytes, hashes, non-link regular tar members and order must agree. An
+otherwise valid proof borrowed from another capture cannot qualify. Check the
+current23 source files, current C source and admitted Python bytes before and
+after prerequisite replay. The file-only reader does not call a DLL-location,
+process, socket, SDK or target API. Live owner guards separately bind the actual
+loaded runtime and held native resources.
+
 After publishing the verified prerequisite atomically, consume the restart
 claim and invoke the one passive method. Collect its six sidecars/proof, require
 original validate_restart and JUnit, then --boot again with the same ID. Verify
 complete v5 client roster/proofs and final lifecycle record. Resource closure
 and owned guest-before-server stop remain separate mandatory results. SDK/file
 failure poisons the case; do not use later calls to repair a captured failure.
+
+Controller `run(admission_binding,running_binding,build_binding,output_root)`
+constructs only the fixed concrete restart owner/capture. It grants no authority
+and creates no outer process; a separately admitted finite owner is required.
+Request exact11 keys: version,protocol,admission,running,build,root,head,sources,
+python,controller,seconds. Version1, protocol
+`original-author-restart-controller-request-v1`, seconds1200. The request and
+result filenames are `request-v1.json` and `controller-result-v1.json` under
+the new output root.
+
+Result exact16 keys: version,protocol,request,session,prerequisite,
+restart_instrumentation,boot_final,restart_proof,restart_artifacts,client_count,
+outcome,phase,reason,observer_handles_closed,feature_acceptance,elapsed_ms.
+Protocol `original-author-restart-controller-v1`; outcome completed/refused;
+feature_acceptance false. Phase admission/install/binary_probe/model_transfer/
+import/author/death/restart/collect/completed. Reason null/checks_failed/deadline/
+resource_uncertain. Evidence pins remain null until observed; restart_artifacts
+always has the six original names, with nullable pins after a failure. Preserve
+partial files and unknown closure rather than inventing completion.
+
+Build admission has12 exact keys: version,scope,head,sources,compiled,build_files,
+fresh_lint_files,apks,counts,independent_build,independent_lint,process_probe_build.
+Scope `owned_restart_android_build_admission_v1`. Current source/compiled counts
+are derived, with588 actually executed JVM tests in58 reports, fresh analyzer
+work, both audited APKs and qualified finite build owners. The native build
+manifest has17 exact keys: version,scope,ndk_revision,target,source,builder,tools,
+command,environment,request,started,owner,compile,binary,elf,passed,
+feature_acceptance. Scope `android_author_process_probe_build_v1`, NDK29.0.14206865,
+target x86_64-linux-android35. Retain actual compiler-source/output paths; compare
+cross-worktree source bytes explicitly rather than rewriting provenance.
 
 ## Acceptance and limits
 

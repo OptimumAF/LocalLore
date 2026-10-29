@@ -260,5 +260,62 @@ class Sdk3ClientTests(unittest.TestCase):
         with self.assertRaises(c.ClientRefused):owner.check_server()
         self.acquire.assert_not_called();self.runner.assert_not_called();self.stopped(owner)
 
+    def test_qualification_true_only_after_successful_sdk_proofs_and_guards(self):
+        owner=self.owner();owner.capture(self.command(owner),'devices')
+        self.assertIs(self.row(owner)['client_qualified'],True)
+
+    def test_failed_sdk_preserves_real_result_and_qualification_false(self):
+        owner=self.owner();self.sdk_result=c.host.ProcessResult('completed',19,self.payload,0,3,True)
+        with self.assertRaises(c.ClientRefused):owner.capture(self.command(owner),'devices')
+        row=self.row(owner);self.assertIs(row['client_qualified'],False)
+        self.assertEqual((row['status'],row['returncode'],row['elapsed_ms']),('completed',3,19));self.stopped(owner)
+
+    def test_refused_postproof_never_promotes_completed_sdk_to_qualified(self):
+        owner=self.owner();self.verify_fail.add('after')
+        with self.assertRaises(c.ClientRefused):owner.capture(self.command(owner),'devices')
+        row=self.row(owner);self.assertIs(row['client_qualified'],False)
+        self.assertEqual(row['status'],'completed');self.assertEqual(row['returncode'],0);self.assertIsNotNone(row['server_after'])
+
+    def test_changed_runner_argument_keeps_trusted_result_without_postproof(self):
+        owner=self.owner();owner.target={'transport_id':7};command=self.command(owner)
+        self.sdk_after=lambda argv:argv.__setitem__(-1,'get-serialno')
+        with self.assertRaises(c.ClientRefused):owner.capture(command,'state')
+        row=self.row(owner);self.assertEqual(row['argv'],command);self.assertIs(row['client_qualified'],False)
+        self.assertEqual((row['status'],row['returncode'],row['elapsed_ms']),('completed',0,7))
+        self.assertEqual((owner.directory/'command-0001.stdout.bin').read_bytes(),self.payload)
+        self.assertIsNone(row['server_after']);self.assertEqual(self.acquire.call_count,1);self.stopped(owner)
+
+    def test_final_guard_failure_retains_completed_result_and_both_proof_refs(self):
+        owner=self.owner();original=owner._prove
+        def after_then_change(*args,**kwargs):
+            result=original(*args,**kwargs)
+            if args[2]=='after':self.caller['creation_filetime']+=1
+            return result
+        with patch.object(owner,'_prove',side_effect=after_then_change):
+            with self.assertRaises(c.ClientRefused):owner.capture(self.command(owner),'devices')
+        row=self.row(owner);self.assertIs(row['client_qualified'],False);self.assertIsNotNone(row['server_after'])
+        self.assertEqual(row['status'],'completed');self.assertEqual(row['returncode'],0);self.stopped(owner)
+
+    def test_preexisting_output_pair_is_not_overwritten(self):
+        owner=self.owner();path=owner.directory/'command-0001.stdout.bin';path.write_bytes(b'original synthetic existing output')
+        with self.assertRaises(c.ClientRefused):owner.capture(self.command(owner),'devices')
+        self.assertEqual(path.read_bytes(),b'original synthetic existing output')
+        self.assertFalse((owner.directory/'command-0001.json').exists());self.stopped(owner)
+
+    def test_client_directory_replacement_after_sdk_cannot_receive_output(self):
+        owner=self.owner();original=owner.directory;retained=original.parent/'retained-clients'
+        def replace(command):
+            self.assertEqual(original.parent,self.base/'session-001')
+            original.rename(retained);original.mkdir()
+        self.sdk_after=replace
+        with self.assertRaises(c.ClientRefused):owner.capture(self.command(owner),'devices')
+        self.assertEqual(list(original.iterdir()),[]);self.assertEqual(list(retained.iterdir()),[]);self.stopped(owner)
+
+    def test_invalid_output_is_refused_before_tool_reads_or_any_dispatch(self):
+        with patch.object(c.legacy,'_file_pin')as pin,patch.object(c.environment,'create_json')as create:
+            with self.assertRaises(c.ClientRefused):
+                c.HeldServerSdkCapture(Path('C:/Synthetic/clients'),100,self.adb,self.ps,self.admission_binding)
+        pin.assert_not_called();create.assert_not_called();self.runner.assert_not_called();self.acquire.assert_not_called()
+
 
 if __name__=='__main__':unittest.main()

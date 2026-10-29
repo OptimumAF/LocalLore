@@ -1,5 +1,6 @@
 [package]
 name = "locallore-desktop-spike"
+default-run = "locallore-desktop-spike"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.93"
@@ -19,7 +20,25 @@ tokio = { version = "=1.54.1", features = ["sync", "time"] }
 
 [features]
 default = []
-dev-harness = ["dep:webview2-com"]
+dev-harness = [
+    "dep:webview2-com",
+    "windows/Win32_Security_Isolation",
+    "windows/Win32_Security_Authorization",
+    "windows/Win32_System_Threading",
+    "windows/Win32_System_JobObjects",
+    "windows/Win32_System_Pipes",
+    "windows/Win32_NetworkManagement_IpHelper",
+    "windows/Win32_NetworkManagement_Ndis",
+    "windows/Win32_Networking_WinSock",
+    "windows/Wdk_Foundation",
+    "windows/Wdk_Storage_FileSystem",
+    "windows/Win32_System_IO",
+]
+
+[[bin]]
+name = "offline-qualifier"
+path = "src/bin/offline-qualifier.rs"
+required-features = ["dev-harness"]
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = { version = "=0.39.1", optional = true }

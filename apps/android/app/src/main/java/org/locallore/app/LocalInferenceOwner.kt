@@ -98,6 +98,7 @@ internal class LocalInferenceOwner(
     private var port: LocalInferenceNativePort? = null
     private var transport: Any? = null
     private var active: Run? = null
+    private var authorResponseCapture: AuthorResponseCapture? = null
     private var invalidation: Deferred<Unit>? = null
     private val closed = AtomicBoolean()
     private val poisoned = AtomicBoolean()
@@ -108,6 +109,14 @@ internal class LocalInferenceOwner(
     val quarantined: Boolean get() = poisoned.get()
     val nativeInvalidatedKnown: Boolean get() = invalidated.get()
     fun profileBytes(): ByteArray = profile.copyOf()
+    /** Explicit fresh-owner diagnostic; ordinary construction neither installs nor allocates it. */
+    fun installAuthorResponseCapture(): AuthorResponseCapture = synchronized(lock) {
+        admit()
+        check(authorResponseCapture == null && port == null && transport == null && active == null) {
+            "Author response capture unavailable"
+        }
+        AuthorResponseCapture().also { authorResponseCapture = it }
+    }
     /** Reserve before openLocal: sharing this driver across two transports must allocate no second lease. */
     fun claimTransport(value: Any) = synchronized(lock) {
         if (transport != null && transport !== value || transport == null && port != null)
@@ -279,6 +288,14 @@ internal class LocalInferenceOwner(
             current(value, run, pending)
             if (!bounded(task { value.respond(pending.ticket, response.copyOf()) })) throw NativeCancelled()
             check(run.delivered.add(pending.ticket))
+            // Observe only the bytes acknowledged by the bridge. A fast native rejection is still
+            // a submitted proposal; this does not establish native validation or canonical state.
+            if (run.author && pending.request.role == "author") synchronized(lock) {
+                if (active === run && !run.abandoned.get() && !closed.get() && !poisoned.get()) {
+                    try { authorResponseCapture?.observe(pending.request.role, response) }
+                    catch (_: Throwable) { /* Diagnostics cannot change response/resource authority. */ }
+                }
+            }
             run.role = null; run.starting = null
         }
         return run.native.await()

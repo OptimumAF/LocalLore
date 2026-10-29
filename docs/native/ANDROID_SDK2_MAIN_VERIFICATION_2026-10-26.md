@@ -1,0 +1,235 @@
+# Current-main SDK2 prerequisites and restoration — 2026-10-26
+
+Supporting M10.02/M09.06, PR #219 on main3f75b5d6. Executable checkpoint
+aa9deaee has827 tracked inputs; documentation changes are outside that map.
+No full task or milestone acceptance follows. This is scripted inference,
+not physical-device/model/ARM64 performance qualification.
+
+## Current prerequisite fix
+
+The current external runner required measured-v2 clients for its own output,
+but its native10 gate still used only historical readers. Timing fields could
+be removed from an otherwise complete gate row while the current worker and
+parent accepted that historical shape. No actual record tampering or gameplay
+failure was observed; independent source review supplied the counterexample.
+
+`_qualified_current_gate` performs the unchanged full historical native-gate
+validation, then requires exact complete measured-v2 client pairs and returns
+the same qualified request. The current worker uses it before Session/SDK, and
+the parent repeats it after original deep external validation. Generic
+`qualified_gate` and `validate_execution` remain historically readable. Source
+review found no concrete bounded gap and excluded authored tests from its review.
+
+Seven original tests retain actual bound ten-method runner frames, raw copies,
+owners, source and client records. Their real worker and parent paths cover
+positive current evidence, independently downgraded observer/SDK rows, all four
+external cases, malformed timing, incomplete file sets and rebound wrong classes.
+Four old orchestration mock lines now identify the new prerequisite boundary;
+all original test actions, assertions and rosters remain. No cap, deadline,
+cadence, dependency, gameplay, SQLite, model or local-only policy changes.
+
+## Host and offline build actually executed
+
+Windows/Python3.14.7/JDK21, existing cached Gradle8.11.1/AGP8.10.1/SDK components.
+Private immutable finite owners retain original requests/tools/source maps and
+binary outputs on C:. No new SDK/server lifecycle or phone operation is needed
+for host tests.
+
+| Actual cohort | Result |
+|---|---|
+| Baseline826 offline build-v1 | pass256699ms/worker0;259 executed JVM tests/30XML and11 audits |
+| Baseline826 host-full-v1 | **failed capture**,260846ms/worker1,output_limit,262144 stdout bytes,capturefalse; no complete suite pass |
+| Test-only827 native-gate RED |7 methods/6 assertion failures in5.354s;8021ms/worker1, known cleanup/capture, stderr0 |
+| Corrected827 host-full-v2 |1476 pass in154.722s;158604ms/worker0, known cleanup/capture, stderr0,2850 stdout bytes |
+| Corrected827 build-v2 |pass33715ms/worker0;259 executed JVM tests/30XML,0 failures/errors/skips; both lints0 errors/3 warnings;11 APK audits |
+
+All827 before/after inputs agree in the final host/build. Final source map is
+106694 bytes SHA256
+`3077cc60167ec850b39a805ef2c4aa3201307c8c5949fef06ef64dbf563145ff`.
+The original seven-test RED dynamically reaches the forbidden Session boundary
+or lacks the expected parent refusal, rather than failing on an absent symbol.
+
+The initial full host attempt retains its failed output-limit outcome. A new
+immutable private helper uses standard concise unittest output and retains both
+loader-count and actual test-summary records; the same256KiB capture limit and
+600-second host bound remain. SDK/controller/guest limits are unchanged. It does
+not reconstruct or relabel the earlier truncated run.
+
+Both builds run the existing versioned entry point:
+
+```powershell
+python -I -B benchmarks/android_process_verification.py build --out "$evidence/build-v2" --sdk "$sdk" --java "$java"
+```
+
+The current product/test APK hashes differ from the older779 checkpoint despite
+identical byte counts. Main also adds a generated BuildConfig field; this check
+does not isolate the sole cause of the byte differences. Both current builds
+have the following exact hashes; the controller is unchanged. Cached compiler tasks
+are not new ABI execution evidence. JVM/controller outputs are rerun by the driver.
+
+| APK | Bytes | SHA256 |
+|---|---:|---|
+| Product |32314536|`78747dd80eda5ef4453d29eeff98f8fedc57e2c5d83b15653591a8d9ef412443`|
+| Test |2836682|`6b16e88fe96f1419bf05d5fa1b581ae1449517843ad1ca39bbd896838f383528`|
+| Controller |55073|`6ea09f4c5105d62e61498d2bebc05de52ce597e30b9681e4975a323b36ef7693`|
+
+## SDK execution and limits
+
+The six terminal host/build/server directories and six fixed private helper
+sources have an independently verified recovery seal:192 originals plus one
+labeled derived audit,72317733 indexed bytes. All160 binding references and
+every original/copy/ZIP member agree. Immutable index56853 bytes SHA256
+`14d5e6608022356d5269076d52db3f64351922e2b08bce17a5d8b8ae84e5629a`;
+ZIP72408622 bytes SHA256
+`5b3303204ea1857a2b69aa511c2a0686105a9843b3a3b1df59e25f2ba05607d0`.
+Its194 members include the exact index. The failed cap-limited run and original
+RED are retained separately; concise full-host evidence uses its loader count,
+actual result summary and final runner frame, not a per-method transcript.
+Live preparation/guest data, models, images and databases are excluded.
+
+Current827 native10 actually passes three classes/ten methods:81 clean measured-v2
+clients,275410ms/worker0, known cleanup/capture and empty owner stderr. All
+client timestamps are strict measured values; maximum client10429ms and server
+observation3357ms retain their original budgets. These are cohort diagnostics,
+not a timeout-cause fix or a general speed claim. The current client count is
+observed, not a fabricated fixed84 requirement.
+
+Its bound owned stop returns0 and the emulator is actually terminal0. Guest
+owner reports `stop_requested`,388877ms/worker1, cleanup/capture/closure true and
+`guest_flush_claimed:false`. No same-installation continuation is used.
+
+The first current827 CHILD attempt is **failed and unqualified**,48837ms/worker2,
+known cleanup/capture, stderr0, generic `external_refused`. The case claim is
+burned but no client directory, controller, proof, external record or final
+source map is created. Its worker starts61.278798 seconds after the owner;
+the complete host interval ends approximately110.115798 seconds after owner
+start. This is consistent with late1100-second admission within the1200-second
+lease, but the coarse error does not establish the exact refusal stage or cause.
+No SDK, process-death or product-failure result is inferred from the missing files.
+
+The failed guest is closed by its bound stop: actual outer0,
+`stop_requested`,163925ms/worker1, cleanup/capture/closure true and no guest-flush
+claim. Thirty original files486523 bytes are privately sealed; index10731 bytes
+SHA256 `edb5be0893b067d0d8fb955621bcff0768145c62b925eb42f0bb9021bbaa4680`,
+ZIP135489 bytes SHA256
+`bc4c11f7d406eaeb3ccc82a36a140f256bdfb995d7610a4f1f78a316e2855cfd`.
+Missing outputs remain absent; originals/copies/all ZIP members and earlier
+seals are independently checked. This guest is never adopted or retried.
+
+For the distinct retained-parent case, a single continuous tool orchestration
+waits on the same actual live owner session, recognizes exact readiness, then
+immediately invokes the existing external CLI without a model turn. The source,
+all gate checks and all bounds remain unchanged. It creates its coordination
+observation exclusively and labels it derived, not runtime proof. Kernel records
+show this worker starts approximately8.564 seconds after the owner; actual SDK clients are
+created. This improves dispatch latency, not proof of earlier timeout causation
+or a reserved completion window. Qualification was pending at that initial
+observation; the terminal result follows.
+
+The current retained-parent case actually **passes**:619065ms/worker0, known
+cleanup/capture and stderr0,126 clean measured-v2 clients, result2/DONE and202
+observed diagnostic checks across two process deaths. The check count is not a
+new golden constant. Frame3137 bytes and parsed proof3082 bytes remain within
+unchanged caps. Both first-old saved/command creation maps are legacy0/named2;
+both second-old maps are zeros. All three original native bodies and their
+quiet transport footers plus four original12174-byte canonical sidecars are
+collected and deeply validated. The preserved prefix receipts remain original,
+the unreachable parent tail is excluded, and final fallback performs no
+automatic creation/gameplay. These are the exact scripted fixture's guarantees.
+
+Its bound stop returns0; emulator actual terminal0, guest `stop_requested`,
+715922ms/worker1, cleanup/capture/closure true, no guest-flush claim. The earlier
+failed CHILD attempt remains unchanged. A separately named new `child-ready`
+guest is prepared for the same CHILD case using the changed continuous
+readiness/dispatch protocol. It has new authorization/proposal/claim/outputs,
+not a new output directory on a failed guest. No source or runtime bound changes.
+
+The new `child-ready` cohort actually **passes**:503115ms/worker0, known
+cleanup/capture and stderr0,96 clean measured-v2 client records, result2/DONE,
+123 checks and two process deaths. Frame2239 bytes/proof2184 bytes stay within
+unchanged caps. Both terminal creation maps retain first0/2 and second0/0.
+Source-pinned controller/native assertions check inherited parent receipts,
+unsent child draft, explicit child Send and unchanged parent scope. CHILD does
+not export the retained-parent case's independent four canonical sidecars, and
+no hidden-world equality is inferred. Kernel worker creation is approximately
+5.749 seconds after owner start under the new continuous tool protocol.
+
+Bound stop and emulator return0; its owner is `stop_requested`,546634ms/worker1,
+cleanup/capture/closure true and no guest-flush claim. The original refused
+`child-v1` stays failed with all original missing files absent. The scheduling
+change permits the fresh experiment; it does not retroactively identify or
+repair that attempt's generic error.
+Each needs its own new standard2GiB/two-CPU API35/x86_64 guest. Existing current
+profile capacity checks apply before preparation and launch; no floor is bypassed.
+Finish all build/integration/preparation work before timed launch, dispatch
+promptly, retain the full1100-second admission and1200-second owner ceiling.
+All three packages must be absent in a new external guest. The separate native10
+gate and all original retirement bodies, transport footers and four retained
+canonical sidecars remain mandatory. Missing/failed outputs cannot be invented,
+summarized away, or promoted from old-source cohorts. Existing earlier failed
+CHILD/retained attempts remain failed and unqualified.
+
+The recorded unrelated process identities pass the new selected preflight,
+with zero device calls. The new final selected postflight actually passes after
+strict proposal-bound closure of all four owned guests, including failed CHILD
+and fresh child-ready: both original native process identities and original
+server match, exactly one listener observation, zero new device calls. The
+original three-guest helper stays unexecuted with its output absent. No
+system setting change, unrelated emulator stop,
+merge, release or private-data/model upload is performed by this chat. Full
+customization, real phone/model/accessibility/joined-drain and the inherited
+desktop dependency advisory remain separate open gates.
+
+The current CHILD-ready maximum recorded client elapsed is39614ms; its maximum
+server observer is14788ms against an effective15000ms budget. This passing
+observation is close to the bound. Neither this cohort nor retained-parent's
+3818ms maximum observer identifies the cause of older timeouts or establishes
+general reliability/latency distributions. No budget is increased.
+
+## Terminal recovery and handoff
+
+Independent readback validates source827/build/native-gate/owner/tool/current
+clients/copies/rosters/controller/producer/fixture and case-specific canonical
+requirements. All originals, copies and ZIP members are rehashed. Separate
+derived audit summaries never replace original execution evidence.
+
+| Recovery set | Selected files / bytes | ZIP bytes | ZIP SHA256 |
+|---|---:|---:|---|
+| Host/build |192 originals +1 derived /72317733|72408622|`5b3303204ea1857a2b69aa511c2a0686105a9843b3a3b1df59e25f2ba05607d0`|
+| Native |196 originals /633749|224023|`f582a0a686794afc842a64d277d3c751abb7ac18b1552c946782e254c16479c9`|
+| Refused CHILD |30 originals /486523|135489|`bc4c11f7d406eaeb3ccc82a36a140f256bdfb995d7610a4f1f78a316e2855cfd`|
+| Retained parent |302 originals +1 derived coordination /803666|286258|`61478e7a33b3f9bdedf6191bd909173ace10d750ed3b3a7d948eafaf34c2a63b`|
+| CHILD-ready/final postflight |239 originals +1 derived coordination /692573|256127|`603e2a4d0b786e89f0b19881806eb6348f668679aa340f3c86986695b7a5b85c`|
+
+Current APKs are in the current193-file host/build seal, not the older779 set.
+One inherited native index exclusion description is corrected by a separate
+immutable scope clarification; its original archive/index stays unchanged.
+Counts across overlapping recovery sets do not represent unique coverage.
+Private audit helper cap/field-name refusals remain separate helper failures;
+corrected audits do not relabel a runtime result. No guest images, models,
+databases, private saves or unknown subtrees are copied into these sets.
+
+Final postflight is3034 bytes SHA256
+`5c09a1f3fd4a70c0cae685cc906af5fa18044b740ce2d922d080546dbe7a78d0`.
+Native/retained/CHILD-ready resource and functional results retain their separate
+scope; all four owned guests, including failed CHILD, have verified closure.
+
+Latest M01.01/M01.02 availability follow-up reads the existing CHILD-ready
+device-list record only:604 bytes SHA256
+`f307faf521fb2e59cfa2d431781e883489f87eda06e52d70a4133d78cd41c357`.
+All five authorized rows explicitly advertise SDK emulator profiles, including
+two non-emulator-style serial aliases. No physical-profile candidate is
+established from this capture; no absolute phone-absence claim is made. Ten
+selected provenance/assessment files are privately copied and rehashed with
+zero new SDK, OS, device, census or hardware calls. Exact authorized hardware
+identity/admission remains blocked for that capture (#5 claim/release
+6432025516/6432029616).
+
+At this packet's handoff, broad89/root82/retired-leaf139 had not been newly run
+on this827 map; older-source results were not promoted. The separate
+[current-source controls follow-up](ANDROID_SDK2_MAIN_CONTROLS_2026-10-26.md)
+subsequently verifies broad89 and its owned closure. It preserves the interrupted
+root preparation, then records separate fresh root82/retired-leaf139 passes and
+their requested closures after new environment admission. The old pins and
+interrupted guest remain historical. Full task acceptance and
+physical/real-model/ARM64/accessibility/drain gates remain open.

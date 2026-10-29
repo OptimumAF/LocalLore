@@ -210,8 +210,13 @@ WebView build was not obtained. These are scoped compatibility checks.
 
 ## Remaining gates and limitations
 
-Independent final evidence review and this focused slice's review gate remain
-pending. No previous slice's counts are copied or relabeled as these reruns.
+Independent final evidence review at
+`62566de61bb7d022d1f5f54e3d3304cb75258513` passes with no blockers. It verified
+counts, exact timestamps/commands, source attribution, fixture provenance,
+capture hashes, geometry and retained-file/cleanup evidence using read-only
+source and records. It ran no new checks or decoder and grants no runtime,
+human-quality, milestone, dependency or merge acceptance. No previous slice's
+counts are copied or relabeled as these reruns.
 
 Rust synthetic Host/native-component tests and frontend mock/controller/headless
 checks/build do not establish native IPC/WebView rendering, new real-model
@@ -224,8 +229,10 @@ Both original and newer human assessments remain **needs improvement**.
 
 Bounded local `d07-narration-host-read-*` process/log/equality/correction records
 retain evidence; private paths/raw material stay outside this public document.
-Next: independent evidence review and an update to the existing
-[PR #255](https://github.com/OptimumAF/LocalLore/pull/255), stacked above
+The existing [PR #255](https://github.com/OptimumAF/LocalLore/pull/255) is stacked above
 [PR #253](https://github.com/OptimumAF/LocalLore/pull/253). Full M05.03/M05.04,
 D07.04 and dependency acceptance remain unchecked. This note grants no
-merge/release authority.
+merge/release authority. Next: separately contract a full-protocol4-only, opt-in
+companion artifact protocol and strict reader. Preserve closed old formats,
+actual attempt/head/lifetime binding, crash ordering and historical absence;
+selected-result, catalog and UI adoption require later explicit contracts.

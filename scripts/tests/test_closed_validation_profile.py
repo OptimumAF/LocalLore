@@ -203,6 +203,58 @@ class ReadObserverTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == 'nt', 'physical D original closed-plan fixtures')
 class ProfilePlanTests(unittest.TestCase):
+    def test_nested_canonical_query_pin_is_strict_and_bounded_before_hashing(self):
+        for mutation in ('extra_field', 'bool_bytes', 'float_bytes', 'declared_overcap', 'actual_overcap'):
+            with self.subTest(mutation=mutation):
+                fixture = PlanFixture()
+                proof_pin = fixture.record['server_before']
+                proof = p.env.read_json(proof_pin['path'])
+                query = copy.deepcopy(proof['queries'])
+                query_path = Path(query['path'])
+                if mutation == 'extra_field':
+                    query['extra'] = True
+                elif mutation == 'bool_bytes':
+                    query['bytes'] = False
+                elif mutation == 'float_bytes':
+                    query['bytes'] = float(query['bytes'])
+                elif mutation == 'declared_overcap':
+                    query['bytes'] = p.CAP + 1
+                else:
+                    # Stale small pin, harmless synthetic oversized JSON-name data.
+                    # A bounded read or a before-open size refusal is acceptable.
+                    query_path.write_bytes(b'x' * (p.CAP + 1))
+                proof['queries'] = query
+                fixture.record['server_before'] = fixture.g.save(proof_pin['path'], proof)
+                fixture.rewrite('client', fixture.record)
+                actual_hash, actual_open = p.env.binding, io.open
+                def guarded_hash(path):
+                    if Path(path) == query_path:
+                        raise AssertionError('nested query must not use unbounded env.binding hashing')
+                    return actual_hash(path)
+                owner = self
+                class BoundedRead:
+                    def __init__(self, stream):
+                        self.stream = stream
+                    def __enter__(self):
+                        return self
+                    def __exit__(self, *args):
+                        self.stream.close()
+                    def read(self, size=-1):
+                        owner.assertGreaterEqual(size, 0, 'no unbounded metadata read')
+                        owner.assertLessEqual(size, p.CAP + 1, 'metadata read exceeds CAP+1')
+                        return self.stream.read(size)
+                    def __getattr__(self, name):
+                        return getattr(self.stream, name)
+                def guarded_open(path, *args, **kwargs):
+                    if Path(path) == query_path:
+                        if mutation != 'actual_overcap':
+                            raise AssertionError('malformed nested pin must refuse before query open')
+                        return BoundedRead(actual_open(path, *args, **kwargs))
+                    return actual_open(path, *args, **kwargs)
+                with patch.object(p.env, 'binding', side_effect=guarded_hash), patch.object(io, 'open', side_effect=guarded_open):
+                    with self.assertRaises(ValueError):
+                        p.prepare(fixture.plan)
+
     def test_terminal_stream_and_elapsed_counters_require_integers(self):
         baseline = dict(status='child_exited', worker_returncode=1, cleanup_complete=True,
             output_capture_complete=True, elapsed_ms=1, stdout_bytes=0, stderr_bytes=0)

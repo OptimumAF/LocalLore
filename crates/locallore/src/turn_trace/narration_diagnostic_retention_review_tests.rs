@@ -1082,3 +1082,34 @@ fn recorded_retry_replay_and_prevalidation_guards_never_fabricate_new_causes() {
         }
     }
 }
+
+// ADDITIVE follow-up after implementation ea8bdc2a. Not part of the original
+// ten-function FIRST freeze; SOURCE ONLY / UNRUN, no behavioral RED claim.
+#[test]
+fn additive_last_matching_validation_stage_must_be_the_current_tail() {
+    let value = actual(FIRST_PERSON);
+    let key = identity(&request(&fixture(), "I wait for one tide tick."), 0);
+    let (mut ring, owner, handle) = control(Config::default(), &key);
+    matching_stage(&mut ring, &handle, value);
+    assert_eq!(
+        ring.record(
+            &handle,
+            Stage::Publication,
+            Outcome::Accepted,
+            Counts::default(),
+            None,
+        ),
+        HookStatus::Recorded
+    );
+    assert_eq!(
+        ring.record_narration_validation(&handle, value),
+        HookStatus::InvalidMetadata
+    );
+    assert_eq!(read_key(&ring, &owner, &key), Read::Unavailable);
+    matching_stage(&mut ring, &handle, value);
+    assert_eq!(
+        ring.record_narration_validation(&handle, value),
+        HookStatus::Recorded
+    );
+    assert_eq!(read_key(&ring, &owner, &key), Read::Recorded(value));
+}

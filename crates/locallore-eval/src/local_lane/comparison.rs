@@ -356,13 +356,25 @@ fn private_read_first(
     );
     let query = if diagnostics {
         crate::narration_diagnostic_companion_v1::select_query(
-            &trace, session, before.revision(), &before.seed().player, r,
+            &trace,
+            session,
+            before.revision(),
+            &before.seed().player,
+            r,
         )
-    } else { Ok(None) };
-    let attempt = if diagnostics {
-        query.as_ref().ok().and_then(Option::as_ref).map(|q| u64::from(q.attempt()))
     } else {
-        trace["data"]["snapshot"]["attempts"].as_array().and_then(|a| a.last())
+        Ok(None)
+    };
+    let attempt = if diagnostics {
+        query
+            .as_ref()
+            .ok()
+            .and_then(Option::as_ref)
+            .map(|q| u64::from(q.attempt()))
+    } else {
+        trace["data"]["snapshot"]["attempts"]
+            .as_array()
+            .and_then(|a| a.last())
             .and_then(|a| a["identity"]["attempt"].as_u64())
     };
     let capture=attempt.map(|attempt|call(host,json!({"op":"trace_capture_read","session":session,"scope":r.scope,"expected_head":before.revision(),"base_revision":r.expected_revision,"turn":r.turn,"attempt":attempt})));
@@ -379,14 +391,23 @@ fn private_read_first(
 
 // The codec receives bytes from this held, existing guard rather than reopening
 // a previously checked path. This is internal fixed-protocol I/O, not an RPC.
-pub(crate) fn read_narration_diagnostic_file_v1(path: &Path, cap: usize) -> Result<(File, Vec<u8>)> {
+pub(crate) fn read_narration_diagnostic_file_v1(
+    path: &Path,
+    cap: usize,
+) -> Result<(File, Vec<u8>)> {
     use std::io::Read;
     let mut file = selected::pin_single_link_file(path)?;
     let metadata = file.metadata().map_err(|_| "DiagnosticIo")?;
-    if metadata.len() > cap as u64 { return Err("DiagnosticBudget".into()); }
+    if metadata.len() > cap as u64 {
+        return Err("DiagnosticBudget".into());
+    }
     let mut bytes = Vec::new();
-    (&mut file).take(cap as u64 + 1).read_to_end(&mut bytes).map_err(|_| "DiagnosticIo")?;
-    if bytes.len() > cap || file.metadata().map_err(|_| "DiagnosticIo")?.len() != bytes.len() as u64 {
+    (&mut file)
+        .take(cap as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "DiagnosticIo")?;
+    if bytes.len() > cap || file.metadata().map_err(|_| "DiagnosticIo")?.len() != bytes.len() as u64
+    {
         return Err("DiagnosticBudget".into());
     }
     Ok((file, bytes))

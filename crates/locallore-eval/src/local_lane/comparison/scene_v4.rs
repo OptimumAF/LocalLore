@@ -3,10 +3,10 @@
 //! native execution remain unavailable pending their separate integration.
 pub mod desktop_api;
 use super::*;
-#[cfg(feature = "local-model")]
-mod native;
 #[cfg(test)]
 mod narration_diagnostic_companion_review_tests;
+#[cfg(feature = "local-model")]
+mod native;
 #[cfg(test)]
 mod noncommit_privacy_review_tests;
 use crate::memory_comparison_v4::{
@@ -566,7 +566,7 @@ struct Job4<'a> {
     step: &'a protocol::Step,
     factory: &'a LaneFactory,
     cancel: &'a Cancellation,
-    diagnostics:bool,
+    diagnostics: bool,
 }
 fn execute_turn4(job: Job4<'_>, ledger: &mut Ledger) -> Result<StoredTurn4> {
     let Job4 {
@@ -598,18 +598,22 @@ fn execute_turn4(job: Job4<'_>, ledger: &mut Ledger) -> Result<StoredTurn4> {
     })? {
         return Ok(turn);
     }
-    let live_job=turn_execution::LiveTurnJob {
-            dir,
-            path,
-            index,
-            step,
-            factory,
-            cancel,
-            construction: host_construction(construction),
-            before: full,
-            profile,
-        };
-    let actual=if diagnostics {turn_execution::execute_with_narration_diagnostics_v1(live_job,ledger)}else{turn_execution::execute(live_job,ledger)}?;
+    let live_job = turn_execution::LiveTurnJob {
+        dir,
+        path,
+        index,
+        step,
+        factory,
+        cancel,
+        construction: host_construction(construction),
+        before: full,
+        profile,
+    };
+    let actual = if diagnostics {
+        turn_execution::execute_with_narration_diagnostics_v1(live_job, ledger)
+    } else {
+        turn_execution::execute(live_job, ledger)
+    }?;
     let row = make_row4(Observation4 {
         dir,
         step,
@@ -781,7 +785,7 @@ struct Session4 {
     ledgers: [Ledger; 2],
     turns: [Vec<StoredTurn4>; 2],
     reference: Option<ValidatedReference>,
-    diagnostics:bool,
+    diagnostics: bool,
 }
 impl Session4 {
     fn open(
@@ -849,7 +853,7 @@ impl Session4 {
             ledgers,
             turns,
             reference,
-            diagnostics:false,
+            diagnostics: false,
         })
     }
     fn begin_invocations(&mut self) -> Result<()> {
@@ -938,7 +942,7 @@ impl Session4 {
                             step: &corpus.steps()[index],
                             factory,
                             cancel,
-                            diagnostics:self.diagnostics,
+                            diagnostics: self.diagnostics,
                         },
                         &mut self.ledgers[arm],
                     )?;
@@ -991,19 +995,45 @@ pub fn run_comparison(
     factory: LaneFactory,
     reference: Option<&ValidatedReference>,
 ) -> Result<ComparisonReportV4> {
-    run_comparison_inner(dir,resume,kind,cancel,max_new_scenes,factory,(reference,false))
+    run_comparison_inner(
+        dir,
+        resume,
+        kind,
+        cancel,
+        max_new_scenes,
+        factory,
+        (reference, false),
+    )
 }
 pub fn run_comparison_with_narration_diagnostics_v1(
-    dir:&Path,resume:bool,kind:ComparisonKind,cancel:&Cancellation,max_new_scenes:usize,
-    factory:LaneFactory,reference:Option<&ValidatedReference>,
-)->Result<ComparisonReportV4>{
-    run_comparison_inner(dir,resume,kind,cancel,max_new_scenes,factory,(reference,true))
+    dir: &Path,
+    resume: bool,
+    kind: ComparisonKind,
+    cancel: &Cancellation,
+    max_new_scenes: usize,
+    factory: LaneFactory,
+    reference: Option<&ValidatedReference>,
+) -> Result<ComparisonReportV4> {
+    run_comparison_inner(
+        dir,
+        resume,
+        kind,
+        cancel,
+        max_new_scenes,
+        factory,
+        (reference, true),
+    )
 }
 fn run_comparison_inner(
-    dir:&Path,resume:bool,kind:ComparisonKind,cancel:&Cancellation,max_new_scenes:usize,
-    factory:LaneFactory,options:(Option<&ValidatedReference>,bool),
-)->Result<ComparisonReportV4>{
-    let (reference,diagnostics)=options;
+    dir: &Path,
+    resume: bool,
+    kind: ComparisonKind,
+    cancel: &Cancellation,
+    max_new_scenes: usize,
+    factory: LaneFactory,
+    options: (Option<&ValidatedReference>, bool),
+) -> Result<ComparisonReportV4> {
+    let (reference, diagnostics) = options;
     let started = Instant::now();
     if factory.native() {
         return Err("NativeSceneComparisonRequiresReservation".into());
@@ -1024,22 +1054,26 @@ fn run_comparison_inner(
         if actual != expected || !actual.source_matches()? {
             return Err("CheckpointMismatch".into());
         }
-        if diagnostics {desktop_api::validate_companion_for_resume(dir)?;}
+        if diagnostics {
+            desktop_api::validate_companion_for_resume(dir)?;
+        }
         let report = inspect_comparison(dir)?;
         if report.completed {
             return Ok(report);
         }
     }
-    let mut session=Session4::open(dir, resume, expected, reference, started)?;
+    let mut session = Session4::open(dir, resume, expected, reference, started)?;
     if diagnostics {
-        if !resume {crate::narration_diagnostic_companion_v1::declare(dir,&session.key,&session.manifest.source_sha256)?;}
-        session.diagnostics=true;
+        if !resume {
+            crate::narration_diagnostic_companion_v1::declare(
+                dir,
+                &session.key,
+                &session.manifest.source_sha256,
+            )?;
+        }
+        session.diagnostics = true;
     }
-    session.execute(
-        cancel,
-        max_new_scenes,
-        factory,
-    )
+    session.execute(cancel, max_new_scenes, factory)
 }
 /// Strict cold read: validates actual canonical/capture/raw/ledger evidence and
 /// never opens a provider, creates an invocation or repairs a checkpoint.

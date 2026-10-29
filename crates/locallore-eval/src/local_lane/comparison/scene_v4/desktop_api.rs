@@ -185,54 +185,131 @@ pub fn evidence(
 // The source capability supplies the existing immutable snapshot and lock.
 // Companion files are held through parsing/hash/binding validation, never used
 // to reconstruct a Host owner or an Engine.
-fn validated_companion(run:&OpenedComparison)->Result<crate::narration_diagnostic_companion_v1::Loaded>{
-    let (fresh,manifest,turns)=snapshot(&run.directory)?;
-    if fresh!=run.snapshot || manifest!=run.manifest {return Err("SnapshotMismatch".into());}
-    let mut loaded=crate::narration_diagnostic_companion_v1::load(&run.directory,&run.key,&manifest.source_sha256)?;
+fn validated_companion(
+    run: &OpenedComparison,
+) -> Result<crate::narration_diagnostic_companion_v1::Loaded> {
+    let (fresh, manifest, turns) = snapshot(&run.directory)?;
+    if fresh != run.snapshot || manifest != run.manifest {
+        return Err("SnapshotMismatch".into());
+    }
+    let mut loaded = crate::narration_diagnostic_companion_v1::load(
+        &run.directory,
+        &run.key,
+        &manifest.source_sha256,
+    )?;
     // Iterate a bounded metadata copy so pins can be retained on the same owner.
     for observation in loaded.observations.clone() {
-        let arm=match observation.arm(){"left"=>0,"right"=>1,_=>return Err("DiagnosticBinding".into())};
-        let retained=turns[arm].iter().find(|t|t.index==observation.index()).ok_or("DiagnosticBinding")?;
-        let arm_dir=run.directory.join(ARM_NAMES[arm]);
-        let (file,bytes)=super::super::read_narration_diagnostic_file_v1(&super::checkpoint_path(&arm_dir,retained.index),256*1024)?;
-        let current:StoredTurn4=serde_json::from_slice(&bytes).map_err(|_|"DiagnosticBinding")?;
-        if encode(&current)?!=encode(retained)? {return Err("SnapshotMismatch".into());}
-        let source=crate::engine(&database(&arm_dir,retained.index,manifest.kind),&current.request.scope)?;
-        observation.bind_checkpoint(&serde_json::to_value(&current).map_err(|_|"DiagnosticWire")?,&bytes,&source.seed().player)?;
-        let admission=observation.admission();
-        let (reservation_file,bytes)=super::super::read_narration_diagnostic_file_v1(&arm_dir.join(format!("admission-{admission:02}.json")),4096)?;
-        let reservation:crate::local_lane::Reservation=serde_json::from_slice(&bytes).map_err(|_|"DiagnosticBinding")?;
-        let (settlement_file,bytes)=super::super::read_narration_diagnostic_file_v1(&arm_dir.join(format!("admission-{admission:02}-settled.json")),4096)?;
-        let settlement:crate::local_lane::Settlement=serde_json::from_slice(&bytes).map_err(|_|"DiagnosticBinding")?;
-        if reservation.version!=1 || reservation.binding!=run.key || reservation.index!=admission ||
-            reservation.turn!=current.request.turn || reservation.story!=format!("scene-{}",current.row.scene) || reservation.roles!=3 ||
-            settlement.version!=1 || settlement.binding!=run.key || settlement.index!=admission || settlement.ms!=current.row.elapsed_ms ||
-            !current.row.roles_known || settlement.roles!=current.row.roles {return Err("DiagnosticBinding".into());}
-        loaded.retain_pin(file); loaded.retain_pin(reservation_file); loaded.retain_pin(settlement_file);
+        let arm = match observation.arm() {
+            "left" => 0,
+            "right" => 1,
+            _ => return Err("DiagnosticBinding".into()),
+        };
+        let retained = turns[arm]
+            .iter()
+            .find(|t| t.index == observation.index())
+            .ok_or("DiagnosticBinding")?;
+        let arm_dir = run.directory.join(ARM_NAMES[arm]);
+        let (file, bytes) = super::super::read_narration_diagnostic_file_v1(
+            &super::checkpoint_path(&arm_dir, retained.index),
+            256 * 1024,
+        )?;
+        let current: StoredTurn4 =
+            serde_json::from_slice(&bytes).map_err(|_| "DiagnosticBinding")?;
+        if encode(&current)? != encode(retained)? {
+            return Err("SnapshotMismatch".into());
+        }
+        let source = crate::engine(
+            &database(&arm_dir, retained.index, manifest.kind),
+            &current.request.scope,
+        )?;
+        observation.bind_checkpoint(
+            &serde_json::to_value(&current).map_err(|_| "DiagnosticWire")?,
+            &bytes,
+            &source.seed().player,
+        )?;
+        let admission = observation.admission();
+        let (reservation_file, bytes) = super::super::read_narration_diagnostic_file_v1(
+            &arm_dir.join(format!("admission-{admission:02}.json")),
+            4096,
+        )?;
+        let reservation: crate::local_lane::Reservation =
+            serde_json::from_slice(&bytes).map_err(|_| "DiagnosticBinding")?;
+        let (settlement_file, bytes) = super::super::read_narration_diagnostic_file_v1(
+            &arm_dir.join(format!("admission-{admission:02}-settled.json")),
+            4096,
+        )?;
+        let settlement: crate::local_lane::Settlement =
+            serde_json::from_slice(&bytes).map_err(|_| "DiagnosticBinding")?;
+        if reservation.version != 1
+            || reservation.binding != run.key
+            || reservation.index != admission
+            || reservation.turn != current.request.turn
+            || reservation.story != format!("scene-{}", current.row.scene)
+            || reservation.roles != 3
+            || settlement.version != 1
+            || settlement.binding != run.key
+            || settlement.index != admission
+            || settlement.ms != current.row.elapsed_ms
+            || !current.row.roles_known
+            || settlement.roles != current.row.roles
+        {
+            return Err("DiagnosticBinding".into());
+        }
+        loaded.retain_pin(file);
+        loaded.retain_pin(reservation_file);
+        loaded.retain_pin(settlement_file);
     }
     Ok(loaded)
 }
 
-pub(super) fn validate_companion_for_resume(dir:&Path)->Result<()> {
-    let run=open_read_only(dir)?;
-    if !validated_companion(&run)?.declared(){return Err("DiagnosticNotDeclared".into());}
+pub(super) fn validate_companion_for_resume(dir: &Path) -> Result<()> {
+    let run = open_read_only(dir)?;
+    if !validated_companion(&run)?.declared() {
+        return Err("DiagnosticNotDeclared".into());
+    }
     Ok(())
 }
 
 pub fn narration_diagnostic_v1(
-    run:&OpenedComparison,expected_binding:&str,row:&RowId,
-    observer:locallore::inspection_query::Observer,native_inspection_granted:bool,
-)->Result<Value>{
-    shared::check_access(&EvidenceRequest::Outputs{observer},native_inspection_granted)?;
-    if run.snapshot["binding"].as_str()!=Some(expected_binding){return Err("SnapshotMismatch".into());}
-    let arm=match row.arm{Arm::Left=>0,Arm::Right=>1};
-    let retained=run.turns[arm].iter().find(|t|t.row.turn==row.turn).ok_or("UnknownRow")?;
-    if retained.index>=24 {return Err("DiagnosticBinding".into());}
-    let loaded=validated_companion(run)?;
-    let observation=loaded.observations.iter().find(|o|o.arm()==ARM_NAMES[arm] && o.index()==retained.index && retained.row.admission==Some(o.admission()));
-    let status=if !loaded.declared(){"no_declaration"}else{observation.map_or("no_observation",|o|o.status())};
-    let mut result=json!({"version":1,"protocol_version":4,"kind":"narration_diagnostic_v1","binding":expected_binding,
+    run: &OpenedComparison,
+    expected_binding: &str,
+    row: &RowId,
+    observer: locallore::inspection_query::Observer,
+    native_inspection_granted: bool,
+) -> Result<Value> {
+    shared::check_access(
+        &EvidenceRequest::Outputs { observer },
+        native_inspection_granted,
+    )?;
+    if run.snapshot["binding"].as_str() != Some(expected_binding) {
+        return Err("SnapshotMismatch".into());
+    }
+    let arm = match row.arm {
+        Arm::Left => 0,
+        Arm::Right => 1,
+    };
+    let retained = run.turns[arm]
+        .iter()
+        .find(|t| t.row.turn == row.turn)
+        .ok_or("UnknownRow")?;
+    if retained.index >= 24 {
+        return Err("DiagnosticBinding".into());
+    }
+    let loaded = validated_companion(run)?;
+    let observation = loaded.observations.iter().find(|o| {
+        o.arm() == ARM_NAMES[arm]
+            && o.index() == retained.index
+            && retained.row.admission == Some(o.admission())
+    });
+    let status = if !loaded.declared() {
+        "no_declaration"
+    } else {
+        observation.map_or("no_observation", |o| o.status())
+    };
+    let mut result = json!({"version":1,"protocol_version":4,"kind":"narration_diagnostic_v1","binding":expected_binding,
         "row":{"turn":retained.row.turn,"arm":ARM_NAMES[arm]},"generation_grant":false,"status":status});
-    if let Some(observation)=observation{result["observation"]=observation.value()?;}
+    if let Some(observation) = observation {
+        result["observation"] = observation.value()?;
+    }
     Ok(result)
 }

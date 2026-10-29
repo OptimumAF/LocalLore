@@ -158,6 +158,7 @@ class WindowsBackend:
         self._closed = False
         self._poisoned = False
         self._socket_closed = True
+        self._socket_close_attempted = False
         self._deadline = None
         self._last_clock = None
 
@@ -413,8 +414,14 @@ class WindowsBackend:
         refuse qualification and exit with cleanup=false in that case.
         """
         self._closed = True
-        if self._socket_anchor is not None and not self._socket_closed:
+        if (self._socket_anchor is not None and not self._socket_closed
+                and not self._socket_close_attempted):
+            self._socket_close_attempted = True
             try:
+                # Never close a replacement handle/object as though it were
+                # the one created and retained by this backend.
+                _need(id(self._socket_anchor) == self._socket_id
+                      and self._socket_anchor.fileno() == self._socket_handle, 'cleanup')
                 self._socket_anchor.close()
                 self._socket_closed = self._socket_anchor.fileno() == -1
             except BaseException:
@@ -428,6 +435,8 @@ class WindowsBackend:
                 os.close(fd)
                 self._file_fds.remove(fd)
             except BaseException:
+                self._uncertain_file_fds.add(fd)
+                self._file_close_failed = True
                 all_closed = False
         for handle in tuple(self._handles):
             if handle in self._uncertain_handles:
@@ -437,8 +446,12 @@ class WindowsBackend:
                 if self._api.close_handle(handle) is True:
                     self._handles.remove(handle)
                 else:
+                    self._uncertain_handles.add(handle)
+                    self._handle_close_failed = True
                     all_closed = False
             except BaseException:
+                self._uncertain_handles.add(handle)
+                self._handle_close_failed = True
                 all_closed = False
         return dict(socket_closed=self._socket_closed,
                     process_handles_closed=all_closed and not self._handles and not self._file_fds)

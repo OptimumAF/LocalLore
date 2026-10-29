@@ -1,5 +1,6 @@
 import {
     checkedReaderEvidence,
+    checkedReaderNarrationDiagnosticV1,
     checkedReaderObserver,
     checkedReaderRequest,
     checkedReaderRow,
@@ -16,6 +17,7 @@ import type {
     ObserverV2,
     ReaderError,
     ReaderEvidence,
+    ReaderNarrationDiagnosticV1,
     ReaderSource,
     ReaderStatus,
     ReaderSummary,
@@ -44,6 +46,7 @@ export type ComparisonReaderState = {
     summary: ReaderSummary | null;
     selected: RowId | null;
     evidence: ReaderEvidence | null;
+    diagnostic: ReaderNarrationDiagnosticV1 | null;
     querySelection: QuerySelection;
     busy: boolean;
     uncertain: boolean;
@@ -130,6 +133,7 @@ export class ComparisonReaderController {
         summary: null,
         selected: null,
         evidence: null,
+        diagnostic: null,
         querySelection: { edge: "after", view: "knowledge" },
         busy: false,
         uncertain: false,
@@ -217,7 +221,7 @@ export class ComparisonReaderController {
         return this.invoke("evaluation_comparison", { action, query });
     }
     private clearPrivate(): Partial<ComparisonReaderState> {
-        return { summary: null, evidence: null, selected: null };
+        return { summary: null, evidence: null, diagnostic: null, selected: null };
     }
     private rememberRetired(client: string | null, token: string | null): void {
         if (!client || (!this.nativeClients.has(client) && token === null))
@@ -292,6 +296,7 @@ export class ComparisonReaderController {
             );
         this.patch({
             error: safe,
+            diagnostic: null,
             busy: false,
             uncertain: recovery && uncertain(safe),
             ...(ended
@@ -307,7 +312,7 @@ export class ComparisonReaderController {
     }
     private invalid(error: ReaderError): void {
         if (this.disposed) return;
-        this.patch({ error });
+        this.patch({ error, diagnostic: null });
     }
 
     contextChanged(context: string, allowed: boolean): void {
@@ -357,6 +362,7 @@ export class ComparisonReaderController {
             observer,
             summary: null,
             evidence: null,
+            diagnostic: null,
             busy: this.lifecycleActive && this.state.busy,
             error: null,
         });
@@ -386,13 +392,14 @@ export class ComparisonReaderController {
         this.patch({
             querySelection: { edge, view },
             evidence: null,
+            diagnostic: null,
             error: null,
         });
     }
     clearEvidence(): void {
         if (this.disposed || this.state.busy) return;
         this.requestEpoch++;
-        this.patch({ evidence: null, error: null });
+        this.patch({ evidence: null, diagnostic: null, error: null });
     }
     select(value: RowId | null): void {
         if (this.disposed) return;
@@ -423,6 +430,7 @@ export class ComparisonReaderController {
         this.patch({
             selected,
             evidence: null,
+            diagnostic: null,
             busy: this.lifecycleActive && this.state.busy,
             error: null,
         });
@@ -516,7 +524,7 @@ export class ComparisonReaderController {
         if (this.disposed || !this.state.allowed || !client || this.state.busy)
             return;
         const ticket = this.ticket(client, true);
-        this.patch({ busy: true, error: null });
+        this.patch({ busy: true, error: null, diagnostic: null });
         if (!this.live(ticket)) return;
         try {
             const status = checkedReaderStatus(
@@ -636,6 +644,7 @@ export class ComparisonReaderController {
             busy: true,
             error: null,
             evidence: null,
+            diagnostic: null,
             ...(querySelection ? { querySelection } : {}),
         });
         return this.live(ticket) ? { ticket, token, source } : null;
@@ -713,6 +722,40 @@ export class ComparisonReaderController {
             );
             if (!this.live(ticket)) return;
             this.patch({ evidence, busy: false });
+        } catch (error) {
+            this.failed(error, ticket);
+        }
+    }
+    async inspectNarrationDiagnosticV1(): Promise<void> {
+        if (this.disposed || !this.state.allowed) return;
+        if (this.state.observer.kind !== "omniscient") {
+            this.invalid("Forbidden");
+            return;
+        }
+        const selected = this.state.selected;
+        if (!this.state.source || !selected) {
+            this.invalid("InvalidEvaluationInput");
+            return;
+        }
+        if (this.state.source.protocol_version !== 4) {
+            this.invalid("Unsupported");
+            return;
+        }
+        const read = this.beginRead();
+        if (!read) return;
+        const { ticket, token, source } = read;
+        try {
+            const raw = await this.call("narration_diagnostic_v1", {
+                runToken: token,
+                binding: source.binding,
+                turnId: selected.turn,
+                arm: selected.arm,
+                observer: { kind: "omniscient" },
+            });
+            if (!this.live(ticket)) return;
+            const diagnostic = checkedReaderNarrationDiagnosticV1(raw, token, source, selected);
+            if (!this.live(ticket)) return;
+            this.patch({ diagnostic, busy: false });
         } catch (error) {
             this.failed(error, ticket);
         }

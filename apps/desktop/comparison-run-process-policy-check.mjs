@@ -48,21 +48,33 @@ const createPolicy = runInNewContext(`(${policySource.trim()})`, { Buffer });
 const checks = [];
 // Additive SOURCE-ONLY freeze at 5145c5fa. Missing proposed pure helper blocks
 // are setup gaps, not behavioral RED. Original sixteen policy cases stay below.
-const boundaryChecks = [], boundarySetupFailures = [];
-let storageHelpers = null, storageHelperSource = null;
+const boundaryChecks = [],
+    boundarySetupFailures = [];
+let storageHelpers = null,
+    storageHelperSource = null;
 try {
     storageHelperSource = between(
         "// BEGIN SCENE STORAGE/ENVIRONMENT HELPERS.",
         "// END SCENE STORAGE/ENVIRONMENT HELPERS.",
     );
-    storageHelpers = runInNewContext(`(() => { "use strict";
+    storageHelpers = runInNewContext(
+        `(() => { "use strict";
         ${storageHelperSource}
         return { sceneStorageDisjoint, sceneReviewEnvironment };
-    })()`, { path: path.win32 });
+    })()`,
+        { path: path.win32 },
+    );
     for (const key of ["sceneStorageDisjoint", "sceneReviewEnvironment"])
-        assert.equal(typeof storageHelpers[key], "function", `ProposedPureHelper:${key}`);
+        assert.equal(
+            typeof storageHelpers[key],
+            "function",
+            `ProposedPureHelper:${key}`,
+        );
 } catch (error) {
-    boundarySetupFailures.push({ stage: "pure-helper-source", error: String(error?.message ?? error).slice(0, 500) });
+    boundarySetupFailures.push({
+        stage: "pure-helper-source",
+        error: String(error?.message ?? error).slice(0, 500),
+    });
 }
 const flush = async () => {
     for (let count = 0; count < 20; count++) await Promise.resolve();
@@ -477,71 +489,192 @@ async function boundaryTest(name, action) {
         await action();
         boundaryChecks.push({ name, passed: true });
     } catch (error) {
-        boundaryChecks.push({ name, passed: false, error: String(error?.message ?? error).slice(0, 500) });
+        boundaryChecks.push({
+            name,
+            passed: false,
+            error: String(error?.message ?? error).slice(0, 500),
+        });
     }
 }
 const plain = (value) => JSON.parse(JSON.stringify(value));
-await boundaryTest("storage-disjointness-is-bidirectional-normalized-and-does-not-need-existing-output", () => {
-    const cases = [
-        ["D:/synthetic-boundary/publication", "D:/synthetic-boundary/publication", false],
-        ["D:/synthetic-boundary/publication", "d:\\SYNTHETIC-BOUNDARY\\PUBLICATION", false],
-        ["D:/synthetic-boundary/publication", "D:/synthetic-boundary/publication/future-packet", false],
-        ["D:/synthetic-boundary/output", "D:/synthetic-boundary/output/publication", false],
-        ["D:/synthetic-boundary/publication", "d:\\SYNTHETIC-BOUNDARY\\PUBLICATION\\future-packet\\review", false],
-        ["D:/synthetic-boundary/publication", "D:/synthetic-boundary/publication/prospective/nonexistent/webview-profile", false],
-        ["D:/synthetic-boundary/publication", "D:/synthetic-boundary/output", true],
-        ["D:/synthetic-boundary/publication", "D:/synthetic-boundary/publication-output", true],
-        ["D:/synthetic-boundary/publication", "D:/synthetic-boundary/publication/../output", true],
-    ];
-    for (const [left, right, expected] of cases) {
-        assert.equal(storageHelpers.sceneStorageDisjoint(left, right), expected, `forward:${left}:${right}`);
-        assert.equal(storageHelpers.sceneStorageDisjoint(right, left), expected, `reverse:${right}:${left}`);
-    }
-});
-await boundaryTest("review-environment-copies-without-any-case-insensitive-LOCALLORE-prefix", () => {
-    const input = Object.freeze({ PATH: "synthetic-tools", TEMP: "D:/Dev/_Temp", TMP: "D:/Dev/_Temp",
-        LOCALLORE_D02_HARNESS: "1", locallore_m07_memory_harness: "1", LoCaLlOrE_M07_LeGaCy_HaRnEsS: "1",
-        locallore_test_storage_failure: "1", LOCALLORE_D04_MODEL_ROOT: "synthetic-metadata-only",
-        LoCaLlOrE_UnKnOwN: "keep-out", X_LOCALLORE_MARKER: "unrelated-keep" });
-    const before = plain(input), result = storageHelpers.sceneReviewEnvironment(input);
-    assert.notEqual(result, input, "caller environment is never mutated or returned directly");
-    assert.deepEqual(plain(input), before);
-    assert(!Object.keys(result).some((key) => /^locallore_/i.test(key)));
-    assert.deepEqual(plain(result), { PATH: "synthetic-tools", TEMP: "D:/Dev/_Temp", TMP: "D:/Dev/_Temp",
-        X_LOCALLORE_MARKER: "unrelated-keep" });
-});
-await boundaryTest("actual-scene-runner-sanitizes-aliases-before-explicit-review-flags-with-only-fake-children", async () => {
-    const inherited = Object.freeze({ PATH: "synthetic-tools", locallore_m07_memory_harness: "1",
-        LoCaLlOrE_M07_LeGaCy_HaRnEsS: "1", locallore_test_storage_failure: "1" });
-    const f = fixture({ automatic: true }), i = integration(f, true, inherited);
-    await i.runScene("synthetic-review-build", "fixed-review-build", [], {
-        LOCALLORE_D02_HARNESS: "1", LOCALLORE_TEST_MEMORY: "1", LOCALLORE_TEST_RESTART: "review",
-    });
-    const child = f.launches.find((entry) => entry.command === "fixed-review-build");
-    assert(child);
-    const environment = plain(child.options.env);
-    assert.equal(environment.PATH, "synthetic-tools");
-    assert.deepEqual(Object.keys(environment).filter((key) => /^locallore_/i.test(key)).sort(),
-        ["LOCALLORE_D02_HARNESS", "LOCALLORE_TEST_MEMORY", "LOCALLORE_TEST_RESTART"].sort());
-    assert.equal(environment.LOCALLORE_TEST_RESTART, "review");
-    assert.deepEqual(plain(inherited), { PATH: "synthetic-tools", locallore_m07_memory_harness: "1",
-        LoCaLlOrE_M07_LeGaCy_HaRnEsS: "1", locallore_test_storage_failure: "1" });
-    assert(/sceneReviewEnvironment\s*\(\s*process\.env\s*\)/.test(runSource), "actual runner calls the frozen pure sanitizer");
-});
-await boundaryTest("storage-preflight-is-called-before-first-packet-mkdir-and-first-Git", () => {
-    assert(/async\s+function\s+validateScenePacketStorage\s*\(\s*folder\s*\)/.test(source));
-    const validation = source.search(/await\s+validateScenePacketStorage\s*\(\s*scenePacketFolder\s*\)/);
-    const creation = source.search(/await\s+mkdir\s*\(\s*scenePacketFolder\b/);
-    const firstGit = source.search(/const\s+revision\s*=\s*await\s+git\s*\(/);
-    assert(validation >= 0 && creation > validation && firstGit > creation,
-        "prospective output/publication refusal must precede even packet/log creation and startup Git");
-});
-await boundaryTest("frozen-storage-environment-block-is-pure-no-filesystem-or-process-action", () => {
-    assert.doesNotMatch(storageHelperSource,
-        /\b(?:writeFile|mkdir|readFile|lstat|realpath|spawn|execFile|runScene|git)\s*\(|process\.env/,
-        "two pure helpers operate only on supplied paths/environment; async preflight remains outside their block");
-});
-const boundaryPassed = boundarySetupFailures.length === 0 && boundaryChecks.length === 5 && boundaryChecks.every((entry) => entry.passed);
+await boundaryTest(
+    "storage-disjointness-is-bidirectional-normalized-and-does-not-need-existing-output",
+    () => {
+        const cases = [
+            [
+                "D:/synthetic-boundary/publication",
+                "D:/synthetic-boundary/publication",
+                false,
+            ],
+            [
+                "D:/synthetic-boundary/publication",
+                "d:\\SYNTHETIC-BOUNDARY\\PUBLICATION",
+                false,
+            ],
+            [
+                "D:/synthetic-boundary/publication",
+                "D:/synthetic-boundary/publication/future-packet",
+                false,
+            ],
+            [
+                "D:/synthetic-boundary/output",
+                "D:/synthetic-boundary/output/publication",
+                false,
+            ],
+            [
+                "D:/synthetic-boundary/publication",
+                "d:\\SYNTHETIC-BOUNDARY\\PUBLICATION\\future-packet\\review",
+                false,
+            ],
+            [
+                "D:/synthetic-boundary/publication",
+                "D:/synthetic-boundary/publication/prospective/nonexistent/webview-profile",
+                false,
+            ],
+            [
+                "D:/synthetic-boundary/publication",
+                "D:/synthetic-boundary/output",
+                true,
+            ],
+            [
+                "D:/synthetic-boundary/publication",
+                "D:/synthetic-boundary/publication-output",
+                true,
+            ],
+            [
+                "D:/synthetic-boundary/publication",
+                "D:/synthetic-boundary/publication/../output",
+                true,
+            ],
+        ];
+        for (const [left, right, expected] of cases) {
+            assert.equal(
+                storageHelpers.sceneStorageDisjoint(left, right),
+                expected,
+                `forward:${left}:${right}`,
+            );
+            assert.equal(
+                storageHelpers.sceneStorageDisjoint(right, left),
+                expected,
+                `reverse:${right}:${left}`,
+            );
+        }
+    },
+);
+await boundaryTest(
+    "review-environment-copies-without-any-case-insensitive-LOCALLORE-prefix",
+    () => {
+        const input = Object.freeze({
+            PATH: "synthetic-tools",
+            TEMP: "D:/Dev/_Temp",
+            TMP: "D:/Dev/_Temp",
+            LOCALLORE_D02_HARNESS: "1",
+            locallore_m07_memory_harness: "1",
+            LoCaLlOrE_M07_LeGaCy_HaRnEsS: "1",
+            locallore_test_storage_failure: "1",
+            LOCALLORE_D04_MODEL_ROOT: "synthetic-metadata-only",
+            LoCaLlOrE_UnKnOwN: "keep-out",
+            X_LOCALLORE_MARKER: "unrelated-keep",
+        });
+        const before = plain(input),
+            result = storageHelpers.sceneReviewEnvironment(input);
+        assert.notEqual(
+            result,
+            input,
+            "caller environment is never mutated or returned directly",
+        );
+        assert.deepEqual(plain(input), before);
+        assert(!Object.keys(result).some((key) => /^locallore_/i.test(key)));
+        assert.deepEqual(plain(result), {
+            PATH: "synthetic-tools",
+            TEMP: "D:/Dev/_Temp",
+            TMP: "D:/Dev/_Temp",
+            X_LOCALLORE_MARKER: "unrelated-keep",
+        });
+    },
+);
+await boundaryTest(
+    "actual-scene-runner-sanitizes-aliases-before-explicit-review-flags-with-only-fake-children",
+    async () => {
+        const inherited = Object.freeze({
+            PATH: "synthetic-tools",
+            locallore_m07_memory_harness: "1",
+            LoCaLlOrE_M07_LeGaCy_HaRnEsS: "1",
+            locallore_test_storage_failure: "1",
+        });
+        const f = fixture({ automatic: true }),
+            i = integration(f, true, inherited);
+        await i.runScene("synthetic-review-build", "fixed-review-build", [], {
+            LOCALLORE_D02_HARNESS: "1",
+            LOCALLORE_TEST_MEMORY: "1",
+            LOCALLORE_TEST_RESTART: "review",
+        });
+        const child = f.launches.find(
+            (entry) => entry.command === "fixed-review-build",
+        );
+        assert(child);
+        const environment = plain(child.options.env);
+        assert.equal(environment.PATH, "synthetic-tools");
+        assert.deepEqual(
+            Object.keys(environment)
+                .filter((key) => /^locallore_/i.test(key))
+                .sort(),
+            [
+                "LOCALLORE_D02_HARNESS",
+                "LOCALLORE_TEST_MEMORY",
+                "LOCALLORE_TEST_RESTART",
+            ].sort(),
+        );
+        assert.equal(environment.LOCALLORE_TEST_RESTART, "review");
+        assert.deepEqual(plain(inherited), {
+            PATH: "synthetic-tools",
+            locallore_m07_memory_harness: "1",
+            LoCaLlOrE_M07_LeGaCy_HaRnEsS: "1",
+            locallore_test_storage_failure: "1",
+        });
+        assert(
+            /sceneReviewEnvironment\s*\(\s*process\.env\s*\)/.test(runSource),
+            "actual runner calls the frozen pure sanitizer",
+        );
+    },
+);
+await boundaryTest(
+    "storage-preflight-is-called-before-first-packet-mkdir-and-first-Git",
+    () => {
+        assert(
+            /async\s+function\s+validateScenePacketStorage\s*\(\s*folder\s*\)/.test(
+                source,
+            ),
+        );
+        const validation = source.search(
+            /await\s+validateScenePacketStorage\s*\(\s*scenePacketFolder\s*\)/,
+        );
+        const creation = source.search(
+            /await\s+mkdir\s*\(\s*scenePacketFolder\b/,
+        );
+        const firstGit = source.search(
+            /const\s+revision\s*=\s*await\s+git\s*\(/,
+        );
+        assert(
+            validation >= 0 && creation > validation && firstGit > creation,
+            "prospective output/publication refusal must precede even packet/log creation and startup Git",
+        );
+    },
+);
+await boundaryTest(
+    "frozen-storage-environment-block-is-pure-no-filesystem-or-process-action",
+    () => {
+        assert.doesNotMatch(
+            storageHelperSource,
+            /\b(?:writeFile|mkdir|readFile|lstat|realpath|spawn|execFile|runScene|git)\s*\(|process\.env/,
+            "two pure helpers operate only on supplied paths/environment; async preflight remains outside their block",
+        );
+    },
+);
+const boundaryPassed =
+    boundarySetupFailures.length === 0 &&
+    boundaryChecks.length === 5 &&
+    boundaryChecks.every((entry) => entry.passed);
 console.log(
     JSON.stringify(
         {
@@ -552,7 +685,10 @@ console.log(
             boundary_setup_failure: boundarySetupFailures.length > 0,
             boundary_setup_failures: boundarySetupFailures,
             boundary_checks: boundaryChecks,
-            boundary_helper_source_sha256: storageHelperSource === null ? null : sha256(storageHelperSource),
+            boundary_helper_source_sha256:
+                storageHelperSource === null
+                    ? null
+                    : sha256(storageHelperSource),
             node: process.version,
             platform: process.platform,
             actualChildLaunches: 0,

@@ -45,11 +45,11 @@ pub fn review_active() -> bool {
     scene_active()
         && std::env::var_os("LOCALLORE_TEST_RESTART").is_some_and(|stage| stage == "review")
         && !std::env::vars_os().any(|(key, value)| {
-            let key = key.to_string_lossy();
+            let key = key.to_string_lossy().to_ascii_uppercase();
             let other_harness = key.starts_with("LOCALLORE_")
                 && key.ends_with("_HARNESS")
                 && !matches!(
-                    key.as_ref(),
+                    key.as_str(),
                     "LOCALLORE_D02_HARNESS"
                         | "LOCALLORE_D07_FULL_COMPARISON_HARNESS"
                         | "LOCALLORE_D07_NATIVE_FULL_HARNESS"
@@ -57,7 +57,7 @@ pub fn review_active() -> bool {
                 );
             let other_test = key.starts_with("LOCALLORE_TEST_")
                 && !matches!(
-                    key.as_ref(),
+                    key.as_str(),
                     "LOCALLORE_TEST_MEMORY" | "LOCALLORE_TEST_RESTART" | "LOCALLORE_TEST_WORKSPACE"
                 );
             (other_harness || other_test) && !value.is_empty() && value != "0"
@@ -118,6 +118,17 @@ pub fn review_webview_profile(workspace: &Path) -> Result<PathBuf, String> {
     let resolved_output = std::fs::canonicalize(output).map_err(|_| "Forbidden")?;
     if source.starts_with(&resolved_output) || resolved_output.starts_with(&source) {
         return Err("Forbidden".into());
+    }
+    if let Some(publication) = std::env::var_os("LOCALLORE_D04_MODEL_ROOT") {
+        let publication = PathBuf::from(publication);
+        if !physical_d(&publication) {
+            return Err("Forbidden".into());
+        }
+        let _publication_pins = pins(&publication)?;
+        let publication = std::fs::canonicalize(&publication).map_err(|_| "Forbidden")?;
+        if publication.starts_with(&resolved_output) || resolved_output.starts_with(&publication) {
+            return Err("Forbidden".into());
+        }
     }
     match std::fs::symlink_metadata(&artifacts) {
         Ok(_) => {

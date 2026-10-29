@@ -39,6 +39,27 @@ const guid = (value) =>
     );
 const safe = (value) => Number.isSafeInteger(value) && value >= 0;
 
+// BEGIN SCENE STORAGE/ENVIRONMENT HELPERS.
+function sceneStorageDisjoint(left, right) {
+    const first = path.resolve(left).toLowerCase();
+    const second = path.resolve(right).toLowerCase();
+    const outside = (base, candidate) => {
+        const relative = path.relative(base, candidate);
+        return (
+            relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)
+        );
+    };
+    return outside(first, second) && outside(second, first);
+}
+function sceneReviewEnvironment(environment) {
+    return Object.fromEntries(
+        Object.entries(environment).filter(
+            ([key]) => !key.toUpperCase().startsWith("LOCALLORE_"),
+        ),
+    );
+}
+// END SCENE STORAGE/ENVIRONMENT HELPERS.
+
 // BEGIN SCENE CHILD POLICY: extracted unchanged by the synthetic policy checker.
 // This primitive never inspects source or invokes Git, so the Git caller cannot
 // recursively bypass it. It is initialized before the first Scene4 child.
@@ -240,6 +261,7 @@ if (sceneMode) {
         sceneBase,
         `full-comparison-native-${randomUUID()}`,
     );
+    await validateScenePacketStorage(scenePacketFolder);
     await mkdir(scenePacketFolder, { recursive: false });
 }
 async function saveSceneProcessEvidence() {
@@ -442,6 +464,30 @@ async function ordinarySceneDirectory(value) {
     }
     return resolved;
 }
+async function validateScenePacketStorage(folder) {
+    const publication = await ordinarySceneDirectory(
+        process.env.LOCALLORE_D04_REUSE_MODEL_ROOT,
+    );
+    const earlyTarget = await ordinarySceneDirectory(
+        await existingDirectory("LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR"),
+    );
+    for (const protectedRoot of [publication, reviewPacketRoot].filter(
+        Boolean,
+    )) {
+        for (const destination of [
+            folder,
+            root,
+            earlyTarget,
+            path.join(root, "src-tauri/runtime"),
+            path.join(earlyTarget, "debug/runtime"),
+        ]) {
+            assert(
+                sceneStorageDisjoint(protectedRoot, destination),
+                "SceneOutputSourceAndTargetMustBeDisjointFromRetainedData",
+            );
+        }
+    }
+}
 function outsideReviewPacket(destination, disjoint = false) {
     const relative = path.relative(reviewPacketRoot, path.resolve(destination));
     assert(
@@ -571,9 +617,8 @@ async function approvedNativeAssets() {
           )
         : null;
     if (reuseRoot) {
-        const relative = path.relative(folder, reuseRoot);
         assert(
-            relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative),
+            sceneStorageDisjoint(folder, reuseRoot),
             "ExistingPublicationOutsideNewWorkspaceRequired",
         );
         for (const destination of [
@@ -582,10 +627,8 @@ async function approvedNativeAssets() {
             path.join(root, "src-tauri/runtime"),
             path.join(target, "debug/runtime"),
         ]) {
-            const relation = path.relative(reuseRoot, destination);
             assert(
-                relation.startsWith(`..${path.sep}`) ||
-                    path.isAbsolute(relation),
+                sceneStorageDisjoint(reuseRoot, destination),
                 "NoStagingInsideReusedPublication",
             );
         }
@@ -776,9 +819,7 @@ async function runScene(label, command, args, env = {}, timeout = 240000) {
             "SceneHarnessProductsChanged",
         );
     }
-    const environment = { ...process.env };
-    for (const key of Object.keys(environment))
-        if (key.startsWith("LOCALLORE_")) delete environment[key];
+    const environment = sceneReviewEnvironment(process.env);
     Object.assign(environment, {
         TEMP: "D:/Dev/_Temp",
         TMP: "D:/Dev/_Temp",

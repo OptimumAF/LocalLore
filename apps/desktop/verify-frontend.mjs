@@ -28,6 +28,8 @@ for (const args of [
     ["check-model-cleanup-panel.mjs"],
     ["check-inspection-controller.mjs"],
     ["check-trace-controller.mjs"],
+    ["check-live-narration-diagnostic-review.mjs"],
+    ["check-main-live-narration-diagnostic-review.mjs"],
     ["check-capture-controller.mjs"],
     ["check-capture-review.mjs"],
     ["check-capture-session-close-review.mjs"],

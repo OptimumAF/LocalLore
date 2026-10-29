@@ -203,6 +203,59 @@ class ReadObserverTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == 'nt', 'physical D original closed-plan fixtures')
 class ProfilePlanTests(unittest.TestCase):
+    def test_terminal_stream_and_elapsed_counters_require_integers(self):
+        baseline = dict(status='child_exited', worker_returncode=1, cleanup_complete=True,
+            output_capture_complete=True, elapsed_ms=1, stdout_bytes=0, stderr_bytes=0)
+        for field, values in (('stdout_bytes', (False, 0.0)), ('stderr_bytes', (False, 0.0)),
+                              ('elapsed_ms', (False, 1.0))):
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    changed = dict(baseline, **{field: value})
+                    with self.assertRaises(ValueError):
+                        p.terminal(changed, 1)
+
+    def test_noncanonical_proof_alias_refuses_before_reading_alias(self):
+        for phase in ('before', 'after'):
+            with self.subTest(phase=phase):
+                fixture = PlanFixture()
+                original = fixture.record['server_' + phase]
+                value = p.env.read_json(original['path'])
+                alias = fixture.g.save(fixture.base / ('borrowed-' + phase + '-proof.json'), value)
+                fixture.record['server_' + phase] = alias
+                fixture.rewrite('client', fixture.record)
+                actual_read = p.read
+                def guarded(binding):
+                    if binding['path'] == alias['path']:
+                        raise AssertionError('noncanonical proof must not be read')
+                    return actual_read(binding)
+                with patch.object(p, 'read', side_effect=guarded):
+                    with self.assertRaises(ValueError):
+                        p.prepare(fixture.plan)
+
+    def test_noncanonical_queries_alias_refuses_before_reading_or_hashing_alias(self):
+        for phase, name in (('before', 'borrowed-queries.json'), ('after', 'adbkey')):
+            with self.subTest(phase=phase, name=name):
+                fixture = PlanFixture()
+                original = fixture.record['server_' + phase]
+                value = p.env.read_json(original['path'])
+                # A harmless synthetic JSON query bundle, never genuine key/model bytes.
+                alias = fixture.g.save(fixture.base / name, p.env.read_json(value['queries']['path']))
+                value['queries'] = alias
+                fixture.record['server_' + phase] = fixture.g.save(original['path'], value)
+                fixture.rewrite('client', fixture.record)
+                actual_read, actual_hash = p.read, p.env.binding
+                def guarded_read(binding):
+                    if binding['path'] == alias['path']:
+                        raise AssertionError('noncanonical queries must not be read')
+                    return actual_read(binding)
+                def guarded_hash(path):
+                    if Path(path) == Path(alias['path']):
+                        raise AssertionError('noncanonical queries must not be hashed')
+                    return actual_hash(path)
+                with patch.object(p, 'read', side_effect=guarded_read), patch.object(p.env, 'binding', side_effect=guarded_hash):
+                    with self.assertRaises(ValueError):
+                        p.prepare(fixture.plan)
+
     def test_real_metadata_prepare_joins_independent_started_workers_and_bound_proofs(self):
         fixture = PlanFixture()
         case = p.prepare(fixture.plan)

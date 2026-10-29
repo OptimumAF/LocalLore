@@ -95,7 +95,12 @@ class AdapterTests(unittest.TestCase):
     def opened(self):
         value, api = backend()
         value.open(f.admission(), 103.0)
-        self.addCleanup(value.close)
+        def synthetic_cleanup():
+            # A failed assertion may leave an invented descriptor in the set.
+            # Never let automatic unittest cleanup dispatch it to the real OS.
+            with patch.object(w.os, 'close', side_effect=OSError('synthetic cleanup only')):
+                value.close()
+        self.addCleanup(synthetic_cleanup)
         return value, api
 
     def connected(self):

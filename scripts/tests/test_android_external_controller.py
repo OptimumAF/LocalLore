@@ -156,6 +156,7 @@ class DeepExecutionTests(unittest.TestCase):
             live = SimpleNamespace(descriptor={"root": str(f.guest)}, check=lambda: None)
             with patch.object(external, "admit"), patch.object(external.driver, "qualified_build", return_value={}), \
                  patch.object(external, "qualified_gate", return_value=f.gate), \
+                 patch.object(external, "_qualified_current_gate", return_value=f.gate), \
                  patch.object(external.environment, "open_live_owner", return_value=live), \
                  patch.object(external, "Session", side_effect=external.ExternalRefused("synthetic_stop")) as session:
                 with self.assertRaises(external.ExternalRefused):
@@ -191,6 +192,7 @@ class DeepExecutionTests(unittest.TestCase):
             live = SimpleNamespace(descriptor={"root": str(f.guest)}, check=lambda: None)
             with patch.object(external, "admit"), patch.object(external.driver, "qualified_build", return_value={}), \
                  patch.object(external, "qualified_gate", return_value=f.gate), \
+                 patch.object(external, "_qualified_current_gate", return_value=f.gate), \
                  patch.object(external.environment, "open_live_owner", return_value=live), \
                  patch.object(external, "Session", CleanSession), patch.object(external, "install_or_verify", return_value=f.record["uids"]), \
                  patch.object(external, "check_processes"), patch.object(external, "expected_pins", return_value=f.expected):
@@ -215,6 +217,7 @@ class DeepExecutionTests(unittest.TestCase):
             live = SimpleNamespace(descriptor={"root": str(f.guest)}, check=lambda: None)
             with patch.object(external, "admit"), patch.object(external.driver, "qualified_build", return_value={}), \
                  patch.object(external, "qualified_gate", return_value=f.gate), \
+                 patch.object(external, "_qualified_current_gate", return_value=f.gate), \
                  patch.object(external.environment, "open_live_owner", return_value=live), \
                  patch.object(external, "Session", return_value=fake), \
                  patch.object(external, "install_or_verify", return_value=f.record["uids"]), \

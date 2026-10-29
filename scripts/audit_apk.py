@@ -14,6 +14,7 @@ import zipfile
 
 PERMISSION = "org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 ABIS = {"x86_64": 62, "arm64-v8a": 183}
+MODEL_PUBLICATION_JNI = "Java_org_locallore_app_NativeModelPublication_publishNoReplace"
 RECEIPT_SETUP_ACTIVITIES = (
     "ReceiptSetupAcceptActivity", "ReceiptSetupCancelBeforeActivity",
     "ReceiptSetupCancelAfterActivity", "ReceiptSetupDrainActivity",
@@ -85,6 +86,70 @@ def elf_alignments(data, machine):
         alignments.append(alignment)
     require(alignments, "ELF has no LOAD segments")
     return alignments
+
+
+def elf_model_publication_export(data, machine):
+    """Require the candidate's defined public JNI function, not an embedded name.
+
+    Read only bounded ELF64 section/dynamic-symbol tables and executable LOAD
+    mappings. This is packaging evidence; it never loads or executes the library.
+    """
+    require(type(data) in (bytes, bytearray) and 64 <= len(data) <= 64 * 1024 * 1024,
+            "Invalid model publication ELF size")
+    elf_alignments(data, machine)
+    offset = struct.unpack_from("<Q", data, 40)[0]
+    size, count, names = struct.unpack_from("<HHH", data, 58)
+    require(size == 64 and 0 < count <= 8192 and offset >= 64 and offset + size * count <= len(data)
+            and (names == 0 or names < count), "Invalid model publication ELF section table")
+    sections = [struct.unpack_from("<IIQQQQIIQQ", data, offset + index * size) for index in range(count)]
+    require(sections[0][1] == 0, "Invalid model publication null section")
+    for section in sections:
+        require(section[4] <= len(data) and (section[1] == 8 or section[4] + section[5] <= len(data)),
+                "Model publication ELF section outside library")
+    dynamic = [section for section in sections if section[1] == 11]
+    require(len(dynamic) == 1, "Missing or ambiguous model publication dynamic symbols")
+    symbols = dynamic[0]
+    require(symbols[9] == 24 and symbols[5] % 24 == 0 and 1 <= symbols[5] // 24 <= 65536
+            and 0 < symbols[6] < count and symbols[7] <= symbols[5] // 24,
+            "Invalid model publication dynamic symbol table")
+    strings = sections[symbols[6]]
+    require(strings[1] == 3 and 0 < strings[5] <= 16 * 1024 * 1024
+            and symbols[2] & 2 and strings[2] & 2, "Invalid model publication symbol strings")
+    text = data[strings[4]:strings[4] + strings[5]]
+    require(text[:1] == text[-1:] == b"\0", "Unterminated model publication symbol strings")
+
+    def mapped(section, executable=False):
+        header = struct.unpack_from("<Q", data, 32)[0]
+        header_size, header_count = struct.unpack_from("<HH", data, 54)
+        for index in range(header_count):
+            position = header + index * header_size
+            kind, flags = struct.unpack_from("<II", data, position)
+            if kind != 1 or (executable and not flags & 1):
+                continue
+            file_offset, address, _, file_size, _, _ = struct.unpack_from("<QQQQQQ", data, position + 8)
+            delta = section[3] - address
+            if 0 <= delta <= file_size and section[5] <= file_size - delta and file_offset + delta == section[4]:
+                return True
+        return False
+
+    require(mapped(symbols) and mapped(strings), "Unmapped model publication dynamic symbols")
+    wanted = MODEL_PUBLICATION_JNI.encode("ascii") + b"\0"
+    found = 0
+    for position in range(symbols[4], symbols[4] + symbols[5], 24):
+        name, info, visibility, section_index, address, function_size = struct.unpack_from("<IBBHQQ", data, position)
+        require(name < len(text), "Model publication symbol name outside strings")
+        if text[name:name + len(wanted)] != wanted:
+            continue
+        require(info == 0x12 and visibility == 0 and 0 < section_index < min(count, 0xFF00),
+                "Model publication symbol must be defined GLOBAL DEFAULT FUNC")
+        definition = sections[section_index]
+        delta = address - definition[3]
+        require(definition[1] == 1 and definition[2] & 6 == 6 and mapped(definition, executable=True)
+                and 0 <= delta < definition[5] and 0 < function_size <= definition[5] - delta,
+                "Model publication symbol outside executable definition")
+        found += 1
+    require(found == 1, "Missing or ambiguous model publication JNI export symbol")
+    return MODEL_PUBLICATION_JNI
 
 
 def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, model_receipt=False,
@@ -185,7 +250,10 @@ def audit_zip(path, *, litert=False, model_picker=False, model_volume=False, mod
             name_size, extra_size = struct.unpack_from("<HH", header, 26)
             data_offset = entry.header_offset + 30 + name_size + extra_size
             require(data_offset % 16384 == 0, "Native ZIP data not aligned to 16 KiB")
-            alignment = elf_alignments(archive.read(entry), ABIS[parts[1]])
+            contents = archive.read(entry)
+            alignment = elf_alignments(contents, ABIS[parts[1]])
+            if litert and parts[2] == "liblocallore_android.so":
+                elf_model_publication_export(contents, ABIS[parts[1]])
             libraries.append({"entry": entry.filename, "elf_load_alignment": alignment})
         expected = {f"lib/{abi}/{library}" for abi in ABIS for library in
                     ("liblocallore_android.so", "libandroidx.graphics.path.so")}

@@ -17,13 +17,34 @@ audit = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(audit)
 
 
-def library(machine=62, alignment=16384):
+def library(machine=62, alignment=16384, *, publication=False):
     data = bytearray(120)
     data[:7] = b"\x7fELF\x02\x01\x01"
     struct.pack_into("<HH", data, 16, 3, machine)
     struct.pack_into("<Q", data, 32, 64)
     struct.pack_into("<HH", data, 54, 56, 1)
     struct.pack_into("<IIQQQQQQ", data, 64, 1, 5, 0, 0, 0, 120, 120, alignment)
+    if publication:
+        # Original ELF fixture: real dynamic symbol/linked string tables, not a
+        # marker string in an unrelated section. No native bytes are executed.
+        name = b"Java_org_locallore_app_NativeModelPublication_publishNoReplace"
+        text_offset = 128
+        strings_offset = text_offset + 16
+        strings = b"\0" + name + b"\0"
+        symbols_offset = (strings_offset + len(strings) + 7) // 8 * 8
+        sections_offset = symbols_offset + 48
+        data.extend(bytes(sections_offset + 4 * 64 - len(data)))
+        data[text_offset:text_offset + 16] = b"\x90" * 16
+        data[strings_offset:strings_offset + len(strings)] = strings
+        struct.pack_into("<IBBHQQ", data, symbols_offset + 24, 1, 0x12, 0, 1, text_offset, 4)
+        for index, section in enumerate(((0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                (0, 1, 6, text_offset, text_offset, 16, 0, 0, 4, 0),
+                (0, 3, 2, strings_offset, strings_offset, len(strings), 0, 0, 1, 0),
+                (0, 11, 2, symbols_offset, symbols_offset, 48, 2, 1, 8, 24))):
+            struct.pack_into("<IIQQQQIIQQ", data, sections_offset + index * 64, *section)
+        struct.pack_into("<Q", data, 40, sections_offset)
+        struct.pack_into("<HHH", data, 58, 64, 4, 0)
+        struct.pack_into("<QQ", data, 64 + 32, len(data), len(data))
     return data
 
 
@@ -43,7 +64,7 @@ TREE = """  E: manifest (line=2)
 
 class ApkAuditTests(unittest.TestCase):
     def archive(self, directory, *, wrong_abi=False, unaligned=False, compressed=False,
-                missing=False, duplicate=False, legacy=False):
+                missing=False, duplicate=False, legacy=False, publication=False):
         path = Path(directory) / "hero's build.apk"
         with zipfile.ZipFile(path, "w") as apk:
             apk.writestr("AndroidManifest.xml", b"synthetic binary manifest; aapt output tested separately")
@@ -58,7 +79,8 @@ class ApkAuditTests(unittest.TestCase):
                         padding = (16384 - (offset + 4) % 16384) % 16384
                         entry.extra = struct.pack("<HH", 0xCAFE, padding) + bytes(padding)
                     entry.compress_type = zipfile.ZIP_DEFLATED if compressed else zipfile.ZIP_STORED
-                    apk.writestr(entry, library(62 if wrong_abi else machine))
+                    apk.writestr(entry, library(62 if wrong_abi else machine,
+                                               publication=publication and name == "liblocallore_android.so"))
             if duplicate:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", UserWarning)
@@ -513,7 +535,7 @@ class ApkAuditTests(unittest.TestCase):
             audit.audit_model_launcher(badging, fixture_tree)
 
     def candidate_archive(self, directory, *, omitted=None, altered=None):
-        path = self.archive(directory)
+        path = self.archive(directory, publication=True)
         hashes = {}
         with zipfile.ZipFile(path, "a") as apk:
             for abi, machine in (("x86_64", 62), ("arm64-v8a", 183)):

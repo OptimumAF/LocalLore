@@ -1,6 +1,6 @@
 # Owned lifetime admission and measured SDK clients — 2026-10-26
 
-Supporting M10.02/M09.06, draft PR #218 on draft/unmerged #216 at3761e462.
+Supporting M10.02/M09.06, implementation PR #218 originally on #216 at3761e462.
 Executable source9ff29c6b; documentation-only7dd95191 does not change its779
 tracked execution inputs. No full task or milestone acceptance follows.
 
@@ -36,6 +36,7 @@ and all failed attempts stay private on C:, outside generated-build cleanup path
 | Versioned offline Android build | pass39080ms/worker0;259 executed JVM tests/30XML,0 failures/errors/skips; both lints0 errors/3 warnings;11 APK audits | `build-v1` |
 | Existing server observation | pass, no server lifecycle operation | `server-v1` |
 | Selected initial process observation | both original kernel identities unchanged; zero device/server calls | `selected-preflight-v1` |
+| SDK2 native components |10 methods/3 classes pass;84 clean measured-v2 clients;339225ms/worker0, known cleanup/capture, stderr0 | `components-v1` |
 
 The original RED dynamically reaches capture construction despite an insufficient
 lease. The corrected constructor refuses before any capture/server/SDK call.
@@ -67,13 +68,75 @@ GradleDependency, DataExtractionRules and MissingApplicationIcon.
 
 ## Current SDK2 execution
 
-Current native10, CHILD and retained-parent qualification are pending. Each
-needs its own newly admitted standard2GiB/two-CPU API35/x86_64 guest. Finish
-source integration/build and preparation before timed launch; dispatch promptly.
-The native component gate can be reused only as current source/artifact evidence
-on another fresh guest, with all three packages absent. No burned fixture is
-adopted, retried or reconstructed. Actual closure and final selected postflight
-must be retained before claiming this packet complete.
+The frozen779-source native10 actually passes on a new standard2GiB/two-CPU
+API35/Google APIs/x86_64 guest. Every one of84 original client records is v2,
+measured, completed0 with known cleanup, zero stderr and an exact original raw
+copy. The maximum client elapsed is10443ms; the maximum server observation is
+4673ms against its unchanged15000ms budget. These are diagnostics from this
+scripted cohort, not general performance qualification or a timeout-cause fix.
+
+```powershell
+python -I -B benchmarks/android_process_verification.py components --out "$evidence/components-v1" --sdk "$sdk" --powershell "$powershell" --build "$evidence/build-v1/result-v1.json" --proposal "$runProposal" --running "$runningReceipt" --server "$evidence/server-v1/server-v1.json"
+```
+
+Its bound owned stop returns0. The emulator owner is actually terminal:
+`stop_requested`,397465ms/worker1, cleanup/capture/closure true,
+`guest_flush_claimed:false`. One final components-only selected-process/server
+observation passes after closure: both original native emulator identities and
+the original server remain unchanged, zero new device calls. The initially
+authored three-guest postflight helper remains unexecuted with its output absent;
+the separate executed helper explicitly names only the old components checkpoint.
+No external controller, process-death or lifetime-guard-on-SDK case is inferred.
+
+## Concurrent upstream reconciliation
+
+During this live frozen test, GitHub reports #215/#216/#218 merged outside this
+chat's actions; #218 is merged at2026-10-27T00:40:20Z, head3946557e. Root performed
+no merge. Upstream main3f75b5d6 includes826 mapped inputs, changed APK audit and
+host-capacity dependencies, and an unconditional generated Android BuildConfig
+field. Physical/LiteRT sources stay outside this input-process profile, but APK
+identity still requires actual rebuilding. No old779 gate qualifies that source.
+
+The two planned old-namespace CHILD/retained guests were never prepared or
+launched. Their qualification moves to fresh current-main cohorts, retaining
+the same task IDs and original complete sidecar requirements. This is a source
+dependency change, not a waived lifecycle criterion or a favorable fixture retry.
+Next: pin/reconcile current main, rerun host/offline build/JVM/lint/APK audits,
+then a fresh native10 gate before new CHILD/retained admission. Finish source
+integration and preparation before timed launch. All three packages must be
+absent in each fresh external guest; the full1100-second remaining lifetime,
+one-shot claim and original canonical helpers remain mandatory. The earlier
+failed CHILD/retained collections retain their exact failures and missing bytes.
+
+## Preservation
+
+The terminal host/build/server cohorts are independently preserved as99 original
+files plus one explicitly derived audit summary,36388860 indexed bytes. All83
+original binding references and every original/copy/ZIP member are rechecked.
+The immutable100-file index is29587 bytes SHA256
+`a2b2ecf94cb65687df65cf56a9aadb885cf2a1aba327a6590b720fa2196565e8`;
+the ZIP is36435957 bytes SHA256
+`459e2d002a85e35202c39fa86f0d004cf101ac668ef9e349d352d002b145011d`.
+Its101 ZIP members include the exact index. The four named private helper
+sources carry source-only attribution; no live guest records or payloads are
+copied, and no SDK result is inferred. Source map100200 bytes SHA256
+`4bf5f4f5e87ec3a3b38b4b9cc0cac2d548d712dc060424b954ebee388ea268b0`
+binds all779 execution inputs.
+
+The native/guest/selected-postflight tranche contains209 original files,
+638084 bytes. Independent readback verifies all84 client pairs/168 files,
+three exact instrumentation copies and source-derived rosters,57 listener
+captures,7 user-zero reads, three fresh package absences and installed hashes.
+All retained sources/build/request/tool/report bindings agree. It rehashes every
+original/copy/ZIP member, preserving the previous host/build seal unchanged.
+Native index70963 bytes SHA256
+`14c70edf3a6a27db0441614546d81de50821318520376415e4bbda0101816657`;
+ZIP228785 bytes SHA256
+`a19b993c77caa7f912d352ef7c2d72a511162ab19e97c51a72ed9f9bf230b03e`.
+The private audit helper's own cap refusals are separate retained helper failures,
+not native test failures. No SDK images, models, private saves, databases or
+unknown payload directories are copied. Derived audit summaries are labeled
+separately from original runtime evidence.
 
 ## Limits
 
@@ -82,5 +145,5 @@ ARM64 execution, thermal/performance, accessibility, unfamiliar-user or joined
 adapter-drain result follows. Physical gates retain their prior captured-device
 identity blocker; this packet makes no fresh phone-absence claim. Full story
 customization and the inherited desktop advisory remain open. No task box is
-checked, unrelated emulator stopped, system setting changed, PR merged or release
-published. Private diagnostics, models and saves are not uploaded.
+checked, unrelated emulator stopped, system setting changed, merge executed by
+this chat or release published. Private diagnostics, models and saves are not uploaded.

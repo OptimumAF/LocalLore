@@ -8,7 +8,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const PROMPT_VERSION: &str = "initial-world-v1";
+pub const PROMPT_VERSION: &str = "initial-world-v1.1";
+/// Historical initial-world records retain their original prompt provenance.
+pub const LEGACY_PROMPT_VERSION_V1: &str = "initial-world-v1";
 pub const SCHEMA_VERSION: &str = "initial-world-v1";
 pub const MAX_INPUT_BYTES: usize = 4096;
 pub const MAX_PROPOSAL_BYTES: usize = 8192;
@@ -276,31 +278,124 @@ pub fn validate_input(input: &InitialStoryInputV1) -> Result<(), String> {
     }
     Ok(())
 }
+/// Data-free diagnostics from the same validation path used before author review.
+/// These reasons are not proposal repairs, model instructions, or canonical facts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "host", derive(schemars::JsonSchema))]
+pub enum InitialProposalFailureV1 {
+    InvalidInput,
+    InputTooLarge,
+    ProposalTooLarge,
+    ProposalEncoding,
+    ProposalVersion,
+    LocationCount,
+    CharacterCount,
+    PlayerLocation,
+    RouteCount,
+    FactCount,
+    BeliefCount,
+    PossessionCount,
+    LocationNames,
+    CharacterNames,
+    PossessionNames,
+    LocationDescription,
+    CastNames,
+    CharacterDescription,
+    CharacterLocation,
+    CharacterKnownBy,
+    CharacterSelfKnowledge,
+    RouteSelf,
+    RouteReference,
+    RouteDuplicate,
+    RouteReachability,
+    FactText,
+    FactKnownBy,
+    FactDiscoveryLocation,
+    FactDuplicate,
+    BeliefBeliever,
+    BeliefText,
+    BeliefDuplicate,
+    PossessionDescription,
+    PossessionOwner,
+    PossessionReturnTo,
+}
+impl InitialProposalFailureV1 {
+    pub const fn legacy_error(self) -> &'static str {
+        match self {
+            Self::InvalidInput | Self::ProposalEncoding => "InvalidInput",
+            Self::InputTooLarge | Self::ProposalTooLarge => "TooLarge",
+            _ => "InvalidProposal",
+        }
+    }
+}
+
 pub fn validate_proposal(
     input: &InitialStoryInputV1,
     proposal: &InitialWorldProposalV1,
 ) -> Result<(), String> {
-    validate_input(input)?;
-    sized(proposal, MAX_PROPOSAL_BYTES)?;
+    validate_proposal_detailed(input, proposal).map_err(|reason| reason.legacy_error().to_owned())
+}
+
+pub fn validate_proposal_detailed(
+    input: &InitialStoryInputV1,
+    proposal: &InitialWorldProposalV1,
+) -> Result<(), InitialProposalFailureV1> {
+    use InitialProposalFailureV1::*;
+    validate_input(input).map_err(|error| {
+        if error == "TooLarge" {
+            InputTooLarge
+        } else {
+            InvalidInput
+        }
+    })?;
+    sized(proposal, MAX_PROPOSAL_BYTES).map_err(|error| {
+        if error == "TooLarge" {
+            ProposalTooLarge
+        } else {
+            ProposalEncoding
+        }
+    })?;
     let locations = proposal.locations.len();
     let actors = proposal.characters.len() + 1;
-    if proposal.version != 1
-        || !(1..=4).contains(&locations)
-        || !(1..=3).contains(&proposal.characters.len())
-        || usize::from(proposal.player_location) >= locations
-        || proposal.routes.len() > 8
-        || proposal.facts.len() > 8
-        || proposal.beliefs.len() > 6
-        || proposal.possessions.len() > 4
-        || !unique_names(proposal.locations.iter().map(|l| l.name.as_str()))
-        || !unique_names(
-            std::iter::once(input.player_name.as_str())
-                .chain(proposal.characters.iter().map(|c| c.name.as_str())),
-        )
-        || !unique_names(proposal.possessions.iter().map(|i| i.name.as_str()))
-        || proposal.locations.iter().any(|l| !text(&l.description))
-    {
-        return fail("InvalidProposal");
+    if proposal.version != 1 {
+        return Err(ProposalVersion);
+    }
+    if !(1..=4).contains(&locations) {
+        return Err(LocationCount);
+    }
+    if !(1..=3).contains(&proposal.characters.len()) {
+        return Err(CharacterCount);
+    }
+    if usize::from(proposal.player_location) >= locations {
+        return Err(PlayerLocation);
+    }
+    if proposal.routes.len() > 8 {
+        return Err(RouteCount);
+    }
+    if proposal.facts.len() > 8 {
+        return Err(FactCount);
+    }
+    if proposal.beliefs.len() > 6 {
+        return Err(BeliefCount);
+    }
+    if proposal.possessions.len() > 4 {
+        return Err(PossessionCount);
+    }
+    if !unique_names(proposal.locations.iter().map(|l| l.name.as_str())) {
+        return Err(LocationNames);
+    }
+    if !unique_names(
+        std::iter::once(input.player_name.as_str())
+            .chain(proposal.characters.iter().map(|c| c.name.as_str())),
+    ) {
+        return Err(CharacterNames);
+    }
+    if !unique_names(proposal.possessions.iter().map(|i| i.name.as_str())) {
+        return Err(PossessionNames);
+    }
+    if proposal.locations.iter().any(|l| !text(&l.description)) {
+        return Err(LocationDescription);
     }
     if !input.cast.is_empty()
         && (input.cast.len() != proposal.characters.len()
@@ -310,25 +405,32 @@ pub fn validate_proposal(
                 .zip(&proposal.characters)
                 .any(|(hint, c)| hint.name != c.name))
     {
-        return fail("InvalidProposal");
+        return Err(CastNames);
     }
     for (i, c) in proposal.characters.iter().enumerate() {
-        if !text(&c.description)
-            || usize::from(c.location) >= locations
-            || !refs(&c.known_by, actors)
-            || !c.known_by.contains(&((i + 1) as u16))
-        {
-            return fail("InvalidProposal");
+        if !text(&c.description) {
+            return Err(CharacterDescription);
+        }
+        if usize::from(c.location) >= locations {
+            return Err(CharacterLocation);
+        }
+        if !refs(&c.known_by, actors) {
+            return Err(CharacterKnownBy);
+        }
+        if !c.known_by.contains(&((i + 1) as u16)) {
+            return Err(CharacterSelfKnowledge);
         }
     }
     let mut routes = BTreeSet::new();
     for r in &proposal.routes {
-        if r.from == r.to
-            || usize::from(r.from) >= locations
-            || usize::from(r.to) >= locations
-            || !routes.insert((r.from, r.to))
-        {
-            return fail("InvalidProposal");
+        if r.from == r.to {
+            return Err(RouteSelf);
+        }
+        if usize::from(r.from) >= locations || usize::from(r.to) >= locations {
+            return Err(RouteReference);
+        }
+        if !routes.insert((r.from, r.to)) {
+            return Err(RouteDuplicate);
         }
     }
     let mut reachable = BTreeSet::from([proposal.player_location]);
@@ -344,35 +446,48 @@ pub fn validate_proposal(
         }
     }
     if reachable.len() != locations {
-        return fail("InvalidProposal");
+        return Err(RouteReachability);
     }
     let mut facts = BTreeSet::new();
     for f in &proposal.facts {
-        if !text(&f.text)
-            || !refs(&f.known_by, actors)
-            || f.discoverable_at
-                .is_some_and(|l| usize::from(l) >= locations)
-            || !facts.insert(f.text.to_lowercase())
+        if !text(&f.text) {
+            return Err(FactText);
+        }
+        if !refs(&f.known_by, actors) {
+            return Err(FactKnownBy);
+        }
+        if f.discoverable_at
+            .is_some_and(|l| usize::from(l) >= locations)
         {
-            return fail("InvalidProposal");
+            return Err(FactDiscoveryLocation);
+        }
+        if !facts.insert(f.text.to_lowercase()) {
+            return Err(FactDuplicate);
         }
     }
     let mut beliefs = BTreeSet::new();
     for b in &proposal.beliefs {
-        if usize::from(b.believer) >= actors
-            || !text(&b.text)
-            || !beliefs.insert((b.believer, b.text.to_lowercase()))
-        {
-            return fail("InvalidProposal");
+        if usize::from(b.believer) >= actors {
+            return Err(BeliefBeliever);
+        }
+        if !text(&b.text) {
+            return Err(BeliefText);
+        }
+        if !beliefs.insert((b.believer, b.text.to_lowercase())) {
+            return Err(BeliefDuplicate);
         }
     }
     for i in &proposal.possessions {
-        if !text(&i.description)
-            || usize::from(i.owner) >= actors
-            || i.return_to
-                .is_some_and(|a| usize::from(a) >= actors || a == i.owner)
+        if !text(&i.description) {
+            return Err(PossessionDescription);
+        }
+        if usize::from(i.owner) >= actors {
+            return Err(PossessionOwner);
+        }
+        if i.return_to
+            .is_some_and(|a| usize::from(a) >= actors || a == i.owner)
         {
-            return fail("InvalidProposal");
+            return Err(PossessionReturnTo);
         }
     }
     Ok(())
@@ -381,7 +496,10 @@ fn validate_record(origin: &InitialWorldOriginV1) -> Result<(), String> {
     sized(origin, MAX_ORIGIN_BYTES)?;
     if origin.version != 1
         || !crate::story_setup::valid_title(&origin.title)
-        || origin.generation.prompt_version != PROMPT_VERSION
+        || !matches!(
+            origin.generation.prompt_version.as_str(),
+            PROMPT_VERSION | LEGACY_PROMPT_VERSION_V1
+        )
         || origin.generation.schema_version != SCHEMA_VERSION
         || !profile_id(&origin.generation.model_profile)
         || origin.generation.response.len() > MAX_PROPOSAL_BYTES

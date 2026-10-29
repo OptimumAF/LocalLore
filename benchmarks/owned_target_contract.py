@@ -93,7 +93,7 @@ def validate_admission(value):
     for key in('emulator','qemu'):binding(g[key],project=False)
     for key in('proposal','authorization'):_need(PureWindowsPath(g[key]['path']).suffix=='.json','path')
     _need(PureWindowsPath(g['emulator']['path']).name=='emulator.exe'and
-          PureWindowsPath(g['qemu']['path'])==PureWindowsPath(g['emulator']['path']).parent/'qemu/windows-x86_64/qemu-system-x86_64.exe','tool')
+          PureWindowsPath(g['qemu']['path'])==PureWindowsPath(g['emulator']['path']).parent/'qemu/windows-x86_64/qemu-system-x86_64-headless.exe','tool')
     _need(PureWindowsPath(g['refuser']['path']).suffix.lower()=='.exe'and
           PureWindowsPath(g['refuser_source']['path']).name=='deny_adb_client.c','tool')
     for key,wanted in(('console_port',5592),('adb_port',5593),('memory_mib',8192),('cores',4),('max_seconds',1800),('api',35)):

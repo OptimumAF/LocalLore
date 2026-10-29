@@ -212,11 +212,13 @@ def verify_owned_target_result(binding,admission,admission_binding,request_bindi
     _equal(boot['worker'],expected_worker);_equal(boot['proposal'],a['guest']['proposal'])
     readiness=_at(value['readiness'],root/'readiness-v1.json')
     c._need(type(readiness)is list and 1<=len(readiness)<=300,'observation')
-    last_ms=-1;registration_count=0
+    last_ms=-1;registration_count=0;last_stage=-1;seen_stages=set()
     for entry in readiness:
         c._obj(entry,('elapsed_ms','stage','observation','tables','queries'));c._int(entry['elapsed_ms'],0,180000,'budget')
         c._need(entry['elapsed_ms']>=last_ms,'clock');last_ms=entry['elapsed_ms']
         c._need(entry['stage']in('guest_process','guest_ports','registration'))
+        stage=('guest_process','guest_ports','registration').index(entry['stage'])
+        c._need(stage>=last_stage,'clock');last_stage=stage;seen_stages.add(stage)
         if entry['stage']=='guest_process':
             c._need(entry['observation']is entry['tables']is entry['queries']is None)
         else:
@@ -226,6 +228,10 @@ def verify_owned_target_result(binding,admission,admission_binding,request_bindi
                 registration_count+=1;c._need(registration_count<=60,'budget')
                 q=_json(entry['queries']);c.validate_query_bundle(q,running,expected_worker,admission_binding,None,require_device=False)
             else:c._need(entry['queries']is None)
+    c._need(seen_stages=={0,1,2}and readiness[-1]['stage']=='registration','observation')
+    _equal(readiness[-1]['queries'],ready['queries'])
+    _equal(readiness[-1]['observation'],ready['guest_observation'])
+    _equal(readiness[-1]['tables'],ready['guest_tables'])
     for key in('server_returncode','guest_returncode'):c._int(value[key],-2**31,2**32-1,'identity')
     _capture(value['server_capture'],root/'server-output-v1',value['server'],value['server_returncode'])
     _capture(value['guest_capture'],root/'guest-output-v1',value['launcher'],value['guest_returncode'])

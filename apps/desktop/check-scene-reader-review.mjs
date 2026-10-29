@@ -1,10 +1,11 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 // FIRST independent SOURCE freeze; author UNRUN. Synthetic DTOs exercise the
 // existing public decoder only, never Rust/Store/IPC/WebView/model authority.
+// Supplemental R3 controller/Panel static-HTML cases below are separate evidence.
 import assert from "node:assert/strict";
 import { build } from "esbuild";
-import { mkdir, writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
@@ -913,13 +914,214 @@ test("V4 raw evidence budget and token binding remain enforced", () => {
     value.run_token = "33333333-3333-3333-3333-333333333333";
     assert.throws(() => readEvidence(value, request), /ComparisonReaderWire/);
 });
+
+// Independent R3 display freeze from2e2e74fc BEFORE the artifact framing fix.
+// The existing174 decoder oracles remain above, unchanged. SOURCE ONLY / UNRUN.
+// This separate bundle exercises actual controller/Panel APIs with synthetic
+// typed metadata, never a controller-state stub or a reconstructed engine.
+const decoderCaseCount = cases.length;
+const panelCases = [], panelHtml = [], panelSetupFailures = [];
+const panelPrefix = `scene-reader-artifact-${randomUUID()}`;
+const panelSourceNames = ["ui/comparison-reader-model.ts", "ui/comparison-reader-controller.ts",
+    "ui/ComparisonReaderPanel.tsx", "check-scene-reader-review.mjs"];
+const panelHashes = async () => Object.fromEntries(await Promise.all(panelSourceNames.map(async (name) => [name,
+    createHash("sha256").update(await readFile(path.join(root, name))).digest("hex")])));
+const panelSourceBefore = await panelHashes();
+const safePanelError = (error) => String(error?.message ?? error).slice(0, 500);
+let panelModules = null;
+try {
+    const rendered = await build({ stdin: {
+        contents: 'export {ComparisonReaderController} from "./ui/comparison-reader-controller";export {ComparisonReaderPanel} from "./ui/ComparisonReaderPanel";export {createElement} from "react";export {renderToStaticMarkup} from "react-dom/server";',
+        resolveDir: root, loader: "tsx",
+    }, bundle: true, platform: "node", format: "cjs", write: false });
+    const file = path.join(output, `${panelPrefix}.cjs`);
+    await writeFile(file, rendered.outputFiles[0].contents, { flag: "wx" });
+    panelModules = (await import(pathToFileURL(file).href)).default;
+    for (const name of ["ComparisonReaderController", "ComparisonReaderPanel", "createElement", "renderToStaticMarkup"])
+        assert.equal(typeof panelModules[name], "function", `existing headless API ${name}`);
+} catch (error) {
+    panelSetupFailures.push({ stage: "bundle-api", error: safePanelError(error) });
+}
+const artifactRun = "44444444-4444-4444-4444-444444444444";
+const artifactMarker = "SYNTHETIC_DIRECTOR_BODY_FOR_HEADLESS_FRAMING_ONLY";
+const textOnly = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+async function artifactFixture({ failed, fallback = false }) {
+    const value = snapshot(), row = value.report.turns[0];
+    const outputs = [{ role: "director", text: artifactMarker },
+        ...(failed ? [] : [{ role: "narrator", text: "SYNTHETIC_NARRATOR_BODY_FOR_HEADLESS_FRAMING_ONLY" }])]
+        .map(({ role, text }) => ({ role, bytes: Buffer.byteLength(text),
+            sha256: createHash("sha256").update(text).digest("hex"), text }));
+    value.report.lane = "native_scene_literal_relevant_comparison";
+    value.report.limitations.push("Synthetic native-lane DTO for headless display only; no runtime or quality evidence.");
+    row.fallback = fallback;
+    row.raw_sha256 = outputs.map((item) => item.sha256);
+    if (failed) {
+        Object.assign(row, { phase: "failed", error: "UnknownReference", passed: false,
+            failures: ["synthetic_failed_without_accepted_receipt"], roles: 1,
+            commit_elapsed_ms: null, actual_receipt_sha256: null, narration: null, fallback: null,
+            construction_matches: false, construction_evidence_status: "unavailable",
+            construction_evidence_reason: "non_committed_turn", privacy_evidence_status: "unavailable",
+            narrator_prompt_sha256: null, narrator_schema_sha256: null, scene_frame_sha256: null });
+        value.report.source_bound_committed_rows = 1;
+        value.report.left_reserved_roles = 1;
+    }
+    value.rows[0] = availability(row);
+    // Existing public decoders establish this fixture's exact source/report
+    // closure before the actual controller/Panel sees it. No engine is run.
+    decode(value); readSource(value);
+    const entry = value.rows[0], calls = [], errors = [];
+    let client = null;
+    const ready = (closed = false) => ({ version: 1, kind: "comparison_reader", client_id: client,
+        operation_id: 1, phase: closed ? "closed" : "ready", running: false,
+        run_token: closed ? null : token, binding: closed ? null : hash, error: null,
+        read_only: true, execution_available: false });
+    const invoke = async (name, args) => {
+        assert.deepEqual(Object.keys(args).sort(), ["action", "query"]);
+        assert.ok(args.query && typeof args.query === "object" && !Array.isArray(args.query));
+        assert.ok(calls.length < 32, "bounded synthetic reader transcript");
+        calls.push(clone({ name, ...args }));
+        const q = args.query;
+        if (name === "evaluation_comparison_native") {
+            assert.equal(args.action, "managed");
+            assert.deepEqual(Object.keys(q).sort(), ["clientId", "runId"]);
+            assert.equal(q.runId, artifactRun); client = q.clientId;
+            return ready();
+        }
+        assert.equal(name, "evaluation_comparison");
+        if (["source", "summary"].includes(args.action)) {
+            assert.deepEqual(Object.keys(q), ["runToken"]); assert.equal(q.runToken, token);
+            return args.action === "source" ? wrap("source", source(value)) : wrap("snapshot", value);
+        }
+        if (args.action === "close") {
+            assert.deepEqual(Object.keys(q).sort(), ["clientId", "runToken"]);
+            assert.equal(q.clientId, client); assert.equal(q.runToken, token);
+            return ready(true);
+        }
+        assert.equal(args.action, "evidence");
+        assert.deepEqual(Object.keys(q).sort(), ["arm", "binding", "request", "runToken", "turnId"]);
+        assert.equal(q.runToken, token); assert.equal(q.binding, hash);
+        assert.equal(q.turnId, selected.turn); assert.equal(q.arm, selected.arm);
+        assert.deepEqual(Object.keys(q.request).sort(), ["kind", "observer"]);
+        assert.deepEqual(plain(q.request.observer), omni);
+        assert.ok(["receipt", "outputs"].includes(q.request.kind));
+        const body = q.request.kind === "outputs" ? { kind: "outputs", outputs: clone(outputs) }
+            : entry.receipt_available ? { kind: "receipt", receipt: { synthetic_transport: true } }
+                : { kind: "missing", reason: "no_accepted_receipt" };
+        return wrap("evidence", { version: 1, binding: hash, row: clone(entry.row), scope: clone(entry.source.scope),
+            before_head: entry.source.before_head, after_head: entry.source.after_head,
+            observer: clone(q.request.observer), edge: q.request.kind === "receipt" ? "after" : null,
+            read_only: true, generation_grant: false, body });
+    };
+    const c = new panelModules.ComparisonReaderController(invoke, (error) => errors.push(error));
+    try {
+        c.contextChanged("synthetic-native4-artifact-framing", true);
+        await c.pickManaged({ runId: artifactRun, mode: "approved_native" });
+        assert.equal(c.get().status?.phase, "ready"); assert.equal(c.get().source?.protocol_version, 4);
+        c.setObserver(omni); await c.loadSummary(); c.select(selected);
+        assert.equal(c.get().error, null); assert.equal(c.get().summary?.report.version, 4);
+        assert.deepEqual(plain(c.get().selected), selected);
+        const actual = c.get().summary.report.turns.find((item) => item.turn === selected.turn && item.arm === selected.arm);
+        assert.ok(actual, "actual controller summary retains the selected closed row");
+        for (const key of ["phase", "error", "fallback", "actual_receipt_sha256"])
+            assert.equal(actual[key], row[key], `selected metadata ${key}`);
+        await c.inspect({ kind: "receipt", observer: omni });
+        assert.equal(c.get().error, null);
+        assert.equal(c.get().evidence?.body.kind, failed ? "missing" : "receipt");
+        if (failed) assert.equal(c.get().evidence.body.reason, "no_accepted_receipt");
+        await c.inspect({ kind: "outputs", observer: omni });
+        assert.equal(c.get().error, null); assert.equal(c.get().evidence?.body.kind, "outputs");
+        assert.deepEqual(errors, []);
+        assert.deepEqual(calls.map((call) => call.action), ["managed", "source", "summary", "evidence", "evidence"]);
+        return { c, calls, errors, entry, row };
+    } catch (error) {
+        try { await c.close(); } finally { c.dispose(); }
+        throw error;
+    }
+}
+function artifactFrame(f) {
+    const before = f.calls.length;
+    const markup = panelModules.renderToStaticMarkup(panelModules.createElement(panelModules.ComparisonReaderPanel, { controller: f.c }));
+    assert.ok(Buffer.byteLength(markup) <= 256 * 1024, "bounded actual Panel static HTML");
+    panelHtml.push(markup);
+    assert.equal(f.calls.length, before, "rendering must not dispatch a read or generation action");
+    const start = markup.search(/<div\b[^>]*class="comparison-evidence"[^>]*>/);
+    assert.ok(start >= 0, "existing actual displayed-artifact container");
+    const tail = markup.slice(start);
+    let depth = 0, end = null;
+    for (const tag of tail.matchAll(/<\/?div\b[^>]*>/g)) {
+        depth += tag[0].startsWith("</") ? -1 : 1;
+        if (depth === 0) { end = tag.index + tag[0].length; break; }
+    }
+    assert.ok(end !== null, "displayed-artifact div closes within the actual Panel");
+    const artifact = tail.slice(0, end), raw = artifact.indexOf("<pre");
+    assert.ok(raw >= 0 && artifact.slice(raw).includes(artifactMarker), "actual Director output body is displayed in that artifact");
+    const context = textOnly(artifact.slice(0, raw));
+    assert.match(context, new RegExp(`\\b${selected.turn}\\b`)); assert.match(context, /\bleft\b/i);
+    assert.match(context, /\bObserver\s*[:·-]?\s*omniscient\b/i);
+    return context;
+}
+async function panelCase(name, variants, work) {
+    if (!panelModules || panelSetupFailures.some((failure) => failure.stage === "bundle-api")) return;
+    const observations = [];
+    for (const variant of variants) {
+        let f;
+        try { f = await artifactFixture(variant); }
+        catch (error) { panelSetupFailures.push({ stage: "fixture", name, variant, error: safePanelError(error) }); return; }
+        try { work(f); observations.push({ variant, passed: true }); }
+        catch (error) { observations.push({ variant, passed: false, error: safePanelError(error) }); }
+        finally {
+            try { await f.c.close(); assert.equal(f.c.get().source, null); assert.equal(f.c.get().evidence, null); }
+            catch (error) { panelSetupFailures.push({ stage: "fixture-close", name, variant, error: safePanelError(error) }); }
+            finally { f.c.dispose(); }
+        }
+    }
+    const outcome = { name, category: "headless-controller-panel", passed: observations.every((item) => item.passed), observations };
+    panelCases.push(outcome); cases.push(outcome);
+}
+await panelCase("failed Native4 selected artifact frames actual failure and absent accepted receipt before raw output", [{ failed: true }], (f) => {
+    const context = artifactFrame(f);
+    assert.equal(f.row.phase, "failed"); assert.equal(f.entry.receipt_available, false);
+    assert.match(context, /\bfailed\b/i); assert.match(context, /\bUnknownReference\b/);
+    assert.match(context, /\bno accepted receipt\b|\bno_accepted_receipt\b|\b(?:accepted\s+)?receipt\s*[:·-]?\s*(?:absent|unavailable|not available|none)\b/i,
+        "report-ready/raw-body availability must not obscure the selected row's absent receipt");
+});
+await panelCase("committed Native4 selected artifact keeps source receipt and unreviewed quality independent of fallback", [
+    { failed: false, fallback: true }, { failed: false, fallback: false },
+], (f) => {
+    const context = artifactFrame(f);
+    assert.equal(f.row.phase, "committed"); assert.equal(f.entry.receipt_available, true);
+    assert.match(context, /\bcommitted\b/i);
+    assert.match(context, new RegExp(`\\b${scope.story}\\b`), "actual recorded source story beside raw artifact");
+    assert.match(context, new RegExp(`\\b${scope.branch}\\b`), "actual recorded source branch beside raw artifact");
+    assert.match(context, /\bbefore\s*4\b[\s\S]*\bafter\s*5\b/i);
+    assert.match(context, /\b(?:accepted\s+)?receipt\s*[:·-]?\s*(?:is\s*)?(?:available|recorded|present)\b/i);
+    assert.match(context, /\b(?:quality|human|prose)\b.*\b(?:unreviewed|not reviewed|not_reviewed|not established|not accepted)\b/i,
+        "commit and raw output do not establish model prose quality or human acceptance");
+    assert.doesNotMatch(context, /\b(?:prose|narration|quality)\s*(?::|\bis\b)?\s*(?:accepted|approved|passed)\b/i);
+    assert.equal(f.c.get().summary.report.human_reviewed, 0);
+    assert.equal(f.c.get().summary.report.human_rubric, "not_reviewed");
+    assert.equal(f.c.get().summary.report.quality_accepted, false);
+});
+for (const [index, markup] of panelHtml.entries()) await writeFile(path.join(output, `${panelPrefix}-${index}.html`), markup, { flag: "wx" });
+const panelSourceAfter = await panelHashes();
+if (JSON.stringify(panelSourceAfter) !== JSON.stringify(panelSourceBefore))
+    panelSetupFailures.push({ stage: "source-attribution", error: "Panel/checker source changed during headless checks" });
 const result = {
     version: 1,
     cases,
     passed: cases.filter((c) => c.passed).length,
     failed: cases.filter((c) => !c.passed).length,
     synthetic_dto: true,
-    decoder_only: true,
+    decoder_only: false,
+    decoder_cases: decoderCaseCount,
+    headless_panel_cases: panelCases,
+    headless_panel_setup_failure: panelSetupFailures.length > 0,
+    headless_panel_setup_failures: panelSetupFailures,
+    headless_panel_source_before: panelSourceBefore,
+    headless_panel_source_after: panelSourceAfter,
+    headless_static_html: panelHtml.length > 0,
+    headless_html_files: panelHtml.length,
+    evidence: "Synthetic DTO decoders plus actual reader controller/Panel static HTML; no Rust/Store/native IPC/WebView/pixels/model authority",
     rust_store: false,
     native_ipc: false,
     native_webview: false,
@@ -932,4 +1134,4 @@ await writeFile(
     { flag: "wx" },
 );
 console.log(JSON.stringify(result));
-if (result.failed) process.exitCode = 1;
+if (result.failed || result.headless_panel_setup_failure) process.exitCode = 1;

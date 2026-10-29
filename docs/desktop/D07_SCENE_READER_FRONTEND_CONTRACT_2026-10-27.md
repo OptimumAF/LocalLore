@@ -135,3 +135,63 @@ own existing-controller application journeys and inspected application-owned
 renders, with evidence classes kept separate. Selected3/source4 execution and
 new model/human quality qualification remain separate later gates. The original
 human needs-improvement assessment is unchanged.
+
+## Supplemental R3 selected-artifact framing freeze
+
+Frozen independently from `2e2e74fc`, before the later
+`ComparisonReaderPanel.tsx` artifact framing production change. Refs #29
+D07.03/.05/.06. The original174 decoder cases remain unchanged. Two appended
+headless behavioral cases use a separately built actual public
+`ComparisonReaderController` and `ComparisonReaderPanel`, existing React static
+HTML rendering and closed synthetic native4 reader metadata. This supplemental
+source is **UNRUN** by its author; no current headless/native outcome is claimed.
+
+The fixture calls public `contextChanged`, `pickManaged`, `setObserver`,
+`loadSummary`, `select`, `inspect` and `close`. It does not substitute controller
+state, add a native field, compute engine state or authenticate a receipt/raw
+body. Admission uses existing native managed entry; follow-ups use existing
+ReaderV1 source/summary/evidence/close with their exact current query keys. The
+fixture validates closed source/report/selected metadata and reads receipt or
+the exact no-receipt reason before displaying a synthetic Director output.
+The panel's `selected`/`turn` closures and public renderer are exercised through
+these real APIs. Every fixture closes/disposes in `finally`.
+
+The oracles are:
+
+1. For a failed selected native4 row with `UnknownReference`, retained raw output
+   and no accepted receipt, the actual `.comparison-evidence` container must
+   identify the selected row/arm and inspection observer, its failed phase and
+   error, and absent accepted receipt **before its raw `<pre>` body**. A ready
+   read-only report and available raw artifact must not make the failed row
+   appear accepted. Labels earlier elsewhere in the report do not satisfy this
+   artifact-local framing oracle.
+2. For a committed selected native4 row, that same artifact-local prefix must
+   identify the selected source story/branch, observer, before4/after5 cut,
+   committed phase and available accepted receipt. Human/prose quality must
+   remain explicitly unreviewed/not established, with no positive
+   prose/narration/quality-accepted claim. The same independent case exercises
+   both recorded `fallback:true` and `fallback:false`; neither value nor a
+   commit establishes acceptance of generated prose. Existing report human
+   fields remain0 / not_reviewed / qualityfalse.
+
+The raw body is a public synthetic marker, not copied prose or private captured
+material. Native-lane DTOs are transport fixtures only; zero actual engine,
+model, Store or native runtime operations are executed by them. There is no
+frontend reconstruction of an accepted canonical state. The two new cases are
+separately categorized; bundling/API/fixture/source-attribution/close failures
+are explicit setup failures and cannot establish the intended behavioral RED.
+The result retains original decoder case count plus supplemental cases/source
+hashes and marks its new static-HTML evidence explicitly. It no longer describes
+the entire checker as decoder-only. HTML files remain bounded, create-new and
+local/gitignored under the existing output convention.
+
+Root must first measure the proposed176-case checker and retain actual baseline
+failures before changing the panel, then rerun these unchanged oracles after
+the display fix. This scope verifies text order and membership in the actual
+artifact container; static HTML does **not** prove viewport placement, native
+WebView rendering, mounted interactions or layout. Those remain separately
+qualified by app-owned captures and individual inspection. Author activity was
+limited to source/API/fixture/diff inspection and commit preparation: no Node,
+formatter, Cargo, app, asset/model, device or desktop action. Existing actual
+cohort captures stay frozen; the original human needs-improvement assessment,
+pending human review, canonical authority and acceptance gates remain unchanged.

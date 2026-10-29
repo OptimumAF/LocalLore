@@ -70,7 +70,9 @@ def _path(value, *, project=False):
     _need(path.is_absolute() and path.drive.upper() in ({'D:'} if project else {'C:','D:'}),'path')
     pieces = re.split(r'[\\/]',value)
     _need(len(pieces) >= 3 and all(p and p not in ('.','..') and not p.endswith((' ','.')) and
-          not any(c in '<>:"|?*' for c in p) for p in pieces[1:]),'path')
+          not any(c in '<>:"|?*' for c in p) and re.fullmatch(
+              r'(?i)(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?',p) is None
+          for p in pieces[1:]),'path')
     return path
 
 
@@ -212,7 +214,7 @@ def validate_observation(value, server, client, endpoint, *, require_empty=False
         _need(endpoint['local_port'] not in (PORT,5037,*completed_ports),'tuple')
     else:
         _need(not after_request,'tuple')
-    candidates,servers,clients = [],[],[]
+    candidates,servers,clients,historical = [],[],[],set()
     for row in decoded:
         _need(row['family'] == 2 and row['local_address'] == '127.0.0.1' and
               row['local_scope_id'] == row['remote_scope_id'] == 0,'observation')
@@ -224,6 +226,7 @@ def validate_observation(value, server, client, endpoint, *, require_empty=False
             clients.append(row); _need(row['pid'] in ((0,client['pid']) if after_request else (client['pid'],)),'identity')
         elif row['local_port'] == PORT and row['remote_address'] == '127.0.0.1' and row['remote_port'] in completed_ports:
             _need(row['pid'] in (0,server['pid']),'identity')
+            _need(row['remote_port'] not in historical,'tuple'); historical.add(row['remote_port'])
         else:
             raise LeaseRefused('tuple')
     _need(len(candidates) == 1,'observation')

@@ -33,6 +33,7 @@ def acquire_owned_server_bundle(directory, session_binding, context, seconds: in
 def verify_owned_server_bundle(binding, expected_session, expected_context) -> bool: ...
 def client_record_shape_v3(value) -> bool: ...
 def require_current_clients_v3(out, count, expected_session) -> None: ...
+def require_host_checks_v3(out, expected_session) -> None: ...
 ```
 
 `verify_owned_server_bundle` returns True only on full success, otherwise raises
@@ -146,6 +147,12 @@ before/after bundles at prescribed paths. Extra check/external folders must
 each have their own verified exact context; no unknown proof namespace. Complete
 runtime external-transfer validation additionally checks the paired stream
 record. Parent validation occurs after its SDK worker terminates.
+
+Host-only machine/boot/postflight admission selects `require_host_checks_v3`
+explicitly: clients must be empty and the nonempty proof roster must be exactly
+contiguous check-NNNN bundles with null transport and the same session. Command
+verification still requires a positive dispatched count; a failed pre-command
+attempt or an empty directory cannot masquerade as host-only admission.
 
 ## Execution gate
 

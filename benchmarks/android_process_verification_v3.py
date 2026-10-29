@@ -105,6 +105,16 @@ def validate_session(value):
     _need(type(value['version']) is int and value['version'] == 1 and value['protocol'] == SDK_PROTOCOL,'session')
     _binding(value['server_admission']); admitted = held.validate_admission(value['admission'])
     _source_list(value['sdk_sources']); _source_list(value['held_sources'])
+    sdk_paths = [PureWindowsPath(pin['path']) for pin in value['sdk_sources']]
+    held_paths = [PureWindowsPath(pin['path']) for pin in value['held_sources']]
+    sdk_names = {path.name for path in sdk_paths}; held_names = {path.name for path in held_paths}
+    package = {'__init__.py'} if '__init__.py' in held_names else set()
+    required_held = {name.rsplit('/',1)[-1] for name in probe_cli.PUBLIC_SOURCES}
+    required_sdk = required_held | {name.rsplit('/',1)[-1] for name in EXTRA_SOURCES}
+    _need(held_names == required_held | package and sdk_names == required_sdk | package and
+          len(sdk_names) == len(sdk_paths) and len(held_names) == len(held_paths) and
+          len({path.parent for path in sdk_paths+held_paths}) == 1 and
+          sdk_paths[0].parent.name == 'benchmarks','source')
     _need({pin['path'] for pin in value['held_sources']} <= {pin['path'] for pin in value['sdk_sources']},'source')
     for pin in value['held_sources']:
         _need(pin in value['sdk_sources'],'source')
@@ -175,13 +185,16 @@ def _read_pin(pin):
     before = path.stat()
     with path.open('rb') as stream:
         held_before = os.fstat(stream.fileno())
-        signature = lambda x:(x.st_dev,x.st_ino,x.st_size,x.st_mtime_ns)
-        _need(signature(before) == signature(held_before),'binding')
+        def signature(info):
+            birth = getattr(info,'st_birthtime_ns',None)
+            _int(birth,0,2**128-1,'binding')
+            return (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns,birth)
+        path_signature,held_signature = signature(before),signature(held_before)
+        _need(path_signature[:4] == held_signature[:4] and path_signature[5] == held_signature[5],'binding')
         raw = stream.read(MAX_FILE+1)
         held_after = os.fstat(stream.fileno())
     after = _dpath(path).stat()
-    _need(signature(before) == signature(held_after) == signature(after) and
-          before.st_ctime_ns == after.st_ctime_ns and held_before.st_ctime_ns == held_after.st_ctime_ns and
+    _need(path_signature == signature(after) and held_signature == signature(held_after) and
           len(raw) == pin['bytes'] == before.st_size and hashlib.sha256(raw).hexdigest() == pin['sha256'],'binding')
     return raw
 
@@ -218,6 +231,7 @@ def _contents(value, root, expected_session, expected_context, *, manifest_prese
           value['verified'] is True and probe_cli._same(value['context'],context),'proof')
     saved_session = validate_session(_json_pin(value['session']))
     _need(probe_cli._same(saved_session,session),'session')
+    _need(probe_cli._same(held.validate_admission(_json_pin(session['server_admission'])),session['admission']),'session')
     base = Path(value['session']['path']).parent
     _need(Path(value['session']['path']).name == 'sdk-session-v3.json' and
           root == base/'server-proofs-v3'/_context_name(context),'context')
@@ -415,6 +429,27 @@ def require_current_clients_v3(out, count, expected_session):
             _need(set(pair) == {'before','after'} and all(pair['before'][key] == pair['after'][key]
                   for key in ('index','label','command_sha256','transport_id')),'context')
         _need({p.name for p in clients.iterdir()} == expected_files and command_dirs <= {p.name for p in proofs.iterdir()},'roster')
+    except Sdk3Refused:
+        raise
+    except (OSError,ValueError,TypeError,KeyError,IndexError,AttributeError,OverflowError,env.EnvironmentRefused):
+        raise Sdk3Refused('proof') from None
+
+
+def require_host_checks_v3(out, expected_session):
+    """Explicit zero-SDK admission: nonempty contiguous host checks only."""
+    try:
+        base = _dpath(out,directory=True); session = validate_session(expected_session)
+        _need(probe_cli._same(validate_session(_json_pin(env.binding(base/'sdk-session-v3.json'))),session),'session')
+        clients = _dpath(base/'clients',directory=True)
+        _need(not list(clients.iterdir()),'roster')
+        proofs = _dpath(base/'server-proofs-v3',directory=True)
+        names = sorted(path.name for path in proofs.iterdir())
+        _need(1 <= len(names) <= 10000 and names == ['check-%04d' % index for index in range(1,len(names)+1)],'roster')
+        for index,name in enumerate(names,1):
+            _dpath(proofs/name,directory=True)
+            context = dict(kind='check',index=index,phase='check',label='check-server',command_sha256=None,transport_id=None)
+            verify_owned_server_bundle(env.binding(proofs/name/'bundle-v1.json'),session,context)
+        _need(not list(clients.iterdir()) and sorted(path.name for path in proofs.iterdir()) == names,'roster')
     except Sdk3Refused:
         raise
     except (OSError,ValueError,TypeError,KeyError,IndexError,AttributeError,OverflowError,env.EnvironmentRefused):

@@ -326,3 +326,74 @@ and subsequent human feedback remain needs_improvement; no historical cause is
 backfilled. No full D07 acceptance, real inference, semantic-quality improvement,
 Android runtime parity, stopped OS security gate or release is claimed. GitHub
 owns current status; no merge/settings/release action is authorized by this doc.
+
+## Root acceptance and test interfaces before independent FIRST
+
+Root accepts this bounded proposal with the following precisions after independent
+source review of original0212afdf. The desktop adapter's native manager FIRST
+passes8/0 at9ae23b34; unchanged frontend FIRST passes490/0 after preserving the
+recorded487/3 failure and correcting valid detached reader DTO handling and App
+ready gating. The independent post-production resume regression passes29/0 at
+8ba50476. None of these results is native IPC/render/restart qualification.
+
+Scene checkpoint AND per-stage report fixture inventories are references only:
+freeze raw SHA256, source protocol, file/entry counts and total bytes. The complete
+bounded source map remains exclusively in the external freeze and launcher proof.
+Do not duplicate that map into a checkpoint or report, omit it from external
+verification, truncate it or increase the checkpoint256KiB cap.
+
+Freeze the following native-only interfaces before FIRST authoring. They do not
+add Tauri commands, request fields, environment inputs or host/Core APIs:
+
+- Private selected_harness::metadata_kind_for_mode(metadata:&Value,scene:bool)
+  returns Result<(),String>; metadata_kind delegates using the actual fixed mode.
+  Preserve legacy1/2 metadata behavior. Admit exact3/source4 only in the closed
+  scene mode, keeping the current kind and16KiB limits. This is a fixture
+  discriminator, not another canonical metadata validator.
+- comparison_reader_harness::selected_scene_flags(base:bool,selected:bool,
+  scene:bool,literal:bool,diagnostic:bool)->bool is pub(super) within the native
+  crate. It permits only the exact three true / two false combination. An actual
+  selected_scene_mode() wrapper obtains these existing flags without new inputs.
+  Mixed selected/scene/literal/diagnostic combinations refuse before production.
+- comparison_reader_harness::selected_scene_prepare(fixtures:&Path,stage:&str)
+  ->Result<Value,String> is pub(super) within the native crate. It owns the actual
+  extracted new-mode create-once/freeze/restart-validation behavior above, after
+  the existing outer lease/workspace/parent pins and mode guard. Its only stages
+  are initial and restart; reject other stages. It rechecks the fixed
+  comparison-fixtures basename and comparison-reader-native UUID parent and pins
+  existing parents before work. No arbitrary path or stage comes from renderer
+  requests. The existing prepare case calls it only in the exact fixed mode.
+- Root registers the sole NEW native FIRST file as a cfg(test) child of
+  selected_harness using #[path="selected_scene_harness_review_tests.rs"]. It can
+  use its parent's private discriminator and the two native-crate helpers above.
+  No main.rs registration, production test RPC or visibility widening to Core.
+  Native fixture test roots use the admitted absolute ordinary D parent in
+  LOCALLORE_SELECTED_SCENE4_NATIVE_TEST_ROOT locally, retaining portable temp
+  fallback elsewhere. Avoid global environment mutation in parallel unit tests.
+
+The pure flag helper allows exhaustive mode tests without environment mutation;
+the actual wrapper and native entry remain source-reviewed and app-tested. The
+fixture helper is actual native implementation, not a copied test-only producer.
+FIRST must exercise actual absent-initial creation, retained validation,
+partial/missing/corrupt freeze/source refusal and unchanged failed bytes using
+existing public scripted producers. Root admits its runtime separately after
+freeze; source authors create no fixtures or processes.
+
+For native refusal, terminal consent_active=false alone is insufficient. Use the
+existing held-consent control, keep it held through the actual NativeUnavailable
+terminal result, and then calibrate the same control with scripted preparation
+that demonstrably enters and waits in consent. Release on every exit. Record
+that manager FIRST separately counted zero native callback entries. No new entry
+counter/scenario or inference interruption hook is introduced. Do not claim a
+universal absence of callbacks merely from polling a terminal flag.
+
+FIRST policy extraction marker names are selected-git-policy-v1:start/end and
+selected-child-policy-v1:start/end. Freeze the actual selected helper function
+names gitRead, run, footprint, measureStorage, unchangedSource, unchangedProducts,
+latchUnknown and the single global finally restoration branch, with their D06
+behavior above. Match actual helper/restore source in VM tests; missing markers
+or interfaces are setup gaps, never a zero-test pass. No frozen D06 assertion or
+legacy selected mode journey changes. Source-only contributions each stay below
+1MiB on D. Root owns registrations/integration; later production ownership and
+runtime admission will be claimed separately. This accepts interfaces and source
+FIRST allocation, not the app gate or whole D07.

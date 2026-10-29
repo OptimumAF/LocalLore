@@ -21,6 +21,7 @@ from benchmarks import receipt_avd_environment as env
 from benchmarks import owned_restart_contract as contract
 from benchmarks import android_process_verification_v5 as reader
 from benchmarks import windows_tcp_control as output_control
+from benchmarks import adb_held_socket_probe as probe
 
 SCOPE = "closed-validation-cost-plan-v1"
 PHASES = ("inputs", "proof_before", "proof_after", "controller_refusal")
@@ -35,25 +36,34 @@ def need(value, reason):
         raise ValueError(reason)
 
 
-def metadata(path):
-    need(isinstance(path, (str, Path)) and Path(path).suffix.lower() == ".json", "metadata_filename")
+def bounded_bytes(path, allow_empty=False):
     path = env.safe_path(path)
     need(path.drive.upper() == "D:", "physical_D")
-    need(0 < path.stat().st_size <= CAP, "metadata_size")
+    minimum = 0 if allow_empty else 1
+    need(minimum <= path.stat().st_size <= CAP, "metadata_size")
     with path.open("rb") as stream:
         data = stream.read(CAP + 1)
-    need(0 < len(data) <= CAP, "metadata_size")
+    need(minimum <= len(data) <= CAP, "metadata_size")
     return dict(path=str(path), bytes=len(data), sha256=hashlib.sha256(data).hexdigest()), data
+
+
+def metadata(path):
+    need(isinstance(path, (str, Path)) and Path(path).suffix.lower() == ".json", "metadata_filename")
+    return bounded_bytes(path)
 
 
 def pin(path):
     return metadata(path)[0]
 
 
-def read(binding):
+def binding_shape(binding):
     need(type(binding) is dict and set(binding) == {"path", "bytes", "sha256"}, "binding")
     need(type(binding["path"]) is str and type(binding["bytes"]) is int and 0 <= binding["bytes"] <= CAP and
          type(binding["sha256"]) is str and re.fullmatch("[0-9a-f]{64}", binding["sha256"]) is not None, "binding")
+
+
+def read(binding):
+    binding_shape(binding)
     actual, data = metadata(binding["path"])
     need(actual == binding, "binding_changed")
     return env.decode_json(data)
@@ -168,7 +178,7 @@ def prepare(plan):
 
 
 def input_pins(admission):
-    """Explicit inventory; never recurse into model, APK, auth or guest-image pins."""
+    """Data projection only; checked_input_pins admits it before any asset hashing."""
     a = admission
     result = list(a["sources"]) + list(a["server"]["sources"]) + list(a["server"]["tools"])
     result += [p for p in a["python"].values() if p is not None]
@@ -183,6 +193,44 @@ def input_pins(admission):
         need(path not in by_path or by_path[path] == binding, "conflicting_pin")
         by_path[path] = binding
     return by_path
+
+
+def capability_outputs(admission):
+    capability = admission["server"]["capabilities"]
+    value = read(capability)
+    need(type(value) is dict and type(value.get("rows")) is list and len(value["rows"]) == 2, "capability")
+    parent = Path(capability["path"]).parent
+    outputs = []
+    # Check both paths/shapes before consuming either output's contents.
+    for index, row in enumerate(value["rows"], 1):
+        need(type(row) is dict and "stdout" in row, "capability")
+        binding = row["stdout"]
+        binding_shape(binding)
+        need(Path(binding["path"]) == parent / ("command-%02d.stdout.bin" % index), "canonical_path")
+        outputs.append(binding)
+    for binding in outputs:
+        actual, _ = bounded_bytes(binding["path"], allow_empty=True)
+        need(actual == binding, "binding_changed")
+    return outputs
+
+
+def checked_input_pins(admission):
+    capability_outputs(admission)
+    # Compare declared identities with known current sources/interpreter BEFORE
+    # hashing arbitrary declared asset paths. This performs only the existing
+    # own-interpreter DLL-location lookup, never a former process observation.
+    need(admission["sources"] == contract.source_bindings() and
+         admission["python"] == probe._python_bindings(), "source")
+    for binding, wanted in ((admission["guest"]["refuser_source"], ROOT / "benchmarks/native/deny_adb_client.c"),
+                            (admission["artifacts"]["probe"], ROOT / "benchmarks/fixtures/physical_model_probe_v1.txt"),
+                            (admission["artifacts"]["process_probe_source"], ROOT / "benchmarks/native/android_author_process_probe.c")):
+        need(Path(binding["path"]) == wanted, "canonical_path")
+    result = input_pins(admission)
+    for name in result:
+        path = Path(name)
+        need(path.name.casefold() not in {"adbkey", "adbkey.pub", ".emulator_console_auth_token"} and
+             path.suffix.casefold() not in {".litertlm", ".gguf", ".tflite", ".keystore", ".jks", ".pem", ".p12"}, "private_asset")
+    return result
 
 
 class ReadObserver:
@@ -272,7 +320,7 @@ def worker(output, request_sha):
     need(request["sources"] == sources(), "source_changed")
     plan = read(request["plan"])
     case = prepare(plan)
-    all_inputs = input_pins(case["admission"])
+    all_inputs = checked_input_pins(case["admission"])
     frozen = dict(all_inputs)
     frozen.update({plan[role]["path"]: plan[role] for role in ROLES})
     for binding, _, queries in case["proofs"].values():

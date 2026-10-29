@@ -610,12 +610,7 @@ fn execute(
     preflight(&work)?;
     work.ledgers[0].begin_invocation()?;
     work.ledgers[1].begin_invocation()?;
-    execute_work(
-        plan,
-        destination,
-        &mut work,
-        cancel,
-    )?;
+    execute_work(plan, destination, &mut work, cancel)?;
     finish_workflow(plan, destination, &mut work)
 }
 

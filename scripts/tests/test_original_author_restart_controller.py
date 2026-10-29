@@ -137,7 +137,8 @@ class ControllerFlow:
                 (c.LiveOwnedRestartTarget,'__init__',initialize),(c.LiveOwnedRestartTarget,'guard',lambda*a,**kw:None),
                 (c.LiveOwnedRestartTarget,'fast_guard',lambda*a:None),(c.LiveOwnedRestartTarget,'prove',lambda live,*a,**kw:self.prove(live,*a,**kw)),
                 (c.LiveOwnedRestartTarget,'close',close),(c.OwnedRestartSdkCapture,'stream',stream),
-                (wire.environment,'check_binding',check),(wire.socket,'socket',lambda*a:Socket()),(wire.threading,'Thread',InlineSender)):
+                (wire.environment,'check_binding',check),(wire.socket,'socket',lambda*a:Socket()),(wire.threading,'Thread',InlineSender),
+                (wire.time,'time',lambda:1800000010.0)):
                 stack.enter_context(patch.object(target,name,value))
             return c.run(g.admission,g.running,self.build,self.output)
 

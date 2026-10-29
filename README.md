@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [explicit SDK3 bridge](docs/native/ANDROID_SDK3_VERIFICATION_2026-10-29.md)
+adds source-bound host receipts and passes307 host tests. Its first live
+pre-command ownership proof refuses an unsupported raw server state; no SDK,
+emulator or model command ran. Fresh runtime qualification remains gated.
+
 The [player/NPC AUTHOR contract](docs/native/AUTHOR_PLAYER_CONTRACT_VERIFICATION_2026-10-28.md)
 clarifies player and NPC identities and preserves versioned native provenance.
 Host/build checks pass; the new model run remains blocked by debug-service

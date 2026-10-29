@@ -11,8 +11,9 @@ import os
 from pathlib import Path,PureWindowsPath
 import struct
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 
 from benchmarks import isolated_adb_lease as n
 
@@ -50,7 +51,7 @@ def admission():
       python=dict(executable=pin(PYTHON),runtime_dll=pin('C:\\Synthetic\\Python\\python314.dll')),
       auth_key='C:\\Users\\Synthetic\\.android\\adbkey',
       capabilities=pin('D:\\Synthetic\\packet\\capabilities-v1.json'),
-      source_review=pin('D:\\Synthetic\\packet\\source-review-v1.json'))
+      source_review=pin('D:\\Synthetic\\packet\\source-review-v1.md'))
 
 
 def admitted_binding():return pin('D:\\Synthetic\\packet\\admission-v1.json')
@@ -405,7 +406,7 @@ class CapabilityReadbackTests(unittest.TestCase):
               stdout=env.binding(path)))
         self.cap=dict(version=1,passed=True,offline_CLI_calls=2,server_requests=0,device_calls=0,sources_equal=True,rows=self.rows)
         self.path=self.base/'capabilities-v1.json';self.save()
-        review=self.base/'source-review-v1.json';review.write_bytes(b'{"synthetic_source_review":true}\n')
+        review=self.base/'source-review-v1.md';review.write_bytes(b'Original synthetic source-review text; no authority.\n')
         self.value['source_review']=env.binding(review)
 
     def save(self,raw=None):
@@ -491,6 +492,100 @@ class CapabilityReadbackTests(unittest.TestCase):
     def test_revalidation_refuses_missing_startup_markers_or_changed_source(self):
         self.refused(lambda:self.revalidate(markers=False))
         self.refused(lambda:self.revalidate(source_changed=True))
+
+
+@unittest.skipUnless(os.name=='nt','physical D: mocked owner fixtures require Windows')
+class OwnerResourceTests(unittest.TestCase):
+    def setUp(self):
+        from benchmarks import isolated_adb_owner as owner
+        from benchmarks import receipt_avd_environment as env
+        self.o=owner;self.env=env
+        self.base=Path(tempfile.mkdtemp(prefix='locallore-isolated-owner-',dir='D:/Dev/_Temp'))
+
+    def test_runtime_constructor_has_no_native_credential_socket_or_process_io(self):
+        with patch.object(self.o.native,'_WindowsApi')as native,patch.object(self.o.AuthKeyGuard,'open')as auth, \
+             patch.object(self.o.socket,'socket')as sock,patch.object(self.o.subprocess,'Popen')as process:
+            runtime=self.o.WorkerRuntime(dict(validated_admission=admission(),admission=admitted_binding()),admitted_binding(),self.base)
+        self.assertIsNone(runtime.api);self.assertIsNone(runtime.child)
+        for mocked in(native,auth,sock,process):mocked.assert_not_called()
+
+    def test_failed_process_handle_release_is_never_blindly_retried(self):
+        api=SimpleNamespace(open_process=Mock(return_value=901),identity=Mock(return_value=CLIENT),
+                            alive=Mock(return_value=True),close_handle=Mock(return_value=False))
+        handles=self.o.ProcessHandles(api);handle,_=handles.add(CLIENT['pid'],CLIENT)
+        self.assertFalse(handles.release(handle));self.assertFalse(handles.close())
+        self.assertEqual(api.close_handle.call_count,1,'uncertain numeric process handle must not be retried')
+
+    def test_failed_auth_handle_close_is_not_retried_and_other_handles_are_attempted(self):
+        calls=[]
+        def close(handle):calls.append(handle);return 0 if handle==901 else 1
+        auth=self.o.AuthKeyGuard();auth.kernel=SimpleNamespace(CloseHandle=close);auth.handles={901,902}
+        self.assertFalse(auth._close(901));self.assertFalse(auth.close())
+        self.assertEqual(calls.count(901),1,'uncertain key handle must never be blindly retried')
+        self.assertIn(902,calls)
+
+    def test_metadata_key_open_denies_write_delete_and_never_reads_contents(self):
+        auth=self.o.AuthKeyGuard();create=Mock(return_value=901)
+        auth.kernel=SimpleNamespace(CreateFileW=create)
+        self.assertEqual(auth._open_read(PureWindowsPath(admission()['auth_key'])),901)
+        args=create.call_args.args;self.assertEqual(args[1:4],(0x80000000,1,None))
+        self.assertEqual(args[4],3);self.assertIn(901,auth.handles)
+
+    def test_partial_identity_acquisition_keeps_handle_for_final_cleanup(self):
+        api=SimpleNamespace(open_process=Mock(return_value=901),identity=Mock(side_effect=self.o.OwnerRefused('identity')),
+                            close_handle=Mock(return_value=True))
+        handles=self.o.ProcessHandles(api)
+        with self.assertRaises(self.o.OwnerRefused):handles.add(CLIENT['pid'],CLIENT)
+        self.assertTrue(handles.close());api.close_handle.assert_called_once_with(901)
+
+    def fake_capture(self):
+        class Flag:
+            def __init__(self):self.value=False
+            def set(self):self.value=True
+            def is_set(self):return self.value
+        return SimpleNamespace(failed=Flag(),overflow=Flag(),close=Mock(),append=Mock(return_value=True))
+
+    def test_reader_start_failure_closes_owned_pipes_and_capture_without_joining_unstarted(self):
+        capture=self.fake_capture();thread=SimpleNamespace(start=Mock(side_effect=RuntimeError('synthetic start failure')),
+          join=Mock(side_effect=RuntimeError('unstarted join')),is_alive=Mock(return_value=False))
+        child=SimpleNamespace(stdout=SimpleNamespace(close=Mock()),stderr=SimpleNamespace(close=Mock()))
+        with patch.object(self.o.env,'LiveOutput',return_value=capture),patch.object(self.o.threading,'Thread',return_value=thread):
+            output=self.o.ServerCapture(self.base/'output')
+            with self.assertRaises(RuntimeError):output.start(child)
+            self.assertFalse(output.close())
+        thread.join.assert_not_called();child.stdout.close.assert_called_once();child.stderr.close.assert_called_once()
+        capture.close.assert_called_once();self.assertTrue(capture.failed.is_set())
+
+    def test_capture_pipe_failure_attempts_remaining_owned_closes(self):
+        capture=self.fake_capture();pipes=[SimpleNamespace(close=Mock(side_effect=OSError('synthetic close'))),SimpleNamespace(close=Mock())]
+        with patch.object(self.o.env,'LiveOutput',return_value=capture):output=self.o.ServerCapture(self.base/'output')
+        output.pipes=pipes;self.assertFalse(output.close())
+        for pipe in pipes:pipe.close.assert_called_once()
+        capture.close.assert_called_once();self.assertFalse(output.pipes_closed)
+
+    def test_cleanup_preserves_actual_nonzero_server_returncode_and_handle_failure(self):
+        handle=SimpleNamespace(closed=False,Close=Mock(side_effect=OSError('synthetic native close')))
+        child=SimpleNamespace(poll=Mock(return_value=None),terminate=Mock(),wait=Mock(return_value=7),_handle=handle)
+        capture=SimpleNamespace(close=Mock(return_value=True),pipes_closed=True)
+        runtime=SimpleNamespace(child=child,capture=capture,clients_closed=True)
+        flags,code=self.o._cleanup(runtime)
+        self.assertEqual(code,7);self.assertTrue(flags['server_terminate_attempted']);self.assertTrue(flags['server_wait_completed'])
+        self.assertFalse(flags['server_process_handle_closed']);self.assertTrue(flags['server_pipes_closed'])
+        child.terminate.assert_called_once();child.wait.assert_called_once();capture.close.assert_called_once()
+
+    def test_missing_or_mismatched_started_receipt_never_reaches_auth_port_or_server(self):
+        for missing in(False,True):
+            root=self.base/('missing'if missing else'mismatch');root.mkdir()
+            request=dict(validated_admission=admission(),admission=admitted_binding(),owner=OWNER)
+            runtime=self.o.WorkerRuntime(request,admitted_binding(),root);runtime.worker=CLIENT
+            runtime.processes=SimpleNamespace(guard=Mock())
+            if not missing:self.env.create_json(root/'started-v1.json',dict(worker=dict(CLIENT,creation_filetime=1),request=admitted_binding()))
+            ticks=iter((100.0,101.0,106.0))
+            with patch.object(self.o.time,'monotonic',side_effect=lambda:next(ticks)),patch.object(self.o.time,'sleep'), \
+                 patch.object(self.o.AuthKeyGuard,'open')as auth,patch.object(self.o,'_exclusive_preflight')as port, \
+                 patch.object(self.o.subprocess,'Popen')as process:
+                with self.assertRaises(self.o.OwnerRefused):runtime.wait_receipt()
+            auth.assert_not_called();port.assert_not_called();process.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()

@@ -605,6 +605,9 @@ def _parent(admission_pin,admission):
         owner=copy.deepcopy(caller),sources=copy.deepcopy(admission["sources"]),python=copy.deepcopy(admission["python"]),
         worker_script=script,owner_seconds=admission["seconds"]+30)
     env.create_json(out/"request-v1.json",request);request_pin=_binding(out/"request-v1.json")
+    # The legacy supervisor has its own stop-v1 schema. Keep its capture/stop
+    # namespace separate so only this worker consumes the isolated lease stop.
+    worker_output=out/"worker-output-v1";worker_output.mkdir()
     started_pin=None;started_identity=None
     def started(child):
         nonlocal started_pin,started_identity
@@ -614,11 +617,11 @@ def _parent(admission_pin,admission):
         started_pin=_binding(out/"started-v1.json")
         return True
     owner=env.supervise([sys.executable,"-I","-S","-B",str(Path(__file__).resolve()),"_worker"],
-        BARRIER+env.encoded(dict(request=request_pin)),out,admission["seconds"]+30,started)
+        BARRIER+env.encoded(dict(request=request_pin)),worker_output,admission["seconds"]+30,started)
     env.create_json(out/"owner-result-v1.json",owner);owner_pin=_binding(out/"owner-result-v1.json")
     qualified=False;reason="owner";worker_pin=None;after_pin=None
     try:
-        _need(_owner_ok(owner,out) and started_pin is not None,"owner")
+        _need(_owner_ok(owner,worker_output) and started_pin is not None,"owner")
         _need(_same(_read_json(started_pin),dict(worker=started_identity,request=request_pin)),"receipt")
         _guards(admission,admission_pin);env.check_binding(request_pin)
         after=dict(admission=copy.deepcopy(admission_pin),sources=lease.source_bindings(),python=file_guard._python_bindings(),

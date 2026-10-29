@@ -16,8 +16,10 @@ import path from "node:path";
 import { createReadStream } from "node:fs";
 
 assert.equal(process.platform, "win32", "WindowsWebView2Required");
-const sceneMode = process.argv.length === 3 && process.argv[2] === "--native-scene-v1";
-const nativeMode = sceneMode || (process.argv.length === 3 && process.argv[2] === "--native");
+const sceneMode =
+    process.argv.length === 3 && process.argv[2] === "--native-scene-v1";
+const nativeMode =
+    sceneMode || (process.argv.length === 3 && process.argv[2] === "--native");
 assert(process.argv.length === 2 || nativeMode, "ClosedHarnessArguments");
 // MXC may replace a launcher's inherited values. Set these in the actual
 // project process as well; every child below receives the same D: locations.
@@ -37,97 +39,244 @@ const safe = (value) => Number.isSafeInteger(value) && value >= 0;
 // BEGIN SCENE CHILD POLICY: extracted unchanged by the synthetic policy checker.
 // This primitive never inspects source or invokes Git, so the Git caller cannot
 // recursively bypass it. It is initialized before the first Scene4 child.
-function createSceneChildPolicy({ spawnChild, setTimer, clearTimer, sha256, now }) {
-    const records = [], unknownChildren = [];
+function createSceneChildPolicy({
+    spawnChild,
+    setTimer,
+    clearTimer,
+    sha256,
+    now,
+}) {
+    const records = [],
+        unknownChildren = [];
     let unknownDrain = false;
     return {
-        records, unknownChildren,
-        get unknownDrain() { return unknownDrain; },
+        records,
+        unknownChildren,
+        get unknownDrain() {
+            return unknownDrain;
+        },
         async run(label, command, args, options, timeoutMs) {
             if (unknownDrain) throw Error("SceneOwnedDrainUnknown");
             if (records.length >= 512) throw Error("SceneProcessRecordBudget");
-            const started = now(), output = { stdout: [], stderr: [] }, sizes = { stdout: 0, stderr: 0 };
-            const observed = { stdout: 0, stderr: 0 }, cap = 1024 * 1024;
-            let overflow = false, timedOut = false, pid = null;
-            let killAttempted = false, killReturned = null, killError = null, processError = null;
+            const started = now(),
+                output = { stdout: [], stderr: [] },
+                sizes = { stdout: 0, stderr: 0 };
+            const observed = { stdout: 0, stderr: 0 },
+                cap = 1024 * 1024;
+            let overflow = false,
+                timedOut = false,
+                pid = null;
+            let killAttempted = false,
+                killReturned = null,
+                killError = null,
+                processError = null;
             const result = await new Promise((resolve) => {
                 let child;
-                try { child = spawnChild(command, args, options); }
-                catch (error) { resolve({ exit: null, signal: null, closed: false, spawnError: error.code ?? "SpawnFailure" }); return; }
+                try {
+                    child = spawnChild(command, args, options);
+                } catch (error) {
+                    resolve({
+                        exit: null,
+                        signal: null,
+                        closed: false,
+                        spawnError: error.code ?? "SpawnFailure",
+                    });
+                    return;
+                }
                 pid = child.pid ?? null;
-                let settled = false, grace = null, timer = null;
+                let settled = false,
+                    grace = null,
+                    timer = null;
                 const finish = (value, detach = false) => {
                     if (settled) return;
                     settled = true;
                     if (timer !== null) clearTimer(timer);
                     if (grace !== null) clearTimer(grace);
-                    if (detach) { child.stdout.destroy(); child.stderr.destroy(); child.unref(); }
+                    if (detach) {
+                        child.stdout.destroy();
+                        child.stderr.destroy();
+                        child.unref();
+                    }
                     resolve(value);
                 };
                 const stop = (reason) => {
                     if (killAttempted) return;
                     unknownDrain = true;
-                    unknownChildren.push({ label, command, args, pid, reason, processTreeContained: false });
+                    unknownChildren.push({
+                        label,
+                        command,
+                        args,
+                        pid,
+                        reason,
+                        processTreeContained: false,
+                    });
                     killAttempted = true;
-                    grace = setTimer(() => finish({ exit: null, signal: null, closed: false,
-                        spawnError: processError ?? "OwnedDrainUnknown" }, true), 5000);
-                    try { killReturned = child.kill(); } catch (error) { killError = error.code ?? "KillFailure"; }
+                    grace = setTimer(
+                        () =>
+                            finish(
+                                {
+                                    exit: null,
+                                    signal: null,
+                                    closed: false,
+                                    spawnError:
+                                        processError ?? "OwnedDrainUnknown",
+                                },
+                                true,
+                            ),
+                        5000,
+                    );
+                    try {
+                        killReturned = child.kill();
+                    } catch (error) {
+                        killError = error.code ?? "KillFailure";
+                    }
                 };
-                for (const channel of ["stdout", "stderr"]) child[channel].on("data", (chunk) => {
-                    if (settled) return;
-                    observed[channel] += chunk.length;
-                    const room = cap - sizes[channel];
-                    if (room > 0) { const retained = chunk.subarray(0, room); output[channel].push(retained); sizes[channel] += retained.length; }
-                    if (chunk.length > room) { overflow = true; stop("OutputOverflow"); }
-                });
-                timer = setTimer(() => { timedOut = true; stop("DirectChildTimeout"); }, timeoutMs);
+                for (const channel of ["stdout", "stderr"])
+                    child[channel].on("data", (chunk) => {
+                        if (settled) return;
+                        observed[channel] += chunk.length;
+                        const room = cap - sizes[channel];
+                        if (room > 0) {
+                            const retained = chunk.subarray(0, room);
+                            output[channel].push(retained);
+                            sizes[channel] += retained.length;
+                        }
+                        if (chunk.length > room) {
+                            overflow = true;
+                            stop("OutputOverflow");
+                        }
+                    });
+                timer = setTimer(() => {
+                    timedOut = true;
+                    stop("DirectChildTimeout");
+                }, timeoutMs);
                 child.on("error", (error) => {
                     if (settled) return;
                     processError ??= error.code ?? "SpawnFailure";
                     if (pid !== null) stop("ErrorWithPid");
-                    else finish({ exit: null, signal: null, closed: false, spawnError: processError });
+                    else
+                        finish({
+                            exit: null,
+                            signal: null,
+                            closed: false,
+                            spawnError: processError,
+                        });
                 });
-                child.once("close", (exit, signal) => finish({ exit, signal, closed: true, spawnError: processError }));
+                child.once("close", (exit, signal) =>
+                    finish({
+                        exit,
+                        signal,
+                        closed: true,
+                        spawnError: processError,
+                    }),
+                );
             });
-            const stdout = Buffer.concat(output.stdout), stderr = Buffer.concat(output.stderr);
-            const record = { label, command, args, started, ended: now(), ...result, pid,
-                timeoutMs, timedOut, overflow, killAttempted, killReturned, killError,
-                ownedDrainUnknown: unknownDrain, processTreeContained: false,
-                stdoutBytes: stdout.length, stderrBytes: stderr.length,
-                observedStdoutBytes: observed.stdout, observedStderrBytes: observed.stderr,
-                stdoutSha256: sha256(stdout), stderrSha256: sha256(stderr) };
+            const stdout = Buffer.concat(output.stdout),
+                stderr = Buffer.concat(output.stderr);
+            const record = {
+                label,
+                command,
+                args,
+                started,
+                ended: now(),
+                ...result,
+                pid,
+                timeoutMs,
+                timedOut,
+                overflow,
+                killAttempted,
+                killReturned,
+                killError,
+                ownedDrainUnknown: unknownDrain,
+                processTreeContained: false,
+                stdoutBytes: stdout.length,
+                stderrBytes: stderr.length,
+                observedStdoutBytes: observed.stdout,
+                observedStderrBytes: observed.stderr,
+                stdoutSha256: sha256(stdout),
+                stderrSha256: sha256(stderr),
+            };
             records.push(record);
             return { stdout, stderr, record };
         },
     };
 }
 // END SCENE CHILD POLICY.
-const scenePolicy = createSceneChildPolicy({ spawnChild: spawn, setTimer: setTimeout,
-    clearTimer: clearTimeout, sha256: digest, now: () => new Date().toISOString() });
+const scenePolicy = createSceneChildPolicy({
+    spawnChild: spawn,
+    setTimer: setTimeout,
+    clearTimer: clearTimeout,
+    sha256: digest,
+    now: () => new Date().toISOString(),
+});
 // Startup Git can fail before revision/repository discovery. Its PID/reason
 // evidence must already have a physical D: packet, without launching a child.
-const sceneBase = sceneMode ? await existingDirectory("LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT") : null;
+const sceneBase = sceneMode
+    ? await existingDirectory("LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT")
+    : null;
 let scenePacketFolder = null;
 if (sceneMode) {
     await ordinarySceneDirectory(root);
     await ordinarySceneDirectory(sceneBase);
-    scenePacketFolder = path.join(sceneBase, `full-comparison-native-${randomUUID()}`);
+    scenePacketFolder = path.join(
+        sceneBase,
+        `full-comparison-native-${randomUUID()}`,
+    );
     await mkdir(scenePacketFolder, { recursive: false });
 }
 async function saveSceneProcessEvidence() {
-    if (sceneMode) await writeFile(path.join(scenePacketFolder, "scene-processes.json"), JSON.stringify({ version: 1,
-        ownedDrainUnknown: scenePolicy.unknownDrain, unknownChildren: scenePolicy.unknownChildren,
-        processTreeContained: false, executions: scenePolicy.records }, null, 2));
+    if (sceneMode)
+        await writeFile(
+            path.join(scenePacketFolder, "scene-processes.json"),
+            JSON.stringify(
+                {
+                    version: 1,
+                    ownedDrainUnknown: scenePolicy.unknownDrain,
+                    unknownChildren: scenePolicy.unknownChildren,
+                    processTreeContained: false,
+                    executions: scenePolicy.records,
+                },
+                null,
+                2,
+            ),
+        );
 }
 const git = async (...args) => {
     if (sceneMode) {
-        assert(["rev-parse HEAD", "rev-parse --show-toplevel", "status --porcelain"].includes(args.join(" ")), "ClosedSceneGitArguments");
-        const { stdout, record } = await scenePolicy.run(`git-${scenePolicy.records.length + 1}`, "git", args,
-            { cwd: root, shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
-                env: { ...process.env, TEMP: "D:/Dev/_Temp", TMP: "D:/Dev/_Temp" } }, 15000);
+        assert(
+            [
+                "rev-parse HEAD",
+                "rev-parse --show-toplevel",
+                "status --porcelain",
+            ].includes(args.join(" ")),
+            "ClosedSceneGitArguments",
+        );
+        const { stdout, record } = await scenePolicy.run(
+            `git-${scenePolicy.records.length + 1}`,
+            "git",
+            args,
+            {
+                cwd: root,
+                shell: false,
+                windowsHide: true,
+                stdio: ["ignore", "pipe", "pipe"],
+                env: {
+                    ...process.env,
+                    TEMP: "D:/Dev/_Temp",
+                    TMP: "D:/Dev/_Temp",
+                },
+            },
+            15000,
+        );
         await saveSceneProcessEvidence();
         if (scenePolicy.unknownDrain) throw Error("SceneOwnedDrainUnknown");
-        assert(record.closed && record.spawnError === null && !record.timedOut && !record.overflow, "SceneGitKnownProcessRequired");
+        assert(
+            record.closed &&
+                record.spawnError === null &&
+                !record.timedOut &&
+                !record.overflow,
+            "SceneGitKnownProcessRequired",
+        );
         assert.equal(record.exit, 0, "SceneGitExit");
         return stdout.toString("utf8").trim();
     }
@@ -158,14 +307,15 @@ async function existingDirectory(name) {
     );
     return path.resolve(value);
 }
-const base = sceneBase ?? await existingDirectory(
-    "LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT",
-);
+const base =
+    sceneBase ??
+    (await existingDirectory("LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT"));
 const target = await existingDirectory(
     "LOCALLORE_D07_FULL_COMPARISON_TARGET_DIR",
 );
 if (sceneMode) {
-    for (const directory of [root, repository, base, target]) await ordinarySceneDirectory(directory);
+    for (const directory of [root, repository, base, target])
+        await ordinarySceneDirectory(directory);
 }
 const targetRelative = path.relative(repository, target);
 assert(
@@ -173,7 +323,9 @@ assert(
         path.isAbsolute(targetRelative),
     "ExternalBuildTargetRequired",
 );
-const folder = scenePacketFolder ?? path.join(base, `full-comparison-native-${randomUUID()}`);
+const folder =
+    scenePacketFolder ??
+    path.join(base, `full-comparison-native-${randomUUID()}`);
 if (!sceneMode) await mkdir(folder, { recursive: false });
 const launcherSha256 = digest(await readFile(fileURLToPath(import.meta.url)));
 const executable = path.join(target, "debug", "locallore-desktop-spike.exe");
@@ -195,25 +347,74 @@ const limits = {
 let expectedInventory = null,
     executableSha256 = null;
 let nativeAssets = null;
-let sceneSourceHashes = null, sceneHarnessProducts = null, sceneRestoration = null;
-const sceneReviewSlots = ["courier-01", "courier-05", "courier-12", "courier-22"]
-    .flatMap((turn) => ["left", "right"].map((arm) => ({ turn, arm, label: `full-scene-${turn}-${arm}` })));
-const sceneInputFiles = ["comparison-run-harness.mjs", "comparison-run-process-policy-check.mjs", "ui/comparison-run-native-journeys.ts", "ui/main.tsx",
-    "ui/comparison-run-controller.ts", "ui/comparison-run-model.ts", "ui/comparison-run-view.tsx",
-    "ui/comparison-reader-controller.ts", "ui/comparison-reader-model.ts", "ui/ComparisonReaderPanel.tsx",
-    "src-tauri/src/main.rs", "src-tauri/src/harness.rs", "src-tauri/src/comparison_run_native_harness.rs",
-    "src-tauri/src/model_commands.rs", "src-tauri/src/models.rs", "src-tauri/src/evaluation/comparison_run.rs",
-    "src-tauri/src/evaluation/comparison_run/native.rs", "src-tauri/src/evaluation/comparison_run/native_for.rs",
-    "src-tauri/src/evaluation/comparison_run/versioned.rs", "src-tauri/Cargo.toml", "src-tauri/build.rs",
-    "src-tauri/tauri.conf.json", "ui/style.css", "stage-runtime.mjs", "build.mjs", "package.json", "package-lock.json", "../../Cargo.lock"];
+let sceneSourceHashes = null,
+    sceneHarnessProducts = null,
+    sceneRestoration = null;
+const sceneReviewSlots = [
+    "courier-01",
+    "courier-05",
+    "courier-12",
+    "courier-22",
+].flatMap((turn) =>
+    ["left", "right"].map((arm) => ({
+        turn,
+        arm,
+        label: `full-scene-${turn}-${arm}`,
+    })),
+);
+const sceneInputFiles = [
+    "comparison-run-harness.mjs",
+    "comparison-run-process-policy-check.mjs",
+    "ui/comparison-run-native-journeys.ts",
+    "ui/main.tsx",
+    "ui/comparison-run-controller.ts",
+    "ui/comparison-run-model.ts",
+    "ui/comparison-run-view.tsx",
+    "ui/comparison-reader-controller.ts",
+    "ui/comparison-reader-model.ts",
+    "ui/ComparisonReaderPanel.tsx",
+    "src-tauri/src/main.rs",
+    "src-tauri/src/harness.rs",
+    "src-tauri/src/comparison_run_native_harness.rs",
+    "src-tauri/src/model_commands.rs",
+    "src-tauri/src/models.rs",
+    "src-tauri/src/evaluation/comparison_run.rs",
+    "src-tauri/src/evaluation/comparison_run/native.rs",
+    "src-tauri/src/evaluation/comparison_run/native_for.rs",
+    "src-tauri/src/evaluation/comparison_run/versioned.rs",
+    "src-tauri/Cargo.toml",
+    "src-tauri/build.rs",
+    "src-tauri/tauri.conf.json",
+    "ui/style.css",
+    "stage-runtime.mjs",
+    "build.mjs",
+    "package.json",
+    "package-lock.json",
+    "../../Cargo.lock",
+];
 async function ordinarySceneDirectory(value) {
-    assert(value && path.isAbsolute(value), "SceneOrdinaryExistingDirectoryRequired");
-    const resolved = path.resolve(value), actual = path.resolve(await realpath(value));
-    assert.equal(actual.toLowerCase(), resolved.toLowerCase(), "SceneDirectoryRedirected");
-    assert.equal(path.parse(actual).root.toLowerCase(), "d:\\", "PhysicalDProjectStorageRequired");
+    assert(
+        value && path.isAbsolute(value),
+        "SceneOrdinaryExistingDirectoryRequired",
+    );
+    const resolved = path.resolve(value),
+        actual = path.resolve(await realpath(value));
+    assert.equal(
+        actual.toLowerCase(),
+        resolved.toLowerCase(),
+        "SceneDirectoryRedirected",
+    );
+    assert.equal(
+        path.parse(actual).root.toLowerCase(),
+        "d:\\",
+        "PhysicalDProjectStorageRequired",
+    );
     for (let current = resolved; ; current = path.dirname(current)) {
         const metadata = await lstat(current);
-        assert(metadata.isDirectory() && !metadata.isSymbolicLink(), "SceneOrdinaryAncestorRequired");
+        assert(
+            metadata.isDirectory() && !metadata.isSymbolicLink(),
+            "SceneOrdinaryAncestorRequired",
+        );
         if (current === path.dirname(current)) break;
     }
     return resolved;
@@ -227,20 +428,48 @@ async function sceneHashes(files, cap = 16 * 1024 * 1024) {
     }
     return result;
 }
-const sceneProducts = () => sceneHashes(["dist/app.js", "dist/style.css", "dist/index.html",
-    "src-tauri/runtime/locallore-llama-worker.exe", path.join(target, "debug/runtime/locallore-llama-worker.exe"), executable], 256 * 1024 * 1024);
+const sceneProducts = () =>
+    sceneHashes(
+        [
+            "dist/app.js",
+            "dist/style.css",
+            "dist/index.html",
+            "src-tauri/runtime/locallore-llama-worker.exe",
+            path.join(target, "debug/runtime/locallore-llama-worker.exe"),
+            executable,
+        ],
+        256 * 1024 * 1024,
+    );
 
 async function approvedNativeAssets() {
-    const reuseRoot = sceneMode ? await ordinarySceneDirectory(process.env.LOCALLORE_D04_REUSE_MODEL_ROOT) : null;
+    const reuseRoot = sceneMode
+        ? await ordinarySceneDirectory(
+              process.env.LOCALLORE_D04_REUSE_MODEL_ROOT,
+          )
+        : null;
     if (reuseRoot) {
         const relative = path.relative(folder, reuseRoot);
-        assert(relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative), "ExistingPublicationOutsideNewWorkspaceRequired");
-        for (const destination of [root, target, path.join(root, "src-tauri/runtime"), path.join(target, "debug/runtime")]) {
+        assert(
+            relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative),
+            "ExistingPublicationOutsideNewWorkspaceRequired",
+        );
+        for (const destination of [
+            root,
+            target,
+            path.join(root, "src-tauri/runtime"),
+            path.join(target, "debug/runtime"),
+        ]) {
             const relation = path.relative(reuseRoot, destination);
-            assert(relation.startsWith(`..${path.sep}`) || path.isAbsolute(relation), "NoStagingInsideReusedPublication");
+            assert(
+                relation.startsWith(`..${path.sep}`) ||
+                    path.isAbsolute(relation),
+                "NoStagingInsideReusedPublication",
+            );
         }
     }
-    const model = sceneMode ? path.join(reuseRoot, "Qwen3-0.6B-Q8_0.gguf") : process.env.LOCALLORE_D07_NATIVE_MODEL_SOURCE;
+    const model = sceneMode
+        ? path.join(reuseRoot, "Qwen3-0.6B-Q8_0.gguf")
+        : process.env.LOCALLORE_D07_NATIVE_MODEL_SOURCE;
     const worker = process.env.LOCALLORE_D04_WORKER_SOURCE;
     const specs = [
         [
@@ -286,7 +515,14 @@ async function approvedNativeAssets() {
         assert.equal(hasher.digest("hex"), expected, `${kind}:ApprovedHash`);
         verified[kind] = { bytes: metadata.size, sha256: expected };
     }
-    return { model, worker, verified, ...(sceneMode ? { reuseRoot, weightsCopied: false, importedByHarness: false } : {}) };
+    return {
+        model,
+        worker,
+        verified,
+        ...(sceneMode
+            ? { reuseRoot, weightsCopied: false, importedByHarness: false }
+            : {}),
+    };
 }
 
 async function sourceUnchanged() {
@@ -296,7 +532,12 @@ async function sourceUnchanged() {
         "SourceRevisionChanged",
     );
     assert.equal(await git("status", "--porcelain"), "", "SourceTreeChanged");
-    if (sceneMode && sceneSourceHashes) assert.deepEqual(await sceneHashes(sceneInputFiles), sceneSourceHashes, "SceneSourceInputsChanged");
+    if (sceneMode && sceneSourceHashes)
+        assert.deepEqual(
+            await sceneHashes(sceneInputFiles),
+            sceneSourceHashes,
+            "SceneSourceInputsChanged",
+        );
 }
 async function saveExecutions() {
     await writeFile(
@@ -406,22 +647,61 @@ async function runScene(label, command, args, env = {}, timeout = 240000) {
     await sourceUnchanged();
     if (command === executable) {
         assert.deepEqual(args, [], "SceneFixedExecutableArguments");
-        assert.deepEqual(await sceneProducts(), sceneHarnessProducts, "SceneHarnessProductsChanged");
+        assert.deepEqual(
+            await sceneProducts(),
+            sceneHarnessProducts,
+            "SceneHarnessProductsChanged",
+        );
     }
     const environment = { ...process.env };
-    for (const key of Object.keys(environment)) if (key.startsWith("LOCALLORE_")) delete environment[key];
-    Object.assign(environment, { TEMP: "D:/Dev/_Temp", TMP: "D:/Dev/_Temp", CARGO_BUILD_JOBS: "1",
-        CARGO_INCREMENTAL: "0", CARGO_PROFILE_DEV_DEBUG: "0", CARGO_PROFILE_TEST_DEBUG: "0", LIBSQLITE3_FLAGS: "", ...env });
-    const { stdout, stderr, record } = await scenePolicy.run(label, command, args,
-        { cwd: root, shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: environment }, timeout);
-    await writeFile(path.join(folder, `${label}.stdout.log`), stdout, { flag: "wx" });
-    await writeFile(path.join(folder, `${label}.stderr.log`), stderr, { flag: "wx" });
+    for (const key of Object.keys(environment))
+        if (key.startsWith("LOCALLORE_")) delete environment[key];
+    Object.assign(environment, {
+        TEMP: "D:/Dev/_Temp",
+        TMP: "D:/Dev/_Temp",
+        CARGO_BUILD_JOBS: "1",
+        CARGO_INCREMENTAL: "0",
+        CARGO_PROFILE_DEV_DEBUG: "0",
+        CARGO_PROFILE_TEST_DEBUG: "0",
+        LIBSQLITE3_FLAGS: "",
+        ...env,
+    });
+    const { stdout, stderr, record } = await scenePolicy.run(
+        label,
+        command,
+        args,
+        {
+            cwd: root,
+            shell: false,
+            windowsHide: true,
+            stdio: ["ignore", "pipe", "pipe"],
+            env: environment,
+        },
+        timeout,
+    );
+    await writeFile(path.join(folder, `${label}.stdout.log`), stdout, {
+        flag: "wx",
+    });
+    await writeFile(path.join(folder, `${label}.stderr.log`), stderr, {
+        flag: "wx",
+    });
     executions.push(record);
     await saveExecutions();
     if (scenePolicy.unknownDrain) throw Error("SceneOwnedDrainUnknown");
     await sourceUnchanged();
-    if (command === executable) assert.deepEqual(await sceneProducts(), sceneHarnessProducts, "SceneHarnessProductsChanged");
-    assert(!record.overflow && !record.timedOut && record.closed && record.spawnError === null, `${label}:SceneBoundedKnownProcess`);
+    if (command === executable)
+        assert.deepEqual(
+            await sceneProducts(),
+            sceneHarnessProducts,
+            "SceneHarnessProductsChanged",
+        );
+    assert(
+        !record.overflow &&
+            !record.timedOut &&
+            record.closed &&
+            record.spawnError === null,
+        `${label}:SceneBoundedKnownProcess`,
+    );
     assert.equal(record.exit, 0, `${label}:exit`);
 }
 async function boundedFile(file, cap) {
@@ -499,7 +779,9 @@ const restartLabels = [
     "full-reader",
     "full-finished",
 ];
-const stageInitialLabels = sceneMode ? [...initialLabels, ...sceneReviewSlots.map(({ label }) => label)] : initialLabels;
+const stageInitialLabels = sceneMode
+    ? [...initialLabels, ...sceneReviewSlots.map(({ label }) => label)]
+    : initialLabels;
 const allowedLabels = new Set([...stageInitialLabels, ...restartLabels]);
 function checkedReport(report, stage) {
     boundedJson(report);
@@ -571,8 +853,12 @@ function checkedReport(report, stage) {
               "native-full-explicit-cleanup-observed",
               ...(stage === "initial"
                   ? [
-                        sceneMode ? "native-scene-actual-paired-partial" : "native-full-actual-paired-partial",
-                        sceneMode ? "native-scene-actual-completed-proof" : "native-full-actual-completed-proof",
+                        sceneMode
+                            ? "native-scene-actual-paired-partial"
+                            : "native-full-actual-paired-partial",
+                        sceneMode
+                            ? "native-scene-actual-completed-proof"
+                            : "native-full-actual-completed-proof",
                     ]
                   : ["native-full-cold-completed-open"]),
           ]
@@ -599,12 +885,14 @@ function checkedReport(report, stage) {
     if (nativeMode) {
         assert.deepEqual(
             report.doubles,
-            sceneMode ? ["execution-consent", "read-consent", "lost-start-ack"] : [
-                "execution-consent",
-                "read-consent",
-                "model-picker",
-                "lost-start-ack",
-            ],
+            sceneMode
+                ? ["execution-consent", "read-consent", "lost-start-ack"]
+                : [
+                      "execution-consent",
+                      "read-consent",
+                      "model-picker",
+                      "lost-start-ack",
+                  ],
             "NativeDoublesExplicit",
         );
     }
@@ -700,56 +988,178 @@ function checkedReport(report, stage) {
 }
 function checkedSceneReport(report, stage) {
     assert.equal(report.protocolVersion, 4, "ActualSceneProtocolRequired");
-    assert.equal(report.originalHumanAssessment, "needs improvement", "PriorHumanAssessmentPreserved");
-    assert.equal(report.human_rubric, "not_reviewed", "SceneHumanRubricUnreviewed");
-    assert.equal(report.quality_accepted, false, "SceneNoHumanQualityAcceptance");
-    const required = stage === "initial" ? [
-        "native-scene-existing-approved-publication-retained-unloaded-without-import",
-        "native-scene-consent-cancel-deny-retirement-never-reserved-a-model",
-        "native-scene-completed-resume-no-consent-or-reservation",
-        "native-scene-eight-frozen-review-slots-no-substitution",
-    ] : ["native-scene-cold-open-read-completed-resume-no-consent-or-reservation"];
-    for (const name of required) assert(report.checks.includes(name), `RequiredSceneCheck:${name}`);
+    assert.equal(
+        report.originalHumanAssessment,
+        "needs improvement",
+        "PriorHumanAssessmentPreserved",
+    );
+    assert.equal(
+        report.human_rubric,
+        "not_reviewed",
+        "SceneHumanRubricUnreviewed",
+    );
+    assert.equal(
+        report.quality_accepted,
+        false,
+        "SceneNoHumanQualityAcceptance",
+    );
+    const required =
+        stage === "initial"
+            ? [
+                  "native-scene-existing-approved-publication-retained-unloaded-without-import",
+                  "native-scene-consent-cancel-deny-retirement-never-reserved-a-model",
+                  "native-scene-completed-resume-no-consent-or-reservation",
+                  "native-scene-eight-frozen-review-slots-no-substitution",
+              ]
+            : [
+                  "native-scene-cold-open-read-completed-resume-no-consent-or-reservation",
+              ];
+    for (const name of required)
+        assert(report.checks.includes(name), `RequiredSceneCheck:${name}`);
     assert(Array.isArray(report.reviewSlots), "ClosedSceneReviewSlots");
-    assert.deepEqual(report.reviewSlots.map(({ turn, arm, label }) => ({ turn, arm, label })),
-        stage === "initial" ? sceneReviewSlots : [], "FrozenSceneSlotsWithoutSubstitution");
+    assert.deepEqual(
+        report.reviewSlots.map(({ turn, arm, label }) => ({
+            turn,
+            arm,
+            label,
+        })),
+        stage === "initial" ? sceneReviewSlots : [],
+        "FrozenSceneSlotsWithoutSubstitution",
+    );
     for (const slot of report.reviewSlots) {
         assert.equal(slot.original_human_assessment, "needs improvement");
-        assert.equal(slot.human_rubric, "not_reviewed"); assert.equal(slot.quality_accepted, false);
-        assert(typeof slot.phase === "string" && typeof slot.passed === "boolean", "ActualSlotPhase");
-        for (const field of ["receipt_available", "capture_available", "recording_available"]) assert.equal(typeof slot[field], "boolean");
-        for (const field of ["receipt_evidence_sha256", "capture_evidence_sha256", "outputs_evidence_sha256"]) assert(hash(slot[field]), "ActualSlotEvidenceHash");
-        assert(slot.source && typeof slot.source === "object" && hash(slot.input_semantic_sha256), "ActualSlotSource");
-        assert(["validated_committed_scene_narrator_v1", "not_applicable_guard", "not_applicable_dependency", "unavailable"].includes(slot.construction_evidence_status));
-        assert(["checked_finite_sentinels", "not_applicable_guard", "unavailable"].includes(slot.privacy_evidence_status));
-        if (slot.construction_evidence_status === "validated_committed_scene_narrator_v1") {
+        assert.equal(slot.human_rubric, "not_reviewed");
+        assert.equal(slot.quality_accepted, false);
+        assert(
+            typeof slot.phase === "string" && typeof slot.passed === "boolean",
+            "ActualSlotPhase",
+        );
+        for (const field of [
+            "receipt_available",
+            "capture_available",
+            "recording_available",
+        ])
+            assert.equal(typeof slot[field], "boolean");
+        for (const field of [
+            "receipt_evidence_sha256",
+            "capture_evidence_sha256",
+            "outputs_evidence_sha256",
+        ])
+            assert(hash(slot[field]), "ActualSlotEvidenceHash");
+        assert(
+            slot.source &&
+                typeof slot.source === "object" &&
+                hash(slot.input_semantic_sha256),
+            "ActualSlotSource",
+        );
+        assert(
+            [
+                "validated_committed_scene_narrator_v1",
+                "not_applicable_guard",
+                "not_applicable_dependency",
+                "unavailable",
+            ].includes(slot.construction_evidence_status),
+        );
+        assert(
+            [
+                "checked_finite_sentinels",
+                "not_applicable_guard",
+                "unavailable",
+            ].includes(slot.privacy_evidence_status),
+        );
+        if (
+            slot.construction_evidence_status ===
+            "validated_committed_scene_narrator_v1"
+        ) {
             assert.equal(slot.phase, "committed");
-            for (const field of ["narrator_prompt_sha256", "narrator_schema_sha256", "scene_frame_sha256"]) assert(hash(slot[field]));
+            for (const field of [
+                "narrator_prompt_sha256",
+                "narrator_schema_sha256",
+                "scene_frame_sha256",
+            ])
+                assert(hash(slot[field]));
         }
     }
-    assert(Array.isArray(report.observationProofs) && report.observationProofs.length === 1, "OneClosedSceneObservationProof");
+    assert(
+        Array.isArray(report.observationProofs) &&
+            report.observationProofs.length === 1,
+        "OneClosedSceneObservationProof",
+    );
     const proof = report.observationProofs[0];
-    assert.equal(proof.name, stage === "initial" ? "native-scene-completed-resume-no-consent-or-reservation"
-        : "native-scene-cold-open-read-completed-resume-no-consent-or-reservation");
-    assert.equal(proof.unchanged, true); assert.deepEqual(proof.before, proof.after);
+    assert.equal(
+        proof.name,
+        stage === "initial"
+            ? "native-scene-completed-resume-no-consent-or-reservation"
+            : "native-scene-cold-open-read-completed-resume-no-consent-or-reservation",
+    );
+    assert.equal(proof.unchanged, true);
+    assert.deepEqual(proof.before, proof.after);
     for (const value of [proof.before, proof.after]) {
-        assert.deepEqual(Object.keys(value).sort(), ["consent_calls", "kind", "owner_present", "protocol_version", "reservation_sequence", "retained_evaluations", "version"]);
-        assert.equal(value.version, 1); assert.equal(value.kind, "native_scene_execution_observation"); assert.equal(value.protocol_version, 4);
+        assert.deepEqual(Object.keys(value).sort(), [
+            "consent_calls",
+            "kind",
+            "owner_present",
+            "protocol_version",
+            "reservation_sequence",
+            "retained_evaluations",
+            "version",
+        ]);
+        assert.equal(value.version, 1);
+        assert.equal(value.kind, "native_scene_execution_observation");
+        assert.equal(value.protocol_version, 4);
         assert(safe(value.reservation_sequence) && safe(value.consent_calls));
-        assert.equal(value.owner_present, false); assert.equal(value.retained_evaluations, 0);
-        if (stage === "restart") { assert.equal(value.reservation_sequence, 0); assert.equal(value.consent_calls, 0); }
+        assert.equal(value.owner_present, false);
+        assert.equal(value.retained_evaluations, 0);
+        if (stage === "restart") {
+            assert.equal(value.reservation_sequence, 0);
+            assert.equal(value.consent_calls, 0);
+        }
     }
-    assert(Array.isArray(report.outcomeSummaries) && report.outcomeSummaries.length === (stage === "initial" ? 2 : 1), "ActualSceneOutcomeSummaries");
+    assert(
+        Array.isArray(report.outcomeSummaries) &&
+            report.outcomeSummaries.length === (stage === "initial" ? 2 : 1),
+        "ActualSceneOutcomeSummaries",
+    );
     for (const [index, value] of report.outcomeSummaries.entries()) {
         const completed = stage === "restart" || index === 1;
-        assert.equal(value.protocol_version, 4); assert.equal(value.completed, completed);
-        assert.equal(value.rows, completed ? 48 : 12); assert.equal(value.completed_scenes, completed ? 4 : 1);
-        assert(safe(value.roles_known_sum) && safe(value.unknown_role_rows) && safe(value.physical_setups) && value.physical_setups > 0);
-        assert(value.native_load !== null && value.profile && typeof value.profile === "object", "ActualCoreNativeEvidence");
-        assert(safe(value.source_bound_committed_rows) && value.source_bound_committed_rows <= value.rows);
-        assert.equal(value.human_reviewed, 0); assert.equal(value.human_rubric, "not_reviewed"); assert.equal(value.quality_accepted, false);
-        for (const counts of [value.phases, value.construction_statuses, value.privacy_statuses])
-            assert(counts && typeof counts === "object" && Object.values(counts).every(safe) && Object.values(counts).reduce((sum, count) => sum + count, 0) === value.rows, "ActualRowStatusCounts");
+        assert.equal(value.protocol_version, 4);
+        assert.equal(value.completed, completed);
+        assert.equal(value.rows, completed ? 48 : 12);
+        assert.equal(value.completed_scenes, completed ? 4 : 1);
+        assert(
+            safe(value.roles_known_sum) &&
+                safe(value.unknown_role_rows) &&
+                safe(value.physical_setups) &&
+                value.physical_setups > 0,
+        );
+        assert(
+            value.native_load !== null &&
+                value.profile &&
+                typeof value.profile === "object",
+            "ActualCoreNativeEvidence",
+        );
+        assert(
+            safe(value.source_bound_committed_rows) &&
+                value.source_bound_committed_rows <= value.rows,
+        );
+        assert.equal(value.human_reviewed, 0);
+        assert.equal(value.human_rubric, "not_reviewed");
+        assert.equal(value.quality_accepted, false);
+        for (const counts of [
+            value.phases,
+            value.construction_statuses,
+            value.privacy_statuses,
+        ])
+            assert(
+                counts &&
+                    typeof counts === "object" &&
+                    Object.values(counts).every(safe) &&
+                    Object.values(counts).reduce(
+                        (sum, count) => sum + count,
+                        0,
+                    ) === value.rows,
+                "ActualRowStatusCounts",
+            );
     }
 }
 async function captures(directory, report) {
@@ -843,15 +1253,41 @@ async function captures(directory, report) {
             "VisibleError",
         );
         if (sceneMode && label.startsWith("full-scene-")) {
-            const expected = report.reviewSlots.find((slot) => slot.label === label), retained = snapshot.sceneReview;
+            const expected = report.reviewSlots.find(
+                    (slot) => slot.label === label,
+                ),
+                retained = snapshot.sceneReview;
             assert(expected && retained, "ActualFrozenSlotCheckpoint");
-            for (const [key, value] of Object.entries(expected)) assert.deepEqual(retained[key], value, `SceneCheckpoint:${key}`);
+            for (const [key, value] of Object.entries(expected))
+                assert.deepEqual(
+                    retained[key],
+                    value,
+                    `SceneCheckpoint:${key}`,
+                );
             const selected = snapshot.comparisonReader.selected;
-            assert(selected?.turn === expected.turn && selected?.arm === expected.arm, "ActualSelectedFrozenRow");
-            assert.equal(snapshot.comparisonReader.observer.kind, "omniscient", "PrivateSlotInspectionLens");
-            assert.equal(digest(JSON.stringify(retained.receiptEvidence)), expected.receipt_evidence_sha256);
-            assert.equal(digest(JSON.stringify(retained.outputsEvidence)), expected.outputs_evidence_sha256);
-            assert.deepEqual(snapshot.comparisonReader.evidence, retained.outputsEvidence, "ActualDisplayedSlotEvidence");
+            assert(
+                selected?.turn === expected.turn &&
+                    selected?.arm === expected.arm,
+                "ActualSelectedFrozenRow",
+            );
+            assert.equal(
+                snapshot.comparisonReader.observer.kind,
+                "omniscient",
+                "PrivateSlotInspectionLens",
+            );
+            assert.equal(
+                digest(JSON.stringify(retained.receiptEvidence)),
+                expected.receipt_evidence_sha256,
+            );
+            assert.equal(
+                digest(JSON.stringify(retained.outputsEvidence)),
+                expected.outputs_evidence_sha256,
+            );
+            assert.deepEqual(
+                snapshot.comparisonReader.evidence,
+                retained.outputsEvidence,
+                "ActualDisplayedSlotEvidence",
+            );
         }
         records.push({
             label,
@@ -927,9 +1363,25 @@ let failure = null;
 try {
     if (sceneMode) {
         sceneSourceHashes = await sceneHashes(sceneInputFiles);
-        await writeFile(path.join(folder, "source-manifest.json"), JSON.stringify({ version: 1, protocolVersion: 4,
-            sourceRevision: revision, sourceHashes: sceneSourceHashes, node: process.version,
-            platform: process.platform, arch: process.arch, temp: process.env.TEMP, tmp: process.env.TMP }, null, 2), { flag: "wx" });
+        await writeFile(
+            path.join(folder, "source-manifest.json"),
+            JSON.stringify(
+                {
+                    version: 1,
+                    protocolVersion: 4,
+                    sourceRevision: revision,
+                    sourceHashes: sceneSourceHashes,
+                    node: process.version,
+                    platform: process.platform,
+                    arch: process.arch,
+                    temp: process.env.TEMP,
+                    tmp: process.env.TMP,
+                },
+                null,
+                2,
+            ),
+            { flag: "wx" },
+        );
     }
     if (nativeMode) {
         nativeAssets = await approvedNativeAssets();
@@ -966,8 +1418,18 @@ try {
     executableSha256 = digest(await readFile(executable));
     if (sceneMode) {
         sceneHarnessProducts = await sceneProducts();
-        await writeFile(path.join(folder, "product-manifest.json"), JSON.stringify({ sourceRevision: revision,
-            harnessProducts: sceneHarnessProducts }, null, 2), { flag: "wx" });
+        await writeFile(
+            path.join(folder, "product-manifest.json"),
+            JSON.stringify(
+                {
+                    sourceRevision: revision,
+                    harnessProducts: sceneHarnessProducts,
+                },
+                null,
+                2,
+            ),
+            { flag: "wx" },
+        );
     }
     for (const stage of nativeMode
         ? ["initial", "restart"]
@@ -981,12 +1443,18 @@ try {
                 LOCALLORE_D02_HARNESS: "1",
                 LOCALLORE_D07_FULL_COMPARISON_HARNESS: "1",
                 LOCALLORE_D07_NATIVE_FULL_HARNESS: nativeMode ? "1" : "0",
-                ...(sceneMode ? {
-                    LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS: "1",
-                    LOCALLORE_D04_HARNESS: "0", LOCALLORE_D04_MODEL_ROOT: nativeAssets.reuseRoot,
-                } : nativeMode
-                    ? { LOCALLORE_D07_NATIVE_MODEL_SOURCE: nativeAssets.model }
-                    : {}),
+                ...(sceneMode
+                    ? {
+                          LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS: "1",
+                          LOCALLORE_D04_HARNESS: "0",
+                          LOCALLORE_D04_MODEL_ROOT: nativeAssets.reuseRoot,
+                      }
+                    : nativeMode
+                      ? {
+                            LOCALLORE_D07_NATIVE_MODEL_SOURCE:
+                                nativeAssets.model,
+                        }
+                      : {}),
                 LOCALLORE_D07_NATIVE_DENIED_GRANT:
                     stage === "denied" ? "1" : "0",
                 LOCALLORE_TEST_MEMORY: "1",
@@ -1069,22 +1537,67 @@ try {
     // BEGIN SCENE RESTORATION POLICY: also exercised with synthetic children.
     if (sceneMode) {
         if (scenePolicy.unknownDrain) {
-            sceneRestoration = { passed: false, skipped: true, launched: false,
-                reason: "SceneOwnedDrainUnknown", unknownChildren: scenePolicy.unknownChildren };
+            sceneRestoration = {
+                passed: false,
+                skipped: true,
+                launched: false,
+                reason: "SceneOwnedDrainUnknown",
+                unknownChildren: scenePolicy.unknownChildren,
+            };
         } else {
             try {
-                await run("normal-frontend-restoration", process.execPath, ["build.mjs"]);
-                await run("normal-native-restoration", "cargo", ["build", "--manifest-path", "src-tauri/Cargo.toml",
-                    "--locked", "--offline", "--no-default-features", "--bin", "locallore-desktop-spike", "--jobs", "1", "--target-dir", target], {}, 900000);
-                sceneRestoration = { passed: true, launched: false, products: await sceneProducts() };
+                await run("normal-frontend-restoration", process.execPath, [
+                    "build.mjs",
+                ]);
+                await run(
+                    "normal-native-restoration",
+                    "cargo",
+                    [
+                        "build",
+                        "--manifest-path",
+                        "src-tauri/Cargo.toml",
+                        "--locked",
+                        "--offline",
+                        "--no-default-features",
+                        "--bin",
+                        "locallore-desktop-spike",
+                        "--jobs",
+                        "1",
+                        "--target-dir",
+                        target,
+                    ],
+                    {},
+                    900000,
+                );
+                sceneRestoration = {
+                    passed: true,
+                    launched: false,
+                    products: await sceneProducts(),
+                };
             } catch (error) {
-                sceneRestoration = { passed: false, launched: false, ownedDrainUnknown: scenePolicy.unknownDrain,
-                    unknownChildren: scenePolicy.unknownChildren, error: String(error?.message ?? error).slice(0, 2048) };
-                failure ??= { name: error?.name ?? "Error", message: String(error?.message ?? error).slice(0, 2048) };
+                sceneRestoration = {
+                    passed: false,
+                    launched: false,
+                    ownedDrainUnknown: scenePolicy.unknownDrain,
+                    unknownChildren: scenePolicy.unknownChildren,
+                    error: String(error?.message ?? error).slice(0, 2048),
+                };
+                failure ??= {
+                    name: error?.name ?? "Error",
+                    message: String(error?.message ?? error).slice(0, 2048),
+                };
             }
         }
-        if (!sceneRestoration.passed) failure ??= { name: "Error", message: "SceneNormalRestorationUnqualified" };
-        await writeFile(path.join(folder, "normal-restoration.json"), JSON.stringify(sceneRestoration, null, 2), { flag: "wx" });
+        if (!sceneRestoration.passed)
+            failure ??= {
+                name: "Error",
+                message: "SceneNormalRestorationUnqualified",
+            };
+        await writeFile(
+            path.join(folder, "normal-restoration.json"),
+            JSON.stringify(sceneRestoration, null, 2),
+            { flag: "wx" },
+        );
     }
     // END SCENE RESTORATION POLICY.
     let sourceClean = false,
@@ -1092,7 +1605,8 @@ try {
     if (!sceneMode || !scenePolicy.unknownDrain) {
         try {
             sourceClean = (await git("status", "--porcelain")) === "";
-            terminalSourceUnchanged = (await git("rev-parse", "HEAD")) === revision;
+            terminalSourceUnchanged =
+                (await git("rev-parse", "HEAD")) === revision;
         } catch {}
     }
     if (!sourceClean || !terminalSourceUnchanged)
@@ -1106,14 +1620,26 @@ try {
         terminalSourceUnchanged,
         executableSha256,
         launcherSha256,
-        ...(sceneMode ? { protocolVersion: 4, reuseModelRoot: nativeAssets?.reuseRoot ?? null,
-            weightsCopied: false, importedByHarness: false, sourceHashes: sceneSourceHashes,
-            harnessProducts: sceneHarnessProducts, restoration: sceneRestoration,
-            ownedDrainUnknown: scenePolicy.unknownDrain, unknownChildren: scenePolicy.unknownChildren,
-            sceneProcessExecutions: scenePolicy.records,
-            terminalSourceInspectionSkipped: scenePolicy.unknownDrain,
-            processTreeContained: false, reviewSlots: sceneReviewSlots, originalHumanAssessment: "needs improvement",
-            human_rubric: "not_reviewed", quality_accepted: false } : {}),
+        ...(sceneMode
+            ? {
+                  protocolVersion: 4,
+                  reuseModelRoot: nativeAssets?.reuseRoot ?? null,
+                  weightsCopied: false,
+                  importedByHarness: false,
+                  sourceHashes: sceneSourceHashes,
+                  harnessProducts: sceneHarnessProducts,
+                  restoration: sceneRestoration,
+                  ownedDrainUnknown: scenePolicy.unknownDrain,
+                  unknownChildren: scenePolicy.unknownChildren,
+                  sceneProcessExecutions: scenePolicy.records,
+                  terminalSourceInspectionSkipped: scenePolicy.unknownDrain,
+                  processTreeContained: false,
+                  reviewSlots: sceneReviewSlots,
+                  originalHumanAssessment: "needs improvement",
+                  human_rubric: "not_reviewed",
+                  quality_accepted: false,
+              }
+            : {}),
         requestedNativeIpc: true,
         nativeIpc: inventories.length > 0,
         modelExecution: reports.some(
@@ -1140,9 +1666,13 @@ try {
             "Node checks junction/symlink redirects, not all Windows reparse attributes or universal link races",
             "Images require separate individual visual inspection",
             "No human quality, whole-app performance, leak, phone parity or release qualification",
-            ...(sceneMode ? ["Counter equality supports completed resume; it does not independently count SDK loads",
-                "One direct-child kill and five-second grace; no Job/process-tree containment or timeout-drain qualification",
-                "Scene rows, rejections and missing frozen slots are retained; completion does not imply every row passed"] : []),
+            ...(sceneMode
+                ? [
+                      "Counter equality supports completed resume; it does not independently count SDK loads",
+                      "One direct-child kill and five-second grace; no Job/process-tree containment or timeout-drain qualification",
+                      "Scene rows, rejections and missing frozen slots are retained; completion does not imply every row passed",
+                  ]
+                : []),
         ],
     };
     await writeFile(

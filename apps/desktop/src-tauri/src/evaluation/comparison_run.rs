@@ -49,7 +49,9 @@ impl ComparisonLane {
         matches!(self, Self::Native | Self::SceneNative)
     }
     fn version(self) -> u16 {
-        if self == Self::SceneNative { 3 } else if self.native() {
+        if self == Self::SceneNative {
+            3
+        } else if self.native() {
             2
         } else {
             1
@@ -62,7 +64,13 @@ impl ComparisonLane {
             "scripted_baseline"
         }
     }
-    fn protocol_version(self) -> u16 { if self == Self::SceneNative { 4 } else { 3 } }
+    fn protocol_version(self) -> u16 {
+        if self == Self::SceneNative {
+            4
+        } else {
+            3
+        }
+    }
 }
 type ExecutionConsent = Box<dyn FnOnce(&Value) -> Result<bool> + Send + 'static>;
 struct NativeExecution {
@@ -123,7 +131,8 @@ impl Record {
         let lane = self.index.lane()?;
         let visible = self.epoch == epoch;
         let report = self.report.filter(|_| visible && self.phase != "closed");
-        let owned = job.filter(|j| j.kind == JobKind::ComparisonRun && j.run == self.index.run_id());
+        let owned =
+            job.filter(|j| j.kind == JobKind::ComparisonRun && j.run == self.index.run_id());
         let running = owned.is_some_and(|j| j.worker_active && (lane.native() || j.epoch == epoch));
         let cleanup_running = lane.native()
             && owned
@@ -208,7 +217,8 @@ fn validate_manifest(directory: &Path, index: &Index) -> Result<()> {
     }
     let manifest = read_json(&path, 128 * 1024)?;
     if manifest["version"] != index.protocol_version()
-        || manifest["kind"] != serde_json::to_value(index.kind()).map_err(|_| "EvaluationInternal")?
+        || manifest["kind"]
+            != serde_json::to_value(index.kind()).map_err(|_| "EvaluationInternal")?
         || manifest["binding"] != index.binding_value()?
         || manifest["source_sha256"] != index.source_sha256()
     {
@@ -380,21 +390,42 @@ impl EvaluationManager {
             .map(|t| t.run.clone())
             .ok_or("UnknownEvaluationRun")?;
         let mut full = self.full_lock()?;
-        full.token_leases.retain(|key, _| parent.tokens.contains_key(key));
-        let matches = full.token_leases.get(token)
-            .is_some_and(|(owner_epoch, owner)| *owner_epoch == epoch && lease.owns_identity(owner))
-            && full.runs.get(&id).is_some_and(|r| r.index.lane().ok() == Some(lane));
+        full.token_leases
+            .retain(|key, _| parent.tokens.contains_key(key));
+        let matches = full
+            .token_leases
+            .get(token)
+            .is_some_and(|(owner_epoch, owner)| {
+                *owner_epoch == epoch && lease.owns_identity(owner)
+            })
+            && full
+                .runs
+                .get(&id)
+                .is_some_and(|r| r.index.lane().ok() == Some(lane));
         drop(full);
         if !matches {
             return Err("UnknownEvaluationRun".into());
         }
         Self::token(parent, epoch, token)
     }
-    fn full_mint(parent: &mut State, full: &mut FullComparisonState, lease: &WindowLease, epoch: u64, run: String) -> Result<String> {
-        let token = Self::mint_reusing(parent, epoch, run, |id| full.token_leases.get(id)
-            .is_some_and(|(owner_epoch, owner)| *owner_epoch == epoch && lease.owns_identity(owner)))?;
-        full.token_leases.retain(|id, _| parent.tokens.contains_key(id));
-        full.token_leases.insert(token.clone(), (epoch, lease.identity()));
+    fn full_mint(
+        parent: &mut State,
+        full: &mut FullComparisonState,
+        lease: &WindowLease,
+        epoch: u64,
+        run: String,
+    ) -> Result<String> {
+        let token = Self::mint_reusing(parent, epoch, run, |id| {
+            full.token_leases
+                .get(id)
+                .is_some_and(|(owner_epoch, owner)| {
+                    *owner_epoch == epoch && lease.owns_identity(owner)
+                })
+        })?;
+        full.token_leases
+            .retain(|id, _| parent.tokens.contains_key(id));
+        full.token_leases
+            .insert(token.clone(), (epoch, lease.identity()));
         Ok(token)
     }
     pub fn full_comparison_catalog(
@@ -636,7 +667,8 @@ impl EvaluationManager {
                     .runs
                     .get(existing["run_id"].as_str().ok_or("EvaluationInternal")?)
                     .ok_or("EvaluationInternal")?
-                    .index.initial_batch()
+                    .index
+                    .initial_batch()
                     != input.max_new_scenes
             {
                 return Err("InvalidEvaluationInput".into());
@@ -869,7 +901,9 @@ impl EvaluationManager {
     }
     pub(super) fn full_comparison_retire(&self, epoch: u64) {
         if let Ok(mut state) = self.full_comparison.try_lock() {
-            state.token_leases.retain(|_, (owner_epoch, _)| *owner_epoch != epoch);
+            state
+                .token_leases
+                .retain(|_, (owner_epoch, _)| *owner_epoch != epoch);
             for r in state.runs.values_mut().filter(|r| r.epoch == epoch) {
                 r.epoch = 0;
                 r.report = None;
@@ -1142,7 +1176,8 @@ impl EvaluationManager {
         }
         let output = directory.join("work");
         if matches!(work, Work::Open) {
-            return index.inspect(&output)
+            return index
+                .inspect(&output)
                 .map(|report| PreparedWork::Inspected(Box::new(report)));
         }
         if !index.matches_current()? {
@@ -1187,10 +1222,10 @@ impl EvaluationManager {
 mod native;
 mod native_for;
 #[cfg(test)]
-mod scene_native_review;
-#[cfg(test)]
-mod window_identity_review;
-#[cfg(test)]
 mod native_review_tests;
 #[cfg(test)]
 mod review_tests;
+#[cfg(test)]
+mod scene_native_review;
+#[cfg(test)]
+mod window_identity_review;

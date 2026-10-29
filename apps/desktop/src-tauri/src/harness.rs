@@ -70,10 +70,14 @@ const FULL_COMPARISON_LABELS: &[&str] = &[
     "full-finished",
 ];
 const SCENE_COMPARISON_LABELS: &[&str] = &[
-    "full-scene-courier-01-left", "full-scene-courier-01-right",
-    "full-scene-courier-05-left", "full-scene-courier-05-right",
-    "full-scene-courier-12-left", "full-scene-courier-12-right",
-    "full-scene-courier-22-left", "full-scene-courier-22-right",
+    "full-scene-courier-01-left",
+    "full-scene-courier-01-right",
+    "full-scene-courier-05-left",
+    "full-scene-courier-05-right",
+    "full-scene-courier-12-left",
+    "full-scene-courier-12-right",
+    "full-scene-courier-22-left",
+    "full-scene-courier-22-right",
 ];
 const SELECTED_LABELS: &[&str] = &[
     "selected-resumed",

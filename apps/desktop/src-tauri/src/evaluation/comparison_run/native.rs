@@ -189,41 +189,60 @@ impl EvaluationManager {
                     LaneFactory::ScriptedBaseline,
                     reference.as_deref(),
                 )
-                .map(Report::Literal).map_err(failure),
+                .map(Report::Literal)
+                .map_err(failure),
             ),
             Some(NativeExecution { models, consent })
-                if expected.lane().is_ok_and(|lane|lane.native()) =>
+                if expected.lane().is_ok_and(|lane| lane.native()) =>
             {
                 let metadata = expected.execution_metadata(batch);
                 let mut consent_error = None;
                 let reserve = || {
-                        if !lease.valid(epoch) || cancel.is_cancelled() {
-                            return Err("Interrupted".into());
-                        }
-                        self.full_confirming(lease, epoch, operation, expected.run_id(), cancel)
-                            .map_err(|_| "Interrupted".to_owned())?;
-                        if !lease.valid(epoch) || cancel.is_cancelled() {
-                            return Err("Interrupted".into());
-                        }
-                        // This callback precedes any reservation/assets. Catch
-                        // only this safe boundary, never the post-owner body.
-                        let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            consent(&metadata)
-                        }))
-                        .unwrap_or_else(|_| Err("EvaluationInternal".into()));
-                        let accepted = answer.map_err(|error| {
-                            consent_error = Some(super::super::selected::failure(&error));
-                            "Interrupted".to_owned()
-                        })?;
-                        if !accepted || !lease.valid(epoch) || cancel.is_cancelled() {
-                            return Err("Interrupted".into());
-                        }
-                        self.reserve_owned(&models, JobKind::ComparisonRun, epoch, operation)
-                    };
-                let result = if expected.lane().ok()==Some(ComparisonLane::SceneNative) {
-                    core::scene_v4::run_native_comparison(&output,resume,expected.kind(),cancel,batch,reserve,reference.as_deref()).map(Report::Scene)
+                    if !lease.valid(epoch) || cancel.is_cancelled() {
+                        return Err("Interrupted".into());
+                    }
+                    self.full_confirming(lease, epoch, operation, expected.run_id(), cancel)
+                        .map_err(|_| "Interrupted".to_owned())?;
+                    if !lease.valid(epoch) || cancel.is_cancelled() {
+                        return Err("Interrupted".into());
+                    }
+                    // This callback precedes any reservation/assets. Catch
+                    // only this safe boundary, never the post-owner body.
+                    let answer = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        consent(&metadata)
+                    }))
+                    .unwrap_or_else(|_| Err("EvaluationInternal".into()));
+                    let accepted = answer.map_err(|error| {
+                        consent_error = Some(super::super::selected::failure(&error));
+                        "Interrupted".to_owned()
+                    })?;
+                    if !accepted || !lease.valid(epoch) || cancel.is_cancelled() {
+                        return Err("Interrupted".into());
+                    }
+                    self.reserve_owned(&models, JobKind::ComparisonRun, epoch, operation)
+                };
+                let result = if expected.lane().ok() == Some(ComparisonLane::SceneNative) {
+                    core::scene_v4::run_native_comparison(
+                        &output,
+                        resume,
+                        expected.kind(),
+                        cancel,
+                        batch,
+                        reserve,
+                        reference.as_deref(),
+                    )
+                    .map(Report::Scene)
                 } else {
-                    literal_v3::run_native_comparison(&output,resume,expected.kind(),cancel,batch,reserve,reference.as_deref()).map(Report::Literal)
+                    literal_v3::run_native_comparison(
+                        &output,
+                        resume,
+                        expected.kind(),
+                        cancel,
+                        batch,
+                        reserve,
+                        reference.as_deref(),
+                    )
+                    .map(Report::Literal)
                 };
                 let mut outcome = match result {
                     Ok(report) => FullOutcome::plain(Ok(report)),

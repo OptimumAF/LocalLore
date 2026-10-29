@@ -29,14 +29,35 @@ export async function comparisonRunNativeJourneys({
     // The native bootstrap chooses this test expectation. It is not a native
     // request selector or permission to change a run's construction/protocol.
     const scene = config.scene === true;
-    const sceneSlots = ["courier-01", "courier-05", "courier-12", "courier-22"]
-        .flatMap((turn) => (["left", "right"] as const).map((arm) => ({ turn, arm,
-            label: `full-scene-${turn}-${arm}` })));
+    const sceneSlots = [
+        "courier-01",
+        "courier-05",
+        "courier-12",
+        "courier-22",
+    ].flatMap((turn) =>
+        (["left", "right"] as const).map((arm) => ({
+            turn,
+            arm,
+            label: `full-scene-${turn}-${arm}`,
+        })),
+    );
     const reviewSlots: Record<string, unknown>[] = [];
     let sceneReview: Record<string, unknown> | null = null;
-    type Observation = { version: 1; kind: "native_scene_execution_observation"; protocol_version: 4;
-        reservation_sequence: number; consent_calls: number; owner_present: boolean; retained_evaluations: number };
-    const observationProofs: { name: string; before: Observation; after: Observation; unchanged: boolean }[] = [];
+    type Observation = {
+        version: 1;
+        kind: "native_scene_execution_observation";
+        protocol_version: 4;
+        reservation_sequence: number;
+        consent_calls: number;
+        owner_present: boolean;
+        retained_evaluations: number;
+    };
+    const observationProofs: {
+        name: string;
+        before: Observation;
+        after: Observation;
+        unchanged: boolean;
+    }[] = [];
     const checks: string[] = [],
         captureLabels: string[] = [],
         savedRuns: string[] = [];
@@ -74,8 +95,12 @@ export async function comparisonRunNativeJourneys({
             operation: state.status?.operation_id ?? null,
             running: state.status?.running ?? null,
             error: state.error,
-            cause: scene && state.status?.version === 3 ? state.status.cause
-                : state.status?.version === 2 ? state.status.cause : null,
+            cause:
+                scene && state.status?.version === 3
+                    ? state.status.cause
+                    : state.status?.version === 2
+                      ? state.status.cause
+                      : null,
             pending: state.pending?.action ?? null,
             uncertain: state.uncertain,
             cleanup: state.mode === "approved_native" ? state.cleanup : null,
@@ -156,18 +181,39 @@ export async function comparisonRunNativeJourneys({
         invoke("harness_native_comparison_case", { scenario });
     const observation = async (): Promise<Observation> => {
         check(scene, "native-scene-observation-only-in-closed-scene-journey");
-        const value = await invoke("harness_native_comparison_case", { scenario: "execution-observation" }) as Observation;
-        check(value && Object.keys(value).sort().join(",") ===
-            "consent_calls,kind,owner_present,protocol_version,reservation_sequence,retained_evaluations,version" &&
-            value.version === 1 && value.kind === "native_scene_execution_observation" && value.protocol_version === 4 &&
-            [value.reservation_sequence, value.consent_calls, value.retained_evaluations]
-                .every((number) => Number.isSafeInteger(number) && number >= 0) &&
-            typeof value.owner_present === "boolean", "native-scene-closed-native-execution-observation");
+        const value = (await invoke("harness_native_comparison_case", {
+            scenario: "execution-observation",
+        })) as Observation;
+        check(
+            value &&
+                Object.keys(value).sort().join(",") ===
+                    "consent_calls,kind,owner_present,protocol_version,reservation_sequence,retained_evaluations,version" &&
+                value.version === 1 &&
+                value.kind === "native_scene_execution_observation" &&
+                value.protocol_version === 4 &&
+                [
+                    value.reservation_sequence,
+                    value.consent_calls,
+                    value.retained_evaluations,
+                ].every(
+                    (number) => Number.isSafeInteger(number) && number >= 0,
+                ) &&
+                typeof value.owner_present === "boolean",
+            "native-scene-closed-native-execution-observation",
+        );
         return value;
     };
-    const ownerFree = (value: Observation) => !value.owner_present && value.retained_evaluations === 0;
-    const unchangedObservation = (before: Observation, after: Observation, name: string) => {
-        const same = structural(before) === structural(after) && ownerFree(before) && ownerFree(after);
+    const ownerFree = (value: Observation) =>
+        !value.owner_present && value.retained_evaluations === 0;
+    const unchangedObservation = (
+        before: Observation,
+        after: Observation,
+        name: string,
+    ) => {
+        const same =
+            structural(before) === structural(after) &&
+            ownerFree(before) &&
+            ownerFree(after);
         observationProofs.push({ name, before, after, unchanged: same });
         check(same, name);
     };
@@ -270,10 +316,16 @@ export async function comparisonRunNativeJourneys({
                 f.get().status?.running === false,
             `${name}-terminal`,
         );
-        if (scene) check(f.get().clientId === client && f.get().status?.version === 3 &&
-            f.get().status?.protocol_version === 4 && f.get().status?.input_lane === "approved_native",
-            `${name}-native-v3-scene4-identity`);
-        else check(
+        if (scene)
+            check(
+                f.get().clientId === client &&
+                    f.get().status?.version === 3 &&
+                    f.get().status?.protocol_version === 4 &&
+                    f.get().status?.input_lane === "approved_native",
+                `${name}-native-v3-scene4-identity`,
+            );
+        else
+            check(
                 f.get().clientId === client &&
                     f.get().status?.version === 2 &&
                     f.get().status?.input_lane === "approved_native",
@@ -435,7 +487,8 @@ export async function comparisonRunNativeJourneys({
         const targetSelector =
             selector === "#comparison-reader" &&
             !["full-denied"].includes(label)
-                ? ["full-receipt", "full-narrow"].includes(label) || label.startsWith("full-scene-")
+                ? ["full-receipt", "full-narrow"].includes(label) ||
+                  label.startsWith("full-scene-")
                     ? ".comparison-evidence"
                     : ".comparison-selected"
                 : selector;
@@ -560,13 +613,19 @@ export async function comparisonRunNativeJourneys({
                           quality_accepted:
                               reader.summary.report.quality_accepted,
                           constructions:
-                              reader.summary.report.version === 3 || (scene && reader.summary.report.version === 4)
+                              reader.summary.report.version === 3 ||
+                              (scene && reader.summary.report.version === 4)
                                   ? reader.summary.report.arms
                                   : null,
-                          ...(scene && reader.summary.report.version === 4 ? {
-                              source_bound_committed_rows: reader.summary.report.source_bound_committed_rows,
-                              human_rubric: reader.summary.report.human_rubric,
-                          } : {}),
+                          ...(scene && reader.summary.report.version === 4
+                              ? {
+                                    source_bound_committed_rows:
+                                        reader.summary.report
+                                            .source_bound_committed_rows,
+                                    human_rubric:
+                                        reader.summary.report.human_rubric,
+                                }
+                              : {}),
                       }
                     : null,
             },
@@ -658,9 +717,15 @@ export async function comparisonRunNativeJourneys({
             );
             return;
         }
-        if (scene) check(r.get().status?.phase === "ready" && !!r.get().status?.run_token &&
-            r.get().source?.protocol_version === 4, "native-scene-managed-actual-protocol4-reader");
-        else check(
+        if (scene)
+            check(
+                r.get().status?.phase === "ready" &&
+                    !!r.get().status?.run_token &&
+                    r.get().source?.protocol_version === 4,
+                "native-scene-managed-actual-protocol4-reader",
+            );
+        else
+            check(
                 r.get().status?.phase === "ready" &&
                     !!r.get().status?.run_token &&
                     r.get().source?.protocol_version === 3,
@@ -670,38 +735,69 @@ export async function comparisonRunNativeJourneys({
         await r.loadSummary();
         const report = r.get().summary?.report;
         if (scene) {
-            check(report?.version === 4 && report.kind === "paired_snapshots" && report.source_matches === true &&
-                report.completed === completed && report.completed_scenes === (completed ? 4 : 1) &&
-                report.turns.length === (completed ? 48 : 12), completed
-                    ? "native-scene-actual-completed-proof" : "native-scene-actual-paired-partial");
-            check(report?.version === 4 && report.arms[0]?.arm === "literal_scene_v1" &&
-                report.arms[1]?.arm === "relevant_memory_scene_v1", "native-scene-actual-construction-descriptors");
+            check(
+                report?.version === 4 &&
+                    report.kind === "paired_snapshots" &&
+                    report.source_matches === true &&
+                    report.completed === completed &&
+                    report.completed_scenes === (completed ? 4 : 1) &&
+                    report.turns.length === (completed ? 48 : 12),
+                completed
+                    ? "native-scene-actual-completed-proof"
+                    : "native-scene-actual-paired-partial",
+            );
+            check(
+                report?.version === 4 &&
+                    report.arms[0]?.arm === "literal_scene_v1" &&
+                    report.arms[1]?.arm === "relevant_memory_scene_v1",
+                "native-scene-actual-construction-descriptors",
+            );
             if (report?.version === 4) {
-                const bound = report.turns.filter((row) => row.construction_evidence_status === "validated_committed_scene_narrator_v1");
-                check(report.source_bound_committed_rows === bound.length && bound.every((row) =>
-                    row.phase === "committed" && [row.narrator_prompt_sha256, row.narrator_schema_sha256, row.scene_frame_sha256]
-                        .every((hash) => typeof hash === "string" && /^[0-9a-f]{64}$/.test(hash))),
-                    "native-scene-finite-committed-narrator-input-gate-counted-not-output-authentication");
-                check(report.human_rubric === "not_reviewed", "native-scene-human-rubric-remains-unreviewed");
+                const bound = report.turns.filter(
+                    (row) =>
+                        row.construction_evidence_status ===
+                        "validated_committed_scene_narrator_v1",
+                );
+                check(
+                    report.source_bound_committed_rows === bound.length &&
+                        bound.every(
+                            (row) =>
+                                row.phase === "committed" &&
+                                [
+                                    row.narrator_prompt_sha256,
+                                    row.narrator_schema_sha256,
+                                    row.scene_frame_sha256,
+                                ].every(
+                                    (hash) =>
+                                        typeof hash === "string" &&
+                                        /^[0-9a-f]{64}$/.test(hash),
+                                ),
+                        ),
+                    "native-scene-finite-committed-narrator-input-gate-counted-not-output-authentication",
+                );
+                check(
+                    report.human_rubric === "not_reviewed",
+                    "native-scene-human-rubric-remains-unreviewed",
+                );
             }
         } else {
-        check(
-            report?.version === 3 &&
-                report.kind === "paired_snapshots" &&
-                report.source_matches === true &&
-                report.completed === completed &&
-                report.completed_scenes === (completed ? 4 : 1) &&
-                report.turns.length === (completed ? 48 : 12),
-            completed
-                ? "native-full-actual-completed-proof"
-                : "native-full-actual-paired-partial",
-        );
-        check(
-            report?.version === 3 &&
-                report.arms[0]?.arm === "literal_player_v1" &&
-                report.arms[1]?.arm === "relevant_memory_v1",
-            "native-full-actual-construction-descriptors",
-        );
+            check(
+                report?.version === 3 &&
+                    report.kind === "paired_snapshots" &&
+                    report.source_matches === true &&
+                    report.completed === completed &&
+                    report.completed_scenes === (completed ? 4 : 1) &&
+                    report.turns.length === (completed ? 48 : 12),
+                completed
+                    ? "native-full-actual-completed-proof"
+                    : "native-full-actual-paired-partial",
+            );
+            check(
+                report?.version === 3 &&
+                    report.arms[0]?.arm === "literal_player_v1" &&
+                    report.arms[1]?.arm === "relevant_memory_v1",
+                "native-full-actual-construction-descriptors",
+            );
         }
         check(
             report?.human_reviewed === 0 && report.quality_accepted === false,
@@ -739,17 +835,32 @@ export async function comparisonRunNativeJourneys({
                 failures: report.turns.filter((row) => !row.passed).length,
                 human_reviewed: report.human_reviewed,
                 quality_accepted: report.quality_accepted,
-                ...(scene && report.version === 4 ? {
-                    protocol_version: 4, native_load: report.native_load, profile: report.profile,
-                    source_bound_committed_rows: report.source_bound_committed_rows,
-                    construction_statuses: report.turns.reduce<Record<string, number>>((counts, row) => {
-                        counts[row.construction_evidence_status] = (counts[row.construction_evidence_status] ?? 0) + 1; return counts;
-                    }, {}),
-                    privacy_statuses: report.turns.reduce<Record<string, number>>((counts, row) => {
-                        counts[row.privacy_evidence_status] = (counts[row.privacy_evidence_status] ?? 0) + 1; return counts;
-                    }, {}),
-                    human_rubric: report.human_rubric,
-                } : {}),
+                ...(scene && report.version === 4
+                    ? {
+                          protocol_version: 4,
+                          native_load: report.native_load,
+                          profile: report.profile,
+                          source_bound_committed_rows:
+                              report.source_bound_committed_rows,
+                          construction_statuses: report.turns.reduce<
+                              Record<string, number>
+                          >((counts, row) => {
+                              counts[row.construction_evidence_status] =
+                                  (counts[row.construction_evidence_status] ??
+                                      0) + 1;
+                              return counts;
+                          }, {}),
+                          privacy_statuses: report.turns.reduce<
+                              Record<string, number>
+                          >((counts, row) => {
+                              counts[row.privacy_evidence_status] =
+                                  (counts[row.privacy_evidence_status] ?? 0) +
+                                  1;
+                              return counts;
+                          }, {}),
+                          human_rubric: report.human_rubric,
+                      }
+                    : {}),
             });
         }
     };
@@ -775,31 +886,75 @@ export async function comparisonRunNativeJourneys({
     };
     const sceneRead = async (request: EvidenceRequest) => {
         const selected = r.get().selected;
-        const row = selected ? r.get().source?.rows.find((entry) => entry.row.turn === selected.turn && entry.row.arm === selected.arm) : undefined;
-        check(scene && row, "native-scene-inspection-has-actual-selected-source");
+        const row = selected
+            ? r
+                  .get()
+                  .source?.rows.find(
+                      (entry) =>
+                          entry.row.turn === selected.turn &&
+                          entry.row.arm === selected.arm,
+                  )
+            : undefined;
+        check(
+            scene && row,
+            "native-scene-inspection-has-actual-selected-source",
+        );
         const changed = !sameReaderObserver(r.get().observer, request.observer);
         r.setObserver(request.observer);
-        check(!changed || r.get().evidence === null, "native-scene-lens-synchronously-retires-prior-body");
+        check(
+            !changed || r.get().evidence === null,
+            "native-scene-lens-synchronously-retires-prior-body",
+        );
         await r.inspect(request);
         const evidence = r.get().evidence;
-        check(!r.get().busy && r.get().error === null && evidence &&
-            sameReaderObserver(evidence.observer, request.observer) &&
-            evidence.row.turn === selected!.turn && evidence.row.arm === selected!.arm &&
-            evidence.binding === r.get().source?.binding && structural(evidence.scope) === structural(row!.source.scope) &&
-            evidence.before_head === row!.source.before_head && evidence.after_head === row!.source.after_head &&
-            evidence.read_only === true && evidence.generation_grant === false,
-            "native-scene-evidence-keeps-actual-row-and-lens");
-        const available = request.kind === "query" || (request.kind === "receipt" ? row!.receipt_available
-            : request.kind === "capture" ? row!.capture_available : row!.recording_available);
-        const missing = request.kind === "receipt" ? "no_accepted_receipt"
-            : request.kind === "capture" ? "capture_unavailable" : "recording_unavailable";
-        check(available ? evidence!.body.kind === request.kind
-            : evidence!.body.kind === "missing" && evidence!.body.reason === missing,
-            `native-scene-actual-${request.kind}-${available ? "available" : "unavailable"}`);
+        check(
+            !r.get().busy &&
+                r.get().error === null &&
+                evidence &&
+                sameReaderObserver(evidence.observer, request.observer) &&
+                evidence.row.turn === selected!.turn &&
+                evidence.row.arm === selected!.arm &&
+                evidence.binding === r.get().source?.binding &&
+                structural(evidence.scope) === structural(row!.source.scope) &&
+                evidence.before_head === row!.source.before_head &&
+                evidence.after_head === row!.source.after_head &&
+                evidence.read_only === true &&
+                evidence.generation_grant === false,
+            "native-scene-evidence-keeps-actual-row-and-lens",
+        );
+        const available =
+            request.kind === "query" ||
+            (request.kind === "receipt"
+                ? row!.receipt_available
+                : request.kind === "capture"
+                  ? row!.capture_available
+                  : row!.recording_available);
+        const missing =
+            request.kind === "receipt"
+                ? "no_accepted_receipt"
+                : request.kind === "capture"
+                  ? "capture_unavailable"
+                  : "recording_unavailable";
+        check(
+            available
+                ? evidence!.body.kind === request.kind
+                : evidence!.body.kind === "missing" &&
+                      evidence!.body.reason === missing,
+            `native-scene-actual-${request.kind}-${available ? "available" : "unavailable"}`,
+        );
         return evidence!;
     };
-    const evidenceHash = async (value: unknown) => [...new Uint8Array(await crypto.subtle.digest("SHA-256",
-        new TextEncoder().encode(JSON.stringify(value))))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    const evidenceHash = async (value: unknown) =>
+        [
+            ...new Uint8Array(
+                await crypto.subtle.digest(
+                    "SHA-256",
+                    new TextEncoder().encode(JSON.stringify(value)),
+                ),
+            ),
+        ]
+            .map((byte) => byte.toString(16).padStart(2, "0"))
+            .join("");
     const sceneReviewJourney = async () => {
         // Prior player/actor lens changes intentionally retired the private
         // summary. Read it again through the same current native reader token.
@@ -809,21 +964,50 @@ export async function comparisonRunNativeJourneys({
         check(report?.version === 4, "native-scene-review-uses-actual-report4");
         if (report?.version !== 4) throw Error("SceneReportRequired");
         for (const slot of sceneSlots) {
-            const row = r.get().source!.rows.find((entry) => entry.row.turn === slot.turn && entry.row.arm === slot.arm);
-            const result = report.turns.find((entry) => entry.turn === slot.turn && entry.arm === slot.arm);
-            check(row && result, `native-scene-fixed-review-slot-${slot.turn}-${slot.arm}-retained`);
+            const row = r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.row.turn === slot.turn &&
+                        entry.row.arm === slot.arm,
+                );
+            const result = report.turns.find(
+                (entry) => entry.turn === slot.turn && entry.arm === slot.arm,
+            );
+            check(
+                row && result,
+                `native-scene-fixed-review-slot-${slot.turn}-${slot.arm}-retained`,
+            );
             r.select(row!.row);
-            const receipt = await sceneRead({ kind: "receipt", observer: { kind: "omniscient" } });
-            const captureEvidence = await sceneRead({ kind: "capture", observer: { kind: "omniscient" } });
-            const outputs = await sceneRead({ kind: "outputs", observer: { kind: "omniscient" } });
+            const receipt = await sceneRead({
+                kind: "receipt",
+                observer: { kind: "omniscient" },
+            });
+            const captureEvidence = await sceneRead({
+                kind: "capture",
+                observer: { kind: "omniscient" },
+            });
+            const outputs = await sceneRead({
+                kind: "outputs",
+                observer: { kind: "omniscient" },
+            });
             const retained = {
-                turn: slot.turn, arm: slot.arm, label: slot.label, phase: result!.phase,
-                passed: result!.passed, error: result!.error, fallback: result!.fallback,
-                receipt_available: row!.receipt_available, capture_available: row!.capture_available,
-                recording_available: row!.recording_available, source: row!.source,
+                turn: slot.turn,
+                arm: slot.arm,
+                label: slot.label,
+                phase: result!.phase,
+                passed: result!.passed,
+                error: result!.error,
+                fallback: result!.fallback,
+                receipt_available: row!.receipt_available,
+                capture_available: row!.capture_available,
+                recording_available: row!.recording_available,
+                source: row!.source,
                 input_semantic_sha256: result!.input_semantic_sha256,
-                construction_evidence_status: result!.construction_evidence_status,
-                construction_evidence_reason: result!.construction_evidence_reason,
+                construction_evidence_status:
+                    result!.construction_evidence_status,
+                construction_evidence_reason:
+                    result!.construction_evidence_reason,
                 privacy_evidence_status: result!.privacy_evidence_status,
                 narrator_prompt_sha256: result!.narrator_prompt_sha256,
                 narrator_schema_sha256: result!.narrator_schema_sha256,
@@ -831,7 +1015,8 @@ export async function comparisonRunNativeJourneys({
                 receipt_evidence_sha256: await evidenceHash(receipt),
                 capture_evidence_sha256: await evidenceHash(captureEvidence),
                 outputs_evidence_sha256: await evidenceHash(outputs),
-                human_rubric: "not_reviewed", quality_accepted: false,
+                human_rubric: "not_reviewed",
+                quality_accepted: false,
                 original_human_assessment: "needs improvement",
             };
             reviewSlots.push(retained);
@@ -839,65 +1024,163 @@ export async function comparisonRunNativeJourneys({
             // hash binds this observation without duplicating a whole prompt
             // into a bounded semantic checkpoint. Actual receipt and outputs
             // are retained here; unavailable slots remain unavailable.
-            sceneReview = { version: 1, ...retained, receiptEvidence: receipt,
-                captureBodyKind: captureEvidence.body.kind, outputsEvidence: outputs };
-            try { await capture(slot.label, "#comparison-reader"); }
-            finally { sceneReview = null; }
+            sceneReview = {
+                version: 1,
+                ...retained,
+                receiptEvidence: receipt,
+                captureBodyKind: captureEvidence.body.kind,
+                outputsEvidence: outputs,
+            };
+            try {
+                await capture(slot.label, "#comparison-reader");
+            } finally {
+                sceneReview = null;
+            }
         }
-        check(reviewSlots.length === 8, "native-scene-eight-frozen-review-slots-no-substitution");
+        check(
+            reviewSlots.length === 8,
+            "native-scene-eight-frozen-review-slots-no-substitution",
+        );
     };
     const sceneReaderJourney = async (extended: boolean) => {
-        const client = f.get().clientId, operation = f.get().status?.operation_id;
+        const client = f.get().clientId,
+            operation = f.get().status?.operation_id;
         await managedRead(true);
-        const row = r.get().source!.rows.find((entry) => entry.receipt_available && entry.capture_available && entry.recording_available)
-            ?? r.get().source!.rows[0];
+        const row =
+            r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.receipt_available &&
+                        entry.capture_available &&
+                        entry.recording_available,
+                ) ?? r.get().source!.rows[0];
         check(row, "native-scene-actual-source-row-without-assuming-a-commit");
         r.select(row.row);
         for (const edge of ["before", "after"] as const) {
-            const body = await sceneRead({ kind: "query", edge, observer: { kind: "player" }, view: "history" });
-            const head = edge === "before" ? row.source.before_head : row.source.after_head;
-            check(body.body.kind === "query" && body.body.page.head === head && body.body.page.revision === head &&
-                structural(body.scope) === structural(row.source.scope), `native-scene-${edge}-actual-Store-cut`);
+            const body = await sceneRead({
+                kind: "query",
+                edge,
+                observer: { kind: "player" },
+                view: "history",
+            });
+            const head =
+                edge === "before"
+                    ? row.source.before_head
+                    : row.source.after_head;
+            check(
+                body.body.kind === "query" &&
+                    body.body.page.head === head &&
+                    body.body.page.revision === head &&
+                    structural(body.scope) === structural(row.source.scope),
+                `native-scene-${edge}-actual-Store-cut`,
+            );
         }
         await capture("full-reader", "#comparison-reader");
         if (extended) {
-            const knowledgeRow = r.get().source!.rows.find((entry) => entry.row.turn === "courier-01" && entry.row.arm === "left");
-            check(knowledgeRow, "native-scene-original-player-only-knowledge-cut");
+            const knowledgeRow = r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.row.turn === "courier-01" &&
+                        entry.row.arm === "left",
+                );
+            check(
+                knowledgeRow,
+                "native-scene-original-player-only-knowledge-cut",
+            );
             r.select(knowledgeRow!.row);
-            const known = await sceneRead({ kind: "query", edge: "before", observer: { kind: "player" }, view: "knowledge" });
-            check(known.body.kind === "query" && JSON.stringify(known.body.page).includes("SECRET-TIDE-731"),
-                "native-scene-player-positive-private-knowledge-canary");
+            const known = await sceneRead({
+                kind: "query",
+                edge: "before",
+                observer: { kind: "player" },
+                view: "knowledge",
+            });
+            check(
+                known.body.kind === "query" &&
+                    JSON.stringify(known.body.page).includes("SECRET-TIDE-731"),
+                "native-scene-player-positive-private-knowledge-canary",
+            );
             for (const id of ["mira", "sable"] as const) {
                 r.select(knowledgeRow!.row);
-                const body = await sceneRead({ kind: "query", edge: "before", observer: { kind: "character", id }, view: "knowledge" });
-                check(!JSON.stringify(body).includes("SECRET-TIDE-731"), `native-scene-${id}-no-player-private-secret`);
-                check(f.get().clientId === client && f.get().status?.operation_id === operation,
-                    `native-scene-${id}-lens-does-not-rekey-generation`);
-                await capture(id === "mira" ? "full-mira" : "full-sable", "#comparison-reader");
+                const body = await sceneRead({
+                    kind: "query",
+                    edge: "before",
+                    observer: { kind: "character", id },
+                    view: "knowledge",
+                });
+                check(
+                    !JSON.stringify(body).includes("SECRET-TIDE-731"),
+                    `native-scene-${id}-no-player-private-secret`,
+                );
+                check(
+                    f.get().clientId === client &&
+                        f.get().status?.operation_id === operation,
+                    `native-scene-${id}-lens-does-not-rekey-generation`,
+                );
+                await capture(
+                    id === "mira" ? "full-mira" : "full-sable",
+                    "#comparison-reader",
+                );
             }
             r.select(row.row);
             const nativeStatus = r.get().status!;
             for (const kind of ["receipt", "capture", "outputs"] as const) {
                 let denied = "";
-                try { await invoke("evaluation_comparison", { action: "evidence", query: {
-                    runToken: nativeStatus.run_token, binding: r.get().source!.binding, turnId: row.row.turn,
-                    arm: row.row.arm, request: { kind, observer: { kind: "character", id: "sable" } },
-                } }); } catch (error) { denied = String(error); }
-                check(denied === "Forbidden", `native-scene-actor-${kind}-refused-before-availability`);
+                try {
+                    await invoke("evaluation_comparison", {
+                        action: "evidence",
+                        query: {
+                            runToken: nativeStatus.run_token,
+                            binding: r.get().source!.binding,
+                            turnId: row.row.turn,
+                            arm: row.row.arm,
+                            request: {
+                                kind,
+                                observer: { kind: "character", id: "sable" },
+                            },
+                        },
+                    });
+                } catch (error) {
+                    denied = String(error);
+                }
+                check(
+                    denied === "Forbidden",
+                    `native-scene-actor-${kind}-refused-before-availability`,
+                );
             }
-            await sceneRead({ kind: "receipt", observer: { kind: "omniscient" } });
+            await sceneRead({
+                kind: "receipt",
+                observer: { kind: "omniscient" },
+            });
             await capture("full-receipt", "#comparison-reader");
-            await sceneRead({ kind: "capture", observer: { kind: "omniscient" } });
-            await sceneRead({ kind: "outputs", observer: { kind: "omniscient" } });
+            await sceneRead({
+                kind: "capture",
+                observer: { kind: "omniscient" },
+            });
+            await sceneRead({
+                kind: "outputs",
+                observer: { kind: "omniscient" },
+            });
             await invoke("harness_viewport", { preset: "capture-narrow" });
             await capture("full-narrow", "#comparison-reader");
             await invoke("harness_viewport", { preset: "wide" });
             await sceneReviewJourney();
-        } else await sceneRead({ kind: "receipt", observer: { kind: "omniscient" } });
+        } else
+            await sceneRead({
+                kind: "receipt",
+                observer: { kind: "omniscient" },
+            });
         r.setObserver({ kind: "player" });
-        check(r.get().evidence === null && r.get().summary === null, "native-scene-player-lens-retires-private-body");
-        check(f.get().clientId === client && f.get().status?.operation_id === operation,
-            "native-scene-reader-keeps-execution-identity");
+        check(
+            r.get().evidence === null && r.get().summary === null,
+            "native-scene-player-lens-retires-private-body",
+        );
+        check(
+            f.get().clientId === client &&
+                f.get().status?.operation_id === operation,
+            "native-scene-reader-keeps-execution-identity",
+        );
     };
     const readerJourney = async (extended: boolean) => {
         if (scene) return sceneReaderJourney(extended);
@@ -1075,20 +1358,32 @@ export async function comparisonRunNativeJourneys({
         rendering: "native-webview2",
         desktopInput: false,
         nativeDialogsAutomated: false,
-        ...(scene ? { protocolVersion: 4, reviewSlots, observationProofs,
-            originalHumanAssessment: "needs improvement", human_rubric: "not_reviewed", quality_accepted: false } : {}),
-        doubles: scene ? ["execution-consent", "read-consent", "lost-start-ack"] : [
-            "execution-consent",
-            "read-consent",
-            "model-picker",
-            "lost-start-ack",
-        ],
+        ...(scene
+            ? {
+                  protocolVersion: 4,
+                  reviewSlots,
+                  observationProofs,
+                  originalHumanAssessment: "needs improvement",
+                  human_rubric: "not_reviewed",
+                  quality_accepted: false,
+              }
+            : {}),
+        doubles: scene
+            ? ["execution-consent", "read-consent", "lost-start-ack"]
+            : [
+                  "execution-consent",
+                  "read-consent",
+                  "model-picker",
+                  "lost-start-ack",
+              ],
         unavailable: [
             "human-quality-acceptance",
             "real-OS-dialog-interaction",
             "physical-phone-qualification",
             "whole-process-resource-qualification",
-            ...(scene ? ["counter-observation-is-not-an-independent-SDK-load-count"] : ["independent-no-asset-call-counter-on-restart"]),
+            ...(scene
+                ? ["counter-observation-is-not-an-independent-SDK-load-count"]
+                : ["independent-no-asset-call-counter-on-restart"]),
             "presentation-poll-deadline-is-not-native-execution-budget",
         ],
         ...(!passed
@@ -1138,12 +1433,20 @@ export async function comparisonRunNativeJourneys({
         );
         if (scene) {
             await c.refreshModel();
-            check(c.get().model?.imported === true && c.get().model?.loaded === false &&
-                !c.get().modelBusy && c.get().model?.error === null,
-                "native-scene-existing-approved-publication-retained-unloaded-without-import");
+            check(
+                c.get().model?.imported === true &&
+                    c.get().model?.loaded === false &&
+                    !c.get().modelBusy &&
+                    c.get().model?.error === null,
+                "native-scene-existing-approved-publication-retained-unloaded-without-import",
+            );
             const initialObservation = await observation();
-            check(initialObservation.reservation_sequence === 0 && initialObservation.consent_calls === 0 && ownerFree(initialObservation),
-                "native-scene-fresh-application-owner-and-consent-counts-zero");
+            check(
+                initialObservation.reservation_sequence === 0 &&
+                    initialObservation.consent_calls === 0 &&
+                    ownerFree(initialObservation),
+                "native-scene-fresh-application-owner-and-consent-counts-zero",
+            );
         } else if (config.stage === "initial") {
             await c.modelAction("model_import");
             check(
@@ -1162,13 +1465,19 @@ export async function comparisonRunNativeJourneys({
             );
         }
         await f.loadCatalog();
-        if (scene) check(f.get().catalog?.version === 3 && f.get().catalog?.protocol_version === 4 &&
-            f.get().catalog?.input_lane === "approved_native", "native-scene-actual-v3-protocol4-native-catalog");
-        else check(
-            f.get().catalog?.version === 2 &&
-                f.get().catalog?.input_lane === "approved_native",
-            "native-full-actual-v2-native-catalog",
-        );
+        if (scene)
+            check(
+                f.get().catalog?.version === 3 &&
+                    f.get().catalog?.protocol_version === 4 &&
+                    f.get().catalog?.input_lane === "approved_native",
+                "native-scene-actual-v3-protocol4-native-catalog",
+            );
+        else
+            check(
+                f.get().catalog?.version === 2 &&
+                    f.get().catalog?.input_lane === "approved_native",
+                "native-full-actual-v2-native-catalog",
+            );
         await capture("full-idle");
         if (config.stage === "restart") {
             const paired = f
@@ -1194,8 +1503,12 @@ export async function comparisonRunNativeJourneys({
             await terminal(f.resume(1), "native-full-cold-completed-resume");
             await readerJourney(false);
             await close();
-            if (scene) unchangedObservation(coldObservation!, await observation(),
-                "native-scene-cold-open-read-completed-resume-no-consent-or-reservation");
+            if (scene)
+                unchangedObservation(
+                    coldObservation!,
+                    await observation(),
+                    "native-scene-cold-open-read-completed-resume-no-consent-or-reservation",
+                );
             unchanged(
                 before,
                 await inventory(),
@@ -1365,8 +1678,10 @@ export async function comparisonRunNativeJourneys({
 
             if (scene) {
                 const prior = await observation();
-                check(prior.reservation_sequence === 0 && ownerFree(prior),
-                    "native-scene-consent-cancel-deny-retirement-never-reserved-a-model");
+                check(
+                    prior.reservation_sequence === 0 && ownerFree(prior),
+                    "native-scene-consent-cancel-deny-retirement-never-reserved-a-model",
+                );
             }
 
             await terminal(
@@ -1411,8 +1726,12 @@ export async function comparisonRunNativeJourneys({
                 await inventory(),
                 "completed-resume-entire-output-byte-read-only",
             );
-            if (scene) unchangedObservation(completedObservation!, await observation(),
-                "native-scene-completed-resume-no-consent-or-reservation");
+            if (scene)
+                unchangedObservation(
+                    completedObservation!,
+                    await observation(),
+                    "native-scene-completed-resume-no-consent-or-reservation",
+                );
             await capture("full-completed");
             const beforeRead = await inventory();
             await readerJourney(true);
@@ -1464,7 +1783,8 @@ export async function comparisonRunNativeJourneys({
         finalInventoryCount = final.file_count;
         await capture("full-finished");
         check(
-            captureLabels.length === (config.stage === "initial" ? scene ? 22 : 14 : 4),
+            captureLabels.length ===
+                (config.stage === "initial" ? (scene ? 22 : 14) : 4),
             "native-full-exact-bounded-captures",
         );
         disposalStarted = true;

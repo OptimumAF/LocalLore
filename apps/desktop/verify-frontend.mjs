@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 const root = new URL(".", import.meta.url);
 for (const args of [
+    ["comparison-run-process-policy-check.mjs"],
     ["build.mjs"],
     ["node_modules/typescript/bin/tsc", "--noEmit"],
     ["check-contract.mjs"],

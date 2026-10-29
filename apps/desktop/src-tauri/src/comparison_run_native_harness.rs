@@ -31,17 +31,18 @@ pub fn active() -> bool {
 /// Fail closed even for an inconsistent scene request; never enable ordinary
 /// import/load merely because another required development flag is missing.
 pub fn scene_requested() -> bool {
-    std::env::var_os("LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS")
-        .is_some_and(|value| value != "0")
+    std::env::var_os("LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS").is_some_and(|value| value != "0")
 }
 pub fn scene_active() -> bool {
     active()
-        && std::env::var("LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS").as_deref()==Ok("1")
-        && std::env::var("LOCALLORE_D04_HARNESS").as_deref()!=Ok("1")
+        && std::env::var("LOCALLORE_D07_SCENE_NATIVE_FULL_HARNESS").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D04_HARNESS").as_deref() != Ok("1")
 }
-pub fn protocol() -> Result<crate::evaluation::FullComparisonProtocol,String> {
+pub fn protocol() -> Result<crate::evaluation::FullComparisonProtocol, String> {
     if scene_requested() {
-        if !scene_active() { return Err("Forbidden".into()); }
+        if !scene_active() {
+            return Err("Forbidden".into());
+        }
         Ok(crate::evaluation::FullComparisonProtocol::SceneV4)
     } else {
         Ok(crate::evaluation::FullComparisonProtocol::LiteralV3)
@@ -87,29 +88,42 @@ pub fn model_root(workspace: &Path) -> Result<PathBuf, String> {
     let parent = checked_parent(workspace)?;
     let _pins = pins(parent)?;
     if scene_requested() {
-        if !scene_active() {return Err("Forbidden".into());}
+        if !scene_active() {
+            return Err("Forbidden".into());
+        }
         // Launcher-only reuse input. No directory creation, importer, alternate
         // basename or fall back to a fresh copy is allowed in the scene cohort.
-        let root=std::env::var_os("LOCALLORE_D04_MODEL_ROOT").map(PathBuf::from).ok_or("ModelInvalid")?;
+        let root = std::env::var_os("LOCALLORE_D04_MODEL_ROOT")
+            .map(PathBuf::from)
+            .ok_or("ModelInvalid")?;
         if !root.is_absolute()
-            || root.components().any(|part|matches!(part,Component::ParentDir|Component::CurDir))
+            || root
+                .components()
+                .any(|part| matches!(part, Component::ParentDir | Component::CurDir))
             || !matches!(root.components().next(),Some(Component::Prefix(prefix)) if matches!(prefix.kind(),std::path::Prefix::Disk(_)|std::path::Prefix::VerbatimDisk(_)))
             || root.starts_with(parent)
-        { return Err("ModelInvalid".into()); }
-        let _publication=pins(&root)?;
+        {
+            return Err("ModelInvalid".into());
+        }
+        let _publication = pins(&root)?;
         // Ordinary Windows paths may name the same nested directory through
         // different case or an 8.3 alias. Compare resolved identities after
         // both ancestor chains are pinned, not just the supplied spellings.
-        let resolved_root=std::fs::canonicalize(&root).map_err(|_|"ModelInvalid".to_owned())?;
-        let resolved_parent=std::fs::canonicalize(parent).map_err(|_|"ModelInvalid".to_owned())?;
-        if resolved_root.starts_with(&resolved_parent) {return Err("ModelInvalid".into());}
+        let resolved_root = std::fs::canonicalize(&root).map_err(|_| "ModelInvalid".to_owned())?;
+        let resolved_parent =
+            std::fs::canonicalize(parent).map_err(|_| "ModelInvalid".to_owned())?;
+        if resolved_root.starts_with(&resolved_parent) {
+            return Err("ModelInvalid".into());
+        }
         return Ok(root);
     }
     Ok(parent.join("model-native-v1"))
 }
 
 pub fn approved_model_source(workspace: &Path) -> Result<Option<PathBuf>, String> {
-    if scene_requested() {return Err("Forbidden".into());}
+    if scene_requested() {
+        return Err("Forbidden".into());
+    }
     let parent = checked_parent(workspace)?;
     let _pins = pins(parent)?;
     let source = std::env::var_os("LOCALLORE_D07_NATIVE_MODEL_SOURCE")
@@ -146,7 +160,7 @@ pub fn consent(
     if !metadata.is_object()
         || metadata["version"] != 1
         || metadata["kind"] != "full_comparison_execution"
-        || metadata["protocol_version"] != (if scene_active(){4}else{3})
+        || metadata["protocol_version"] != (if scene_active() { 4 } else { 3 })
         || metadata["input_lane"] != "approved_native"
         || serde_json::to_vec(metadata)
             .map_err(|_| "InvalidEvaluationInput")?
@@ -156,7 +170,11 @@ pub fn consent(
         return Err("InvalidEvaluationInput".into());
     }
     if scene_active() {
-        state.consent_calls.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| count.checked_add(1))
+        state
+            .consent_calls
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+                count.checked_add(1)
+            })
             .map_err(|_| "EvaluationBudget".to_owned())?;
     }
     state.consent_active.store(true, Ordering::SeqCst);

@@ -22,8 +22,6 @@ mod comparison_reader_harness;
 mod comparison_run_commands;
 #[cfg(feature = "dev-harness")]
 mod comparison_run_native_harness;
-#[cfg(feature = "dev-harness")]
-mod scene_model_guard_harness;
 mod evaluation;
 mod evaluation_commands;
 mod export_commands;
@@ -36,6 +34,8 @@ mod model_commands;
 mod models;
 #[cfg(feature = "dev-harness")]
 mod scene_harness;
+#[cfg(feature = "dev-harness")]
+mod scene_model_guard_harness;
 mod selected_commands;
 #[cfg(feature = "dev-harness")]
 mod selected_harness;

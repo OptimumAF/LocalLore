@@ -367,6 +367,25 @@ class WindowsTcpControlPreflightTests(unittest.TestCase):
             dispatch.assert_not_called()
         self.assertFalse(output.exists())
 
+    @unittest.skipUnless(os.name=='nt','physical D: fixture requires Windows')
+    def test_windows_device_stream_and_trailing_aliases_refuse_before_dispatch(self):
+        parent = Path(tempfile.mkdtemp(prefix='listener-control-alias-',dir='D:/Dev/_Temp'))
+        for name in ('new-control.','new-control ','CON','nul.txt','COM1.log','LPT9',
+                     'new:stream','new?control','new*control','new|control','new\x01control'):
+            with self.subTest(name=repr(name)),patch.object(t,'_dispatch',return_value=0) as dispatch, \
+                 redirect_stdout(io.StringIO()):
+                self.assertEqual(t.main(['--output',str(parent/name)]),1)
+                dispatch.assert_not_called()
+
+    @unittest.skipUnless(os.name=='nt','physical D: fixture requires Windows')
+    def test_ordinary_unicode_apostrophes_and_spaces_are_not_path_aliases(self):
+        parent = Path(tempfile.mkdtemp(prefix="listener-control-Éowyn's-notes-",dir='D:/Dev/_Temp'))
+        output = parent/"weather crew's note"
+        with patch.object(t,'_dispatch') as dispatch:
+            self.assertEqual(t.validate_output(str(output)),output)
+            dispatch.assert_not_called()
+        self.assertFalse(output.exists())
+
 
 if __name__=='__main__':
     unittest.main()

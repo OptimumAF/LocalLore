@@ -22,12 +22,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "item",
-            "to",
-            "quantity"
-          ],
+          "required": ["op", "item", "to", "quantity"],
           "type": "object"
         },
         {
@@ -41,10 +36,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "item"
-          ],
+          "required": ["op", "item"],
           "type": "object"
         },
         {
@@ -58,10 +50,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "ability"
-          ],
+          "required": ["op", "ability"],
           "type": "object"
         },
         {
@@ -75,10 +64,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "ability"
-          ],
+          "required": ["op", "ability"],
           "type": "object"
         },
         {
@@ -92,10 +78,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "to"
-          ],
+          "required": ["op", "to"],
           "type": "object"
         },
         {
@@ -116,11 +99,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "text",
-            "audience"
-          ],
+          "required": ["op", "text", "audience"],
           "type": "object"
         },
         {
@@ -136,10 +115,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "claim_event"
-          ],
+          "required": ["op", "claim_event"],
           "type": "object"
         },
         {
@@ -153,10 +129,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "fact"
-          ],
+          "required": ["op", "fact"],
           "type": "object"
         },
         {
@@ -175,10 +148,7 @@
               "type": "string"
             },
             "return_item": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": ["string", "null"]
             },
             "terms": {
               "type": "string"
@@ -187,13 +157,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "id",
-            "to",
-            "terms",
-            "deadline"
-          ],
+          "required": ["op", "id", "to", "terms", "deadline"],
           "type": "object"
         },
         {
@@ -207,10 +171,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "id"
-          ],
+          "required": ["op", "id"],
           "type": "object"
         },
         {
@@ -227,10 +188,7 @@
               "type": "integer"
             }
           },
-          "required": [
-            "op",
-            "ticks"
-          ],
+          "required": ["op", "ticks"],
           "type": "object"
         }
       ]
@@ -245,9 +203,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op"
-          ],
+          "required": ["op"],
           "type": "object"
         },
         {
@@ -261,10 +217,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "input"
-          ],
+          "required": ["op", "input"],
           "type": "object"
         },
         {
@@ -278,10 +231,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "job"
-          ],
+          "required": ["op", "job"],
           "type": "object"
         },
         {
@@ -304,13 +254,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "job",
-            "input",
-            "proposal",
-            "title"
-          ],
+          "required": ["op", "job", "input", "proposal", "title"],
           "type": "object"
         },
         {
@@ -330,12 +274,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "job",
-            "review_sha256",
-            "creation_id"
-          ],
+          "required": ["op", "job", "review_sha256", "creation_id"],
           "type": "object"
         },
         {
@@ -349,10 +288,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "job"
-          ],
+          "required": ["op", "job"],
           "type": "object"
         },
         {
@@ -366,10 +302,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "job"
-          ],
+          "required": ["op", "job"],
           "type": "object"
         },
         {
@@ -380,9 +313,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op"
-          ],
+          "required": ["op"],
           "type": "object"
         },
         {
@@ -393,9 +324,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op"
-          ],
+          "required": ["op"],
           "type": "object"
         },
         {
@@ -409,10 +338,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "story"
-          ],
+          "required": ["op", "story"],
           "type": "object"
         },
         {
@@ -426,10 +352,7 @@
               "$ref": "#/$defs/Scope"
             }
           },
-          "required": [
-            "op",
-            "scope"
-          ],
+          "required": ["op", "scope"],
           "type": "object"
         },
         {
@@ -443,10 +366,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "seed"
-          ],
+          "required": ["op", "seed"],
           "type": "object"
         },
         {
@@ -457,9 +377,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op"
-          ],
+          "required": ["op"],
           "type": "object"
         },
         {
@@ -473,10 +391,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "template"
-          ],
+          "required": ["op", "template"],
           "type": "object"
         },
         {
@@ -488,19 +403,13 @@
             },
             "player_name": {
               "default": null,
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": ["string", "null"]
             },
             "template": {
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "template"
-          ],
+          "required": ["op", "template"],
           "type": "object"
         },
         {
@@ -512,10 +421,7 @@
             },
             "player_name": {
               "default": null,
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": ["string", "null"]
             },
             "presentation": {
               "anyOf": [
@@ -532,10 +438,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "template"
-          ],
+          "required": ["op", "template"],
           "type": "object"
         },
         {
@@ -557,12 +460,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "expected_revision"
-          ],
+          "required": ["op", "session", "scope", "expected_revision"],
           "type": "object"
         },
         {
@@ -585,13 +483,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "template",
-            "seed_sha256",
-            "title",
-            "creation_id"
-          ],
+          "required": ["op", "template", "seed_sha256", "title", "creation_id"],
           "type": "object"
         },
         {
@@ -686,11 +578,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope"
-          ],
+          "required": ["op", "session", "scope"],
           "type": "object"
         },
         {
@@ -707,11 +595,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope"
-          ],
+          "required": ["op", "session", "scope"],
           "type": "object"
         },
         {
@@ -731,12 +615,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "request",
-            "mode"
-          ],
+          "required": ["op", "session", "request", "mode"],
           "type": "object"
         },
         {
@@ -756,12 +635,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "turn"
-          ],
+          "required": ["op", "session", "scope", "turn"],
           "type": "object"
         },
         {
@@ -781,12 +655,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "turn"
-          ],
+          "required": ["op", "session", "scope", "turn"],
           "type": "object"
         },
         {
@@ -806,12 +675,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "turn"
-          ],
+          "required": ["op", "session", "scope", "turn"],
           "type": "object"
         },
         {
@@ -831,12 +695,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "turn"
-          ],
+          "required": ["op", "session", "scope", "turn"],
           "type": "object"
         },
         {
@@ -884,11 +743,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "query"
-          ],
+          "required": ["op", "session", "query"],
           "type": "object"
         },
         {
@@ -913,13 +768,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "expected_head",
-            "enabled"
-          ],
+          "required": ["op", "session", "scope", "expected_head", "enabled"],
           "type": "object"
         },
         {
@@ -928,10 +777,7 @@
             "attempt": {
               "format": "uint64",
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": ["integer", "null"]
             },
             "base_revision": {
               "format": "uint64",
@@ -957,10 +803,7 @@
               "type": "string"
             },
             "turn": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": ["string", "null"]
             }
           },
           "required": [
@@ -1035,12 +878,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "expected_head"
-          ],
+          "required": ["op", "session", "scope", "expected_head"],
           "type": "object"
         },
         {
@@ -1136,11 +974,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope"
-          ],
+          "required": ["op", "session", "scope"],
           "type": "object"
         },
         {
@@ -1151,9 +985,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op"
-          ],
+          "required": ["op"],
           "type": "object"
         },
         {
@@ -1175,12 +1007,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "expected_revision"
-          ],
+          "required": ["op", "session", "scope", "expected_revision"],
           "type": "object"
         },
         {
@@ -1202,12 +1029,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "expected_revision"
-          ],
+          "required": ["op", "session", "scope", "expected_revision"],
           "type": "object"
         },
         {
@@ -1224,11 +1046,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "request"
-          ],
+          "required": ["op", "session", "request"],
           "type": "object"
         },
         {
@@ -1250,12 +1068,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "op",
-            "session",
-            "scope",
-            "expected_revision"
-          ],
+          "required": ["op", "session", "scope", "expected_revision"],
           "type": "object"
         }
       ]
@@ -1276,11 +1089,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "believer",
-        "text",
-        "confidence"
-      ],
+      "required": ["believer", "text", "confidence"],
       "type": "object"
     },
     "InitialCastHintV1": {
@@ -1293,10 +1102,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "name",
-        "description"
-      ],
+      "required": ["name", "description"],
       "type": "object"
     },
     "InitialCharacterV1": {
@@ -1324,20 +1130,11 @@
           "type": "string"
         }
       },
-      "required": [
-        "name",
-        "description",
-        "location",
-        "known_by"
-      ],
+      "required": ["name", "description", "location", "known_by"],
       "type": "object"
     },
     "InitialConfidenceV1": {
-      "enum": [
-        "uncertain",
-        "suspected",
-        "believed"
-      ],
+      "enum": ["uncertain", "suspected", "believed"],
       "type": "string"
     },
     "InitialFactV1": {
@@ -1347,10 +1144,7 @@
           "format": "uint16",
           "maximum": 65535,
           "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "type": ["integer", "null"]
         },
         "known_by": {
           "items": {
@@ -1365,10 +1159,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "text",
-        "known_by"
-      ],
+      "required": ["text", "known_by"],
       "type": "object"
     },
     "InitialLocationV1": {
@@ -1381,10 +1172,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "name",
-        "description"
-      ],
+      "required": ["name", "description"],
       "type": "object"
     },
     "InitialPossessionV1": {
@@ -1406,17 +1194,10 @@
           "format": "uint16",
           "maximum": 65535,
           "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "type": ["integer", "null"]
         }
       },
-      "required": [
-        "name",
-        "description",
-        "owner"
-      ],
+      "required": ["name", "description", "owner"],
       "type": "object"
     },
     "InitialRouteV1": {
@@ -1435,17 +1216,11 @@
           "type": "integer"
         }
       },
-      "required": [
-        "from",
-        "to"
-      ],
+      "required": ["from", "to"],
       "type": "object"
     },
     "InitialRuleProfileV1": {
-      "enum": [
-        "fantasy_v1",
-        "narrative_v1"
-      ],
+      "enum": ["fantasy_v1", "narrative_v1"],
       "type": "string"
     },
     "InitialStoryInputV1": {
@@ -1571,10 +1346,7 @@
               "type": "array"
             }
           },
-          "required": [
-            "kind",
-            "value"
-          ],
+          "required": ["kind", "value"],
           "type": "object"
         },
         {
@@ -1598,17 +1370,11 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "text",
-                "audience"
-              ],
+              "required": ["text", "audience"],
               "type": "object"
             }
           },
-          "required": [
-            "kind",
-            "value"
-          ],
+          "required": ["kind", "value"],
           "type": "object"
         },
         {
@@ -1622,10 +1388,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "kind",
-            "value"
-          ],
+          "required": ["kind", "value"],
           "type": "object"
         },
         {
@@ -1639,10 +1402,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "kind",
-            "value"
-          ],
+          "required": ["kind", "value"],
           "type": "object"
         },
         {
@@ -1656,10 +1416,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "kind",
-            "value"
-          ],
+          "required": ["kind", "value"],
           "type": "object"
         },
         {
@@ -1680,17 +1437,11 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "kind",
-                "text"
-              ],
+              "required": ["kind", "text"],
               "type": "object"
             }
           },
-          "required": [
-            "kind",
-            "value"
-          ],
+          "required": ["kind", "value"],
           "type": "object"
         }
       ]
@@ -1716,9 +1467,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "kind"
-          ],
+          "required": ["kind"],
           "type": "object"
         },
         {
@@ -1732,10 +1481,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "kind",
-            "id"
-          ],
+          "required": ["kind", "id"],
           "type": "object"
         },
         {
@@ -1746,18 +1492,13 @@
               "type": "string"
             }
           },
-          "required": [
-            "kind"
-          ],
+          "required": ["kind"],
           "type": "object"
         }
       ]
     },
     "PlayInputKind": {
-      "enum": [
-        "action",
-        "dialogue"
-      ],
+      "enum": ["action", "dialogue"],
       "type": "string"
     },
     "Query": {
@@ -1766,16 +1507,10 @@
         "at_revision": {
           "format": "uint64",
           "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+          "type": ["integer", "null"]
         },
         "cursor": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "expected_head": {
           "description": "Current authoritative head, even when inspecting a historical completed turn.",
@@ -1844,13 +1579,7 @@
           "type": "integer"
         }
       },
-      "required": [
-        "version",
-        "scope",
-        "turn",
-        "expected_revision",
-        "intent"
-      ],
+      "required": ["version", "scope", "turn", "expected_revision", "intent"],
       "type": "object"
     },
     "Scope": {
@@ -1863,10 +1592,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "story",
-        "branch"
-      ],
+      "required": ["story", "branch"],
       "type": "object"
     },
     "StoryPresentationV1": {
@@ -1888,19 +1614,11 @@
           "type": "integer"
         }
       },
-      "required": [
-        "version",
-        "tone",
-        "excluded_phrases"
-      ],
+      "required": ["version", "tone", "excluded_phrases"],
       "type": "object"
     },
     "StoryTone": {
-      "enum": [
-        "plain",
-        "warm",
-        "brisk"
-      ],
+      "enum": ["plain", "warm", "brisk"],
       "type": "string"
     },
     "View": {
@@ -1929,10 +1647,7 @@
       "const": 1
     }
   },
-  "required": [
-    "version",
-    "command"
-  ],
+  "required": ["version", "command"],
   "title": "Envelope",
   "type": "object"
 }

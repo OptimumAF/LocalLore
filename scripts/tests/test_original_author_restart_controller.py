@@ -29,6 +29,7 @@ class ControllerFlow:
         self.g=g=ClosedRestartGraph();self.output=g.base/'flow-output';self.calls=[];self.streams=[];self.sockets=[];self.fail=fail
         self.installed=False;self.authored=False;self.stopped=False;self.live_closed=False
         g.root=g.base/'flow-owner';g.a['root']=str(g.root);g.a['server']['root']=str(g.root/'server')
+        g.a['seconds']=1700;g.a['server']['seconds']=1700
         self.manifest=dict(head='a'*40,apks=[dict(package=c.contract.APP,sha256=g.a['artifacts']['product_apk']['sha256']),
             dict(package=c.contract.TEST,sha256=g.a['artifacts']['test_apk']['sha256'])])
         self.build=g.save(g.base/'build-v1.json',self.manifest);g.a['artifacts']['build']=self.build

@@ -70,6 +70,12 @@ def _file_stamp(value):
             value.st_ctime_ns, birth)
 
 
+def _lease_class():
+    # A fixed implementation, not a constructor argument, plugin or fallback.
+    from benchmarks.owned_target_owner import LiveOwnedTarget
+    return LiveOwnedTarget
+
+
 class OwnedTargetSdkCapture:
     """A finite direct transport session bound to one immutable live target."""
 
@@ -81,6 +87,7 @@ class OwnedTargetSdkCapture:
         self._time_lock = threading.Lock()
         self.lease = lease
         try:
+            _need(type(lease) is _lease_class(), "lease_type")
             _number(seconds)
             lease.guard(min_seconds=seconds)
             self._admission = copy.deepcopy(lease.admission)

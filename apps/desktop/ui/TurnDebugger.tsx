@@ -5,6 +5,19 @@ const label = (value: string) => value.replaceAll("_", " ");
 const duration = (us: number) => `${(us / 1000).toFixed(2)} ms`;
 const tokens = (value: { value: number; basis: string } | null) =>
     value ? `${value.value} (${value.basis})` : "Not reported";
+const eligibilityReasons = {
+    disposed: "This window is closing.",
+    hidden: "Open the turn debugger first.",
+    not_story_lab: "Open Story Lab and acknowledge spoilers to inspect this metadata.",
+    not_omniscient: "Select the omniscient inspection lens. This does not change character knowledge.",
+    source_unavailable: "A current native story snapshot is unavailable.",
+    fence_unavailable: "The current gameplay context is not ready for a metadata read.",
+    gameplay_unresolved: "Resolve the pending or uncertain gameplay operation first.",
+    busy: "Wait for the current metadata or control operation, or cancel this pending read locally.",
+    trace_unavailable: "Current retained trace metadata is unavailable or collection is disabled.",
+    selection_unavailable: "Select a retained original player attempt. Missing attempts are not reconstructed.",
+    context_changed: "The selected metadata context changed. Refresh metadata and select an attempt.",
+} as const;
 export function TurnDebugger({
     controller: c,
     state: s,
@@ -17,7 +30,26 @@ export function TurnDebugger({
         reply = t.reply,
         attempts = reply?.snapshot.attempts ?? [],
         selected = c.traceAttempt(),
-        receipt = c.debugReceipt();
+        receipt = c.debugReceipt(),
+        play = s.play ?? s.playV2,
+        session = c.selected(),
+        eligibility = c.traceNarrationValidationEligibility(),
+        diagnostic = t.narrationValidation,
+        privateLens = s.view === "lab" && s.observer === "omniscient",
+        query = privateLens ? diagnostic.query : null,
+        metadataStale = !!reply && (!play || reply.head !== play.revision ||
+            reply.scope.story !== play.scope.story || reply.scope.branch !== play.scope.branch ||
+            reply.base_revision !== t.baseRevision),
+        diagnosticStale = !!query && (!play || !session || query.session !== session.id ||
+            query.scope.story !== play.scope.story || query.scope.branch !== play.scope.branch ||
+            query.expected_head !== play.revision || !selected ||
+            query.base_revision !== t.baseRevision || selected.identity.observer !== play.player.observer ||
+            selected.identity.scope.story !== query.scope.story || selected.identity.scope.branch !== query.scope.branch ||
+            query.base_revision !== selected.identity.base_revision ||
+            query.turn !== selected.identity.turn || query.attempt !== selected.identity.attempt),
+        stale = metadataStale || diagnosticStale || t.error === "Stale" || (privateLens && diagnostic.error === "Stale"),
+        result = privateLens && !stale && query ? diagnostic.reply : null,
+        validation = result?.status === "recorded" ? result.decision : null;
     const lens =
         s.view === "play"
             ? "Player"
@@ -38,9 +70,16 @@ export function TurnDebugger({
             </p>
             <p>
                 <strong>{lens}</strong> · actual head r
-                {s.play?.revision ?? "unavailable"} · captured basis r
+                {play?.revision ?? "unavailable"} · captured basis r
                 {t.baseRevision}
             </p>
+            {stale && (
+                <p role="alert">
+                    Metadata context is stale. Current head {play ? `r${play.revision}` : "unavailable"}.
+                    {query ? ` Requested head r${query.expected_head}.` : ""}{" "}
+                    Reconcile gameplay, refresh metadata and select an attempt before reading again.
+                </p>
+            )}
             <p className="muted">
                 This window's Host · capture defaults off · private memory only
                 · metadata is separate from explicit private capture/export.
@@ -54,25 +93,25 @@ export function TurnDebugger({
                           : "Metadata capture disabled"}
                 </strong>
                 <button
-                    disabled={!s.play || t.controlBusy || t.enabled === true}
+                    disabled={!play || t.controlBusy || t.enabled === true}
                     onClick={() => void c.controlTrace("enable")}
                 >
                     Enable metadata
                 </button>
                 <button
-                    disabled={!s.play || t.controlBusy || t.enabled === false}
+                    disabled={!play || t.controlBusy || t.enabled === false}
                     onClick={() => void c.controlTrace("disable")}
                 >
                     Disable & delete
                 </button>
                 <button
-                    disabled={!s.play || t.controlBusy}
+                    disabled={!play || t.controlBusy}
                     onClick={() => void c.controlTrace("clear")}
                 >
                     Clear window traces
                 </button>
                 <button
-                    disabled={!s.play || t.busy || t.controlBusy}
+                    disabled={!play || t.busy || t.controlBusy}
                     onClick={() => void c.readTrace()}
                 >
                     Refresh metadata
@@ -82,7 +121,8 @@ export function TurnDebugger({
                     <input
                         type="number"
                         min="0"
-                        max={s.play?.revision ?? 0}
+                        max={play?.revision}
+                        disabled={!play || t.busy || t.controlBusy}
                         step="1"
                         value={t.baseRevision}
                         onChange={(e) =>
@@ -123,6 +163,71 @@ export function TurnDebugger({
                             ? "Bounded metadata window; absent stages and evicted attempts are not reconstructed."
                             : "No retained attempts match this session, observer and base revision. This does not prove the turn did not run."}
             </p>
+            <section className="trace-detail" aria-labelledby="narration-validation-title">
+                <h3 id="narration-validation-title">Selected narration validation</h3>
+                <div className="trace-controls">
+                    <button
+                        disabled={!privateLens || !eligibility.allowed}
+                        onClick={() => void c.readTraceNarrationValidation()}
+                    >
+                        Read selected narration validation
+                    </button>
+                    <button
+                        disabled={!privateLens || diagnostic.status !== "pending"}
+                        onClick={() => c.cancelTraceNarrationValidation()}
+                    >
+                        Cancel metadata read locally
+                    </button>
+                </div>
+                {query && (
+                    <p className="scope">
+                        Story {query.scope.story} · branch {query.scope.branch} · session {query.session}
+                        {" · "}current head {play ? `r${play.revision}` : "unavailable"}
+                        {" · "}read head r{query.expected_head} · original basis r{query.base_revision}
+                        {" · "}turn {query.turn} · attempt {query.attempt}
+                        {" · "}original player observer {selected?.identity.observer ?? "unavailable"}
+                        {" · "}generation grant false
+                    </p>
+                )}
+                <p role="status">
+                    {!privateLens
+                        ? "Narration validation metadata is unavailable in this lens. Use acknowledged Story Lab omniscient inspection."
+                        : diagnostic.status === "refused"
+                          ? `Metadata read refused: ${diagnostic.error ?? "Transport"}. No decision is displayed.`
+                        : stale
+                          ? "Narration validation is unavailable for the changed context. No old decision is displayed."
+                          : diagnostic.status === "pending"
+                            ? "Metadata read pending. This does not report model execution or a completed validator."
+                            : diagnostic.status === "cancelled"
+                              ? "Metadata read cancelled locally. The native read may finish; no gameplay or native cancellation is claimed."
+                              : diagnostic.status === "recorded" && validation
+                                  ? "Recorded narration validation decision for this exact attempt."
+                                  : diagnostic.status === "unavailable" && result?.status === "unavailable"
+                                    ? "The Host reports this exact attempt's optional narration validation metadata unavailable. No specific cause is known."
+                                    : diagnostic.status === "unavailable"
+                                      ? "Narration validation is unavailable in the current local context. No Host cause is inferred."
+                                      : "No narration validation read has been requested for this selection."}
+                </p>
+                {!eligibility.allowed && eligibility.reason && (
+                    <p className="muted">{eligibilityReasons[eligibility.reason]}</p>
+                )}
+                {validation && (
+                    <dl className="trace-provenance">
+                        <div><dt>Validation outcome</dt><dd>{validation.outcome}</dd></div>
+                        <div><dt>Validation error</dt><dd>{validation.error ?? "None"}</dd></div>
+                        <div><dt>Retained reason code</dt><dd>{validation.reason ?? "None"}</dd></div>
+                    </dl>
+                )}
+                <p className="muted">
+                    This decision is separate from final commit, canonical effects and quality.
+                    A rejected narration may commit mechanical fallback; an accepted validation
+                    may later cancel. Absence is not reconstructed. Inspection grants no
+                    character knowledge or generation access.
+                </p>
+                {s.playV2 && (
+                    <p>Canonical receipt comparison and legacy inspection are unavailable through this metadata debugger for this timeline.</p>
+                )}
+            </section>
             {reply && attempts.length > 0 && (
                 <>
                     <table className="query-table trace-attempts">
@@ -288,7 +393,7 @@ export function TurnDebugger({
                             ) : (
                                 <p>
                                     No matching permitted canonical receipt is
-                                    linked in this Player view. A ready
+                                    linked in this view. A ready
                                     candidate or trace is not proof of commit.
                                 </p>
                             )}
@@ -300,16 +405,18 @@ export function TurnDebugger({
                 <summary>Unavailable evidence & retention</summary>
                 <p>
                     This metadata API contains no context text, raw proposals,
-                    prompts or model output. Story Lab omniscient inspection can
-                    explicitly opt into separate future-attempt private capture.
+                    prompts or model output. {s.playV2
+                        ? "Private capture and legacy inspection are unavailable through this metadata surface."
+                        : "Story Lab omniscient inspection can explicitly opt into separate future-attempt private capture."}
                     Summary maintenance and model hidden reasoning are
                     unavailable.
                 </p>
                 <p>
                     Private capture and exact export require separate consent.
                     Pause/step and generation rerun are unavailable. Accepted
-                    history can be inspected through Memory & evidence without
-                    an LLM.
+                    history {s.playV2
+                        ? "is not reconstructed by this metadata debugger."
+                        : "can be inspected through Memory & evidence without an LLM."}
                 </p>
                 <p>
                     At most 32 attempts / 24 stages per attempt / 64 KiB per

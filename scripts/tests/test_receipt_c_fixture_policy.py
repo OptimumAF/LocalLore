@@ -9,7 +9,9 @@ import unittest
 from unittest.mock import patch
 
 from benchmarks import receipt_avd_environment as env
-from scripts.tests.receipt_c_fixture import SyntheticCVolume
+from scripts.tests import receipt_c_fixture as fixture
+
+SyntheticCVolume=fixture.SyntheticCVolume
 
 
 METHODS=('open','mkdir','exists','is_dir','is_file','is_symlink','stat','lstat','iterdir','resolve')
@@ -24,17 +26,14 @@ class SyntheticCFixturePolicyTests(unittest.TestCase):
     def restored(self):
         for name,method in self.original.items():self.assertIs(getattr(Path,name),method,name)
     def metadata(self,path,*,mode,attributes):
-        original_stat=os.stat;original_lstat=os.lstat;target=Path(path)
+        original_lstat=fixture._RAW_LSTAT;target=Path(path)
         info=original_lstat(target)
         fields={name:getattr(info,name)for name in dir(info)if name.startswith('st_')}
         fields.update(st_mode=mode,st_file_attributes=attributes);synthetic=SimpleNamespace(**fields)
-        def inspect(value,*args,**kwargs):
-            if isinstance(value,(str,bytes,os.PathLike))and Path(value)==target:return synthetic
-            return original_stat(value,*args,**kwargs)
         def inspect_no_follow(value,*args,**kwargs):
             if isinstance(value,(str,bytes,os.PathLike))and Path(value)==target:return synthetic
             return original_lstat(value,*args,**kwargs)
-        return patch.multiple(os,stat=inspect,lstat=inspect_no_follow)
+        return patch.object(fixture,'_RAW_LSTAT',new=inspect_no_follow)
 
     def test_lexical_C_identity_maps_only_to_physical_D_and_keeps_real_floor_rules(self):
         volume=SyntheticCVolume(self.backing);root=volume.root;physical=volume.physical(root)
@@ -144,6 +143,44 @@ class SyntheticCFixturePolicyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 with volume:self.fail('changed backing entered')
         self.restored();self.assertEqual(list(self.backing.iterdir()),[])
+
+    def test_nonempty_backing_is_never_adopted_or_overwritten(self):
+        sentinel=self.backing/'preexisting.txt';sentinel.write_bytes(b'original sentinel bytes')
+        with self.assertRaises(ValueError):
+            with SyntheticCVolume(self.backing):self.fail('nonempty backing adopted')
+        self.restored();self.assertEqual(sentinel.read_bytes(),b'original sentinel bytes')
+
+    def test_overlapping_active_backing_is_refused_without_ending_the_first_volume(self):
+        first=SyntheticCVolume(self.backing)
+        with first:
+            first.root.mkdir();nested=self.backing/'new-avd/nested';nested.mkdir()
+            with self.assertRaises(ValueError):
+                with SyntheticCVolume(nested):self.fail('nested backing adopted')
+            self.assertTrue(first.root.is_dir());(first.root/'still-owned').write_text('preserved')
+        self.restored();self.assertEqual((self.backing/'new-avd/still-owned').read_text(),'preserved')
+
+    def test_disjoint_scope_can_close_out_of_order_without_losing_the_remaining_volume(self):
+        second=self.base/'second';second.mkdir();one=SyntheticCVolume(self.backing);two=SyntheticCVolume(second)
+        one.__enter__()
+        try:
+            two.__enter__()
+            try:
+                one.__exit__(None,None,None);two.root.mkdir();(two.root/'kept').write_bytes(b'second remains active')
+                self.assertEqual((two.root/'kept').read_bytes(),b'second remains active')
+            finally:two.__exit__(None,None,None)
+        finally:
+            # A correct first close is complete; avoid a second lifecycle call.
+            if any(getattr(Path,name)is not method for name,method in self.original.items()):one.__exit__(None,None,None)
+        self.restored();self.assertEqual((second/'new-avd/kept').read_bytes(),b'second remains active')
+
+    def test_unneeded_mutations_and_enumeration_fail_closed_instead_of_becoming_a_generic_filesystem(self):
+        volume=SyntheticCVolume(self.backing);source=self.base/'D-source.txt';source.write_bytes(b'preserve D source')
+        with volume:
+            for call in(lambda:(volume.root/'touch.txt').touch(),lambda:list(volume.root.glob('*')),
+                        lambda:source.rename(volume.root/'moved.txt')):
+                with self.assertRaises(ValueError):call()
+            self.assertFalse(volume.root.exists())
+        self.assertEqual(source.read_bytes(),b'preserve D source');self.assertEqual(list(self.backing.iterdir()),[]);self.restored()
 
 
 if __name__=='__main__':unittest.main()

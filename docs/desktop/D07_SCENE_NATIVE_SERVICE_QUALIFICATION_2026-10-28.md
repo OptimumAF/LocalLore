@@ -2,10 +2,12 @@
 
 2026-10-28 local date; the joined checks below ran on 2026-10-29 UTC.
 Refs #29 D07.03/.05, supporting D07.06 and #25 D04.04.
-**Partial local qualification at frozen `b70e57be`; broad checks and the full
-Native4 model cohort remain PENDING.** The joined development products compile,
-15 focused service cases and 4 accepted-main window-capability cases pass, and
-the frontend and synthetic launcher-policy checks pass at the preceding source.
+**Local source checks qualified at frozen `b70e57be`; the full Native4 model
+cohort remains UNRUN.** The joined development products compile, 15 focused
+service cases and 4 accepted-main window-capability cases pass, and the broad
+serial Rust suite, strict Clippy, formatting, normal native build and Android
+Rust host checks pass. Frontend and synthetic launcher-policy checks pass at
+the preceding source, followed only by the Rust test-fixture adaptation.
 This is not milestone completion, merge approval, a new model result or human
 quality acceptance.
 
@@ -25,7 +27,7 @@ stack and accepted main are retained.
 The [accepted-main window qualification](D07_FULL_RUN_WINDOW_IDENTITY_QUALIFICATION_2026-10-28.md)
 retains its original default-concurrency timeout alongside isolated and serial
 passes, without a proven causal diagnosis. That historical main result does not
-substitute for the joined broad checks pending below.
+substitute for the joined broad measurements below.
 
 At this document's GitHub readback, #232, #237, #238, #239, #241 and #243 are all
 open, unmerged drafts. They provide the scene recipe, Host capture, desktop
@@ -113,6 +115,12 @@ files at exit. All commands use physical D: source/cache/target and process-loca
 | `d07-scene-native-full-process-policy1` | `96337932` | Exit 0; 16 simulated child/timer policy cases, no OS children inside checker | 0.1155494 |
 | `d07-scene-native-full-process-check-syntax1` | `96337932` | Exit 0; policy checker syntax only | 0.0940730 |
 | `d07-scene-native-full-launcher-syntax1` | `96337932` | Exit 0; launcher syntax only | 0.1114425 |
+| `d07-scene-native-full-dev-rust-serial1` | `b70e57be` | Exit 0; 279 unit tests and 2 contract tests passed, 10 ignored; unit-test time 816.28 s | 817.6063039 |
+| `d07-scene-native-full-dev-clippy1` | `b70e57be` | Exit 0; development-feature all-targets Clippy, warnings denied | 15.4243415 |
+| `d07-scene-native-full-rustfmt1` | `b70e57be` | Exit 0; Rust formatting check | 0.5680936 |
+| `d07-scene-native-full-normal-build1` | `b70e57be` | Exit 0; normal native build, application unlaunched | 16.7576791 |
+| `d07-scene-native-full-normal-clippy1` | `b70e57be` | Exit 0; normal-feature all-targets Clippy, warnings denied | 7.8650658 |
+| `d07-scene-native-full-android-host1` | `b70e57be` | Exit 0; Android Rust crate/all-targets compile check on the Windows host | 5.9575505 |
 
 For command reproduction, run from the task-owned physical D: checkout.
 Below, `<target>` is the existing task-owned D: Cargo target and `<node>` is
@@ -130,7 +138,23 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline 
 <node> apps/desktop/comparison-run-process-policy-check.mjs
 <node> --check apps/desktop/comparison-run-process-policy-check.mjs
 <node> --check apps/desktop/comparison-run-harness.mjs
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --all-targets --jobs 1 --target-dir <target> -- --test-threads=1
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --features dev-harness --all-targets --jobs 1 --target-dir <target> -- -D warnings
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --no-default-features --jobs 1 --target-dir <target>
+cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --offline --no-default-features --all-targets --jobs 1 --target-dir <target> -- -D warnings
+cargo check --manifest-path crates/locallore-android/Cargo.toml --all-targets --locked --offline --jobs 1 --target-dir <target>
 ```
+
+The broad Rust result qualifies the explicit one-test-thread protocol at clean,
+unchanged `b70e57be`; it does not claim a new default-concurrency result. The
+10 ignored entries are 8 opt-in model-asset cases, 1 Windows symlink-privilege
+case and 1 fixed-child-only entry that requires the parent matrix's isolated
+environment. The parent matrix ran successfully; ignoring its direct child
+entry in ordinary discovery is not a new model or symlink qualification.
+Normal Clippy's all-targets check does not imply normal-feature test execution.
+The Android check compiles the existing Rust crate on Windows; it is not an
+Android ABI/Gradle/JNI/emulator/physical-device execution result.
 
 The service cohort exercises actual Rust entry points, consent-denied native
 provisional metadata, exact mixed-version catalog closure, cross-protocol caps
@@ -232,22 +256,36 @@ Windows timeout, kill, descendant containment or Job cleanup.
 
 ## Environment, pending gates and next runnable work
 
-Pinned Node 24.22.1 is explicit in the recorded commands. The nearby
-`d07-main-window-versions-20261029.json` observation at
-`2026-10-29T04:58:46.4425223Z` records Rust 1.93.1, Cargo 1.93.1,
-PowerShell 7.6.5 and Windows NT 10.0.26300.0, but its source is `2401fcd3`.
-It is environment context, not an exact-`b70e57be` version capture. No current
-WebView, model, worker or Android runtime version is measured by this source
-author. D: cache/temp settings in the process records are retained; no global
-SDK/cache/installed-tool settings were changed by this documentation work.
+The fresh `d07-scene-native-full-environment1.json` observation at
+`2026-10-29T05:23:45.0472237Z` names exact source
+`b70e57be54a596b0a8d3a9d68117a3a8d54e0980`:
 
-At this handoff the joined broad serial Rust suite, strict development/normal
-Clippy, Rust formatting, normal native build and Android Rust host compatibility
-checks are **PENDING**. Root owns the active serialized check job; this document
-does not infer terminal results from a partial log or historical main passes.
-Final exact-head source review, focused PR, security scan and owner acceptance
-are also **PENDING**. The next runnable task is to complete and inspect those
-exact-source checks before any separately approved full model cohort.
+| Tool or environment | Recorded value |
+| --- | --- |
+| Rust | `rustc 1.93.1 (01f6ddf75 2026-02-11)` |
+| Cargo | `cargo 1.93.1 (083ac5135 2025-12-15)` |
+| Node | `v24.22.1` |
+| PowerShell | `7.6.5` |
+| OS | `Microsoft Windows NT 10.0.26300.0` |
+| CPU, reported by CIM | `Intel(R) Core(TM) Ultra 7 270K Plus` |
+| CPU cores / logical processors | `24 / 24` |
+| Physical memory | `68144017408` bytes |
+| `TEMP` / `TMP` | `D:/Dev/_Temp` |
+| Desktop capture / model runtime launched for this observation | `false / false` |
+
+This supersedes the nearby older-source environment context for these joined
+checks. Older i7-12700K/14700K hardware descriptions are not used, and prior
+Protocol 3 latency is not a controlled same-hardware comparison. Command/test
+durations here are verification costs, not model or whole-turn performance.
+No current WebView, model, worker or Android runtime version is measured by
+this check set. D: cache/temp settings in the process records are retained;
+no global SDK/cache/installed-tool settings changed in this documentation work.
+
+The joined broad source checks are complete with the exact results and limits
+above. Final exact-head source review, focused PR, security scan and owner
+acceptance remain **PENDING**, with the unmerged draft dependency gate retained.
+The next runnable task is Root's exact-source integration/review and focused PR
+gate; the separately approved full Native4 model cohort remains **UNRUN**.
 
 No new Native4 inference, completed-native no-load resume/cold restart,
 application-owned render images/layout inspection, physical phone, Android ABI,
@@ -289,9 +327,16 @@ including the one source-changing matrix attempt.
 | `d07-scene-native-full-process-policy1` | `9633793292473e233cecac9339925d3f03a3a70a` | 0 | 0.1155494 | `7ebf8b5c15a831e19a5ada2bcbc2c9a24d6018419c66231736c40926846add02` |
 | `d07-scene-native-full-process-check-syntax1` | `9633793292473e233cecac9339925d3f03a3a70a` | 0 | 0.0940730 | `485528f92f017072f1352d383e6df1a81d4b4a84fc0dff95b54b038d0791eb71` |
 | `d07-scene-native-full-launcher-syntax1` | `9633793292473e233cecac9339925d3f03a3a70a` | 0 | 0.1114425 | `0d16b65187f41c2341613590fdc811bc8237887561e4018b86c26679266b1844` |
+| `d07-scene-native-full-dev-rust-serial1` | `b70e57be54a596b0a8d3a9d68117a3a8d54e0980` | 0 | 817.6063039 | `885b57e137aa8f8c2e25877a480709e4ae624e19a57f5c875498df97ac671043` |
+| `d07-scene-native-full-dev-clippy1` | `b70e57be54a596b0a8d3a9d68117a3a8d54e0980` | 0 | 15.4243415 | `0d51784d7367b5c62a3bb398d2d53eeeb46f8f9fc9fef1850fe10ce736ba8115` |
+| `d07-scene-native-full-rustfmt1` | `b70e57be54a596b0a8d3a9d68117a3a8d54e0980` | 0 | 0.5680936 | `0616e2b76ee5c1ac5ad1781e6bca6e6584df2317437247e6d79de701584ab9f8` |
+| `d07-scene-native-full-normal-build1` | `b70e57be54a596b0a8d3a9d68117a3a8d54e0980` | 0 | 16.7576791 | `0bf39cae952292d5f22bad031eb688d9a903a2746d3622505c0e86115cedfa2b` |
+| `d07-scene-native-full-normal-clippy1` | `b70e57be54a596b0a8d3a9d68117a3a8d54e0980` | 0 | 7.8650658 | `4cd64259bf422275f11198bee4d031b2035e81f436337af167a1842d4c5cde92` |
+| `d07-scene-native-full-android-host1` | `b70e57be54a596b0a8d3a9d68117a3a8d54e0980` | 0 | 5.9575505 | `d247bdcf462a4094cb35859cdd08c13ed0e23f015808eb67c73ee3779ae26729` |
 
 Additional bounded records:
 
 - `d07-scene-main-merge-source-repair1.json` SHA256: `34cb5ce2b6170d141be34049a426dfd7af4687a7956d02c991a05b604137a965`.
 - `d07-scene-native-service-lease-first-green1-interruption-observation.json` SHA256: `bd6f83cf6546d88e16f834b7520430493127c5938dad5b18eb97922dca223634`.
 - `d07-main-window-versions-20261029.json` SHA256: `3b81ca4f4a392e4f3631056f4e9ace0ac7b462a050d80b597ea7c5fd6eb17056`.
+- `d07-scene-native-full-environment1.json` SHA256: `6c20fee5bfa4c7603196567ff9b6f34fc479b5af534c0805b3cc5d9aaea98b7a`.

@@ -377,12 +377,14 @@ class OwnedTargetSdkCapture:
             sender.start()
             sender_started = True
             self._read_shell(sock, state, deadline, cap)
+            # Exit plus EOF is the measured shell outcome even if a sender or
+            # resource cannot subsequently be joined/closed and qualified.
+            status = "completed"
             sender.join(timeout=min(1.0, max(0.0, deadline - self._now())))
             sender_joined = not sender.is_alive()
             _need(sender_joined and not state["sender_failed"] and state["stdin_complete"], "input")
             # This describes the actual shell protocol outcome. Later source,
             # proof or cleanup refusals change qualification, not that outcome.
-            status = "completed"
             if source is not None:
                 _need(_file_stamp(os.fstat(source.fileno())) == held_before and
                       _file_stamp(input_path.stat()) == path_before, "input_identity")

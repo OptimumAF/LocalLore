@@ -402,3 +402,20 @@ and appropriate broad checks remain required. No adapter/Eval/UI reporting,
 model rerun, historical report rewriting or full D07/M05 completion follows.
 The author hands off the first source commit/hash and releases these two paths;
 Root records interface/fixture amendments explicitly before changing them.
+## Root internal compatibility refinement, before production completion
+
+At test-first integration `0ac20cef`, Root verified that the private
+`NarrationPreparation::validate` has only the precommit caller and private
+`renderer::validate_generated` has only the scene-record caller. Neither is an
+external API or referenced by the frozen independent tests. Switching those
+callers to the detailed path would leave unused private compatibility wrappers.
+
+Root accepts renaming those two private functions directly to their detailed
+forms rather than retaining dead wrappers or suppressing dead-code lints.
+This refines the earlier general compatibility-projection instruction only for
+those two unused private helpers. The existing used
+`scene_narration::validate_record -> Result<(), Error>` remains a thin projection
+of exactly one detailed call for commit/revalidation and compatibility tests.
+All public signatures, metadata getters, errors, branch order, cancellation
+counts, policy/wire formats and the original independent oracles remain frozen.
+No additional validation pass or public visibility is introduced.

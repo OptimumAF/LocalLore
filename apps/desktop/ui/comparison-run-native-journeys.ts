@@ -30,7 +30,10 @@ export async function comparisonRunNativeJourneys({
     // request selector or permission to change a run's construction/protocol.
     const scene = config.scene === true;
     const retainedReview = config.stage === "review";
-    let retainedResume: { outcome: "completed" | "source_mismatch"; error: "EvaluationSourceMismatch" | null } | null = null;
+    let retainedResume: {
+        outcome: "completed" | "source_mismatch";
+        error: "EvaluationSourceMismatch" | null;
+    } | null = null;
     const sceneSlots = [
         "courier-01",
         "courier-05",
@@ -741,7 +744,9 @@ export async function comparisonRunNativeJourneys({
             check(
                 report?.version === 4 &&
                     report.kind === "paired_snapshots" &&
-                    (retainedReview ? typeof report.source_matches === "boolean" : report.source_matches === true) &&
+                    (retainedReview
+                        ? typeof report.source_matches === "boolean"
+                        : report.source_matches === true) &&
                     report.completed === completed &&
                     report.completed_scenes === (completed ? 4 : 1) &&
                     report.turns.length === (completed ? 48 : 12),
@@ -841,7 +846,12 @@ export async function comparisonRunNativeJourneys({
                 ...(scene && report.version === 4
                     ? {
                           protocol_version: 4,
-                          ...(retainedReview ? { recordedEvidenceOnly: true, source_matches: report.source_matches } : {}),
+                          ...(retainedReview
+                              ? {
+                                    recordedEvidenceOnly: true,
+                                    source_matches: report.source_matches,
+                                }
+                              : {}),
                           native_load: report.native_load,
                           profile: report.profile,
                           source_bound_committed_rows:
@@ -1370,17 +1380,21 @@ export async function comparisonRunNativeJourneys({
                   originalHumanAssessment: "needs improvement",
                   human_rubric: "not_reviewed",
                   quality_accepted: false,
-                  ...(retainedReview ? { retainedReview: true, retainedResume } : {}),
+                  ...(retainedReview
+                      ? { retainedReview: true, retainedResume }
+                      : {}),
               }
             : {}),
-        doubles: retainedReview ? ["read-consent"] : scene
-            ? ["execution-consent", "read-consent", "lost-start-ack"]
-            : [
-                  "execution-consent",
-                  "read-consent",
-                  "model-picker",
-                  "lost-start-ack",
-              ],
+        doubles: retainedReview
+            ? ["read-consent"]
+            : scene
+              ? ["execution-consent", "read-consent", "lost-start-ack"]
+              : [
+                    "execution-consent",
+                    "read-consent",
+                    "model-picker",
+                    "lost-start-ack",
+                ],
         unavailable: [
             "human-quality-acceptance",
             "real-OS-dialog-interaction",
@@ -1390,8 +1404,12 @@ export async function comparisonRunNativeJourneys({
                 ? ["counter-observation-is-not-an-independent-SDK-load-count"]
                 : ["independent-no-asset-call-counter-on-restart"]),
             "presentation-poll-deadline-is-not-native-execution-budget",
-            ...(retainedReview ? ["pending-confirmation-native-render-unavailable-without-a-new-start",
-                "retained-native-profile-is-not-current-process-model-execution"] : []),
+            ...(retainedReview
+                ? [
+                      "pending-confirmation-native-render-unavailable-without-a-new-start",
+                      "retained-native-profile-is-not-current-process-model-execution",
+                  ]
+                : []),
         ],
         ...(!passed
             ? {
@@ -1406,7 +1424,9 @@ export async function comparisonRunNativeJourneys({
     });
     try {
         check(
-            config.stage === "initial" || config.stage === "restart" || (retainedReview && scene),
+            config.stage === "initial" ||
+                config.stage === "restart" ||
+                (retainedReview && scene),
             "native-full-closed-stage",
         );
         check(
@@ -1472,7 +1492,10 @@ export async function comparisonRunNativeJourneys({
             );
         }
         if (retainedReview) {
-            check(f.get().status === null && f.get().catalog === null, "native-scene-review-fresh-metadata-unavailable");
+            check(
+                f.get().status === null && f.get().catalog === null,
+                "native-scene-review-fresh-metadata-unavailable",
+            );
             await capture("full-idle");
         }
         await f.loadCatalog();
@@ -1491,23 +1514,54 @@ export async function comparisonRunNativeJourneys({
             );
         if (!retainedReview) await capture("full-idle");
         if (retainedReview) {
-            const before = await inventory(), beforeObservation = await observation();
-            check(before.file_count === 2072 && beforeObservation.reservation_sequence === 0 &&
-                beforeObservation.consent_calls === 0 && ownerFree(beforeObservation), "native-scene-review-retained-source-and-fresh-owner");
-            const paired = f.get().catalog!.runs.filter((run) => run.comparison_kind === "paired" && run.initial_batch === 1)
+            const before = await inventory(),
+                beforeObservation = await observation();
+            check(
+                before.file_count === 2072 &&
+                    beforeObservation.reservation_sequence === 0 &&
+                    beforeObservation.consent_calls === 0 &&
+                    ownerFree(beforeObservation),
+                "native-scene-review-retained-source-and-fresh-owner",
+            );
+            const paired = f
+                .get()
+                .catalog!.runs.filter(
+                    (run) =>
+                        run.comparison_kind === "paired" &&
+                        run.initial_batch === 1,
+                )
                 .sort((a, b) => b.created_ms - a.created_ms)[0];
             check(paired, "native-scene-review-actual-catalog-paired-identity");
-            await terminal(f.open(paired!.run_id), "native-scene-review-retained-open");
+            await terminal(
+                f.open(paired!.run_id),
+                "native-scene-review-retained-open",
+            );
             reopenedRun = paired!.run_id;
-            check(f.get().status?.completed === true && f.get().status?.completed_scenes === 4 &&
-                f.get().status?.report_ready === true, "native-scene-review-opened-completed-before-any-resume");
+            check(
+                f.get().status?.completed === true &&
+                    f.get().status?.completed_scenes === 4 &&
+                    f.get().status?.report_ready === true,
+                "native-scene-review-opened-completed-before-any-resume",
+            );
             await capture("full-restarted");
             await managedRead(true);
             await sceneReviewJourney();
-            const failed = r.get().source!.rows.find((entry) => entry.row.turn === "courier-01" && entry.row.arm === "left");
-            check(failed && !failed.receipt_available, "native-scene-review-frozen-failed-slot-without-substitution");
+            const failed = r
+                .get()
+                .source!.rows.find(
+                    (entry) =>
+                        entry.row.turn === "courier-01" &&
+                        entry.row.arm === "left",
+                );
+            check(
+                failed && !failed.receipt_available,
+                "native-scene-review-frozen-failed-slot-without-substitution",
+            );
             r.select(failed!.row);
-            await sceneRead({ kind: "outputs", observer: { kind: "omniscient" } });
+            await sceneRead({
+                kind: "outputs",
+                observer: { kind: "omniscient" },
+            });
             await invoke("harness_viewport", { preset: "capture-narrow" });
             await capture("full-reader", "#comparison-reader");
             await invoke("harness_viewport", { preset: "wide" });
@@ -1515,38 +1569,90 @@ export async function comparisonRunNativeJourneys({
             const reviewClient = f.get().clientId;
             const errorsBeforeResume = errors.snapshot().length;
             const recoveriesBeforeResume = timeoutRecoveries;
-            await terminal(f.resume(1), "native-scene-review-one-completed-resume", false);
-            check(f.get().clientId === reviewClient && f.get().status?.run_id === reopenedRun,
-                "native-scene-review-resume-keeps-the-retained-owner-identity");
+            await terminal(
+                f.resume(1),
+                "native-scene-review-one-completed-resume",
+                false,
+            );
+            check(
+                f.get().clientId === reviewClient &&
+                    f.get().status?.run_id === reopenedRun,
+                "native-scene-review-resume-keeps-the-retained-owner-identity",
+            );
             if (f.get().error === null && f.get().status?.error === null) {
-                check(f.get().status?.completed === true && f.get().status?.completed_scenes === 4,
-                    "native-scene-review-completed-resume-actually-completed");
+                check(
+                    f.get().status?.completed === true &&
+                        f.get().status?.completed_scenes === 4,
+                    "native-scene-review-completed-resume-actually-completed",
+                );
                 retainedResume = { outcome: "completed", error: null };
             } else {
-                check(f.get().error === "EvaluationSourceMismatch" && f.get().status?.error === "EvaluationSourceMismatch",
-                    "native-scene-review-historical-resume-authoritative-source-refusal");
+                check(
+                    f.get().error === "EvaluationSourceMismatch" &&
+                        f.get().status?.error === "EvaluationSourceMismatch",
+                    "native-scene-review-historical-resume-authoritative-source-refusal",
+                );
                 const added = errors.snapshot().slice(errorsBeforeResume);
                 // publish() carries a typed worker status error without calling
                 // the transport-error callback. Preserve that real service
                 // refusal; only separately observed poll recoveries add records.
-                check(added.length === timeoutRecoveries - recoveriesBeforeResume &&
-                    added.every((entry) => entry.source === "native" && entry.category === "Transport"),
-                    "native-scene-review-source-refusal-is-typed-status-not-invented-transport");
-                errorEvidence.push({ boundary: "retained-completed-resume-native-status-source-mismatch", added: 0 });
-                retainedResume = { outcome: "source_mismatch", error: "EvaluationSourceMismatch" };
+                check(
+                    added.length ===
+                        timeoutRecoveries - recoveriesBeforeResume &&
+                        added.every(
+                            (entry) =>
+                                entry.source === "native" &&
+                                entry.category === "Transport",
+                        ),
+                    "native-scene-review-source-refusal-is-typed-status-not-invented-transport",
+                );
+                errorEvidence.push({
+                    boundary:
+                        "retained-completed-resume-native-status-source-mismatch",
+                    added: 0,
+                });
+                retainedResume = {
+                    outcome: "source_mismatch",
+                    error: "EvaluationSourceMismatch",
+                };
             }
             await close();
             c.setView("play");
-            await until(() => !f.get().allowed && !r.get().allowed, "native-scene-review-context-retired");
-            c.requestLab(); c.acknowledgeLab(true);
-            await until(() => f.get().allowed && r.get().allowed && !f.get().busy && !f.get().uncertain,
-                "native-scene-review-clean-context-reentry");
-            check(f.get().status === null && f.get().catalog === null && f.get().clientId === null,
-                "native-scene-review-retired-native-metadata-remains-unavailable");
-            unchangedObservation(beforeObservation, await observation(), "native-scene-retained-review-no-consent-or-reservation");
-            unchanged(before, await inventory(), "retained-open-read-resume-close-whole-run-byte-read-only");
-            check(!actualGenerationObserved && (await fixtureStatus()).held === false,
-                "native-scene-review-no-new-generation-or-held-consent");
+            await until(
+                () => !f.get().allowed && !r.get().allowed,
+                "native-scene-review-context-retired",
+            );
+            c.requestLab();
+            c.acknowledgeLab(true);
+            await until(
+                () =>
+                    f.get().allowed &&
+                    r.get().allowed &&
+                    !f.get().busy &&
+                    !f.get().uncertain,
+                "native-scene-review-clean-context-reentry",
+            );
+            check(
+                f.get().status === null &&
+                    f.get().catalog === null &&
+                    f.get().clientId === null,
+                "native-scene-review-retired-native-metadata-remains-unavailable",
+            );
+            unchangedObservation(
+                beforeObservation,
+                await observation(),
+                "native-scene-retained-review-no-consent-or-reservation",
+            );
+            unchanged(
+                before,
+                await inventory(),
+                "retained-open-read-resume-close-whole-run-byte-read-only",
+            );
+            check(
+                !actualGenerationObserved &&
+                    (await fixtureStatus()).held === false,
+                "native-scene-review-no-new-generation-or-held-consent",
+            );
         } else if (config.stage === "restart") {
             const paired = f
                 .get()
@@ -1840,11 +1946,13 @@ export async function comparisonRunNativeJourneys({
         );
         const records = errors.snapshot();
         check(
-            retainedReview ? records.length === accountedErrors &&
-                accountedErrors === timeoutRecoveries : config.stage === "initial"
+            retainedReview
                 ? records.length === accountedErrors &&
-                      accountedErrors === 1 + timeoutRecoveries
-                : records.length === 0,
+                      accountedErrors === timeoutRecoveries
+                : config.stage === "initial"
+                  ? records.length === accountedErrors &&
+                    accountedErrors === 1 + timeoutRecoveries
+                  : records.length === 0,
             "native-full-only-boundary-accounted-errors",
         );
         const final = await inventory();
@@ -1853,7 +1961,13 @@ export async function comparisonRunNativeJourneys({
         await capture("full-finished");
         check(
             captureLabels.length ===
-                (retainedReview ? 12 : config.stage === "initial" ? (scene ? 22 : 14) : 4),
+                (retainedReview
+                    ? 12
+                    : config.stage === "initial"
+                      ? scene
+                          ? 22
+                          : 14
+                      : 4),
             "native-full-exact-bounded-captures",
         );
         disposalStarted = true;

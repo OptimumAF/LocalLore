@@ -16,9 +16,11 @@ import path from "node:path";
 import { createReadStream } from "node:fs";
 
 assert.equal(process.platform, "win32", "WindowsWebView2Required");
-const reviewMode = process.argv.length === 3 && process.argv[2] === "--native-scene-review-v1";
+const reviewMode =
+    process.argv.length === 3 && process.argv[2] === "--native-scene-review-v1";
 const sceneMode =
-    reviewMode || (process.argv.length === 3 && process.argv[2] === "--native-scene-v1");
+    reviewMode ||
+    (process.argv.length === 3 && process.argv[2] === "--native-scene-v1");
 const nativeMode =
     sceneMode || (process.argv.length === 3 && process.argv[2] === "--native");
 assert(process.argv.length === 2 || nativeMode, "ClosedHarnessArguments");
@@ -215,9 +217,18 @@ const scenePolicy = createSceneChildPolicy({
 const sceneBase = sceneMode
     ? await existingDirectory("LOCALLORE_D07_FULL_COMPARISON_ARTIFACT_ROOT")
     : null;
-const reviewPacketRoot = reviewMode ? await ordinarySceneDirectory(process.env.LOCALLORE_D07_SCENE_REVIEW_PACKET_ROOT) : null;
+const reviewPacketRoot = reviewMode
+    ? await ordinarySceneDirectory(
+          process.env.LOCALLORE_D07_SCENE_REVIEW_PACKET_ROOT,
+      )
+    : null;
 if (reviewMode) {
-    assert(/^full-comparison-native-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(path.basename(reviewPacketRoot)), "ClosedRetainedPacketName");
+    assert(
+        /^full-comparison-native-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(
+            path.basename(reviewPacketRoot),
+        ),
+        "ClosedRetainedPacketName",
+    );
     outsideReviewPacket(sceneBase);
     outsideReviewPacket(root, true);
 }
@@ -355,7 +366,10 @@ const limits = {
 let expectedInventory = null,
     executableSha256 = null;
 let nativeAssets = null;
-let retainedReview = null, retainedBefore = null, retainedAfter = null, reviewPreflightReady = false;
+let retainedReview = null,
+    retainedBefore = null,
+    retainedAfter = null,
+    reviewPreflightReady = false;
 let sceneSourceHashes = null,
     sceneHarnessProducts = null,
     sceneRestoration = null;
@@ -430,39 +444,103 @@ async function ordinarySceneDirectory(value) {
 }
 function outsideReviewPacket(destination, disjoint = false) {
     const relative = path.relative(reviewPacketRoot, path.resolve(destination));
-    assert(relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative), "RetainedPacketMustNotReceiveOutputs");
+    assert(
+        relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative),
+        "RetainedPacketMustNotReceiveOutputs",
+    );
     if (disjoint) {
-        const reverse = path.relative(path.resolve(destination), reviewPacketRoot);
-        assert(reverse.startsWith(`..${path.sep}`) || path.isAbsolute(reverse), "RetainedPacketMustNotBeInsideBuildOrSourceRoot");
+        const reverse = path.relative(
+            path.resolve(destination),
+            reviewPacketRoot,
+        );
+        assert(
+            reverse.startsWith(`..${path.sep}`) || path.isAbsolute(reverse),
+            "RetainedPacketMustNotBeInsideBuildOrSourceRoot",
+        );
     }
 }
 async function absent(file, label) {
-    try { await lstat(file); throw Error(label); }
-    catch (error) { if (error.code !== "ENOENT") throw error; }
+    try {
+        await lstat(file);
+        throw Error(label);
+    } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+    }
 }
 async function retainedReviewMetadata() {
-    const bytes = await boundedFile(path.join(reviewPacketRoot, "qualification.json"), limits.jsonBytes);
+    const bytes = await boundedFile(
+        path.join(reviewPacketRoot, "qualification.json"),
+        limits.jsonBytes,
+    );
     // One frozen genuine packet, selected only by its owner's launcher. This
     // binds metadata; Rust still validates the actual retained run independently.
-    assert.equal(digest(bytes), "d01dcc97c8e4595c4ddffc0354f8bbaf6219580e106049d1dbe839201bc926df", "FrozenRetainedQualification");
+    assert.equal(
+        digest(bytes),
+        "d01dcc97c8e4595c4ddffc0354f8bbaf6219580e106049d1dbe839201bc926df",
+        "FrozenRetainedQualification",
+    );
     const value = JSON.parse(bytes.toString("utf8"));
     boundedJson(value);
-    assert.equal(value.passed, true); assert.equal(value.nativeIpc, true); assert.equal(value.modelExecution, true);
-    assert.equal(value.protocolVersion, 4); assert.equal(value.sourceRevision, "7bd21c7b0a62ae78c47d66b9030ae715b68f96b5");
-    const initial = value.reports.find((entry) => entry.stage === "initial")?.report;
-    const restart = value.reports.find((entry) => entry.stage === "restart")?.report;
-    assert(initial && restart && guid(restart.reopenedRun), "OriginalNativeRunIdentityRequired");
-    assert.equal(initial.modelExecution, true); assert.equal(restart.modelExecution, false);
-    assert.deepEqual(value.inventories.map(({ stage, digest: fingerprint, file_count }) => ({ stage, fingerprint, file_count })), [
-        { stage: "initial", fingerprint: "f22cd3ec7c40c8870684b025fe1bcd909a4664e34f92f552779f2068bce429e5", file_count: 2072 },
-        { stage: "restart", fingerprint: "f22cd3ec7c40c8870684b025fe1bcd909a4664e34f92f552779f2068bce429e5", file_count: 2072 },
-    ], "FrozenOriginalRunInventory");
-    assert(Array.isArray(initial.reviewSlots) && initial.reviewSlots.length === 8);
-    const completed = initial.outcomeSummaries.find((entry) => entry.completed === true);
-    assert(completed && completed.rows === 48 && completed.completed_scenes === 4);
-    return { sourceRevision: value.sourceRevision, qualificationSha256: digest(bytes), runId: restart.reopenedRun,
-        digest: value.inventories[1].digest, fileCount: value.inventories[1].file_count,
-        slots: initial.reviewSlots, outcome: completed };
+    assert.equal(value.passed, true);
+    assert.equal(value.nativeIpc, true);
+    assert.equal(value.modelExecution, true);
+    assert.equal(value.protocolVersion, 4);
+    assert.equal(
+        value.sourceRevision,
+        "7bd21c7b0a62ae78c47d66b9030ae715b68f96b5",
+    );
+    const initial = value.reports.find(
+        (entry) => entry.stage === "initial",
+    )?.report;
+    const restart = value.reports.find(
+        (entry) => entry.stage === "restart",
+    )?.report;
+    assert(
+        initial && restart && guid(restart.reopenedRun),
+        "OriginalNativeRunIdentityRequired",
+    );
+    assert.equal(initial.modelExecution, true);
+    assert.equal(restart.modelExecution, false);
+    assert.deepEqual(
+        value.inventories.map(({ stage, digest: fingerprint, file_count }) => ({
+            stage,
+            fingerprint,
+            file_count,
+        })),
+        [
+            {
+                stage: "initial",
+                fingerprint:
+                    "f22cd3ec7c40c8870684b025fe1bcd909a4664e34f92f552779f2068bce429e5",
+                file_count: 2072,
+            },
+            {
+                stage: "restart",
+                fingerprint:
+                    "f22cd3ec7c40c8870684b025fe1bcd909a4664e34f92f552779f2068bce429e5",
+                file_count: 2072,
+            },
+        ],
+        "FrozenOriginalRunInventory",
+    );
+    assert(
+        Array.isArray(initial.reviewSlots) && initial.reviewSlots.length === 8,
+    );
+    const completed = initial.outcomeSummaries.find(
+        (entry) => entry.completed === true,
+    );
+    assert(
+        completed && completed.rows === 48 && completed.completed_scenes === 4,
+    );
+    return {
+        sourceRevision: value.sourceRevision,
+        qualificationSha256: digest(bytes),
+        runId: restart.reopenedRun,
+        digest: value.inventories[1].digest,
+        fileCount: value.inventories[1].file_count,
+        slots: initial.reviewSlots,
+        outcome: completed,
+    };
 }
 async function sceneHashes(files, cap = 16 * 1024 * 1024) {
     const result = {};
@@ -824,7 +902,10 @@ const restartLabels = [
     "full-reader",
     "full-finished",
 ];
-const retainedLabels = [...restartLabels, ...sceneReviewSlots.map(({ label }) => label)];
+const retainedLabels = [
+    ...restartLabels,
+    ...sceneReviewSlots.map(({ label }) => label),
+];
 const stageInitialLabels = sceneMode
     ? [...initialLabels, ...sceneReviewSlots.map(({ label }) => label)]
     : initialLabels;
@@ -846,7 +927,10 @@ function checkedReport(report, stage) {
     );
     assert.equal(report.rendering, "native-webview2", "ReportNativeRendering");
     assert.equal(report.stage, stage, "ReportStage");
-    if (reviewMode) { checkedRetainedReport(report, stage); return; }
+    if (reviewMode) {
+        checkedRetainedReport(report, stage);
+        return;
+    }
     if (stage === "denied") {
         assert(
             Array.isArray(report.checks) &&
@@ -1034,55 +1118,173 @@ function checkedReport(report, stage) {
     );
 }
 function checkedRetainedReport(report, stage) {
-    assert.equal(stage, "review"); assert.equal(report.retainedReview, true); assert.equal(report.protocolVersion, 4);
-    assert.equal(report.modelExecution, false); assert.equal(report.reopenedRun, retainedReview.runId);
+    assert.equal(stage, "review");
+    assert.equal(report.retainedReview, true);
+    assert.equal(report.protocolVersion, 4);
+    assert.equal(report.modelExecution, false);
+    assert.equal(report.reopenedRun, retainedReview.runId);
     assert.equal(report.originalHumanAssessment, "needs improvement");
-    assert.equal(report.human_rubric, "not_reviewed"); assert.equal(report.quality_accepted, false);
-    assert.deepEqual(report.doubles, ["read-consent"]); assert.deepEqual(report.savedRuns, []);
-    assert(Array.isArray(report.checks) && report.checks.length >= 50 && report.checks.length <= 8192);
-    for (const name of ["native-scene-review-fresh-metadata-unavailable", "native-scene-review-opened-completed-before-any-resume",
-        "native-scene-review-retired-native-metadata-remains-unavailable", "native-scene-review-no-new-generation-or-held-consent",
-        "native-scene-eight-frozen-review-slots-no-substitution", "native-scene-retained-review-no-consent-or-reservation"])
-        assert(report.checks.includes(name), `RequiredRetainedReviewCheck:${name}`);
-    assert.deepEqual([...report.captureLabels].sort(), [...retainedLabels].sort());
+    assert.equal(report.human_rubric, "not_reviewed");
+    assert.equal(report.quality_accepted, false);
+    assert.deepEqual(report.doubles, ["read-consent"]);
+    assert.deepEqual(report.savedRuns, []);
+    assert(
+        Array.isArray(report.checks) &&
+            report.checks.length >= 50 &&
+            report.checks.length <= 8192,
+    );
+    for (const name of [
+        "native-scene-review-fresh-metadata-unavailable",
+        "native-scene-review-opened-completed-before-any-resume",
+        "native-scene-review-retired-native-metadata-remains-unavailable",
+        "native-scene-review-no-new-generation-or-held-consent",
+        "native-scene-eight-frozen-review-slots-no-substitution",
+        "native-scene-retained-review-no-consent-or-reservation",
+    ])
+        assert(
+            report.checks.includes(name),
+            `RequiredRetainedReviewCheck:${name}`,
+        );
+    assert.deepEqual(
+        [...report.captureLabels].sort(),
+        [...retainedLabels].sort(),
+    );
     assert.equal(new Set(report.captureLabels).size, 12);
-    assert.deepEqual(report.reviewSlots.map(({ turn, arm, label }) => ({ turn, arm, label })), sceneReviewSlots);
+    assert.deepEqual(
+        report.reviewSlots.map(({ turn, arm, label }) => ({
+            turn,
+            arm,
+            label,
+        })),
+        sceneReviewSlots,
+    );
     for (const slot of report.reviewSlots) {
-        const original = retainedReview.slots.find((entry) => entry.turn === slot.turn && entry.arm === slot.arm);
+        const original = retainedReview.slots.find(
+            (entry) => entry.turn === slot.turn && entry.arm === slot.arm,
+        );
         assert(original, "FrozenRetainedSlotIdentity");
-        for (const key of ["phase", "passed", "error", "fallback", "source", "receipt_available", "capture_available", "recording_available",
-            "input_semantic_sha256", "construction_evidence_status", "construction_evidence_reason", "privacy_evidence_status",
-            "narrator_prompt_sha256", "narrator_schema_sha256", "scene_frame_sha256"])
-            assert.deepEqual(slot[key], original[key], `RetainedSlotUnchanged:${key}`);
-        for (const key of ["receipt_evidence_sha256", "capture_evidence_sha256", "outputs_evidence_sha256"]) assert(hash(slot[key]));
-        assert.equal(slot.human_rubric, "not_reviewed"); assert.equal(slot.quality_accepted, false);
+        for (const key of [
+            "phase",
+            "passed",
+            "error",
+            "fallback",
+            "source",
+            "receipt_available",
+            "capture_available",
+            "recording_available",
+            "input_semantic_sha256",
+            "construction_evidence_status",
+            "construction_evidence_reason",
+            "privacy_evidence_status",
+            "narrator_prompt_sha256",
+            "narrator_schema_sha256",
+            "scene_frame_sha256",
+        ])
+            assert.deepEqual(
+                slot[key],
+                original[key],
+                `RetainedSlotUnchanged:${key}`,
+            );
+        for (const key of [
+            "receipt_evidence_sha256",
+            "capture_evidence_sha256",
+            "outputs_evidence_sha256",
+        ])
+            assert(hash(slot[key]));
+        assert.equal(slot.human_rubric, "not_reviewed");
+        assert.equal(slot.quality_accepted, false);
     }
     assert.equal(report.observationProofs.length, 1);
     const observed = report.observationProofs[0];
-    assert.equal(observed.name, "native-scene-retained-review-no-consent-or-reservation"); assert.equal(observed.unchanged, true);
+    assert.equal(
+        observed.name,
+        "native-scene-retained-review-no-consent-or-reservation",
+    );
+    assert.equal(observed.unchanged, true);
     assert.deepEqual(observed.before, observed.after);
-    assert.deepEqual(observed.before, { version: 1, kind: "native_scene_execution_observation", protocol_version: 4,
-        reservation_sequence: 0, consent_calls: 0, owner_present: false, retained_evaluations: 0 });
+    assert.deepEqual(observed.before, {
+        version: 1,
+        kind: "native_scene_execution_observation",
+        protocol_version: 4,
+        reservation_sequence: 0,
+        consent_calls: 0,
+        owner_present: false,
+        retained_evaluations: 0,
+    });
     assert.equal(report.inventoryProofs.length, 1);
     const proof = report.inventoryProofs[0];
-    assert.equal(proof.name, "retained-open-read-resume-close-whole-run-byte-read-only"); assert.equal(proof.unchanged, true);
-    assert.equal(proof.before, retainedReview.digest); assert.equal(proof.after, retainedReview.digest);
+    assert.equal(
+        proof.name,
+        "retained-open-read-resume-close-whole-run-byte-read-only",
+    );
+    assert.equal(proof.unchanged, true);
+    assert.equal(proof.before, retainedReview.digest);
+    assert.equal(proof.after, retainedReview.digest);
     assert.equal(proof.file_count, retainedReview.fileCount);
-    assert.equal(report.finalInventoryDigest, retainedReview.digest); assert.equal(report.finalInventoryCount, retainedReview.fileCount);
+    assert.equal(report.finalInventoryDigest, retainedReview.digest);
+    assert.equal(report.finalInventoryCount, retainedReview.fileCount);
     assert.equal(report.outcomeSummaries.length, 1);
     const outcome = report.outcomeSummaries[0];
-    assert.equal(outcome.recordedEvidenceOnly, true); assert.equal(typeof outcome.source_matches, "boolean");
-    for (const key of ["completed", "completed_scenes", "rows", "roles_known_sum", "unknown_role_rows", "physical_setups", "phases",
-        "failures", "human_reviewed", "quality_accepted", "protocol_version", "native_load", "profile",
-        "source_bound_committed_rows", "construction_statuses", "privacy_statuses", "human_rubric"])
-        assert.deepEqual(outcome[key], retainedReview.outcome[key], `RetainedOutcomeUnchanged:${key}`);
-    assert(report.retainedResume && ["completed", "source_mismatch"].includes(report.retainedResume.outcome));
-    assert.equal(report.retainedResume.error, report.retainedResume.outcome === "completed" ? null : "EvaluationSourceMismatch");
-    assert(Array.isArray(report.errors) && safe(report.timeoutRecoveries) && report.timeoutRecoveries <= 8);
+    assert.equal(outcome.recordedEvidenceOnly, true);
+    assert.equal(typeof outcome.source_matches, "boolean");
+    for (const key of [
+        "completed",
+        "completed_scenes",
+        "rows",
+        "roles_known_sum",
+        "unknown_role_rows",
+        "physical_setups",
+        "phases",
+        "failures",
+        "human_reviewed",
+        "quality_accepted",
+        "protocol_version",
+        "native_load",
+        "profile",
+        "source_bound_committed_rows",
+        "construction_statuses",
+        "privacy_statuses",
+        "human_rubric",
+    ])
+        assert.deepEqual(
+            outcome[key],
+            retainedReview.outcome[key],
+            `RetainedOutcomeUnchanged:${key}`,
+        );
+    assert(
+        report.retainedResume &&
+            ["completed", "source_mismatch"].includes(
+                report.retainedResume.outcome,
+            ),
+    );
+    assert.equal(
+        report.retainedResume.error,
+        report.retainedResume.outcome === "completed"
+            ? null
+            : "EvaluationSourceMismatch",
+    );
+    assert(
+        Array.isArray(report.errors) &&
+            safe(report.timeoutRecoveries) &&
+            report.timeoutRecoveries <= 8,
+    );
     assert.equal(report.errors.length, report.timeoutRecoveries);
-    assert(report.errors.every((entry) => entry.source === "native" && entry.category === "Transport"));
-    assert(report.unavailable.includes("pending-confirmation-native-render-unavailable-without-a-new-start"));
-    assert(report.unavailable.includes("retained-native-profile-is-not-current-process-model-execution"));
+    assert(
+        report.errors.every(
+            (entry) =>
+                entry.source === "native" && entry.category === "Transport",
+        ),
+    );
+    assert(
+        report.unavailable.includes(
+            "pending-confirmation-native-render-unavailable-without-a-new-start",
+        ),
+    );
+    assert(
+        report.unavailable.includes(
+            "retained-native-profile-is-not-current-process-model-execution",
+        ),
+    );
 }
 function checkedSceneReport(report, stage) {
     assert.equal(report.protocolVersion, 4, "ActualSceneProtocolRequired");
@@ -1460,17 +1662,54 @@ async function inventory(directory) {
 let failure = null;
 try {
     if (reviewMode) {
-        const nativeSource = (await boundedFile(path.join(root, "src-tauri/src/comparison_run_native_harness.rs"), 256 * 1024)).toString("utf8");
-        const mainSource = (await boundedFile(path.join(root, "src-tauri/src/main.rs"), 256 * 1024)).toString("utf8");
-        assert(nativeSource.includes("pub fn review_active(") && nativeSource.includes("pub fn review_webview_profile("), "NativeRetainedReviewSeamRequired");
-        assert(mainSource.includes("comparison_run_native_harness::review_active()") &&
-            mainSource.includes("comparison_run_native_harness::review_webview_profile("), "NativeReviewStageAndFreshProfileRequired");
+        const nativeSource = (
+            await boundedFile(
+                path.join(
+                    root,
+                    "src-tauri/src/comparison_run_native_harness.rs",
+                ),
+                256 * 1024,
+            )
+        ).toString("utf8");
+        const mainSource = (
+            await boundedFile(
+                path.join(root, "src-tauri/src/main.rs"),
+                256 * 1024,
+            )
+        ).toString("utf8");
+        assert(
+            nativeSource.includes("pub fn review_active(") &&
+                nativeSource.includes("pub fn review_webview_profile("),
+            "NativeRetainedReviewSeamRequired",
+        );
+        assert(
+            mainSource.includes(
+                "comparison_run_native_harness::review_active()",
+            ) &&
+                mainSource.includes(
+                    "comparison_run_native_harness::review_webview_profile(",
+                ),
+            "NativeReviewStageAndFreshProfileRequired",
+        );
         retainedReview = await retainedReviewMetadata();
-        await absent(path.join(reviewPacketRoot, "stories-v1.sqlite"), "RetainedInMemoryWorkspaceMustStayAbsent");
-        await absent(path.join(folder, "webview-profile"), "FreshReviewProfileRequired");
-        retainedBefore = await inventory(path.join(reviewPacketRoot, "comparison-evaluations"));
-        assert.equal(retainedBefore.digest, retainedReview.digest); assert.equal(retainedBefore.file_count, retainedReview.fileCount);
-        await writeFile(path.join(folder, "retained-source-manifest.json"), JSON.stringify(retainedReview, null, 2), { flag: "wx" });
+        await absent(
+            path.join(reviewPacketRoot, "stories-v1.sqlite"),
+            "RetainedInMemoryWorkspaceMustStayAbsent",
+        );
+        await absent(
+            path.join(folder, "webview-profile"),
+            "FreshReviewProfileRequired",
+        );
+        retainedBefore = await inventory(
+            path.join(reviewPacketRoot, "comparison-evaluations"),
+        );
+        assert.equal(retainedBefore.digest, retainedReview.digest);
+        assert.equal(retainedBefore.file_count, retainedReview.fileCount);
+        await writeFile(
+            path.join(folder, "retained-source-manifest.json"),
+            JSON.stringify(retainedReview, null, 2),
+            { flag: "wx" },
+        );
     }
     if (sceneMode) {
         sceneSourceHashes = await sceneHashes(sceneInputFiles);
@@ -1497,21 +1736,27 @@ try {
     if (nativeMode) {
         nativeAssets = await approvedNativeAssets();
         if (reviewMode) {
-            for (const worker of [path.join(root, "src-tauri/runtime/locallore-llama-worker.exe"),
-                path.join(target, "debug/runtime/locallore-llama-worker.exe")]) {
+            for (const worker of [
+                path.join(root, "src-tauri/runtime/locallore-llama-worker.exe"),
+                path.join(target, "debug/runtime/locallore-llama-worker.exe"),
+            ]) {
                 await ordinarySceneDirectory(path.dirname(worker));
-                assert.equal(digest(await boundedFile(worker, 16 * 1024 * 1024)), nativeAssets.verified.worker.sha256,
-                    "RetainedReviewExistingWorkerPinRequired");
+                assert.equal(
+                    digest(await boundedFile(worker, 16 * 1024 * 1024)),
+                    nativeAssets.verified.worker.sha256,
+                    "RetainedReviewExistingWorkerPinRequired",
+                );
             }
-        } else await run(
-            "stage-approved-worker",
-            process.execPath,
-            ["stage-runtime.mjs"],
-            {
-                LOCALLORE_D04_WORKER_SOURCE: nativeAssets.worker,
-                LOCALLORE_D04_TARGET_DIR: target,
-            },
-        );
+        } else
+            await run(
+                "stage-approved-worker",
+                process.execPath,
+                ["stage-runtime.mjs"],
+                {
+                    LOCALLORE_D04_WORKER_SOURCE: nativeAssets.worker,
+                    LOCALLORE_D04_TARGET_DIR: target,
+                },
+            );
     }
     if (reviewMode) reviewPreflightReady = true;
     await run("frontend-build", process.execPath, ["build.mjs", "--harness"]);
@@ -1550,9 +1795,11 @@ try {
             { flag: "wx" },
         );
     }
-    for (const stage of reviewMode ? ["review"] : nativeMode
-        ? ["initial", "restart"]
-        : ["denied", "initial", "restart"]) {
+    for (const stage of reviewMode
+        ? ["review"]
+        : nativeMode
+          ? ["initial", "restart"]
+          : ["denied", "initial", "restart"]) {
         const directory = path.join(folder, stage);
         await run(
             `app-${stage}`,
@@ -1579,12 +1826,18 @@ try {
                 LOCALLORE_TEST_MEMORY: "1",
                 LOCALLORE_TEST_STORAGE_FAILURE: "0",
                 LOCALLORE_TEST_WORKSPACE: path.join(
-                    reviewMode ? reviewPacketRoot : stage === "denied"
-                        ? path.join(folder, "denied-workspace")
-                        : folder,
+                    reviewMode
+                        ? reviewPacketRoot
+                        : stage === "denied"
+                          ? path.join(folder, "denied-workspace")
+                          : folder,
                     "stories-v1.sqlite",
                 ),
-                LOCALLORE_TEST_RESTART: reviewMode ? "review" : stage === "restart" ? "1" : "0",
+                LOCALLORE_TEST_RESTART: reviewMode
+                    ? "review"
+                    : stage === "restart"
+                      ? "1"
+                      : "0",
                 LOCALLORE_D02_ARTIFACT_DIR: directory,
                 WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:
                     "--disable-background-timer-throttling",
@@ -1605,7 +1858,10 @@ try {
         }
         const images = await captures(directory, report);
         const actual = await inventory(
-            path.join(reviewMode ? reviewPacketRoot : folder, "comparison-evaluations"),
+            path.join(
+                reviewMode ? reviewPacketRoot : folder,
+                "comparison-evaluations",
+            ),
         );
         assert.equal(
             actual.digest,
@@ -1618,9 +1874,16 @@ try {
             "IndependentCoreInventoryCount",
         );
         if (reviewMode) {
-            assert.deepEqual(actual.files, retainedBefore.files, "RetainedReviewPreservesEveryOriginalRunByte");
+            assert.deepEqual(
+                actual.files,
+                retainedBefore.files,
+                "RetainedReviewPreservesEveryOriginalRunByte",
+            );
             retainedAfter = actual;
-            await absent(path.join(reviewPacketRoot, "stories-v1.sqlite"), "RetainedInMemoryWorkspaceMustStayAbsent");
+            await absent(
+                path.join(reviewPacketRoot, "stories-v1.sqlite"),
+                "RetainedInMemoryWorkspaceMustStayAbsent",
+            );
             await ordinarySceneDirectory(path.join(folder, "webview-profile"));
         } else if (expectedInventory) {
             assert.deepEqual(
@@ -1658,8 +1921,13 @@ try {
         message: String(error?.message ?? error).slice(0, 2048),
     };
 } finally {
-    if (reviewMode && !reviewPreflightReady) sceneRestoration = { passed: false, skipped: true, launched: false,
-        reason: "RetainedReviewPreflightRefusedBeforeProductMutation" };
+    if (reviewMode && !reviewPreflightReady)
+        sceneRestoration = {
+            passed: false,
+            skipped: true,
+            launched: false,
+            reason: "RetainedReviewPreflightRefusedBeforeProductMutation",
+        };
     // BEGIN SCENE RESTORATION POLICY: also exercised with synthetic children.
     if (sceneMode) {
         if (scenePolicy.unknownDrain) {
@@ -1728,11 +1996,29 @@ try {
     // END SCENE RESTORATION POLICY.
     if (reviewMode && retainedBefore && !scenePolicy.unknownDrain) {
         try {
-            retainedAfter = await inventory(path.join(reviewPacketRoot, "comparison-evaluations"));
-            assert.deepEqual(retainedAfter.files, retainedBefore.files, "RetainedOriginalRunBytesChanged");
-            await absent(path.join(reviewPacketRoot, "stories-v1.sqlite"), "RetainedInMemoryWorkspaceMustStayAbsent");
-            await writeFile(path.join(folder, "retained-final-inventory.json"), JSON.stringify(retainedAfter, null, 2), { flag: "wx" });
-        } catch (error) { failure ??= { name: error?.name ?? "Error", message: String(error?.message ?? error).slice(0, 2048) }; }
+            retainedAfter = await inventory(
+                path.join(reviewPacketRoot, "comparison-evaluations"),
+            );
+            assert.deepEqual(
+                retainedAfter.files,
+                retainedBefore.files,
+                "RetainedOriginalRunBytesChanged",
+            );
+            await absent(
+                path.join(reviewPacketRoot, "stories-v1.sqlite"),
+                "RetainedInMemoryWorkspaceMustStayAbsent",
+            );
+            await writeFile(
+                path.join(folder, "retained-final-inventory.json"),
+                JSON.stringify(retainedAfter, null, 2),
+                { flag: "wx" },
+            );
+        } catch (error) {
+            failure ??= {
+                name: error?.name ?? "Error",
+                message: String(error?.message ?? error).slice(0, 2048),
+            };
+        }
     }
     let sourceClean = false,
         terminalSourceUnchanged = false;
@@ -1754,11 +2040,29 @@ try {
         terminalSourceUnchanged,
         executableSha256,
         launcherSha256,
-        ...(reviewMode ? { retainedReview: true, retainedSource: retainedReview,
-            retainedBefore: retainedBefore ? { digest: retainedBefore.digest, fileCount: retainedBefore.file_count } : null,
-            retainedAfter: retainedAfter ? { digest: retainedAfter.digest, fileCount: retainedAfter.file_count } : null,
-            originalWorkspaceSQLite: "absent-required-before-and-after", freshWebviewProfile: "new-output-root/webview-profile",
-            awaitingConfirmationNativeRender: "unavailable-no-start-no-consent", reviewPreflightReady } : {}),
+        ...(reviewMode
+            ? {
+                  retainedReview: true,
+                  retainedSource: retainedReview,
+                  retainedBefore: retainedBefore
+                      ? {
+                            digest: retainedBefore.digest,
+                            fileCount: retainedBefore.file_count,
+                        }
+                      : null,
+                  retainedAfter: retainedAfter
+                      ? {
+                            digest: retainedAfter.digest,
+                            fileCount: retainedAfter.file_count,
+                        }
+                      : null,
+                  originalWorkspaceSQLite: "absent-required-before-and-after",
+                  freshWebviewProfile: "new-output-root/webview-profile",
+                  awaitingConfirmationNativeRender:
+                      "unavailable-no-start-no-consent",
+                  reviewPreflightReady,
+              }
+            : {}),
         ...(sceneMode
             ? {
                   protocolVersion: 4,
@@ -1798,9 +2102,11 @@ try {
         limits,
         failure,
         limitations: [
-            reviewMode ? "Read-only retained native report/profile evidence; no new model execution or human-quality acceptance" : nativeMode
-                ? "Actual installed-model evidence is recorded only after verified generated report outputs; no human quality acceptance"
-                : "Fixed scripted fake inference only; no approved-model execution",
+            reviewMode
+                ? "Read-only retained native report/profile evidence; no new model execution or human-quality acceptance"
+                : nativeMode
+                  ? "Actual installed-model evidence is recorded only after verified generated report outputs; no human quality acceptance"
+                  : "Fixed scripted fake inference only; no approved-model execution",
             "Fixed native consent doubles; no OS dialog automation or desktop control",
             "Node checks junction/symlink redirects, not all Windows reparse attributes or universal link races",
             "Images require separate individual visual inspection",

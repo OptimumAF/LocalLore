@@ -169,7 +169,7 @@ function scope(value: unknown): Scope {
     const object = exact(value, ["story", "branch"]);
     id(object.story);
     id(object.branch);
-    return object as Scope;
+    return { story: object.story, branch: object.branch };
 }
 function decision(value: unknown): NarrationValidationDecisionV1 {
     const object = exact(value, ["version", "outcome", "error", "reason"]);

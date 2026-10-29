@@ -116,3 +116,11 @@ four role polls after these intentional generations; nongeneration operations
 must leave those counts unchanged. Restart performs zero factories/polls. This
 amendment supersedes only the typed-trigger/no-extra-generation wording above;
 all real outcome, unchanged proof, lifecycle, storage and evidence gates remain.
+
+Root also authorizes the development-only `FaultGateway.gameplayCancelCalls`
+numeric counter (maximum 64 increments, then fail the test), incremented only for
+`command.op === "cancel"` immediately before the real base call. It observes
+attempted dispatch, not successful completion, and adds no response/control hook.
+A zero delta across local metadata cancel proves no attempted gameplay Cancel
+through this exact gateway. Successful capture roster is nine initial labels and
+one restart label; the eleventh label is failure contingency, not a success image.

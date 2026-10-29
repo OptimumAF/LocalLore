@@ -422,3 +422,18 @@ the existing reader/trace oracles, and report missing construction as setup.
 Subscriber assertions must not disappear into notification exception handling;
 capture observations and assert them outside the callback. Independent native
 harness scope and exact production ownership follow a separate Root allocation.
+
+### FIRST reason and constructibility precision
+
+A checked metadata reply with `snapshot.status:"disabled"` is locally
+`trace_unavailable`; a valid `bounded_metadata_window` with no selectable
+attempt is `selection_unavailable`. Neither identifies the reason for native
+diagnostic unavailability. Earlier eligibility reasons retain their priority.
+Ordinary public context changes correctly clear old trace state before an
+isolated `context_changed` reason may remain reachable. Report that limitation
+instead of seeding private state. A hostile synthetic Gateway response alias
+may test defensive revalidation, but must not require mutable aliasing: if the
+checked trace is detached, prove the original tuple remains exact and no evil
+query dispatches. Actual Main Play/send retirement is a joint boundary; the
+separate genuinely pending/uncertain operation followed by an otherwise-eligible
+Lab read is required to isolate the Main gameplay fence.

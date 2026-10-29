@@ -21,6 +21,12 @@ report plus newline; no unrelated rows, process paths or table buffers are
 printed. Explicit launch has a30-second owned subprocess/job and complete
 bounded binary capture. No import or build runs the diagnostic.
 
+The new scoped owner assigns its job, starts output drains and records the actual
+native process identity BEFORE releasing stdin. The legacy supervisor announces
+after sending stdin and remains unchanged; a fast compiled child must not lose
+its identity receipt through that race. An unsuccessful callback prevents barrier
+release. Test this ordering separately before the native control.
+
 Worker creates only its own exclusive IPv4 loopback listener on port0, then one
 client and accepted socket. Require assigned ports positive/distinct and not5037;
 never connect an existing endpoint. Set finite socket send/receive timeouts.

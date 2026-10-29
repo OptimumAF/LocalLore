@@ -207,6 +207,108 @@ def _owner_completed(owner, raw, stderr):
         return False
 
 
+def _supervise(command, request, root, seconds, on_started):
+    """Assign job and capture actual identity before releasing the native barrier.
+
+    The legacy owner announces after sending stdin. A fast compiled child can
+    finish before that announcement; this scoped owner never uses that ordering.
+    Every created child belongs only to this job; ordinary exit also closes it.
+    """
+    import os
+    import subprocess
+    import threading
+    import time
+    env,_,_ = _runtime()
+    _need(os.name == 'nt' and type(seconds) is int and 0 < seconds <= 30,'platform')
+    _need(type(request) is bytes and len(request) <= 131072,'bounds')
+    child = job = capture = None
+    readers,cleaned,status = [],False,'spawn_failed'
+    beginning = time.monotonic()
+    def remaining():
+        _need(time.monotonic()-beginning < seconds,'owner')
+    try:
+        capture = env.LiveOutput(root)
+        child = subprocess.Popen(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+            bufsize=0,creationflags=subprocess.CREATE_NO_WINDOW)
+        job = env.host.WindowsJob(child.pid)
+        def drain(stream,channel):
+            try:
+                while True:
+                    data = stream.read(4096)
+                    if not data or not capture.append(channel,data):
+                        break
+            except Exception:
+                capture.failed.set()
+        for channel,stream in enumerate((child.stdout,child.stderr)):
+            thread = threading.Thread(target=drain,args=(stream,channel),daemon=True)
+            readers.append(thread); thread.start()
+        remaining()
+        _need(on_started(child) is True,'identity')
+        remaining()
+        tail = memoryview(request)
+        while tail:
+            remaining(); written = child.stdin.write(tail)
+            _need(type(written) is int and 0 < written <= len(tail),'owner')
+            tail = tail[written:]
+        child.stdin.close()
+        status = 'running'
+        while True:
+            if capture.failed.is_set():
+                status = 'evidence_failed'; break
+            if capture.overflow.is_set():
+                status = 'output_limit'; break
+            if time.monotonic()-beginning >= seconds:
+                status = 'expired'; break
+            if child.poll() is not None:
+                status = 'child_exited'; break
+            time.sleep(.01)
+    except KeyboardInterrupt:
+        status = 'cancelled'
+    except (OSError,ValueError,KeyError,TypeError,env.EnvironmentRefused):
+        status = 'evidence_failed' if capture is None or capture.failed.is_set() else 'owner_failed'
+    finally:
+        if child is not None:
+            try:
+                if job is not None:
+                    cleaned = job.close() is True
+                else:
+                    # The admitted child still blocks before its stdin barrier.
+                    child.kill(); cleaned = True
+            except (OSError,ValueError):
+                cleaned = False
+            try:
+                child.wait(timeout=5)
+            except (OSError,subprocess.TimeoutExpired):
+                cleaned = False
+            for thread in readers:
+                thread.join(timeout=2)
+            cleaned = cleaned and not any(t.is_alive() for t in readers)
+            if cleaned:
+                for stream in (child.stdin,child.stdout,child.stderr):
+                    try:
+                        stream.close()
+                    except (OSError,ValueError):
+                        cleaned = False
+        stalled = any(t.is_alive() for t in readers)
+        if capture is not None:
+            if stalled:
+                capture.failed.set(); status = 'evidence_failed'
+            else:
+                try:
+                    capture.close()
+                except (OSError,ValueError):
+                    capture.failed.set()
+                if capture.failed.is_set():
+                    status = 'evidence_failed'
+                elif capture.overflow.is_set():
+                    status = 'output_limit'
+        sizes = [None,None] if stalled else capture.sizes if capture is not None else [0,0]
+        complete = capture is not None and not capture.failed.is_set() and not capture.overflow.is_set() and not stalled
+    return dict(status=status,cleanup_complete=cleaned,elapsed_ms=round((time.monotonic()-beginning)*1000),
+        output_capture_complete=complete,worker_returncode=child.returncode if child is not None else None,
+        stdout_bytes=sizes[0],stderr_bytes=sizes[1])
+
+
 def main(argv=None):
     import argparse
     import os
@@ -237,7 +339,7 @@ def main(argv=None):
         started_value = env.process_identity(child.pid)
         _need(started_value['executable'] == str(binary),'identity')
         env.create_json(out/'started-v1.json',dict(worker=started_value)); return True
-    owner = env.supervise([str(binary)],BARRIER,out,30,started)
+    owner = _supervise([str(binary)],BARRIER,out,30,started)
     env.create_json(out/'owner-result-v1.json',owner)
     after = dict(binary=env.binding(binary),sources=_source_bindings(env,probe),
         python=probe._python_bindings(),owner=env.process_identity(os.getpid()))

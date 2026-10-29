@@ -18,7 +18,12 @@ pub struct PlayStoryPresentationRecordV1 {
 }
 
 pub(super) fn binding(engine: &Engine) -> Result<Option<PlayStoryPresentationRecordV1>, Error> {
-    let Some(presentation) = engine.seed().presentation.as_ref() else {
+    binding_for_presentation(engine.seed().presentation.as_ref())
+}
+pub(super) fn binding_for_presentation(
+    presentation: Option<&crate::story_presentation::StoryPresentationV1>,
+) -> Result<Option<PlayStoryPresentationRecordV1>, Error> {
+    let Some(presentation) = presentation else {
         return Ok(None);
     };
     if !presentation.validate() || presentation.is_default() {
@@ -54,10 +59,16 @@ pub(super) fn validate_binding(
 }
 
 pub(super) fn narrator_prompt(engine: &Engine, legacy: String) -> Result<String, Error> {
-    let Some(presentation) = engine.seed().presentation.as_ref() else {
+    narrator_prompt_for_presentation(engine.seed().presentation.as_ref(), legacy)
+}
+pub(super) fn narrator_prompt_for_presentation(
+    presentation: Option<&crate::story_presentation::StoryPresentationV1>,
+    legacy: String,
+) -> Result<String, Error> {
+    let Some(presentation) = presentation else {
         return Ok(legacy);
     };
-    binding(engine)?;
+    binding_for_presentation(Some(presentation))?;
     let tone = match presentation.tone {
         StoryTone::Plain => "Use a plain, direct tone.",
         StoryTone::Warm => {

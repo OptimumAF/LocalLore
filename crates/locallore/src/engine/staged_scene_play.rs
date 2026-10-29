@@ -3,6 +3,13 @@
 //! intended for a later provider request; the ordinary receipt stays native.
 use super::{check_json_budget, staged_play, Engine};
 use crate::contracts::{Error, Proposal, Receipt, Request, Scope, MAX_RECEIPT_BYTES};
+use crate::{
+    play::{
+        scene_narration::{self, SceneNarrationRecordV1, SceneRecipeV1},
+        PlayRecord,
+    },
+    story_presentation::StoryPresentationV1,
+};
 use serde::Serialize;
 
 /// Native preparation capability: no wire constructor, serialization or Clone.
@@ -10,6 +17,34 @@ use serde::Serialize;
 pub struct StagedScenePlayV1 {
     staged: staged_play::StagedPlayV25,
     frame: NarratorSceneFrameV1,
+}
+
+/// Consumed source/recipe capability, never constructed from a record hash.
+pub struct BoundScenePlayV1 {
+    preparation: StagedScenePlayV1,
+    recipe: SceneRecipeV1,
+    presentation: Option<StoryPresentationV1>,
+    provenance: SceneNarrationRecordV1,
+}
+impl BoundScenePlayV1 {
+    pub fn approved(&self) -> &Receipt {
+        self.preparation.approved()
+    }
+    pub fn narrator_evidence(&self) -> &staged_play::NarratorEvidenceV22 {
+        self.preparation.narrator_evidence()
+    }
+    pub fn scene_frame(&self) -> &NarratorSceneFrameV1 {
+        self.preparation.scene_frame()
+    }
+    pub fn recipe(&self) -> SceneRecipeV1 {
+        self.recipe
+    }
+    pub(crate) fn presentation(&self) -> Option<&StoryPresentationV1> {
+        self.presentation.as_ref()
+    }
+    pub(crate) fn provenance(&self) -> &SceneNarrationRecordV1 {
+        &self.provenance
+    }
 }
 
 impl StagedScenePlayV1 {
@@ -58,6 +93,76 @@ impl NarratorSceneFrameV1 {
 }
 
 impl Engine {
+    /// Bind to actual complete history and exact native construction. The
+    /// original preparation is rederived, not admitted by matching head alone.
+    pub fn bind_scene_play_v1(
+        &self,
+        preparation: StagedScenePlayV1,
+        recipe: SceneRecipeV1,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<BoundScenePlayV1, Error> {
+        staged_play::check(cancel)?;
+        scene_narration::check_seed(self, recipe)?;
+        if self.accepted_history_basis()? != preparation.staged.basis {
+            return Err(Error::Stale);
+        }
+        let regenerated = self.stage_scene_play_v1(
+            preparation.approved().request(),
+            preparation.approved().proposal(),
+            cancel,
+        )?;
+        if regenerated.staged.basis != preparation.staged.basis
+            || regenerated.approved() != preparation.approved()
+            || regenerated.narrator_evidence() != preparation.narrator_evidence()
+            || regenerated.scene_frame() != preparation.scene_frame()
+        {
+            return Err(Error::Stale);
+        }
+        let presentation = self.seed().presentation.clone();
+        let provenance = scene_narration::provenance(regenerated.scene_frame())?;
+        staged_play::check(cancel)?;
+        Ok(BoundScenePlayV1 {
+            preparation: regenerated,
+            recipe,
+            presentation,
+            provenance,
+        })
+    }
+
+    /// Exact recorded retry wins first. Fresh installation consumes and
+    /// regenerates the complete capability, including typed seed presentation.
+    pub fn commit_scene_play_v1(
+        &mut self,
+        bound: BoundScenePlayV1,
+        record: &PlayRecord,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<Receipt, Error> {
+        if let Some(receipt) = self.recorded(bound.approved().request())? {
+            return Ok(receipt);
+        }
+        staged_play::check(cancel)?;
+        let BoundScenePlayV1 {
+            preparation,
+            recipe,
+            presentation,
+            provenance,
+        } = bound;
+        let regenerated = self.bind_scene_play_v1(preparation, recipe, cancel)?;
+        if regenerated.presentation != presentation || regenerated.provenance != provenance {
+            return Err(Error::Stale);
+        }
+        scene_narration::validate_record(self, &regenerated, record, cancel)?;
+        self.validate_story_narration(&record.narration.text)?;
+        let mut receipt = regenerated.preparation.staged.approved;
+        receipt.narration = record.narration.text.clone();
+        receipt.play = Some(record.clone());
+        let mut candidate = self.clone();
+        candidate.append_play(receipt.clone())?;
+        staged_play::check(cancel)?;
+        *self = candidate;
+        Ok(receipt)
+    }
+
     /// Prepare a closed scene anchor over the existing validated native stage.
     /// This neither commits the candidate nor changes current generation/replay.
     pub fn stage_scene_play_v1(

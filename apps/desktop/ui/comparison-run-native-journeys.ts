@@ -541,6 +541,82 @@ export async function comparisonRunNativeJourneys({
             );
         }
         const evidence = reader.evidence;
+        // Observe actual layout in the retained-review mode. Text presence and
+        // horizontal-fit checks alone cannot detect an opaque sticky header
+        // covering the artifact's source or case outcome.
+        const artifactGeometry =
+            retainedReview && targetSelector === ".comparison-evidence"
+                ? (() => {
+                      const header = panel!.querySelector<HTMLElement>(
+                          ".comparison-selection-context",
+                      );
+                      check(header, `${label}-actual-selection-context`);
+                      const headerBox = header!.getBoundingClientRect();
+                      const position = getComputedStyle(header!).position;
+                      const paragraphs = [
+                          ...target!.querySelectorAll<HTMLElement>("p"),
+                      ];
+                      const items = [
+                          {
+                              kind: "heading",
+                              node: target!.querySelector<HTMLElement>("h4"),
+                          },
+                          {
+                              kind: "source",
+                              node: paragraphs.find((node) =>
+                                  node.textContent?.startsWith("Source story "),
+                              ),
+                          },
+                          ...(evidence?.observer.kind === "omniscient"
+                              ? [
+                                    {
+                                        kind: "case-outcome",
+                                        node: paragraphs.find((node) =>
+                                            node.textContent?.startsWith(
+                                                "Case phase:",
+                                            ),
+                                        ),
+                                    },
+                                ]
+                              : []),
+                      ].map(({ kind, node }) => {
+                          check(node, `${label}-actual-artifact-${kind}`);
+                          const box = node!.getBoundingClientRect();
+                          const overlap =
+                              (position === "sticky" || position === "fixed") &&
+                              box.top < headerBox.bottom &&
+                              box.bottom > headerBox.top &&
+                              box.left < headerBox.right &&
+                              box.right > headerBox.left;
+                          return {
+                              kind,
+                              top: box.top,
+                              bottom: box.bottom,
+                              left: box.left,
+                              right: box.right,
+                              insideViewport:
+                                  box.top >= -1 &&
+                                  box.bottom <= innerHeight + 1 &&
+                                  box.left >= -1 &&
+                                  box.right <= innerWidth + 1,
+                              selectionHeaderOverlap: overlap,
+                          };
+                      });
+                      return {
+                          selectionHeader: {
+                              top: headerBox.top,
+                              bottom: headerBox.bottom,
+                              position,
+                          },
+                          items,
+                          visible: items.every(
+                              (item) =>
+                                  item.insideViewport &&
+                                  !item.selectionHeaderOverlap,
+                          ),
+                      };
+                  })()
+                : null;
         const snapshot = {
             synthetic: true,
             semanticVersion: 2,
@@ -671,6 +747,7 @@ export async function comparisonRunNativeJourneys({
                     top: target!.getBoundingClientRect().top,
                     bottom: target!.getBoundingClientRect().bottom,
                 },
+                artifactGeometry,
             },
         };
         check(
@@ -680,6 +757,10 @@ export async function comparisonRunNativeJourneys({
         );
         await invoke("harness_checkpoint", { label, snapshot });
         captureLabels.push(label);
+        check(
+            artifactGeometry === null || artifactGeometry.visible,
+            `${label}-artifact-framing-visible-without-selection-header-overlap`,
+        );
         check(
             !pageOverflow && !panelOverflow,
             `${label}-no-horizontal-overflow`,

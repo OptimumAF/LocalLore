@@ -297,11 +297,11 @@ fn divergent_source() -> &'static Path {
         comparison::turn_execution::record_setup(&mut session.ledgers, comparison::turn_execution::Setup {
             version: 4, dir: &session.dir, key: &session.key, native: false, physical_ms: 0, status: "scripted", load: None }).unwrap();
         let corpus = comparison::suite().unwrap();
-        for index in 0..6 { for arm in 0..2 {
-            let began = Instant::now(); let d = dir.join(ARMS[arm]); let path = comparison::database(&d, index, comparison::ComparisonKind::ContinuousRollout);
+        for index in 0..6 { for (arm, name) in ARMS.iter().copied().enumerate() {
+            let began = Instant::now(); let d = dir.join(name); let path = comparison::database(&d, index, comparison::ComparisonKind::ContinuousRollout);
             comparison::ensure_database(&path, corpus.seed(), &[]).unwrap();
             let factory = if index == 0 && arm == 0 { LaneFactory::TestFault(TestFault::WrongCommand) } else { LaneFactory::ScriptedBaseline };
-            let turn = source4::execute_turn4(source4::Job4 { dir: &d, path: &path, index, arm: ARMS[arm], construction: source4::CONSTRUCTIONS[arm],
+            let turn = source4::execute_turn4(source4::Job4 { dir: &d, path: &path, index, arm: name, construction: source4::CONSTRUCTIONS[arm],
                 binding: &session.key, step: &corpus.steps()[index], factory: &factory, cancel: &Cancellation::default(), diagnostics: false }, &mut session.ledgers[arm]).unwrap();
             if index == 0 && arm == 0 { assert_eq!(turn.row.phase, "failed"); assert_eq!(turn.before_head, turn.after_head);
                 assert!(engine(&path, &corpus.seed().scope).unwrap().receipts().is_empty()); }

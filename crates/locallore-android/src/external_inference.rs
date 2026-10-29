@@ -105,7 +105,7 @@ impl Bridge {
         if ticket == 0 || ticket > i64::MAX as u64 {
             return rejected("InvalidTicket");
         }
-        if text.len() > MAX_RESPONSE {
+        if text.len() > MAX_RESPONSE || text.len() > pending.request.max_output_bytes {
             return rejected("TooLarge");
         }
         if text.is_empty() || std::str::from_utf8(text).is_err() {
@@ -173,6 +173,16 @@ impl Packet {
         let cap = match role.as_str() {
             "director" => profile.director_tokens,
             "narrator" => profile.narrator_tokens,
+            "author"
+                if request.schema == "initial-world-v1"
+                    && request.revision == 0
+                    && request.scope.branch == "draft"
+                    && request.scope.story == format!("author-draft-{}", request.turn)
+                    && request.budget.max_output_bytes <= 8192
+                    && request.budget.deadline_ms <= 120_000 =>
+            {
+                1024
+            }
             _ => return Err(Error::Provider),
         };
         if request.budget.max_output_tokens == 0
@@ -321,6 +331,66 @@ impl Drop for BridgeProvider {
 mod tests {
     use super::*;
     use locallore::inference::Budget;
+    #[test]
+    fn author_role_is_separate_bounded_and_cannot_expand_existing_play_roles() {
+        let input = serde_json::from_str(include_str!(
+            "../../../fixtures/initial_world/ashglass-input.json"
+        ))
+        .unwrap();
+        let author =
+            locallore::story_authoring::generation_request(&input, &profile().id, "author-job")
+                .unwrap();
+        let packet = Packet::new(&author, &profile()).unwrap();
+        assert_eq!(packet.worker["role"], "author");
+        assert_eq!(packet.worker["max_tokens"], 1024);
+        for mutate in [
+            (|r: &mut GenerationRequest| r.scope.branch = "main".into())
+                as fn(&mut GenerationRequest),
+            |r| r.revision = 1,
+            |r| r.schema = "foreign".into(),
+            |r| r.scope.story = "another-draft".into(),
+            |r| r.budget.max_output_tokens = 1025,
+            |r| r.budget.max_output_bytes = 8193,
+            |r| r.budget.deadline_ms = 120001,
+        ] {
+            let mut changed = author.clone();
+            mutate(&mut changed);
+            assert!(Packet::new(&changed, &profile()).is_err());
+        }
+        let mut director = generation();
+        director.budget.max_output_tokens = 351;
+        assert!(Packet::new(&director, &profile()).is_err());
+        let mut narrator = generation();
+        narrator.budget.max_output_tokens = 221;
+        if let Input::Structured { role, .. } = &mut narrator.input {
+            *role = "narrator".into();
+        }
+        assert!(Packet::new(&narrator, &profile()).is_err());
+    }
+    #[test]
+    fn author_response_cap_and_late_ticket_refusal_apply_before_delivery() {
+        let input = serde_json::from_str(include_str!(
+            "../../../fixtures/initial_world/ashglass-input.json"
+        ))
+        .unwrap();
+        let author =
+            locallore::story_authoring::generation_request(&input, &profile().id, "author-job")
+                .unwrap();
+        let bridge = bridge();
+        let mut provider = provider(&bridge);
+        let cancel = Cancellation::default();
+        assert!(matches!(provider.poll(&author, &cancel), Poll::Pending));
+        let ticket = provider.ticket.unwrap();
+        assert_eq!(
+            bridge.respond(ticket, &vec![b'x'; 8193])["error"],
+            "TooLarge"
+        );
+        assert!(!bridge.poll()["data"]["pending"].is_null());
+        cancel.cancel();
+        assert_eq!(bridge.respond(ticket, b"late")["error"], "InvalidTicket");
+        drop(provider);
+        assert!(bridge.state.lock().unwrap().active.is_none());
+    }
     fn profile() -> PlayProfile {
         PlayProfile {
             id: "synthetic-production-owner-v1".into(),

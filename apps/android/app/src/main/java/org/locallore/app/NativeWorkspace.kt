@@ -74,7 +74,11 @@ internal class NativeWorkspaceTransport(
         require(bytes.size <= 24_576)
         val reply = if (localInference == null) NativeWorkspace.call(id, bytes) else {
             val operation = command.getString("op")
-            val cancel = if (operation == "prepare") JSONObject(command.toString()).put("op", "cancel") else null
+            val cancel = when(operation) {
+                "prepare" -> JSONObject(command.toString()).put("op", "cancel")
+                "authoring_generate" -> JSONObject().put("op","authoring_cancel").put("job",command.get("job"))
+                else -> null
+            }
             localInference.execute(checkNotNull(localPort), operation, bytes, cancel?.let {
                 JSONObject().put("version", 1).put("command", it).toString().let(::localUtf8)
             })

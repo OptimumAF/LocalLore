@@ -73,7 +73,8 @@ class RetainedArchiveChooserTest {
             return JSONObject(bytes.toString(Charsets.UTF_8)).also { assertEquals(1, it.getInt("version")) }
         }
         fun ok(command: JSONObject): JSONObject = reply(command).also {
-            assertEquals("ok", it.getString("status"))
+            assertEquals("Native ${command.optString("op").take(32)} error=${it.optString("error", "missing").take(64)}",
+                "ok", it.opt("status"))
         }.getJSONObject("data")
         override suspend fun exchange(command: JSONObject): JSONObject = reply(command)
         override fun close() { val old = handle; handle = 0; if (old > 0) NativeWorkspace.close(old) }
@@ -200,7 +201,8 @@ class RetainedArchiveChooserTest {
         NativeArchive.exportBytes(handle, prepared.token).also { check(it.size in 1..LIMIT) }
     }
     private fun productSnapshot(): Map<String, String> = io {
-        Host(defaultDatabase()).use { host ->
+        val database = defaultDatabase()
+        Host(database).use { host ->
             val stories = host.ok(JSONObject().put("op", "workspace")).getJSONArray("stories")
             check(stories.length() in 1..16)
             (0 until stories.length()).associate { index ->
@@ -215,7 +217,11 @@ class RetainedArchiveChooserTest {
                     val branch = branches.getJSONObject(i)
                     if (branch.get("retired") == false) {
                         val selected = branch.getJSONObject("scope")
-                        views.put(view(host, SavedStory(story, selected.getString("branch"), row.getString("title"), branch.getLong("revision"))))
+                        // A passive catalog scan owns each reader separately. Do not close a
+                        // session returned by shared view(host,...): a gateway can already own it.
+                        Host(database).use { reader ->
+                            views.put(view(reader, SavedStory(story, selected.getString("branch"), row.getString("title"), branch.getLong("revision"))))
+                        }
                     }
                 }
                 story to canonical(JSONObject().put("metadata", row).put("catalog", catalog).put("eligible", views))
@@ -265,6 +271,14 @@ class RetainedArchiveChooserTest {
     private fun withCase(action: (World, SavedStory) -> Unit) = safe {
         deadline = SystemClock.elapsedRealtime() + 75_000
         defaultDatabase() // Exact isolated target check precedes all source/provider setup.
+        val importIntent = ArchiveImportContract().createIntent(context, "*/*")
+        assertEquals(Intent.ACTION_GET_CONTENT, importIntent.action)
+        assertEquals("*/*", importIntent.type)
+        assertTrue(importIntent.hasCategory(Intent.CATEGORY_OPENABLE))
+        assertArrayEquals(arrayOf("application/json", "application/octet-stream", "text/plain"),
+            importIntent.getStringArrayExtra(Intent.EXTRA_MIME_TYPES))
+        assertEquals(0, importIntent.flags and (Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION))
         val world = sourceFixture()
         val baseline = native(defaultDatabase()) { _, gateway, _ ->
             gateway.initialize(); gateway.createSaved(); send(gateway, BASELINE, 0)

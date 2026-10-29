@@ -117,10 +117,19 @@ class CacheBuildTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 target.real_directory(parent / 'missing')
             if target.os.name == 'nt':
-                with self.assertRaises(ValueError):
+                with self.assertRaisesRegex(ValueError, 'output_must_use_D'):
                     target.fresh_output(Path('C:/locallore-cache-output-refused'))
-                with self.assertRaises(FileExistsError):
-                    target.fresh_output(parent)
+                # TEMP may be on C:, which the drive gate rejects before mkdir.
+                # Exercise an already-existing D: target without touching that drive.
+                candidate = Path('D:/locallore-existing-synthetic-output')
+                with patch.object(target, 'real_directory') as real, \
+                        patch.object(Path, 'mkdir', side_effect=FileExistsError) as create, \
+                        patch.object(Path, 'write_bytes') as write:
+                    with self.assertRaises(FileExistsError):
+                        target.fresh_output(candidate)
+                real.assert_called_once_with(candidate.parent)
+                create.assert_called_once_with()
+                write.assert_not_called()
 
     def test_reparse_attribute_refuses_junction_before_output_creation(self):
         with tempfile.TemporaryDirectory() as directory:

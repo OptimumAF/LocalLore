@@ -32,6 +32,7 @@ val buildRustAndroid = tasks.register("buildRustAndroid") {
         exclude("**/target/**")
     })
     inputs.files(fileTree(nativeRepository.resolve("fixtures")))
+    inputs.files(fileTree(nativeRepository.resolve("prompts")))
     inputs.file(rootProject.file("native-build.gradle.kts"))
     inputs.file(rootProject.file("native-linker.rs"))
     inputs.file(rootProject.file("capacity-profile.properties"))

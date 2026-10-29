@@ -29,7 +29,10 @@ each run obtains a new engine-allocated story ID instead of overwriting history.
 
 The tests navigate DocumentsUI using framework accessibility APIs, checking the
 foreground package and semantic nodes before acting. MainActivity launches its
-registered OpenDocument/CreateDocument contracts. Import must produce a native
+registered GetContent/CreateDocument contracts. Import requests one openable
+content copy through `*/*` with the exact JSON, octet-stream and plain-text MIME
+filters; it does not request source write, persistable or prefix access. Import
+must produce a native
 preview without adding a story before the explicit confirmation. Successful
 import offers an explicit fresh session; replay, continuation and duplicate
 resource rejection are checked against real Rust outcomes. Export captures the
@@ -47,6 +50,11 @@ The current official [DocumentsProvider guide](https://developer.android.com/gui
 requires an exported, grant-capable provider protected by MANAGE_DOCUMENTS and a
 DOCUMENTS_PROVIDER intent filter. Its [API contract](https://developer.android.com/reference/android/provider/DocumentsProvider)
 describes system-issued document grants. No dependency or runtime pin changes.
+The [OpenDocument contract](https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT)
+includes read/write document grants. The app consumes one bounded copy, so its
+import uses [GetContent](https://developer.android.com/reference/androidx/activity/result/contract/ActivityResultContracts.GetContent)
+instead. Earlier dated reports retain their original OpenDocument attribution;
+the fixed tests still require the selected source URI's WRITE grant to be denied.
 Custom call permission checks belong to the provider, as documented by
 [ContentProvider.call](https://developer.android.com/reference/android/content/ContentProvider#call(java.lang.String,%20java.lang.String,%20android.os.Bundle)).
 

@@ -21,16 +21,38 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [original story authoring implementation](docs/native/ANDROID_ORIGINAL_STORY_AUTHORING_2026-10-27.md)
+adds a bounded premise/cast generation path, editable world review and explicit
+native creation. Its report distinguishes scripted plumbing, actual host/build
+checks and pending real-model/device qualification. It is not an accepted release.
+
+The [initial narration presentation](docs/native/ANDROID_STORY_PRESENTATION_2026-10-27.md)
+adds native-reviewed tone and literal phrase exclusions, retained with the story
+and checked before narration can commit. Its report separates host/build checks
+from actual Android qualification and the remaining semantic/model gates.
+
+The [initial player-name setup](docs/native/ANDROID_PLAYER_SETUP_2026-10-26.md)
+adds an editable name and explicit native review before creating a story.
+Its report records host/build checks, scripted native/player-setup execution,
+and current-source creation/broad regression runs in separate fresh emulators.
+Physical-model qualification and broader authoring remain in the milestone scope.
+
+The [original starter choice](docs/native/ANDROID_STARTER_CHOICE_2026-10-26.md)
+adds explicit selection of Lantern Quay fantasy rules or the original Bracken
+Harbor narrative rules, with a native-owned preview before Create. Its report
+records host/build and scripted emulator execution; physical-model gates remain
+separate.
+
 The [explicit starter review and named creation](docs/native/ANDROID_STORY_CREATION_VERIFICATION_2026-10-26.md)
 adds a Rust-owned preview, an editable title and explicit Create/Cancel to the
 persistent Android shell. The report records exact host/build/device evidence
 and limits. Full premise, tone and character customization remain pending.
 
-The [retained archive chooser packet](docs/native/ANDROID_RETAINED_ARCHIVE_VERIFICATION_2026-10-26.md)
-fixes stale Import/Export/Open consent and adds original retained-parent archive
-round-trip/refusal tests. Integrated host/JVM/lint/build checks pass; actual
-chooser execution is blocked on host commit capacity. It remains distinct from
-earlier emulator results and physical-phone/model qualification.
+The [archive import follow-up](docs/native/ANDROID_ARCHIVE_IMPORT_FIX_2026-10-27.md)
+uses a one-time content read and releases passive test readers. Fresh native10
+and both retained-archive chooser methods pass on API35/x86_64, retaining the
+original permission and canonical-history assertions. The report preserves
+the original failures; physical-phone/model qualification remains separate.
 
 The [retained-parent deletion UI qualification](docs/native/ANDROID_RETAINED_PARENT_UI_VERIFICATION_2026-10-26.md)
 passes real Compose Cancel, explicit native deletion preserving a child's

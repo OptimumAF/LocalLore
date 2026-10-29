@@ -1,6 +1,7 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Synthetic Android play plumbing. No model, tokenizer, file, network or runtime is loaded.
 //! The fixed action is a proposal only; the shared intent guard and engine own acceptance.
+mod author;
 use locallore::{
     contracts::Error,
     host::Host,
@@ -53,7 +54,9 @@ impl InferenceProvider for ScriptedProvider {
         let Input::Structured { role, schema, .. } = &request.input else {
             return Poll::Ready(Err(Error::Provider));
         };
-        if request.model_profile != PROFILE || !matches!(role.as_str(), "director" | "narrator") {
+        if request.model_profile != PROFILE
+            || !matches!(role.as_str(), "director" | "narrator" | "author")
+        {
             return Poll::Ready(Err(Error::Provider));
         }
         if self
@@ -71,7 +74,12 @@ impl InferenceProvider for ScriptedProvider {
         {
             return Poll::Pending;
         }
-        let response = response(role, schema).and_then(|value| {
+        let response = (if role == "author" {
+            author::response(request)
+        } else {
+            response(role, schema)
+        })
+        .and_then(|value| {
             let bytes = serde_json::to_vec(&value).map_err(|_| Error::Provider)?;
             if bytes.len() > request.budget.max_output_bytes {
                 Err(Error::TooLarge)

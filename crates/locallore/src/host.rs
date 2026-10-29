@@ -5,6 +5,10 @@ use crate::turn_trace::{
     Provenance, Reader, Revision, RingSink, Selection, Stage, StageTimer, TraceOwner, TraceRing,
 };
 #[cfg(test)]
+mod player_setup_tests;
+#[cfg(test)]
+mod starter_catalog_tests;
+#[cfg(test)]
 mod story_creation_tests;
 use crate::{
     contracts::*,
@@ -21,6 +25,7 @@ use std::{
 
 pub const HOST_VERSION: u16 = 1;
 mod author_port;
+mod story_authoring;
 pub use author_port::{HostAuthorPreparation, NativeAuthorPreparation, WorkspaceAuthorOutcomeV1};
 pub mod memory_inspection;
 pub mod memory_maintenance;
@@ -84,6 +89,30 @@ pub struct Envelope {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HostCommand {
+    AuthoringCapabilities {},
+    AuthoringBegin {
+        input: crate::story_authoring::InitialStoryInputV1,
+    },
+    AuthoringGenerate {
+        job: String,
+    },
+    AuthoringReview {
+        job: String,
+        input: crate::story_authoring::InitialStoryInputV1,
+        proposal: crate::story_authoring::InitialWorldProposalV1,
+        title: String,
+    },
+    AuthoringCreate {
+        job: String,
+        review_sha256: String,
+        creation_id: String,
+    },
+    AuthoringCancel {
+        job: String,
+    },
+    AuthoringStatus {
+        job: String,
+    },
     Capabilities {},
     Workspace {},
     Branches {
@@ -95,12 +124,47 @@ pub enum HostCommand {
     Create {
         seed: String,
     },
+    StoryTemplates {},
     StoryTemplate {
         template: String,
+    },
+    StorySetup {
+        template: String,
+        #[serde(default)]
+        player_name: Option<String>,
+    },
+    StoryPresentation {
+        template: String,
+        #[serde(default)]
+        player_name: Option<String>,
+        #[serde(default)]
+        presentation: Option<crate::story_presentation::StoryPresentationV1>,
+    },
+    StoryPresentationView {
+        session: String,
+        scope: Scope,
+        expected_revision: u64,
     },
     CreateNamed {
         template: String,
         seed_sha256: String,
+        title: String,
+        creation_id: String,
+    },
+    CreateConfigured {
+        template: String,
+        template_sha256: String,
+        setup_sha256: String,
+        player_name: String,
+        title: String,
+        creation_id: String,
+    },
+    CreatePresented {
+        template: String,
+        template_sha256: String,
+        setup_sha256: String,
+        player_name: String,
+        presentation: crate::story_presentation::StoryPresentationV1,
         title: String,
         creation_id: String,
     },
@@ -273,6 +337,7 @@ struct State {
     sessions: BTreeMap<String, Session>,
     persistence: Option<Box<dyn Persistence>>,
     local_play: Option<LocalPlay>,
+    authoring: story_authoring::AuthoringState,
 }
 
 pub type ProviderFactory = Arc<dyn Fn() -> Box<dyn InferenceProvider + Send> + Send + Sync>;
@@ -291,13 +356,23 @@ pub type ProviderFactory = Arc<dyn Fn() -> Box<dyn InferenceProvider + Send> + S
 pub enum HostPlayConstructionV1 {
     Memory(crate::play::PlayContextPolicy),
     PlayerLiteralV1,
+    /// Explicit opt-in; never repoint the immutable PlayerLiteralV1 mapping.
+    PlayerLiteralPresentationV1,
 }
 impl HostPlayConstructionV1 {
-    fn labels(self) -> (&'static str, &'static str) {
+    fn labels(self, presentation: bool) -> (&'static str, &'static str) {
         match self {
+            Self::Memory(_) if presentation => (
+                crate::play::PRESENTATION_PROMPT_VERSION,
+                "locallore-play-v2",
+            ),
             Self::Memory(_) => (crate::play::PROMPT_VERSION, "locallore-play-v2"),
             Self::PlayerLiteralV1 => (
                 crate::play::LITERAL_PLAY_PROMPT_VERSION_V1,
+                "locallore-director-literal-v1",
+            ),
+            Self::PlayerLiteralPresentationV1 => (
+                crate::play::LITERAL_PRESENTATION_PROMPT_VERSION_V1,
                 "locallore-director-literal-v1",
             ),
         }
@@ -500,6 +575,15 @@ pub trait Persistence: Send {
     ) -> Result<(Engine, bool), String> {
         Err("Unsupported".into())
     }
+    /// Read-only recovery for an exact authored creation after a lost acknowledgement.
+    /// An absent process-local job must never cause regeneration or a fresh write.
+    fn lookup_original(
+        &mut self,
+        _creation_id: &str,
+        _review_sha256: &str,
+    ) -> Result<Option<Engine>, String> {
+        Err("Unsupported".into())
+    }
     fn resume(&mut self, scope: &Scope) -> Result<Engine, String>;
     fn generation_snapshot(
         &mut self,
@@ -627,10 +711,9 @@ impl Host {
         construction: HostPlayConstructionV1,
     ) -> Result<(), String> {
         profile.validate().map_err(|e| e.to_string())?;
-        self.state
-            .lock()
-            .map_err(|_| "Internal".to_owned())?
-            .local_play = Some(LocalPlay {
+        let mut state = self.state.lock().map_err(|_| "Internal".to_owned())?;
+        state.authoring.cancel_current();
+        state.local_play = Some(LocalPlay {
             profile,
             provider,
             real_model,
@@ -641,6 +724,7 @@ impl Host {
     pub fn disable_local_provider(&self) {
         if let Ok(mut state) = self.state.lock() {
             state.local_play = None;
+            state.authoring.cancel_current();
             for session in state.sessions.values() {
                 for turn in session.turns.values() {
                     if matches!(turn.request.intent, Intent::FreeText { .. }) {
@@ -875,6 +959,9 @@ impl Host {
             if envelope.version != HOST_VERSION {
                 return reject("Version");
             }
+            if let HostCommand::AuthoringGenerate { job } = &envelope.command {
+                return self.generate_initial_world(job);
+            }
             if let HostCommand::Prepare {
                 session,
                 scope,
@@ -920,6 +1007,7 @@ impl Host {
             // Cleanup must revoke leases even if gameplay previously poisoned
             // State. Do not clear poison or resume gameplay with this guard.
             let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+            state.authoring.cancel_current();
             for session in state.sessions.values() {
                 session.trace_owner.retire();
                 for turn in session.turns.values() {
@@ -1294,12 +1382,24 @@ impl Host {
         reply
     }
     fn dispatch(&self, state: &mut State, command: HostCommand) -> Value {
+        if let Some(reply) = self.dispatch_authoring(state, &command) {
+            return reply;
+        }
         if state.persistence.is_some() {
             if let Some(reply) = self.dispatch_durable(state, &command) {
                 return reply;
             }
         }
         match command {
+            HostCommand::AuthoringCapabilities { .. }
+            | HostCommand::AuthoringBegin { .. }
+            | HostCommand::AuthoringGenerate { .. }
+            | HostCommand::AuthoringReview { .. }
+            | HostCommand::AuthoringCreate { .. }
+            | HostCommand::AuthoringCancel { .. }
+            | HostCommand::AuthoringStatus { .. } => {
+                unreachable!("authoring handled before session dispatch")
+            }
             HostCommand::Workspace {} => {
                 ok(json!({"persistent":false,"location":null,"schema_version":null,"stories":[]}))
             }
@@ -1324,13 +1424,62 @@ impl Host {
                     )
                 }
             }
+            HostCommand::StoryTemplates {} => match crate::story_setup::template_catalog() {
+                Ok(catalog) => ok(json!(catalog)),
+                Err(error) => reject(error),
+            },
             HostCommand::StoryTemplate { template } => {
                 match crate::story_setup::template_preview(&template) {
                     Ok(preview) => ok(json!(preview)),
                     Err(error) => reject(error),
                 }
             }
-            HostCommand::CreateNamed { .. } => reject("Unsupported"),
+            HostCommand::StorySetup {
+                template,
+                player_name,
+            } => match crate::story_setup::setup_preview(&template, player_name.as_deref()) {
+                Ok(preview) => ok(json!(preview)),
+                Err(error) => reject(error),
+            },
+            HostCommand::StoryPresentation {
+                template,
+                player_name,
+                presentation,
+            } => {
+                match crate::story_setup::presentation_preview(
+                    &template,
+                    player_name.as_deref(),
+                    presentation.as_ref(),
+                ) {
+                    Ok(preview) => ok(json!(preview)),
+                    Err(error) => reject(error),
+                }
+            }
+            HostCommand::StoryPresentationView {
+                session,
+                scope,
+                expected_revision,
+            } => {
+                if state.persistence.is_some() {
+                    if let Err(error) = refresh_session(state, &session, &scope) {
+                        return error;
+                    }
+                }
+                let selected = match get_session(state, &session, &scope) {
+                    Ok(selected) => selected,
+                    Err(error) => return error,
+                };
+                if selected.engine.revision() != expected_revision {
+                    return reject("Stale");
+                }
+                ok(
+                    json!({"version":1,"scope":scope,"revision":expected_revision,
+                    "presentation":selected.engine.seed().presentation.clone().unwrap_or_default()}),
+                )
+            }
+            HostCommand::CreateNamed { .. }
+            | HostCommand::CreateConfigured { .. }
+            | HostCommand::CreatePresented { .. } => reject("Unsupported"),
             HostCommand::Create { seed } => {
                 if seed != "lantern-quay-v1" {
                     return reject("UnsupportedSeed");
@@ -1699,9 +1848,20 @@ impl Host {
                     }
                     Ok(reply)
                 }
+                HostCommand::StoryTemplates {} => Ok(ok(json!(
+                    crate::story_setup::template_catalog().map_err(reject)?
+                ))),
                 HostCommand::StoryTemplate { template } => Ok(ok(json!(
                     crate::story_setup::template_preview(template).map_err(reject)?
                 ))),
+                HostCommand::StorySetup {
+                    template,
+                    player_name,
+                } => Ok(ok(json!(crate::story_setup::setup_preview(
+                    template,
+                    player_name.as_deref()
+                )
+                .map_err(reject)?))),
                 HostCommand::CreateNamed {
                     template,
                     seed_sha256,
@@ -1715,47 +1875,47 @@ impl Host {
                         creation_id,
                     )
                     .map_err(reject)?;
-                    let scope = starter.seed().scope.clone();
-                    let existing = state
-                        .sessions
-                        .iter()
-                        .find(|(_, s)| s.engine.scope() == &scope)
-                        .map(|(id, _)| id.clone());
-                    if existing.is_none() {
-                        if state.sessions.len() >= MAX_SESSIONS {
-                            return Err(reject("SessionLimit"));
-                        }
-                        if state.next.checked_add(1).is_none() {
-                            return Err(reject("IdExhausted"));
-                        }
-                    }
-                    let (engine, created) = state
-                        .persistence
-                        .as_mut()
-                        .unwrap()
-                        .create_named(&starter)
-                        .map_err(reject)?;
-                    if engine.scope() != &scope {
-                        return Err(reject("Integrity"));
-                    }
-                    if engine.seed() != starter.seed() {
-                        return Err(reject("Stale"));
-                    }
-                    let mut reply = if let Some(id) = existing {
-                        // The exact Store identity was checked above; still retain the existing
-                        // accepted-prefix fence instead of replacing a cached authority.
-                        refresh_session(state, &id, &scope)?;
-                        ok(
-                            json!({"session":id,"scope":scope,"revision":state.sessions[&id].engine.revision()}),
-                        )
-                    } else {
-                        attach_engine(state, engine)
-                    };
-                    if reply["status"] != "ok" {
-                        return Err(reply);
-                    }
-                    reply["data"]["created"] = json!(created);
-                    Ok(reply)
+                    attach_named_starter(state, &starter)
+                }
+                HostCommand::CreateConfigured {
+                    template,
+                    template_sha256,
+                    setup_sha256,
+                    player_name,
+                    title,
+                    creation_id,
+                } => {
+                    let starter = crate::story_setup::prepare_configured(
+                        template,
+                        template_sha256,
+                        setup_sha256,
+                        player_name,
+                        title,
+                        creation_id,
+                    )
+                    .map_err(reject)?;
+                    attach_named_starter(state, &starter)
+                }
+                HostCommand::CreatePresented {
+                    template,
+                    template_sha256,
+                    setup_sha256,
+                    player_name,
+                    presentation,
+                    title,
+                    creation_id,
+                } => {
+                    let starter = crate::story_setup::prepare_presented(
+                        template,
+                        template_sha256,
+                        setup_sha256,
+                        player_name,
+                        presentation,
+                        title,
+                        creation_id,
+                    )
+                    .map_err(reject)?;
+                    attach_named_starter(state, &starter)
                 }
                 HostCommand::Create { seed } => {
                     if seed != "lantern-quay-v1" {
@@ -2202,7 +2362,8 @@ impl Host {
                         work.cancel.is_cancelled()
                     })
                     .map(|s| (s.engine, Some(s.coverage))),
-                HostPlayConstructionV1::PlayerLiteralV1 => self
+                HostPlayConstructionV1::PlayerLiteralV1
+                | HostPlayConstructionV1::PlayerLiteralPresentationV1 => self
                     .literal_generation_engine(
                         session,
                         scope,
@@ -2213,8 +2374,11 @@ impl Host {
             };
             match snapshot {
                 Ok((engine, coverage)) => {
-                    if construction == HostPlayConstructionV1::PlayerLiteralV1
-                        && engine.domain_version() != 1
+                    if matches!(
+                        construction,
+                        HostPlayConstructionV1::PlayerLiteralV1
+                            | HostPlayConstructionV1::PlayerLiteralPresentationV1
+                    ) && engine.domain_version() != 1
                     {
                         return self.finish_work(work, Err(Error::Version));
                     }
@@ -2261,6 +2425,16 @@ impl Host {
                                 &local.profile,
                                 sink.as_mut()
                                     .map(|sink| sink as &mut dyn turn_trace::TraceSink),
+                            )
+                        }
+                        HostPlayConstructionV1::PlayerLiteralPresentationV1 => {
+                            crate::play::execute_traced_with_literal_director_presentation_v1(
+                                &mut engine,
+                                &work.request,
+                                &mut *(local.provider)(),
+                                &work.cancel,
+                                &local.profile,
+                                sink.as_mut().map(|s| s as &mut dyn turn_trace::TraceSink),
                             )
                         }
                     }
@@ -2375,6 +2549,7 @@ impl Host {
                         trace_provenance(
                             local_play.as_ref(),
                             matches!(t.request.intent, Intent::FreeText { .. }),
+                            s.engine.seed().presentation.is_some(),
                         ),
                     )
                     .handle
@@ -2730,10 +2905,10 @@ fn trace_saved_outcome(saved: &SavedTurn, prepared: Option<&Receipt>) -> Outcome
         _ => Outcome::Unknown,
     }
 }
-fn trace_provenance(local: Option<&LocalPlay>, free_text: bool) -> Provenance {
+fn trace_provenance(local: Option<&LocalPlay>, free_text: bool, presentation: bool) -> Provenance {
     if free_text {
         if let Some(local) = local {
-            let (prompt_label, schema_label) = local.construction.labels();
+            let (prompt_label, schema_label) = local.construction.labels(presentation);
             if !local.real_model {
                 return Provenance {
                     profile_label: Label::new(&local.profile.id),
@@ -2838,6 +3013,50 @@ fn selected_turn_status(
     };
     port.status_bound(&request, &basis)
 }
+fn attach_named_starter(
+    state: &mut State,
+    starter: &crate::story_setup::NamedStarter,
+) -> Result<Value, Value> {
+    let scope = starter.seed().scope.clone();
+    let existing = state
+        .sessions
+        .iter()
+        .find(|(_, s)| s.engine.scope() == &scope)
+        .map(|(id, _)| id.clone());
+    if existing.is_none() {
+        if state.sessions.len() >= MAX_SESSIONS {
+            return Err(reject("SessionLimit"));
+        }
+        if state.next.checked_add(1).is_none() {
+            return Err(reject("IdExhausted"));
+        }
+    }
+    let (engine, created) = state
+        .persistence
+        .as_mut()
+        .unwrap()
+        .create_named(starter)
+        .map_err(reject)?;
+    if engine.scope() != &scope {
+        return Err(reject("Integrity"));
+    }
+    if engine.seed() != starter.seed() {
+        return Err(reject("Stale"));
+    }
+    let mut reply = if let Some(id) = existing {
+        // The exact Store identity was checked above; still retain the existing
+        // accepted-prefix fence instead of replacing a cached authority.
+        refresh_session(state, &id, &scope)?;
+        ok(json!({"session":id,"scope":scope,"revision":state.sessions[&id].engine.revision()}))
+    } else {
+        attach_engine(state, engine)
+    };
+    if reply["status"] != "ok" {
+        return Err(reply);
+    }
+    reply["data"]["created"] = json!(created);
+    Ok(reply)
+}
 fn attach_engine(state: &mut State, engine: Engine) -> Value {
     let Some(next) = state.next.checked_add(1) else {
         return reject("IdExhausted");
@@ -2931,7 +3150,7 @@ mod tests {
                 true
             );
             let local = h.state.lock().unwrap().local_play.clone();
-            let provenance = trace_provenance(local.as_ref(), true);
+            let provenance = trace_provenance(local.as_ref(), true, false);
             assert_eq!(provenance.model_sha256.is_some(), real);
             assert_eq!(provenance.worker_sha256.is_some(), real);
             assert_eq!(provenance.profile_sha256.is_some(), real);

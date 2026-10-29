@@ -43,7 +43,7 @@ open class MainActivity : ComponentActivity() {
     private lateinit var model: ShellViewModel
     private var pendingNavigationHint: PlayDraftScope? = null
     private var processVerificationRun: String? = null
-    private val archiveImportPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    private val archiveImportPicker = registerForActivityResult(ArchiveImportContract()) { uri ->
         if (::model.isInitialized) {
             if (uri == null) model.completeArchiveImport(null)
             else {
@@ -152,7 +152,12 @@ open class MainActivity : ComponentActivity() {
                 }
                 model.creationController?.let { controller ->
                     StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
-                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
+                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION, onTemplate = controller::chooseTemplate,
+                        onPlayerName = controller::editPlayerName, onPlayerReview = controller::reviewChanges,
+                        onTone = controller::editTone, onExcludedPhrases = controller::editExcludedPhrases,
+                        onOriginal=controller::chooseOriginal,onOriginalEdit={s,e -> controller.editOriginal(s,e); Unit},
+                        onOriginalGenerate={controller.generateOriginal(it); Unit},onOriginalReview={controller.reviewOriginal(it); Unit},
+                        onOriginalCreate={s,r -> controller.confirmOriginal(s,r); Unit})
                 }
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
@@ -172,7 +177,7 @@ open class MainActivity : ComponentActivity() {
                     ArchiveDialog(archive, controller::dismiss, controller::cancel, controller::prepareExport,
                         onImportPicker = {
                             if (model.beginArchiveImportPicker()) {
-                                try { archiveImportPicker.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }
+                                try { archiveImportPicker.launch("*/*") }
                                 catch (_: Exception) { model.archiveImportPickerFailed() }
                             }
                         },

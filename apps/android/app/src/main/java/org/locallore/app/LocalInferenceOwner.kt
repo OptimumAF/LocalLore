@@ -30,8 +30,8 @@ internal data class LocalInferenceRequest(
     val contextTokens: Int, val threads: Int, val schemaJson: String,
 ) {
     fun validate() {
-        check(version == 1 && role in setOf("director", "narrator"))
-        check(maxTokens in 1..350) // The trusted Rust profile applies its role-specific cap.
+        check(version == 1 && role in setOf("director", "narrator", "author"))
+        check(maxTokens in 1..(if(role=="author") 1024 else 350)) // Separate trusted role budgets.
         check(contextTokens in 512..4096 && threads == 4)
         val promptBytes = localUtf8(prompt).size
         val schemaBytes = localUtf8(schemaJson).size
@@ -57,8 +57,9 @@ internal interface LocalRoleCall {
     suspend fun drain(): Boolean
     suspend fun close(): Boolean
 }
-internal data class LocalInferenceLimits(val turnMs: Long = 60_000, val cleanupMs: Long = 5_000, val pollMs: Long = 10) {
-    init { require(turnMs in 1..60_000 && cleanupMs in 1..5_000 && pollMs in 1..100) }
+internal data class LocalInferenceLimits(val turnMs: Long = 60_000, val cleanupMs: Long = 5_000, val pollMs: Long = 10,
+    val authorMs: Long = 120_000) {
+    init { require(turnMs in 1..60_000 && cleanupMs in 1..5_000 && pollMs in 1..100 && authorMs in 1..120_000) }
 }
 
 /** One existing native workspace lease. Implementations make no gameplay decisions. */
@@ -124,7 +125,7 @@ internal class LocalInferenceOwner(
         var close: Deferred<Boolean>? = null
         var await: Deferred<LocalRoleResult>? = null
     }
-    private inner class Run(val native: Deferred<ByteArray>, val cancelInput: ByteArray) {
+    private inner class Run(val native: Deferred<ByteArray>, val cancelInput: ByteArray, val author: Boolean) {
         // Native cancellation acknowledgement alone does not release an active SDK owner.
         val finished = CompletableDeferred<Boolean>()
         var opening: Deferred<Engine>? = null
@@ -181,12 +182,12 @@ internal class LocalInferenceOwner(
         bound(value)
         val command = input.copyOf()
         try { localText(command, 24_576) } catch (_: Throwable) { throw IllegalArgumentException("Invalid local input") }
-        if (operation != "prepare") {
+        if (operation !in setOf("prepare", "authoring_generate")) {
             val cancelling = synchronized(lock) {
                 admit()
-                if (operation !in setOf("cancel", "turn_status", "close", "workspace", "play_snapshot", "model_status", "capabilities") && active != null)
+                if (operation !in setOf("cancel", "authoring_cancel", "authoring_status", "authoring_capabilities", "turn_status", "close", "workspace", "play_snapshot", "model_status", "capabilities") && active != null)
                     throw LocalInferenceBusy()
-                if (operation == "cancel") active else null
+                if (operation == "cancel" || operation == "authoring_cancel") active else null
             }
             return try {
                 // One unchanged deadline covers both native ACK and the captured run's cleanup.
@@ -194,7 +195,7 @@ internal class LocalInferenceOwner(
                 withTimeout(limits.cleanupMs) {
                     val reply = task { value.call(command).copyOf() }.await().also { localText(it, 262_144) }
                     if (cancelling != null) check(cancelling.finished.await())
-                    if (operation == "cancel") synchronized(lock) { admit() }
+                    if (operation == "cancel" || operation == "authoring_cancel") synchronized(lock) { admit() }
                     reply
                 }
             } catch (_: Throwable) {
@@ -207,13 +208,14 @@ internal class LocalInferenceOwner(
         val run = synchronized(lock) {
             admit()
             if (active != null) throw LocalInferenceBusy()
-            Run(task { value.call(command).copyOf().also { localText(it, 262_144) } }, cancellation).also { active = it }
+            Run(task { value.call(command).copyOf().also { localText(it, 262_144) } }, cancellation,
+                operation=="authoring_generate").also { active = it }
         }
         var reply: ByteArray? = null
         var failure: Throwable? = null
         var nativeCancelled = false
         try {
-            reply = withTimeout(limits.turnMs) { pump(value, run) }
+            reply = withTimeout(if(run.author) limits.authorMs else limits.turnMs) { pump(value, run) }
         } catch (_: NativeCancelled) { nativeCancelled = true }
         catch (problem: Throwable) { failure = problem }
         var cleaned = false
@@ -260,7 +262,8 @@ internal class LocalInferenceOwner(
             val pending = bounded(task { value.poll() })
             if (pending == null) { delay(limits.pollMs); continue }
             pending.validate()
-            check(run.delivered.size < 3) // Director, at most one repair, narrator; Rust still owns order/schema.
+            check(run.delivered.size < (if(run.author) 1 else 3))
+            check((pending.request.role=="author")==run.author) // Author cannot borrow a play request or vice versa.
             check(pending.ticket !in run.delivered)
             val engine = run.engine ?: run.opening.let {
                 val opening = it ?: task { Engine(worker.open()) }.also { run.opening = it }
@@ -271,7 +274,7 @@ internal class LocalInferenceOwner(
             val waiting = task { role.value.await() }.also { role.await = it }
             val result = awaitCurrent(waiting, value, run, pending)
             check(result.terminal)
-            val response = result.response().also { check(it.isNotEmpty()); localText(it, 16_384) }
+            val response = result.response().also { check(it.isNotEmpty()); localText(it, if(run.author) 8192 else 16_384) }
             check(releaseRole(role, cancel = false))
             current(value, run, pending)
             if (!bounded(task { value.respond(pending.ticket, response.copyOf()) })) throw NativeCancelled()

@@ -24,7 +24,7 @@ internal enum class LiteRtWorkerEvent {
     UNCERTAIN,
 }
 
-internal enum class LiteRtTraceRole { DIRECTOR, NARRATOR }
+internal enum class LiteRtTraceRole { DIRECTOR, NARRATOR, AUTHOR }
 internal enum class LiteRtTraceFailure { NONE, CANCELLED, OTHER }
 
 /** Pure arithmetic only. The trace obtains its own monotonic clock; no caller supplies one. */

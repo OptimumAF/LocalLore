@@ -122,8 +122,19 @@ python -I -S -B <B>/closed-review-v2/failure-audit-v2.py run
 The original host-only success-audit draft remains unrun; a distinct failure
 audit preserves the actual refusal. A separate D recovery already verifies
 453 runtime metadata/raw files totaling9,552,350B by original/copy hashes.
-The closed guest's bulk recovery is recorded separately after completion;
-original failures, spent claims, guest state, models and prior backups stay
+The completed closed-state recovery at
+`D:/Dev/Recovery/LocalLore/2026-10-29-author-restart-closed-run-v2` verifies
+**489 original/copy/ZIP-member triples,25,005,306,944B**, including36 closed guest
+files and all opaque images. The archive has492 stored members including three
+control records. Its finite producer ends0 in372,889ms with known capture/
+cleanup; separate independent readback ends0 in131,041ms and verifies every
+original, copy and member, exact rosters and control records. That readback
+retains the producer's whole-container SHA rather than claiming an additional
+container-hash pass. Two raw AVD credential files are excluded and retained in
+place without opening their contents. Prior recovery/source references remain
+intact. Seal SHA256 `22b5b628d5ff1f54dc183097d97518d0f0032e9b4f1c950da8a26302127e5375`;
+independent readback `3e20cc22df6d443c72d910a80cc860a6853e1c1eac5691cb8ca295ab2e5985de`.
+Original failures, spent claims, guest state, models and prior backups stay
 preserved. No private diagnostics, saves, weights or credentials enter Git.
 
 M09.06/M10.02 supporting code remains **in_review**; full tasks stay unchecked.

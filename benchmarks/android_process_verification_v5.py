@@ -399,6 +399,8 @@ def verify_guest_inputs(*args, **kwargs):
 
 
 def verify_controller_result(binding, admission, admission_binding, running_binding):
+    admission = c.validate_admission(admission)
+    _current_sources(admission)
     value = _json(binding)
     c._obj(value, RESULT_KEYS)
     c._int(value['version'], 1, 1)
@@ -414,6 +416,11 @@ def verify_controller_result(binding, admission, admission_binding, running_bind
     _same(request['admission'], admission_binding)
     _same(request['running'], running_binding)
     _same(request['build'], admission['artifacts']['build'])
+    # This fixed helper only reads bound build/source/tool/ELF/report bytes.
+    # It deliberately performs no Git, SDK, process or target operation.
+    from benchmarks.original_author_restart_controller import _verify_build_closed
+    manifest = _verify_build_closed(request['build'], admission)
+    _same(request['head'], manifest['head'], 'source')
     _same(request['sources'], admission['sources'])
     _same(request['python'], admission['python'])
     expected_source = next(p for p in admission['sources'] if PureWindowsPath(p['path']).name == 'original_author_restart_controller.py')

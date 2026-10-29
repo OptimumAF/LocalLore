@@ -82,10 +82,15 @@ new physical-D output, never provisions a dependency or boots a guest.
 
 Exact JSON keys:
 version, protocol, mode, boot_id, pid, expected_uid, observed_uid, start_ticks,
-state, pidfd_opened, poll_revents, pidfd_closed, error, errno.
+state, pidfd_opened, poll_revents, pidfd_closed, proc_opened, proc_closed, error, errno.
 Version1/protocol `android-author-process-probe-v1`; canonical lower-case UUID
 boot_id. Mode boot/snapshot. Boot requires null pid/uid/ticks, state boot,
 pidfd_opened false/poll_revents null/pidfd_closed null/error null/errno0.
+Procdir FD acquisition precedes PIDFD and proc metadata uses openat on that held
+proc inode, preventing a recycled numeric PID from retargeting pathname reads.
+proc_opened/proc_closed preserve that resource separately; qualified alive/exited
+requires true/true. Absence permits false/null, or true/true when ESRCH occurs
+after opening the proc directory.
 Snapshot pid/expected_uid are the validated argv. State absent requires errno3
 (ESRCH), observed_uid/start_ticks null, no FD opened/poll/close, error null.
 State alive/exited requires observed_uid==expected_uid, positive start_ticks,

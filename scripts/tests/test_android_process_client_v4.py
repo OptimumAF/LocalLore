@@ -224,6 +224,15 @@ class OwnedClientFlowTests(unittest.TestCase):
         row=self.row(owner);self.assertFalse(row['sender_joined']);self.assertFalse(row['cleanup_complete'])
         self.assertFalse(row['client_qualified']);self.poisoned(owner)
 
+    def test_real_exit_and_eof_remain_completed_when_sender_closure_is_unknown(self):
+        owner=self.owner()
+        with patch.object(InlineSender,'stays_alive',True):
+            with self.assertRaises(c.ClientRefused):owner.shell(['getprop','sys.boot_completed'],'boot')
+        row=self.row(owner);self.assertEqual(row['returncode'],0)
+        self.assertEqual(Path(row['stdout']['path']).read_bytes(),b'hello\0\x1a\xff\r\n')
+        self.assertEqual(row['status'],'completed','actual exit and EOF are distinct from sender cleanup qualification')
+        self.assertFalse(row['sender_joined']);self.assertFalse(row['cleanup_complete']);self.assertFalse(row['client_qualified']);self.poisoned(owner)
+
     def test_changed_input_binding_refuses_before_any_socket_or_target_frame(self):
         owner=self.owner();self.probe.write_bytes(b'changed original synthetic probe')
         with self.assertRaises(c.ClientRefused):

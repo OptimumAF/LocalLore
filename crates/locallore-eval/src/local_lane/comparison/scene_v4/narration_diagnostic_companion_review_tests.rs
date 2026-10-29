@@ -492,7 +492,10 @@ fn outputs_authorization_precedes_binding_unknown_row_and_corrupt_source_probes(
     fs::write(dir.join("run.json"), b"{").unwrap();
     fs::write(dir.join(DECLARATION), PRIVATE.as_bytes()).unwrap();
     before.insert(PathBuf::from("run.json"), Some(b"{".to_vec()));
-    before.insert(PathBuf::from(DECLARATION), Some(PRIVATE.as_bytes().to_vec()));
+    before.insert(
+        PathBuf::from(DECLARATION),
+        Some(PRIVATE.as_bytes().to_vec()),
+    );
     for observer in [Observer::Player, Observer::Character { id: "mira".into() }] {
         for granted in [false, true] {
             let unknown = RowId {
@@ -1038,7 +1041,9 @@ fn lifecycle(fault: Fault) -> (PathBuf, Control, Result<()>, Value) {
     };
     let result = actual.checkpoint_and_settle(&arm, 0, &checkpoint, &mut session.ledgers[0]);
     // Hash actual typed Receipt bytes before json! changes object key order.
-    let receipt_sha256 = actual.receipt.as_ref()
+    let receipt_sha256 = actual
+        .receipt
+        .as_ref()
         .map(|receipt| digest(&serde_json::to_vec(receipt).unwrap()));
     let summary = json!({"phase":actual.phase,"receipt":actual.receipt,"receipt_sha256":receipt_sha256,"roles":actual.recording.roles,
         "canonical_sha256":digest(&actual.after.canonical_bytes())});
@@ -1342,17 +1347,44 @@ fn additive_first_producer_reuse_requires_exact_bytes_while_cold_reader_allows_v
     let admission = usize::try_from(stored["admission"].as_u64().unwrap()).unwrap();
     let player = suite().unwrap().seed().player.clone();
     let original = inventory(&dir);
-    codec::publish(&dir.join("left"), 0, admission, &checkpoint,
-        &checkpoint_bytes, &player, &harvest).unwrap();
-    assert_eq!(inventory(&dir), original, "exact intended bytes are reused without any rewrite");
+    codec::publish(
+        &dir.join("left"),
+        0,
+        admission,
+        &checkpoint,
+        &checkpoint_bytes,
+        &player,
+        &harvest,
+    )
+    .unwrap();
+    assert_eq!(
+        inventory(&dir),
+        original,
+        "exact intended bytes are reused without any rewrite"
+    );
     let mut whitespace = fs::read(&path).unwrap();
     whitespace.extend_from_slice(b"\n ");
     assert!(whitespace.len() <= codec::RECORD_CAP);
     fs::write(&path, whitespace).unwrap();
     let retained = inventory(&dir);
     response(&read(&dir, "left", 0).unwrap(), "recorded", true);
-    assert_eq!(inventory(&dir), retained, "valid whitespace is readable without canonicalizing it");
-    bounded_refusal(codec::publish(&dir.join("left"), 0, admission, &checkpoint,
-        &checkpoint_bytes, &player, &harvest));
-    assert_eq!(inventory(&dir), retained, "equivalent but different bytes must remain unchanged on refusal");
+    assert_eq!(
+        inventory(&dir),
+        retained,
+        "valid whitespace is readable without canonicalizing it"
+    );
+    bounded_refusal(codec::publish(
+        &dir.join("left"),
+        0,
+        admission,
+        &checkpoint,
+        &checkpoint_bytes,
+        &player,
+        &harvest,
+    ));
+    assert_eq!(
+        inventory(&dir),
+        retained,
+        "equivalent but different bytes must remain unchanged on refusal"
+    );
 }

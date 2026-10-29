@@ -459,11 +459,19 @@ async function awaitIntendedGitTimeout(h, outcome, position) {
     try {
         assert.equal(h.control.gitCount, position, "IntendedGitPosition");
         assert.equal(outcome.settled, false, "IntendedGitStillPending");
-        assert.equal(lastGit?.spec, h.control.gitFault, "IntendedGitFaultIdentity");
+        assert.equal(
+            lastGit?.spec,
+            h.control.gitFault,
+            "IntendedGitFaultIdentity",
+        );
         assert.equal(lastGit?.spec?.mode, "manual", "IntendedGitManualChild");
         assert(child?.pid != null, "IntendedGitHasPid");
         assert.equal(child.kills, 0, "IntendedGitNotPreviouslyKilled");
-        assert.equal(observed.ownedDrainUnknown, false, "NoPrecedingUnknownDrain");
+        assert.equal(
+            observed.ownedDrainUnknown,
+            false,
+            "NoPrecedingUnknownDrain",
+        );
         assert.equal(timers.length, 1, "OnlyIntendedGitTimerPending");
         assert.equal(timers[0].ms, 15000, "IntendedGitTimerIs15Seconds");
     } catch {
@@ -473,11 +481,15 @@ async function awaitIntendedGitTimeout(h, outcome, position) {
                 position,
                 gitCount: h.control.gitCount,
                 settled: outcome.settled,
-                manualFault: lastGit?.spec === h.control.gitFault && lastGit?.spec?.mode === "manual",
+                manualFault:
+                    lastGit?.spec === h.control.gitFault &&
+                    lastGit?.spec?.mode === "manual",
                 pidPresent: child?.pid != null,
                 kills: child?.kills ?? null,
                 ownedDrainUnknown: observed.ownedDrainUnknown,
-                timers: timers.slice(0, 4).map((timer) => ({ ms: timer.ms, at: timer.at })),
+                timers: timers
+                    .slice(0, 4)
+                    .map((timer) => ({ ms: timer.ms, at: timer.at })),
             },
         });
     }
@@ -495,7 +507,8 @@ async function check(name, body) {
                 name,
                 error: String(error.message).slice(0, 400),
                 readiness: error.readiness,
-                classification: "SETUP_UNRUN fault boundary not reached; no behavioral timeout result",
+                classification:
+                    "SETUP_UNRUN fault boundary not reached; no behavioral timeout result",
             });
             return;
         }

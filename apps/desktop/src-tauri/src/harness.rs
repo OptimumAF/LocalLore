@@ -486,12 +486,14 @@ impl HarnessState {
 
     fn write(&self, name: &str, bytes: &[u8]) -> Result<(), &'static str> {
         // Every caller passes a literal or a name formed from LABELS above.
-        let write = || OpenOptions::new()
+        let write = || {
+            OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .open(self.directory.join(name))
                 .and_then(|mut file| file.write_all(bytes))
-                .map_err(|_| "ArtifactWriteFailed");
+                .map_err(|_| "ArtifactWriteFailed")
+        };
         if let Some(budget) = &self.scene_budget {
             // This owned guard spans reservation and the complete create-new
             // write. Failed/partial writes remain charged and preserved.

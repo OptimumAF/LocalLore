@@ -73,7 +73,8 @@ def source_bindings() -> list[dict]: ...
 def validate_running(value: dict, admission: dict, admission_binding: dict) -> dict: ...
 def check_stop(value: dict, admission_sha256: str) -> None: ...
 def validate_observation(value: dict, server: dict, client: dict | None,
-                         endpoint: dict | None, *, require_empty=False) -> None: ...
+                         endpoint: dict | None, *, require_empty=False,
+                         after_request=False) -> None: ...
 ```
 
 Admission exact keys: `version`=1, `protocol`, `run_id` (32 lowercase hex),
@@ -118,6 +119,14 @@ positive/distinct/non5037. All other local15937 rows remain recorded; live
 foreign nonzero PID refuses. PID0 teardown rows may be retained only after a
 request, without asserting ownership or current connection state for them.
 Pre-send proof may not hide ambiguity with a PID filter.
+
+`after_request=True` is selected only for the final held-socket observation:
+listener and process ownership remain mandatory, reciprocal tuples may disappear
+after EOF, and retained unique teardown tuples may have PID0 or their original
+admitted PID. Never use that mode before sending or to qualify an absent/foreign
+listener. The v1 candidate predicate requires unspecified remote fields and
+port0; it is a restrictive observed host profile, not a universal statement
+about LISTEN's undefined remote fields. No state DWORD chooses a candidate.
 
 ## Owner and fixed readiness flow
 

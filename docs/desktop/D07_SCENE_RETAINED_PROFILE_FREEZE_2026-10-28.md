@@ -112,3 +112,78 @@ model execution. Those remain Root's separately reviewed integration/execution
 gates. Both actual human assessments remain needs improvement, and frozen Core
 human fields remain unchanged. No task, epic, PR merge or quality gate is
 accepted by this source freeze.
+
+## Additive conflict/absence freeze before the production correction
+
+Frozen from exact `db815486f38eb2407a6696be5c2f0ce721ae1c2e`, after source
+review identified three gaps outside the original ordinary-fixture set:
+conflicting seed harnesses could run during review setup; a present non-Unicode
+restart value bypassed Main's string-only early guard; following a dangling leaf
+could confuse an existing entry with absence. **This additive source is UNRUN,
+UNFORMATTED and UNCOMPILED.** It does not label missing new APIs as behavioral
+RED and does not import any later Root execution result.
+
+The original 24 case strings, assertions, inventory mechanism and process
+bounds remain intact. A separate 14-case roster extends the same fixed-child
+matrix to 38 cases:
+
+- Nonzero M07 memory, D08 timeline/fork, M08 author, D04 scene, M07 legacy and
+  D07 reader harnesses each conflict with otherwise valid review flags.
+- Unknown nonzero and malformed unrelated harness values also conflict;
+  unrelated harness value `0` is a positive disabled control.
+- Nonzero storage-failure and unknown `LOCALLORE_TEST_*` flags conflict.
+  The intended review whitelist permits only MEMORY, RESTART and WORKSPACE
+  test inputs, plus the exact required native/full/scene/D02 flags. Root owns
+  the full production configuration predicate and its source review.
+- A present Windows restart value made with `OsString::from_wide(&[0xd800])`
+  is verified to reach the child as `VarError::NotUnicode`; another case uses
+  an ordinary unknown stage. Neither may activate review or yield a profile.
+
+Each added invalid case requires `review_requested() == true`,
+`review_active() == false` and refusal by both profile-helper calls. The disabled
+unrelated-harness control requires active review and the same absent fresh
+profile path as the existing positive case. Whole ordinary fixture directories
+and file bytes remain unchanged in child and parent. No parent environment is
+mutated; no new C: fixture path is introduced.
+
+Root implements the proposed native-only helper:
+
+```rust
+pub fn review_requested() -> bool;
+```
+
+Main must use a present OS-string-aware request check before Builder/workspace/
+model setup, so invalid Unicode cannot silently choose the initial model
+journey. Valid `review` plus conflicting seed/test families must fail before
+their seeding paths. Legacy default/0/1 behavior and the old 24 oracles are
+preserved. These unit cases test the proposed predicates; actual Main refusal
+ordering still requires independent source review and later native integration.
+
+Two additional pure unit tests freeze a private classification seam:
+
+```rust
+fn review_absence_from_metadata(result: std::io::Result<()>) -> Result<(), String>;
+```
+
+Only `Err(NotFound)` is accepted as absence. `Ok(())` means an entry exists and
+must refuse; PermissionDenied, AlreadyExists, NotADirectory, Interrupted,
+InvalidInput, InvalidData, TimedOut and Other errors must also refuse. These are
+10 finite simulated result classifications across two test functions, with
+**no filesystem-link probe**. The actual caller must pass
+`std::fs::symlink_metadata(path).map(|_| ())`, not following `metadata` or
+`try_exists`; the tests alone cannot prove that wiring. Root owns implementation
+and independent source review of those caller sites.
+
+No symlink, junction, reparse canary, dangling-profile object, SDK/profile probe
+or real app is created or launched. No executed dangling-link refusal, Windows
+link privilege, link race or universal reparse qualification is claimed. The
+original ordinary existing-profile file/directory cases remain actual future
+filesystem cases; simulated metadata classification does not replace them.
+
+After Root supplies the new helpers and compiles, the documented parent-matrix
+command above exercises all 38 fixed cases. A separate exact filter
+`comparison_run_native_harness::review_profile_tests::retained_review_absence_`
+exercises the two pure tests. These commands remain UNRUN by this author.
+No Node/Cargo/formatter, build/app, model/assets, phone or desktop action was
+performed. Root must retain setup failures, actual before/after measurements
+and all D09 probe restrictions while advancing the narrow production fix.

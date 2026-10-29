@@ -3,12 +3,15 @@
 //! Missing APIs are setup failures, not behavioral RED. Fixtures are retained.
 #![cfg(windows)]
 
-use super::{review_active, review_webview_profile};
+use super::{
+    review_absence_from_metadata, review_active, review_requested, review_webview_profile,
+};
 use std::{
     collections::BTreeMap,
+    ffi::OsString,
     fs,
-    io::Read,
-    os::windows::{fs::MetadataExt, process::CommandExt},
+    io::{self, Read},
+    os::windows::{ffi::OsStringExt, fs::MetadataExt, process::CommandExt},
     path::{Component, Path, PathBuf, Prefix},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -45,6 +48,25 @@ const CASES: &[&str] = &[
     "workspace-env-mismatch",
     "wrong-workspace-leaf",
     "safe-fresh-d-output",
+];
+
+// Additive first freeze at db815486. Preserve every original case/assertion.
+// No symlinks, junctions, reparse canaries or real app startup are exercised.
+const ADDITIONAL_CASES: &[&str] = &[
+    "conflict-memory-harness",
+    "conflict-timeline-harness",
+    "conflict-fork-harness",
+    "conflict-author-harness",
+    "conflict-scene-harness",
+    "conflict-legacy-harness",
+    "conflict-reader-harness",
+    "conflict-unknown-harness",
+    "conflict-malformed-other-harness",
+    "conflict-test-storage-failure",
+    "conflict-unknown-test",
+    "non-unicode-restart-stage",
+    "unknown-scene-restart-stage",
+    "disabled-other-harness",
 ];
 
 #[derive(Debug, PartialEq, Eq)]
@@ -181,7 +203,7 @@ fn case_alias(path: &Path) -> PathBuf {
 
 #[test]
 fn retained_review_profile_matrix_is_pure_and_child_environment_is_isolated() {
-    for case in CASES {
+    for case in CASES.iter().chain(ADDITIONAL_CASES.iter()) {
         let fixture = Fixture::new();
         let old_root = fixture.workspace.parent().unwrap();
         let mut workspace = fixture.workspace.clone();
@@ -297,6 +319,48 @@ fn retained_review_profile_matrix_is_pure_and_child_environment_is_isolated() {
                 workspace = old_root.join("different.sqlite");
                 argument = workspace.clone();
             }
+            "conflict-memory-harness" => {
+                command.env("LOCALLORE_M07_MEMORY_HARNESS", "1");
+            }
+            "conflict-timeline-harness" => {
+                command.env("LOCALLORE_D08_TIMELINE_HARNESS", "1");
+            }
+            "conflict-fork-harness" => {
+                command.env("LOCALLORE_D08_FORK_HARNESS", "1");
+            }
+            "conflict-author-harness" => {
+                command.env("LOCALLORE_M08_AUTHOR_HARNESS", "1");
+            }
+            "conflict-scene-harness" => {
+                command.env("LOCALLORE_D04_SCENE_HARNESS", "literal");
+            }
+            "conflict-legacy-harness" => {
+                command.env("LOCALLORE_M07_LEGACY_HARNESS", "1");
+            }
+            "conflict-reader-harness" => {
+                command.env("LOCALLORE_D07_COMPARISON_READER_HARNESS", "1");
+            }
+            "conflict-unknown-harness" => {
+                command.env("LOCALLORE_UNRECOGNIZED_HARNESS", "1");
+            }
+            "conflict-malformed-other-harness" => {
+                command.env("LOCALLORE_UNRECOGNIZED_HARNESS", "invalid");
+            }
+            "conflict-test-storage-failure" => {
+                command.env("LOCALLORE_TEST_STORAGE_FAILURE", "1");
+            }
+            "conflict-unknown-test" => {
+                command.env("LOCALLORE_TEST_UNRECOGNIZED", "1");
+            }
+            "non-unicode-restart-stage" => {
+                command.env("LOCALLORE_TEST_RESTART", OsString::from_wide(&[0xd800]));
+            }
+            "unknown-scene-restart-stage" => {
+                command.env("LOCALLORE_TEST_RESTART", "not-a-stage");
+            }
+            "disabled-other-harness" => {
+                command.env("LOCALLORE_UNRECOGNIZED_HARNESS", "0");
+            }
             "missing-output" | "safe-fresh-d-output" => {}
             _ => unreachable!(),
         }
@@ -386,7 +450,7 @@ fn retained_review_profile_matrix_is_pure_and_child_environment_is_isolated() {
 #[ignore = "fixed child only; parent supplies an isolated synthetic environment"]
 fn fixed_review_profile_case_child() {
     let case = std::env::var(CASE_ENV).unwrap();
-    assert!(CASES.contains(&case.as_str()));
+    assert!(CASES.contains(&case.as_str()) || ADDITIONAL_CASES.contains(&case.as_str()));
     let outer = PathBuf::from(std::env::var_os(ROOT_ENV).unwrap());
     let argument = PathBuf::from(std::env::var_os(ARG_ENV).unwrap());
     let new_root = PathBuf::from(std::env::var_os(NEW_ENV).unwrap());
@@ -399,6 +463,27 @@ fn fixed_review_profile_case_child() {
         inventory(&outer),
         "helpers must not create, write or remove files: {case}"
     );
+    if ADDITIONAL_CASES.contains(&case.as_str()) {
+        assert!(review_requested(), "requested review must be detected before setup even when invalid");
+        if case == "non-unicode-restart-stage" {
+            assert!(matches!(std::env::var("LOCALLORE_TEST_RESTART"),
+                Err(std::env::VarError::NotUnicode(_))), "actual child stage is present and non-Unicode");
+        }
+        if case == "disabled-other-harness" {
+            assert!(active, "only a nonzero unrelated harness conflicts");
+            let expected = new_root.join("webview-profile");
+            assert_eq!(first.unwrap(), expected);
+            assert_eq!(second.unwrap(), expected);
+            assert!(!expected.exists());
+            assert!(!new_root.join("review").exists());
+            assert!(!argument.exists());
+        } else {
+            assert!(!active, "conflicting/unknown configuration cannot activate review");
+            assert!(first.is_err() && second.is_err(), "invalid review cannot obtain a profile");
+        }
+        println!("fixed-retained-review-profile-case:{case}:pure");
+        return;
+    }
     let inactive = matches!(
         case.as_str(),
         "legacy-stage-absent"
@@ -436,4 +521,28 @@ fn fixed_review_profile_case_child() {
         );
     }
     println!("fixed-retained-review-profile-case:{case}:pure");
+}
+
+#[test]
+fn retained_review_absence_rejects_present_metadata_without_a_filesystem_probe() {
+    assert!(review_absence_from_metadata(Ok(())).is_err(),
+        "a present entry is never an absent workspace/profile, regardless of target resolution");
+}
+
+#[test]
+fn retained_review_absence_accepts_only_not_found_classification() {
+    assert!(review_absence_from_metadata(Err(io::Error::from(io::ErrorKind::NotFound))).is_ok());
+    for kind in [
+        io::ErrorKind::PermissionDenied,
+        io::ErrorKind::AlreadyExists,
+        io::ErrorKind::NotADirectory,
+        io::ErrorKind::Interrupted,
+        io::ErrorKind::InvalidInput,
+        io::ErrorKind::InvalidData,
+        io::ErrorKind::TimedOut,
+        io::ErrorKind::Other,
+    ] {
+        assert!(review_absence_from_metadata(Err(io::Error::from(kind))).is_err(),
+            "metadata error {kind:?} is not proof of absence");
+    }
 }

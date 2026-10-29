@@ -80,7 +80,8 @@ type SelectedPreparedV3 = Omit<SelectedPreparedV1, "version" | "lane"> & {
     lane: "scripted_selected_case";
     constructions: ComparisonArmDescriptorV4[];
 };
-export type SelectedPrepared = SelectedPreparedV1 | SelectedPreparedV2 | SelectedPreparedV3;
+export type SelectedPrepared =
+    SelectedPreparedV1 | SelectedPreparedV2 | SelectedPreparedV3;
 type SelectedSummaryV1 = {
     version: 1;
     kind: "selected_read";
@@ -108,7 +109,8 @@ type SelectedSummaryV3 = Omit<SelectedSummaryV1, "version" | "lane"> & {
     lane: "scripted_selected_case";
     constructions: ComparisonArmDescriptorV4[];
 };
-export type SelectedSummary = SelectedSummaryV1 | SelectedSummaryV2 | SelectedSummaryV3;
+export type SelectedSummary =
+    SelectedSummaryV1 | SelectedSummaryV2 | SelectedSummaryV3;
 export type SelectedStatus = {
     version: 1;
     kind: "selected_evaluation";
@@ -183,12 +185,26 @@ type SelectedDiagnosticRowV2 = SelectedDiagnosticRowV1 & {
     literal_selected_units: number | null;
     fallback: boolean | null;
 };
-type SelectedDiagnosticRowV3 = Omit<SelectedDiagnosticRowV1,
-    "privacy_passed" | "context_evidence_available"> & Pick<ComparisonTurnV4,
-    "construction" | "construction_evidence_status" | "construction_evidence_reason" |
-    "construction_matches" | "privacy_evidence_status" | "fallback" | "repairs" |
-    "recovered_without_checkpoint" | "first_final_response_ms" | "commit_elapsed_ms" |
-    "narrator_prompt_sha256" | "narrator_schema_sha256" | "scene_frame_sha256">;
+type SelectedDiagnosticRowV3 = Omit<
+    SelectedDiagnosticRowV1,
+    "privacy_passed" | "context_evidence_available"
+> &
+    Pick<
+        ComparisonTurnV4,
+        | "construction"
+        | "construction_evidence_status"
+        | "construction_evidence_reason"
+        | "construction_matches"
+        | "privacy_evidence_status"
+        | "fallback"
+        | "repairs"
+        | "recovered_without_checkpoint"
+        | "first_final_response_ms"
+        | "commit_elapsed_ms"
+        | "narrator_prompt_sha256"
+        | "narrator_schema_sha256"
+        | "scene_frame_sha256"
+    >;
 export type SelectedDiagnosticRow =
     SelectedDiagnosticRowV1 | SelectedDiagnosticRowV2 | SelectedDiagnosticRowV3;
 type SelectedDiagnosticsV1 = {
@@ -214,7 +230,10 @@ type SelectedDiagnosticsV2 = Omit<SelectedDiagnosticsV1, "version" | "rows"> & {
     constructions: ComparisonArmDescriptorV3[];
     rows: SelectedDiagnosticRowV2[];
 };
-type SelectedDiagnosticsV3 = Omit<SelectedDiagnosticsV1, "version" | "rows" | "lane"> & {
+type SelectedDiagnosticsV3 = Omit<
+    SelectedDiagnosticsV1,
+    "version" | "rows" | "lane"
+> & {
     version: 3;
     source_protocol_version: 4;
     lane: "scripted_selected_case";
@@ -222,7 +241,8 @@ type SelectedDiagnosticsV3 = Omit<SelectedDiagnosticsV1, "version" | "rows" | "l
     human_rubric: "not_reviewed";
     rows: SelectedDiagnosticRowV3[];
 };
-export type SelectedDiagnostics = SelectedDiagnosticsV1 | SelectedDiagnosticsV2 | SelectedDiagnosticsV3;
+export type SelectedDiagnostics =
+    SelectedDiagnosticsV1 | SelectedDiagnosticsV2 | SelectedDiagnosticsV3;
 export type SelectedEvidence = {
     version: 1;
     binding: string;
@@ -278,7 +298,8 @@ function detached(v: unknown, max: number): unknown {
         // Inspect own data descriptors before any serialization. These inputs
         // are JSON data, not objects whose getters/toJSON may run during copy.
         const ancestors = new Set<object>();
-        let nodes = 0, minimumBytes = 0;
+        let nodes = 0,
+            minimumBytes = 0;
         const spend = (bytes: number) => {
             minimumBytes += bytes;
             requireWire(minimumBytes <= max);
@@ -300,10 +321,16 @@ function detached(v: unknown, max: number): unknown {
             }
             requireWire(typeof value === "object" && !ancestors.has(value));
             const sequence = Array.isArray(value);
-            requireWire(Object.getPrototypeOf(value) === (sequence ? Array.prototype : Object.prototype));
+            requireWire(
+                Object.getPrototypeOf(value) ===
+                    (sequence ? Array.prototype : Object.prototype),
+            );
             const descriptors = Object.getOwnPropertyDescriptors(value);
             const keys = Reflect.ownKeys(descriptors);
-            requireWire(keys.length <= max && keys.every((key) => typeof key === "string"));
+            requireWire(
+                keys.length <= max &&
+                    keys.every((key) => typeof key === "string"),
+            );
             spend(2);
             ancestors.add(value);
             let result: unknown;
@@ -313,7 +340,11 @@ function detached(v: unknown, max: number): unknown {
                 const items: unknown[] = [];
                 for (let i = 0; i < length; i++) {
                     const field = descriptors[String(i)];
-                    requireWire(field && Object.hasOwn(field, "value") && field.enumerable);
+                    requireWire(
+                        field &&
+                            Object.hasOwn(field, "value") &&
+                            field.enumerable,
+                    );
                     if (i) spend(1);
                     items.push(copy(field.value, depth + 1));
                 }
@@ -324,7 +355,9 @@ function detached(v: unknown, max: number): unknown {
                 for (const key of keys) {
                     requireWire(typeof key === "string");
                     const field = descriptors[key];
-                    requireWire(Object.hasOwn(field, "value") && field.enumerable);
+                    requireWire(
+                        Object.hasOwn(field, "value") && field.enumerable,
+                    );
                     spend(utf8(key) + 3 + (count++ ? 1 : 0));
                     fields[key] = copy(field.value, depth + 1);
                 }
@@ -463,7 +496,9 @@ function selectedConstruction(
     scene = false,
 ): ComparisonArmDescriptorV3 | ComparisonArmDescriptorV4 {
     try {
-        return scene ? checkedReaderSceneConstruction(v, arm) : checkedReaderConstruction(v, arm);
+        return scene
+            ? checkedReaderSceneConstruction(v, arm)
+            : checkedReaderConstruction(v, arm);
     } catch {
         throw new Error("SelectedEvaluationWire");
     }
@@ -491,14 +526,11 @@ function versioned(v: unknown, fields: string[], prepared = false): Obj {
     return o;
 }
 export function checkedSelectedPrepared(v: unknown): SelectedPrepared {
-    const o = versioned(detached(v, 16 * 1024), [
-        "version",
-        "kind",
-        "binding",
-        "lane",
-        "selection",
-        "arms",
-    ], true);
+    const o = versioned(
+        detached(v, 16 * 1024),
+        ["version", "kind", "binding", "lane", "selection", "arms"],
+        true,
+    );
     requireWire(o.kind === "selected_prepared");
     selectedHash(o.binding);
     if (o.version === 3) selectedHash(o.source_binding);
@@ -680,29 +712,32 @@ export function checkedSelectedDiagnostics(
     token: string,
     summary: SelectedSummary,
 ): SelectedDiagnostics {
-    summary = checkedSelectedSummary({ version: 1, kind: "selected_summary", run_token: token, summary }, token);
-    const raw = detached(wrapper(v, "selected_diagnostics_result", "diagnostics", token), 256 * 1024);
-    const o = versioned(
-        raw,
-        [
-            "version",
-            "kind",
-            "binding",
-            "lane",
-            "completed",
-            "rows",
-            "physical_setups",
-            "physical_setup_ms",
-            "left_charged_ms",
-            "right_charged_ms",
-            "left_reserved_roles",
-            "right_reserved_roles",
-            "human_reviewed",
-            "quality_accepted",
-            "unavailable",
-            ...(object(raw).version === 3 ? ["human_rubric"] : []),
-        ],
+    summary = checkedSelectedSummary(
+        { version: 1, kind: "selected_summary", run_token: token, summary },
+        token,
     );
+    const raw = detached(
+        wrapper(v, "selected_diagnostics_result", "diagnostics", token),
+        256 * 1024,
+    );
+    const o = versioned(raw, [
+        "version",
+        "kind",
+        "binding",
+        "lane",
+        "completed",
+        "rows",
+        "physical_setups",
+        "physical_setup_ms",
+        "left_charged_ms",
+        "right_charged_ms",
+        "left_reserved_roles",
+        "right_reserved_roles",
+        "human_reviewed",
+        "quality_accepted",
+        "unavailable",
+        ...(object(raw).version === 3 ? ["human_rubric"] : []),
+    ]);
     requireWire(
         o.version === summary.version &&
             o.kind === "selected_diagnostics" &&
@@ -727,12 +762,23 @@ export function checkedSelectedDiagnostics(
                 "roles_known",
                 "elapsed_ms",
                 "actual_receipt_sha256",
-                ...(o.version === 3 ? [
-                    "construction", "construction_evidence_status", "construction_evidence_reason",
-                    "construction_matches", "privacy_evidence_status", "fallback", "repairs",
-                    "recovered_without_checkpoint", "first_final_response_ms", "commit_elapsed_ms",
-                    "narrator_prompt_sha256", "narrator_schema_sha256", "scene_frame_sha256",
-                ] : ["privacy_passed", "context_evidence_available"]),
+                ...(o.version === 3
+                    ? [
+                          "construction",
+                          "construction_evidence_status",
+                          "construction_evidence_reason",
+                          "construction_matches",
+                          "privacy_evidence_status",
+                          "fallback",
+                          "repairs",
+                          "recovered_without_checkpoint",
+                          "first_final_response_ms",
+                          "commit_elapsed_ms",
+                          "narrator_prompt_sha256",
+                          "narrator_schema_sha256",
+                          "scene_frame_sha256",
+                      ]
+                    : ["privacy_passed", "context_evidence_available"]),
                 ...(o.version === 2
                     ? [
                           "construction",
@@ -769,18 +815,28 @@ export function checkedSelectedDiagnostics(
             if (o.version === 3) {
                 selectedConstruction(r.construction, arm, true);
                 one(r.construction_evidence_status, [
-                    "validated_committed_scene_narrator_v1", "not_applicable_guard",
-                    "not_applicable_dependency", "unavailable",
+                    "validated_committed_scene_narrator_v1",
+                    "not_applicable_guard",
+                    "not_applicable_dependency",
+                    "unavailable",
                 ]);
                 nullable(r.construction_evidence_reason, text);
                 bool(r.construction_matches);
-                one(r.privacy_evidence_status, ["checked_finite_sentinels", "not_applicable_guard", "unavailable"]);
+                one(r.privacy_evidence_status, [
+                    "checked_finite_sentinels",
+                    "not_applicable_guard",
+                    "unavailable",
+                ]);
                 nullable(r.fallback, bool);
                 nullable(r.repairs, (v) => integer(v, 255));
                 bool(r.recovered_without_checkpoint);
                 nullable(r.first_final_response_ms, integer);
                 nullable(r.commit_elapsed_ms, integer);
-                for (const key of ["narrator_prompt_sha256", "narrator_schema_sha256", "scene_frame_sha256"])
+                for (const key of [
+                    "narrator_prompt_sha256",
+                    "narrator_schema_sha256",
+                    "scene_frame_sha256",
+                ])
                     nullable(r[key], selectedHash);
             } else {
                 bool(r.privacy_passed);
@@ -833,7 +889,11 @@ export function checkedSelectedDiagnostics(
     nullable(o.physical_setup_ms, integer);
     requireWire(o.human_reviewed === 0 && o.quality_accepted === false);
     if (o.version === 3)
-        requireWire(o.human_rubric === "not_reviewed" && o.physical_setups === 0 && o.physical_setup_ms === null);
+        requireWire(
+            o.human_rubric === "not_reviewed" &&
+                o.physical_setups === 0 &&
+                o.physical_setup_ms === null,
+        );
     array(o.unavailable, text);
     return o as SelectedDiagnostics;
 }
@@ -844,7 +904,10 @@ export function checkedSelectedEvidence(
     selected: SelectedArm,
     rawRequest: EvidenceRequest,
 ): SelectedEvidence {
-    summary = checkedSelectedSummary({ version: 1, kind: "selected_summary", run_token: token, summary }, token);
+    summary = checkedSelectedSummary(
+        { version: 1, kind: "selected_summary", run_token: token, summary },
+        token,
+    );
     const request = checkedSelectedRequest(rawRequest);
     requireWire(
         request.kind === "query" || request.observer.kind === "omniscient",

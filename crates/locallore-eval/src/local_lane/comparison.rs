@@ -13,6 +13,7 @@ mod native_selected_workflow;
 mod native_startup;
 #[cfg(test)]
 mod outcome_review_tests;
+pub mod scene_v4;
 pub mod selected;
 mod turn_execution;
 use super::*;

@@ -243,10 +243,43 @@ The eight fixed slots remain the predeclared selection:
 
 Thus the slots contain 7 commits, of which 4 use fallback and 3 do not, plus
 1 failed slot. No nicer sample replaces the failure. All report human counts
-remain zero, `human_rubric=not_reviewed`, `quality_accepted=false`. Root owns
-the separate new human packet/review. The original eight-sample human assessment
+remain zero, `human_rubric=not_reviewed`, `quality_accepted=false`. The original eight-sample human assessment
 remains **needs improvement**; the new run is not a human approval or a claim
 of improved consistency, agency, repetition or readability.
+
+The owner subsequently reviewed the new fixed packet and answered exactly
+**"Reviewed: needs improvement"**, recorded at 2026-10-29 06:03:15 UTC.
+This is packet-level feedback, not merge approval, case-specific scores or
+dimensional ratings. The captured reports and preparation declaration were not
+rewritten. A separate local feedback record binds the response to samples
+SHA256 `4400c11eef7ab19b8ee6be1a8c429a928e972b64a6b60c4b4701f44d6b89b0c7`
+and declaration SHA256 `57f965c1e9bcdcc564b57a2cf73e03c110d9b8473cd48627670c359bfaa3172b`.
+The companion feedback SHA256 is
+`bac8c92e1d1ef04bde1bdcc44fdffceddc3b45c499c3d5165f0ed45b9cf01d6e`.
+The quality gate remains unmet; no samples were regenerated or substituted.
+
+## Display corrections after the frozen cohort
+
+These are later frontend checks, not new native images or model results.
+
+| Source | Check | Actual result |
+| --- | --- | --- |
+| `8d2dd575` | Independent unavailable/operation-label freeze | 71 passed / 3 failed, zero calibration failures; 1.2927454 s |
+| `2e2e74fc` | Same unchanged 74 checks after display fix | 74 passed; 1.3172928 s |
+| `2e2e74fc` | First full frontend follow-up | Failed at existing native View prerequisite check: 87/88 passed; 9.1742038 s |
+| `35dd8880` | Preserve approved-model prerequisite without guessing setup from missing metadata | Full frontend passed; 14.9419702 s |
+| `8fe19ae0` | Independent artifact-context freeze | Original 174 decoder checks passed, 2 actual controller/Panel static-HTML cases failed, zero setup failures; 0.3961195 s |
+| `2c4f8817` | Same unchanged artifact-context checks after Panel fix | 176 passed; 0.3623870 s |
+| `2c4f8817` | Full frontend and unlaunched normal Windows native build | Passed; 15.0431209 s and 13.1288049 s respectively |
+
+Unknown native metadata now produces neutral unavailable guidance. The active
+operation label does not imply a physical model worker before consent. Displayed
+artifacts carry their actual source revisions, case phase/error, scenario result
+and receipt availability before the raw body. Mechanical fallback is explicit;
+commit and raw-output availability do not imply prose quality. Private case
+summary details remain hidden outside the omniscient lens. No Rust owner,
+canonical validation, permissions or captured output changed. Read-only native
+verification of this corrected UI remains pending separately.
 
 ## Acceptance boundary and next task
 
@@ -258,8 +291,8 @@ checkbox or epic acceptance follows from this cohort.
 
 The next runnable work is to review the preserved typed scenario failures and
 fallback bottleneck, finish the visible-state/capture follow-up with its own
-evidence, and prepare the fixed human packet. Post-fix native UI qualification,
-human assessment, whole-app resource/offline/security/packaging checks,
+evidence, and address the measured fallback/actor-intent quality bottleneck.
+Post-fix native UI qualification, whole-app resource/offline/security/packaging checks,
 Android/physical-phone parity and full D07 acceptance remain separate gates.
 There is no new model cohort or weakened validator in this documentation task.
 

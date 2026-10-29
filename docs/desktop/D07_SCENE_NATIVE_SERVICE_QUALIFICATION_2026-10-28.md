@@ -2,8 +2,10 @@
 
 2026-10-28 local date; the joined checks below ran on 2026-10-29 UTC.
 Refs #29 D07.03/.05, supporting D07.06 and #25 D04.04.
-**Local source checks qualified at frozen `b70e57be`; the full Native4 model
-cohort remains UNRUN.** The joined development products compile, 15 focused
+**Local source checks qualified at frozen `b70e57be`, before the full Native4
+model cohort.** The subsequent [actual cohort and its limitations](D07_SCENE_NATIVE_FULL_COHORT_QUALIFICATION_2026-10-28.md)
+are recorded separately at `7bd21c7b`; their results do not change this check set's
+source attribution. The joined development products compile, 15 focused
 service cases and 4 accepted-main window-capability cases pass, and the broad
 serial Rust suite, strict Clippy, formatting, normal native build and Android
 Rust host checks pass. Frontend and synthetic launcher-policy checks pass at
@@ -285,7 +287,8 @@ The joined broad source checks are complete with the exact results and limits
 above. Final exact-head source review, focused PR, security scan and owner
 acceptance remain **PENDING**, with the unmerged draft dependency gate retained.
 The next runnable task is Root's exact-source integration/review and focused PR
-gate; the separately approved full Native4 model cohort remains **UNRUN**.
+gate. The separately approved full Native4 model cohort was **UNRUN at this
+source freeze**; its later execution is linked above.
 
 No new Native4 inference, completed-native no-load resume/cold restart,
 application-owned render images/layout inspection, physical phone, Android ABI,

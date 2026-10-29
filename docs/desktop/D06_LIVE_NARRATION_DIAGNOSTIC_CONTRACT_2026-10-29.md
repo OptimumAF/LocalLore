@@ -437,3 +437,11 @@ checked trace is detached, prove the original tuple remains exact and no evil
 query dispatches. Actual Main Play/send retirement is a joint boundary; the
 separate genuinely pending/uncertain operation followed by an otherwise-eligible
 Lab read is required to isolate the Main gameplay fence.
+
+Main teardown must set a private stopping latch **before** publishing a null
+fence. Root/V2 subscribers are still registered at that notification; their
+normal synchronization must continue to produce null while stopping, rather
+than reopening a valid fence reentrantly. Only then unsubscribe/await disposal.
+This is a Main lifetime latch, not public State or native authority. ActualMain
+FIRST must prove no interim reopening/admission, not merely eventual Controller
+disposal after the asynchronous work.

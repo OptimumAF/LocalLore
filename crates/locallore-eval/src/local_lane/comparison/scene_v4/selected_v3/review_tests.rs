@@ -1193,7 +1193,23 @@ fn public_reader_query2_and_finite_diagnostics_do_not_change_character_knowledge
                         evidence["body"]["page"],
                         serde_json::to_value(expected).unwrap()
                     );
-                    assert!(!evidence.to_string().contains(SECRET));
+                    if view == View::Knowledge && matches!(&observer, Observer::Player) {
+                        // This seed deliberately grants the fact to the player;
+                        // authorization is observer-specific, not sentinel-wide.
+                        let fact = &cut.seed().facts["relic-location"];
+                        assert!(fact.known_by.contains(&cut.seed().player));
+                        assert!(fact.proposition.contains(SECRET));
+                        assert!(evidence["body"]["page"]["rows"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|row| row["kind"] == "knowledge"
+                                && row["id"] == "relic-location"
+                                && row["subject"].as_str() == Some(cut.seed().player.as_str())
+                                && row["text"].as_str() == Some(fact.proposition.as_str())));
+                    } else {
+                        assert!(!evidence.to_string().contains(SECRET));
+                    }
                     if view == View::History
                         && matches!(&observer, Observer::Character { id } if id == "sable")
                     {

@@ -339,3 +339,86 @@ These refinements add no native permission or gameplay cancellation path. The ea
 independent Host/Core, strict codec, mounted UI, scripted native and nonmutation gates
 remain required. No production, test, schema, runtime or acceptance result is added by
 this document amendment.
+
+## Root accepted frontend contract v1 — 2026-10-29
+
+Root accepts the proposal and precision above, with these final public names
+and lifecycle rules. Inspected/accepted production base is merged main
+`f4d2de0cb25fcc8dc2db48558fb489701f251fd8`; its production source is identical to
+the inspected `54603e31`. Original 234-line proposal and 107-line precision are
+retained unchanged. This acceptance authorizes independent FIRST source only;
+it is not an implemented API, runtime pass, Host/schema change or full D06 gate.
+
+`TraceState.narrationValidation` is the sole new public nested read state.
+Export `TraceNarrationValidationState` from `trace-model.ts`, with exactly:
+
+```ts
+type TraceNarrationValidationState = Readonly<{
+    status: "idle" | "pending" | "recorded" | "unavailable" | "refused" | "cancelled";
+    query: NarrationValidationQueryV1 | null;
+    reply: NarrationValidationDataV1 | null;
+    error: string | null; // Existing sanitized category only; never raw exceptions.
+}>;
+```
+
+Initial/reset state is idle with query/reply/error null. A locally ineligible
+explicit read clears private content and settles unavailable without a query,
+reply or invented Host cause. Native unavailable instead retains its exact
+query and checked unavailable data. Refused retains only a still-current query
+and sanitized error. Recorded means checked Host metadata, including a recorded
+cancelled/stale validation decision; it is not local display cancellation.
+Store detached immutable query/data copies, with no reference to mutable caller
+or notification inputs. The private pending latch includes the original player
+identity as well as the exact generated command.
+
+The parameterless, side-effect-free public UI helper is:
+
+```ts
+type TraceNarrationValidationEligibility = Readonly<{
+    allowed: boolean;
+    reason: "disposed" | "hidden" | "not_story_lab" | "not_omniscient"
+        | "source_unavailable" | "fence_unavailable" | "gameplay_unresolved"
+        | "busy" | "trace_unavailable" | "selection_unavailable"
+        | "context_changed" | null;
+}>;
+traceNarrationValidationEligibility(): TraceNarrationValidationEligibility;
+readTraceNarrationValidation(): Promise<void>;
+cancelTraceNarrationValidation(): void;
+```
+
+Export that eligibility type from `trace-model.ts`. `allowed:true` requires
+reason null; `allowed:false` requires one listed reason. Evaluate reasons in
+the listed order. These are known local presentation/admission conditions,
+not a native grant snapshot or an explanation of Host unavailability. UI may
+derive its disabled state and local explanation from this single helper;
+rendering the helper never dispatches. Admission repeats authoritative context
+checks; a previous UI eligibility value is not a reusable authorization.
+
+Keep the Main-owned primitive fence private to the Controller. A changed
+detached fence is assigned before notifying subscribers. It must notify even
+if the previous diagnostic payload was already idle, so actual button state
+updates. Compare equal tuples before notification, preserving the no-op rule
+and avoiding Main/Root subscription cycles. Null/malformed/foreign fence is
+fail-closed. No public top-level State/native authority field is added.
+
+An explicit duplicate read while this read is pending is a no-op **before**
+clearing or incrementing the ticket; it preserves the original pending request.
+Publish pending/cleared state synchronously, then recheck liveness and the
+complete eligible context before the gateway call: a synchronous subscriber can
+change selection, lens, source, fence or dispose during that notification.
+Do not dispatch the retired query. Completion checks may ignore **only** their
+own pending-read status; all real metadata/control/gameplay/fence gates still
+apply. Never use a broad busy bypass to publish a stale result.
+
+Local cancel acts only on an outstanding pending read. It retires the ticket,
+clears query/reply/error, and labels cancelled. Otherwise it is a no-op. Observe
+the already-issued promise after cancellation without publication or unhandled
+rejection. No gameplay Cancel, metadata clear/disable, worker abort or native
+cancellation is implied. Context/lifecycle invalidation resets the read to idle.
+
+No production paths are allocated by this append. FIRST owns new test sources
+only, must use real public Controller/Main/V2/Host paths where claimed, preserve
+the existing reader/trace oracles, and report missing construction as setup.
+Subscriber assertions must not disappear into notification exception handling;
+capture observations and assert them outside the callback. Independent native
+harness scope and exact production ownership follow a separate Root allocation.

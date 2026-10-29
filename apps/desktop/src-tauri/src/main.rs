@@ -34,6 +34,8 @@ mod model_commands;
 mod models;
 #[cfg(feature = "dev-harness")]
 mod scene_harness;
+#[cfg(feature = "dev-harness")]
+mod scene_model_guard_harness;
 mod selected_commands;
 #[cfg(feature = "dev-harness")]
 mod selected_harness;
@@ -174,9 +176,13 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         .map_err(std::io::Error::other)?;
     let testing = cfg!(feature = "dev-harness")
         && std::env::var("LOCALLORE_D02_HARNESS").as_deref() == Ok("1");
+    #[cfg(feature = "dev-harness")]
+    let reviewing = comparison_run_native_harness::review_active();
+    #[cfg(not(feature = "dev-harness"))]
+    let reviewing = false;
     let script = if testing {
         format!(
-            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},inspectingMemory:{},authoring:{},sceneCase:'{}',archiveStage:'{}',stage:'{}'}};",
+            "window.__LOCALLORE_TEST__={{enabled:true,backend:'native',durable:{},failure:{},exporting:{},localplay:{},inspecting:{},debugging:{},capturing:{},legacy:{},evaluating:{},curated:{},comparisonReading:{},selectedEvaluating:{},fullComparing:{},nativeFullComparing:{},sceneFullComparing:{},sceneModelGuard:{},nativeComparisonDenied:{},archiving:{},timelining:{},forking:{},maintaining:{},inspectingMemory:{},authoring:{},sceneCase:'{}',archiveStage:'{}',stage:'{}'}};",
             std::env::var("LOCALLORE_TEST_MEMORY").as_deref() != Ok("1"),
             std::env::var("LOCALLORE_TEST_STORAGE_FAILURE").as_deref() == Ok("1"),
             std::env::var("LOCALLORE_D03_HARNESS").as_deref() == Ok("1"),
@@ -193,6 +199,19 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             {
                 #[cfg(feature = "dev-harness")]
                 { comparison_run_native_harness::active() }
+                #[cfg(not(feature = "dev-harness"))]
+                { false }
+            },
+            {
+                #[cfg(feature = "dev-harness")]
+                { comparison_run_native_harness::scene_active() }
+                #[cfg(not(feature = "dev-harness"))]
+                { false }
+            },
+            {
+                #[cfg(feature = "dev-harness")]
+                { comparison_run_native_harness::scene_active()
+                    && std::env::var("LOCALLORE_D07_SCENE_MODEL_GUARD_HARNESS").as_deref() == Ok("1") }
                 #[cfg(not(feature = "dev-harness"))]
                 { false }
             },
@@ -222,6 +241,8 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
             },
             if reopened {
                 "reopened"
+            } else if reviewing {
+                "review"
             } else if std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1") {
                 "restart"
             } else {
@@ -238,11 +259,15 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         let path = std::path::PathBuf::from(
             std::env::var_os("LOCALLORE_TEST_WORKSPACE").unwrap_or_default(),
         );
-        builder.data_directory(
+        let profile = if comparison_run_native_harness::review_active() {
+            comparison_run_native_harness::review_webview_profile(&path)
+                .map_err(std::io::Error::other)?
+        } else {
             path.parent()
                 .unwrap_or_else(|| std::path::Path::new("."))
-                .join("webview-profile"),
-        )
+                .join("webview-profile")
+        };
+        builder.data_directory(profile)
     } else {
         builder
     };
@@ -328,6 +353,21 @@ fn harness_reopen(
     Ok(())
 }
 fn main() {
+    // Refuse malformed retained-review requests before any workspace/model setup.
+    #[cfg(feature = "dev-harness")]
+    if comparison_run_native_harness::review_requested() {
+        let valid = comparison_run_native_harness::review_active()
+            && std::env::var_os("LOCALLORE_TEST_WORKSPACE").is_some_and(|path| {
+                comparison_run_native_harness::review_webview_profile(&std::path::PathBuf::from(
+                    path,
+                ))
+                .is_ok()
+            });
+        if !valid {
+            eprintln!("ForbiddenRetainedReviewConfiguration");
+            std::process::exit(2);
+        }
+    }
     #[cfg(feature = "dev-harness")]
     if std::env::args().any(|a| a == "--host-stdio") {
         test_bridge::run();
@@ -384,6 +424,7 @@ fn main() {
             selected_commands::evaluation_selected,
             selected_harness::harness_selected_case,
             comparison_run_native_harness::harness_native_comparison_case,
+            scene_model_guard_harness::harness_scene_model_guards,
             comparison_reader_harness::harness_comparison_reader_case,
             evaluation_commands::evaluation_start,
             evaluation_commands::evaluation_open,

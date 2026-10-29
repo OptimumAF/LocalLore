@@ -44,6 +44,11 @@ pub async fn model_import(
     workspace: tauri::State<'_, WorkspaceState>,
     models: tauri::State<'_, Arc<ModelManager>>,
 ) -> Result<Value, String> {
+    // Must precede manager.import: it reaps staging files before calling picker.
+    #[cfg(feature = "dev-harness")]
+    if crate::comparison_run_native_harness::scene_requested() {
+        return Err("Forbidden".into());
+    }
     let epoch = workspace
         .lease
         .capture(window.label())
@@ -102,6 +107,12 @@ pub async fn model_load(
     workspace: tauri::State<'_, WorkspaceState>,
     models: tauri::State<'_, Arc<ModelManager>>,
 ) -> Result<Value, String> {
+    // Ordinary load also reaps staging. Scene comparisons use only their own
+    // existing reservation/native-startup path on the reused publication.
+    #[cfg(feature = "dev-harness")]
+    if crate::comparison_run_native_harness::scene_requested() {
+        return Err("Forbidden".into());
+    }
     let epoch = workspace
         .lease
         .capture(window.label())

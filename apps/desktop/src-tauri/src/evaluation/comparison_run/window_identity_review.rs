@@ -71,22 +71,22 @@ impl Fixture {
         fs::create_dir_all(&directory).unwrap();
         // Reuse the accepted typed index/current-binding fixture. There is no
         // work directory, report, NativeProfile or outcome to mislabel.
-        let index = Index {
-            version: if native { 2 } else { 1 },
-            protocol_version: 3,
-            input_lane: if native {
+        let index = Index::decode(json!({
+            "version": if native { 2 } else { 1 },
+            "protocol_version": 3,
+            "input_lane": if native {
                 "approved_native"
             } else {
                 "scripted_baseline"
-            }
-            .into(),
-            run_id: run.clone(),
-            client_id: client.clone(),
-            kind: core::ComparisonKind::ContinuousRollout,
-            initial_batch: 1,
-            created_ms: 1,
-            binding: wire::current_binding(native).unwrap(),
-        };
+            },
+            "run_id": run.clone(),
+            "client_id": client.clone(),
+            "kind": core::ComparisonKind::ContinuousRollout,
+            "initial_batch": 1,
+            "created_ms": 1,
+            "binding": wire::current_binding(native).unwrap(),
+        }))
+        .unwrap();
         fs::write(
             directory.join("desktop.json"),
             serde_json::to_vec(&index).unwrap(),

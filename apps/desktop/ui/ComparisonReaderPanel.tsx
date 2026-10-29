@@ -725,6 +725,48 @@ export function ComparisonReaderPanel({
                                         {s.evidence.edge ?? "recorded artifact"}{" "}
                                         · Observer {s.evidence.observer.kind}
                                     </p>
+                                    <p>
+                                        Source story {s.evidence.scope.story} ·
+                                        branch {s.evidence.scope.branch} ·
+                                        before {s.evidence.before_head} → after{" "}
+                                        {s.evidence.after_head}
+                                    </p>
+                                    {omni && turn ? (
+                                        <>
+                                            <p>
+                                                Case phase: {turn.phase} ·
+                                                Error:{" "}
+                                                {turn.error ?? "None recorded"}{" "}
+                                                · Scenario assertion:{" "}
+                                                {turn.passed
+                                                    ? "passed"
+                                                    : "failed"}{" "}
+                                                · Accepted receipt:{" "}
+                                                {selected.receipt_available
+                                                    ? "available"
+                                                    : "unavailable"}
+                                            </p>
+                                            {turn.fallback === true && (
+                                                <p>
+                                                    Mechanical fallback
+                                                    recorded. The raw model
+                                                    response was not used as
+                                                    play narration.
+                                                </p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <p>
+                                            Selected case outcome is unavailable
+                                            in this lens.
+                                        </p>
+                                    )}
+                                    <p>
+                                        Human quality is not established. Raw
+                                        model output is untrusted; commit and
+                                        report readiness do not establish prose
+                                        quality.
+                                    </p>
                                     {s.evidence.body.kind === "missing" ? (
                                         <p>
                                             Unavailable:{" "}

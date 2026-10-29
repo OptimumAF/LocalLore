@@ -459,6 +459,28 @@ impl ModelManager {
             model: self.path(),
         })
     }
+    /// Read the existing ownership sequence for independent no-reservation tests.
+    /// No counter, runtime hook, file access or renderer command is introduced.
+    #[cfg(test)]
+    pub(crate) fn evaluation_sequence_for_tests(&self) -> Result<u64, String> {
+        self.inner
+            .lock()
+            .map(|state| state.evaluation_sequence)
+            .map_err(|_| "Internal".into())
+    }
+    #[cfg(feature = "dev-harness")]
+    pub(crate) fn evaluation_observation_for_harness(&self) -> Result<(u64, bool, usize), String> {
+        self.inner
+            .lock()
+            .map(|state| {
+                (
+                    state.evaluation_sequence,
+                    state.evaluation.is_some(),
+                    state.retained_evaluations,
+                )
+            })
+            .map_err(|_| "Internal".into())
+    }
     fn progress(&self, job: u64, phase: &'static str, percent: u64) {
         if let Ok(mut s) = self.inner.lock() {
             if s.job == job {

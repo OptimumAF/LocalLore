@@ -1226,6 +1226,9 @@ summary {
 .comparison-reader:has(.comparison-selected) .comparison-report-context {
     position: static;
 }
+.comparison-selected:has(.comparison-evidence) .comparison-selection-context {
+    position: static;
+}
 .comparison-report-context p,
 .comparison-selection-context h3,
 .comparison-selection-context p {

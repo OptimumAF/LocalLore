@@ -168,7 +168,9 @@ def _uid(raw, selected):
     for line in lines:
         match = re.fullmatch(r'package:([^\s]+) uid:([1-9][0-9]*)', line)
         c._need(match is not None and match[1] in (c.APP, c.TEST) and match[1] not in result, 'identity')
-        result[match[1]] = c._int(int(match[2]), 10000, 2**31-1, 'identity')
+        number = int(match[2])
+        c._int(number, 10000, 2**31-1, 'identity')
+        result[match[1]] = number
     c._need(selected in result, 'identity')
     return result[selected]
 
@@ -178,7 +180,8 @@ def _packages(checks, session, admission):
     indices = []
     uids = {}
     for key, package, artifact in (('product', c.APP, 'product_apk'), ('tests', c.TEST, 'test_apk')):
-        row = c._obj(checks[key], ('uid', 'path', 'sha256'), 'binding')
+        row = checks[key]
+        c._obj(row, ('uid', 'path', 'sha256'), 'binding')
         uid = _client(row['uid'], session, admission,
                       ['cmd', 'package', 'list', 'packages', '-U', '--user', '0', package])
         path = _client(row['path'], session, admission,

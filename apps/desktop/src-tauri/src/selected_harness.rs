@@ -190,3 +190,7 @@ pub async fn harness_selected_case(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "selected_scene_harness_review_tests.rs"]
+mod selected_scene_harness_review_tests;

@@ -345,6 +345,7 @@ def validate_proof(binding, admission, admission_binding, worker, server, kind, 
     """Replay one closed owned-lease exchange; never query its former socket."""
     admitted = validate_admission(admission); _binding(admission_binding,project=True)
     _need(kind in ('version','devices'),'schema'); _binding(binding,project=True)
+    _need(type(completed_ports) is tuple,'tuple')
     _need(PureWindowsPath(binding['path']) == PureWindowsPath(admitted['root'])/('proof-%s-v1.json'%kind),'binding')
     value = _json_bound(binding); _obj(value,PROOF_KEYS)
     _int(value['version'],1,1); _need(value['protocol'] == PROTOCOL and value['kind'] == kind)
@@ -390,6 +391,7 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
         _binding(pin,project=True)
     root = PureWindowsPath(admitted['root'])
     _need(PureWindowsPath(binding['path']) == root/'worker-result-v1.json','binding')
+    _need(PureWindowsPath(request_binding['path']) == root/'request-v1.json','binding')
     value = _json_bound(binding); _obj(value,WORKER_KEYS)
     _int(value['version'],1,1); _need(value['protocol'] == PROTOCOL)
     _need(_same(value['admission'],admission_binding) and _same(value['request'],request_binding),'binding')
@@ -404,6 +406,7 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     _obj(value['cleanup'],CLEANUP_KEYS,'identity'); _need(all(v is True for v in value['cleanup'].values()),'identity')
     after = value['sources_after']; _obj(after,('sources','python','tools','auth'),'source')
     _need(_same(after,dict(sources=admitted['sources'],python=admitted['python'],tools=admitted['tools'],auth=value['auth'])),'source')
+    _binding(value['preflight'],project=True)
     _need(PureWindowsPath(value['preflight']['path']) == root/'preflight-v1.json','binding')
     pre = _json_bound(value['preflight'])
     _obj(pre,('observation','tables','created_mask','close_attempted_mask','closed_mask','exclusive_bind_succeeded'))
@@ -411,6 +414,7 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     for key in ('created_mask','close_attempted_mask','closed_mask'):
         _int(pre[key],1,1)
     _need(pre['exclusive_bind_succeeded'] is True,'observation')
+    _binding(value['readiness'],project=True)
     _need(PureWindowsPath(value['readiness']['path']) == root/'readiness-v1.json','binding')
     readiness = _json_bound(value['readiness']); _need(type(readiness) is list and 1 <= len(readiness) <= 200,'observation')
     for index,entry in enumerate(readiness):
@@ -424,10 +428,20 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     history = ()
     for kind,pin in zip(('version','devices'),value['proofs']):
         proof = validate_proof(pin,admitted,admission_binding,expected_worker,server,kind,completed_ports=history)
+        _need(_same(proof['brackets']['before_connect']['auth'],value['auth']),'auth')
         history += (proof['endpoint']['local_port'],)
+    _binding(value['running'],project=True)
     _need(PureWindowsPath(value['running']['path']) == root/'running-v1.json','binding')
     running = validate_running(_json_bound(value['running']),admitted,admission_binding)
     request = _json_bound(request_binding)
+    _obj(request,('version','protocol','admission','validated_admission','owner','sources','python','worker_script','owner_seconds'))
+    _int(request['version'],1,1); _need(request['protocol'] == PROTOCOL)
+    _process(request['owner'])
+    script = next(pin for pin in admitted['sources'] if PureWindowsPath(pin['path']).name == 'isolated_adb_owner.py')
+    _need(_same(request['admission'],admission_binding) and _same(request['validated_admission'],admitted) and
+          _same(request['sources'],admitted['sources']) and _same(request['python'],admitted['python']) and
+          _same(request['worker_script'],script),'source')
+    _int(request['owner_seconds'],admitted['seconds']+30,admitted['seconds']+30,'budget')
     _need(_same(running['worker'],expected_worker) and _same(running['server'],server) and
           _same(running['owner'],request['owner']) and
           _same(running['version_proof'],value['proofs'][0]) and _same(running['devices_proof'],value['proofs'][1]),'identity')

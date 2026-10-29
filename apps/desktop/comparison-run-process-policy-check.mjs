@@ -80,15 +80,24 @@ try {
 // No new API and no filesystem probe: exact function source plus path strings.
 const ancestryObservations = [];
 const syntheticReviewRoot = "D:/synthetic-boundary/retained-packet";
-let ancestrySource = null, outsideReviewCheck = null;
+let ancestrySource = null,
+    outsideReviewCheck = null;
 try {
-    ancestrySource = between("function outsideReviewPacket(", "async function absent(");
+    ancestrySource = between(
+        "function outsideReviewPacket(",
+        "async function absent(",
+    );
     outsideReviewCheck = runInNewContext(`(${ancestrySource.trim()})`, {
-        assert, path: path.win32, reviewPacketRoot: syntheticReviewRoot,
+        assert,
+        path: path.win32,
+        reviewPacketRoot: syntheticReviewRoot,
     });
     assert.equal(typeof outsideReviewCheck, "function");
 } catch (error) {
-    boundarySetupFailures.push({ stage: "existing-packet-ancestry-source", error: String(error?.message ?? error).slice(0, 500) });
+    boundarySetupFailures.push({
+        stage: "existing-packet-ancestry-source",
+        error: String(error?.message ?? error).slice(0, 500),
+    });
 }
 const flush = async () => {
     for (let count = 0; count < 20; count++) await Promise.resolve();
@@ -687,40 +696,118 @@ await boundaryTest(
 );
 function ancestryCases(disjoint, cases) {
     for (const { label, destination, allowed } of cases) {
-        let refused = false, error = null;
-        try { outsideReviewCheck(destination, disjoint); }
-        catch (caught) { refused = true; error = caught; }
-        ancestryObservations.push({ label, disjoint, allowed, refused,
-            passed: refused === !allowed && (!error || error.code === "ERR_ASSERTION"),
-            ...(error ? { error: String(error.message ?? error).slice(0, 300) } : {}) });
+        let refused = false,
+            error = null;
+        try {
+            outsideReviewCheck(destination, disjoint);
+        } catch (caught) {
+            refused = true;
+            error = caught;
+        }
+        ancestryObservations.push({
+            label,
+            disjoint,
+            allowed,
+            refused,
+            passed:
+                refused === !allowed &&
+                (!error || error.code === "ERR_ASSERTION"),
+            ...(error
+                ? { error: String(error.message ?? error).slice(0, 300) }
+                : {}),
+        });
     }
 }
-await boundaryTest("existing-retained-packet-guard-allows-artifact-parent-without-weakening-disjoint-mode", () => {
-const parentArtifactBase = path.win32.dirname(syntheticReviewRoot);
-const fartherArtifactAncestor = path.win32.dirname(parentArtifactBase);
-const siblingPacket = path.win32.join(parentArtifactBase, "different-fresh-packet");
-ancestryCases(false, [
-    { label: "immediate-parent-relative-dotdot", destination: parentArtifactBase, allowed: true },
-    { label: "farther-ancestor", destination: fartherArtifactAncestor, allowed: true },
-    { label: "sibling", destination: siblingPacket, allowed: true },
-    { label: "case-alias-parent", destination: parentArtifactBase.toUpperCase(), allowed: true },
-    { label: "equal", destination: syntheticReviewRoot, allowed: false },
-    { label: "case-alias-equal", destination: syntheticReviewRoot.toUpperCase(), allowed: false },
-    { label: "descendant", destination: path.win32.join(syntheticReviewRoot, "review"), allowed: false },
-    { label: "case-alias-descendant", destination: path.win32.join(syntheticReviewRoot.toUpperCase(), "REVIEW"), allowed: false },
-]);
-ancestryCases(true, [
-    { label: "immediate-parent", destination: parentArtifactBase, allowed: false },
-    { label: "farther-ancestor", destination: fartherArtifactAncestor, allowed: false },
-    { label: "equal", destination: syntheticReviewRoot, allowed: false },
-    { label: "descendant", destination: path.win32.join(syntheticReviewRoot, "review"), allowed: false },
-    { label: "case-alias-parent", destination: parentArtifactBase.toUpperCase(), allowed: false },
-    { label: "sibling", destination: siblingPacket, allowed: true },
-    { label: "case-alias-sibling", destination: siblingPacket.toUpperCase(), allowed: true },
-]);
-assert.equal(ancestryObservations.length, 15);
-assert(ancestryObservations.every((entry) => entry.passed), "all existing guard ancestry modes preserve their distinct contracts");
-});
+await boundaryTest(
+    "existing-retained-packet-guard-allows-artifact-parent-without-weakening-disjoint-mode",
+    () => {
+        const parentArtifactBase = path.win32.dirname(syntheticReviewRoot);
+        const fartherArtifactAncestor = path.win32.dirname(parentArtifactBase);
+        const siblingPacket = path.win32.join(
+            parentArtifactBase,
+            "different-fresh-packet",
+        );
+        ancestryCases(false, [
+            {
+                label: "immediate-parent-relative-dotdot",
+                destination: parentArtifactBase,
+                allowed: true,
+            },
+            {
+                label: "farther-ancestor",
+                destination: fartherArtifactAncestor,
+                allowed: true,
+            },
+            { label: "sibling", destination: siblingPacket, allowed: true },
+            {
+                label: "case-alias-parent",
+                destination: parentArtifactBase.toUpperCase(),
+                allowed: true,
+            },
+            {
+                label: "equal",
+                destination: syntheticReviewRoot,
+                allowed: false,
+            },
+            {
+                label: "case-alias-equal",
+                destination: syntheticReviewRoot.toUpperCase(),
+                allowed: false,
+            },
+            {
+                label: "descendant",
+                destination: path.win32.join(syntheticReviewRoot, "review"),
+                allowed: false,
+            },
+            {
+                label: "case-alias-descendant",
+                destination: path.win32.join(
+                    syntheticReviewRoot.toUpperCase(),
+                    "REVIEW",
+                ),
+                allowed: false,
+            },
+        ]);
+        ancestryCases(true, [
+            {
+                label: "immediate-parent",
+                destination: parentArtifactBase,
+                allowed: false,
+            },
+            {
+                label: "farther-ancestor",
+                destination: fartherArtifactAncestor,
+                allowed: false,
+            },
+            {
+                label: "equal",
+                destination: syntheticReviewRoot,
+                allowed: false,
+            },
+            {
+                label: "descendant",
+                destination: path.win32.join(syntheticReviewRoot, "review"),
+                allowed: false,
+            },
+            {
+                label: "case-alias-parent",
+                destination: parentArtifactBase.toUpperCase(),
+                allowed: false,
+            },
+            { label: "sibling", destination: siblingPacket, allowed: true },
+            {
+                label: "case-alias-sibling",
+                destination: siblingPacket.toUpperCase(),
+                allowed: true,
+            },
+        ]);
+        assert.equal(ancestryObservations.length, 15);
+        assert(
+            ancestryObservations.every((entry) => entry.passed),
+            "all existing guard ancestry modes preserve their distinct contracts",
+        );
+    },
+);
 const boundaryPassed =
     boundarySetupFailures.length === 0 &&
     boundaryChecks.length === 6 &&
@@ -740,7 +827,8 @@ console.log(
                     ? null
                     : sha256(storageHelperSource),
             retained_ancestry_observations: ancestryObservations,
-            retained_ancestry_source_sha256: ancestrySource === null ? null : sha256(ancestrySource),
+            retained_ancestry_source_sha256:
+                ancestrySource === null ? null : sha256(ancestrySource),
             node: process.version,
             platform: process.platform,
             actualChildLaunches: 0,

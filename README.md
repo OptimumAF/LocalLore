@@ -38,6 +38,11 @@ ordinary reopen. Its fixed session expires during later package checks;
 external process death and passive restart remain unverified. The owned guest
 and private service close with all15 recorded cleanup checks passing.
 
+The [closed validation profiler](docs/native/CLOSED_VALIDATION_PROFILE_V1.md)
+measures host hashing and proof replay against that preserved refusal. Its
+bounded diagnostic keeps existing guards and deadlines intact; it does not
+qualify a restart or infer Android/model latency from profiled host costs.
+
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.
 It preserves the first unsupported-listener failure and uses a distinct corrected

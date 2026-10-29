@@ -296,3 +296,139 @@ def revalidate_inputs(admission):
     _need(all(name+b'\0' in raw for name in (b'ADB_USB',b'ADB_EMU',b'ADB_MDNS')),'tool')
     _read_bound(value['source_review'])
     return None
+
+
+AUTH_META_KEYS = {'volume_serial','file_index','bytes','attributes','creation_filetime','write_filetime','links'}
+CLEANUP_KEYS = {'server_terminate_attempted','server_wait_completed','server_process_handle_closed',
+    'server_pipes_closed','server_output_capture_complete','auth_handle_closed','process_handles_closed',
+    'preflight_sockets_closed','client_sockets_closed'}
+PROOF_KEYS = {'version','protocol','kind','admission','worker','server','client','endpoint','brackets',
+    'observations','tables','request_hex','request_sent','response_hex','response_complete','elapsed_ms',
+    'socket_closed','client_handle_closed','completed_ports'}
+WORKER_KEYS = {'version','protocol','admission','request','worker','server','auth','preflight','readiness',
+    'proofs','running','stop_requested','reason','elapsed_ms','server_returncode','cleanup','sources_after'}
+
+
+def _json_bound(pin):
+    from benchmarks import receipt_avd_environment as env
+    return env.decode_json(_read_bound(pin))
+
+
+def _auth(value, admission):
+    _obj(value,('path','native_profile','metadata'),'auth')
+    _need(value['path'] == admission['auth_key'] and
+          _path(value['native_profile']) == PureWindowsPath(value['path']).parent.parent,'auth')
+    meta = value['metadata']; _obj(meta,AUTH_META_KEYS,'auth')
+    for key in ('volume_serial','attributes'):
+        _int(meta[key],reason='auth')
+    _int(meta['file_index'],0,2**64-1,'auth'); _int(meta['bytes'],1,2**63-1,'auth')
+    _int(meta['creation_filetime'],1,2**64-1,'auth'); _int(meta['write_filetime'],1,2**64-1,'auth')
+    _int(meta['links'],1,2**32-1,'auth')
+    _need(meta['attributes'] & (0x10|0x400) == 0,'auth')
+
+
+def _tables(value, observation):
+    _need(type(value) is list and len(value) == 2,'observation')
+    for item,family in zip(value,(2,23)):
+        _obj(item,('family','table_class','allocated_bytes','returned_bytes','count','raw_sha256','abi_checked'),'observation')
+        _int(item['family'],family,family); _int(item['table_class'],5,5)
+        _int(item['allocated_bytes'],4,1024*1024); _int(item['returned_bytes'],4,item['allocated_bytes'])
+        _int(item['count'],0,16384); _need(item['abi_checked'] is True,'observation')
+        _need(type(item['raw_sha256']) is str and re.fullmatch('[0-9a-f]{64}',item['raw_sha256']) is not None,'observation')
+        _need(4+item['count']*(24 if family == 2 else 56) <= item['returned_bytes'],'observation')
+        for row in observation['rows']:
+            if row['family'] == family:
+                _need(row['ordinal'] < item['count'],'observation')
+
+
+def validate_proof(binding, admission, admission_binding, worker, server, kind, *, completed_ports=()):
+    """Replay one closed owned-lease exchange; never query its former socket."""
+    admitted = validate_admission(admission); _binding(admission_binding,project=True)
+    _need(kind in ('version','devices'),'schema'); _binding(binding,project=True)
+    _need(PureWindowsPath(binding['path']) == PureWindowsPath(admitted['root'])/('proof-%s-v1.json'%kind),'binding')
+    value = _json_bound(binding); _obj(value,PROOF_KEYS)
+    _int(value['version'],1,1); _need(value['protocol'] == PROTOCOL and value['kind'] == kind)
+    _need(_same(value['admission'],admission_binding),'binding')
+    for key,expected in (('worker',worker),('client',worker),('server',server)):
+        _process(expected); _need(_same(value[key],expected),'identity')
+    _need(_same(value['completed_ports'],list(completed_ports)),'tuple')
+    endpoint = value['endpoint']
+    _obj(value['observations'],('before_send','after_request'),'observation')
+    _obj(value['tables'],('before_send','after_request'),'observation')
+    for phase in ('before_send','after_request'):
+        obs = value['observations'][phase]
+        validate_observation(obs,server,worker,endpoint,after_request=phase=='after_request',completed_ports=completed_ports)
+        _tables(value['tables'][phase],obs)
+    _obj(value['brackets'],('before_connect','before_send','after_response'),'identity')
+    baseline_auth = baseline_socket = None
+    for phase in ('before_connect','before_send','after_response'):
+        bracket = value['brackets'][phase]
+        _obj(bracket,('worker','server','sources','tools','auth','server_alive','socket'),'identity')
+        _need(_same(bracket['worker'],worker) and _same(bracket['server'],server) and bracket['server_alive'] is True,'identity')
+        _need(_same(bracket['sources'],admitted['sources']) and _same(bracket['tools'],admitted['tools']),'source')
+        _auth(bracket['auth'],admitted)
+        sock = bracket['socket']; _obj(sock,('handle','socket_id','local_address','local_port'),'tuple')
+        _int(sock['handle'],1,2**64-1,'tuple'); _int(sock['socket_id'],1,2**64-1,'tuple')
+        _need(sock['local_address'] == endpoint['local_address'] and
+              type(sock['local_port']) is int and sock['local_port'] == endpoint['local_port'],'tuple')
+        if phase == 'before_connect':
+            baseline_auth,baseline_socket = bracket['auth'],sock
+        else:
+            _need(_same(bracket['auth'],baseline_auth) and _same(sock,baseline_socket),'identity')
+    request,response = ((b'000Chost:version',b'OKAY00040029') if kind=='version' else
+                        (b'000Ehost:devices-l',b'OKAY0000'))
+    _need(value['request_hex'] == request.hex() and value['response_hex'] == response.hex(),'capability')
+    _need(all(value[k] is True for k in ('request_sent','response_complete','socket_closed','client_handle_closed')),'capability')
+    _int(value['elapsed_ms'],0,3000,'budget')
+    return copy.deepcopy(value)
+
+
+def validate_worker_result(binding, admission, admission_binding, request_binding, expected_worker):
+    """Deep closed replay after the actual admitted worker has terminated."""
+    admitted = validate_admission(admission)
+    for pin in (binding,admission_binding,request_binding):
+        _binding(pin,project=True)
+    root = PureWindowsPath(admitted['root'])
+    _need(PureWindowsPath(binding['path']) == root/'worker-result-v1.json','binding')
+    value = _json_bound(binding); _obj(value,WORKER_KEYS)
+    _int(value['version'],1,1); _need(value['protocol'] == PROTOCOL)
+    _need(_same(value['admission'],admission_binding) and _same(value['request'],request_binding),'binding')
+    _process(expected_worker); _need(_same(value['worker'],expected_worker),'identity')
+    server = value['server']; _process(server)
+    _need(server['executable'] == admitted['adb']['path'] and server['pid'] != expected_worker['pid'],'identity')
+    _auth(value['auth'],admitted)
+    _need(type(value['stop_requested']) is bool and value['reason'] in ('stop_requested','expired') and
+          value['stop_requested'] == (value['reason']=='stop_requested'),'stop')
+    _int(value['elapsed_ms'],0,(admitted['seconds']+30)*1000,'budget')
+    _int(value['server_returncode'],-2**31,2**32-1,'identity')
+    _obj(value['cleanup'],CLEANUP_KEYS,'identity'); _need(all(v is True for v in value['cleanup'].values()),'identity')
+    after = value['sources_after']; _obj(after,('sources','python','tools','auth'),'source')
+    _need(_same(after,dict(sources=admitted['sources'],python=admitted['python'],tools=admitted['tools'],auth=value['auth'])),'source')
+    _need(PureWindowsPath(value['preflight']['path']) == root/'preflight-v1.json','binding')
+    pre = _json_bound(value['preflight'])
+    _obj(pre,('observation','tables','created_mask','close_attempted_mask','closed_mask','exclusive_bind_succeeded'))
+    validate_observation(pre['observation'],None,None,None,require_empty=True); _tables(pre['tables'],pre['observation'])
+    for key in ('created_mask','close_attempted_mask','closed_mask'):
+        _int(pre[key],1,1)
+    _need(pre['exclusive_bind_succeeded'] is True,'observation')
+    _need(PureWindowsPath(value['readiness']['path']) == root/'readiness-v1.json','binding')
+    readiness = _json_bound(value['readiness']); _need(type(readiness) is list and 1 <= len(readiness) <= 200,'observation')
+    for index,entry in enumerate(readiness):
+        _obj(entry,('observation','tables'))
+        if index < len(readiness)-1:
+            validate_observation(entry['observation'],None,None,None,require_empty=True)
+        else:
+            validate_observation(entry['observation'],server,None,None)
+        _tables(entry['tables'],entry['observation'])
+    _need(type(value['proofs']) is list and len(value['proofs']) == 2,'capability')
+    history = ()
+    for kind,pin in zip(('version','devices'),value['proofs']):
+        proof = validate_proof(pin,admitted,admission_binding,expected_worker,server,kind,completed_ports=history)
+        history += (proof['endpoint']['local_port'],)
+    _need(PureWindowsPath(value['running']['path']) == root/'running-v1.json','binding')
+    running = validate_running(_json_bound(value['running']),admitted,admission_binding)
+    request = _json_bound(request_binding)
+    _need(_same(running['worker'],expected_worker) and _same(running['server'],server) and
+          _same(running['owner'],request['owner']) and
+          _same(running['version_proof'],value['proofs'][0]) and _same(running['devices_proof'],value['proofs'][1]),'identity')
+    return copy.deepcopy(value)

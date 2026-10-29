@@ -550,10 +550,14 @@ def _run_worker(request,request_pin,root):
             cleanup["preflight_sockets_closed"]=preflight["created_mask"]==preflight["close_attempted_mask"]==preflight["closed_mask"]
         try:
             _guards(runtime.admission,runtime.binding);env.check_binding(request_pin)
+            _need(runtime.auth.key is not None and runtime.auth.descriptor is not None,"auth")
             sources_after=dict(sources=lease.source_bindings(),python=file_guard._python_bindings(),
                 tools=copy.deepcopy(runtime.admission["tools"]),auth=runtime.auth.check())
         except BaseException as error:
-            reason=_reason(error,"source")
+            # A secondary missing/failing final bracket cannot erase the
+            # original receipt/auth/proof failure. Normal closure still needs
+            # a complete final bracket; explicit cleanup failures dominate below.
+            if reason in ("stop_requested","expired"):reason=_reason(error,"source")
         cleanup["auth_handle_closed"]=runtime.auth.close()
         if runtime.processes is not None:cleanup["process_handles_closed"]=runtime.processes.close()
         if reason in ("stop_requested","expired") and not all(cleanup.values()):reason="cleanup"
@@ -613,7 +617,11 @@ def _parent(admission_pin,admission):
         nonlocal started_pin,started_identity
         started_identity=env.process_identity(child.pid)
         _need(started_identity["executable"]==admission["python"]["executable"]["path"],"identity")
-        env.create_json(out/"started-v1.json",dict(worker=started_identity,request=copy.deepcopy(request_pin)))
+        pending=out/"started.pending-v1.json"
+        env.create_json(pending,dict(worker=started_identity,request=copy.deepcopy(request_pin)))
+        # Windows rename refuses an existing destination and publishes only the
+        # complete fsynced receipt. No replace/overwrite or malformed-read retry.
+        pending.rename(out/"started-v1.json")
         started_pin=_binding(out/"started-v1.json")
         return True
     owner=env.supervise([sys.executable,"-I","-S","-B",str(Path(__file__).resolve()),"_worker"],

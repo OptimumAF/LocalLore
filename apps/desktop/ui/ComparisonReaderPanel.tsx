@@ -4,6 +4,7 @@ import type {
     ComparisonTurnV3,
     ComparisonTurnV4,
     ReaderNarrationDiagnosticV1,
+    RowAvailability,
 } from "./comparison-reader-model";
 import type { ObserverV2, ViewV2 } from "./v2-view-model";
 
@@ -29,9 +30,11 @@ const views: ViewV2[] = [
     "retrieval_indexes",
 ];
 
-function NarrationDiagnosticDetails({ result, phase, fallback, receiptAvailable }: {
+function NarrationDiagnosticDetails({ result, source, phase, caseError, fallback, receiptAvailable }: {
     result: ReaderNarrationDiagnosticV1["diagnostic"];
+    source: RowAvailability["source"];
     phase: string | null;
+    caseError: string | null | undefined;
     fallback: boolean | null;
     receiptAvailable: boolean;
 }) {
@@ -40,7 +43,7 @@ function NarrationDiagnosticDetails({ result, phase, fallback, receiptAvailable 
         no_observation: "No saved observation",
         recorded: "Validation decision recorded",
         host_unavailable: "Host unavailable",
-        host_rejected: "Host rejected the read",
+        host_rejected: "Stored Host rejection",
     };
     const observation = "observation" in result ? result.observation : null;
     const reply = observation?.host_reply;
@@ -55,7 +58,9 @@ function NarrationDiagnosticDetails({ result, phase, fallback, receiptAvailable 
             data-diagnostic-status={result.status} aria-live="polite">
             <h4>Narration diagnostic · {labels[result.status]}</h4>
             <p>{result.row.turn} · {result.row.arm} · observer omniscient</p>
-            <p>Selected case phase: {phase ?? "Unavailable — inspect the report"} · Accepted receipt: {receiptAvailable ? "available" : "unavailable"}</p>
+            <p>Source story {source.scope.story} · branch {source.scope.branch} · Before {source.before_head} · After {source.after_head}</p>
+            <p>Selected case phase: {phase ?? "Unavailable — inspect the report"} · Case error: {caseError === undefined ? "Unavailable — inspect the report" : caseError ?? "None"}</p>
+            <p>Accepted receipt: {receiptAvailable ? "available" : "unavailable"} · Quality: not established by this metadata.</p>
             <p>{fallback === true ? "Mechanical fallback recorded." : fallback === false ? "No mechanical fallback recorded." : "Fallback status unavailable — inspect the report."}</p>
             {result.status === "no_declaration" && (
                 <p>This run has no diagnostic declaration. Older reports cannot supply missing validation causes.</p>
@@ -67,13 +72,10 @@ function NarrationDiagnosticDetails({ result, phase, fallback, receiptAvailable 
                 <p>The stored Host reply reports unavailable evidence for this attempt. It supplies no validation decision.</p>
             )}
             {result.status === "host_rejected" && (
-                <p>The Host rejected the diagnostic read. This is separate from rejection of narration.</p>
+                <p>The stored reply records rejection of the earlier Host diagnostic read. The current metadata read succeeded; this is separate from rejection of narration.</p>
             )}
             {observation && (
                 <dl>
-                    <dt>Source story</dt><dd>{observation.host_query.command.scope.story}</dd>
-                    <dt>Branch</dt><dd>{observation.host_query.command.scope.branch}</dd>
-                    <dt>Before head</dt><dd>{observation.host_query.command.expected_head}</dd>
                     <dt>Validation base revision</dt><dd>{observation.host_query.command.base_revision}</dd>
                     <dt>Actual attempt</dt><dd>{observation.host_query.command.attempt}</dd>
                     {decision && <>
@@ -785,7 +787,8 @@ export function ComparisonReaderPanel({
                             )}
                             {omni && s.diagnostic && (
                                 <NarrationDiagnosticDetails result={s.diagnostic.diagnostic}
-                                    phase={turn?.phase ?? null} fallback={turn?.fallback ?? null}
+                                    source={selected.source} phase={turn?.phase ?? null}
+                                    caseError={turn?.error} fallback={turn?.fallback ?? null}
                                     receiptAvailable={selected.receipt_available} />
                             )}
                             {s.evidence && (

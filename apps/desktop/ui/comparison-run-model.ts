@@ -236,7 +236,8 @@ export const nativeComparisonRunErrors = [
 ] as const;
 export type NativeComparisonRunError =
     (typeof nativeComparisonRunErrors)[number] | "ComparisonRunWire";
-type NativeProtocolTuple = { version: 2; protocol_version: 3 } | { version: 3; protocol_version: 4 };
+type NativeProtocolTuple =
+    { version: 2; protocol_version: 3 } | { version: 3; protocol_version: 4 };
 export type NativeComparisonRunMetadata = Omit<
     ComparisonRunMetadata,
     "input_lane" | "protocol_version"
@@ -247,24 +248,26 @@ export type NativeComparisonRunMetadata = Omit<
 export type NativeComparisonRunCatalog = Omit<
     ComparisonRunCatalog,
     "version" | "protocol_version" | "input_lane" | "runs"
-> & NativeProtocolTuple & {
-    input_lane: "approved_native";
-    runs: NativeComparisonRunMetadata[];
-};
+> &
+    NativeProtocolTuple & {
+        input_lane: "approved_native";
+        runs: NativeComparisonRunMetadata[];
+    };
 export type NativeComparisonRunStatus = Omit<
     ComparisonRunStatus,
     "version" | "protocol_version" | "input_lane" | "phase" | "error"
-> & NativeProtocolTuple & {
-    input_lane: "approved_native";
-    phase:
-        | ComparisonRunStatus["phase"]
-        | "awaiting_confirmation"
-        | "cleanup_required";
-    error: (typeof nativeComparisonRunErrors)[number] | null;
-    cleanup_required: boolean;
-    cleanup_running: boolean;
-    cause: (typeof nativeComparisonRunErrors)[number] | null;
-};
+> &
+    NativeProtocolTuple & {
+        input_lane: "approved_native";
+        phase:
+            | ComparisonRunStatus["phase"]
+            | "awaiting_confirmation"
+            | "cleanup_required";
+        error: (typeof nativeComparisonRunErrors)[number] | null;
+        cleanup_required: boolean;
+        cleanup_running: boolean;
+        cause: (typeof nativeComparisonRunErrors)[number] | null;
+    };
 export function checkedNativeComparisonRunStatus(
     value: unknown,
 ): NativeComparisonRunStatus {

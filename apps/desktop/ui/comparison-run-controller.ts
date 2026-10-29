@@ -405,7 +405,8 @@ export class ComparisonRunController {
     private bind(owner: Owner, next: Status, rebind = false): void {
         if (
             next.input_lane !== owner.transport.mode ||
-            (owner.protocol !== null && next.protocol_version !== owner.protocol) ||
+            (owner.protocol !== null &&
+                next.protocol_version !== owner.protocol) ||
             (owner.client !== null && next.client_id !== owner.client) ||
             (owner.runId !== null && next.run_id !== owner.runId) ||
             (owner.kind !== null && next.comparison_kind !== owner.kind) ||
@@ -420,18 +421,25 @@ export class ComparisonRunController {
         owner.protocol = next.protocol_version;
     }
     private bindCatalog(owner: Owner, catalog: Catalog): void {
-        if (catalog.input_lane !== owner.transport.mode ||
-            (owner.protocol !== null && catalog.protocol_version !== owner.protocol))
+        if (
+            catalog.input_lane !== owner.transport.mode ||
+            (owner.protocol !== null &&
+                catalog.protocol_version !== owner.protocol)
+        )
             throw Error("ComparisonRunWire");
-        const rows = catalog.runs.filter((row) => owner.runId !== null
-            ? row.run_id === owner.runId
-            : owner.client !== null && row.client_id === owner.client);
+        const rows = catalog.runs.filter((row) =>
+            owner.runId !== null
+                ? row.run_id === owner.runId
+                : owner.client !== null && row.client_id === owner.client,
+        );
         if (!rows.length) return;
         if (rows.length !== 1) throw Error("ComparisonRunWire");
         const row = rows[0];
-        if ((owner.client !== null && row.client_id !== owner.client) ||
+        if (
+            (owner.client !== null && row.client_id !== owner.client) ||
             (owner.kind !== null && row.comparison_kind !== owner.kind) ||
-            (owner.protocol !== null && row.protocol_version !== owner.protocol))
+            (owner.protocol !== null && row.protocol_version !== owner.protocol)
+        )
             throw Error("ComparisonRunWire");
         // A lost admission/open acknowledgement may not have supplied a token
         // yet. Matching native metadata already fixes this owner's protocol.

@@ -688,4 +688,3 @@ pub fn resume_selected(
     let work = inspect_work(&plan, &destination.dir, started)?;
     execute(&plan, &destination, work, cancel)
 }
-

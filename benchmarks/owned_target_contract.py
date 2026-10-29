@@ -147,6 +147,8 @@ class _Contract:
             self.binding(a[key], max_bytes=256 * 1024 * 1024)
         for key in sorted(set(self.profile.ARTIFACT_KEYS) - {'build', 'product_apk', 'test_apk', 'model', 'probe'}):
             self.binding(a[key])
+        if 'process_probe_source' in self.profile.ARTIFACT_KEYS:
+            _need(PureWindowsPath(a['process_probe_source']['path']).name == 'android_author_process_probe.c', 'source')
         self.binding(a['model'], max_bytes=4 * 1024 ** 3)
         _need(a['model']['bytes'] == MODEL_BYTES and a['model']['sha256'] == MODEL_SHA256, 'binding')
         _need(PureWindowsPath(a['probe']['path']).name == 'physical_model_probe_v1.txt', 'binding')

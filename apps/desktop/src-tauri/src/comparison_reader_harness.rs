@@ -35,7 +35,9 @@ fn scene_mode() -> bool {
     active() && std::env::var("LOCALLORE_D07_SCENE_COMPARISON_READER").as_deref() == Ok("1")
 }
 fn diagnostic_mode() -> bool {
-    active() && scene_mode() && !literal_mode()
+    active()
+        && scene_mode()
+        && !literal_mode()
         && std::env::var("LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER").as_deref() == Ok("1")
 }
 fn root(workspace: &Path) -> Result<(PathBuf, Vec<std::fs::File>), String> {
@@ -144,8 +146,12 @@ pub fn choose(
     }
     if diagnostic_mode() {
         let folder = match state.choice.load(Ordering::SeqCst) {
-            20 => "diagnostic-recorded", 21 => "diagnostic-legacy", 22 => "diagnostic-missing",
-            23 => "diagnostic-unavailable", 24 => "diagnostic-rejected", 25 => "diagnostic-malformed",
+            20 => "diagnostic-recorded",
+            21 => "diagnostic-legacy",
+            22 => "diagnostic-missing",
+            23 => "diagnostic-unavailable",
+            24 => "diagnostic-rejected",
+            25 => "diagnostic-malformed",
             _ => return Err("SyntheticCaseRequired".into()),
         };
         return Ok(Some(root.join(folder)));
@@ -162,9 +168,11 @@ pub fn take_lost_ack(state: &ComparisonReaderHarness) -> bool {
     state.lose_ack.swap(false, Ordering::SeqCst)
 }
 fn inventory(root: &Path) -> Result<std::collections::BTreeMap<String, String>, String> {
-    inventory_stats(root).map(|(files,_,_)|files)
+    inventory_stats(root).map(|(files, _, _)| files)
 }
-fn inventory_stats(root: &Path) -> Result<(std::collections::BTreeMap<String, String>,usize,usize), String> {
+fn inventory_stats(
+    root: &Path,
+) -> Result<(std::collections::BTreeMap<String, String>, usize, usize), String> {
     fn visit(
         root: &Path,
         path: &Path,
@@ -174,8 +182,14 @@ fn inventory_stats(root: &Path) -> Result<(std::collections::BTreeMap<String, St
         entries: &mut usize,
         diagnostic: bool,
     ) -> Result<(), String> {
-        *entries=entries.checked_add(1).ok_or("SyntheticFixtureBudget")?;
-        if depth > 8 || (if diagnostic {*entries>8192} else {out.len()>=2048}) {
+        *entries = entries.checked_add(1).ok_or("SyntheticFixtureBudget")?;
+        if depth > 8
+            || (if diagnostic {
+                *entries > 8192
+            } else {
+                out.len() >= 2048
+            })
+        {
             return Err("SyntheticFixtureBudget".into());
         }
         let metadata = std::fs::symlink_metadata(path).map_err(|_| "SyntheticFixtureIo")?;
@@ -199,12 +213,15 @@ fn inventory_stats(root: &Path) -> Result<(std::collections::BTreeMap<String, St
             if !metadata.is_file() || metadata.len() > 8 * 1024 * 1024 {
                 return Err("SyntheticFixtureBudget".into());
             }
-            let bytes = if diagnostic {read_fixture_bytes(path,8*1024*1024)?}
-                else {std::fs::read(path).map_err(|_| "SyntheticFixtureIo")?};
+            let bytes = if diagnostic {
+                read_fixture_bytes(path, 8 * 1024 * 1024)?
+            } else {
+                std::fs::read(path).map_err(|_| "SyntheticFixtureIo")?
+            };
             *total = total
                 .checked_add(bytes.len())
                 .ok_or("SyntheticFixtureBudget")?;
-            if *total > (if diagnostic {128} else {64}) * 1024 * 1024 {
+            if *total > (if diagnostic { 128 } else { 64 }) * 1024 * 1024 {
                 return Err("SyntheticFixtureBudget".into());
             }
             let key = path
@@ -218,136 +235,269 @@ fn inventory_stats(root: &Path) -> Result<(std::collections::BTreeMap<String, St
         Ok(())
     }
     let mut result = std::collections::BTreeMap::new();
-    let mut entries=0; let mut total=0;
-    visit(root, root, 0, &mut result, &mut total,&mut entries,diagnostic_mode())?;
-    Ok((result,entries,total))
+    let mut entries = 0;
+    let mut total = 0;
+    visit(
+        root,
+        root,
+        0,
+        &mut result,
+        &mut total,
+        &mut entries,
+        diagnostic_mode(),
+    )?;
+    Ok((result, entries, total))
 }
 
 const DIAGNOSTIC_FIXTURES: [(&str, &str, Option<&str>, Option<&str>); 6] = [
-    ("diagnostic-recorded", "actual_scripted_host_harvest", Some("recorded"), None),
-    ("diagnostic-legacy", "actual_scripted_default_no_declaration", Some("no_declaration"), None),
-    ("diagnostic-missing", "retained_observation_moved_control", Some("no_observation"), None),
-    ("diagnostic-unavailable", "trusted_stored_host_unavailable_control", Some("host_unavailable"), None),
-    ("diagnostic-rejected", "trusted_stored_host_rejected_control", Some("host_rejected"), None),
-    ("diagnostic-malformed", "trusted_stored_malformed_control", None, Some("EvaluationIntegrity")),
+    (
+        "diagnostic-recorded",
+        "actual_scripted_host_harvest",
+        Some("recorded"),
+        None,
+    ),
+    (
+        "diagnostic-legacy",
+        "actual_scripted_default_no_declaration",
+        Some("no_declaration"),
+        None,
+    ),
+    (
+        "diagnostic-missing",
+        "retained_observation_moved_control",
+        Some("no_observation"),
+        None,
+    ),
+    (
+        "diagnostic-unavailable",
+        "trusted_stored_host_unavailable_control",
+        Some("host_unavailable"),
+        None,
+    ),
+    (
+        "diagnostic-rejected",
+        "trusted_stored_host_rejected_control",
+        Some("host_rejected"),
+        None,
+    ),
+    (
+        "diagnostic-malformed",
+        "trusted_stored_malformed_control",
+        None,
+        Some("EvaluationIntegrity"),
+    ),
 ];
 fn present(path: &Path) -> Result<bool, String> {
     match std::fs::symlink_metadata(path) {
-        Ok(_) => Ok(true), Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Ok(_) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(_) => Err("SyntheticFixtureIo".into()),
     }
 }
-fn read_fixture_bytes(path:&Path,maximum:usize)->Result<Vec<u8>,String> {
-    let mut bytes=Vec::new();
-    std::fs::File::open(path).map_err(|_|"SyntheticFixtureIo")?.take(maximum as u64+1)
-        .read_to_end(&mut bytes).map_err(|_|"SyntheticFixtureIo")?;
-    if bytes.len()>maximum {return Err("SyntheticFixtureBudget".into());}
+fn read_fixture_bytes(path: &Path, maximum: usize) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .map_err(|_| "SyntheticFixtureIo")?
+        .take(maximum as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "SyntheticFixtureIo")?;
+    if bytes.len() > maximum {
+        return Err("SyntheticFixtureBudget".into());
+    }
     Ok(bytes)
 }
 fn fixed_bytes(path: &Path) -> Result<Vec<u8>, String> {
-    let metadata=std::fs::symlink_metadata(path).map_err(|_|"SyntheticFixtureIo")?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len()>256*1024 {
+    let metadata = std::fs::symlink_metadata(path).map_err(|_| "SyntheticFixtureIo")?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > 256 * 1024 {
         return Err("SyntheticFixtureBudget".into());
     }
-    read_fixture_bytes(path,256*1024)
+    read_fixture_bytes(path, 256 * 1024)
 }
 fn fixed_json(path: &Path) -> Result<Value, String> {
-    serde_json::from_slice(&fixed_bytes(path)?).map_err(|_|"SyntheticFixtureInvalid".into())
+    serde_json::from_slice(&fixed_bytes(path)?).map_err(|_| "SyntheticFixtureInvalid".into())
 }
 fn fixed_new(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let mut file=std::fs::OpenOptions::new().write(true).create_new(true).open(path).map_err(|_|"SyntheticFixtureIo")?;
-    file.write_all(bytes).and_then(|_|file.sync_all()).map_err(|_|"SyntheticFixtureIo".into())
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|_| "SyntheticFixtureIo")?;
+    file.write_all(bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(|_| "SyntheticFixtureIo".into())
 }
 fn copy_diagnostic(source: &Path, target: &Path) -> Result<(), String> {
-    let expected=inventory(source)?;
-    std::fs::create_dir(target).map_err(|_|"SyntheticFixtureIo")?;
+    let expected = inventory(source)?;
+    std::fs::create_dir(target).map_err(|_| "SyntheticFixtureIo")?;
     for relative in expected.keys() {
-        let source=source.join(relative); let target=target.join(relative);
-        std::fs::create_dir_all(target.parent().ok_or("SyntheticFixturePath")?).map_err(|_|"SyntheticFixtureIo")?;
-        fixed_new(&target,&read_fixture_bytes(&source,8*1024*1024)?)?;
+        let source = source.join(relative);
+        let target = target.join(relative);
+        std::fs::create_dir_all(target.parent().ok_or("SyntheticFixturePath")?)
+            .map_err(|_| "SyntheticFixtureIo")?;
+        fixed_new(&target, &read_fixture_bytes(&source, 8 * 1024 * 1024)?)?;
     }
-    if inventory(target)?!=expected {return Err("SyntheticFixtureChanged".into());}
+    if inventory(target)? != expected {
+        return Err("SyntheticFixtureChanged".into());
+    }
     Ok(())
 }
 fn left_observation(path: &Path) -> Result<PathBuf, String> {
-    let checkpoint=fixed_json(&path.join("left/attempt-00.json"))?;
-    let admission=checkpoint["row"]["admission"].as_u64().filter(|n|*n<32).ok_or("SyntheticFixtureInvalid")?;
-    Ok(path.join("left").join(format!("narration-diagnostic-v1-{admission:02}.json")))
+    let checkpoint = fixed_json(&path.join("left/attempt-00.json"))?;
+    let admission = checkpoint["row"]["admission"]
+        .as_u64()
+        .filter(|n| *n < 32)
+        .ok_or("SyntheticFixtureInvalid")?;
+    Ok(path
+        .join("left")
+        .join(format!("narration-diagnostic-v1-{admission:02}.json")))
 }
-fn model_observation(models: &crate::models::ModelManager) -> Result<Value,String> {
-    let (sequence,owner,retained)=models.evaluation_observation_for_harness()?;
-    if sequence!=0 || owner || retained!=0 {return Err("SyntheticModelActivity".into());}
-    Ok(json!({"version":1,"kind":"diagnostic_reader_model_observation_v1",
-        "reservation_sequence":sequence,"owner_present":owner,"retained_evaluations":retained}))
+fn model_observation(models: &crate::models::ModelManager) -> Result<Value, String> {
+    let (sequence, owner, retained) = models.evaluation_observation_for_harness()?;
+    if sequence != 0 || owner || retained != 0 {
+        return Err("SyntheticModelActivity".into());
+    }
+    Ok(
+        json!({"version":1,"kind":"diagnostic_reader_model_observation_v1",
+        "reservation_sequence":sequence,"owner_present":owner,"retained_evaluations":retained}),
+    )
 }
-fn diagnostic_prepare(fixtures: &Path, models: &crate::models::ModelManager) -> Result<Value,String> {
-    let observation=model_observation(models)?;
-    let freeze=fixtures.parent().ok_or("SyntheticFixturePath")?.join("diagnostic-reader-fixtures-v1.json");
-    let existed=present(fixtures)?; let frozen=present(&freeze)?;
-    if existed!=frozen || (!existed && std::env::var("LOCALLORE_TEST_RESTART").as_deref()==Ok("1")) {
+fn diagnostic_prepare(
+    fixtures: &Path,
+    models: &crate::models::ModelManager,
+) -> Result<Value, String> {
+    let observation = model_observation(models)?;
+    let freeze = fixtures
+        .parent()
+        .ok_or("SyntheticFixturePath")?
+        .join("diagnostic-reader-fixtures-v1.json");
+    let existed = present(fixtures)?;
+    let frozen = present(&freeze)?;
+    if existed != frozen
+        || (!existed && std::env::var("LOCALLORE_TEST_RESTART").as_deref() == Ok("1"))
+    {
         return Err("SyntheticFixtureIncomplete".into());
     }
     if !existed {
-        std::fs::create_dir(fixtures).map_err(|_|"SyntheticFixtureIo")?;
-        let recorded=fixtures.join("diagnostic-recorded");
-        comparison::scene_v4::run_comparison_with_narration_diagnostics_v1(&recorded,false,
-            ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None)?;
-        comparison::scene_v4::run_comparison(&fixtures.join("diagnostic-legacy"),false,
-            ComparisonKind::ContinuousRollout,&Cancellation::default(),1,LaneFactory::ScriptedBaseline,None)?;
-        for name in ["diagnostic-missing","diagnostic-unavailable","diagnostic-rejected","diagnostic-malformed"] {
-            let target=fixtures.join(name); copy_diagnostic(&recorded,&target)?;
-            let file=left_observation(&target)?;
-            if name=="diagnostic-missing" {
-                std::fs::rename(&file,fixtures.join("retained-missing-observation.bytes")).map_err(|_|"SyntheticFixtureIo")?;
+        std::fs::create_dir(fixtures).map_err(|_| "SyntheticFixtureIo")?;
+        let recorded = fixtures.join("diagnostic-recorded");
+        comparison::scene_v4::run_comparison_with_narration_diagnostics_v1(
+            &recorded,
+            false,
+            ComparisonKind::ContinuousRollout,
+            &Cancellation::default(),
+            1,
+            LaneFactory::ScriptedBaseline,
+            None,
+        )?;
+        comparison::scene_v4::run_comparison(
+            &fixtures.join("diagnostic-legacy"),
+            false,
+            ComparisonKind::ContinuousRollout,
+            &Cancellation::default(),
+            1,
+            LaneFactory::ScriptedBaseline,
+            None,
+        )?;
+        for name in [
+            "diagnostic-missing",
+            "diagnostic-unavailable",
+            "diagnostic-rejected",
+            "diagnostic-malformed",
+        ] {
+            let target = fixtures.join(name);
+            copy_diagnostic(&recorded, &target)?;
+            let file = left_observation(&target)?;
+            if name == "diagnostic-missing" {
+                std::fs::rename(&file, fixtures.join("retained-missing-observation.bytes"))
+                    .map_err(|_| "SyntheticFixtureIo")?;
             } else {
-                let bytes=if name=="diagnostic-malformed" {b"{".to_vec()} else {
-                    let mut value=fixed_json(&file)?;
-                    if name=="diagnostic-unavailable" {
-                        value["host_reply"]["data"]["status"]=json!("unavailable");
-                        value["host_reply"]["data"].as_object_mut().ok_or("SyntheticFixtureInvalid")?.remove("decision");
-                    } else {value["host_reply"]=json!({"version":1,"status":"rejected","error":"Closed"});}
-                    serde_json::to_vec(&value).map_err(|_|"SyntheticFixtureInvalid")?
+                let bytes = if name == "diagnostic-malformed" {
+                    b"{".to_vec()
+                } else {
+                    let mut value = fixed_json(&file)?;
+                    if name == "diagnostic-unavailable" {
+                        value["host_reply"]["data"]["status"] = json!("unavailable");
+                        value["host_reply"]["data"]
+                            .as_object_mut()
+                            .ok_or("SyntheticFixtureInvalid")?
+                            .remove("decision");
+                    } else {
+                        value["host_reply"] =
+                            json!({"version":1,"status":"rejected","error":"Closed"});
+                    }
+                    serde_json::to_vec(&value).map_err(|_| "SyntheticFixtureInvalid")?
                 };
                 // This fresh, ordinary fixture copy is the only mutation target.
-                std::fs::write(&file,bytes).map_err(|_|"SyntheticFixtureIo")?;
+                std::fs::write(&file, bytes).map_err(|_| "SyntheticFixtureIo")?;
             }
         }
     }
-    let _pins=crate::archive::pin(fixtures)?;
-    let roster=std::fs::read_dir(fixtures).map_err(|_|"SyntheticFixtureIo")?
-        .map(|entry|entry.map_err(|_|"SyntheticFixtureIo").and_then(|entry|entry.file_name().into_string().map_err(|_|"SyntheticFixturePath")))
-        .collect::<Result<std::collections::BTreeSet<_>,_>>()?;
-    let expected:std::collections::BTreeSet<String>=DIAGNOSTIC_FIXTURES.iter().map(|(id,_,_,_)|id.to_string())
-        .chain(std::iter::once("retained-missing-observation.bytes".into())).collect();
-    if roster!=expected {return Err("SyntheticFixtureInvalid".into());}
-    let mut entries=Vec::new();
-    for (id,provenance,status,error) in DIAGNOSTIC_FIXTURES {
-        let path=fixtures.join(id); let proof=scene_proof(&path,1)?;
-        if proof["rows"]!=12 {return Err("SyntheticSceneProof".into());}
-        let opened=comparison::scene_v4::desktop_api::open_read_only(&path)?;
-        let summary=comparison::scene_v4::desktop_api::summary(&opened,true)?;
-        let result=comparison::scene_v4::desktop_api::narration_diagnostic_v1(&opened,
-            summary["binding"].as_str().ok_or("SyntheticFixtureInvalid")?,
-            &comparison::desktop_api::RowId{turn:"courier-01".into(),arm:comparison::desktop_api::Arm::Left},
-            locallore::inspection_query::Observer::Omniscient,true);
-        match (status,error,result) {
-            (Some(expected),None,Ok(ref value)) if value["status"]==expected => {},
-            (None,Some("EvaluationIntegrity"),Err(ref code)) if matches!(code.as_str(),"DiagnosticWire"|"DiagnosticBinding") => {},
+    let _pins = crate::archive::pin(fixtures)?;
+    let roster = std::fs::read_dir(fixtures)
+        .map_err(|_| "SyntheticFixtureIo")?
+        .map(|entry| {
+            entry.map_err(|_| "SyntheticFixtureIo").and_then(|entry| {
+                entry
+                    .file_name()
+                    .into_string()
+                    .map_err(|_| "SyntheticFixturePath")
+            })
+        })
+        .collect::<Result<std::collections::BTreeSet<_>, _>>()?;
+    let expected: std::collections::BTreeSet<String> = DIAGNOSTIC_FIXTURES
+        .iter()
+        .map(|(id, _, _, _)| id.to_string())
+        .chain(std::iter::once("retained-missing-observation.bytes".into()))
+        .collect();
+    if roster != expected {
+        return Err("SyntheticFixtureInvalid".into());
+    }
+    let mut entries = Vec::new();
+    for (id, provenance, status, error) in DIAGNOSTIC_FIXTURES {
+        let path = fixtures.join(id);
+        let proof = scene_proof(&path, 1)?;
+        if proof["rows"] != 12 {
+            return Err("SyntheticSceneProof".into());
+        }
+        let opened = comparison::scene_v4::desktop_api::open_read_only(&path)?;
+        let summary = comparison::scene_v4::desktop_api::summary(&opened, true)?;
+        let result = comparison::scene_v4::desktop_api::narration_diagnostic_v1(
+            &opened,
+            summary["binding"]
+                .as_str()
+                .ok_or("SyntheticFixtureInvalid")?,
+            &comparison::desktop_api::RowId {
+                turn: "courier-01".into(),
+                arm: comparison::desktop_api::Arm::Left,
+            },
+            locallore::inspection_query::Observer::Omniscient,
+            true,
+        );
+        match (status, error, result) {
+            (Some(expected), None, Ok(ref value)) if value["status"] == expected => {}
+            (None, Some("EvaluationIntegrity"), Err(ref code))
+                if matches!(code.as_str(), "DiagnosticWire" | "DiagnosticBinding") => {}
             _ => return Err("SyntheticDiagnosticProof".into()),
         }
         entries.push(json!({"id":id,"provenance":provenance,"expected_status":status,"expected_error":error}));
     }
-    let (files,count,bytes)=inventory_stats(fixtures)?;
-    let file_count=files.len();
-    let proof=json!({"version":1,"kind":"narration_diagnostic_reader_fixture_v1","protocol_version":4,
+    let (files, count, bytes) = inventory_stats(fixtures)?;
+    let file_count = files.len();
+    let proof = json!({"version":1,"kind":"narration_diagnostic_reader_fixture_v1","protocol_version":4,
         "synthetic":true,"fixtures":entries,"fixture_inventory":files,"model_observation":observation,
         "inventory_stats":{"entries":count,"files":file_count,"bytes":bytes},
         "inventory_limits":{"entries":8192,"bytes":128*1024*1024,"file_bytes":8*1024*1024,"depth":8}});
-    let bytes=serde_json::to_vec(&proof).map_err(|_|"SyntheticFixtureInvalid")?;
-    if bytes.len()>256*1024 {return Err("SyntheticFixtureBudget".into());}
+    let bytes = serde_json::to_vec(&proof).map_err(|_| "SyntheticFixtureInvalid")?;
+    if bytes.len() > 256 * 1024 {
+        return Err("SyntheticFixtureBudget".into());
+    }
     if existed {
-        if fixed_bytes(&freeze)?!=bytes {return Err("SyntheticFixtureChanged".into());}
-    } else {fixed_new(&freeze,&bytes)?;}
+        if fixed_bytes(&freeze)? != bytes {
+            return Err("SyntheticFixtureChanged".into());
+        }
+    } else {
+        fixed_new(&freeze, &bytes)?;
+    }
     Ok(proof)
 }
 

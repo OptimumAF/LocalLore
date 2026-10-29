@@ -135,6 +135,27 @@ export async function comparisonReaderJourneys({
     const summary = async () => {
         if (protocolVersion !== 4) return r.loadSummary();
         if (!r.get().summary) {
+            if (diagnosticMode)
+                await until(() => {
+                    const panel = document.querySelector("#comparison-reader");
+                    const observer = panel?.querySelector<HTMLSelectElement>(
+                        'select[aria-label="Comparison observer"]',
+                    );
+                    const matches = [
+                        ...(panel?.querySelectorAll<HTMLButtonElement>(
+                            "button",
+                        ) ?? []),
+                    ].filter(
+                        (node) =>
+                            node.textContent?.trim() === "Show private report",
+                    );
+                    return (
+                        panel?.getAttribute("data-observer") === "omniscient" &&
+                        observer?.value === "omniscient" &&
+                        matches.length === 1 &&
+                        !matches[0].disabled
+                    );
+                });
             button("Show private report").click();
             await until(() => !r.get().busy);
         }

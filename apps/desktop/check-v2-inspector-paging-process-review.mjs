@@ -342,7 +342,7 @@ function sandbox(options = {}) {
         revision,
         sourcePaths: ["source-fixed"],
         sourceHashes,
-        productHashes: products,
+        productHashes: options.noProductSnapshot ? null : products,
         initialStorage,
         limits: { ...limits, entries: options.entryCap ?? limits.entries },
         process: {
@@ -909,6 +909,55 @@ register(
                 ),
                 false,
             );
+    },
+);
+// Independent pre-fix extension after the original 243-case result. These run
+// the extracted ACTUAL finally, preserving every original case and policy body.
+register(
+    "global-finally",
+    "captured-product-mismatch-refuses-before-any-normal-restoration-child",
+    async () => {
+        const h = sandbox();
+        h.control.productMismatch = true;
+        const before = h.spawns.length,
+            out = h.track(h.api.restore());
+        await h.finish(out);
+        const observed = h.api.observe();
+        assert.equal(observed.restoration?.passed, false);
+        assert.equal(observed.restoration?.launched, false);
+        assert.equal(observed.ownedDrainUnknown, false);
+        assert.equal(observed.storageBreached, false);
+        assert.deepEqual(
+            h.spawns.slice(before).filter((item) => item.command !== "git"),
+            [],
+            "Changed captured products must not be overwritten by Node/Cargo/native",
+        );
+        assert.equal(observed.processes.length, 0);
+        const evidence = h.metadata.find((item) => item.name === "normal-restoration.json");
+        assert.equal(evidence?.value.passed, false);
+    },
+);
+register(
+    "global-finally",
+    "known-closed-initial-build-failure-without-product-snapshot-still-restores",
+    async () => {
+        const h = sandbox({ noProductSnapshot: true }),
+            failed = h.start("child", { mode: "success", code: 1 }, node);
+        await h.finish(failed);
+        assert.equal(failed.ok, false);
+        assert.equal(h.api.observe().ownedDrainUnknown, false);
+        const before = h.spawns.length,
+            out = h.track(h.api.restore());
+        await h.finish(out);
+        assert.equal(h.api.observe().restoration?.passed, true);
+        assert.equal(h.api.observe().restoration?.launched, false);
+        const later = h.spawns.slice(before);
+        assert.deepEqual(
+            later.filter((item) => item.command !== "git").map((item) => item.command),
+            [node, "cargo"],
+        );
+        assert(later.every((item) => item.command !== paths.executable));
+        assert(later.filter((item) => item.command === "git").length >= 8);
     },
 );
 register(

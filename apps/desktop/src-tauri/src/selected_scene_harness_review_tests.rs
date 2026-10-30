@@ -277,7 +277,7 @@ fn actual_initial_produces_public_scene4_sources_and_complete_external_freeze() 
     // Inventory includes the fixture root itself, matching existing inventory_stats.
     assert_eq!(freeze["entry_count"], all.len() + 1);
     assert_eq!(freeze["total_bytes"], total);
-    assert!(expected.len() <= 2048 && total <= 64 * 1024 * 1024 && all.len() + 1 <= 8192);
+    assert!(expected.len() <= 2048 && total <= 64 * 1024 * 1024 && all.len() < 8192);
     let raw = fs::read(root.join(FREEZE)).unwrap();
     assert!(raw.len() <= 1024 * 1024);
     assert_eq!(

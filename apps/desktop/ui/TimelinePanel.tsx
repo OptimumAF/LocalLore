@@ -19,7 +19,11 @@ export function TimelinePanel({
     if (!timeline.matchesContext(context)) return null;
     if (!s.shown)
         return (
-            <button onClick={() => void timeline.show()}>
+            <button
+                onClick={() => {
+                    if (timeline.matchesContext(context)) void timeline.show();
+                }}
+            >
                 Saved timelines
             </button>
         );
@@ -31,7 +35,11 @@ export function TimelinePanel({
         >
             <div className="panel-heading">
                 <h2 id="timeline-title">Saved timelines</h2>
-                <button onClick={() => timeline.hide()}>
+                <button
+                    onClick={() => {
+                        if (timeline.matchesContext(context)) timeline.hide();
+                    }}
+                >
                     Close saved timelines
                 </button>
             </div>
@@ -43,12 +51,14 @@ export function TimelinePanel({
                 Alternate timeline creation preserves the original. Replacing
                 committed history means starting a new timeline before that
                 turn; downstream choices are never replayed automatically.
-                Author corrections remain unavailable. Saved drafts stay
-                uncommitted.
+                Saved drafts stay uncommitted.
             </p>
             <button
                 disabled={s.busy || !context?.persistent}
-                onClick={() => void timeline.refresh()}
+                onClick={() => {
+                    if (timeline.matchesContext(context))
+                        void timeline.refresh();
+                }}
             >
                 Refresh timeline catalog
             </button>
@@ -119,11 +129,12 @@ export function TimelinePanel({
                                         disabled={
                                             s.busy || row.retired || current
                                         }
-                                        onClick={() =>
-                                            void timeline.select(
-                                                row.scope.branch,
-                                            )
-                                        }
+                                        onClick={() => {
+                                            if (timeline.matchesContext(context))
+                                                void timeline.select(
+                                                    row.scope.branch,
+                                                );
+                                        }}
                                     >
                                         {row.retired
                                             ? `Retired timeline ${row.scope.branch}`

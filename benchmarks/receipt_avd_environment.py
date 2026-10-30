@@ -75,9 +75,15 @@ def safe_path(value, exists=True, directory=False):
 def digest(path):
     p = safe_path(path)
     h = hashlib.sha256()
+    buffer = bytearray(1024 * 1024)
+    view = memoryview(buffer)
     with p.open("rb") as source:
-        for block in iter(lambda: source.read(1024 * 1024), b""):
-            h.update(block)
+        while True:
+            count = source.readinto(buffer)
+            require(type(count) is int and 0 <= count <= len(buffer), "invalid_hash_read")
+            if count == 0:
+                break
+            h.update(view[:count])
     return h.hexdigest()
 
 

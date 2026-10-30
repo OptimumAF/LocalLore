@@ -48,6 +48,10 @@ break down the live observer's existing checks into bounded diagnostic counters.
 Their optional sidecar follows cleanup and the authoritative result; it cannot
 grant acceptance, remove checks or extend a session.
 
+The [receipt SHA256 streaming comparison](docs/native/RECEIPT_DIGEST_STREAM_V1.md)
+adds a measured reusable-buffer implementation while preserving fresh full-file
+checks. Its synthetic host result is separate from Android/model qualification.
+
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.
 It preserves the first unsupported-listener failure and uses a distinct corrected

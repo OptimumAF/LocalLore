@@ -139,6 +139,14 @@ gateway call; do not silently rebind its cursor stack to the replacement object.
 The native Host independently reopens authoritative durable state and may refuse
 a stale cursor even when the frontend believed the head was unchanged.
 
+Mutation precision before FIRST freeze: this detects binding/navigation scalar
+edits, object replacement, actual-player mismatch and failed bounded transport
+revalidation. It does not authenticate immutable public response content or
+promise to detect every still-valid row-text/total-payload edit. The private
+ledger derives no authority from rows or public paging hints. Do not retain,
+copy or hash whole pages/snapshots solely to detect such edits. Every eligible
+Previous/Next refetches Rust; no row payload establishes an earlier cursor.
+
 Starting a fresh inspection query, including an identical explicit Read permitted
 view, clears the old navigation frame before pending notification. Accepted-turn
 trace, recorded-turn trace and seed/event source navigation are fresh queries,

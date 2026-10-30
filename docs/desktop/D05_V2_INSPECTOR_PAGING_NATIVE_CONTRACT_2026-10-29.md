@@ -486,6 +486,16 @@ environment, with unique fixed-prefix child folders and no drop-time cleanup.
 Missing admission/helper/module is setup/unrun, never zero-test pass. FIRST source
 authoring itself is source/Git/hash only and creates no fixture/output roots.
 
+Native FIRST may prepare one actual template once and retain a failed attempt
+without replacing it. At most five bounded closed-database copies (8MiB/file
+upper bound, measured before full admission), one empty valid Store and one tiny
+existing ordinary file are source-planned. On ONE isolated copy only, one extra
+typed Wait through public Engine preview/Store begin+commit is an explicit
+negative control: fixture_oracle must return SyntheticFixtureInvalid without
+further canonical/actor change. That extra command is separately counted and
+never part of the45-operation positive recipe or app navigation. No SQL/binary
+corruption, repair, new producer recipe, runtime hook or automatic retry follows.
+
 ## Root launcher FIRST extraction precision
 
 Before launcher source production, freeze independent actual-source VM tests
@@ -547,6 +557,24 @@ No new packet/root or retry follows a refusal automatically.
 
 These caps name the current selected4 and new paging qualification rosters, not
 all historical project/model archives. Older unrelated evidence remains preserved.
+The required private VM data shapes are:
+
+```text
+limits = {targetGrowth,sourceGrowth,artifacts,entries,
+  cumulativeEvidence:671088640,expectedEvidence:67108864,pagingEvidence:134217728}
+initialStorage = {target:{bytes:original},source:{bytes:baseline},
+  evidence:{bytes:jointBaseline},pagingEvidence:{bytes:basePlusD05External}}
+lastStorage = {target,source,packet,targetGrowth,sourceGrowth,
+  cumulativeEvidence,pagingEvidence}
+```
+
+Footprints target/source/packet are {entries,bytes}; initial footprints may also
+retain entries. Existing diagnostics observedTarget/observedBase/recordSHA256 and
+unavailable/lastKnown observations may be recorded. checkedPagingBudget returns
+only {originalTargetBytes,externalEvidenceBytes,d05ExternalEvidenceBytes}; the
+startup may add recordSHA256 separately. The names are testable private policy
+interfaces, not a new gameplay/IPC schema or user-configurable limits.
+
 All prior failures/outputs of this same paging qualification count even across
 branch or packet names. The existing selected4 cap stays512MiB with no retry;
 the shared original target baseline is8,259,980,576 across both gates. No runtime

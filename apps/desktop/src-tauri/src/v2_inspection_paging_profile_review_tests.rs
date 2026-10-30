@@ -15,10 +15,7 @@ use std::{
 };
 
 fn admitted_base() -> PathBuf {
-    assert!(
-        cfg!(windows),
-        "SETUP_UNRUN: Windows physical D profile tests only"
-    );
+    const { assert!(cfg!(windows), "SETUP_UNRUN: Windows physical D profile tests only") };
     let base = PathBuf::from(
         std::env::var_os("LOCALLORE_D05_ARTIFACT_ROOT")
             .expect("SETUP_UNRUN: coordinator must admit an existing D05 base"),
@@ -194,12 +191,13 @@ fn profile_limit_counts_utf16_units_with_exact190_and191_unicode_boundaries() {
             .checked_sub(units(&trial) - 1)
             .expect("SETUP_UNRUN: admitted D05 base too long for boundary");
         assert!(
-            padding >= 3 && padding <= 200,
+            (3..=200).contains(&padding),
             "SETUP_UNRUN: ordinary bounded padding component required"
         );
         // One supplementary scalar occupies TWO UTF16 units. A chars() or
         // UTF8-byte cap would misclassify at least one of these exact cases.
-        let parent = base.join(format!("😀{}", "x".repeat(padding - 2)));
+        let material = unique().replace('-', "").repeat(7);
+        let parent = base.join(format!("😀{}", &material[..padding - 2]));
         fs::create_dir(&parent).unwrap();
         let (packet, workspace) = packet_at(&parent, packet_name);
         let expected = packet.join("webview-profile");

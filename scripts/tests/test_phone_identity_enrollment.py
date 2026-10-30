@@ -70,6 +70,9 @@ class PhoneIdentityEnrollmentTests(unittest.TestCase):
         self.assertEqual(first, enrollment.make_proposal(copy.deepcopy(capture), fixture.admission(), captured))
         identifier = first['candidates'][0]['candidate_id']
         self.assertRegex(identifier, r'^[0-9a-f]{64}$')
+        row_bytes = json.dumps(captured['rows'][0], sort_keys=True, separators=(',', ':'),
+                               ensure_ascii=True, allow_nan=False).encode('utf-8')
+        self.assertEqual(identifier, hashlib.sha256((capture['sha256']+'\0').encode('ascii')+row_bytes).hexdigest())
         changed_pin = copy.deepcopy(capture); changed_pin['sha256'] = 'a'*64
         self.assertNotEqual(identifier, enrollment.make_proposal(changed_pin, fixture.admission(), captured)['candidates'][0]['candidate_id'])
         changed_report = proof(fixture.device_row('ORIGINAL_USB', transport_id=7,

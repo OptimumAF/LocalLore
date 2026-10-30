@@ -83,7 +83,9 @@ class RetirementExecutorTests(unittest.TestCase):
         self.assertEqual(fake.events[:2],['acquire-all','processes'])
         self.assertEqual(fake.process_inputs,fixture.identities)
         self.assertFalse((fixture.registry/'admission.lock').exists())
-        self.assertEqual(fixture.entry()['state'],'retired');self.assertEqual(storage._charge(fixture.entry()),0)
+        self.assertEqual(fixture.entry()['state'],'retired')
+        expected=fixture.expected_retained_charge();self.assertGreater(expected,0)
+        self.assertEqual(storage._charge(fixture.entry()),expected)
         self.assertEqual((fixture.root/'failed-output.bin').read_bytes(),b'SYNTHETIC failed evidence retained\n')
 
     def test_stale_plan_pin_or_changed_plan_cannot_acquire_or_mark_images(self):
@@ -196,7 +198,9 @@ class RetirementExecutorTests(unittest.TestCase):
         with patch.object(Path,'unlink',new=unlink):result=self.execute(fixture,fake)
         self.assertEqual(result['outcome'],'refused');self.assertEqual(result['phase'],'unlock')
         self.assertIs(result['retirement_recorded'],True);self.assertIs(result['cleanup_known'],True)
-        self.assertEqual(fixture.entry()['state'],'retired');self.assertEqual(storage._charge(fixture.entry()),0)
+        self.assertEqual(fixture.entry()['state'],'retired')
+        expected=fixture.expected_retained_charge();self.assertGreater(expected,0)
+        self.assertEqual(storage._charge(fixture.entry()),expected)
         self.assertTrue(lock.exists());self.assertEqual(fake.instances[0].close_calls,1)
 
     def test_output_inside_guest_or_registry_refuses_before_native_ownership(self):

@@ -92,6 +92,20 @@ class TinyRetirement:
         test.assertEqual(entry['state'],'closed')
         test.assertEqual(storage._charge(entry),self.original_charge)
 
+    def expected_retained_charge(self):
+        """Count this fixture's explicit retained paths, independently of _charge.
+
+        Retirement removes image ownership/count, not the retained evidence's
+        byte charge. Copies and the new tombstone remain separate paths.
+        """
+        manifest=storage.read_json(self.evidence)
+        paths=[Path(pin['path']) for pin in self.plan['preserve']]
+        paths.extend(Path(row['binding']['path']) for row in manifest['files'])
+        paths.extend((self.evidence,Path(self.entry()['retirement_receipt']['path']),self.closure))
+        paths.extend(self.proof_paths.values())
+        unique={str(path).casefold():path for path in paths}
+        return sum(len(path.read_bytes()) for path in unique.values())
+
 
 class FakeNative:
     """Simulates native ownership only; can remove ONLY this fixture's tiny images on close."""

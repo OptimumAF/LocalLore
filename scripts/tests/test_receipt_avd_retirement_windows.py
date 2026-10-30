@@ -244,3 +244,28 @@ class NativeApiAdversaries(unittest.TestCase):
             factory.return_value.open_process.return_value=None
             self.assertEqual(native.closed_processes([identity],time.monotonic()+30.0),
                              [dict(identity=identity,status='pid_absent')])
+
+    def test_same_birth_signaled_process_needs_no_terminated_image_query_and_unknown_states_refuse(self):
+        identity=dict(pid=999,creation_filetime=123,executable=str(self.root/'historical-owned.exe'))
+        for variant,wait in (('exited',0),('live',258),('unknown_wait',0xffffffff),('unknown_birth',0)):
+            with self.subTest(variant=variant),patch.object(native,'_WindowsApi') as factory:
+                api=factory.return_value
+                api.open_process.return_value=801
+                api.process_creation.return_value=identity['creation_filetime']
+                if variant=='unknown_birth':api.process_creation.side_effect=OSError('synthetic creation query failure')
+                api.process_wait.return_value=wait
+                api.process_image.side_effect=OSError('terminated image query unavailable')
+                api.close.return_value=True
+                rows=None;error=None
+                try:rows=native.closed_processes([identity],time.monotonic()+30.0)
+                except native.RetirementWindowsError as refused:error=refused
+                api.close.assert_called_once_with(801)
+                if variant=='exited':
+                    self.assertIsNone(error)
+                    self.assertEqual(rows,[dict(identity=identity,status='exited')])
+                else:
+                    self.assertIsInstance(error,native.RetirementWindowsError)
+                    self.assertIsNone(rows)
+                api.process_image.assert_not_called()
+                if variant=='unknown_birth':api.process_wait.assert_not_called()
+                else:api.process_wait.assert_called_once_with(801)

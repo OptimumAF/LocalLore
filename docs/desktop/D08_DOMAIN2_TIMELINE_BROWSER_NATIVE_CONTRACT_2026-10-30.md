@@ -15,6 +15,10 @@ The new mode uses a distinct eight-field record kind
 the existing parser contract. Here `d05_external_evidence_bytes` charges ALL
 previous D05 evidence outside this NEW browser base; `external_evidence_bytes`
 charges the named D07/D09 retention and other declared external evidence once.
+For browser mode only, the per-base count is the observed NEW browser base;
+the joint count is that base plus both external fields. Do not charge old D05
+against the new32MiB base cap or omit it from the joint count. Old paging mode
+keeps its existing base-plus-D05-external calculation and128MiB group limit.
 The new mode's external field may exceed512MiB, but the unchanged640MiB joint
 ceiling remains authoritative. Paging mode retains its old512MiB external bound.
 Original target baseline/growth, source-growth, physical-D/path containment,

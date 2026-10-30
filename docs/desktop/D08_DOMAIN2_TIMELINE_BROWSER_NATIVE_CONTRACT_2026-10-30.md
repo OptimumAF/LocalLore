@@ -91,3 +91,33 @@ controls before Root modifies the launcher/native wiring. A separately authored
 fixed native journey is frozen before Root integrates it. Source authors do not
 execute tools; Root is the sole heavy worker. Actual commands, versions, failures,
 costs and limitations belong in the later qualification report.
+
+## Owner-approved budget revision2
+
+At2026-10-30 16:20 UTC the owner answered **"Approve one bounded run"** to the
+explicit PR286 proposal: one corrected six-capture native attempt with a40MiB
+browser base and648MiB joint ceiling, each8MiB above the original limits, keeping
+all failed evidence and the same20MiB packet reservation. This is recorded in
+[#30](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6527673039).
+
+The preceding32/640MiB browser contract is version1 history; its failed setup
+packet and all measured costs remain unchanged. Future browser admission uses
+version2: `version:2`, kind `d08_domain2_timeline_browser_budget_v2`, filename
+`d08-domain2-timeline-browser-budget-v2-<HEAD>.json`, with the same eight field
+names and closed source/target binding. Browser cumulative_limit_bytes is
+679,477,248; new-base cap41,943,040. Existing no-argument paging stays version1
+with its original64MiB packet/128MiB group/640MiB joint/512MiB external bound.
+
+The command remains `--timeline-browser-v1`: it names the unchanged UI recipe,
+six labels and report mode, not the resource record version. Browser packet and
+expected reservation remain20MiB, app writer8MiB, product reserve16MiB, metadata
+reserve1MiB, and original target baseline/2GiB growth stay. Old D05/D07 evidence
+is still charged once in the joint total, never omitted or reset. A version1
+browser budget cannot authorize this source's version2 run.
+
+Independent revised FIRST, Root implementation/checks, source review and a fresh
+inventory/canonical record must precede the one authorized application attempt.
+No automatic second attempt, frozen cohort rerun, desktop control, model/device/
+SDK/stopped OS probe, settings change or release follows from this decision.
+Single-attempt authority remains coordinator policy; the record is not a
+persistent general-purpose permission registry.

@@ -40,8 +40,7 @@ def invoke(main, argv):
 
 class ArchiveAuditCliTests(unittest.TestCase):
     def setUp(self):
-        self.directory = Path(tempfile.mkdtemp(prefix="locallore-archive-cli-", dir="D:/Dev/_Temp"))
-        self.assertEqual(self.directory.drive.upper(), "D:")
+        self.directory = Path(tempfile.mkdtemp(prefix="locallore-archive-cli-"))
         self.apk = f.ApkAuditTests().archive(self.directory)
 
     def audit(self, flags=(), *, package=APP, badging=None, tree=None,

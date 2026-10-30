@@ -16,7 +16,75 @@ function gate() {
         waiting = new Promise<void>((r) => (release = r));
     return { entered, release, ready, waiting };
 }
+type InspectorPagingCall = {
+    sequence: number;
+    channel: "host" | "native";
+    command: Command | null;
+    nativeAction: NativeAction | null;
+    settled: boolean;
+    replySha256: string | null;
+    error: string | null;
+    deliveryDropped: boolean;
+};
 export class FaultGateway implements Gateway {
+    private inspectorPagingStarted = false;
+    private inspectorPagingQueries = 0;
+    private readonly inspectorPagingRecords: InspectorPagingCall[] = [];
+    dropNextInspectorPagingReply = false;
+    startInspectorPagingTrace(): void {
+        if (this.inspectorPagingStarted) throw Error("Wire");
+        this.inspectorPagingStarted = true;
+    }
+    get inspectorPagingCalls(): readonly InspectorPagingCall[] {
+        return this.inspectorPagingRecords.map((record) => ({
+            ...record,
+            command: record.command ? structuredClone(record.command) : null,
+        }));
+    }
+    private inspectorPagingBegin(
+        command: Command | null,
+        nativeAction: NativeAction | null,
+    ) {
+        if (!this.inspectorPagingStarted) return null;
+        if (this.inspectorPagingRecords.length >= 256) throw Error("Wire");
+        if (
+            command?.op === "inspection_query" &&
+            ++this.inspectorPagingQueries > 192
+        )
+            throw Error("Wire");
+        const serialized = command ? JSON.stringify(command) : null;
+        if (serialized && new TextEncoder().encode(serialized).length > 65536)
+            throw Error("Wire");
+        const record: InspectorPagingCall = {
+            sequence: this.inspectorPagingRecords.length + 1,
+            channel: command ? "host" : "native",
+            command: serialized ? (JSON.parse(serialized) as Command) : null,
+            nativeAction,
+            settled: false,
+            replySha256: null,
+            error: null,
+            deliveryDropped: false,
+        };
+        this.inspectorPagingRecords.push(record);
+        return record;
+    }
+    private async inspectorPagingSettled(
+        record: InspectorPagingCall,
+        value: unknown,
+    ) {
+        try {
+            const bytes = new TextEncoder().encode(JSON.stringify(value));
+            const hash = await crypto.subtle.digest("SHA-256", bytes);
+            record.replySha256 = [...new Uint8Array(hash)]
+                .map((byte) => byte.toString(16).padStart(2, "0"))
+                .join("");
+        } catch {
+            record.error = "Wire";
+            throw Error("Wire");
+        } finally {
+            record.settled = true;
+        }
+    }
     get playSnapshotV2() {
         return this.base.playSnapshotV2;
     }
@@ -71,7 +139,18 @@ export class FaultGateway implements Gateway {
                 files: { "state.json": "forged renderer content" },
             };
         }
-        const result = await this.base.native(command, args);
+        const trace = this.inspectorPagingBegin(null, command);
+        let result: unknown;
+        try {
+            result = await this.base.native(command, args);
+        } catch (error) {
+            if (trace) {
+                trace.error = category(error);
+                trace.settled = true;
+            }
+            throw error;
+        }
+        if (trace) await this.inspectorPagingSettled(trace, result);
         const holder =
             command === "inspection_cancel"
                 ? this.heldExportCancel
@@ -101,6 +180,7 @@ export class FaultGateway implements Gateway {
         if (command.op === "submit" || command.op === "free_text")
             this.submissions.push(command.request.turn);
         const phase = this.diagnosticPhase.slice(0, 128);
+        const trace = this.inspectorPagingBegin(command, null);
         let result: unknown;
         try {
             if (command.op === "cancel") {
@@ -119,6 +199,10 @@ export class FaultGateway implements Gateway {
             }
             result = await this.base.call(command);
         } catch (error) {
+            if (trace) {
+                trace.error = category(error);
+                trace.settled = true;
+            }
             const input = command as unknown as {
                 scope?: Scope;
                 request?: Request;
@@ -154,6 +238,16 @@ export class FaultGateway implements Gateway {
                 turn: typeof turn === "string" ? turn.slice(0, 64) : null,
             });
             throw error;
+        }
+        if (trace) await this.inspectorPagingSettled(trace, result);
+        if (
+            trace &&
+            command.op === "inspection_query" &&
+            this.dropNextInspectorPagingReply
+        ) {
+            this.dropNextInspectorPagingReply = false;
+            trace.deliveryDropped = true;
+            throw Error("Transport");
         }
         if (
             command.op === "trace_narration_validation_read_v1" &&

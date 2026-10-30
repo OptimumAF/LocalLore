@@ -66,6 +66,7 @@ declare global {
             nativeFullComparing?: boolean;
             sceneFullComparing?: boolean;
             sceneModelGuard?: boolean;
+            inspectorPaging?: boolean;
             nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
@@ -746,7 +747,18 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   ? durableDriver.durableJourneys
                   : driver.journeys;
     const sceneCase = window.__LOCALLORE_TEST__?.sceneCase;
-    if (
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.inspectorPaging) {
+        const { v2InspectorPagingNativeJourneys } =
+            await import("./v2-inspector-paging-native-journeys");
+        await v2InspectorPagingNativeJourneys({
+            controller,
+            v2,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+        });
+    } else if (
         __DEV_HARNESS__ &&
         window.__LOCALLORE_TEST__?.liveNarrationDiagnostic === true &&
         sceneHarnessModule &&

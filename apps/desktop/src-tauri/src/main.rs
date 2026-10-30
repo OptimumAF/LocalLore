@@ -46,6 +46,8 @@ use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
 mod fork_harness;
 #[cfg(feature = "dev-harness")]
+mod domain2_fork_harness;
+#[cfg(feature = "dev-harness")]
 mod harness;
 #[cfg(feature = "dev-harness")]
 mod memory_harness;
@@ -257,6 +259,10 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         "window.__LOCALLORE_TEST__=undefined;".into()
     };
     #[cfg(feature = "dev-harness")]
+    let script = if domain2_fork_harness::active() {
+        format!("{script}window.__LOCALLORE_TEST__.domain2Fork=true;")
+    } else { script };
+    #[cfg(feature = "dev-harness")]
     let script = if v2_inspection_paging_harness::active() {
         format!(
             "{script}window.__LOCALLORE_TEST__.{}=true;",
@@ -276,7 +282,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         let path = std::path::PathBuf::from(
             std::env::var_os("LOCALLORE_TEST_WORKSPACE").unwrap_or_default(),
         );
-        let profile = if v2_inspection_paging_harness::active() {
+        let profile = if v2_inspection_paging_harness::active() || domain2_fork_harness::active() {
             v2_inspection_paging_harness::webview_profile(&path).map_err(std::io::Error::other)?
         } else if comparison_run_native_harness::review_active() {
             comparison_run_native_harness::review_webview_profile(&path)

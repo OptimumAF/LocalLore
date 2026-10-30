@@ -49,6 +49,7 @@ fn validate_mode(
 pub fn requested() -> bool {
     std::env::var_os(SELECTOR).is_some()
         || std::env::var_os("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS").is_some()
+        || crate::domain2_fork_harness::requested()
 }
 fn validate_browser_flag(browser: Option<&str>, paging: Option<&str>) -> Result<bool, String> {
     match browser {
@@ -188,6 +189,9 @@ fn fixture_scopes() -> [Scope; 3] {
 /// Fresh development profile beside the fixed workspace, inside its packet.
 /// No profile creation, migration, reuse, repair or renderer-supplied address.
 pub fn webview_profile(workspace: &Path) -> Result<PathBuf, String> {
+    if crate::domain2_fork_harness::active() {
+        return crate::domain2_fork_harness::webview_profile(workspace);
+    }
     validate_workspace_path(workspace)?;
     let packet = workspace
         .parent()
@@ -517,6 +521,21 @@ fn environment_workspace() -> Result<PathBuf, String> {
 }
 /// Called before any Host/other fixture setup; normal absence is a no-op.
 pub fn prepare() -> Result<(), String> {
+    if crate::domain2_fork_harness::requested() {
+        if !crate::domain2_fork_harness::runtime_mode()? { return Err("Forbidden".into()); }
+        let path = crate::domain2_fork_harness::environment_workspace()?;
+        // Validate all fixed addresses before creating the database or profile.
+        crate::domain2_fork_harness::webview_profile(&path)?;
+        let parent = path.parent().ok_or_else(workspace_invalid)?;
+        let artifact = std::env::var_os("LOCALLORE_D02_ARTIFACT_DIR").map(PathBuf::from).ok_or_else(workspace_invalid)?;
+        if artifact != parent.join("evidence") { return Err(workspace_invalid()); }
+        match fs::symlink_metadata(&artifact) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            _ => return Err(workspace_invalid()),
+        }
+        let _pins = crate::archive::pin(parent).map_err(|_| workspace_invalid())?;
+        return crate::domain2_fork_harness::seed(&path);
+    }
     if !runtime_mode()? {
         return Ok(());
     }

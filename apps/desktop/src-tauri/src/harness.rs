@@ -90,9 +90,21 @@ const INSPECTOR_PAGING_LABELS: &[&str] = &[
 ];
 const MAX_SELECTED_SCENE_ARTIFACT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_TIMELINE_BROWSER_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
+const MAX_DOMAIN2_FORK_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
+#[cfg(test)]
+#[path = "domain2_fork_native_review_tests.rs"]
+mod domain2_fork_native_review_tests;
 #[cfg(test)]
 #[path = "domain2_timeline_browser_artifact_review_tests.rs"]
 mod domain2_timeline_browser_artifact_review_tests;
+
+fn domain2_fork_label(label: &str, enabled: bool) -> bool {
+    enabled && [
+        "d08-fork-catalog", "d08-fork-rejected", "d08-fork-pending",
+        "d08-fork-preauthor", "d08-fork-authored", "d08-fork-recovered",
+        "d08-fork-enlarged", "d08-fork-failure",
+    ].contains(&label)
+}
 
 fn timeline_browser_label(label: &str, enabled: bool) -> bool {
     enabled
@@ -452,6 +464,19 @@ fn timeline_browser_active() -> bool {
         && std::env::var("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS").as_deref() == Ok("1")
 }
 
+// Self-contained for the standalone artifact-contract target. Main performs
+// complete fixed workspace/profile admission before any fixture or Host setup.
+fn domain2_fork_active() -> bool {
+    active()
+        && std::env::var("LOCALLORE_D08_DOMAIN2_FORK_HARNESS").as_deref() == Ok("1")
+        && std::env::vars_os().all(|(key, _)| {
+            let folded = key.to_string_lossy().to_ascii_uppercase();
+            !folded.starts_with("LOCALLORE_") || (key.to_str() == Some(folded.as_str())
+                && ["LOCALLORE_D08_DOMAIN2_FORK_HARNESS", "LOCALLORE_D02_HARNESS",
+                    "LOCALLORE_D02_ARTIFACT_DIR", "LOCALLORE_TEST_WORKSPACE"].contains(&folded.as_str()))
+        })
+}
+
 struct Progress {
     labels: HashSet<String>,
     finished: bool,
@@ -491,7 +516,8 @@ impl HarnessState {
             }),
             scene_budget: (selected_scene_active()
                 || inspector_paging_active()
-                || timeline_browser_active())
+                || timeline_browser_active()
+                || domain2_fork_active())
             .then(|| Mutex::new(ArtifactBudget::default())),
         })
     }
@@ -504,6 +530,9 @@ impl HarnessState {
     }
 
     fn reserve(&self, label: &str) -> Result<(), &'static str> {
+        if domain2_fork_active() && !domain2_fork_label(label, true) {
+            return Err("CheckpointInvalid");
+        }
         if timeline_browser_active() && !timeline_browser_label(label, true) {
             return Err("CheckpointInvalid");
         }
@@ -525,6 +554,7 @@ impl HarnessState {
             || (selected_scene_active() && SELECTED_SCENE_LABELS.contains(&label))
             || (inspector_paging_active() && INSPECTOR_PAGING_LABELS.contains(&label))
             || timeline_browser_label(label, timeline_browser_active())
+            || domain2_fork_label(label, domain2_fork_active())
             || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label))
             || (active()
                 && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
@@ -563,7 +593,9 @@ impl HarnessState {
             // This owned guard spans reservation and the complete create-new
             // write. Failed/partial writes remain charged and preserved.
             let mut budget = budget.lock().map_err(|_| "ArtifactWriteBudget")?;
-            if timeline_browser_active() {
+            if domain2_fork_active() {
+                budget.reserve_with_limit(bytes.len(), MAX_DOMAIN2_FORK_ARTIFACT_BYTES)?;
+            } else if timeline_browser_active() {
                 budget.reserve_with_limit(bytes.len(), MAX_TIMELINE_BROWSER_ARTIFACT_BYTES)?;
             } else {
                 budget.reserve(bytes.len())?;

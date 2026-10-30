@@ -15,7 +15,7 @@ from scripts.tests import test_isolated_adb_lease as host_fixture
 
 
 PROTOCOL='owned-emulator-target-v1'
-SOURCE_NAMES=(*host_fixture.SOURCE_NAMES,'owned_target_contract.py','owned_target_owner.py',
+SOURCE_NAMES=(*host_fixture.SOURCE_NAMES,'owned_target_contract.py','owned_target_owner.py','receipt_avd_storage.py',
               'android_process_client_v4.py','android_process_verification_v4.py')
 MODEL_SHA='181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c'
 

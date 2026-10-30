@@ -213,7 +213,8 @@ class RestartProfileTests(unittest.TestCase):
         value['protocol']='owned-emulator-target-v1';self.refused(lambda:r.validate_admission(value))
 
     def test_new_source_closure_is_complete_sorted_and_pinned_to_one_parent(self):
-        value=admission();self.assertEqual(len(value['sources']),23)
+        value=admission();self.assertEqual(len(value['sources']),24)
+        self.assertIn('receipt_avd_storage.py', {PureWindowsPath(item['path']).name for item in value['sources']})
         for change in(lambda v:v['sources'].pop(),lambda v:v['sources'].reverse(),lambda v:v['sources'][0].update(path='D:/Foreign/benchmarks/owned_target_contract.py')):
             value=admission();change(value);self.refused(lambda:r.validate_admission(value))
 

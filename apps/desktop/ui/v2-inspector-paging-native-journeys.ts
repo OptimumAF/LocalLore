@@ -51,6 +51,30 @@ type Oracle = {
     fixture_version: number;
     scopes: ScopeOracle[];
 };
+type FontTarget = {
+    name: string;
+    element: HTMLElement;
+    baselinePx: number;
+    textSha256: string;
+    value: string | null;
+};
+type FontMeasurement = {
+    label: string;
+    expectedRatio: number;
+    pixelTolerance: number;
+    width: number;
+    height: number;
+    contextSha256: string;
+    targets: {
+        name: string;
+        baselinePx: number;
+        actualPx: number;
+        actualRatio: number;
+        expectedPx: number;
+        textSha256: string;
+        value: string | null;
+    }[];
+};
 type Invoke = (
     name: string,
     args?: Record<string, unknown>,
@@ -144,6 +168,11 @@ export async function v2InspectorPagingNativeJourneys({
         disabledBoundary: boolean;
     }[] = [];
     const negativeProbes: { expected: string; actual: string }[] = [];
+    // Independent target-font FIRST extension: source frozen before the CSS fix.
+    // Same actual mounted Player/history targets, never injected styles/dummies.
+    const fontMeasurements: FontMeasurement[] = [];
+    let fontTargets: FontTarget[] | null = null,
+        fontContextSha256: string | null = null;
     const checkNames = new Set<string>();
     let current = "d05-paging-setup",
         baseline: Oracle | null = null,
@@ -246,6 +275,183 @@ export async function v2InspectorPagingNativeJourneys({
         return element instanceof HTMLElement
             ? `${element.tagName}:${element.getAttribute("aria-label") ?? element.textContent?.trim().slice(0, 120) ?? ""}`
             : "Unavailable";
+    };
+    const fixedFontContext = () => {
+        const state = v2.get(),
+            context = state.context,
+            bound = state.inspection;
+        check(
+            context &&
+                state.snapshot &&
+                bound &&
+                !state.queryBusy &&
+                !state.readBusy &&
+                structural(context.scope) === structural(CHILD) &&
+                context.revision === 44 &&
+                context.observer.kind === "player" &&
+                bound.query.view === "history" &&
+                bound.query.cursor === null &&
+                bound.query.search === "" &&
+                bound.query.at_revision === null &&
+                bound.page.rows.length === 64 &&
+                bound.page.total === 130,
+            "SETUP-fixed-Player-current-first-history-font-context",
+        );
+        return {
+            session: context!.session,
+            scope: context!.scope,
+            head: context!.revision,
+            player: context!.player,
+            observer: context!.observer,
+            query: bound!.query,
+            rows: bound!.page.rows.map(rowIdentity),
+        };
+    };
+    const fixedFontElements = () => {
+        const body = document.querySelector<HTMLElement>(".v2-play"),
+            inspector = panel();
+        const targets = [
+            ["V2-body", body],
+            [
+                "context-header",
+                body?.querySelector<HTMLElement>("header.scope"),
+            ],
+            ["V2-h2", body?.querySelector<HTMLElement>("header.scope h2")],
+            ["inspector-heading", inspector?.querySelector<HTMLElement>("h3")],
+            [
+                "inspector-label",
+                inspector?.querySelector<HTMLElement>("form label"),
+            ],
+            [
+                "inspector-search-input",
+                inspector?.querySelector<HTMLInputElement>(
+                    'form input:not([type="number"])',
+                ),
+            ],
+            [
+                "inspector-revision-input",
+                inspector?.querySelector<HTMLInputElement>(
+                    'form input[type="number"]',
+                ),
+            ],
+            [
+                "inspector-select",
+                inspector?.querySelector<HTMLSelectElement>("form select"),
+            ],
+            ["Previous", button("previous")],
+            ["Next", button("next")],
+            [
+                "pager-status",
+                inspector?.querySelector<HTMLElement>(
+                    '[aria-label="Inspection page navigation"] [role="status"]',
+                ),
+            ],
+            [
+                "record-value",
+                inspector?.querySelector<HTMLElement>("ol > li .record-value"),
+            ],
+        ] as const;
+        for (const [name, element] of targets)
+            check(
+                element?.isConnected && body?.contains(element),
+                `SETUP-actual-font-target-${name}`,
+            );
+        return targets.map(([name, element]) => ({ name, element: element! }));
+    };
+    const fontValue = (element: HTMLElement) =>
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLSelectElement
+            ? element.value
+            : null;
+    const measureFonts = async (
+        label: string,
+        expectedRatio: 1 | 1.5,
+        establish = false,
+    ) => {
+        await frames();
+        const contextSha256 = await digest(fixedFontContext()),
+            targets = fixedFontElements();
+        check(
+            targets.length === 12,
+            "all12-fixed-font-targets-required-no-omissions",
+        );
+        if (establish) {
+            check(
+                fontTargets === null &&
+                    fontContextSha256 === null &&
+                    expectedRatio === 1 &&
+                    c.get().textScale === 100 &&
+                    !!document.querySelector(".app.text-100"),
+                "actual100-font-baseline-state-class-once",
+            );
+            fontContextSha256 = contextSha256;
+            fontTargets = [];
+            for (const { name, element } of targets) {
+                const baselinePx = Number.parseFloat(
+                    getComputedStyle(element).fontSize,
+                );
+                check(
+                    Number.isFinite(baselinePx) && baselinePx > 0,
+                    `${name}-actual100-positive-computed-pixels`,
+                );
+                fontTargets.push({
+                    name,
+                    element,
+                    baselinePx,
+                    textSha256: await digest(element.textContent ?? ""),
+                    value: fontValue(element),
+                });
+            }
+        }
+        check(
+            fontTargets !== null && fontContextSha256 === contextSha256,
+            `${label}-same-fixed-session-lens-query-row-identities`,
+        );
+        const measured: FontMeasurement = {
+            label,
+            expectedRatio,
+            pixelTolerance: 0.05,
+            width: innerWidth,
+            height: innerHeight,
+            contextSha256,
+            targets: [],
+        };
+        fontMeasurements.push(measured); // Retain actual partial measurements if a target assertion fails.
+        for (let index = 0; index < targets.length; index++) {
+            const target = targets[index],
+                original = fontTargets![index],
+                actualPx = Number.parseFloat(
+                    getComputedStyle(target.element).fontSize,
+                ),
+                textSha256 = await digest(target.element.textContent ?? ""),
+                value = fontValue(target.element);
+            const expectedPx = original.baselinePx * expectedRatio;
+            measured.targets.push({
+                name: target.name,
+                baselinePx: original.baselinePx,
+                actualPx,
+                actualRatio: actualPx / original.baselinePx,
+                expectedPx,
+                textSha256,
+                value,
+            });
+            check(
+                target.name === original.name &&
+                    target.element === original.element &&
+                    target.element.isConnected,
+                `${label}-${target.name}-same-mounted-target`,
+            );
+            check(
+                textSha256 === original.textSha256 && value === original.value,
+                `${label}-${target.name}-same-actual-text-and-form-value`,
+            );
+            check(
+                Number.isFinite(actualPx) &&
+                    actualPx > 0 &&
+                    Math.abs(actualPx - expectedPx) <= 0.05,
+                `${label}-${target.name}-computed-target-font-ratio-${expectedRatio}`,
+            );
+        }
     };
     const oracle = async (label: string) => {
         const value = (await invoke("harness_v2_inspection_paging")) as Oracle;
@@ -815,6 +1021,7 @@ export async function v2InspectorPagingNativeJourneys({
             queryAttempts: queryCalls().length,
             errors: errors.snapshot(),
             pageProofs: pageProofs.slice(-4),
+            fontMeasurements,
             checks: checks.slice(-160),
         };
         check(
@@ -1250,6 +1457,16 @@ export async function v2InspectorPagingNativeJourneys({
             );
         }
         await oracle("after-session-reset-negative-and-stale-delivery");
+        c.layout(c.get().sidebarSize, c.get().inspectorSize, 100);
+        await invoke("harness_viewport", { preset: "wide" });
+        await until(
+            () =>
+                c.get().textScale === 100 &&
+                !!document.querySelector(".app.text-100"),
+            "actual100-state-class-before-target-font-baseline",
+        );
+        await idle();
+        await measureFonts("100-baseline", 1, true);
         c.layout(c.get().sidebarSize, c.get().inspectorSize, 150);
         for (const [preset, label] of [
             ["wide", "d05-page-enlarged-wide"],
@@ -1272,6 +1489,7 @@ export async function v2InspectorPagingNativeJourneys({
                     ) < 0.000001
                 );
             }, "actual150-state-class-computed-font-ratio");
+            await measureFonts(label, 1.5);
             await capture(label);
         }
         c.layout(c.get().sidebarSize, c.get().inspectorSize, 100);
@@ -1283,6 +1501,7 @@ export async function v2InspectorPagingNativeJourneys({
             "actual100-scale-restored",
         );
         await idle();
+        await measureFonts("100-restored", 1);
         traceBound();
         const allowed = new Set([
             "workspace",
@@ -1368,6 +1587,7 @@ export async function v2InspectorPagingNativeJourneys({
                 proofs,
                 pageProofs,
                 focusObservations,
+                fontMeasurements,
                 negativeProbes,
                 calls: trace(),
                 errors: errors.snapshot(),
@@ -1421,6 +1641,7 @@ export async function v2InspectorPagingNativeJourneys({
                 proofs,
                 pageProofs,
                 focusObservations,
+                fontMeasurements,
                 negativeProbes,
                 calls:
                     typeof g.startInspectorPagingTrace === "function"

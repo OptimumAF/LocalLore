@@ -23,9 +23,21 @@ function pagingLauncherMode(args) {
         args[0] === "--timeline-browser-v1"
     )
         return "timeline-browser";
+    if (Array.isArray(args) && args.length === 1 && args[0] === "--domain2-fork-v1")
+        return "domain2-fork";
     throw Error("ClosedPagingArgumentsRequired");
 }
 function pagingLauncherPlan(mode) {
+    if (mode === "domain2-fork")
+        return Object.freeze({
+            budgetKind: "d08_domain2_fork_budget_v1",
+            budgetPrefix: "d08-domain2-fork-budget-v1-",
+            artifacts: 20971520,
+            expectedEvidence: 20971520,
+            pagingEvidence: 33554432,
+            reportMode: "domain2_fork_v1",
+            labels: Object.freeze(["catalog", "rejected", "pending", "preauthor", "authored", "recovered", "enlarged"].map((name) => `d08-fork-${name}`)),
+        });
     if (mode === "timeline-browser")
         return Object.freeze({
             budgetKind: "d08_domain2_timeline_browser_budget_v3",
@@ -91,7 +103,7 @@ const limits = Object.freeze({
     sourceGrowth: 134217728,
     artifacts: plan.artifacts,
     entries: 2000000,
-    cumulativeEvidence: mode === "timeline-browser" ? 692060160 : 671088640,
+    cumulativeEvidence: mode === "paging" ? 671088640 : 692060160,
     expectedEvidence: plan.expectedEvidence,
     pagingEvidence: plan.pagingEvidence,
 });
@@ -121,8 +133,9 @@ if ((process.env.LIBSQLITE3_FLAGS ?? "").trim())
     throw Error("OrdinaryUncappedSQLiteRequired");
 // d05-paging-path-policy-v1:start
 const folder = path.join(base, `p-${randomUUID()}`);
-function fixedPagingWorkspace(folder, identifier) {
+function fixedPagingWorkspace(folder, identifier, mode = "paging") {
     if (
+        !["paging", "timeline-browser", "domain2-fork"].includes(mode) ||
         typeof folder !== "string" ||
         !path.isAbsolute(folder) ||
         typeof identifier !== "string" ||
@@ -133,7 +146,7 @@ function fixedPagingWorkspace(folder, identifier) {
         throw Error("PagingWorkspacePath");
     const workspace = path.join(
         folder,
-        `d05-v2-inspector-paging-native-${identifier}`,
+        `${mode === "domain2-fork" ? "d08-domain2-fork-native-" : "d05-v2-inspector-paging-native-"}${identifier}`,
     );
     const database = path.join(workspace, "stories-v1.sqlite");
     // UTF-16 units; leave room for the longest SQLite sidecar and its NUL.
@@ -142,7 +155,7 @@ function fixedPagingWorkspace(folder, identifier) {
     return { workspace, database };
 }
 // d05-paging-path-policy-v1:end
-const plannedWorkspace = fixedPagingWorkspace(folder, randomUUID());
+const plannedWorkspace = fixedPagingWorkspace(folder, randomUUID(), mode);
 const contains = (a, b) => {
     const rel = path.relative(a.toLowerCase(), b.toLowerCase());
     return (
@@ -542,9 +555,11 @@ function checkedPagingBudget(
     if (
         cursor !== text.length ||
         Object.keys(record).length !== keys.length ||
-        record.version !== (mode === "paging" ? 1 : 3) ||
+        record.version !== (mode === "timeline-browser" ? 3 : 1) ||
         record.kind !==
-            (mode === "paging"
+            (mode === "domain2-fork"
+                ? "d08_domain2_fork_budget_v1"
+                : mode === "paging"
                 ? "d05_v2_inspector_paging_budget_v1"
                 : "d08_domain2_timeline_browser_budget_v3") ||
         record.source_revision !== revision ||
@@ -589,7 +604,7 @@ const pagingEvidenceBytes =
 const qualificationEvidenceBytes =
     pagingEvidenceBytes +
     qualificationBudget.externalEvidenceBytes +
-    (mode === "timeline-browser"
+    (mode !== "paging"
         ? qualificationBudget.d05ExternalEvidenceBytes
         : 0);
 if (
@@ -932,10 +947,10 @@ try {
     await mkdir(workspace, { recursive: false });
     await run(executable, [], {
         LOCALLORE_D02_HARNESS: "1",
-        LOCALLORE_D05_INSPECTOR_PAGING_HARNESS: "1",
-        ...(mode === "timeline-browser"
-            ? { LOCALLORE_D08_TIMELINE_BROWSER_HARNESS: "1" }
-            : {}),
+        ...(mode === "domain2-fork"
+            ? { LOCALLORE_D08_DOMAIN2_FORK_HARNESS: "1" }
+            : { LOCALLORE_D05_INSPECTOR_PAGING_HARNESS: "1",
+                ...(mode === "timeline-browser" ? { LOCALLORE_D08_TIMELINE_BROWSER_HARNESS: "1" } : {}) }),
         LOCALLORE_TEST_WORKSPACE: plannedWorkspace.database,
         LOCALLORE_D02_ARTIFACT_DIR: path.join(workspace, "evidence"),
     });

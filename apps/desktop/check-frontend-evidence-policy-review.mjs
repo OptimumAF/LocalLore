@@ -244,9 +244,23 @@ async function driver({ args = ["--bounded"], script = () => ({}), w = world({ p
         nodeCalls: calls.filter((c) => !c.isGit), gitCalls: calls.filter((c) => c.isGit),
         text: logs.join(""), bundleReads: w.events.filter((e) => e.kind === "fs" && e.operation === "readFile" && key(e.path) === key(P.join(SRC, "dist", "app.js"))) };
 }
+function globalSuccess(r) {
+    // The actual driver's terminal message is an unquoted line. A JSON child
+    // receipt may legitimately retain the same words inside stdout/stderr.
+    const terminal = "PASS: strict TypeScript, current request/schema checks, and no development journey/control hooks in normal frontend.";
+    return r.logs.some((text) => {
+        if (text.split(/\r?\n/).some((line) => line === terminal)) return true;
+        let value; try { value = JSON.parse(text); } catch { return false; }
+        if (value?.kind !== "d09_frontend_evidence_run_v1") return false;
+        assert.equal(typeof value.passed, "boolean", "OverallReceiptPassedMustBeBoolean");
+        assert(Number.isSafeInteger(value.completedSteps) && value.completedSteps >= 0 && value.completedSteps <= 77,
+            "OverallReceiptCompletedStepsMustBeBoundedSafeInteger");
+        return value.passed;
+    });
+}
 function noDriverSuccess(r) {
     assert(r.error || r.fakeProcess.exitCode !== 0, "ActualDriverFailureMustNotExitSuccessful");
-    assert(!r.text.includes("PASS:"), "NoPassAfterFailure"); assert.equal(r.bundleReads.length, 0, "NoNormalBundleReadAfterFailure");
+    assert(!globalSuccess(r), "NoGlobalTerminalPassAfterFailure"); assert.equal(r.bundleReads.length, 0, "NoNormalBundleReadAfterFailure");
 }
 function failureStops(r, expectedChildren = 1) {
     noDriverSuccess(r); assert.equal(r.nodeCalls.length, expectedChildren); assert.equal(r.gitCalls.length, 2, "OnlyInitialReadOnlyGitBeforeFailedStep");
@@ -610,6 +624,18 @@ for (const [name, mutate, options = {}] of [
     const r = await driver({ w: world({ products: 16, ...options }), script: ({ isGit, index }) => !isGit && index === 0 ? { beforeClose: mutate } : {} });
     failureStops(r); assert.equal(r.policies[0].snapshot().status, "failed");
 });
+test("driver", "prior-child-PASS-prefix-survives-later-inventory-failure-without-global-success", async () => {
+    const earlier = "PASS: strict TypeScript, current request/schema checks, and no development journey/control hooks in normal frontend.";
+    const r = await driver({ script: ({ isGit, index }) => isGit ? {} : index === 0
+        ? { stdout: earlier + "\n" }
+        : index === 1 ? { beforeClose: (w) => w.faultNext("readdir") } : {} });
+    failureStops(r, 2);
+    assert(r.text.includes(earlier), "EarlierActualChildPrefixMustRemainRetained");
+    const policy = r.policies[0], failed = clone(policy.snapshot()), observed = r.w.events.length;
+    checkedSnapshot(failed, { status: "failed", nextIndex: 1, activeIndex: 1, error: "Inventory", currentBytes: null, productBytes: null });
+    await rejects(() => policy.beforeStep(2), "Inventory"); await rejects(() => policy.finish(), "Inventory");
+    assert.deepEqual(policy.snapshot(), failed); assert.equal(r.w.events.length, observed, "RetiredPolicyAddsNoIO");
+});
 test("driver", "multibyte-both-original-stream-counts-kept-separate", async () => {
     const r = await driver({ script: ({ isGit, index }) => !isGit && index === 0 ? { stdout: "雪".repeat(7), stderr: "é".repeat(11) } : {} });
     assert.equal(r.error, null); roster(r);
@@ -674,9 +700,9 @@ test("source", "original-normal-bundle-exclusion-assertions-preserved", () => {
         "ActualOriginalNormalBundleExclusionPredicateAndMessage");
 });
 
-const frozenGroups = { record: 30, path: 24, budget: 13, lifecycle: 24, inventory: 4, driver: 39, routing: 12, source: 2 };
+const frozenGroups = { record: 30, path: 24, budget: 13, lifecycle: 24, inventory: 4, driver: 40, routing: 12, source: 2 };
 const authoredGroups = {}; for (const entry of tests) authoredGroups[entry.group] = (authoredGroups[entry.group] ?? 0) + 1;
-assert.deepEqual(authoredGroups, frozenGroups, "Frozen148CaseSourceRoster");
+assert.deepEqual(authoredGroups, frozenGroups, "Frozen149CaseSourceRoster");
 
 // Setup must succeed before ANY behavior runs. The absent prospective producer
 // is not behavior RED, a skipped PASS, or permission to supply a copied policy.

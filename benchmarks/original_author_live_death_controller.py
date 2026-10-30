@@ -13,6 +13,8 @@ from pathlib import Path
 import sys
 import threading
 import time
+import re
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 if __package__ in (None, ''):
@@ -38,6 +40,91 @@ AUTHOR_OWNER_SECONDS = 270
 BARRIER = b'LL_OWNED_LIVE_AUTHOR_V1\n'
 CHECKPOINT_ROOT = reader.CHECKPOINT_ROOT
 _shell = original._shell
+
+
+def _verify_build_closed(pin, admission):
+    """File-only SDK6 build replay; legacy SDK5 manifests remain unchanged."""
+    value = original._json(pin)
+    _need(set(value) == original.BUILD_KEYS and type(value['version']) is int and value['version'] == 1 and
+          value['scope'] == 'owned_live_death_android_build_admission_v1')
+    _need(type(value['head']) is str and re.fullmatch('[0-9a-f]{40}', value['head']) is not None)
+    current = original._json(value['sources'])
+    _need(type(current) is dict and 1 <= len(current) <= 10000)
+    for name, digest in current.items():
+        _need(type(name) is str and name and '\\' not in name and ':' not in name and
+              not name.startswith('/') and all(part and part not in ('.', '..') for part in name.split('/')) and
+              type(digest) is str and re.fullmatch('[0-9a-f]{64}', digest) is not None)
+        path = env.safe_path(ROOT/name)
+        _need(path.is_relative_to(ROOT) and env.digest(path) == digest)
+    required = [*admission['sources'], admission['artifacts']['process_probe_source'],
+                env.binding(ROOT/'scripts/build_android_author_process_probe.py')]
+    for source in required:
+        path = Path(source['path'])
+        _need(path.is_relative_to(ROOT) and current.get(path.relative_to(ROOT).as_posix()) == source['sha256'])
+        original._check_binding(source)
+    compiled = original._compiled_sources(current)
+    _need(original._json(value['compiled']) == compiled)
+    counts = value['counts']
+    _need(type(counts) is dict and all(type(item) is int for item in counts.values()) and
+          counts == dict(tracked=len(current), compiled=len(compiled), jvm=600, reports=59))
+    for mapping in (value['build_files'], value['fresh_lint_files']):
+        _need(type(mapping) is dict)
+        for artifact in mapping.values():
+            original._check_binding(artifact)
+    for key in ('independent_build', 'independent_lint'):
+        _need(original._json(value[key])['passed'] is True)
+    files = value['build_files']
+    request = original._json(files['request-v1.json'])
+    _need(request['sources'] == current == original._json(files['sources-before-v1.json']) ==
+          original._json(files['sources-after-v1.json']))
+    result = original._json(files['result-v1.json'])
+    _need(result['passed'] is True and result['sources_equal'] is True and
+          original.build_verification.owner_ok(result))
+    summaries = original._json(files['test-summary-v1.json'])
+    _need(type(summaries) is list and len(summaries) == 59 and len({item['name'] for item in summaries}) == 59)
+    total, cases = 0, []
+    for item in summaries:
+        _need(type(item['name']) is str and Path(item['name']).name == item['name'])
+        root = ET.parse(files['reports/'+item['name']]['path']).getroot()
+        _need(root.tag == 'testsuite')
+        for key in ('tests', 'failures', 'errors', 'skipped'):
+            _need(type(item[key]) is int and item[key] == int(root.attrib[key]))
+        rows = root.findall('testcase')
+        _need(len(rows) == item['tests'] and all(item[key] == 0 for key in ('failures', 'errors', 'skipped')))
+        for row in rows:
+            pair = (row.attrib.get('classname'), row.attrib.get('name'))
+            _need(all(type(part) is str and part for part in pair) and
+                  not any(row.find(tag) is not None for tag in ('failure', 'error', 'skipped')))
+            cases.append(pair)
+        total += item['tests']
+    _need(total == len(cases) == len(set(cases)) == 600)
+    lint = value['fresh_lint_files']
+    lint_request = original._json(lint['request-v1.json'])
+    _need(lint_request['sources'] == current == original._json(lint['sources-after-v1.json']) and
+          original._json(lint['result-v1.json'])['passed'] is True and
+          original._json(lint['litert-analyzer-audit.json'])['analysis_did_work'] is True)
+    _need(not any(issue.attrib.get('severity') in ('Error', 'Fatal') for issue in
+                  ET.parse(lint['lint-results-debug.xml']['path']).getroot()))
+    _need(len(value['apks']) == 2)
+    for apk, package, key in zip(value['apks'], (c6.APP, c6.TEST), ('product_apk', 'test_apk')):
+        _need(apk['package'] == package and {name: apk[name] for name in ('path', 'bytes', 'sha256')} ==
+              admission['artifacts'][key])
+        original._check_binding(admission['artifacts'][key])
+    native = original._verify_process_probe_build(value['process_probe_build'], admission)
+    started = original._json(native['started'])
+    c6._obj(started, ('worker', 'request'))
+    c6._process(started['worker'])
+    _need(started['request'] == native['request'] and
+          started['worker']['executable'] == admission['python']['executable']['path'])
+    return value
+
+
+def _verify_build(pin, admission):
+    value = _verify_build_closed(pin, admission)
+    _need(original._json(value['sources']) == original._source_map() and
+          original._json(value['compiled']) == original._compiled_map() and
+          value['head'] == original._current_head())
+    return value
 
 
 def _need(value, reason='checks_failed'):
@@ -305,7 +392,7 @@ def run(admission_binding, running_binding, build_binding, output_root):
     _need(c6.source_bindings() == a['sources'])
     c6.validate_running(_bound(running_binding), a, admission_binding)
     _need(a['artifacts']['build'] == build_binding)
-    manifest = original._verify_build(build_binding, a)
+    manifest = _verify_build(build_binding, a)
     output = output_control.validate_output(str(output_root)); output.mkdir()
     request = dict(version=1, protocol='original-author-live-death-controller-request-v1',
         admission=admission_binding, running=running_binding, build=build_binding, root=str(output),

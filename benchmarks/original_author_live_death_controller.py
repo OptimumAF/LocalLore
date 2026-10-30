@@ -86,7 +86,8 @@ def _verify_build_closed(pin, admission):
     for item in summaries:
         _need(type(item['name']) is str and Path(item['name']).name == item['name'])
         root = ET.parse(files['reports/'+item['name']]['path']).getroot()
-        _need(root.tag == 'testsuite')
+        _need(root.tag == 'testsuite' and type(root.attrib.get('name')) is str and
+              item['name'] == 'TEST-'+root.attrib['name']+'.xml')
         for key in ('tests', 'failures', 'errors', 'skipped'):
             _need(type(item[key]) is int and item[key] == int(root.attrib[key]))
         rows = root.findall('testcase')

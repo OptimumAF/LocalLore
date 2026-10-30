@@ -108,7 +108,7 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
                     }
                     OriginalField("Save title",state.title,"original-title",editable) { text(OriginalTextField.TITLE,it) }
                     if(world!=null) OriginalAction("Review changes",editable && validStoryTitle(state.title) && OriginalStoryWire.valid(input,world),"original-review") { onReview(state) }
-                    if(!OriginalStoryWire.valid(input,world)) Text("Complete the fields before generating or reviewing. Keep names and descriptions short; check the locations and who knows each fact.",color=MaterialTheme.colorScheme.error)
+                    if(!OriginalStoryWire.valid(input,world)) Text("Complete the fields before generating or reviewing. Use a different name for each character, including the player. Keep names and descriptions short; check the locations and who knows each fact.",color=MaterialTheme.colorScheme.error)
                     state.review?.let { review ->
                         Text("Reviewed starting world",modifier=Modifier.semantics { heading() })
                         review.details.forEach { Text(it) }

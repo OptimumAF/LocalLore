@@ -1,10 +1,16 @@
 // Privacy/race regressions run the actual frontend controller, not a parallel reducer.
 import { build } from "esbuild";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import evidencePath from "node:path";
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
-const folder = new URL("./artifacts/checks/", import.meta.url);
+const folder = process.env.LOCALLORE_CHECK_OUTPUT_DIR
+    ? pathToFileURL(
+          evidencePath.resolve(process.env.LOCALLORE_CHECK_OUTPUT_DIR) +
+              evidencePath.sep,
+      )
+    : new URL("./artifacts/checks/", import.meta.url);
 mkdirSync(folder, { recursive: true });
 const file = new URL(`export-controller-${randomUUID()}.mjs`, folder);
 const compiled = await build({

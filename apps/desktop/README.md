@@ -380,6 +380,15 @@ Play/Lab presentation selection does not mutate that native construction grant.
 Run these developer checks from the repository root; the qualification record
 identifies the executed source, target directories and results:
 
+The opt-in `node verify-frontend.mjs --bounded` mode (desktop cwd) adds prospective
+evidence admission, per-step accounting and finite child/output limits to the
+fixed frontend checks. It requires existing ordinary physical-D output/_tmp
+directories and a separate source-bound budget record. [Qualification and retained
+failures](../../docs/desktop/D09_FRONTEND_EVIDENCE_ADMISSION_QUALIFICATION_2026-10-30.md)
+distinguish171 policy checks with doubles, actual routed controller checks and the
+measured77-step bounded frontend run. This is cooperative development tooling, not an OS
+quota or application security qualification. Legacy zero-argument checks remain.
+
 ```powershell
 cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --test comparison_selected_review -- --nocapture --test-threads=1
 cargo test --locked --offline --manifest-path crates/locallore-eval/Cargo.toml --features local-model --jobs 1 --test comparison_selected_alias_review -- --nocapture --test-threads=1

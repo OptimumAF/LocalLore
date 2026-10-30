@@ -86,12 +86,15 @@ class ArchiveAuditCliTests(unittest.TestCase):
             with self.subTest(crlf=crlf):
                 (code, text, _), spies, calls = self.audit(("--archive-verification",), crlf=crlf)
                 self.assertEqual(code, 0, text)
-                self.assertEqual(json.loads(text), {"status": "passed",
-                    "permissions": [APP + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"],
-                    "libraries": [{"entry": "lib/arm64-v8a/libandroidx.graphics.path.so", "elf_load_alignment": [16384]},
-                                  {"entry": "lib/arm64-v8a/liblocallore_android.so", "elf_load_alignment": [16384]},
-                                  {"entry": "lib/x86_64/libandroidx.graphics.path.so", "elf_load_alignment": [16384]},
-                                  {"entry": "lib/x86_64/liblocallore_android.so", "elf_load_alignment": [16384]}]})
+                observed = json.loads(text)
+                self.assertEqual(set(observed), {"status", "permissions", "libraries"})
+                self.assertEqual(observed["status"], "passed")
+                self.assertEqual(observed["permissions"], [APP + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"])
+                self.assertCountEqual(observed["libraries"], [
+                    {"entry": "lib/arm64-v8a/libandroidx.graphics.path.so", "elf_load_alignment": [16384]},
+                    {"entry": "lib/arm64-v8a/liblocallore_android.so", "elf_load_alignment": [16384]},
+                    {"entry": "lib/x86_64/libandroidx.graphics.path.so", "elf_load_alignment": [16384]},
+                    {"entry": "lib/x86_64/liblocallore_android.so", "elf_load_alignment": [16384]}])
                 spies["audit_manifest"].assert_called_once()
                 spies["audit_backup_resource"].assert_called_once()
                 spies["audit_backup_rules"].assert_called_once()

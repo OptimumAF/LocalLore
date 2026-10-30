@@ -20,6 +20,11 @@ if mode=='complete':
     sys.stdout.buffer.flush()
     sys.stderr.buffer.write(b'original diagnostic\n'*1234)
     sys.stderr.buffer.flush()
+elif mode=='combined-at-limit':
+    sys.stderr.buffer.write(b'e'*(3*1024*1024))
+    sys.stderr.buffer.flush()
+    sys.stdout.buffer.write(b'o'*(1024*1024))
+    sys.stdout.buffer.flush()
 elif mode=='combined-overflow':
     sys.stderr.buffer.write(b'e'*(3*1024*1024))
     sys.stderr.buffer.flush()
@@ -71,6 +76,14 @@ class ResourceTableProcessTests(unittest.TestCase):
         result=host.run_resource_table(self.command('combined-overflow'))
         self.assertEqual(result.status,'output_limit');self.assertIs(result.cleanup_complete,True)
         self.assertGreater(result.stderr_bytes,0);self.assertGreater(len(result.stdout),0)
+        self.assertEqual(len(result.stdout)+result.stderr_bytes,4*1024*1024)
+
+    def test_exact_combined_limit_then_eof_is_complete_with_both_counts_preserved(self):
+        result=host.run_resource_table(self.command('combined-at-limit'))
+        self.assertEqual(result.status,'completed');self.assertEqual(result.returncode,0)
+        self.assertIs(result.cleanup_complete,True)
+        self.assertEqual(result.stdout,b'o'*(1024*1024))
+        self.assertEqual(result.stderr_bytes,3*1024*1024)
         self.assertEqual(len(result.stdout)+result.stderr_bytes,4*1024*1024)
 
     def test_fixed_deadline_retains_partial_capture_and_reaps_only_owned_producer(self):

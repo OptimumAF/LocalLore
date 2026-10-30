@@ -8,22 +8,33 @@ development-runner change does not reopen that cohort or the stopped D09 probes.
 ## Observation and scope
 
 At tested b87ecc3a, the existing76-child frontend driver functionally passed but
-retained38,790,893 bytes against a declared33,554,432-byte allocation. The
+retained38,790,893 bytes in the designated root against a33,554,432-byte allocation. The
 coordinator measured only after the whole driver. Multiple retained source bundles
 made the forecast too small. Existing native evidence and all failures survive;
-larger aggregate headroom does not cure the failed suballocation.
+larger aggregate headroom does not cure the failed suballocation. Later read-only
+reconciliation finds four additional source-routed bundles/276,119 bytes, making
+combined frontend evidence39,067,012 bytes and the overrun5,512,580 bytes before
+outer logs/build products. The original narrower failure record stays unchanged.
 
 Add opt-in `node verify-frontend.mjs --bounded` to the existing fixed roster.
 Zero-argument legacy mode retains its existing checks; unknown/repeated arguments
 fail before any child. No accepted child selector, shell text, executable path,
 test source or remote service is introduced. The bounded path still launches only
-the current Node executable and the source-controlled roster, sequentially, with
-shell:false, windowsHide:true and no desktop/native/model/SDK launch in this work.
-No existing test body/assertion is edited or omitted. The new independent policy
+the current Node executable and source-controlled roster, sequentially, with
+shell:false and windowsHide:true. Existing esbuild launches its installed native
+BUILD TOOL service; this is neither a native application journey nor a model/SDK
+operation. Bounded mode refuses nonempty ESBUILD_BINARY_PATH rather than accepting
+an alternate executable. Trusted provisioned Node/dependencies/environment remain
+prerequisites; this is not a general hostile-environment execution boundary.
+No existing test assertion/body is edited or omitted. Four routing preambles are
+changed only to honor LOCALLORE_CHECK_OUTPUT_DIR with their original fallback,
+UUID names and bundle bytes: check-contract.mjs, check-export-controller.mjs,
+check-model-controller.mjs and check-inspection-controller.mjs. Existing
+build.mjs remains unmodified. The new independent policy
 test is registered once; future bounded success requires every registered step.
 
 Root owns new apps/desktop/frontend-evidence-policy.mjs and existing
-verify-frontend.mjs plus docs. Independent FIRST owns only new
+verify-frontend.mjs, the four routing preambles above, plus docs. Independent FIRST owns only new
 check-frontend-evidence-policy-review.mjs on its separate branch/worktree. Freeze
 the accepted contract/FIRST before different-author production. No Rust, UI,
 Host, schema, inference, .github, dependency or global setting change.
@@ -33,6 +44,7 @@ Host, schema, inference, .github, dependency or global setting change.
 The helper exports immutable FRONTEND_EVIDENCE_LIMITS:
 
 - outputBytes67,108,864; cumulativeBytes671,088,640;
+- productBytes16,777,216;
 - stepReserveBytes4,194,304; metadataReserveBytes1,048,576;
 - entries2,000,000; streamBytes262,144 per stream per child;
 - childMs240,000; stopGraceMs5,000.
@@ -40,17 +52,31 @@ The helper exports immutable FRONTEND_EVIDENCE_LIMITS:
 These are local cooperative runner limits, not an OS quota. An individual trusted
 child may write beyond a reservation before the next inventory. Such an overrun
 must FAIL and latch; never promise containment of arbitrary filesystem writers,
-all descendant processes or writes outside the designated root. Other temporary
-outputs require their own accounted admission; neither this mode nor source
+all descendant processes or arbitrary writes outside measured roots. Neither this mode nor source
 review grants device, native application, real-model or isolation execution.
 
 Bounded mode requires explicit LOCALLORE_CHECK_OUTPUT_DIR and
 LOCALLORE_CHECK_BUDGET_FILE. Both already exist on physical D:. Output and source
 directories are disjoint (neither contains the other); the ordinary admission
-file is outside both. Reject aliases/reparse ancestors, missing paths and wrong
-entry types. Recheck output identity/ancestors during inventories. Set process
-TEMP and TMP to the existing physical D:/Dev/_Temp before starting children;
-no global environment/tool changes or implicit directory creation.
+file is outside both. Use actual Node observables: ordinary lstat entry types,
+isSymbolicLink and realpath alias refusal, recording realpath/dev/ino directory
+identity and rejecting detected changes. Recheck ancestors/identity during
+inventories; do not claim rejection of every Windows reparse tag, an OS lease or
+raceproof admission. Missing required paths/wrong types refuse. Children receive
+TEMP/TMP=path.join(outputDir,"_tmp"), an ALREADY EXISTING ordinary physical-D
+subdirectory included in the output inventory. This accounts esbuild's conditional
+os.tmpdir staging; the source audit does not prove that branch ran previously.
+The commanding shell starts with TEMP/TMP D:/Dev/_Temp. No global changes or
+implicit directory creation. Direct-child closure does not prove every build-tool
+descendant drained or stopped writing; retain that cooperative limitation.
+
+Meter the known source products separately: sourceRoot/dist recursively and
+sourceRoot/ui/host.generated.ts. Missing dist/product leaf means zero bytes;
+existing entries/parents must pass the same ordinary-path checks. These are fixed
+paths, not a supplied file selector. Refuse product total above productBytes.
+Charge live products in aggregate accounting and positive growth in each step;
+they are not covered by the output-root limit. The external evidence count must
+exclude these separately metered live products to avoid duplicate charging.
 
 The coordinator creates a NEW <=4096-byte admission file. Exact serialization is
 UTF-8 JSON.stringify of the following eight keys IN THIS ORDER plus one LF:
@@ -72,7 +98,10 @@ outside output, including this record; no private filesystem path is in the JSON
 Path digest is SHA256 of UTF-8 path.resolve(output).toLowerCase() on Windows.
 Source revision is the current HEAD, never a branch name or caller-supplied claim.
 
-No replacing a consumed record, cap increase/reset, deletion or automatic retry.
+The coordinator never replaces/reuses a consumed record, raises/resets a failed
+cap, deletes evidence or retries automatically. The read/inventory-only module
+enforces one policy instance; it is not a persistent one-shot registry. A
+zero-growth run could reopen a record, so no cross-instance exclusion is claimed.
 Failed/spent previous gates are reported independently even when their retained
 bytes are charged in external_evidence_bytes. The640MiB named aggregate does not
 claim an inventory of all historical project data.
@@ -99,14 +128,20 @@ command or externally callable service is exported by this module. Tests import
 the actual helper with disclosed fs/path/timer doubles where appropriate; actual
 driver tests intercept its fixed child calls, not a copied scheduling policy.
 
-Indexes start at0 and advance exactly once. No overlapping step, skipped index,
-reuse after finish or recovery after any failure. beforeStep inventories actual
+Indexes start at0 and advance exactly once. All async methods acquire a private
+in-flight guard synchronously BEFORE their first await. A concurrent method call
+latches Sequence failure; the original pending method must recheck that latch
+before publishing success. No overlapping step, skipped index, reuse after finish
+or recovery after failure. beforeStep inventories actual
 ordinary files/directories, rejecting unsupported entries, reparse/path changes,
-unsafe sums or entry overflow. Require output+stepReserve+metadataReserve within
-the admitted output limit, and external+that sum within the fixed aggregate limit,
+unsafe sums or combined output/product entry overflow. Require output+stepReserve+
+metadataReserve within the admitted output limit, and external+products+that sum
+within the fixed aggregate limit,
 before permitting the next child. No mutation occurs during inventory.
 
-completeStep receives the CLOSED result shape:
+Successful beforeStep captures THIS STEP's output/product measurements, not the
+record's original baseline, and admits exactly that index. completeStep receives
+the CLOSED result shape:
 
 ```js
 { code, closed, timedOut, truncated, error, stdoutBytes, stderrBytes }
@@ -116,16 +151,30 @@ code is an integer or null; the four flags closed/timedOut/truncated/error are
 booleans; stream byte counts are safe nonnegative integers. Reject extra keys and
 malformed values. Require known close, code0, no timeout/truncation/error and each
 stream within streamBytes. Inventory again; output may not exceed its admitted
-limit, grow more than stepReserveBytes since admission, or exhaust the reserved
-metadata headroom. Decreases do not erase failures or authorize cleanup. Any bad
+limit or exhaust metadata headroom; products may not exceed their fixed cap;
+external+output+products+metadataReserve must fit aggregate. The SUM of positive
+output growth and positive product growth since THIS STEP's beforeStep may not
+exceed stepReserveBytes. A shrinking product cannot subsidize new evidence.
+Decreases do not erase failures or authorize cleanup. Any bad
 outcome/inventory sticks FAILED and forbids subsequent step/finish success.
 
 finish is allowed only while healthy, no child outstanding and at least one step
 completed; it inventories and checks caps again. The driver calls it only after
 ALL fixed steps, then performs its existing normal-bundle exclusion assertions.
-snapshot is detached bounded metadata with status, nextIndex, activeIndex,
-initialBytes, currentBytes and error category; callers cannot clear a latch by
-mutating it. Missing implementations/interfaces are UNRUN_SETUP in FIRST, never
+snapshot has exactly seven keys: status,nextIndex,activeIndex,initialBytes,
+currentBytes,productBytes,error. Status is ready initially/after completeStep,
+running after successful beforeStep, finished after finish, failed after the first
+failure. nextIndex is the count of successfully completed steps; activeIndex is
+null before admission/after success, or the admitted integer retained on failure.
+initialBytes is the checked output baseline; currentBytes/productBytes are the
+latest measured safe integers, or BOTH null after an unavailable inventory or
+unknown child closure. error is null or the first sticky category: Admission,
+Path,Inventory,Reserve,Sequence,Outcome,StepBudget,OutputBudget,ProductBudget,
+AggregateBudget,UnknownChild. Throw Error("FrontendEvidence"+category).
+parse/open admission errors use the same vocabulary. All three async methods
+return a detached snapshot on success. Calls after failed/finished throw without
+altering the retired state. snapshot itself never performs IO or exposes mutable
+internal state. Missing implementations/interfaces are UNRUN_SETUP in FIRST, never
 zero-case PASS or invented behavioral failures.
 
 ## Driver lifetime and evidence
@@ -146,8 +195,9 @@ known closure but still FAILS the timeout/overflow. Missing close at grace expir
 sticks unknown ownership and stops the runner; no retry or later child. Signal,
 spawn failure and nonzero exit are failures. Listen for close, not merely exit.
 
-Print each bounded child prefix after its known outcome, followed by bounded
-machine-readable metadata; do not invent passing cases from truncated evidence.
+Print each bounded child prefix as JSON string fields with bounded
+machine-readable metadata, including original byte counts and known/unknown
+closure; do not invent passing cases from truncated evidence.
 No automatic artifact directory, model/native execution, output deletion or
 normal-product restoration branch is added. A final bounded summary states exact
 fixed step count, success/failure and cooperative limitations. Public reports
@@ -156,9 +206,12 @@ redact local paths; private logs remain local/ignored.
 ## Verification and admission gate
 
 Independent FIRST covers strict record/path/size admission, aggregate accounting,
-existing nonempty roots, before-step reserves, exact indexes/one outstanding child,
-post-child growth and metadata reserve, sticky failures despite later shrink,
-reparse/unknown/overflowing inventories, detached snapshots and finish sequencing.
+existing nonempty roots, fixed product accounting, the existing owned _tmp path,
+before-step reserves, exact indexes/one outstanding child/async reentry,
+post-child positive growth and metadata reserve, sticky failures despite later
+shrink, observable path/identity/unknown/overflowing inventories, detached snapshots
+and finish sequencing. Exercise the actual four routing preambles to prove the
+explicit root is honored and original fallback/UUID/assertions are preserved.
 Exercise actual driver source with disclosed child/fs/Git/timer doubles: unchanged
 fixed roster, zero/--bounded arguments, no arbitrary child selection, close versus
 exit, bounded multibyte/error output, deadline/stop/grace and no later Git/child/

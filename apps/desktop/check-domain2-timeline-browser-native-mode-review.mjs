@@ -109,8 +109,12 @@ if (!setup.length)
         const limitsStart = source.indexOf("const limits = Object.freeze({"),
             limitsEnd = source.indexOf("\n});", limitsStart);
         assert(
-            limitsStart >= 0 && limitsEnd > limitsStart &&
-                source.indexOf("const limits = Object.freeze({", limitsStart + 1) < 0,
+            limitsStart >= 0 &&
+                limitsEnd > limitsStart &&
+                source.indexOf(
+                    "const limits = Object.freeze({",
+                    limitsStart + 1,
+                ) < 0,
             "UniqueActualLimitsDeclaration",
         );
         blocks.limits = source.slice(limitsStart, limitsEnd + "\n});".length);
@@ -163,11 +167,13 @@ function modeApi() {
 }
 function limitsFor(mode) {
     const plan = plain(modeApi().pagingLauncherPlan(mode));
-    return plain(runInNewContext(
-        `(()=>{${blocks.limits}\nreturn limits;})()`,
-        { mode, plan },
-        { timeout: 1000 },
-    ));
+    return plain(
+        runInNewContext(
+            `(()=>{${blocks.limits}\nreturn limits;})()`,
+            { mode, plan },
+            { timeout: 1000 },
+        ),
+    );
 }
 function record(mode, patch = {}) {
     return {
@@ -481,17 +487,34 @@ register(
             ).externalEvidenceBytes,
             520 * MiB,
         );
-        assert.throws(() => api.checkedPagingBudget(
-            Buffer.from(JSON.stringify(record("timeline-browser", { version: 1 }))),
-            revision, paths.target, 1000, "timeline-browser",
-        ));
-        assert.throws(() => api.checkedPagingBudget(
-            Buffer.from(JSON.stringify(record("timeline-browser", {
-                version: 1, kind: "d08_domain2_timeline_browser_budget_v1",
-                cumulative_limit_bytes: 640 * MiB,
-            }))),
-            revision, paths.target, 1000, "timeline-browser",
-        ));
+        assert.throws(() =>
+            api.checkedPagingBudget(
+                Buffer.from(
+                    JSON.stringify(record("timeline-browser", { version: 1 })),
+                ),
+                revision,
+                paths.target,
+                1000,
+                "timeline-browser",
+            ),
+        );
+        assert.throws(() =>
+            api.checkedPagingBudget(
+                Buffer.from(
+                    JSON.stringify(
+                        record("timeline-browser", {
+                            version: 1,
+                            kind: "d08_domain2_timeline_browser_budget_v1",
+                            cumulative_limit_bytes: 640 * MiB,
+                        }),
+                    ),
+                ),
+                revision,
+                paths.target,
+                1000,
+                "timeline-browser",
+            ),
+        );
     },
 );
 register("decoder", "browser-duplicate-key-stays-refused", async () => {

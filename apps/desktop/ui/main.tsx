@@ -68,6 +68,7 @@ declare global {
             sceneModelGuard?: boolean;
             inspectorPaging?: boolean;
             timelineBrowser?: boolean;
+            domain2Fork?: boolean;
             nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
@@ -103,6 +104,13 @@ const authorHarnessModule =
         : null;
 const authorTransport = authorHarnessModule
     ? new authorHarnessModule.AuthorHarnessTransport()
+    : null;
+const domain2ForkModule =
+    __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.domain2Fork
+        ? await import("./domain2-fork-native-journeys")
+        : null;
+const domain2ForkTrace = domain2ForkModule
+    ? new domain2ForkModule.Domain2ForkTrace()
     : null;
 const brokerRetention = new BrokerRetention((surface) =>
     surface === "author"
@@ -179,7 +187,12 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
                 maintenance.get().operation?.running))
     )
         return Promise.reject("ArchiveBusy");
-    const rawNative = () => window.__TAURI__.core.invoke(command, args);
+    const rawNative = () =>
+        domain2ForkTrace
+            ? domain2ForkTrace.dispatch(command, args, () =>
+                  window.__TAURI__.core.invoke(command, args),
+              )
+            : window.__TAURI__.core.invoke(command, args);
     const native = () =>
         authorTransport
             ? authorTransport.native(command, args, rawNative)
@@ -765,7 +778,11 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   ? durableDriver.durableJourneys
                   : driver.journeys;
     const sceneCase = window.__LOCALLORE_TEST__?.sceneCase;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelineBrowser) {
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.domain2Fork && domain2ForkModule && domain2ForkTrace) {
+        await domain2ForkModule.domain2ForkNativeJourneys({
+            controller, fork, timeline, v2, errors, invoke, trace: domain2ForkTrace, dispose,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelineBrowser) {
         const { domain2TimelineBrowserNativeJourneys } =
             await import("./domain2-timeline-browser-native-journeys");
         await domain2TimelineBrowserNativeJourneys({

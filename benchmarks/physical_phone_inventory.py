@@ -42,7 +42,7 @@ def _frame(service):
 TPORT_REQUEST = _frame(b'host:tport:usb')
 SHELL_REQUEST = _frame(b'shell,v2,raw:' + shlex.join(('sh', '-c', SCRIPT)).encode('utf-8'))
 CLOSE_STDIN = b'\x04\x00\x00\x00\x00'
-REASONS = old.REASONS | {'roster', 'target', 'transport', 'shell', 'facts'}
+REASONS = roster.REASONS | {'roster', 'target', 'transport', 'shell', 'facts'}
 REPORT_KEYS = frozenset(('version protocol feature_acceptance admission status reason roster_proof target '
     'stages tport_attempted device_request_attempted stdin_close_attempted tport_sent '
     'device_request_sent stdin_closed wire_hex response_complete ownership_verified client_raw_state '
@@ -223,8 +223,9 @@ def probe(backend, admission, roster_proof):
     try:
         admitted = validate_admission(admission)
         report['admission'] = admitted
-        target = selected_target(admitted, roster_proof)
-        report['roster_proof'], report['target'] = copy.deepcopy(roster_proof), target
+        prior = copy.deepcopy(roster_proof)
+        target = selected_target(admitted, prior)
+        report['roster_proof'], report['target'] = copy.deepcopy(prior), target
         resource = backend_admission(admitted)
         started = last = old._now(backend)
         until = started + MAX_SECONDS
@@ -261,10 +262,10 @@ def probe(backend, admission, roster_proof):
             return bytes(chunks)
         call('open', resource)
         initial = old._bracket(call('bracket', resource), resource)
-        _need(roster._same(initial['client'], roster_proof['stages'][0]['bracket']['client']), 'identity')
+        _need(roster._same(initial['client'], prior['stages'][0]['bracket']['client']), 'identity')
         rows, snapshot = old._snapshot(call('snapshot'))
         report['stages'].append(dict(stage='initial', bracket=initial, snapshot=snapshot))
-        _candidates(rows, admitted, roster_proof)
+        _candidates(rows, admitted, prior)
         call('connect')
         endpoint = old._endpoint(call('endpoint'))
         report['stages'].append(dict(stage='connected', endpoint=endpoint))
@@ -273,7 +274,7 @@ def probe(backend, admission, roster_proof):
             rows, snapshot = old._snapshot(call('snapshot'), endpoint)
             after = old._endpoint(call('endpoint'), endpoint)
             bracket = old._bracket(call('bracket', resource), resource, initial)
-            _candidates(rows, admitted, roster_proof)
+            _candidates(rows, admitted, prior)
             state = old._join(rows, endpoint, resource['server']['pid'], initial['client']['pid'])
             report['stages'].append(dict(stage=name, endpoint_before=before, endpoint_after=after,
                 bracket=bracket, snapshot=snapshot, client_raw_state=state))
@@ -297,7 +298,7 @@ def probe(backend, admission, roster_proof):
                      bracket=old._bracket(call('bracket', resource), resource, initial))
         report['stages'].append(final)
         rows, final['snapshot'] = old._snapshot(call('snapshot'), endpoint)
-        _candidates(rows, admitted, roster_proof)
+        _candidates(rows, admitted, prior)
         report['status'], report['reason'] = 'observed', None
     except BaseException as error:
         report['reason'] = (error.reason if isinstance(error, (InventoryRefused, old.ProbeRefused, roster.RosterRefused)) else

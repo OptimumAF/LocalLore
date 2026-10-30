@@ -47,6 +47,7 @@ formatting proofs locally.
 | Actual mounted journey |eabd3d1d; raw SHA7bfb9145c7f52b7e2322a275dff726ca5200d455a61a4f0f4568a99630864cb0 |332e624b/b8a4a92b |
 | Target font assertions |2efd4de6; raw SHA7560acdd2b93627565df95208d7a1cf1fa66d98e8e15f128d58e7657c4f2f1d7 |6389cf33; CSS792ffc76 |
 | Restoration245 checks |57ce05b3; raw SHA27fafc9d59390bf10ad8a3b46c77940c0b5d73ea6b5735a6c3b2625a8fcf53b0 |f4ba609f; fix1f7271a5; formatdfb3a372 |
+| Fixed-path38 checks |7a9284c0; raw SHA2afee4043e048058819142d415d98d7ecd6cdf4e4c28982f91747c582ab233e2 |cd7a239e/815a7bc3; production2da3ee84 |
 
 The old controller test stalled at dc8069fa: it changed context before the older
 refresh had entered its intended fake RPC. Independent f7c8e158 adds bounded
@@ -88,6 +89,8 @@ React19.3.1, TypeScript7.0.2, Tauri2.12.5, esbuild0.28.2, Prettier3.9.10.
 |792ffc76 Android bridge |`cargo test -p locallore-android --lib --locked --offline` |23/23;3.466s command/1.32s tests; Windows-host Rust only |
 |a940c3a8 launcher FIRST |desktop cwd: `node check-v2-inspector-paging-process-review.mjs` |245/245;0.307s; actual private source in VM with disclosed child/timer/file doubles |
 |a940c3a8 changed frontend targets |Prettier --check over10 changed UI/launcher/verifier/FIRST targets |PASS;0.650s |
+|2da3ee84 fixed paths |desktop cwd: `node check-v2-inspector-paging-path-review.mjs` |38/38;0.133s; actual private path block in VM, string/caller-order checks only |
+|2da3ee84 launcher policy |desktop cwd: `node check-v2-inspector-paging-process-review.mjs` |245/245;0.290s |
 
 Native FIRST executes production Store/Workspace/Host/Engine, not IPC/WebView.
 Its source-planned positive recipe has45 canonical operations/44 ordinary turns
@@ -121,9 +124,14 @@ passes the ordinary string to SQLite's default win32 VFS; its mxPathname is
 260*4 UTF-8 bytes, not a direct260-character SQLite rejection. That VFS converts
 to UTF-16 without adding an extended prefix before CreateFileW. The existing
 Tauri default manifest lacks longPathAware. No Store/VFS/manifest/registry/global
-setting is changed. A shorter fixed packet basename and an early248-unit database
-path preflight are proposed under claim6514110327; independent FIRST must freeze
-before production. Longer WebView/profile paths remain separately unverified.
+setting is changed. Independent7a9284c0 freezes38 path/caller assertions before
+Root production2da3ee84: fixed p-UUID packet basename, unchanged workspace leaf,
+one planned database before Git/admission/mkdir, and refusal above248 UTF-16 units.
+The first missing-seam run at815a7bc3 is UNRUN_SETUP:38 authored/0 executed/0 pass,
+not behavioral RED. After production,38/38 and the unchanged245 policy cases pass.
+No fallback or alternate base; all prior packets remain counted. These are VM
+string tests, not successful native database creation. Longer WebView/profile
+paths remain separately unverified.
 
 ## Resource and acceptance limits
 

@@ -143,7 +143,8 @@ A narrow development-only finalization helper will reference each already
 retained semantic checkpoint by its fixed label and scroll-observation count
 instead of duplicating its geometry records in the final report. A successful
 report requires all six ordered labels; a failed report may retain their ordered
-prefix. Each checkpoint has at most16 observations, total at most96. Both compact
+prefix. Each checkpoint has at most16 observations, total at most96; success
+requires exactly16 per checkpoint and96 total. Both compact
 and formatted UTF8 encodings are bounded at256KiB before native report IPC;
 Rust's existing independent formatted limit and artifact writer stay unchanged.
 Checks, call metadata, font measurements and available Rust proofs remain in

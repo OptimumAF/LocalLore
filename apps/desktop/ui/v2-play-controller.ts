@@ -1552,6 +1552,9 @@ export class V2PlayController {
         this.inspectionRead = null;
         this.state = {
             ...this.state,
+            // Retire the exposed owner too: a reset subscriber may dispose
+            // before its captured panel handler reaches a local draft setter.
+            context: null,
             inspectionPaging: emptyInspectionPaging(),
             queryBusy: false,
             source: null,

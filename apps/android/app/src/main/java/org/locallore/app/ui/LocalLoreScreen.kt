@@ -57,6 +57,8 @@ import org.locallore.app.SavedStory
 import org.locallore.app.SavedTimeline
 import org.locallore.app.TextProvider
 import org.locallore.app.validPlayInput
+import org.locallore.app.TranscriptScope
+import org.locallore.app.captureTranscript
 
 private val PlayDraftSaver = Saver<PlayDraft, Any>(
     save = { savePlayDraft(it) },
@@ -110,6 +112,17 @@ internal fun LocalLoreScreen(
     val currentEditorBlocked by rememberUpdatedState(editorBlocked)
     val currentDraftInteractionAllowed by rememberUpdatedState(draftInteractionAllowed)
     val playInput = if (draftPending) PlayInput(PlayInputKind.ACTION, "") else resolvedDraft.input
+    val transcriptScope = when {
+        !state.persistent -> TranscriptScope.Demo
+        renderedStory != null -> TranscriptScope.Saved(renderedStory.story, renderedStory.branch)
+        else -> null
+    }
+    // Capture every composition, including a caller replacing elements in the same list.
+    val transcript = captureTranscript(transcriptScope, state.messages)
+    // Notice, actions, diagnostics and demo controls follow the transcript, plus options.
+    val transcriptNavigation = rememberTranscriptNavigation(
+        transcript, 4 + (if (onText != null) 1 else 0) + (if (onStoryRecord != null) 1 else 0),
+    )
     LocalLoreTheme {
         overlay()
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { safePadding ->
@@ -117,9 +130,11 @@ internal fun LocalLoreScreen(
                 modifier = Modifier.fillMaxSize().padding(safePadding),
                 contentAlignment = Alignment.TopCenter,
             ) {
+                Column(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {
                 // A single scroll surface keeps actions reachable in landscape and at large fonts.
                 LazyColumn(
-                    modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()
+                    state = transcriptNavigation.listState,
+                    modifier = Modifier.weight(1f).fillMaxWidth()
                         .testTag("story-list").semantics { testTagsAsResourceId = exposeTestTags },
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -424,6 +439,14 @@ internal fun LocalLoreScreen(
                     item(key = "demo-controls") {
                         DemoResponses(state.mode, state.busy || state.archiveActive || state.deletionActive || state.forkActive || state.creationActive || state.recoveryRequired || (state.persistent && state.selectedStory == null), onMode)
                     }
+                }
+                if (transcriptNavigation.showLatest) {
+                    TextButton(
+                        onClick = transcriptNavigation.latest,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .testTag("transcript-latest"),
+                    ) { Text("Latest") }
+                }
                 }
             }
         }

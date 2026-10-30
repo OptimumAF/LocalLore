@@ -77,7 +77,10 @@ def main(argv=None):
     try:
         print(json.dumps(audit_pair(args.app, args.test, archive_verification=args.archive_verification), sort_keys=True))
         return 0
-    except (AuditError, OSError, ValueError, zipfile.BadZipFile, struct.error):
+    except AuditError as error:
+        print(json.dumps({"status": "failed", "error": str(error)[:256]}))
+        return 1
+    except (OSError, ValueError, zipfile.BadZipFile, struct.error):
         print(json.dumps({"status": "failed", "error": "audit_failed"}))
         return 1
 

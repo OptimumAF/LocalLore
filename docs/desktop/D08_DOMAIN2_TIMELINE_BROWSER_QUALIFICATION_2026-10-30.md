@@ -38,6 +38,8 @@ remain local. Authors perform source/Git/hash work; Root executes measured check
 | b7b4185e | New actual private launcher/helper source with VM dependencies:47/47,0.125s |
 | 15df8ff5 | Three environment-dependent Rust writer tests ignored by default; annotation-only inverse hash preserves every body; explicitly included in the six-test run below |
 | 83687a38 / Root1392bf53 | Pre-execution geometry-oracle correction: separate normal-scroll reachability from final PNG framing; original unrun all-content-in-one-viewport source retained |
+| 0f2a4fba / Root62ef3e2b | Four independent actual bootstrap-prefix groups:0PASS/4FAIL, setup empty,0.112s before the setup correction |
+| 99d38a05 / Root11684ea0 | Same unchanged four groups:4/4,0.109s after explicit library initialization; no native rerun |
 
 The31 frontend cases evaluate actual App and real routed panels with disclosed
 inert React/hooks/JSX/static HTML and synthetic Gateway data. They are not mounted
@@ -142,7 +144,27 @@ loads its library. The new journey instead waited for workspace plus selection
 before its own resume, so it could not initialize. The prepared correction uses
 the same public library read, validates the two fixed saved roots, then resumes
 the exact child. It is a harness setup correction, not a production storage fix.
-Its independent prefix regression/result and final source review are pending.
+The independent four-group regression executes the actual journey prefix and
+Controller/strict decoder with synthetic transport, symbolic oracle and disclosed
+idle/owner-observer controls. It checks empty startup, public preselected OTHER,
+seven invalid/unavailable library variants and an awaited pending library. All
+four fail before the correction and pass unchanged afterward. It does not mount
+Main, render, invoke native IPC or prove Rust canonical state.
+
+Formatting8271e130 has executable-equivalent bootstrap/checker hashes. Its final
+four-group report also passes with independently matched source hashes; shell
+bookkeeping then refuses the misspelled `-Depth4` option, so that extra execution's
+exact duration/exit is not retained. The log and wrapper failure remain; no rerun
+is invented to fill missing metadata. The earlier0.109s four-group execution has
+complete process metadata. Remaining final checks execute separately on clean8271:
+strict TypeScript0.285s, complete frontend format2.828s, normal build0.243s, all
+passing. The rebuilt normal bundle is byte-identical to the70-exclusion-tested
+bundle above. Rust inputs are unchanged from their attributed checks.
+
+Standalone reproduction from apps/desktop, with existing D toolchain/output and
+TEMP/TMP set as above: `node check-domain2-timeline-bootstrap-review.mjs`.
+It emits a bounded64KiB stdout report and retains no bundle/HTML. This command
+does not admit the separate native application journey.
 
 ## Retention and next gate
 
@@ -162,8 +184,8 @@ Normal restored app.js retains the hash above; executable SHA256 is
 The retained browser base is now about15MiB. Another mandatory20MiB reservation
 would exceed its32MiB cap; a renewed joint forecast is also required. **No second
 native run, lowered reservation, old-data omission, deletion or cap reset is
-authorized by this report.** Finish the bootstrap source verification and a
-reviewable draft PR, then obtain an explicit prospective resource decision.
+authorized by this report.** Bootstrap source verification is complete; prepare a
+reviewable draft PR and obtain an explicit prospective resource decision.
 No previous native failure becomes green when its harness source is corrected.
 
 One proposed owner decision is a single further fixed run with a40MiB browser
@@ -172,3 +194,12 @@ costs and original target/D05/D07 limits. This is an unapproved proposal, not a
 changed guard or run permission. The current source still enforces32/640MiB.
 All native browser, keyboard/screen-reader, Android parity, real-model quality,
 offline/OS, installer/release and whole-epic gates remain open.
+
+After the bootstrap source correction, a read-only inventory measures source
+evidence4,357,092B including the19B external unit roots, retained native
+packet10,838,148B and whole browser base15,195,221B. Every native byte remains
+included in the base/joint count. With all previous named evidence and current
+718,574B products, actual joint retention is637,327,419B before later small
+metadata. Retaining16MiB product/1MiB metadata reserves and admitting another
+20MiB packet would forecast675,406,157B, exceeding640MiB; the proposed648MiB
+ceiling would accommodate it. This calculation is a proposal, not admission.

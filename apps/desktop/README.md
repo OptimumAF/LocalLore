@@ -41,6 +41,10 @@ Domain2 stories as well. Fork creation remains separate. The
 records passing frontend/writer checks and the failed native harness startup;
 the corrected browser's native rendering is still unverified. The failed capture
 is retained, and the present resource guard does not admit another app run.
+From `apps/desktop`, the standalone
+`node check-domain2-timeline-bootstrap-review.mjs` verifies the corrected setup
+prefix with actual controllers and synthetic transport. It is not native UI
+verification or permission for another application run.
 
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned

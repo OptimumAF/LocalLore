@@ -598,3 +598,48 @@ normal resume of the exact child. Do not search library.stories for a child or
 select the first recent entry. FIRST proves actual canonical records/saved turns;
 91 public setup calls is the fixed source-reviewed roster, not runtime invocation
 telemetry. No new call counter, private session injection or provider is added.
+
+## Fixed frontend journey integration interface
+
+The new dev-only module exports v2InspectorPagingNativeJourneys with one object:
+{controller:Controller,v2:V2PlayController,gateway:FaultGateway,errors:ErrorBuffer,
+invoke:(name:string,args?:Record<string,unknown>)=>Promise<unknown>,
+dispose:()=>Promise<void>}. It is one initial process, with no restart/scenario
+selector. Root wires the existing main objects only when the closed bootstrap
+inspectorPaging boolean is true. Normal bundles must exclude this module/hooks.
+The native journey producer owns only its new module; Root serially owns
+journeys.ts/main.tsx/Rust bootstrap/permissions/labels/verifier integration.
+
+The existing development-only FaultGateway gets one fixed observation surface:
+startInspectorPagingTrace():void (one-shot; a second start refuses), readonly
+inspectorPagingCalls and dropNextInspectorPagingReply:boolean (initial false).
+Each trace snapshot has exactly sequence,channel,command,nativeAction,settled,
+replySha256,error,deliveryDropped. Host channel command is the actual bounded
+Command clone and nativeAction=null. Native channel command=null and nativeAction
+is the actual NativeAction; no raw native arguments/paths are retained. Replies
+are represented only by SHA256 of UTF-8 JSON.stringify(actual returned value),
+not a stored page/body cache. error is finite category or null. Metadata observes
+actual base call settlement BEFORE a held delivery; no reply is fabricated.
+Trace is disabled by default, enabled once only by this fixed journey, at most256
+records/192 inspection_query attempts, with bounded command serialization.
+Saturation fails the qualification; it never authorizes missing call telemetry.
+
+The fixed delivery drop applies once only after a successful inspection_query
+base reply, preserves that actual reply digest, marks deliveryDropped=true,
+clears its flag and throws Transport. It cannot rewrite a result or target an
+arbitrary operation. Existing heldQuery retains its post-native-read meaning;
+arm only after prior reads settle, verify the exact query/cursor/digest entering
+the hold, and release every gate on all exits. No arbitrary callback/control
+server or normal-product fault hook is introduced. ErrorBuffer observations and
+explicit native negative probes remain separately attributed, not inferred from
+the trace as universal OS/SDK telemetry.
+
+The journey compares validated displayed page JSON digests against the matching
+actual host reply digest and exact command identity. It uses real mounted panel
+controls/form events, the existing Root controller actions for library/branch/
+session/lens changes, and normal host_call for separately labeled direct negative
+probes/Domain1 checks. No replacement page/controller/native transport is allowed.
+The final20th capture occurs while coherent actual UI remains mounted, followed
+by dispose() and the last read-only oracle while the window lease remains live;
+only then harness_finish exits. Do not require a coherent form image after
+dispose() has unmounted React or claim an IPC oracle after app.exit.

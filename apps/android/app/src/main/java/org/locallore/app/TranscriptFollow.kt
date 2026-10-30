@@ -51,14 +51,14 @@ internal fun updateTranscriptFollow(
         return TranscriptFollowUpdate(TranscriptFollowState(current))
     }
     if (before == current) {
-        val read = readPosition?.snapshot == current && readPosition.atEnd
-        return TranscriptFollowUpdate(TranscriptFollowState(current, previous.unread && !read))
+        val read = readPosition != null && readPosition.snapshot == current && readPosition.atEnd
+        return TranscriptFollowUpdate(TranscriptFollowState(current, previous?.unread == true && !read))
     }
     val appended = current.messages.size > before.messages.size &&
         current.messages.subList(0, before.messages.size) == before.messages
     if (!appended) return TranscriptFollowUpdate(TranscriptFollowState(current))
 
-    val follow = readPosition?.snapshot == before && readPosition.atEnd
+    val follow = readPosition != null && readPosition.snapshot == before && readPosition.atEnd
     // Scheduling navigation does not establish that the new reply was actually read.
     return TranscriptFollowUpdate(
         TranscriptFollowState(current, unread = true),

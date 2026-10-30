@@ -5,6 +5,12 @@ It uses **fake inference**, original Lantern Quay fixtures and the shared SQLite
 workspace for durable accepted history. Kotlin implements no gameplay rules.
 No real model, account or network dependency during play is present.
 
+The story screen and unavailable-session message follow Android's light/dark
+theme. Light mode retains the paper/ink palette; dark mode uses a pale-ink
+palette on dark green surfaces. This changes presentation only. The
+[system-theme verification report](../../docs/android/SYSTEM_THEME_VERIFICATION_2026-10-30.md)
+records host checks and the Android visual/accessibility checks still pending.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

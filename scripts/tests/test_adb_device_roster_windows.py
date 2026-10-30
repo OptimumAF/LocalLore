@@ -22,7 +22,7 @@ class FakeSocket:
         if self.send_error is not None: raise self.send_error
         self.sent.append(data)
     def recv(self, limit): self.receives.append(limit); return self.data
-    def close(self): self.closes += 1
+    def close(self): self.closes += 1; self.handle = -1
 
 
 def active():

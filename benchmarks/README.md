@@ -18,6 +18,10 @@ records an explicit candidate choice without granting device actions.
 Its [verification](../docs/native/PHONE_IDENTITY_ENROLLMENT_VERIFICATION_2026-10-30.md)
 passes103 dependent checks; one actual candidate attempt safely refused before
 any host query because no existing5037 candidate was captured.
+The [owned phone discovery service](../docs/native/OWNED_PHONE_DISCOVERY_SERVICE_V1.md)
+adds a distinct, short-lived foreground profile on freshly verified-unused5037.
+It enables ordinary USB discovery, disables active emulator/mDNS scanning and
+requires separate roster qualification; it never restarts an existing service.
 Legacy ADB CLI collectors can restart a server on a version mismatch; do not
 use them as a service-preservation guarantee.
 The separate [runtime spike](../docs/runtime/spike/README.md) can explicitly run

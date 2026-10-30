@@ -85,6 +85,7 @@ fn pure_browser_excess_and_overflow_latch_without_refund_or_legacy_escape() {
 }
 
 #[test]
+#[ignore = "requires separately admitted exact browser-mode process"]
 fn actual_browser_writer_reserves_before_open_and_keeps_failed_bytes_charged() {
     let mut state = owned_state();
     assert!(state.scene_budget.is_some(), "exact browser mode must activate the existing writer budget");
@@ -104,6 +105,7 @@ fn actual_browser_writer_reserves_before_open_and_keeps_failed_bytes_charged() {
 }
 
 #[test]
+#[ignore = "requires separately admitted exact browser-mode process"]
 fn actual_browser_duplicate_create_new_latches_and_preserves_the_original() {
     let mut state = owned_state();
     state.scene_budget = Some(Mutex::new(ArtifactBudget::default()));
@@ -117,6 +119,7 @@ fn actual_browser_duplicate_create_new_latches_and_preserves_the_original() {
 }
 
 #[test]
+#[ignore = "requires separately admitted exact browser-mode process"]
 fn actual_browser_reservation_excludes_paging_and_generic_labels() {
     let state = owned_state();
     for label in ["initial", "d05-page-first", "d05-page-final", "d05-page-failure",

@@ -141,3 +141,30 @@ class ArchiveUiBuildTests(unittest.TestCase):
                 self.graph.publish(tasks=tasks)
                 with self.subTest(task=task,state=state), self.assertRaises(build.BuildRefused):
                     build._public(self.graph.manifest['public'],self.graph.head)
+
+    def test_repeated_bare_compile_heading_around_warning_is_valid_fresh_task_output(self):
+        # Real successful captures repeat this bare heading around the compiler warning:
+        # B23 stdout SHA256 727a0bf253255f2295257d9cb4f002749a0847fac0cf9b6d238edee26bc0a976, lines175/184;
+        # B24 stdout SHA256 98242afb94a3307e2e66f6aba72aa7ba3c8f52b32e2c54d9246264aa2e6ed6af, lines178/184.
+        self.graph.publish(tasks=fixture.EXECUTED_TASKS+('compileDebugAndroidTestKotlin',))
+        path = self.graph.public/'owner-stdout-v1.bin'
+        raw = path.read_bytes()
+        heading = b'> Task :app:compileDebugAndroidTestKotlin\n'
+        self.assertEqual(raw.count(heading),2)
+        before, after = raw.rsplit(heading,1)
+        warning = (b'w: file:///D:/Synthetic/LocalLore/apps/android/app/src/androidTest/java/'
+                   b'org/locallore/app/FrameworkInterruptionTest.kt:128:50 This call may have inconsistent results '
+                   b"because 'AtomicReference' uses identity equality and 'Boolean?' does not have a consistent identity. "
+                   b"Consider using 'AtomicBoolean' instead.\n")
+        raw = before+heading+warning+after
+        path.write_bytes(raw)
+        self.graph.result['owner']['stdout_bytes'] = len(raw)
+        result_path = self.graph.public/'result-v1.json'
+        result_path.write_bytes(fixture.encoded(self.graph.result))
+        self.graph.manifest['public']['stdout'] = fixture.pin(path)
+        self.graph.manifest['public']['result'] = fixture.pin(result_path)
+        try:
+            accepted = build._public(self.graph.manifest['public'],self.graph.head)
+        except build.BuildRefused as error:
+            self.fail('Repeated bare executed heading refused: '+str(error))
+        self.assertEqual(accepted,self.graph.pair)

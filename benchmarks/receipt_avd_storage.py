@@ -385,22 +385,31 @@ def record_retired(root, reviewed_plan, registry=DEFAULT_REGISTRY):
     root, registry = safe_path(root, exists=True, directory=True), safe_path(registry)
     with _locked(registry) as ledger:
         entry = _entry(ledger, root)
-        require(entry["state"] == "closed", "guest_not_closed")
-        require(reviewed_plan == entry["retirement"], "retirement_plan_changed")
-        _verify_retirement_result(entry)
-        tombstone = _tombstone_path(registry, root)
-        receipt = {"version": 1, "root": str(root), "retirement": reviewed_plan}
-        if tombstone.exists():
-            # A crash after receipt publication may leave a closed ledger entry.
-            require(read_json(tombstone) == receipt, "retirement_tombstone_changed")
-        else:
-            with tombstone.open("xb") as stream:
-                stream.write(encoded(receipt))
-                stream.flush()
-                os.fsync(stream.fileno())
-        entry.update(state="retired", retirement_receipt=binding(tombstone))
-        _verify_retired(entry)
-        _atomic_write(registry / "ledger-v1.json", ledger)
+        _record_retired_locked(root, reviewed_plan, registry, ledger, entry)
+
+
+def _record_retired_locked(root, reviewed_plan, registry, ledger, entry):
+    """Finalize under the caller's existing admission lock; same public semantics.
+
+    Only the exact-file executor and record_retired use this internal boundary.
+    The executor must not release admission exclusion between deletion and here.
+    """
+    require(entry["state"] == "closed", "guest_not_closed")
+    require(reviewed_plan == entry["retirement"], "retirement_plan_changed")
+    _verify_retirement_result(entry)
+    tombstone = _tombstone_path(registry, root)
+    receipt = {"version": 1, "root": str(root), "retirement": reviewed_plan}
+    if tombstone.exists():
+        # A crash after receipt publication may leave a closed ledger entry.
+        require(read_json(tombstone) == receipt, "retirement_tombstone_changed")
+    else:
+        with tombstone.open("xb") as stream:
+            stream.write(encoded(receipt))
+            stream.flush()
+            os.fsync(stream.fileno())
+    entry.update(state="retired", retirement_receipt=binding(tombstone))
+    _verify_retired(entry)
+    _atomic_write(registry / "ledger-v1.json", ledger)
 
 
 def _tombstone_path(registry, root):

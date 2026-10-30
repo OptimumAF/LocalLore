@@ -160,6 +160,11 @@ evidence. Do not use recursive removal, mirror deletion or wildcard cleanup.
 This module supplies **no** such executor or implicit authorization. An archived
 record set is not a full recovery backup of the discarded guest disks.
 
+The separate [exact-image executor](RECEIPT_AVD_RETIREMENT.md) now implements
+that boundary for Windows/NTFS, with host-only verification. Its explicit
+execution flag does not supply owner approval; real images remain untouched
+until a separately authorized operation passes the guards.
+
 Finalization accepts only the unchanged pinned plan, with all planned images
 absent, no other disposable images present, all preserved guest files unchanged,
 and all external evidence hashes still matching. A partial cleanup or changed

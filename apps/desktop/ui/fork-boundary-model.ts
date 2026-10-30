@@ -40,7 +40,7 @@ export function decodeForkBoundaryCatalog(
     if (row.head !== head) throw Error("Stale");
     if (!Array.isArray(row.boundaries)) throw Error("Wire");
     const descriptors = Object.getOwnPropertyDescriptors(row.boundaries);
-    const length = descriptors.length?.value;
+    const length = Object.getOwnPropertyDescriptor(row.boundaries, "length")?.value;
     if (!timelineNumber(length)) throw Error("Wire");
     if (length > 4097) throw Error("TooLarge");
     if (!length || Reflect.ownKeys(row.boundaries).length !== length + 1)

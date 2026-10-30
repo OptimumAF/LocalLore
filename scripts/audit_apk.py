@@ -303,6 +303,156 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
     return uses
 
 
+_BACKUP_URI = "http://schemas.android.com/apk/res/android:"
+_BACKUP_RULE_FILE = "res/xml/data_extraction_rules.xml"
+_BACKUP_DOMAINS = frozenset(("root", "file", "database", "sharedpref", "external"))
+_BACKUP_OPTIONAL = frozenset(("device_root", "device_file", "device_database", "device_sharedpref"))
+_BACKUP_OVERRIDE_IDS = frozenset(("0x0101027f", "0x01010504"))
+
+
+def _backup_nodes(tree):
+    """Read the bounded observed AAPT XML structure, retaining attribute ownership."""
+    lines = aapt_text(tree).splitlines()
+    require(len(lines) <= 65536, "Too many backup metadata lines")
+    nodes, stack, namespaces = [], [], set()
+    attribute_names, attribute_ids = set(), set()
+    attributes = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        namespace = re.fullmatch(r" *N: ([A-Za-z_][A-Za-z0-9_.-]*)=\S+ \(line=[0-9]+\)", line)
+        if namespace:
+            require(not nodes and namespace[1] not in namespaces, "Unexpected or duplicate backup namespace")
+            namespaces.add(namespace[1])
+            continue
+        element = re.fullmatch(r"( *)E: ([A-Za-z_][A-Za-z0-9_.-]*) \(line=[0-9]+\)", line)
+        if element:
+            indent = len(element[1])
+            require(indent <= 128 and len(nodes) < 4096, "Backup metadata bounds")
+            while stack and nodes[stack[-1]]["indent"] >= indent:
+                stack.pop()
+            parent = stack[-1] if stack else None
+            if parent is not None:
+                require(indent == nodes[parent]["indent"] + 4, "Malformed backup node indentation")
+                nodes[parent]["children"].append(len(nodes))
+            require(len(stack) < 32, "Backup metadata depth")
+            nodes.append({"name": element[2], "indent": indent, "parent": parent,
+                          "attributes": [], "children": []})
+            stack.append(len(nodes) - 1)
+            continue
+        attribute = re.fullmatch(r"( *)A: ([^\s(=]+)(?:\((0x[0-9a-fA-F]{8})\))?=(.*)", line)
+        require(attribute is not None and stack, "Malformed backup metadata")
+        node = nodes[stack[-1]]
+        require(len(attribute[1]) == node["indent"] + 2 and not node["children"],
+                "Wrong backup attribute ownership")
+        attributes += 1
+        require(attributes <= 16384, "Too many backup attributes")
+        identifier = attribute[3].lower() if attribute[3] else None
+        name_key, id_key = (stack[-1], attribute[2]), (stack[-1], identifier)
+        require(name_key not in attribute_names and (identifier is None or id_key not in attribute_ids),
+                "Duplicate backup attribute name or ID")
+        attribute_names.add(name_key)
+        if identifier is not None:
+            attribute_ids.add(id_key)
+        node["attributes"].append((attribute[2], identifier, attribute[4]))
+    return nodes
+
+
+def _backup_attribute(node, name, *, namespace="", identifier=None):
+    matches = [item for item in node["attributes"] if item[0].rsplit(":", 1)[-1] == name]
+    identity_matches = [item for item in node["attributes"] if item[1] == identifier] if identifier else matches
+    require(len(matches) == 1 and identity_matches == matches
+            and matches[0][:2] == (namespace + name, identifier),
+            "Missing, duplicate or foreign backup attribute")
+    return matches[0][2]
+
+
+def _backup_string(value):
+    match = re.fullmatch(r'"([^"\\]*)"(?: \(Raw: "([^"\\]*)"\))?', value)
+    require(match is not None and (match[2] is None or match[1] == match[2]),
+            "Invalid backup string value")
+    return match[1]
+
+
+def audit_backup_resource(manifest_tree, resources, package="org.locallore.app"):
+    """Require application flags and bind their exact resource to one default XML file."""
+    nodes = _backup_nodes(manifest_tree)
+    roots = [i for i, node in enumerate(nodes) if node["parent"] is None]
+    require(len(roots) == 1 and nodes[roots[0]]["name"] == "manifest", "Wrong backup manifest root")
+    root = roots[0]
+    require(_backup_string(_backup_attribute(nodes[root], "package")) == package,
+            "Wrong backup manifest package")
+    applications = [node for node in nodes if node["name"] == "application"]
+    require(len(applications) == 1 and applications[0]["parent"] == root, "Wrong backup application")
+    app = applications[0]
+    require(not any(item[0].rsplit(":", 1)[-1] in ("backupAgent", "defaultToDeviceProtectedStorage")
+                    or item[1] in _BACKUP_OVERRIDE_IDS
+                    for item in app["attributes"]), "Unreviewed backup storage override")
+    for name, identifier in (("allowBackup", "0x01010280"), ("fullBackupContent", "0x010104eb")):
+        require(_backup_attribute(app, name, namespace=_BACKUP_URI, identifier=identifier) == "false",
+                "Backup must be explicitly disabled")
+    reference = _backup_attribute(app, "dataExtractionRules",
+                                  namespace=_BACKUP_URI, identifier="0x0101063e")
+    require(re.fullmatch(r"@0x7f[0-9a-f]{6}", reference), "Invalid backup resource reference")
+    reference = reference[1:]
+    lines = aapt_text(resources).splitlines()
+    require(len(lines) <= 65536 and lines and lines[0] == "Binary APK", "Wrong backup resource table")
+    packages = [line for line in lines if line.startswith("Package ")]
+    require(packages == ["Package name=" + package + " id=7f"], "Wrong backup resource package")
+    candidates, current_type = [], None
+    for index, line in enumerate(lines):
+        kind = re.fullmatch(r"  type ([A-Za-z0-9_]+) id=([0-9a-f]{2}) entryCount=([0-9]+)", line)
+        if kind:
+            current_type = (kind[1], kind[2], kind[3])
+        entry = re.fullmatch(r"    resource (0x[0-9a-f]{8}) (\S+)", line)
+        if entry and (entry[1] == reference or entry[2] == "xml/data_extraction_rules"):
+            candidates.append((index, entry[1], entry[2], current_type))
+    require(len(candidates) == 1, "Missing or ambiguous backup resource")
+    index, identity, name, kind = candidates[0]
+    require(identity == reference and name == "xml/data_extraction_rules" and kind is not None
+            and kind[:2] == ("xml", reference[4:6])
+            and re.fullmatch(r"[1-9][0-9]{0,4}", kind[2])
+            and int(reference[6:], 16) < int(kind[2]) <= 65536, "Wrong backup resource identity")
+    values = []
+    for line in lines[index + 1:]:
+        if line.strip() and len(line) - len(line.lstrip(" ")) <= 4:
+            break
+        if line.strip():
+            values.append(line)
+    require(values == ["      () (file) " + _BACKUP_RULE_FILE + " type=XML"],
+            "Backup resource must be one default XML file")
+    return _BACKUP_RULE_FILE
+
+
+def audit_backup_rules(tree):
+    """Check the declared five-domain cloud/D2D policy, not OEM backup behavior."""
+    nodes = _backup_nodes(tree)
+    roots = [i for i, node in enumerate(nodes) if node["parent"] is None]
+    require(len(roots) == 1 and nodes[roots[0]]["name"] == "data-extraction-rules",
+            "Wrong extraction rules root")
+    root = nodes[roots[0]]
+    require(not root["attributes"] and len(root["children"]) == 2, "Unexpected extraction rule sections")
+    sections = [nodes[index] for index in root["children"]]
+    require({node["name"] for node in sections} == {"cloud-backup", "device-transfer"},
+            "Missing or duplicate extraction rule sections")
+    summary = {}
+    for section in sections:
+        require(not section["attributes"], "Unexpected extraction section attributes")
+        domains = set()
+        for index in section["children"]:
+            node = nodes[index]
+            require(node["name"] == "exclude" and not node["children"]
+                    and len(node["attributes"]) == 2, "Unexpected extraction rule")
+            domain = _backup_string(_backup_attribute(node, "domain"))
+            path = _backup_string(_backup_attribute(node, "path"))
+            require(domain in _BACKUP_DOMAINS | _BACKUP_OPTIONAL and domain not in domains and path == ".",
+                    "Wrong extraction exclusion")
+            domains.add(domain)
+        require(_BACKUP_DOMAINS <= domains, "Missing full-root extraction exclusions")
+        summary[section["name"]] = sorted(domains)
+    return summary
+
+
 def audit_fixed_metadata(tree, namespace, expected):
     """Require one exact typed profile, separate from unrelated AndroidX metadata."""
     require(namespace in ("org.locallore.capacity.", "org.locallore.capacity.relief."),
@@ -522,14 +672,16 @@ def main(argv=None):
         def dump(*arguments):
             return subprocess.run([aapt, "dump", *arguments], check=True, capture_output=True,
                                   text=True, encoding="utf-8", shell=False).stdout
-        permissions = audit_manifest(dump("badging", str(args.apk)),
-                                     dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),
-                                     "org.locallore.app.draftprocessverify" if args.input_process_verification else
+        package = ("org.locallore.app.draftprocessverify" if args.input_process_verification else
                                      "org.locallore.app.draftverify" if args.input_draft_verification else
                                      "org.locallore.app.modelvolumeverify" if args.model_volume_verification else
                                      "org.locallore.app.modelpickerverify" if args.model_picker_fixture else
                                      "org.locallore.app.modelverify" if args.model_provisioning else
                                      "org.locallore.app.litertverify" if args.litert_verification else "org.locallore.app")
+        manifest_tree = dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml")
+        permissions = audit_manifest(dump("badging", str(args.apk)), manifest_tree, package)
+        rules_file = audit_backup_resource(manifest_tree, dump("resources", str(args.apk)), package)
+        audit_backup_rules(dump("xmltree", str(args.apk), "--file", rules_file))
         if args.model_provisioning:
             audit_model_launcher(dump("badging", str(args.apk)),
                                  dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),

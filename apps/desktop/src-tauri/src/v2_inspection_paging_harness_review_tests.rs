@@ -518,7 +518,7 @@ fn actual_host_current_historical_search_and_marker_pages_match_the_fixed_roster
     let child = scopes()[1].clone();
     let session = resume(&host, &child, 44);
     let branches = wire(&host, json!({"op":"branches","story":PRIMARY}));
-    assert_eq!(branches["version"], 1);
+    assert_eq!(branches["version"], 2);
     assert_eq!(branches["branches"].as_array().unwrap().len(), 2);
     let paging = branches["branches"]
         .as_array()

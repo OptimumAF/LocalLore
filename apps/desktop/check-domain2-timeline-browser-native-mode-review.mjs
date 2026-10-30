@@ -501,12 +501,19 @@ register(
         // V3 extension: the complete old revision2 record cannot admit V3.
         assert.throws(() =>
             api.checkedPagingBudget(
-                Buffer.from(JSON.stringify(record("timeline-browser", {
-                    version: 2,
-                    kind: "d08_domain2_timeline_browser_budget_v2",
-                    cumulative_limit_bytes: 648 * MiB,
-                }))),
-                revision, paths.target, 1000, "timeline-browser",
+                Buffer.from(
+                    JSON.stringify(
+                        record("timeline-browser", {
+                            version: 2,
+                            kind: "d08_domain2_timeline_browser_budget_v2",
+                            cumulative_limit_bytes: 648 * MiB,
+                        }),
+                    ),
+                ),
+                revision,
+                paths.target,
+                1000,
+                "timeline-browser",
             ),
         );
         // V3 extension end.

@@ -248,3 +248,23 @@ Preserve the prior normal binary before the application build can overwrite it;
 charge its ordinary copy to the original-baseline prospective4GiB target limit.
 No new target or old-data omission is permitted. Fresh inventory must include
 that copy and a256MiB cached-build forecast before the native attempt.
+
+The fresh recount also identifies a historical D07 accounting omission. Its
+36 external roots total179,144,799B; two completed full-suite intervals produced
+eight distinct retained source files552,238B. The old preapp figure included only
+the first four276,119B. Keep that record unchanged and add the later276,119B
+prospectively: D07 now totals501,920,772B. D05's separate four-file276,119B cohort
+is charged independently. Identical content at different paths is not deduplicated.
+Current external evidence plus the unchanged product/metadata reserves totals
+560,014,573B; the separately charged complete D05 group totals79,500,962B.
+No old cohort is rerun or reclassified by this reconciliation.
+
+Source-only checks may encounter a known closed tool failure without consuming
+the application attempt. Preserve its original terminal/log/stop records and
+bind any correction to that exact failure and unchanged source. This cannot
+reconcile an unknown lifetime, storage breach or ownership failure. The actual
+Prettier3.9.10 debug-check fails serializing BigInt before writes. Its replacement
+compares four bounded direct esbuild0.28.2 CLI transform outputs for the exact
+two files before/after formatting, using fixed arguments, captured streams,
+deadlines, executable hashes and fresh inventories. No persistent service is used.
+Any later failure gets a separate immutable stop record; the old failure stays.

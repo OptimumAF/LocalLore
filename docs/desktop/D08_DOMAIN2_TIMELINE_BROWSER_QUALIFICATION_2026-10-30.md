@@ -382,3 +382,48 @@ The target-growth boundary alone is failed. Further execution is **STOPPED**
 pending a separate resource decision; the original native lifetime failure and
 both failed application attempts remain failed. Source checks do not establish
 native acceptance. PR286 stays draft; all wider gates remain open.
+
+## Owner-approved revision3: source checks before the single native attempt
+
+The owner explicitly approves retaining all output and exactly one further
+six-capture attempt, after revised checks/review/fresh admission: browser-only
+4GiB target growth,52MiB browser and660MiB joint evidence, unchanged20MiB packet
+reservation. The original target baseline8,259,980,576B and every earlier failure
+remain. No automatic repeat, deletion, model/device/SDK/OS qualifier or desktop
+control is admitted. The separate source-only fork integration in PR290 is not
+part of this fixed browser recipe.
+
+Independent V3 FIRST c4a781ac, integrated549b7042, freezes the same47 groups before
+the producer. Raw checker SHA256
+`7338cf44306400ef26f6f6cac8382076c78e69e94b3addd7b562ef7c7f6bee82`.
+Against the unchanged V2 launcher, actual47 execute:37PASS/10FAIL, zero setup
+failures, exit1,0.1352741s. The seven producer substitutions update only browser
+budget kind/prefix/version and approved limits. Raw corrected47/47 pass0.1252565s;
+unchanged245 launcher checks pass0.3000924s; Node syntax passes0.0618156s.
+These are source/VM dependency-double checks, not OS admission or native IPC.
+
+Prettier3.9.10 `--debug-check` exits2, known closed,0.4342214s: its AST serializer
+cannot encode the checker's BigInt. No file was written and the native attempt
+remains unused. Preserve the complete failure and original coordinator; an
+immutable reconciliation binds continuation to the exact process/stop/source
+hashes. This is a known tool incompatibility, not an unknown-lifetime or storage
+failure. Four directly spawned installed esbuild0.28.2 CLI transformations then
+compare the two exact files before/after the fixed Prettier write. Both canonical
+output hashes match, with no persistent service. All children close without
+timeout, output overflow or kill; bounded records and inventories remain local.
+
+Fresh inventory corrects a prior D07 charge by276,119B for four later retained
+source files omitted after its preapp record. Current D07 cost501,920,772B includes
+all eight distinct source paths; historic records and outcomes stay unchanged.
+The independent four-file D05 cohort remains separately charged. Updated external
+evidence/reserves560,014,573B and D05total79,500,962B carry forward to V3 admission.
+An ordinary45,176,832B copy preserves the prior normal binary (SHA902e5c37...) in
+the existing target before any diagnostic build. All prior failed copies remain.
+Source-check admission reserves512KiB new combined records and the later20MiB
+packet, forecasting browser51,176,988B, joint690,692,523B and target12,348,487,076B
+(including the ordinary copy and256MiB cached-build forecast). Final native
+admission must remeasure these figures against the clean reviewed source.
+
+At this source checkpoint the one V3 native attempt is still unused. Actual
+native execution, image inspection and normal restoration must be reported
+separately; no whole-D08, Android-device, story-quality or release gate is met.

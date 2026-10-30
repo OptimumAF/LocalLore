@@ -35,8 +35,14 @@ function pagingLauncherPlan(mode) {
             pagingEvidence: 33554432,
             reportMode: "domain2_timeline_browser_v1",
             labels: Object.freeze(
-                ["catalog", "root", "child", "observer", "enlarged-wide", "enlarged-narrow"]
-                    .map((name) => `d08-browser-${name}`),
+                [
+                    "catalog",
+                    "root",
+                    "child",
+                    "observer",
+                    "enlarged-wide",
+                    "enlarged-narrow",
+                ].map((name) => `d08-browser-${name}`),
             ),
         });
     if (mode === "paging")
@@ -49,11 +55,26 @@ function pagingLauncherPlan(mode) {
             reportMode: "v2_inspector_paging_v1",
             labels: Object.freeze(
                 [
-                    "first", "second", "third", "back-second", "back-first",
-                    "forward-refetched", "pending-next", "error", "retry-second",
-                    "search-reset", "historical", "mira", "sable", "other-story",
-                    "same-head-refresh", "stale-delivery", "unsupported",
-                    "enlarged-wide", "enlarged-narrow", "final",
+                    "first",
+                    "second",
+                    "third",
+                    "back-second",
+                    "back-first",
+                    "forward-refetched",
+                    "pending-next",
+                    "error",
+                    "retry-second",
+                    "search-reset",
+                    "historical",
+                    "mira",
+                    "sable",
+                    "other-story",
+                    "same-head-refresh",
+                    "stale-delivery",
+                    "unsupported",
+                    "enlarged-wide",
+                    "enlarged-narrow",
+                    "final",
                 ].map((name) => `d05-page-${name}`),
             ),
         });
@@ -425,7 +446,13 @@ async function footprint(directory, source = false) {
 }
 // d05-paging-footprint-v1:end
 // d05-paging-budget-policy-v1:start
-function checkedPagingBudget(bytes, revision, target, currentTargetBytes, mode = "paging") {
+function checkedPagingBudget(
+    bytes,
+    revision,
+    target,
+    currentTargetBytes,
+    mode = "paging",
+) {
     const invalid = () => {
         throw Error("PagingBudgetInvalid");
     };
@@ -516,9 +543,10 @@ function checkedPagingBudget(bytes, revision, target, currentTargetBytes, mode =
         cursor !== text.length ||
         Object.keys(record).length !== keys.length ||
         record.version !== 1 ||
-        record.kind !== (mode === "paging"
-            ? "d05_v2_inspector_paging_budget_v1"
-            : "d08_domain2_timeline_browser_budget_v1") ||
+        record.kind !==
+            (mode === "paging"
+                ? "d05_v2_inspector_paging_budget_v1"
+                : "d08_domain2_timeline_browser_budget_v1") ||
         record.source_revision !== revision ||
         record.target_path_sha256 !==
             digest(Buffer.from(path.resolve(target).toLowerCase(), "utf8")) ||
@@ -526,7 +554,8 @@ function checkedPagingBudget(bytes, revision, target, currentTargetBytes, mode =
         !safe(record.original_target_bytes) ||
         record.original_target_bytes > currentTargetBytes ||
         !safe(record.external_evidence_bytes) ||
-        record.external_evidence_bytes > (mode === "paging" ? 536870912 : limits.cumulativeEvidence) ||
+        record.external_evidence_bytes >
+            (mode === "paging" ? 536870912 : limits.cumulativeEvidence) ||
         !safe(record.d05_external_evidence_bytes)
     )
         invalid();
@@ -545,14 +574,24 @@ const budgetBytes = await boundedBytes(
     4096,
 );
 const qualificationBudget = {
-    ...checkedPagingBudget(budgetBytes, revision, target, observedTarget.bytes, mode),
+    ...checkedPagingBudget(
+        budgetBytes,
+        revision,
+        target,
+        observedTarget.bytes,
+        mode,
+    ),
     recordSHA256: digest(budgetBytes),
 };
 const pagingEvidenceBytes =
-    observedBase.bytes + (mode === "paging" ? qualificationBudget.d05ExternalEvidenceBytes : 0);
+    observedBase.bytes +
+    (mode === "paging" ? qualificationBudget.d05ExternalEvidenceBytes : 0);
 const qualificationEvidenceBytes =
-    pagingEvidenceBytes + qualificationBudget.externalEvidenceBytes +
-    (mode === "timeline-browser" ? qualificationBudget.d05ExternalEvidenceBytes : 0);
+    pagingEvidenceBytes +
+    qualificationBudget.externalEvidenceBytes +
+    (mode === "timeline-browser"
+        ? qualificationBudget.d05ExternalEvidenceBytes
+        : 0);
 if (
     !Number.isSafeInteger(pagingEvidenceBytes) ||
     pagingEvidenceBytes < 0 ||

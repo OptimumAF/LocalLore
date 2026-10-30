@@ -598,13 +598,23 @@ test("context", "V2-head-mismatch-refuses-selected-revision-fallback", () => {
         null,
     );
 });
-test("context", "public-dual-slots-use-coherent-V2-head-before-stale-legacy", () => {
-    // Public Pick seam conformance. Actual Controller publishes exclusive slots;
-    // no private state is injected and no dual-slot runtime defect is claimed.
-    for (const stale of [legacy(MAIN, 5), legacy({ story: "foreign", branch: "main" }, 5)]) {
-        assert.deepEqual(actual.timelineContext(contextInput({ play: stale })), context());
-    }
-});
+test(
+    "context",
+    "public-dual-slots-use-coherent-V2-head-before-stale-legacy",
+    () => {
+        // Public Pick seam conformance. Actual Controller publishes exclusive slots;
+        // no private state is injected and no dual-slot runtime defect is claimed.
+        for (const stale of [
+            legacy(MAIN, 5),
+            legacy({ story: "foreign", branch: "main" }, 5),
+        ]) {
+            assert.deepEqual(
+                actual.timelineContext(contextInput({ play: stale })),
+                context(),
+            );
+        }
+    },
+);
 test("context", "disposed-or-no-selected-owner-is-null", () => {
     assert.equal(
         actual.timelineContext(contextInput({ disposed: true })),

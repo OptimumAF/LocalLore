@@ -119,15 +119,18 @@ def _worker(path, sha):
     raw = version_backend.received_bytes
     _need(type(raw) is bytes and len(raw) <= 13, 'report')
     _write_bytes(output/'version-bytes-v1.bin', raw)
+    version_bytes_pin = env.binding(output/'version-bytes-v1.bin')
     _write_bytes(output/'version-report-v1.json', files._report_bytes(version, _contract().backend_admission(admitted)))
+    version_pin = env.binding(output/'version-report-v1.json')
     roster_report = roster.probe(roster_type(), _contract().roster_admission(admitted), version)
     _write_bytes(output/'roster-report-v1.json', roster.report_bytes(roster_report, _contract().roster_admission(admitted)))
+    roster_pin = env.binding(output/'roster-report-v1.json')
     report = _contract().probe(inventory_type(), admitted, roster_report)
     _write_bytes(output/'report-v1.json', _contract().report_bytes(report, admitted))
+    report_pin = env.binding(output/'report-v1.json')
     _check_bindings(request['source_closure'], request['python'])
-    for pin in (bound, request_pin, started_pin): env.check_binding(pin)
-    for name in ('version-bytes-v1.bin', 'version-report-v1.json', 'roster-report-v1.json', 'report-v1.json'):
-        env.check_binding(env.binding(output/name))
+    for pin in (bound, request_pin, started_pin, version_bytes_pin, version_pin, roster_pin, report_pin):
+        env.check_binding(pin)
     return 0
 
 

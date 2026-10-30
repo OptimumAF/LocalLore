@@ -61,6 +61,16 @@ Summaries and semantic retrieval remain unavailable in this inspector. Saved
 timeline selection and prefix replay use the shared ancestry rules. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
 and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
 
+The V2 inspector now has bounded Previous/Next navigation that refetches permitted
+pages from Rust. Its [current qualification report](../../docs/desktop/D05_V2_INSPECTOR_PAGING_QUALIFICATION_2026-10-30.md)
+separates frontend/Store/Host tests from actual native UI/IPC execution. After
+preserved startup/focus failures, the guarded correction passes84 frontend focus
+checks,92 paging regressions and the20-capture native journey. Every image was
+individually inspected, including150% wide/narrow layouts. The full76-command
+frontend suite functionally passes, but its retained output exceeds the declared
+32MiB allocation; that failed resource check is preserved and further runs stop.
+Physical keyboard/screen-reader and whole-D05 acceptance remain open.
+
 **Derived memory** reads the selected saved story's shared maintenance status.
 Preparing derived data requires consent; **Process one chunk** performs one
 bounded step. Cancel a stale job before pruning it, then explicitly prepare a

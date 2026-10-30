@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-v2-inspection-paging"
+description = "Enables the harness_v2_inspection_paging command without any pre-configured scope."
+commands.allow = ["harness_v2_inspection_paging"]
+
+[[permission]]
+identifier = "deny-harness-v2-inspection-paging"
+description = "Denies the harness_v2_inspection_paging command without any pre-configured scope."
+commands.deny = ["harness_v2_inspection_paging"]

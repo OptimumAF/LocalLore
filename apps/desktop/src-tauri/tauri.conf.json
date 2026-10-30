@@ -24,6 +24,7 @@
                         "allow-author-preview-discard",
                         "allow-harness-author-case",
                         "allow-harness-scene-oracle",
+                        "allow-harness-v2-inspection-paging",
                         "allow-capture-preview",
                         "allow-capture-save",
                         "allow-capture-revoke",

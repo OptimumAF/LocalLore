@@ -1,4 +1,5 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { beginInspectionPagingFocus } from "./v2-inspector-paging-focus";
 import { sameScope } from "./model";
 import type { Action, FakeMode } from "./model";
 import type { V2BoundPage, V2PlayController } from "./v2-play-controller";
@@ -400,6 +401,16 @@ export function V2PlayPanel({
 }) {
     const state = useSyncExternalStore(controller.subscribe, controller.get),
         c = state.context;
+    const pagingFocus = useRef<ReturnType<
+        typeof beginInspectionPagingFocus
+    > | null>(null);
+    useEffect(
+        () => () => {
+            pagingFocus.current?.cancel();
+            pagingFocus.current = null;
+        },
+        [controller],
+    );
     const [view, setView] = useState<ViewV2>("knowledge");
     const [search, setSearch] = useState("");
     const [at, setAt] = useState("");
@@ -447,6 +458,88 @@ export function V2PlayPanel({
     const inspection = state.inspection;
     const displayedReceipt = state.receipt;
     const originalRequest = (state.pending ?? state.uncertain)?.request;
+    const renderedSnapshot = state.snapshot;
+    const paging = state.inspectionPaging;
+    const renderedNextCursor = inspection?.page.next_cursor ?? null;
+    const sameInspectionOwner = () => {
+        const live = controller.get();
+        return live.context === c && live.snapshot === renderedSnapshot;
+    };
+    const editInspectionForm = (update: () => void) => {
+        if (!sameInspectionOwner()) return;
+        controller.resetInspectionPaging();
+        // Reset listeners may switch context, dispose or start a newer query.
+        const live = controller.get();
+        if (!sameInspectionOwner() || live.queryBusy) return;
+        update();
+    };
+    const livePager = (direction: "previous" | "next") => {
+        const live = controller.get();
+        return (
+            sameInspectionOwner() &&
+            !!renderedSnapshot &&
+            !!inspection &&
+            live.inspection === inspection &&
+            !live.queryBusy &&
+            !live.readBusy &&
+            live.inspectionPaging.bound &&
+            live.inspectionPaging.navigating === null &&
+            (direction === "previous"
+                ? live.inspectionPaging.canPrevious
+                : live.inspectionPaging.canNext &&
+                  renderedNextCursor !== null &&
+                  live.inspection.page.next_cursor === renderedNextCursor)
+        );
+    };
+    const runPager = (
+        direction: "previous" | "next",
+        button?: HTMLButtonElement,
+    ) => {
+        if (
+            !livePager(direction) ||
+            (direction === "next" && renderedNextCursor === null)
+        )
+            return;
+        pagingFocus.current?.cancel();
+        const ticket = beginInspectionPagingFocus(
+            controller,
+            button,
+            c,
+            renderedSnapshot,
+            direction,
+        );
+        pagingFocus.current = ticket;
+        try {
+            const work =
+                direction === "previous"
+                    ? controller.previousInspectionPage()
+                    : controller.page(renderedNextCursor!);
+            void Promise.resolve(work).finally(ticket.settled);
+        } catch (error) {
+            ticket.cancel();
+            if (pagingFocus.current === ticket) pagingFocus.current = null;
+            throw error;
+        }
+    };
+    const pagingBusy =
+        state.queryBusy || state.readBusy || paging.navigating !== null;
+    const pagingReady =
+        !!renderedSnapshot && !!inspection && paging.bound && !pagingBusy;
+    const pagingStatus = paging.navigating
+        ? `Reading ${paging.navigating} inspection page…`
+        : state.readBusy
+          ? "Reading native state; inspection paging is paused."
+          : state.queryBusy
+            ? "Reading permitted view…"
+            : !paging.bound
+              ? inspection
+                  ? "A successful read is needed before paging again. Displayed results keep their original query."
+                  : "Read permitted view to begin inspecting."
+              : paging.earlierOmitted
+                ? "Earlier pages are outside the retained back-navigation window. Read permitted view starts again."
+                : paging.retainedPrevious > 0
+                  ? `${paging.retainedPrevious} previous inspection pages retained in this session.`
+                  : "No earlier inspection page is retained for this read.";
     return (
         <section
             className="v2-play"
@@ -865,6 +958,14 @@ export function V2PlayPanel({
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
+                        const live = controller.get();
+                        if (
+                            !sameInspectionOwner() ||
+                            !renderedSnapshot ||
+                            live.queryBusy ||
+                            live.readBusy
+                        )
+                            return;
                         void controller.readQuery({
                             view,
                             atRevision: at === "" ? null : Number(at),
@@ -876,9 +977,10 @@ export function V2PlayPanel({
                         View{" "}
                         <select
                             value={view}
-                            onChange={(event) =>
-                                setView(event.target.value as ViewV2)
-                            }
+                            onChange={(event) => {
+                                const value = event.target.value as ViewV2;
+                                editInspectionForm(() => setView(value));
+                            }}
                         >
                             {views.map((value) => (
                                 <option key={value} value={value}>
@@ -895,20 +997,53 @@ export function V2PlayPanel({
                             max={c.revision}
                             value={at}
                             placeholder="Current head"
-                            onChange={(event) => setAt(event.target.value)}
+                            onChange={(event) => {
+                                const value = event.target.value;
+                                editInspectionForm(() => setAt(value));
+                            }}
                         />
                     </label>
                     <label>
                         Literal search{" "}
                         <input
                             value={search}
-                            onChange={(event) => setSearch(event.target.value)}
+                            onChange={(event) => {
+                                const value = event.target.value;
+                                editInspectionForm(() => setSearch(value));
+                            }}
                         />
                     </label>
-                    <button disabled={state.queryBusy || !state.snapshot}>
+                    <button
+                        disabled={
+                            state.queryBusy || state.readBusy || !state.snapshot
+                        }
+                    >
                         Read permitted view
                     </button>
                 </form>
+                <nav aria-label="Inspection page navigation">
+                    <button
+                        type="button"
+                        disabled={!pagingReady || !paging.canPrevious}
+                        onClick={(event) =>
+                            runPager("previous", event?.currentTarget)
+                        }
+                    >
+                        Previous inspection page
+                    </button>
+                    <button
+                        type="button"
+                        disabled={!pagingReady || !paging.canNext}
+                        onClick={(event) =>
+                            runPager("next", event?.currentTarget)
+                        }
+                    >
+                        Next inspection page
+                    </button>
+                    <p role="status" aria-live="polite">
+                        {pagingStatus}
+                    </p>
+                </nav>
                 {inspection && (
                     <>
                         <p>
@@ -941,19 +1076,6 @@ export function V2PlayPanel({
                                 />
                             ))}
                         </ol>
-                        <button
-                            disabled={
-                                !inspection.page.next_cursor || state.queryBusy
-                            }
-                            onClick={() =>
-                                inspection.page.next_cursor &&
-                                void controller.page(
-                                    inspection.page.next_cursor,
-                                )
-                            }
-                        >
-                            Next inspection page
-                        </button>
                     </>
                 )}
                 {state.source?.kind === "scoped_event" && (

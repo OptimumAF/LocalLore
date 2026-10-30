@@ -56,6 +56,8 @@ mod test_bridge;
 #[cfg(feature = "dev-harness")]
 mod timeline_harness;
 #[cfg(feature = "dev-harness")]
+mod v2_inspection_paging_harness;
+#[cfg(feature = "dev-harness")]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "dev-harness")]
 struct Reopen(AtomicBool);
@@ -254,6 +256,12 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
     } else {
         "window.__LOCALLORE_TEST__=undefined;".into()
     };
+    #[cfg(feature = "dev-harness")]
+    let script = if v2_inspection_paging_harness::active() {
+        format!("{script}window.__LOCALLORE_TEST__.inspectorPaging=true;")
+    } else {
+        script
+    };
     let builder =
         tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("index.html".into()));
     #[cfg(feature = "dev-harness")]
@@ -261,7 +269,9 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         let path = std::path::PathBuf::from(
             std::env::var_os("LOCALLORE_TEST_WORKSPACE").unwrap_or_default(),
         );
-        let profile = if comparison_run_native_harness::review_active() {
+        let profile = if v2_inspection_paging_harness::active() {
+            v2_inspection_paging_harness::webview_profile(&path).map_err(std::io::Error::other)?
+        } else if comparison_run_native_harness::review_active() {
             comparison_run_native_harness::review_webview_profile(&path)
                 .map_err(std::io::Error::other)?
         } else {
@@ -355,6 +365,14 @@ fn harness_reopen(
     Ok(())
 }
 fn main() {
+    // Refuse mixed/invalid paging requests before any Host/model/fixture setup.
+    #[cfg(feature = "dev-harness")]
+    if v2_inspection_paging_harness::requested() {
+        if let Err(error) = v2_inspection_paging_harness::prepare() {
+            eprintln!("{error}");
+            std::process::exit(2);
+        }
+    }
     // Refuse malformed retained-review requests before any workspace/model setup.
     #[cfg(feature = "dev-harness")]
     if comparison_run_native_harness::review_requested() {
@@ -407,6 +425,7 @@ fn main() {
             memory_harness::harness_memory_case,
             author_harness::harness_author_case,
             scene_harness::harness_scene_oracle,
+            v2_inspection_paging_harness::harness_v2_inspection_paging,
             memory_maintenance_commands::memory_maintenance_start,
             memory_inspection_commands::memory_inspection,
             archive_commands::archive_export_preview,

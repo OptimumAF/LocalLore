@@ -345,9 +345,29 @@ test("late-snapshot-cannot-replace-newer-context", async () => {
             : undefined,
     );
     const old = f.controller.refresh();
+    // Calibrate an admitted old read, not a refresh still reconciling its root.
+    await tick();
+    assert.equal(first, false);
+    assert.deepEqual(
+        f.calls.filter((c) => c.op === "play_snapshot_v2"),
+        [
+            {
+                op: "play_snapshot_v2",
+                session: "session-1",
+                scope: { story: "quay", branch: "child" },
+                expected_revision: 2,
+            },
+        ],
+    );
     const stale = thin(f.ctx);
     f.select({ ...f.ctx, revision: 3 });
     await f.controller.refresh();
+    assert.deepEqual(
+        f.calls
+            .filter((c) => c.op === "play_snapshot_v2")
+            .map((c) => c.expected_revision),
+        [2, 3],
+    );
     read.resolve(stale);
     await old;
     assert.equal(f.controller.get().snapshot.revision, 3);

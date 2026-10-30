@@ -120,7 +120,6 @@ class _WindowsApi:
             "CloseHandle": ([handle], boolean),
             "OpenProcess": ([dword, boolean, dword], handle),
             "GetProcessTimes": ([handle, *([ctypes.POINTER(_FILETIME)] * 4)], boolean),
-            "QueryFullProcessImageNameW": ([handle, dword, wide, ctypes.POINTER(dword)], boolean),
             "WaitForSingleObject": ([handle, dword], dword),
         }
         self.dll = dll
@@ -185,13 +184,6 @@ class _WindowsApi:
         values = [_FILETIME() for _ in range(4)]
         _need(self.dll.GetProcessTimes(handle, *(ctypes.byref(v) for v in values)), "process_query")
         return _u64(values[0].low, values[0].high)
-
-    def process_image(self, handle):
-        buffer = ctypes.create_unicode_buffer(32768)
-        count = ctypes.c_uint32(len(buffer))
-        _need(self.dll.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(count)), "process_query")
-        _need(0 < count.value < len(buffer), "process_query")
-        return buffer[:count.value]
 
     def process_wait(self, handle):
         return int(self.dll.WaitForSingleObject(handle, 0))
@@ -386,9 +378,11 @@ def closed_processes(identities, deadline):
                 if creation != identity["creation_filetime"]:
                     status = "pid_reused"
                 else:
-                    image = api.process_image(handle)
-                    _process_identity(dict(identity, executable=image))
-                    _need(PureWindowsPath(image) == PureWindowsPath(identity["executable"]), "process_identity")
+                    # The admitted executable is historical provenance. An exited
+                    # process can retain its kernel object/birth time while its
+                    # image-name query is unavailable. Require a positive wait
+                    # signal for this exact incarnation, never a query-error
+                    # fallback or an exit-code-259 liveness assumption.
                     wait = api.process_wait(handle)
                     _need(type(wait) is int and wait in (0, 258), "process_query")
                     _need(wait == 0, "process_live")

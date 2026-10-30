@@ -452,7 +452,9 @@ package versions remain those listed above.
 
 The final report passes889 assertions,518 distinct named checks, six exact
 ordered native captures and32 settled native dispatches with zero call/frontend
-errors. It records all96 original normal-scroll observations in their six
+errors. This is the recorded Host/product-native call trace; the32 does not count
+direct fixed harness checkpoint/oracle/viewport/finish invocations. It records
+all96 original normal-scroll observations in their six
 checkpoint files and references them without duplicating geometry in the final
 report. Eighteen actual font targets measure100% baseline,150% wide,150% narrow
 and100% restored. The report's UTF8 size is93,060B, SHA256
@@ -507,3 +509,11 @@ The one V3 attempt is spent. No new model, Android/device, process-death/restart
 network/OS, physical keyboard/screen-reader or public release check ran. Previously
 attributed Rust writer/Clippy/Android host checks were not rerun for the seven
 launcher-only substitutions. Whole D08 and the desktop epic remain open.
+
+Independent read-only review by `main_window_backport_review` compares the
+qualification report, actual report/checkpoint contents, all five inner and23 Git
+terminal records, restoration and retention. It finds no contradiction or
+read-only/oracle failure. The reviewer separately confirms the six ordered native
+captures,96 scroll observations, all four18-target font states,32 settled recorded
+calls and unchanged canonical/observer proofs. This is finite source/evidence
+review, not human story-quality review or approval of the wider milestones.

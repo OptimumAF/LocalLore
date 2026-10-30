@@ -17,6 +17,8 @@ from unittest.mock import patch
 from benchmarks import receipt_avd_retirement_windows as native
 from benchmarks import receipt_avd_environment as environment
 from benchmarks import receipt_avd_storage as storage
+from benchmarks import receipt_avd_retirement as retirement
+from scripts.tests import test_receipt_avd_retirement_fixtures as f
 
 IDENTITY_KEYS={'volume_serial','file_index','bytes','links','creation_filetime','write_filetime','attributes'}
 
@@ -141,6 +143,56 @@ class TinyWindowsImageTests(unittest.TestCase):
             for stream in (child.stdin,child.stdout,child.stderr):
                 if stream is not None:stream.close()
             child._handle.Close()
+
+    def test_actual_executor_retires_all_nine_tiny_images_with_five_owned_exited_identities(self):
+        """Real host native operations over synthetic records, never emulator proof."""
+        script=self.root/'five-owned-children.py'
+        script.write_text('import sys\nsys.stdin.buffer.read(1)\n',encoding='utf8')
+        children=[];identities=[]
+        try:
+            for _ in range(5):
+                child=subprocess.Popen([sys.executable,'-I','-S','-B',str(script)],cwd=self.root,
+                    stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                children.append(child)
+                identities.append(environment.process_identity(child.pid))
+            self.assertEqual(len({identity['pid']for identity in identities}),5)
+            for child in children:
+                stdout,stderr=child.communicate(b'x',timeout=10)
+                self.assertEqual(child.returncode,0);self.assertEqual(stdout,b'');self.assertEqual(stderr,b'')
+            def actual_history(proofs):
+                proofs['after']['owner']=identities[0]
+                proofs['worker_result'].update(worker=identities[1],server=identities[2],
+                    guest_ancestry=[identities[3],identities[4]],guest=identities[4])
+            names=('sdcard.img','sdcard.img.qcow2','userdata-qemu.img','userdata-qemu.img.qcow2',
+                   'cache.img','cache.img.qcow2','encryptionkey.img','encryptionkey.img.qcow2',
+                   'snapshots/default_boot/ram.img')
+            self.assertEqual({storage.CONTENT+name for name in names},set(storage.DISPOSABLE))
+            fixture=f.TinyRetirement(actual_history,image_names=names)
+            preserved=list(fixture.plan['preserve'])
+            copies=[row['binding']for row in storage.read_json(fixture.evidence)['files']]
+            result=retirement._execute(fixture.plan_binding,fixture.output,fixture.registry,
+                execute_reviewed_plan=True)
+            self.assertEqual(result['outcome'],'completed');self.assertEqual(result['marked_count'],9)
+            self.assertEqual(result['attempted_count'],9);self.assertIs(result['cleanup_known'],True)
+            self.assertIs(result['retirement_recorded'],True)
+            self.assertTrue(all(not path.exists()for path in fixture.images))
+            for pin in preserved+copies+[fixture.plan['evidence_manifest']]:storage.check_binding(pin)
+            entry=fixture.entry();self.assertEqual(entry['state'],'retired')
+            expected=fixture.expected_retained_charge();self.assertGreater(expected,0)
+            self.assertEqual(storage._charge(entry),expected)
+            storage.check_binding(entry['retirement_receipt'])
+            self.assertEqual(storage.read_json(entry['retirement_receipt']['path']),
+                dict(version=1,root=str(fixture.root),retirement=fixture.plan))
+            self.assertFalse((fixture.registry/'admission.lock').exists())
+            self.assertEqual([child.poll()for child in children],[0]*5)
+        finally:
+            for child in children:
+                try:
+                    if child.poll() is None:child.kill();child.wait(timeout=10)
+                finally:
+                    for stream in (child.stdin,child.stdout,child.stderr):
+                        if stream is not None:stream.close()
+                    child._handle.Close()
 
 
 class FakeApi:

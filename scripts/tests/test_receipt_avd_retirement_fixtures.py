@@ -17,7 +17,7 @@ CLEANUP = (
 )
 
 class TinyRetirement:
-    def __init__(self, change=None):
+    def __init__(self, change=None, *, image_names=None):
         self.base = Path(tempfile.mkdtemp(prefix='locallore-retirement-tiny-'))
         assert self.base.drive.upper() == 'D:'
         self.registry = self.base/'synthetic-registry'
@@ -27,7 +27,8 @@ class TinyRetirement:
         storage.reserve_prepare(self.root,self.proposal_sha,self.registry)
         self.root.mkdir()
         self.images = []
-        for index,name in enumerate(('sdcard.img','userdata-qemu.img.qcow2')):
+        names=('sdcard.img','userdata-qemu.img.qcow2') if image_names is None else image_names
+        for index,name in enumerate(names):
             path = self.root/storage.CONTENT/name
             self.write(path,b'SYNTHETIC TINY IMAGE ONLY '+bytes([65+index])*9)
             self.images.append(path)

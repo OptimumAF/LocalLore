@@ -52,6 +52,10 @@ The [receipt SHA256 streaming comparison](docs/native/RECEIPT_DIGEST_STREAM_V1.m
 adds a measured reusable-buffer implementation while preserving fresh full-file
 checks. Its synthetic host result is separate from Android/model qualification.
 
+The [buffered restart preparation](docs/native/BUFFERED_RESTART_ADMISSION_2026-10-29.md)
+advances the fixed target to an unused path while preserving previous guests
+and all admission requirements. It grants no emulator run.
+
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.
 It preserves the first unsupported-listener failure and uses a distinct corrected

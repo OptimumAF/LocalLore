@@ -11,7 +11,7 @@ from benchmarks import owned_restart_contract as contract
 from scripts.tests import test_owned_restart_contract as fixtures
 
 OLD_ROOT=PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-10-29-author-restart-controller-v1/avd-v1')
-NEW_ROOT=PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-10-29-restart-after-metadata-v1/avd-v1')
+NEW_ROOT=PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-10-29-buffered-restart-v1/avd-v1')
 
 
 def admission(root):

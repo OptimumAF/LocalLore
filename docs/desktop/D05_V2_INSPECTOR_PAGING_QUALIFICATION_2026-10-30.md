@@ -130,8 +130,29 @@ one planned database before Git/admission/mkdir, and refusal above248 UTF-16 uni
 The first missing-seam run at815a7bc3 is UNRUN_SETUP:38 authored/0 executed/0 pass,
 not behavioral RED. After production,38/38 and the unchanged245 policy cases pass.
 No fallback or alternate base; all prior packets remain counted. These are VM
-string tests, not successful native database creation. Longer WebView/profile
-paths remain separately unverified.
+string tests; their pass alone is not successful native database creation.
+
+`33e85a38` subsequently creates the actual339,968B fixture at a244-unit ordinary
+database path. Its native process then known-closes with exit101 after67.078s:
+Tauri setup reports WebView2 HRESULT0x80080005, Server execution failed, before
+frontend/IPC/UI execution. Launcher95.803s; packet
+p-dd46903c-8ffe-4684-b8d0-f1118b142a14 retains the database, empty evidence/profile
+directories and bounded stderr. Zero PNGs and no journey report. Normal products
+restore successfully and remain unlaunched; no unknown drain/storage latch.
+Final packet498,820B; paging14,406,423B; joint516,051,076B; target growth76,895,207B.
+Successful shorter database setup supports the earlier path diagnosis, without
+proving the exact prior collapsed failure stage or this new WebView2 cause.
+
+A D05-only shorter fresh profile layout is proposed in claims6521260494 and
+6521298169. It derives packet/webview-profile beside the unchanged workspace
+directory, under the same measured packet. It will not move/reuse/delete the
+failed profile or affect normal/other modes. A conservative190 UTF-16-unit
+profile ceiling is a local test-layout budget, not a Microsoft limit or proven
+HRESULT remedy. [Microsoft's UDF guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/user-data-folder)
+supports custom writable app-owned data directories; it does not establish this
+failure's cause. Independent actual-helper FIRST must freeze before production;
+actual WebView rendering and longer descendant paths remain unverified. No
+installed runtime, registry, permission, browser option or other app is changed.
 
 ## Resource and acceptance limits
 

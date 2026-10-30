@@ -61,6 +61,12 @@ Summaries and semantic retrieval remain unavailable in this inspector. Saved
 timeline selection and prefix replay use the shared ancestry rules. See [D05 native inspection](../../docs/desktop/D05_NATIVE_INSPECTION.md)
 and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
 
+The V2 inspector now has bounded Previous/Next navigation that refetches permitted
+pages from Rust. Its [current qualification report](../../docs/desktop/D05_V2_INSPECTOR_PAGING_QUALIFICATION_2026-10-30.md)
+separates frontend/Store/Host tests from the native UI gate. The current native
+attempt reaches a complete synthetic database, then fails during WebView2 startup;
+mounted pager behavior, enlarged target text and image review remain unverified.
+
 **Derived memory** reads the selected saved story's shared maintenance status.
 Preparing derived data requires consent; **Process one chunk** performs one
 bounded step. Cancel a stale job before pruning it, then explicitly prepare a

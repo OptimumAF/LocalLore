@@ -218,6 +218,14 @@ normal-product restoration branch is added. A final bounded summary states exact
 fixed step count, success/failure and cooperative limitations. Public reports
 redact local paths; private logs remain local/ignored.
 
+The bounded terminal JSON record has kind="d09_frontend_evidence_run_v1",
+passed:boolean and completedSteps:safe nonnegative integer, plus bounded diagnostic
+fields. This discriminator identifies OVERALL runner status. A prior child's
+JSON-quoted stdout containing PASS: remains valid evidence when a later step
+fails; it is not an overall success marker. Preserve that prefix. The existing
+standalone final PASS line may occur only after whole-run success. Tests must
+distinguish these two scopes rather than reject every PASS substring.
+
 ## Verification and admission gate
 
 Independent FIRST covers strict record/path/size admission, aggregate accounting,

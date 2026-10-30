@@ -122,8 +122,8 @@ class OriginalStoryInputDialogTest {
             }
             compose.onNodeWithTag("original-create").assertDoesNotExist()
 
-            // A real post-generation edit makes the draft invalid again; Cancel remains usable.
-            replace("original-character-0-name", "Iris")
+            // Player Mira now conflicts with the retained input cast Mira; Cancel remains usable.
+            replace("original-player-name", "Mira")
             compose.onNodeWithTag("original-generate").performScrollTo().assertIsNotEnabled()
             warning()
             compose.onNodeWithTag("original-cancel").assertIsEnabled().performClick()
@@ -138,7 +138,7 @@ class OriginalStoryInputDialogTest {
 
     @Test fun aggregateInputBytesStayVisibleAndBlockUiGenerationUntilShortened() {
         val port = ScriptedGateway()
-        val premise = "Ã©".repeat(1024)
+        val premise = "\u00e9".repeat(1024)
         val description = "d".repeat(512)
         form(port) { state, _ ->
             replace("original-premise", premise)

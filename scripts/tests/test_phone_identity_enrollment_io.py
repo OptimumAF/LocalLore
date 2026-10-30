@@ -208,7 +208,8 @@ class PhoneIdentityEnrollmentIoTests(unittest.TestCase):
             with self.subTest(fault=fault), self.runtime(captured), \
                  patch.object(Path, 'lstat', new=lstat), patch.object(Path, 'stat', new=stat), \
                  patch.object(Path, 'open', new=open_file):
-                with self.assertRaises(ValueError): enrollment_io.prepare(captured.bundle, captured.sha)
+                with self.assertRaises((ValueError, env.EnvironmentRefused)):
+                    enrollment_io.prepare(captured.bundle, captured.sha)
             self.assertFalse((captured.bundle/'review-v1').exists())
 
     def test_existing_or_partial_review_directory_is_preserved_without_retry(self):

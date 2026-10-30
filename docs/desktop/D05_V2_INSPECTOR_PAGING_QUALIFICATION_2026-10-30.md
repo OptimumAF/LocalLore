@@ -48,6 +48,7 @@ formatting proofs locally.
 | Target font assertions |2efd4de6; raw SHA7560acdd2b93627565df95208d7a1cf1fa66d98e8e15f128d58e7657c4f2f1d7 |6389cf33; CSS792ffc76 |
 | Restoration245 checks |57ce05b3; raw SHA27fafc9d59390bf10ad8a3b46c77940c0b5d73ea6b5735a6c3b2625a8fcf53b0 |f4ba609f; fix1f7271a5; formatdfb3a372 |
 | Fixed-path38 checks |7a9284c0; raw SHA2afee4043e048058819142d415d98d7ecd6cdf4e4c28982f91747c582ab233e2 |cd7a239e/815a7bc3; production2da3ee84 |
+| Native profile5 groups |b9b6d1c9; raw SHA334adc50d9067de3643da5112cd3dc4a6787a597f5f63c4f26274f373cf7a187 |6cdde0d3/a8202add; productiona66d6852 |
 
 The old controller test stalled at dc8069fa: it changed context before the older
 refresh had entered its intended fake RPC. Independent f7c8e158 adds bounded
@@ -91,6 +92,10 @@ React19.3.1, TypeScript7.0.2, Tauri2.12.5, esbuild0.28.2, Prettier3.9.10.
 |a940c3a8 changed frontend targets |Prettier --check over10 changed UI/launcher/verifier/FIRST targets |PASS;0.650s |
 |2da3ee84 fixed paths |desktop cwd: `node check-v2-inspector-paging-path-review.mjs` |38/38;0.133s; actual private path block in VM, string/caller-order checks only |
 |2da3ee84 launcher policy |desktop cwd: `node check-v2-inspector-paging-process-review.mjs` |245/245;0.290s |
+|a66d6852 native profile |same native package/bin/features/locked/offline; filter `v2_inspection_paging_harness::profile_review_tests:: -- --test-threads=1` |5/5;42.367s command/0.03s tests; filesystem helper only |
+|3b835f9f strict lint |same strict native Clippy command above |PASS;8.110s |
+|3b835f9f Rust format |`cargo fmt --all -- --check` |PASS;5.532s |
+|3b835f9f calibrated profile boundary |same native flags; exact `v2_inspection_paging_harness::profile_review_tests::profile_limit_counts_utf16_units_with_exact190_and191_unicode_boundaries -- --exact --test-threads=1` |1/1 separately;23.131s command; Rust reports0.00s test |
 
 Native FIRST executes production Store/Workspace/Host/Engine, not IPC/WebView.
 Its source-planned positive recipe has45 canonical operations/44 ordinary turns
@@ -143,16 +148,30 @@ Final packet498,820B; paging14,406,423B; joint516,051,076B; target growth76,895,
 Successful shorter database setup supports the earlier path diagnosis, without
 proving the exact prior collapsed failure stage or this new WebView2 cause.
 
-A D05-only shorter fresh profile layout is proposed in claims6521260494 and
-6521298169. It derives packet/webview-profile beside the unchanged workspace
-directory, under the same measured packet. It will not move/reuse/delete the
-failed profile or affect normal/other modes. A conservative190 UTF-16-unit
-profile ceiling is a local test-layout budget, not a Microsoft limit or proven
-HRESULT remedy. [Microsoft's UDF guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/user-data-folder)
+A D05-only shorter fresh profile layout is implementeda66d6852 after independent
+b9b6d1c9 FIRST. It derives packet/webview-profile beside the unchanged workspace
+directory, under the same measured packet; the source-known old/new profile
+addresses are242/174 UTF-16 units. It creates nothing itself, accepts only absent
+metadata, and does not move/reuse/delete the failed profile or affect normal/other
+modes. A conservative190-unit ceiling is a local test-layout budget, not a
+Microsoft limit or proven HRESULT remedy. [Microsoft's UDF guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/user-data-folder)
 supports custom writable app-owned data directories; it does not establish this
-failure's cause. Independent actual-helper FIRST must freeze before production;
-actual WebView rendering and longer descendant paths remain unverified. No
-installed runtime, registry, permission, browser option or other app is changed.
+failure's cause. Actual WebView rendering and longer descendant paths remain
+unverified. No installed runtime, registry, permission, browser option or other
+app is changed. Absence validation is cooperative, not atomic OS isolation.
+
+Five actual-helper filesystem groups pass at a66d6852, retaining seven tiny
+packet roots/two padding ancestors. Subsequent strict Clippy stops on two FIRST
+style diagnostics; no production warning is reported. Independent0de936c1 keeps
+the Windows assertion in a const block, expresses the same inclusive range with
+contains, and uses unique ASCII hex material in the unchanged emoji padding length
+so a later explicitly admitted run need not collide with preserved test parents.
+All five groups and190/191 assertions remain. Raw calibration SHA is
+aca7fd3c6759e63e4b055405dde3b7b1c7f774ee1ea826d654a3025cb6c51fba;
+format-only derived/actual SHA3111da425ca9f271c3c72cd9bc00cfafab8d905f4cf1d7ca234bc443f8a41de9.
+At3b835f9f strict Clippy/format pass and only the calibrated boundary group runs
+again, passing and retaining two more tiny packet roots/two padding ancestors.
+No repeat of the full five/recipe cohorts, SQLite, WebView or model in these tests.
 
 ## Resource and acceptance limits
 

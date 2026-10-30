@@ -71,7 +71,8 @@ whole-process-tree containment. No evidence is deleted to fit.
 
 ## Actual checks
 
-Commands run from `apps/desktop` with the environment above. The ignored local
+Commands run from `apps/desktop` with the environment above; Cargo rows below
+abbreviate the additional actual `--locked --offline` flags. The ignored local
 coordinator and immutable terminal/log/source records are retained under
 `author-integration-artifacts/d08-fork-checks-20261030-v1` in the task-owned D root.
 

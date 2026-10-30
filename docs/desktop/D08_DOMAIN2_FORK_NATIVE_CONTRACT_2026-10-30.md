@@ -290,3 +290,17 @@ Unknown shutdown/storage/ownership stops later work under the existing latch.
 No desktop control, model/device/SDK/OS work, downloads, deletion, cleanup,
 second app attempt or other group's limit increase follows. Keep all prior
 failures and evidence. This table is a reviewable request, not permission.
+
+## Subsequent owner decision
+
+The owner answered `call_0b5d76e04e7d4eaab6968a2237b24591`, “Approve one
+bounded native fork run.” That accepts the exact proposal above for one cohort,
+including preparation/checks/builds and restoration after confirmed closure.
+It does not change the previous failures or any other group's limits.
+Independent FIRST `b68ac858` (integrated `ad324d12`) freezes all12 groups with
+fork-only4GiB/692MiB expectations. Against the old launcher it executes12:
+8pass,4fail,0setup. Root then changes only the fork target/joint constants;
+paging remains2GiB/640MiB and browser remains4GiB/660MiB. Fresh verification,
+source/permission/product readback, independent preparer review and an exclusive
+eight-field source-bound admission still precede the sole launch. A written
+owner decision alone is not a successful runtime result.

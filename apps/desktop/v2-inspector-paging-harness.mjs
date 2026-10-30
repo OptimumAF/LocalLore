@@ -113,11 +113,16 @@ process.env.TEMP = "D:/Dev/_Temp";
 process.env.TMP = "D:/Dev/_Temp";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const limits = Object.freeze({
-    targetGrowth: mode === "timeline-browser" ? 4294967296 : 2147483648,
+    targetGrowth: mode === "paging" ? 2147483648 : 4294967296,
     sourceGrowth: 134217728,
     artifacts: plan.artifacts,
     entries: 2000000,
-    cumulativeEvidence: mode === "paging" ? 671088640 : 692060160,
+    cumulativeEvidence:
+        mode === "domain2-fork"
+            ? 725614592
+            : mode === "paging"
+              ? 671088640
+              : 692060160,
     expectedEvidence: plan.expectedEvidence,
     pagingEvidence: plan.pagingEvidence,
 });

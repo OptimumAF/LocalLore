@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 import threading
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -205,6 +206,57 @@ class LiveAuthorPendingOwnershipTests(unittest.TestCase):
             self.assertFalse(f.p.thread.is_alive())
             self.assertEqual(f.api.closed, [73])
             self.assertEqual(f.p.handles.handles, {})
+
+    def worker_request(self, f):
+        root = f.base/'worker-case'
+        root.mkdir()
+        request = dict(version=1, protocol='owned-live-author-request-v1',
+            admission=f.admission, running=f.running, control_session=f.session_pin,
+            root=str(root), sources=f.a['sources'], python=f.a['python'],
+            controller=c.env.binding(Path(c.__file__).resolve()),
+            seconds=c.AUTHOR_SECONDS, owner_seconds=c.AUTHOR_OWNER_SECONDS)
+        return root, f.save(root/'request-v1.json', request)
+
+    def test_worker_rejects_wrong_receipt_before_input_guard_or_observer_construction(self):
+        for change in ('request', 'worker', 'shape'):
+            f = PendingFixture(); root, request = self.worker_request(f)
+            receipt = dict(request=request, worker=copy.deepcopy(f.worker))
+            if change == 'request': receipt['request'] = f.admission
+            elif change == 'worker': receipt['worker']['pid'] += 1
+            else: receipt['private'] = 'PRIVATE_CANARY'
+            f.save(root/'started-v1.json', receipt)
+            with self.subTest(change=change), \
+                 patch.object(c.env, 'process_identity', return_value=f.worker), \
+                 patch.object(c.c6, 'revalidate_inputs', side_effect=AssertionError('unexpected input IO')) as inputs, \
+                 patch.object(c.owner, 'LiveOwnedLiveDeathTarget', side_effect=AssertionError('unexpected observer')) as observer:
+                with self.assertRaises((ValueError, c.env.EnvironmentRefused)):
+                    c._worker(request)
+                inputs.assert_not_called()
+                observer.assert_not_called()
+            self.assertFalse((root/'worker-ready-v1.json').exists())
+
+    def test_missing_worker_receipt_exhausts_only_its_fixed_wait_without_observer(self):
+        f = PendingFixture(); root, request = self.worker_request(f)
+        ticks = iter((1.0, 7.0))
+        clock = SimpleNamespace(monotonic=lambda: next(ticks), sleep=lambda seconds: None)
+        with patch.object(c, 'time', clock), \
+             patch.object(c.owner, 'LiveOwnedLiveDeathTarget', side_effect=AssertionError('unexpected observer')) as observer:
+            with self.assertRaises((ValueError, c.env.EnvironmentRefused)):
+                c._worker(request)
+            observer.assert_not_called()
+        self.assertFalse((root/'started-v1.json').exists())
+        self.assertFalse((root/'worker-ready-v1.json').exists())
+
+    def test_cancel_preserves_publication_exception_when_terminal_verdict_also_fails(self):
+        f = PendingFixture(); f.p.failed = True
+        primary = OSError('original synthetic publication error')
+        with patch.object(c.env, 'create_json', side_effect=primary):
+            with self.assertRaises(OSError) as caught:
+                f.p.cancel()
+        self.assertIs(caught.exception, primary)
+        self.assertEqual(f.p.thread.joined, 1)
+        self.assertEqual(f.api.closed, [73])
+        self.assertEqual(f.p.handles.handles, {})
 
 
 if __name__ == '__main__':

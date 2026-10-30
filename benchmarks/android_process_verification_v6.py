@@ -165,7 +165,17 @@ def _prefix(session, a, count):
 
 def _collection(rows, session, remote, local, pins, uid, lower, upper):
     """Bind exact copied bytes to qualified ls/hash/tar/hash calls and tar UID."""
-    names = tuple(pins)
+    # JSON object order is not a command recipe. The producer's fixed tuple is
+    # the authority for ls/hash/tar selection even after sorted serialization.
+    roles = {
+        'no_backup/original-author-import-proof-v1': ('import-v1.json',),
+        'no_backup/original-author-proof-v1': ('proof-v1.json', *author.RECORDS, *author.TRACES),
+        CHECKPOINT_ROOT: CHECKPOINT_FILES,
+        'no_backup/original-author-restart-proof-v1': ('proof-v1.json', *restart.RECORDS),
+    }
+    c._need(remote in roles, 'command')
+    names = roles[remote]
+    c._obj(pins, names, 'binding')
     paths = [remote+'/'+name for name in names]
     prefix = ['run-as', c.APP, '--user', '0']
     recipes = [prefix+['ls', remote], prefix+['sha256sum', *paths],

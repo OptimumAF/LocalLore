@@ -55,17 +55,36 @@ active ticket is retained by the panel.
 ## Guarded lifecycle
 
 During the interaction, listen to public controller notifications and only the
-owner document's focusin and pointerdown. Automatic blur to BODY is not itself
-cancellation. Focus to another focusable target or pointer intent on another
-target cancels immediately; restoring focus must not override a user move.
+owner document's capture-phase focusin and pointerdown. Stopped bubbling must not
+hide user intent. The original button's descendants count as owned. Automatic
+blur to BODY is not itself cancellation. Focus to another focusable target or
+pointer intent on another target cancels immediately; restoring focus must not
+override a user move.
 
-Retire on context/snapshot reference replacement, disposal, unbound/reset/fresh
+Retire on observed context/snapshot reference replacement, unbound/reset/fresh
 Read/source navigation, readBusy, gameplay pending/uncertainty/block or a navigation
 direction that no longer belongs to this interaction. Observe the actual pending
 direction once. After its first idle completion, another read/navigation retires
 the old ticket, even if the old promise/animation frame runs late. Public-state
 notifications must be observed directly, not inferred only from batched React
 renders. Do not broaden this into a new data-authority or public-mutation API.
+
+Actual dispose updates context:null and clears subscribers without notification.
+Immediate cleanup from an arbitrary direct dispose is therefore not observable
+through subscribe alone. Mandatory get() rechecks at settlement/frame/document
+events prevent later focus; panel unmount/controller cleanup cancels immediately.
+Do not invent a disposal notification or change the controller for this helper.
+
+An earlier synchronous patch listener can start another same-direction navigation
+during old final-idle delivery, before this helper observes that idle. Direction
+equality alone is insufficient. Freeze real-controller tests for both subscriber
+orders; retire conservatively whenever ownership is ambiguous. Bounded weak state
+identity metadata is permitted: actual patch creates a new public get() state
+object, while recursive delivery can expose the same newer state twice. A WeakSet
+of these identities retains no state/page/body/cursor strongly; at most64 public
+notifications per reservation, then retire. Duplicate identity retires. This is
+interaction bookkeeping, not a controller sequence API or data cache. Do not
+traverse inspection/page/rows/cursor to infer ownership or weaken stale guards.
 
 settled schedules at most one owner-document requestAnimationFrame only after
 the owned navigation has actually begun and completed. Keep cancellation guards

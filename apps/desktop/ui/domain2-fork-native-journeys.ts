@@ -570,6 +570,7 @@ export async function domain2ForkNativeJourneys({
             mode: MODE,
             selectedStory: selected?.scope ?? null,
             session: selected?.id ?? null,
+            uiRevision: play?.revision ?? selected?.revision ?? 0,
             revision: play?.revision ?? null,
             observer: s.view === "play" ? "player" : s.observer,
             view: s.view,

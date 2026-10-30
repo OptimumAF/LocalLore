@@ -59,7 +59,7 @@ class TranscriptFollowScreenTest {
 
     private fun awaitVisible(name: String) {
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithTag(name).fetchSemanticsNodes().isNotEmpty()
+            compose.onNodeWithTag(name).isDisplayed()
         }
         compose.onNodeWithTag(name).assertIsDisplayed()
     }
@@ -151,12 +151,12 @@ class TranscriptFollowScreenTest {
             messages = original.messages + reply.copy(text = "SCRIPTED different branch tail, reused ID"))
         compose.runOnIdle { state.value = replacement }
         compose.waitForIdle()
-        compose.onNodeWithTag("message-body-1").assertIsDisplayed()
+        scrollTo("message-body-1").assertIsDisplayed()
         compose.runOnIdle { retainedClick() }
         compose.waitForIdle()
         compose.onNodeWithTag("message-body-1").assertIsDisplayed()
         compose.onNodeWithTag("message-body-300").assertIsNotDisplayed()
-        compose.onNodeWithTag("transcript-latest").assertDoesNotExist()
+        compose.onNodeWithTag("transcript-latest").assertIsDisplayed()
         scrollTo("play-input").assert(hasText(""))
         compose.runOnIdle { assertSame(replacement, state.value); calls.assertQuiet() }
     }

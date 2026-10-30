@@ -37,7 +37,7 @@ export function timelineContext(
               session: selected.id,
               scope: { ...selected.scope },
               revision:
-                  s.play?.revision ?? s.playV2?.revision ?? selected.revision,
+                  s.playV2?.revision ?? s.play?.revision ?? selected.revision,
               view: s.view,
               observer: s.observer,
               persistent: s.workspace?.persistent === true,

@@ -155,7 +155,9 @@ Detailed report construction or its one `harness_finish` call may fail. In that
 case the helper attempts exactly one fixed, small, synthetic failed report
 through the same IPC, with a finite category and explicit unavailable details.
 It must never turn a failed finalization into success, invent state proof, retry
-an application or suppress failure of that fallback. Disposal can still fail or
+an application or suppress failure of that fallback. The journey retains one
+finalization promise across its normal and error paths: rejection of both calls
+must not cause the outer catch to attempt a third native finish. Disposal can still fail or
 stall; the outer deadline and unknown-lifetime guard remain authoritative.
 
 Independent regression source freezes before producer changes. Its author and

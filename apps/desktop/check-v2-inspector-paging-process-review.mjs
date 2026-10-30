@@ -933,7 +933,9 @@ register(
             "Changed captured products must not be overwritten by Node/Cargo/native",
         );
         assert.equal(observed.processes.length, 0);
-        const evidence = h.metadata.find((item) => item.name === "normal-restoration.json");
+        const evidence = h.metadata.find(
+            (item) => item.name === "normal-restoration.json",
+        );
         assert.equal(evidence?.value.passed, false);
     },
 );
@@ -953,7 +955,9 @@ register(
         assert.equal(h.api.observe().restoration?.launched, false);
         const later = h.spawns.slice(before);
         assert.deepEqual(
-            later.filter((item) => item.command !== "git").map((item) => item.command),
+            later
+                .filter((item) => item.command !== "git")
+                .map((item) => item.command),
             [node, "cargo"],
         );
         assert(later.every((item) => item.command !== paths.executable));

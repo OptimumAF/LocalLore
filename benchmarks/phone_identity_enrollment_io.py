@@ -244,6 +244,21 @@ def _selection(bundle, proposal_sha, decision_sha):
     capture = read_capture(root, proposal['capture']['sha256'])
     expected = contract.make_proposal(capture['result_pin'], capture['admission'], capture['report'])
     need(same(expected, proposal), 'proposal')
+    prepared_pin, prepared = _json(directory/'prepare-result-v1.json')
+    contract._obj(prepared, ('version', 'protocol', 'status', 'candidate_count', 'feature_acceptance',
+        'authority_authenticated', 'grants_device_actions', 'capture', 'proposal', 'review', 'enrollment_sources'), 'proposal')
+    for name, path in (('capture', root/'roster-v1/result-v1.json'),
+                       ('proposal', directory/'proposal-v1.json'), ('review', directory/'review.html')):
+        _expected_pin(prepared[name], path, MAX_JSON)
+    expected_prepared = dict(version=1, protocol=contract.PROTOCOL, status=proposal['status'],
+        candidate_count=len(proposal['candidates']), feature_acceptance=False, authority_authenticated=False,
+        grants_device_actions=False, capture=capture['result_pin'], proposal=proposed,
+        review=prepared['review'], enrollment_sources=_code_pins())
+    need(same(prepared, expected_prepared), 'proposal')
+    review_pin, review_raw = _read(directory/'review.html', MAX_JSON, prepared['review'])
+    need(review_raw == contract.render_review(proposal, proposed['sha256']).encode('utf-8'), 'proposal')
+    capture['bindings'].extend((prepared_pin, review_pin))
+    _check_capture(capture)
     chosen, decision = _json(directory/'human-choice-v1.json', sha=decision_sha)
     identity = contract.select_identity(proposal, proposed, decision, chosen)
     return root, directory, capture, proposed, chosen, identity

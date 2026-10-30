@@ -191,10 +191,13 @@ authorized by this report.** Bootstrap source verification is complete; prepare 
 reviewable draft PR and obtain an explicit prospective resource decision.
 No previous native failure becomes green when its harness source is corrected.
 
-One proposed owner decision is a single further fixed run with a40MiB browser
+The owner subsequently approved a single further fixed run with a40MiB browser
 base and648MiB joint ceiling, retaining the20MiB packet reservation, all earlier
-costs and original target/D05/D07 limits. This is an unapproved proposal, not a
-changed guard or run permission. The current source still enforces32/640MiB.
+costs and original target/D05/D07 limits. See the native contract's explicit
+revision2 appendix and [decision record](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6527673039).
+Version2 guard implementation, independent revised checks, source review and a
+fresh source-bound record precede that one attempt. No corrected native run has
+yet executed; the original failed version1 packet remains failed.
 All native browser, keyboard/screen-reader, Android parity, real-model quality,
 offline/OS, installer/release and whole-epic gates remain open.
 
@@ -205,4 +208,4 @@ included in the base/joint count. With all previous named evidence and current
 718,574B products, actual joint retention is637,327,419B before later small
 metadata. Retaining16MiB product/1MiB metadata reserves and admitting another
 20MiB packet would forecast675,406,157B, exceeding640MiB; the proposed648MiB
-ceiling would accommodate it. This calculation is a proposal, not admission.
+ceiling accommodates it. This calculation alone is not runtime admission.

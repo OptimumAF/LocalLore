@@ -9,6 +9,7 @@ machine settings, or modify environment variables.
 ```powershell
 python scripts/check.py host --offline
 python scripts/check.py android --offline --clean
+python scripts/check.py android --archive-verification --offline
 ```
 
 `host` runs Rust 1.93.1 workspace formatting, warning-free Clippy over all targets,
@@ -44,6 +45,28 @@ SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865 and the Rust 1.93.1
 existing JDK; otherwise `java` must be on `PATH`.
 The APK audit requires `ANDROID_HOME` or `ANDROID_SDK_ROOT` pointing to the SDK
 with Build Tools 35.0.0, even when standalone Gradle uses `local.properties`.
+
+`android --archive-verification` selects the existing isolated archive profile
+with `-PlocalLoreArchiveVerification=true`. It builds the app/test APKs, runs
+JVM tests/lint, then audits the product APK under
+`apps/android/app/build-archive-verification/outputs/apk/debug/`. The ordinary
+command still selects `build/` and `org.locallore.app`. The archive option is
+rejected for `host` before any checks start. It does not install APKs or execute
+instrumented tests.
+
+To audit an already built archive-profile product APK without rebuilding:
+
+```powershell
+python scripts/audit_apk.py apps/android/app/build-archive-verification/outputs/apk/debug/app-debug.apk --archive-verification
+```
+
+This selects only `org.locallore.app.archiveverify`, including its exact scoped
+signature permission and backup-resource namespace. Mixing the archive option
+with any model/input verification option is refused before reading the APK or
+starting AAPT. Omitting the option retains the ordinary package contract; an
+archive APK is not accepted as an ordinary APK. These entry points reuse the
+same ZIP, SDK, manifest, backup-rule and receipt-service policies. They accept
+no arbitrary package name.
 
 The audit checks the current debug contract: min26/target36, only the app-owned
 signature receiver permission, exactly the two supported ABI/library sets,

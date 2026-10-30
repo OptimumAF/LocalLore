@@ -90,7 +90,7 @@ def java_executable():
     return java
 
 
-def android_commands(root, offline, clean):
+def android_commands(root, offline, clean, archive_verification=False):
     verify_wrapper(root)
     # Invoke the verified JAR directly, avoiding .bat/cmd shell interpretation.
     argv = [java_executable(), "-classpath", str(root / "apps/android/gradle/wrapper/gradle-wrapper.jar"),
@@ -99,12 +99,18 @@ def android_commands(root, offline, clean):
         argv.append("clean")
     argv.extend([":app:assembleDebug", ":app:assembleDebugAndroidTest", ":app:testDebugUnitTest",
                  ":app:lintDebug", "--no-daemon", "--console=plain", "-Pandroid.builder.sdkDownload=false"])
+    if archive_verification:
+        argv.append("-PlocalLoreArchiveVerification=true")
     if offline:
         argv.append("--offline")
+    build = "build-archive-verification" if archive_verification else "build"
+    audit = [sys.executable, str(root / "scripts/audit_apk.py"),
+             str(root / "apps/android/app" / build / "outputs/apk/debug/app-debug.apk")]
+    if archive_verification:
+        audit.append("--archive-verification")
     return [
         Command(tuple(argv), root / "apps/android"),
-        Command((sys.executable, str(root / "scripts/audit_apk.py"),
-                 str(root / "apps/android/app/build/outputs/apk/debug/app-debug.apk")), root),
+        Command(tuple(audit), root),
     ]
 
 
@@ -122,15 +128,19 @@ def main(argv=None):
     parser.add_argument("suite", choices=("host", "android"))
     parser.add_argument("--offline", action="store_true", help="require cached Cargo/Gradle dependencies")
     parser.add_argument("--clean", action="store_true", help="clean Android build outputs before checking")
+    parser.add_argument("--archive-verification", action="store_true", help="check only the isolated archive verification Android profile")
     args = parser.parse_args(argv)
     if args.clean and args.suite != "android":
         parser.error("--clean applies only to android")
+    if args.archive_verification and args.suite != "android":
+        parser.error("--archive-verification applies only to android")
     try:
         if args.suite == "host":
             (ROOT / "target/checks").mkdir(parents=True, exist_ok=True)
             commands = host_commands(ROOT, args.offline)
         else:
-            commands = android_commands(ROOT, args.offline, args.clean)
+            commands = android_commands(ROOT, args.offline, args.clean,
+                                        archive_verification=args.archive_verification)
         return run_commands(commands)
     except KeyboardInterrupt:
         print("Checks interrupted.", file=sys.stderr)

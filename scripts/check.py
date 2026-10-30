@@ -106,11 +106,16 @@ def android_commands(root, offline, clean, archive_verification=False):
     build = "build-archive-verification" if archive_verification else "build"
     audit = [sys.executable, str(root / "scripts/audit_apk.py"),
              str(root / "apps/android/app" / build / "outputs/apk/debug/app-debug.apk")]
+    pair = [sys.executable, str(root / "scripts/audit_instrumentation_apk.py"),
+            str(root / "apps/android/app" / build / "outputs/apk/debug/app-debug.apk"),
+            str(root / "apps/android/app" / build / "outputs/apk/androidTest/debug/app-debug-androidTest.apk")]
     if archive_verification:
         audit.append("--archive-verification")
+        pair.append("--archive-verification")
     return [
         Command(tuple(argv), root / "apps/android"),
         Command(tuple(audit), root),
+        Command(tuple(pair), root),
     ]
 
 

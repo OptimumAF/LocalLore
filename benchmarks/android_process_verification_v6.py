@@ -332,6 +332,8 @@ def verify_restart_prerequisite(pin, admission, admission_binding, running_bindi
             value['protocol'] == 'original-author-live-death-prerequisite-v1', 'binding')
     _same(value['admission'], admission_binding); _same(value['running'], running_binding)
     _same(value['build'], a['artifacts']['build'])
+    c.binding(value['control_session'])
+    _role(value['control_session'], PureWindowsPath(value['control_session']['path']).parent/c.SESSION_FILE)
     session = c.validate_session(_json(value['control_session']), a)
     _role(value['control_session'], PureWindowsPath(session['root'])/c.SESSION_FILE)
     _same(session['caller'], caller, 'identity'); _same(session['admission'], admission_binding)
@@ -457,6 +459,9 @@ def verify_guest_inputs(*args, **kwargs):
 def verify_controller_result(binding, admission, admission_binding, running_binding, expected_caller):
     """Full current-profile replay; a legacy passive result cannot enter here."""
     a = c.validate_admission(admission); _current_sources(a)
+    c.binding(binding)
+    result_root = PureWindowsPath(binding['path']).parent
+    _role(binding, result_root/'controller-result-v1.json')
     value = _json(binding)
     c._obj(value, ('version', 'protocol', 'request', 'session', 'prerequisite',
         'restart_instrumentation', 'boot_final', 'restart_proof', 'restart_artifacts',
@@ -468,6 +473,8 @@ def verify_controller_result(binding, admission, admission_binding, running_bind
         value['observer_handles_closed'] is True and value['pending_handles_closed'] is True and
         value['feature_acceptance'] is False, 'capability')
     c._int(value['elapsed_ms'], 0, 1300000, 'budget')
+    _role(value['request'], result_root/'request-v1.json')
+    _role(value['session'], result_root/c.SESSION_FILE)
     request = _json(value['request'])
     c._obj(request, ('version', 'protocol', 'admission', 'running', 'build', 'root', 'head',
         'sources', 'python', 'controller', 'seconds', 'started_epoch', 'deadline_epoch'))
@@ -479,7 +486,7 @@ def verify_controller_result(binding, admission, admission_binding, running_bind
     _same(request['sources'], a['sources']); _same(request['python'], a['python'])
     _same(request['build'], a['artifacts']['build'])
     _same(request['controller'], next(p for p in a['sources'] if PureWindowsPath(p['path']).name == 'original_author_live_death_controller.py'))
-    from benchmarks.original_author_restart_controller import _verify_build_closed
+    from benchmarks.original_author_live_death_controller import _verify_build_closed
     manifest = _verify_build_closed(request['build'], a)
     _same(request['head'], manifest['head'], 'source')
     root = c._path(request['root'], project=True)

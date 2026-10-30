@@ -148,11 +148,11 @@ ignored builds, caches and preparation records remain intact.
 Private output:
 D:/Dev/Experiments/LocalLore/2026-10-29-current-physical-artifacts-v1.
 Matching D recovery includes exact source, closed evidence and built APK/JNI
-copies within the0.3GiB allowance. No signing-key, model-weight, save or guest
+copies within the0.3GiB allowance. No signing-key, model-weight, private-save or guest
 image is copied; no private artifact is uploaded.
 
-No phone installation, instrumentation method, JNI library, inference,
-model import, emulator, ADB, socket, ledger or backup/restore is executed.
+No phone installation, Android instrumentation/JNI execution, inference,
+model import, emulator/ADB operation, ledger update or backup/restore test occurs.
 No other emulator is stopped, no shared service/system setting changes,
 cleanup, merge or release occurs. This is artifact qualification, not a
 supported-phone declaration, device privacy result or model-performance claim.

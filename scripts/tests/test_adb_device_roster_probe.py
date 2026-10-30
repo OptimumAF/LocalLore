@@ -243,6 +243,36 @@ class DeviceRosterCliTests(unittest.TestCase):
         self.assertIn((cli.ROOT/'benchmarks/receipt_avd_storage.py').resolve(), discovered)
         self.assertEqual(discovered-declared, set())
 
+    def test_version_receive_sidecar_is_bound_for_success_and_retains_late_failed_bytes(self):
+        for late in (False, True):
+            with self.subTest(late=late):
+                code, result, stdout, output = self.invoke(version_late=late)
+                self.assertEqual(code, 1 if late else 0)
+                path = output/'version-bytes-v1.bin'
+                self.assertTrue(path.is_file())
+                actual = path.read_bytes()
+                version_backend = [value for kind, value in self.backends if kind == 'version'][0]
+                self.assertEqual(actual, version_backend.received_bytes)
+                self.assertEqual(result['version_bytes'], cli.env.binding(path))
+                self.assertEqual(actual, held.REPLY)
+                version = cli.env.read_json(output/'version-report-v1.json')
+                if late:
+                    self.assertEqual(version['status'], 'refused')
+                    self.assertEqual(version['reason'], 'deadline')
+                    self.assertEqual(version['response_hex'], '')
+                    self.assertFalse(result['roster_observed'])
+                else:
+                    self.assertEqual(actual.hex(), version['response_hex'])
+
+    def test_changed_version_sidecar_cannot_qualify_otherwise_matching_reports(self):
+        def mutate(root):
+            (root/'version-bytes-v1.bin').write_bytes(b'OKAY0004002a')
+        code, result, stdout, output = self.invoke(after=mutate)
+        self.assertEqual(code, 1)
+        self.assertFalse(result['roster_observed'])
+        self.assertIsNone(json.loads(stdout)['row_count'])
+        self.assertEqual((output/'version-bytes-v1.bin').read_bytes(), b'OKAY0004002a')
+
 
 if __name__ == '__main__':
     unittest.main()

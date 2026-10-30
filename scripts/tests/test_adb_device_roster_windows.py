@@ -132,4 +132,18 @@ class RosterWindowsTests(unittest.TestCase):
         self.assertEqual(owned.receives, [])
 
 
+    def test_received_bytes_survive_post_read_deadline_refusal(self):
+        value, owned = active(); value.send(roster.REQUEST, 4.0)
+        received = b'OKAY0000'
+        def late_read(limit):
+            self.assertGreaterEqual(limit, len(received))
+            value.now = lambda: 4.0
+            return received
+        with patch.object(owned, 'recv', side_effect=late_read):
+            with self.assertRaises(ProbeRefused) as caught:
+                value.recv(len(received), 4.0)
+        self.assertEqual(getattr(caught.exception, 'received', None), received)
+        self.assertTrue(value._poisoned)
+
+
 if __name__ == '__main__': unittest.main()

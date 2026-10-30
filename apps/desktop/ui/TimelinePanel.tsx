@@ -50,8 +50,8 @@ export function TimelinePanel({
             <p>
                 Alternate timeline creation preserves the original. Replacing
                 committed history means starting a new timeline before that
-                turn; downstream choices are never replayed automatically.
-                Saved drafts stay uncommitted.
+                turn; downstream choices are never replayed automatically. Saved
+                drafts stay uncommitted.
             </p>
             <button
                 disabled={s.busy || !context?.persistent}
@@ -130,7 +130,9 @@ export function TimelinePanel({
                                             s.busy || row.retired || current
                                         }
                                         onClick={() => {
-                                            if (timeline.matchesContext(context))
+                                            if (
+                                                timeline.matchesContext(context)
+                                            )
                                                 void timeline.select(
                                                     row.scope.branch,
                                                 );

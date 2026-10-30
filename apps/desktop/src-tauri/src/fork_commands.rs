@@ -31,27 +31,55 @@ fn boundary_input(value: &Value) -> Result<BoundaryInput<'_>, String> {
     if object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str())) {
         return Err("InvalidForkInput".into());
     }
-    let session = value["session"].as_str().filter(|value| {
-        !value.is_empty()
-            && value.len() <= 128
-            && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
-    }).ok_or("InvalidForkInput")?;
+    let session = value["session"]
+        .as_str()
+        .filter(|value| {
+            !value.is_empty()
+                && value.len() <= 128
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+        })
+        .ok_or("InvalidForkInput")?;
     let scope = value["scope"].as_object().ok_or("InvalidForkInput")?;
-    if scope.len() != 2 || scope.keys().any(|key| !["story", "branch"].contains(&key.as_str())) {
+    if scope.len() != 2
+        || scope
+            .keys()
+            .any(|key| !["story", "branch"].contains(&key.as_str()))
+    {
         return Err("InvalidForkInput".into());
     }
-    let story = value["scope"]["story"].as_str().filter(|value| id(value)).ok_or("InvalidForkInput")?;
-    let branch = value["scope"]["branch"].as_str().filter(|value| id(value)).ok_or("InvalidForkInput")?;
-    let head = value["expected_head"].as_u64().filter(|head| *head <= MAX_SAFE).ok_or("InvalidForkInput")?;
-    Ok(BoundaryInput { session, story, branch, head })
+    let story = value["scope"]["story"]
+        .as_str()
+        .filter(|value| id(value))
+        .ok_or("InvalidForkInput")?;
+    let branch = value["scope"]["branch"]
+        .as_str()
+        .filter(|value| id(value))
+        .ok_or("InvalidForkInput")?;
+    let head = value["expected_head"]
+        .as_u64()
+        .filter(|head| *head <= MAX_SAFE)
+        .ok_or("InvalidForkInput")?;
+    Ok(BoundaryInput {
+        session,
+        story,
+        branch,
+        head,
+    })
 }
 /// Wire admission only. Core computes the full canonical boundaries.
-pub(crate) fn encode_boundary_catalog(catalog: &CompletedBoundaryCatalogV2) -> Result<Value, String> {
+pub(crate) fn encode_boundary_catalog(
+    catalog: &CompletedBoundaryCatalogV2,
+) -> Result<Value, String> {
     if catalog.boundaries.is_empty()
         || catalog.boundaries.len() > MAX_HISTORY_RECEIPTS + 1
         || catalog.head > MAX_SAFE
         || catalog.head > MAX_BOUNDARY_HEAD
-        || catalog.boundaries.iter().any(|head| *head > MAX_SAFE || *head > MAX_BOUNDARY_HEAD)
+        || catalog
+            .boundaries
+            .iter()
+            .any(|head| *head > MAX_SAFE || *head > MAX_BOUNDARY_HEAD)
         || !id(&catalog.scope.story)
         || !id(&catalog.scope.branch)
     {
@@ -79,7 +107,10 @@ pub(crate) fn read_boundary_catalog(
     cancel: &dyn Fn() -> bool,
 ) -> Result<Value, String> {
     let request = boundary_input(input)?;
-    let scope = Scope { story: request.story.into(), branch: request.branch.into() };
+    let scope = Scope {
+        story: request.story.into(),
+        branch: request.branch.into(),
+    };
     let snapshot = host.generation_snapshot(request.session, &scope, request.head, cancel)?;
     encode_boundary_catalog(&snapshot.engine.completed_boundary_catalog())
 }
@@ -189,7 +220,10 @@ pub async fn fork_boundaries(
 ) -> Result<Value, String> {
     // Borrow/validate all renderer scalars before copying or entering the owner.
     boundary_input(&input)?;
-    let epoch = workspace.lease.capture(window.label()).map_err(str::to_owned)?;
+    let epoch = workspace
+        .lease
+        .capture(window.label())
+        .map_err(str::to_owned)?;
     let host = workspace.get(epoch).await?;
     let lease = workspace.lease.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -198,7 +232,9 @@ pub async fn fork_boundaries(
         // A retired window cannot publish a read even if closure followed its
         // final Store cancellation observation. This admits no archive worker.
         lease.dispatch(epoch, || Ok(value))
-    }).await.map_err(|_| "Transport".to_owned())?
+    })
+    .await
+    .map_err(|_| "Transport".to_owned())?
 }
 #[tauri::command]
 pub async fn fork_start(

@@ -64,8 +64,9 @@ and fresh resource admission before the proposed seven-image native journey.
 The later [one approved native attempt](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_ATTEMPT_2026-10-30.md)
 fails before its first capture: a required checkpoint revision field is missing.
 Its81 initial native DOM/IPC assertions produce no images or fork outcomes.
-Normal builds restore without launching; the attempt is spent. Checkpoint and
-diagnostic-retention corrections need code verification and a separate native gate.
+Normal builds restore without launching; the attempt is spent. The checkpoint
+and diagnostic-retention corrections now pass five/six focused code groups plus
+regressions and normal-bundle readback. A separate native gate remains required.
 
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned

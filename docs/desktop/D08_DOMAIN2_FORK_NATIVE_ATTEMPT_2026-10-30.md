@@ -120,3 +120,73 @@ PR290 remains draft, D08/epic unchecked. Finish code regressions, diagnostic
 preservation, normal-bundle readback and review before requesting a separately
 approved corrected run with fresh admission. No automatic retry, new packet,
 model/device/OS work, cleanup, release or merge follows from this failed attempt.
+
+## Corrected code gate, still no second native run
+
+Source `c85b3b5e66f91f972db97a6d67619c973cb39911` passes the following actual
+code-only checks from `apps/desktop`, using the same Node/tool versions as the
+earlier code gate. The separate helper contains no app/Cargo/native command;
+the old STOP, spent attempt, packet and closure records are hash-bound/read-only.
+Inventory errors use an explicit failure latch/fixed categories, including OS
+read/stat errors. No earlier failure is reset or reclassified.
+
+| Command | Actual result / seconds |
+| --- | --- |
+| `node node_modules/typescript/bin/tsc --noEmit` |Pass /0.4171237 |
+| `node check-domain2-fork-checkpoint-review.mjs` |5/5 /0.098687 |
+| `node check-domain2-fork-retention-review.mjs` |6/6 /0.0981554 |
+| `node check-domain2-fork-finalization-review.mjs` |29/29 /0.1208117 |
+| `node check-domain2-fork-review.mjs` |21/21 /0.210036 |
+| `node check-domain2-fork-native-review.mjs` |12/12 /0.1220821 |
+| `node check-domain2-timeline-browser-native-mode-review.mjs` |47/47 /0.141062 |
+| `node check-v2-inspector-paging-path-review.mjs` |38/38 /0.0926478 |
+| `node --check v2-inspector-paging-harness.mjs` |Pass /0.0696769 |
+| Full frontend/config Prettier check |Pass /3.2187038 |
+| `node build.mjs` |Normal frontend pass /0.2983489 |
+| Actual existing normal verifier block only |73/73 /0.0960968 |
+
+The checkpoint cases execute the actual extracted semantic/capture closures
+with disclosed controller/DOM/IPC doubles. Both normal/failure snapshots now
+supply a compatible UI revision while unavailable canonical state stays
+unavailable. This is not mounted native execution or a captured image.
+
+Retention FIRST `36833066` precedes different-author producer `871aa3de`
+(integrated `5ad346e2`). Its absent-helper baseline reports6 UNRUN_SETUP,
+executed0, not behavioral failure. The six passing groups execute the actual
+helper and global try/finally with memory filesystem/process/storage doubles:
+fixed exclusive copies/proof/readback, tamper/failure latching, original byte
+forecasts, restoration ordering, honest partial/absent builds and legacy modes.
+No physical diagnostic copy is newly qualified by these tests. Source review
+finds no actionable producer defect; it runs no compilation, app or inventory.
+
+The new fork-only path retains bounded raw frontend and executable copies,
+verifies their bytes/hashes plus exclusive proof before launch and before both
+normal builds, and rechecks after restoration. Missing products after a
+successful build refuse; incomplete builds describe only actual current bytes
+or explicit absence. Failed preservation leaves partials/current diagnostics and
+prevents overwrite. Native-current ownership remains checked after normal
+frontend restoration. Existing process-policy LF SHA256 stays
+`eabc72a0858c651186cb1fcab2b7d917667444667c3f8c01bf282de1728f289a`.
+Its245 historical groups are not rerun; new six-group coverage includes the
+actual updated finally and legacy no-op paths. No old VM assertion is relaxed.
+
+Four-file direct installed esbuild transforms before/after formatting are equal
+for both new checks, the journey and launcher. All24 reconciliation children
+close:21 exit0; the original checkpoint setup exits2, valid old checkpoint
+baseline exits1, and absent-helper retention baseline exits2. No timeout,
+overflow, kill or new unknown. Successful transform stdout is a bounded hash
+proof, not a retained text log; all other streams remain retained. No Cargo,
+SDK/device/model/OS work or new native packet occurs. Rust/shared interfaces do
+not change; earlier Rust/Android-host/Clippy results retain their attribution.
+
+The normal frontend hash remains `574a665a…b79e7`; the native executable stays
+byte-identical `d144a40d…5c9a8c`, unlaunched. The reconciliation's last inventory
+before its own small final record measures group11,377,418B, joint693,698,702B,
+target11,827,744,489B, old code records549,989B physical /570,664B decoded and
+fixtures671,744B. Later source/metadata stays charged to the same limits.
+
+The only next native task is a separately approved corrected seven-success /
+max-eight-capture run with fresh admission, complete reservation and individual
+inspection of every original image. Code fixes do not repair the first failed
+run or establish the missing original diagnostic copies. Keep the app closed
+while that separate decision is pending.

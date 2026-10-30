@@ -62,11 +62,11 @@ test filter, exclusion, forced rerun, task substitution or download was used.
 | Source checks | git diff --check passes; raw source/tool/signing guards stable |
 
 The public call returns 0 in **237,362 ms**. Its single 900-second process-tree
-owner closes in **239,482 ms**, worker0, complete cleanup/capture,
-stdout10,795 bytes and stderr0. The fresh build directory was absent initially;
+owner closes in **239,482 ms**, worker exit 0, complete cleanup/capture,
+stdout 10,795 bytes and stderr zero. The fresh build directory was absent initially;
 native/JVM/lint/assembly task lines execute without cached/up-to-date suffixes.
-No corrective build was required. The warning concerns existing coroutines1.10.2
-versus1.11.0; the new hint suggests an unboxed ephemeral gesture counter.
+No corrective build was required. The warning concerns existing coroutines 1.10.2
+versus 1.11.0; the new hint suggests an unboxed ephemeral gesture counter.
 
 Existing process-local D: caches/temp and reviewed signing override were reused;
 the original credential was read in place, no key copied/generated or global
@@ -81,9 +81,9 @@ Normal packages are org.locallore.app and org.locallore.app.test; actual audits
 verify matching certificate
 `17ed497138b20dc1657d54039802305cfe0e3b782c73feaad20359c954707564`.
 
-Independent closed-file review passes in3,219ms. It joins actual commands,
+Independent closed-file review passes in 3,219 ms. It joins actual commands,
 reports, APK/DEX definitions, preserved copies and before/after raw source maps.
-All372 native inputs are unchanged from B22; both release/generated/merged
+All 372 native inputs are unchanged from B22; both release/generated/merged
 chains join, and stripped JNI/APK bytes match B22 for both ABIs. This does not
 claim ARM64 execution. Review receipt SHA256:
 `9643e0ba34ad90b5969a335dfa3732491016013f7853ff9a136ed5aa86ffe5a2`.
@@ -97,26 +97,26 @@ long-row/footer/invalid/overflow geometry. Four real-screen methods cover histor
 reading plus Latest and draft conservation, a partially read long reply,
 composer-past-tail follow, and a retained stale-branch callback with reused IDs.
 
-Original test commitf849df74 remains preserved. Before execution, three test-line
-corrections at511b3f4d align initial-history Latest availability, establish a known
+Original test commit f849df74 remains preserved. Before execution, three test-line
+corrections at 511b3f4d align initial-history Latest availability, establish a known
 viewport before stale-callback invocation and wait for display rather than
 composition. These are source-review corrections, not an executed RED/GREEN
 claim. Independent review also prompted preserving saveable scroll state and
 the active empty-history anchor before the first build.
 
 Private packet: `D:\Dev\Experiments\LocalLore\2026-10-30-transcript-follow-v1`.
-Before docs, all2,312 raw files/32,084,846 bytes were preserved and read back in
-the10,281,571-byte source ZIP, SHA256
+Before docs, all 2,312 raw files/32,084,846 bytes were preserved and read back in
+the 10,281,571-byte source ZIP, SHA256
 `00749125072c104ae43b501295fc4b4ef35692d57e4fa855cf3844e1946f8cb6`.
-Additionally51 selected APK/report/native copies total93,062,618 bytes.
+Additionally 51 selected APK/report/native copies total 93,062,618 bytes.
 Preserved-build manifest SHA256:
 `323bbf51e14319bed906c800944d45b0f4d68401901293707cb5cb4dca7283b4`.
 
 Final ticket handoff records selected recovery/copy/ZIP/three-branch bundle and
 independent readback seals at the matching `D:\Dev\Recovery\LocalLore` root.
-The original8GiB packet budget includes three worktrees, build outputs,
+The original 8 GiB packet budget includes three worktrees, build outputs,
 cache/temp allowances and selected recovery. The pre-build conservative bound
-was6,538,685,634 bytes; this is not an exclusive peak or OS quota claim. Original
+was 6,538,685,634 bytes; this is not an exclusive peak or OS quota claim. Original
 generated builds, caches, historical worktrees, guest state and failures remain
 in place. Selected recovery is not every ignored byte.
 

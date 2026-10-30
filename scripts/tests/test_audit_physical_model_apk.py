@@ -97,7 +97,12 @@ def classes():
 
 def attribute(name, value, indent=6):
     rendered = value if value in ("true", "false", "0x2") or value.startswith("@") else '"' + value + '"'
-    return " " * indent + "A: android:" + name + "(1)=" + rendered + "\n"
+    ids = {"name": "0x01010003", "permission": "0x01010006", "protectionLevel": "0x01010009",
+           "debuggable": "0x0101000f", "exported": "0x01010010", "process": "0x01010011",
+           "authorities": "0x01010018", "grantUriPermissions": "0x0101001b", "launchMode": "0x0101001d",
+           "targetPackage": "0x01010021", "allowBackup": "0x01010280", "fullBackupContent": "0x010104eb",
+           "dataExtractionRules": "0x0101063e"}
+    return " " * indent + "A: http://schemas.android.com/apk/res/android:" + name + "(" + ids[name] + ")=" + rendered + "\n"
 
 
 def element(tag, attrs, children="", indent=4):
@@ -110,17 +115,17 @@ def manifests():
                f"uses-permission: name='{permission}'\nlaunchable-activity: name='org.locallore.app.LocalModelSetupActivity'\n")
     app = "E: manifest (line=1)\n  A: package=\"" + p.APP + "\"\n" + element("permission", {"name": permission, "protectionLevel": "0x2"})
     app += "    E: application (line=1)\n" + "".join(attribute(k, v) for k, v in {
-        "allowBackup": "false", "fullBackupContent": "false", "debuggable": "true", "dataExtractionRules": "@0x7f01"}.items())
+        "allowBackup": "false", "fullBackupContent": "false", "debuggable": "true", "dataExtractionRules": "@0x7f0b0000"}.items())
     for name, exported in (("LocalModelSetupActivity", "true"), ("LiteRtPlayActivity", "false"), ("MainActivity", "false")):
         attrs = {"name": "org.locallore.app." + name, "exported": exported}
         if name != "MainActivity":
             attrs["launchMode"] = "0x2"
         children = ""
         if name == "LocalModelSetupActivity":
-            children = element("intent-filter", {}, element("category", {"name": "android.intent.category.LAUNCHER"}, indent=10), indent=8)
-        app += element("activity", attrs, children, indent=6)
-    app += element("provider", {"name": "androidx.startup.InitializationProvider", "authorities": p.APP + ".androidx-startup", "exported": "false"}, indent=6)
-    app += element("receiver", {"name": "androidx.profileinstaller.ProfileInstallReceiver", "exported": "true", "permission": "android.permission.DUMP"}, indent=6)
+            children = element("intent-filter", {}, element("category", {"name": "android.intent.category.LAUNCHER"}, indent=16), indent=12)
+        app += element("activity", attrs, children, indent=8)
+    app += element("provider", {"name": "androidx.startup.InitializationProvider", "authorities": p.APP + ".androidx-startup", "exported": "false"}, indent=8)
+    app += element("receiver", {"name": "androidx.profileinstaller.ProfileInstallReceiver", "exported": "true", "permission": "android.permission.DUMP"}, indent=8)
     test_badging = (f"package: name='{p.TEST}' versionCode='1'\nminSdkVersion:'26'\ntargetSdkVersion:'36'\n"
                     f"instrumentation: name='{p.RUNNER}' targetPackage='{p.APP}'\nuses-permission: name='android.permission.REORDER_TASKS'\n")
     test = "E: manifest (line=1)\n  A: package=\"" + p.TEST + "\"\n" + element("instrumentation", {"name": p.RUNNER, "targetPackage": p.APP})
@@ -135,10 +140,13 @@ def manifests():
         test += element("provider", attrs)
     extraction = "E: data-extraction-rules (line=1)\n"
     for group in ("cloud-backup", "device-transfer"):
-        children = "".join('    E: exclude (line=1)\n      A: domain="' + domain + '"\n      A: path="."\n'
+        children = "".join('        E: exclude (line=1)\n          A: domain="' + domain + '"\n          A: path="."\n'
                            for domain in ("root", "file", "database", "sharedpref", "external"))
-        extraction += "  E: " + group + " (line=1)\n" + children
-    return badging, app, test_badging, test, extraction
+        extraction += "    E: " + group + " (line=1)\n" + children
+    resources = ("Binary APK\nPackage name=" + p.APP + " id=7f\n  type xml id=0b entryCount=1\n"
+                 "    resource 0x7f0b0000 xml/data_extraction_rules\n"
+                 "      () (file) res/xml/data_extraction_rules.xml type=XML\n")
+    return badging, app, test_badging, test, extraction, resources
 
 
 class PhysicalApkAuditTests(unittest.TestCase):
@@ -231,7 +239,7 @@ class PhysicalApkAuditTests(unittest.TestCase):
         value[2] = value[2].replace("versionCode='1'", "versionCode='' versionName='' platformBuildVersionCode='36'")
         crlf = [item.replace("\n", "\r\n") for item in value]
         self.assertEqual(p.audit_manifests(*crlf)["test_methods"], 6)
-        for old, new in ((p.RUNNER, "other.Runner"), ('targetPackage(1)="' + p.APP + '"', 'targetPackage(1)="wrong.target"')):
+        for old, new in ((p.RUNNER, "other.Runner"), ('targetPackage(0x01010021)="' + p.APP + '"', 'targetPackage(0x01010021)="wrong.target"')):
             bad = list(value)
             bad[3] = bad[3].replace(old, new)
             with self.subTest(old=old), self.assertRaises(p.AuditError):
@@ -264,10 +272,10 @@ class PhysicalApkAuditTests(unittest.TestCase):
         for index, old, new in ((0, p.APP, "org.locallore.app.modelvolumeverify"),
                                 (1, 'package="' + p.APP + '"', 'package="wrong.app"'),
                                 (0, "launchable-activity:", "wrong-activity:"),
-                                (1, 'allowBackup(1)=false', 'allowBackup(1)=true'),
-                                (1, 'fullBackupContent(1)=false', 'fullBackupContent(1)=true'),
-                                (1, 'debuggable(1)=true', 'debuggable(1)=false'),
-                                (1, 'exported(1)=false', 'exported(1)=true'),
+                                (1, 'allowBackup(0x01010280)=false', 'allowBackup(0x01010280)=true'),
+                                (1, 'fullBackupContent(0x010104eb)=false', 'fullBackupContent(0x010104eb)=true'),
+                                (1, 'debuggable(0x0101000f)=true', 'debuggable(0x0101000f)=false'),
+                                (1, 'exported(0x01010010)=false', 'exported(0x01010010)=true'),
                                 (4, 'domain="root"', 'domain="file"'),
                                 (4, 'path="."', 'path="data"')):
             variant = list(original)
@@ -287,7 +295,7 @@ class PhysicalApkAuditTests(unittest.TestCase):
             with self.subTest(tag=tag), self.assertRaises(p.AuditError):
                 p.audit_manifests(*value)
         value = list(manifests())
-        value[1] = value[1].replace('permission(1)="android.permission.DUMP"', 'permission(1)="other"')
+        value[1] = value[1].replace('permission(0x01010006)="android.permission.DUMP"', 'permission(0x01010006)="other"')
         with self.assertRaises(p.AuditError):
             p.audit_manifests(*value)
 
@@ -299,7 +307,7 @@ class PhysicalApkAuditTests(unittest.TestCase):
                                 (3, p.TEST + ".archives", p.TEST + ".wrong"),
                                 (3, ':archive_test_provider', ':other'),
                                 (3, 'MANAGE_DOCUMENTS', 'INTERNET'),
-                                (3, 'grantUriPermissions(1)=true', 'grantUriPermissions(1)=false')):
+                                (3, 'grantUriPermissions(0x0101001b)=true', 'grantUriPermissions(0x0101001b)=false')):
             value = list(original)
             value[index] = value[index].replace(old, new)
             with self.subTest(index=index, old=old), self.assertRaises(p.AuditError):
@@ -307,13 +315,13 @@ class PhysicalApkAuditTests(unittest.TestCase):
 
     def test_physical_fixture_launcher_remains_private_filterless_and_optin(self):
         value = list(manifests())
-        fixture = element("activity", {"name": "org.locallore.app." + p.SETUP_FIXTURE, "exported": "false"}, indent=6)
+        fixture = element("activity", {"name": "org.locallore.app." + p.SETUP_FIXTURE, "exported": "false"}, indent=8)
         value[1] += fixture
         with self.assertRaises(p.AuditError):
             p.audit_manifests(*value)
         p.audit_manifests(*value, physical_fixture=True)
-        for bad in (fixture.replace("=false", "=true"), fixture + "        E: intent-filter (line=2)\n",
-                    fixture + attribute("process", ":other", indent=8)):
+        for bad in (fixture.replace("=false", "=true"), fixture + "            E: intent-filter (line=2)\n",
+                    fixture + attribute("process", ":other", indent=10)):
             bad_value = list(value)
             bad_value[1] = bad_value[1].replace(fixture, bad)
             with self.subTest(bad=bad), self.assertRaises(p.AuditError):
@@ -365,7 +373,7 @@ class PhysicalApkAuditTests(unittest.TestCase):
             app.write_bytes(b"app")
             test.write_bytes(b"test")
             values = manifests()
-            tool_outputs = [values[0], values[2], values[1], values[3], values[4]]
+            tool_outputs = [values[0], values[2], values[1], values[3], values[5], values[4]]
             with patch.object(p.base, "audit_zip", return_value=[{"entry": "fixed"}]) as archive, \
                     patch.object(p, "dex_classes", side_effect=classes()), \
                     patch.object(p.base, "aapt2_path", return_value=Path(folder) / "aapt2"), \
@@ -411,7 +419,7 @@ class PhysicalApkAuditTests(unittest.TestCase):
             app.write_bytes(b"original app")
             test.write_bytes(b"original test")
             values = manifests()
-            outputs = [values[0], values[2], values[1], values[3], values[4]]
+            outputs = [values[0], values[2], values[1], values[3], values[5], values[4]]
             def changed(*_):
                 app.write_bytes(b"changed app")
                 return "a" * 64

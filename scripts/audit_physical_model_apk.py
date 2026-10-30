@@ -227,9 +227,11 @@ def one(header, name, expected):
     require(attr(header, name) == [expected], "Wrong manifest " + name)
 
 
-def audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction_tree, *, physical_fixture=False):
-    app_badging, app_tree, test_badging, test_tree, extraction_tree = (
-        base.aapt_text(value) for value in (app_badging, app_tree, test_badging, test_tree, extraction_tree))
+def audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction_tree, app_resources, *, physical_fixture=False):
+    app_badging, app_tree, test_badging, test_tree, extraction_tree, app_resources = (
+        base.aapt_text(value) for value in (app_badging, app_tree, test_badging, test_tree, extraction_tree, app_resources))
+    base.audit_backup_resource(app_tree, app_resources, APP)
+    base.audit_backup_rules(extraction_tree)
     for tree, package in ((app_tree, APP), (test_tree, TEST)):
         manifests = blocks(tree, "manifest")
         require(len(manifests) == 1, "Wrong manifest root count")
@@ -330,7 +332,11 @@ def audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction_t
 
 
 def tool(command):
-    result = host.run_process([str(p) for p in command], deadline=15, max_output=262144)
+    arguments = [str(p) for p in command]
+    if len(arguments) == 4 and arguments[1:3] == ["dump", "resources"]:
+        result = host.run_resource_table(arguments)
+    else:
+        result = host.run_process(arguments, deadline=15, max_output=262144)
     require(result.cleanup_complete is True and result.status == "completed" and type(result.returncode) is int and result.returncode == 0,
             "Audit tool failed or cleanup unknown")
     return result.stdout.decode("utf-8", errors="strict")
@@ -383,8 +389,11 @@ def audit_pair(app, test, *, physical_fixture=False):
     app_badging, test_badging = dump(app, "badging"), dump(test, "badging")
     app_tree = tool([aapt, "dump", "xmltree", app, "--file", "AndroidManifest.xml"])
     test_tree = tool([aapt, "dump", "xmltree", test, "--file", "AndroidManifest.xml"])
-    extraction = tool([aapt, "dump", "xmltree", app, "--file", "res/xml/data_extraction_rules.xml"])
-    manifests = audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction, physical_fixture=physical_fixture)
+    resources = dump(app, "resources")
+    rules_file = base.audit_backup_resource(app_tree, resources, APP)
+    extraction = tool([aapt, "dump", "xmltree", app, "--file", rules_file])
+    manifests = audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction, resources,
+                               physical_fixture=physical_fixture)
     signer = certificate(app, aapt)
     require(certificate(test, aapt) == signer, "APK signing identities differ")
     require(apk_identity(app) == app_before and apk_identity(test) == test_before, "APK pair changed during audit")

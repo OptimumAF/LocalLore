@@ -9,6 +9,10 @@ It returns private untrusted metadata and grants no target/phone admission.
 Its [verification report](../docs/native/HELD_DEVICE_ROSTER_VERIFICATION_2026-10-29.md)
 records 2,349 host tests, the preserved first refusal and one revised-source
 host-only acquisition with an empty roster; physical-device gates stay separate.
+The [fixed phone inventory path](../docs/native/PHYSICAL_PHONE_INVENTORY_PROTOCOL_V1.md)
+adds same-socket USB selection and read-only software facts without running ADB.
+Its [host verification](../docs/native/PHYSICAL_PHONE_INVENTORY_VERIFICATION_2026-10-30.md)
+passes2,377 tests; actual phone inventory still requires exact fresh admission.
 Legacy ADB CLI collectors can restart a server on a version mismatch; do not
 use them as a service-preservation guarantee.
 The separate [runtime spike](../docs/runtime/spike/README.md) can explicitly run

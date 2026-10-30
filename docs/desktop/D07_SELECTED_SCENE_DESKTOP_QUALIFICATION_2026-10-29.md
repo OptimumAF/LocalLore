@@ -193,7 +193,10 @@ retained separately. At that earlier checkpoint, normal app.js is
 normal executable is
 `dda295ed425a215eaef3c57356ccb0ec234b9bc630465396b53a2d2915f16cfe`.
 
-## Next qualification boundary
+## Historical pre-integration qualification boundary
+
+This section records the earlier uncompiled/unrun checkpoint. The subsequent
+integration and final actual native results below supersede these run statuses.
 
 The separately reviewed [fixed scene harness contract](D07_SELECTED_SCENE_NATIVE_HARNESS_CONTRACT_2026-10-29.md)
 accepts exact closed --scene mode, existing native IPC, hidden/unfocused owned
@@ -400,7 +403,11 @@ the test: `len()+1<=8192` became `len()<8192`, without changed production/assert
 The actual cohort used23,356,205 retained bytes at closure. Cumulative evidence
 after the full frontend driver and image metadata measured501,639,443 bytes,
 leaving35,231,469 under the unchanged512MiB cap before later small documentation
-and tracker records. The original target baseline8,259,980,576 remains fixed;
+and tracker records. A later explicit `cumulative-final-record1.json` measures
+501,642,017 bytes/35,228,895 remaining before its own small write, using the
+pre-admission external-root roster; SHA256
+`3cc096d208b15765d9300d69b6265292772288f84251b240f41fc4f69eb4b710`.
+The original target baseline8,259,980,576 remains fixed;
 final target8,311,481,693 means51,501,117 growth, below2GiB. Whole packet/profile/
 store accounting is observed between child runs, not an atomic filesystem quota.
 The harness writer separately reserves its64MiB/process budget before opening a
@@ -415,7 +422,8 @@ Set `LOCALLORE_D07_SELECTED_ARTIFACT_ROOT` to the existing ordinary D artifact
 base and `LOCALLORE_D07_SELECTED_TARGET_DIR` to the existing ordinary D target.
 Before launching, atomically CreateNew the fixed base file
 `selected-scene-budget-v1-<full-current-HEAD>.json` with the contract's exact seven
-fields, current source revision, SHA256 of the resolved target string, original
+fields, current source revision, SHA256 of the lowercase resolved target path
+encoded as UTF-8 (matching the launcher), original
 target baseline and freshly measured external retained evidence. Never reset
 baselines or omit prior roots by selecting a fresh base. The admitted record here
 has SHA256 `300404b30e6c7a670661f1634e3c24b05a641202b1e3c08e040de4c458ce1b41`.

@@ -121,3 +121,43 @@ No automatic second attempt, frozen cohort rerun, desktop control, model/device/
 SDK/stopped OS probe, settings change or release follows from this decision.
 Single-attempt authority remains coordinator policy; the record is not a
 persistent general-purpose permission registry.
+
+## Failed corrected attempt and source-only finalization correction
+
+The single revision2 attempt executed on d29a7081 and failed after producing
+the six planned native captures plus a failure capture. Its supervisor recorded
+an application timeout, one returned stop, SIGTERM closure and sticky
+`OwnedDrainUnknown`; normal restoration was correctly skipped. The permission
+is consumed. Read-only observation of an absent recorded PID, no direct children
+and no exact-profile WebView process does not establish retrospective tree
+closure or reset that record. Further builds, tests and application launches
+remain stopped pending a separate execution reconciliation decision.
+
+The source-only correction keeps the six journeys, Rust oracle comparisons,
+observer fences, all original checkpoint data and read-only action restrictions.
+Normal navigation may perform the established native `capture_revoke` privacy
+cleanup, as the accepted D05 journey already permits. Capture preview/save,
+model loading, generation, author edits, forks and memory writes stay forbidden.
+
+A narrow development-only finalization helper will reference each already
+retained semantic checkpoint by its fixed label and scroll-observation count
+instead of duplicating its geometry records in the final report. A successful
+report requires all six ordered labels; a failed report may retain their ordered
+prefix. Each checkpoint has at most16 observations, total at most96. Both compact
+and formatted UTF8 encodings are bounded at256KiB before native report IPC;
+Rust's existing independent formatted limit and artifact writer stay unchanged.
+Checks, call metadata, font measurements and available Rust proofs remain in
+the detailed report. This is a report representation change, not an omitted
+journey check or a replacement for retained original observations.
+
+Detailed report construction or its one `harness_finish` call may fail. In that
+case the helper attempts exactly one fixed, small, synthetic failed report
+through the same IPC, with a finite category and explicit unavailable details.
+It must never turn a failed finalization into success, invent state proof, retry
+an application or suppress failure of that fallback. Disposal can still fail or
+stall; the outer deadline and unknown-lifetime guard remain authoritative.
+
+Independent regression source freezes before producer changes. Its author and
+the producer do not execute it while the stop applies. No further native run,
+resource increase, process control or relaxation of the failed gate is included
+in this source-only correction.

@@ -1,4 +1,4 @@
-# Saved Domain2 timeline browser: source checks and failed native setup
+# Saved Domain2 timeline browser: source checks and failed native attempts
 
 Refs #30, partial D08.04/.07; supporting #26 D05.01/.07. **Frontend implementation
 and focused source checks pass. The new native browser journey has not passed.**
@@ -196,8 +196,9 @@ base and648MiB joint ceiling, retaining the20MiB packet reservation, all earlier
 costs and original target/D05/D07 limits. See the native contract's explicit
 revision2 appendix and [decision record](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6527673039).
 Version2 guard implementation, independent revised checks, source review and a
-fresh source-bound record precede that one attempt. No corrected native run has
-yet executed; the original failed version1 packet remains failed.
+fresh source-bound record precede that one attempt. At that decision point the
+corrected run had not executed; its subsequent failure is recorded below. The
+original failed version1 packet remains failed.
 All native browser, keyboard/screen-reader, Android parity, real-model quality,
 offline/OS, installer/release and whole-epic gates remain open.
 
@@ -209,3 +210,71 @@ included in the base/joint count. With all previous named evidence and current
 metadata. Retaining16MiB product/1MiB metadata reserves and admitting another
 20MiB packet would forecast675,406,157B, exceeding640MiB; the proposed648MiB
 ceiling accommodates it. This calculation alone is not runtime admission.
+
+## Approved revision2 execution: failed finalization, execution stopped
+
+Independent revised47-case source fc513a78 freezes before producer597d1e8e.
+Root1247ef73 measures37PASS/10FAIL before the six-line budget revision; the same
+checks then pass47/47 at597d1e8e. Formatting d29a7081 preserves executable hashes.
+Final actual checks at d29a7081:47/47 in0.143s, old process245/245 in0.245s,
+launcher syntax0.040s and complete frontend format2.700s, all passing. These are
+source checks, not actual native execution or authorization enforcement.
+
+Clean d29a70819730792c5efb92714116d074bae9e129 then executes the single approved
+`node v2-inspector-paging-harness.mjs --timeline-browser-v1` attempt:
+2026-10-30T16:32:31.1038837Z–16:35:48.7577702Z,197.6389288s, exit1.
+The actual hidden/unfocused WebView2 produces all six planned PNGs plus one
+failure PNG. Root individually views all seven originals. Wide images are
+1280x900; enlarged narrow is620x900. The selected timeline controls, ancestry and
+head/status are readable; enlarged narrow text wraps without visible horizontal
+clipping. The normal scroll framing centers the selected row control, so other
+controls may be offscreen. The failure PNG frames a lower selected-case panel;
+it does not visually display the harness assertion failure.
+
+Retained semantic checkpoints record child44/player, root0/player, child44/player,
+then child44/Mira for observer and both enlarged views. All record no pending
+operation, visible error or buffered error, and explicitly no displayed receipt.
+Sixteen reachability observations per planned checkpoint remain in the original
+JSON, total96. The failure checkpoint records28 settled native/Host calls; its
+last successful checks include exact-six captures and finite ordered call metadata.
+No final `report.json` exists. Final Rust oracle comparisons, disposal completion,
+the complete call roster and overall assertion count are therefore unavailable.
+Do not infer their success from the images or source tests.
+
+The application child sequence3, PID64220, reaches its180s deadline. One stop
+returns true; its close record reports SIGTERM, but `OwnedDrainUnknown` remains
+true and `processTreeContained` false. Normal product restoration is skipped;
+the diagnostic frontend/native products remain in place and have not been
+launched again. The recorded `storageBreached:false` is not a completed final
+inventory. The launcher retains its last-known inventory and the failed packet.
+
+Read-only observation at16:42:52Z finds no recorded PID, direct child of64220 or
+WebView2 with the exact owned profile. This does not prove retrospective tree
+closure and does not reset the failed guard. All subsequent work is source-only
+review, documentation and bounded evidence accounting; no build, test, app,
+manual process stop or native repeat occurs.
+
+Independent source review identifies a read-only roster defect: the new journey
+excludes native `capture_revoke` before disposal, although normal session/context
+changes invoke that existing privacy cleanup and the accepted D05 journey allows
+it. The checkpoint boundary supports that diagnosis, but no full trace was saved
+to identify the individual offending call. A second source finding is the compact
+frontend versus formatted Rust256KiB report limit. Known retained checks,96 scroll
+records and four font groups alone reconstruct to about149,143 compact or261,008
+PowerShell-formatted bytes, excluding proofs and calls. This is an encoding-risk
+estimate, not the missing actual report. Disposal stall versus subsequent report
+rejection cannot be distinguished from the saved artifacts.
+
+The claimed source-only correction and independent FIRST cover the existing
+cleanup allowance, references to unchanged per-checkpoint geometry instead of
+duplicating it, both report encodings and a fixed failed-finalization fallback.
+Until executed under a separate safe reconciliation decision these sources are
+**UNRUN**, and neither native attempt becomes green. Native generic writer,
+shared Host, canonical storage, inference and observer authority stay unchanged.
+
+Read-only accounting measures the failed revision2 packet12,074,264B/216 files
+and whole browser base27,406,181B before its6,753B handoff record. The original
+failure packet, profiles, databases and all source/results remain charged. A
+further20MiB reservation does not fit the40MiB browser cap; its one-run authority
+is also consumed. No further attempt or cap change is authorized here. PR286
+remains draft; native browser acceptance, full D08 and epic gates remain open.

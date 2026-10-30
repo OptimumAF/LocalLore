@@ -38,9 +38,11 @@ children. Cancellation never claims an earlier commit was rolled back.
 **Saved timelines** now exposes the existing read-only catalog/resume adapter for
 Domain2 stories as well. Fork creation remains separate. The
 [browser qualification](../../docs/desktop/D08_DOMAIN2_TIMELINE_BROWSER_QUALIFICATION_2026-10-30.md)
-records passing frontend/writer checks and the failed native harness startup;
-the corrected browser's native rendering is still unverified. The failed capture
-is retained, and the present resource guard does not admit another app run.
+records passing frontend/writer checks and two failed native attempts. The
+corrected attempt produced six native views but failed finalization and timed
+out; final state proof and normal product restoration remain unavailable. All
+evidence is retained. Its unknown-lifetime guard stops further builds/tests/app
+launches pending reconciliation, and the single approved attempt is consumed.
 From `apps/desktop`, the standalone
 `node check-domain2-timeline-bootstrap-review.mjs` verifies the corrected setup
 prefix with actual controllers and synthetic transport. It is not native UI

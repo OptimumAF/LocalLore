@@ -35,6 +35,13 @@ fork identity before dispatch. Lost acknowledgements retain that identity;
 same-session retry is explicit, and restart recovery only checks existing saved
 children. Cancellation never claims an earlier commit was rolled back.
 
+**Saved timelines** now exposes the existing read-only catalog/resume adapter for
+Domain2 stories as well. Fork creation remains separate. The
+[browser qualification](../../docs/desktop/D08_DOMAIN2_TIMELINE_BROWSER_QUALIFICATION_2026-10-30.md)
+records passing frontend/writer checks and the failed native harness startup;
+the corrected browser's native rendering is still unverified. The failed capture
+is retained, and the present resource guard does not admit another app run.
+
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned
 WebView. It never activates or captures the desktop:
@@ -119,7 +126,7 @@ Story Lab also provides an explicit author correction preview and confirmation
 for replacing a fact's proposition on a new saved timeline. The original history
 and private correction reason are retained; later choices are not replayed
 automatically. Corrected timelines use scoped native Play and inspection views.
-Legacy debugging, readable inspection exports, timeline navigation and derived
+Legacy debugging, readable inspection exports and derived
 memory maintenance remain unavailable for that domain version. See the
 [author/scoped-Play verification](../../docs/desktop/M08_AUTHOR_NATIVE_UI_QUALIFICATION_2026-10-23.md).
 

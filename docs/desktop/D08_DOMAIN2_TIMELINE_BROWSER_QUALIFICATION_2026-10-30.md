@@ -25,7 +25,7 @@ new source-bound record. Its original no-argument paging mode retains its origin
 ## Independent source lineage
 
 All original raw files, derived formatting proofs, failed reports and fixtures
-remain local. Source authors run no tools; Root executes the measured checks.
+remain local. Authors perform source/Git/hash work; Root executes measured checks.
 
 | Source | Actual result and attribution |
 | --- | --- |
@@ -128,7 +128,7 @@ story Gateway call: trace0, buffered errors0, no selected story/session/revision
 no receipt and no baseline/final Rust oracle. Report3 assertions/3 distinct,
 zero successful captures; one actual failure PNG is retained and individually
 viewed by Root. Its snapshot honestly says Storage unavailable/no session.
-Handoff/checkpoint/finish and CapturePreview use actual native harness IPC; no
+Checkpoint/finish and CapturePreview use actual native harness IPC; no
 successful story Host IPC/browser journey is inferred from that evidence.
 
 Original failure PNG SHA256:

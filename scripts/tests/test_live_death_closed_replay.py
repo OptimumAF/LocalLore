@@ -280,6 +280,26 @@ class LiveDeathClosedReplayTests(unittest.TestCase):
         self.assertEqual(opened, [], 'role-path rejection must precede opening unrelated bytes')
         self.assertTrue(refused, 'an equivalent foreign file is not the canonical ready role')
 
+    def test_control_session_basename_is_checked_before_reading_foreign_json(self):
+        graph = ClosedLiveGraph()
+        foreign = graph.base/'unrelated-control-session-v1.json'
+        pin = graph.save(foreign, graph.s)
+        value = copy.deepcopy(graph.docs[graph.prerequisite_path]); value['control_session'] = pin
+        graph.rewrite(graph.prerequisite_path, value)
+        real_open, opened = Path.open, []
+        def observed_open(path, *args, **kwargs):
+            if path == foreign:
+                opened.append(str(path))
+            return real_open(path, *args, **kwargs)
+        refused = False
+        with patch.object(Path, 'open', observed_open):
+            try:
+                graph.validate()
+            except c.TargetRefused:
+                refused = True
+        self.assertEqual(opened, [], 'the fixed SDK6 session basename is known before its JSON is read')
+        self.assertTrue(refused, 'equivalent JSON under another basename is not the session role')
+
     def test_pending_capture_cannot_invent_known_cleanup_or_zero_typed_counters(self):
         for key, bad in (('cleanup_complete', False), ('stdout_bytes', False),
                          ('stderr_bytes', 0.0), ('worker_returncode', True), ('elapsed_ms', 282001)):

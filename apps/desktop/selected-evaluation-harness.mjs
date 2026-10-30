@@ -392,30 +392,61 @@ async function footprint(directory, source = false) {
 // Only the seven flat admission fields below are accepted. Parse the flat
 // record before projection so even escaped/identical duplicate keys refuse.
 function checkedSceneBudget(bytes, revision, target, currentTargetBytes) {
-    const invalid = () => { throw Error("SelectedSceneBudgetInvalid"); };
-    if (!Buffer.isBuffer(bytes) || bytes.length > 4096
-        || typeof revision !== "string" || !/^[a-f0-9]{40}$/.test(revision)
-        || typeof target !== "string" || !path.isAbsolute(target)
-        || !Number.isSafeInteger(currentTargetBytes) || currentTargetBytes < 0) invalid();
+    const invalid = () => {
+        throw Error("SelectedSceneBudgetInvalid");
+    };
+    if (
+        !Buffer.isBuffer(bytes) ||
+        bytes.length > 4096 ||
+        typeof revision !== "string" ||
+        !/^[a-f0-9]{40}$/.test(revision) ||
+        typeof target !== "string" ||
+        !path.isAbsolute(target) ||
+        !Number.isSafeInteger(currentTargetBytes) ||
+        currentTargetBytes < 0
+    )
+        invalid();
     let text;
-    try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); }
-    catch { invalid(); }
+    try {
+        text = new TextDecoder("utf-8", {
+            fatal: true,
+            ignoreBOM: true,
+        }).decode(bytes);
+    } catch {
+        invalid();
+    }
     let cursor = 0;
-    const whitespace = () => { while (cursor < text.length && /[ \t\r\n]/.test(text[cursor])) cursor++; };
+    const whitespace = () => {
+        while (cursor < text.length && /[ \t\r\n]/.test(text[cursor])) cursor++;
+    };
     const string = () => {
         const start = cursor;
         if (text[cursor++] !== '"') invalid();
         while (cursor < text.length) {
             const character = text[cursor++];
-            if (character === "\\") { cursor++; continue; }
+            if (character === "\\") {
+                cursor++;
+                continue;
+            }
             if (character === '"') {
-                try { return JSON.parse(text.slice(start, cursor)); }
-                catch { invalid(); }
+                try {
+                    return JSON.parse(text.slice(start, cursor));
+                } catch {
+                    invalid();
+                }
             }
         }
         invalid();
     };
-    const keys = ["version", "kind", "source_revision", "target_path_sha256", "original_target_bytes", "external_evidence_bytes", "cumulative_limit_bytes"];
+    const keys = [
+        "version",
+        "kind",
+        "source_revision",
+        "target_path_sha256",
+        "original_target_bytes",
+        "external_evidence_bytes",
+        "cumulative_limit_bytes",
+    ];
     const record = Object.create(null);
     whitespace();
     if (text[cursor++] !== "{") invalid();
@@ -428,7 +459,10 @@ function checkedSceneBudget(bytes, revision, target, currentTargetBytes) {
         whitespace();
         if (text[cursor] === '"') record[key] = string();
         else {
-            const number = /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/.exec(text.slice(cursor));
+            const number =
+                /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/.exec(
+                    text.slice(cursor),
+                );
             if (!number) invalid();
             record[key] = Number(number[0]);
             cursor += number[0].length;
@@ -441,15 +475,26 @@ function checkedSceneBudget(bytes, revision, target, currentTargetBytes) {
     }
     if (text[cursor++] !== "}") invalid();
     whitespace();
-    const safe = value => Number.isSafeInteger(value) && value >= 0;
-    if (cursor !== text.length || Object.keys(record).length !== keys.length
-        || record.version !== 1 || record.kind !== "selected_scene_budget_v1"
-        || record.source_revision !== revision
-        || record.target_path_sha256 !== digest(Buffer.from(path.resolve(target).toLowerCase(), "utf8"))
-        || record.cumulative_limit_bytes !== limits.cumulativeEvidence
-        || !safe(record.original_target_bytes) || record.original_target_bytes > currentTargetBytes
-        || !safe(record.external_evidence_bytes) || record.external_evidence_bytes > limits.cumulativeEvidence) invalid();
-    return { originalTargetBytes: record.original_target_bytes, externalEvidenceBytes: record.external_evidence_bytes };
+    const safe = (value) => Number.isSafeInteger(value) && value >= 0;
+    if (
+        cursor !== text.length ||
+        Object.keys(record).length !== keys.length ||
+        record.version !== 1 ||
+        record.kind !== "selected_scene_budget_v1" ||
+        record.source_revision !== revision ||
+        record.target_path_sha256 !==
+            digest(Buffer.from(path.resolve(target).toLowerCase(), "utf8")) ||
+        record.cumulative_limit_bytes !== limits.cumulativeEvidence ||
+        !safe(record.original_target_bytes) ||
+        record.original_target_bytes > currentTargetBytes ||
+        !safe(record.external_evidence_bytes) ||
+        record.external_evidence_bytes > limits.cumulativeEvidence
+    )
+        invalid();
+    return {
+        originalTargetBytes: record.original_target_bytes,
+        externalEvidenceBytes: record.external_evidence_bytes,
+    };
 }
 
 // selected-qualification-budget-v1:start
@@ -458,19 +503,33 @@ const observedTarget = await footprint(target);
 const observedBase = scene ? await footprint(base) : { bytes: 0 };
 let qualificationBudget = null;
 if (scene) {
-    const bytes = await boundedBytes(path.join(base, `selected-scene-budget-v1-${revision}.json`), 4096);
+    const bytes = await boundedBytes(
+        path.join(base, `selected-scene-budget-v1-${revision}.json`),
+        4096,
+    );
     qualificationBudget = {
         ...checkedSceneBudget(bytes, revision, target, observedTarget.bytes),
         recordSHA256: digest(bytes),
     };
 }
-const qualificationEvidenceBytes = observedBase.bytes + (qualificationBudget?.externalEvidenceBytes ?? 0);
-if (!Number.isSafeInteger(qualificationEvidenceBytes) || qualificationEvidenceBytes < 0)
+const qualificationEvidenceBytes =
+    observedBase.bytes + (qualificationBudget?.externalEvidenceBytes ?? 0);
+if (
+    !Number.isSafeInteger(qualificationEvidenceBytes) ||
+    qualificationEvidenceBytes < 0
+)
     throw Error("CumulativeEvidenceAdmissionBudget");
-if (scene && observedTarget.bytes - qualificationBudget.originalTargetBytes > limits.targetGrowth)
+if (
+    scene &&
+    observedTarget.bytes - qualificationBudget.originalTargetBytes >
+        limits.targetGrowth
+)
     throw Error("OriginalTargetAdmissionBudget");
 const initialStorage = {
-    target: { ...observedTarget, bytes: qualificationBudget?.originalTargetBytes ?? observedTarget.bytes },
+    target: {
+        ...observedTarget,
+        bytes: qualificationBudget?.originalTargetBytes ?? observedTarget.bytes,
+    },
     source: await footprint(root, true),
     evidence: { ...observedBase, bytes: qualificationEvidenceBytes },
     observedTarget,
@@ -1215,8 +1274,16 @@ try {
                 }
             } else {
                 const initialIDs = [...reports[0].report.savedRuns].sort();
-                assert.deepEqual([...report.savedRuns].sort(), initialIDs, "RestartSavedExactInitialIds");
-                assert.deepEqual([...report.reopenedIDs].sort(), initialIDs, "RestartOpenedEveryExactInitialId");
+                assert.deepEqual(
+                    [...report.savedRuns].sort(),
+                    initialIDs,
+                    "RestartSavedExactInitialIds",
+                );
+                assert.deepEqual(
+                    [...report.reopenedIDs].sort(),
+                    initialIDs,
+                    "RestartOpenedEveryExactInitialId",
+                );
                 assert.equal(
                     report.reopenedRun,
                     initialRoles.rollout,

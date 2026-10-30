@@ -323,7 +323,9 @@ fn stage_and_fixed_path_guards_refuse_before_fixture_writes() {
         lexical.push(component);
     }
     let lexical = PathBuf::from(lexical);
-    assert!(lexical.components().any(|part| matches!(part, std::path::Component::ParentDir)));
+    assert!(lexical
+        .components()
+        .any(|part| matches!(part, std::path::Component::ParentDir)));
     assert_ne!(lexical, root.join("comparison-fixtures"));
     for bad in [
         root.join("other-fixtures"),

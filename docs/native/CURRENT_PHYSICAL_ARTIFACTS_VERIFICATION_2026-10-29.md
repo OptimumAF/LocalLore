@@ -135,6 +135,18 @@ These are preparation corrections, not fabricated failed builds or RED tests.
 The standalone x86/API35 author-process probe is unrelated to this ordinary
 phone artifact case and is neither rebuilt nor qualified.
 
+The first recovery producer v2 actually exits1 before checkpoint creation or
+artifact copying: two pre-existing Root host-Python files have CRLF bytes,
+while their actual frozen-W build inputs have LF bytes. The files are
+benchmarks/owned_target_contract.py and
+scripts/tests/test_receipt_avd_storage_integration.py. Independent diagnosis
+confirms only those two raw differences outside README; W still exactly
+matches all build inputs. No bytes are normalized. Revised recovery pins
+both exact observed forms, preserves each separately and retains the failed
+producer/exit record. Actual W remains the built-source authority; a clean
+Git tree is not used as an oracle for raw byte equality across checkouts.
+Original B8 stays sealed; new recovery controls live outside it.
+
 The previous2308-host-test result stays attributed to its original847a source;
 it is not reported as a new run. This packet changes only documentation after
 the actual9c4 build and needs no product-code regression rerun.

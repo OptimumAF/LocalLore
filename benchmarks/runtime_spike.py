@@ -114,7 +114,20 @@ class ProcessResult:
 
 def run_process(command, request=b"", deadline=60, cancel=None, max_output=131_072, cancel_at=None):
     """Bound both pipes together, including descendants holding inherited pipes."""
-    if not 0 < deadline <= 180 or not 0 < max_output <= 262_144 or len(request) > 131_072:
+    return _run_process(command, request, deadline, cancel, max_output, cancel_at)
+
+
+def run_resource_table(command):
+    """Capture a complete tool resource table with a fixed, separate metadata budget."""
+    return _run_process(command, deadline=15, max_output=4 * 1024 * 1024,
+                        output_ceiling=4 * 1024 * 1024)
+
+
+def _run_process(command, request=b"", deadline=60, cancel=None, max_output=131_072, cancel_at=None,
+                 *, output_ceiling=262_144):
+    if output_ceiling not in (262_144, 4 * 1024 * 1024):
+        raise ValueError("invalid_process_budget")
+    if not 0 < deadline <= 180 or not 0 < max_output <= output_ceiling or len(request) > 131_072:
         raise ValueError("invalid_process_budget")
     start = time.monotonic()
     if cancel is not None and cancel.is_set():

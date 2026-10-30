@@ -110,10 +110,10 @@ async function flush() {
     for (let i = 0; i < 12; i++) await Promise.resolve();
 }
 function actualOwner(p) {
-    const stripped = stripTypeScriptTypes(`${ownerSource}\nreturn finish;`, {
+    const stripped = stripTypeScriptTypes(ownerSource, {
         mode: "strip",
     });
-    return vm.compileFunction(stripped, [
+    return vm.compileFunction(`${stripped}\nreturn finish;`, [
         "createDomain2ForkFinalizer",
         "invoke",
     ])(create, (name, args) => {

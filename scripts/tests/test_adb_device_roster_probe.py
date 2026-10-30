@@ -4,6 +4,7 @@ Real request, source, started, serialization and pure proof validators run.
 Synthetic records confer no host service or device authority.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
+import ast
 import copy
 from contextlib import redirect_stdout
 import io
@@ -202,6 +203,28 @@ class DeviceRosterCliTests(unittest.TestCase):
                 cli._load_admission(str(path), cli.env.digest(path))
         with self.assertRaises((ValueError, cli.env.EnvironmentRefused)):
             cli._load_admission(str(self.input), '0'*64)
+
+    def test_declared_source_closure_contains_actual_transitive_project_imports(self):
+        declared = {(cli.ROOT/name).resolve() for name in cli.PUBLIC_SOURCES}
+        pending, discovered = list(declared), set()
+        while pending:
+            source = pending.pop()
+            if source in discovered: continue
+            discovered.add(source)
+            for node in ast.walk(ast.parse(source.read_text(encoding='utf-8'))):
+                names = []
+                if isinstance(node, ast.Import):
+                    names = [item.name for item in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    names = ['benchmarks.'+item.name for item in node.names] if node.module == 'benchmarks' else [node.module]
+                for name in names:
+                    parts = name.split('.')
+                    relative = parts[1:] if parts[0] == 'benchmarks' else parts
+                    candidate = cli.ROOT/'benchmarks'/Path(*relative).with_suffix('.py')
+                    if candidate.is_file() and candidate.resolve() not in discovered:
+                        pending.append(candidate.resolve())
+        self.assertIn((cli.ROOT/'benchmarks/receipt_avd_storage.py').resolve(), discovered)
+        self.assertEqual(discovered-declared, set())
 
 
 if __name__ == '__main__':

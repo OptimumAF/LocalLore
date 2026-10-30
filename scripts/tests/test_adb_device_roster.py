@@ -4,7 +4,10 @@ The legacy version witness and new roster verdict both use real pure validators.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import copy
+from dataclasses import asdict
+import hashlib
 import json
+import struct
 import unittest
 
 from benchmarks import adb_device_roster as roster
@@ -281,6 +284,38 @@ class DeviceRosterTests(unittest.TestCase):
         self.refused(lambda: roster.parse_devices(body+device_row('EXTRA', transport_id=257)))
         self.refused(lambda: roster.parse_devices(body+b'LAST malformed\n'))
         self.refused(lambda: roster.parse_devices(b'x'*65536))
+
+    def test_received_bytes_survive_expiry_during_the_same_receive_call(self):
+        class LateReceive(RosterBackend):
+            def recv(self, limit, deadline):
+                part = super().recv(limit, deadline)
+                self.clock = deadline
+                return part
+        backend = LateReceive(body=b'')
+        report = roster.probe(backend, admission(), version_proof())
+        self.assertEqual(report['status'], 'refused')
+        self.assertEqual(report['reason'], 'deadline')
+        self.assertEqual(backend.received, [b'OKAY0000'])
+        self.assertEqual(report['response_hex'], b'OKAY0000'.hex())
+        self.assertFalse(report['response_complete'])
+        self.assertEqual(backend.counts['send'], 1)
+        self.assertTrue(backend.closed)
+
+    def test_well_formed_unrelated_tcp_row_never_passes_verdict_or_serialization(self):
+        report = roster.probe(RosterBackend(), admission(), version_proof())
+        selected = report['stages'][0]['snapshot']
+        unrelated = held.row4(local_port=6000)
+        decoded = legacy.decode_table(b'\x01\x00\x00\x00'+unrelated, 2)[0]
+        selected['rows'].append(dict(family=2, ordinal=1, raw_hex=unrelated.hex(),
+            raw_sha256=hashlib.sha256(unrelated).hexdigest(), row=asdict(decoded)))
+        table = selected['tables'][0]
+        full_table = struct.pack('<I', 2)+bytes.fromhex(selected['rows'][0]['raw_hex'])+unrelated
+        table.update(count=2, returned_bytes=len(full_table), allocated_bytes=len(full_table),
+                     raw_sha256=hashlib.sha256(full_table).hexdigest())
+        with self.subTest(boundary='verdict'):
+            self.assertIs(roster.report_verified(report, admission()), False)
+        with self.subTest(boundary='serialization'):
+            self.refused(lambda: roster.report_bytes(report, admission()))
 
 
 if __name__ == '__main__':

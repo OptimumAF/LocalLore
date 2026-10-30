@@ -217,9 +217,7 @@ fn actual_evidence(path: &Path) -> Value {
     json!({"version":1,"kind":"v2_inspection_paging_oracle_v1","fixture_version":1,"scopes":values})
 }
 fn wire(host: &Host, command: Value) -> Value {
-    let response: Value =
-        serde_json::from_slice(&host.call(&encoded(&json!({"version":1,"command":command}))))
-            .unwrap();
+    let response: Value = host.call(&encoded(&json!({"version":1,"command":command})));
     assert_eq!(response["version"], 1);
     assert_eq!(response["status"], "ok", "actual Host response: {response}");
     response["data"].clone()

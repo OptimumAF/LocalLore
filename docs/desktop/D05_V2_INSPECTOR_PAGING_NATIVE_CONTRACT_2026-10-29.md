@@ -579,3 +579,22 @@ All prior failures/outputs of this same paging qualification count even across
 branch or packet names. The existing selected4 cap stays512MiB with no retry;
 the shared original target baseline is8,259,980,576 across both gates. No runtime
 admission is added by this source contract; actual measurements must precede it.
+
+Initial actual clean-Git caller statements have dedicated literal line markers
+`// d05-paging-git-admission-v1:start` and
+`// d05-paging-git-admission-v1:end`, covering const revision = await gitRead
+through the clean-status refusal, ending BEFORE const sourcePaths. VM admitGit
+executes that actual caller text; it must not supply a rewritten admission body.
+Actual async footprint(directory, source=false) has literal line markers
+`// d05-paging-footprint-v1:start` and `// d05-paging-footprint-v1:end`.
+VM readdir/lstat are added ambient filesystem dependencies, replacing only file
+observations. Real footprint code must enforce file-size safe integers, checked
+sums, entry limits and non-symbolic ordinary entries. A disclosed small VM entry
+cap may exercise the formula; it is not millions-of-files/physical-OS evidence.
+
+The root workspace library lists two root stories, not all three scopes. Use the
+normal primary-story branch catalog (parent main@0 plus paging@44/fork0), then
+normal resume of the exact child. Do not search library.stories for a child or
+select the first recent entry. FIRST proves actual canonical records/saved turns;
+91 public setup calls is the fixed source-reviewed roster, not runtime invocation
+telemetry. No new call counter, private session injection or provider is added.

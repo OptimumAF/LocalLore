@@ -56,9 +56,13 @@ The [buffered restart preparation](docs/native/BUFFERED_RESTART_ADMISSION_2026-1
 advances the fixed target to an unused path while preserving previous guests
 and all admission requirements. It grants no emulator run.
 
+The [current phone-profile artifacts](docs/native/CURRENT_PHYSICAL_ARTIFACTS_VERIFICATION_2026-10-29.md)
+pass606 JVM tests, fresh lint and the complete paired APK audit from a frozen
+offline build. Phone installation, inference and privacy qualification remain separate.
+
 The [physical APK backup linkage](docs/native/PHYSICAL_APK_BACKUP_LINKAGE_2026-10-29.md)
-extends strict resource checks to the phone artifact checker. Its complete
-paired audit still requires compatible phone-profile APKs.
+defines the strict resource contract for the phone artifact checker. The
+current build above supplies its qualified APK pair.
 
 The [APK backup policy audit](docs/native/APK_BACKUP_AUDIT_2026-10-29.md) checks
 compiled backup flags and referenced cloud/device-transfer exclusions.

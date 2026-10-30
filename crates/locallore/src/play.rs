@@ -899,6 +899,42 @@ fn narration_reclaims_transferred_item(approved: &Receipt, player: &str, lower: 
     })
 }
 
+/// Complete visible labels only. Ranges are in the lowercased text's byte
+/// coordinates; they are never used to slice the original Unicode prose.
+fn narrator_visible_label_spans(lower: &str, labels: &BTreeSet<String>) -> Vec<(usize, usize)> {
+    let boundary = |c: char| !c.is_alphanumeric() && !matches!(c, '_' | '-' | '\'' | '’');
+    labels
+        .iter()
+        .filter(|label| !label.is_empty())
+        .flat_map(|label| {
+            lower.match_indices(label).filter_map(move |(start, _)| {
+                let end = start + label.len();
+                let mut preceding = lower[..start].chars().rev();
+                let left = match preceding.next() {
+                    Some('\'' | '’') => preceding.next().is_none_or(boundary),
+                    character => character.is_none_or(boundary),
+                };
+                let suffix = &lower[end..];
+                let right = if let Some(tail) = suffix
+                    .strip_prefix('\'')
+                    .or_else(|| suffix.strip_prefix('’'))
+                {
+                    // Accept a closing quote or complete possessive, never a
+                    // fragment of an apostrophe-extended unknown name.
+                    tail.strip_prefix('s')
+                        .unwrap_or(tail)
+                        .chars()
+                        .next()
+                        .is_none_or(boundary)
+                } else {
+                    suffix.chars().next().is_none_or(boundary)
+                };
+                (left && right).then_some((start, end))
+            })
+        })
+        .collect()
+}
+
 fn validate_prose(
     engine: &Engine,
     approved: &Receipt,
@@ -1031,15 +1067,31 @@ fn validate_prose(
         .filter(|(id, _)| visible.contains(id.as_str()))
         .flat_map(|(id, actor)| [id.to_lowercase(), actor.name.to_lowercase()])
         .collect();
+    let label_spans = narrator_visible_label_spans(&lower, &visible_labels);
+    let covered_label = |start, end| {
+        label_spans
+            .iter()
+            .any(|&(label_start, label_end)| label_start <= start && end <= label_end)
+    };
     // This profile has no authority to introduce a new named character. Keep the
     // conservative check to capitalized in-sentence tokens; it is no NLP proof.
+    let mut sentence_start = 0;
     for sentence in text.split(['.', '!', '?', '\n']) {
-        for (index, token) in sentence.split_whitespace().enumerate() {
-            let token = token.trim_matches(|c: char| !c.is_alphabetic());
+        let mut word_end = 0;
+        for (index, word) in sentence.split_whitespace().enumerate() {
+            let word_start = word_end + sentence[word_end..].find(word).ok_or(Error::Narration)?;
+            word_end = word_start + word.len();
+            let token_start = sentence_start + word_start + word.len()
+                - word.trim_start_matches(|c: char| !c.is_alphabetic()).len();
+            let token = word.trim_matches(|c: char| !c.is_alphabetic());
             let token = token
                 .strip_suffix("'s")
                 .or_else(|| token.strip_suffix("’s"))
                 .unwrap_or(token);
+            // Lowercasing may expand a Unicode scalar. Convert the original
+            // prefix/token lengths, rather than applying folded offsets to text.
+            let folded_start = text[..token_start].to_lowercase().len();
+            let folded_end = folded_start + token.to_lowercase().len();
             let opening_word = index == 0
                 && [
                     "you",
@@ -1063,23 +1115,34 @@ fn validate_prose(
                 && !opening_word
                 && !visible_labels.contains(&token.to_lowercase())
                 && !source.contains(&token.to_lowercase())
+                && !covered_label(folded_start, folded_end)
             {
                 return Err(Error::Narration);
             }
         }
+        // Each separator above is a single ASCII byte. Preserve the original
+        // word positions so a matched name cannot create an opening-word grant.
+        sentence_start += sentence.len() + 1;
     }
     for (id, actor) in &engine.state().actors {
-        let hidden_mentioned = [id.to_lowercase(), actor.name.to_lowercase()]
-            .iter()
-            .any(|label| {
-                !visible_labels.contains(label)
-                    && lower.match_indices(label).any(|(start, _)| {
-                        let end = start + label.len();
-                        let boundary = |c: char| !c.is_alphanumeric() && !matches!(c, '_' | '-');
-                        lower[..start].chars().next_back().is_none_or(boundary)
+        let hidden_mentioned = [
+            (id.to_lowercase(), false),
+            (actor.name.to_lowercase(), true),
+        ]
+        .iter()
+        .any(|(label, is_name)| {
+            !visible_labels.contains(label)
+                && lower.match_indices(label).any(|(start, _)| {
+                    let end = start + label.len();
+                    let boundary = |c: char| !c.is_alphanumeric() && !matches!(c, '_' | '-');
+                    lower[..start].chars().next_back().is_none_or(boundary)
                             && lower[end..].chars().next().is_none_or(boundary)
-                    })
-            });
+                            // A full known name may contain another actor's
+                            // display name. Exempt that occurrence only; hidden
+                            // IDs and the same name elsewhere remain guarded.
+                            && !(*is_name && covered_label(start, end))
+                })
+        });
         if !visible.contains(id.as_str()) && hidden_mentioned {
             return Err(Error::Knowledge);
         }

@@ -485,3 +485,68 @@ must be retained under the admitted D05 paging artifact base via its explicit
 environment, with unique fixed-prefix child folders and no drop-time cleanup.
 Missing admission/helper/module is setup/unrun, never zero-test pass. FIRST source
 authoring itself is source/Git/hash only and creates no fixture/output roots.
+
+## Root launcher FIRST extraction precision
+
+Before launcher source production, freeze independent actual-source VM tests
+against NEW apps/desktop/v2-inspector-paging-harness.mjs. The accepted bounded
+selected-evaluation launcher at8b023194 supplies policy semantics, not imported
+top-level execution and not a copied test authority. This is a private zero-CLI
+fixed app runner, not a shared/general-purpose execution service.
+
+Exact extraction markers are d05-paging-git-policy-v1:start/end around actual
+latchUnknown(reason, details) and async gitRead(args); and
+d05-paging-process-policy-v1:start/end around actual async measureStorage(),
+unchangedSource(), unchangedProducts(), run(command, args, additions={}). Each
+marker is a literal line comment prefixed `// `. No nested marker or alternative
+implementation is allowed. The native driver uses these actual helpers.
+
+Ambient names are root,base,target,folder,executable,revision,sourcePaths,
+sourceHashes,productHashes,initialStorage,limits,ownedDrainUnknown,storageBreached,
+lastStorage,runNumber,unknownChildren,gitChildren,processes,write,digest,footprint,
+hashes,spawn,process,path,Buffer,Date,Promise,setTimeout,clearTimeout. Fake VM
+children/files/timers may replace ambient dependencies, never the policy body.
+Source/product helpers use gitRead/hashes, and compare exact identity snapshots.
+Finite child/Git records and reserve-before-metadata behavior retain the accepted
+selected policy. Direct-child closure never implies process-tree containment.
+
+Exact async startup/admission region is between literal line comments
+`// d05-paging-budget-policy-v1:start` and `// d05-paging-budget-policy-v1:end`;
+it includes actual checkedPagingBudget(bytes, revision, target,
+currentTargetBytes), admission record read and baseline computations, ending
+before the create-new packet mkdir. Tests observe actual startup refusal before
+mkdir/child rather than supplying a copied decoder. The whole source has one
+global try/catch/finally; its final restoration calls the same actual run helpers.
+Policy FIRST also inspects/executes that driver with disclosed fixed stubs to
+verify restoration placement and zero later work after sticky unknown/storage.
+
+The fixed coordinator CreateNew record under base is
+d05-v2-inspector-paging-budget-v1-<full-source-HEAD>.json, raw<=4096bytes, strict
+UTF-8, duplicate-aware closed eight keys: version1,
+kind="d05_v2_inspector_paging_budget_v1",source_revision,target_path_sha256,
+original_target_bytes,external_evidence_bytes,d05_external_evidence_bytes,
+cumulative_limit_bytes. Bind exact clean40lowerhex HEAD and SHA256 of lowercase
+resolved target path UTF-8. All counts are nonnegative safe integers;
+original_target_bytes<=observed target, cumulative_limit_bytes exactly671088640.
+external_evidence_bytes is freshly measured prior selected4 qualification
+(including its rosters), never more than its preserved536870912 cap;
+d05_external_evidence_bytes covers any paging outputs outside the measured base.
+The record is a coordinator declaration, not OS accounting or authentication.
+
+Root's distinct paging gate has fixed134217728 cumulative bytes. Joint bytes are
+base+external_evidence_bytes+d05_external_evidence_bytes; paging bytes are
+base+d05_external_evidence_bytes. Check both limits with checked arithmetic;
+require67108864 expected cohort headroom before packet mkdir, both at the joint
+and paging limits. Keep original target growth2147483648 and all prior costs.
+During the one child cohort, baseline evidence plus new packet counts additional
+bytes exactly once. Re-inventory between children; after inventory failure or
+unknown direct-child drain latch permanently, forbid later Git/native/restore,
+reserve1048576 for bounded final metadata and report unavailable final counts.
+No new packet/root or retry follows a refusal automatically.
+
+These caps name the current selected4 and new paging qualification rosters, not
+all historical project/model archives. Older unrelated evidence remains preserved.
+All prior failures/outputs of this same paging qualification count even across
+branch or packet names. The existing selected4 cap stays512MiB with no retry;
+the shared original target baseline is8,259,980,576 across both gates. No runtime
+admission is added by this source contract; actual measurements must precede it.

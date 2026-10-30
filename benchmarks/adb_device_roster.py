@@ -31,6 +31,14 @@ class RosterRefused(ValueError):
         super().__init__(self.reason)
 
 
+class ReceiveRefused(old.ProbeRefused):
+    """A bounded private byte channel after IO, never an accepted response."""
+    def __init__(self, reason, received):
+        old._need(type(received) is bytes and len(received) <= MAX_RESPONSE+1, 'framing')
+        self.received = received
+        super().__init__(reason)
+
+
 def _need(value, reason='devices'):
     if not value:
         raise RosterRefused(reason)

@@ -21,7 +21,7 @@ from scripts.tests import test_android_instrumentation_evidence as junit_fixture
 PROTOCOL='owned-emulator-restart-target-v1'
 SDK_PROTOCOL='sdk-owned-restart-v1'
 PROOF_PROTOCOL='owned-restart-socket-proof-v1'
-GUEST_ROOT='D:/Dev/Experiments/LocalLore/2026-10-29-author-restart-controller-v1/avd-v1'
+GUEST_ROOT='D:/Dev/Experiments/LocalLore/2026-10-29-restart-after-metadata-v1/avd-v1'
 PROBE_PATH='/data/local/tmp/locallore-author-process-probe-v1'
 RESTART_CLASS='org.locallore.app.OriginalAuthorRestartInstrumentedTest'
 RESTART_METHOD='recordsOriginalAuthorAfterExternalRestartWithoutInference'

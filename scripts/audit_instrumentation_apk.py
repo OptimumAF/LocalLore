@@ -38,7 +38,7 @@ def audit_manifests(app_badging, app_tree, test_badging, test_tree, *, archive_v
             "Shared or aliased identity")
     applications = physical.blocks(test_tree, "application")
     require(len(applications) == 1, "Wrong test application count")
-    require(not any(physical.attr(applications[0][0], name) for name in ("process", "permission", "backupAgent")),
+    require(not any(physical.attr(applications[0][0], name) for name in ("process", "permission", "backupAgent", "taskAffinity")),
             "Unexpected test application override")
     permissions = physical.audit_test_manifest(test_badging, test_tree, app)
     return {"package": app, "test_package": test, "test_permissions": permissions}

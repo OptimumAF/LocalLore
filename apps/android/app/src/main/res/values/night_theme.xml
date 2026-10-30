@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.LocalLore.NightBase" parent="android:style/Theme.Material.NoActionBar">
+    <style name="LocalLoreNightBase" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowBackground">#101916</item>
         <item name="android:statusBarColor">#101916</item>

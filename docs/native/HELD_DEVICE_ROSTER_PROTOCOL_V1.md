@@ -82,7 +82,7 @@ because AOSP does not escape all serial/property text.
 
 Primary AOSP revision
 [`1cf2f017d312f73b3dc53bda85ef2610e35a80e9`](https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/)
-provides the [wire services](https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/SERVICES.TXT),
+provides the [wire services](https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9/docs/dev/services.md),
 long-list formatting in `transport.cpp`, state names in `adb.cpp` and the
 separate restart logic in `client/adb_client.cpp`. Original implementation uses
 the existing Python standard library and Windows resource backend; no runtime,

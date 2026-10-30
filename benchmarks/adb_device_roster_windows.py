@@ -1,7 +1,7 @@
-"""Fixed roster IO on the unchanged held Windows resource owner.
+"""Fixed version/roster IO on the unchanged held Windows resource owner.
 
-Import/construction does no IO. This permits only one devices-l request; it
-never launches an ADB executable, selects a device or changes a service.
+Import/construction does no IO. Each fixed backend permits its one host query;
+neither launches an ADB executable, selects a device or changes a service.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 from benchmarks.adb_device_roster import REQUEST, MAX_RESPONSE, ReceiveRefused

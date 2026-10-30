@@ -74,7 +74,7 @@ class SystemThemeTest {
         val draft = "SCRIPTED dialogue retained across the system theme change."
         tag("play-kind-dialogue").performClick()
         tag("play-input").performTextReplacement(draft)
-        for (mode, dark) in listOf(Configuration.UI_MODE_NIGHT_YES to true, Configuration.UI_MODE_NIGHT_NO to false)) {
+        for ((mode, dark) in listOf(Configuration.UI_MODE_NIGHT_YES to true, Configuration.UI_MODE_NIGHT_NO to false)) {
             compose.runOnIdle { night.value = mode }
             awaitTheme({ colors }, dark)
             tag("play-input").assert(hasText(draft))
@@ -110,7 +110,7 @@ class SystemThemeTest {
         tag("play-input").performTextReplacement(draft)
         compose.runOnIdle { state.value = state.value.copy(busy = true, preparingResponse = true) }
         val before = compose.runOnIdle { state.value }
-        for (mode, dark) in listOf(Configuration.UI_MODE_NIGHT_YES to true, Configuration.UI_MODE_NIGHT_NO to false)) {
+        for ((mode, dark) in listOf(Configuration.UI_MODE_NIGHT_YES to true, Configuration.UI_MODE_NIGHT_NO to false)) {
             compose.runOnIdle { night.value = mode }
             awaitTheme({ colors }, dark)
             tag("play-input").assert(hasText(draft)).assertIsNotEnabled()

@@ -77,7 +77,7 @@ class LocalLoreThemeTest {
     }
 
     @Test fun bodyTextRemainsReadableAcrossAllMaterialSurfaceElevations() {
-        for (dark, s) in listOf(false to localLoreColorScheme(false), true to localLoreColorScheme(true))) {
+        for ((dark, s) in listOf(false to localLoreColorScheme(false), true to localLoreColorScheme(true))) {
             listOf("surfaceDim" to s.surfaceDim, "surfaceBright" to s.surfaceBright,
                 "surfaceContainerLowest" to s.surfaceContainerLowest, "surfaceContainerLow" to s.surfaceContainerLow,
                 "surfaceContainer" to s.surfaceContainer, "surfaceContainerHigh" to s.surfaceContainerHigh,
@@ -88,7 +88,7 @@ class LocalLoreThemeTest {
     }
 
     @Test fun EssentialControlOutlinesAndFocusedIndicatorsMeetThreeAgainstTheirSurfaces() {
-        for (dark, s) in listOf(false to localLoreColorScheme(false), true to localLoreColorScheme(true))) {
+        for ((dark, s) in listOf(false to localLoreColorScheme(false), true to localLoreColorScheme(true))) {
             listOf("surface" to s.surface, "background" to s.background, "surfaceVariant" to s.surfaceVariant,
                 "surfaceContainerHighest" to s.surfaceContainerHighest, "surfaceBright" to s.surfaceBright).forEach { (name, background) ->
                 requireContrast("dark=$dark outline/$name", s.outline, background, 3.0)

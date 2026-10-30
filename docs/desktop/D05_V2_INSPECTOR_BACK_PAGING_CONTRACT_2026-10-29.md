@@ -1,13 +1,19 @@
 # V2 inspector Previous page proposal
 
-2026-10-29. **Proposal only; no implementation, test execution or acceptance.**
+2026-10-29. **Frontend contract accepted by Root; no implementation or test
+execution yet. Native harness sections remain a proposal requiring separate
+fixed recipe/policy/FIRST/resource admission before execution.**
 Refs #26, bounded D05 inspection/navigation prerequisite, and
 [allocation6508338213](https://github.com/OptimumAF/LocalLore/issues/26#issuecomment-6508338213).
 Source anchor: accepted main `a6f235ae74c4e3ade80175a499ecd7fc20751314`.
 Author branch: `plan/d05-v2-inspector-back-paging-v1` from that exact commit.
-Root must accept this contract, claim exact task IDs/paths and freeze independent
-FIRST source before production. GitHub owns task status; this document fixes the
-proposed behavior and evidence boundary rather than maintaining another tracker.
+Root imported the proposal as e0a613c7 after accepted main8b023194/PR273,
+refreshed #26/claims and verified both proposed production files are unchanged
+from a6f235ae through8b023194. Claim6512170345 fixes D05.03/.07, branch/worktrees,
+ownership and checks. Root accepts the frontend behavior/API/reset/overflow and
+FIRST boundaries below. Independent FIRST must freeze before different-author
+production. GitHub owns status; this document fixes behavior and evidence
+boundaries rather than maintaining another tracker.
 
 ## Smallest behavior and current shared query
 

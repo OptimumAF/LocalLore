@@ -1513,12 +1513,13 @@ export async function v2InspectorPagingNativeJourneys({
             "play_snapshot_v2",
             "inspection_query",
             "inspect",
+            "trace_capture_revoke",
         ]);
         check(
             trace().every((item) =>
                 item.channel === "host"
                     ? !!item.command && allowed.has(item.command.op)
-                    : ["model_status", "inspection_storage"].includes(
+                    : ["model_status", "inspection_storage", "capture_revoke"].includes(
                           item.nativeAction ?? "",
                       ),
             ),
@@ -1557,7 +1558,16 @@ export async function v2InspectorPagingNativeJourneys({
             "exact20-actual-native-success-capture-roster",
         );
         disposing = true;
+        const disposeTraceStart = trace().length;
         await dispose();
+        check(
+            trace().slice(disposeTraceStart).every((item) =>
+                item.settled && (item.channel === "host"
+                    ? !!item.command && ["close", "trace_capture_revoke"].includes(item.command.op)
+                    : item.nativeAction === "capture_revoke"),
+            ),
+            "post-dispose-only-settled-close-and-exact-capture-revocations",
+        );
         finalOracle = await oracle("after-dispose-before-window-exit");
         traceBound();
         check(
@@ -1568,7 +1578,7 @@ export async function v2InspectorPagingNativeJourneys({
             trace().every((item) =>
                 item.channel === "host"
                     ? !!item.command && allowed.has(item.command.op)
-                    : ["model_status", "inspection_storage"].includes(
+                    : ["model_status", "inspection_storage", "capture_revoke"].includes(
                           item.nativeAction ?? "",
                       ),
             ),

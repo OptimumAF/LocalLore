@@ -1,0 +1,89 @@
+# Fixed native Saved timelines browser verification
+
+Refs #30 (partial D08.04/.07). Prospective preparation only; no runtime admission.
+Read the [product contract](D08_DOMAIN2_TIMELINE_BROWSER_CONTRACT_2026-10-30.md).
+
+Extend the existing development-only paging launcher with one exact optional
+argument `--timeline-browser-v1`. Its no-argument paging mode, eight-field record,
+64MiB expected evidence/artifact limits, twenty captures and prior tests remain.
+Reject every other argument combination before children or directories. Do not
+run the old cohort to qualify this new browser.
+
+The new mode uses a distinct eight-field record kind
+`d08_domain2_timeline_browser_budget_v1` and filename
+`d08-domain2-timeline-browser-budget-v1-<HEAD>.json`. Other field names retain
+the existing parser contract. Here `d05_external_evidence_bytes` charges ALL
+previous D05 evidence outside this NEW browser base; `external_evidence_bytes`
+charges the named D07/D09 retention and other declared external evidence once.
+The new mode's external field may exceed512MiB, but the unchanged640MiB joint
+ceiling remains authoritative. Paging mode retains its old512MiB external bound.
+Original target baseline/growth, source-growth, physical-D/path containment,
+canonical source/product hashes, entry bounds and closed child policy remain.
+
+Browser expected packet and total per-packet limit are20MiB; the browser base
+(including source proofs/frontend evidence) is bounded32MiB. Actual prospective
+admission must reserve that expected20MiB on top of every retained byte, plus
+remaining frontend/metadata/product allowances. Independently inventory the
+closed roster before admission. This is cooperative retained-output accounting,
+not a filesystem quota or process-tree guarantee. No failed budget reset,
+discarded capture, old output omission, cap raise or automatic retry.
+
+## Fixed native adapter
+
+Use the existing fixed fixture/oracle and short fresh p-UUID profile path. No
+frozen database/profile is reused. Add the exact opt-in environment flag
+`LOCALLORE_D08_TIMELINE_BROWSER_HARNESS=1` only alongside the existing development
+and fixed paging-fixture selector, artifact directory and workspace variables.
+Refuse malformed values or any other LOCALLORE harness flag. Normal mode never
+registers these commands. No new production IPC/capability/schema/provider is
+added. The existing no-argument read-only oracle stays lease-checked before and
+after blocking work.
+
+The frontend receives only a fixed `timelineBrowser` boolean in the development
+initialization. It dispatches the new literal journey before the old paging
+journey; the old journey is not executed. Use actual Main/controllers and UI
+buttons, existing normal Gateway/native IPC, app-owned semantic snapshots and
+hidden/unfocused WebView2 CapturePreview. No desktop activation/input/capture,
+browser debug server, arbitrary code/file/shell endpoint or model operation.
+
+The artifact writer has a separate fixed8MiB reserve for this mode, with the
+existing sticky write-failure behavior. The old modes retain64MiB. Allow only the
+six browser checkpoint labels below and a fixed failure label; the paging label
+set must not become browser-authorized. New-mode labels remain unauthorized in
+old modes. Preserve normal build hook exclusion checks.
+
+## Journey and capture roster
+
+The new mode's report/semantic `mode` is `domain2_timeline_browser_v1`.
+Use these six checkpoint suffixes with prefix `d08-browser-`, in order:
+
+1. `catalog`: select the existing saved author child `paging` at44 and show the
+   real Saved timelines panel, with root0/child44 ancestry/current metadata.
+2. `root`: click the exact root Resume button; observe the legacy main0 snapshot,
+   then show its catalog. No first/recent fallback.
+3. `child`: click the exact child Resume button; observe Domain2 child44 and show
+   its catalog. Keep Fork hidden. No author/generation/write calls.
+4. `observer`: acknowledged Story Lab/Mira lens, with actual child44 context;
+   catalog browsing changes neither actor knowledge nor canonical history.
+5. `enlarged-wide`: actual150% text at1280x900 with browser controls in view.
+6. `enlarged-narrow`: actual150% text at620x900; readable ancestry/head/status and
+   controls with no horizontal overflow. Restore size/text afterward.
+
+Semantic checks between captures cover pending catalog/no stale old data, error
+and explicit retry, old handlers/context switching, exact selected scope/revision,
+visible pending operation/receipt/error state and no unsolicited generation.
+Use fixed delayed/failed delivery around the SAME real branches read only when
+needed; disclose this local delivery fault separately from native Host refusal.
+Before/after fixed Rust oracle fingerprints must match for all three scopes and
+observers. At disposal permit only the established bounded close/revoke roster,
+then restore normal frontend/native products after all direct children are known
+closed. Unknown closure or inventory/budget failure forbids later launch/build.
+
+Inspect all six original PNGs individually after actual execution. Report actual
+native UI/IPC separately from headless/source tests, and keep unsupported keyboard,
+screen-reader, physical phone, real-model, offline/OS and full D08 gates open.
+Independent FIRST must freeze argument/mode/record/budget/label compatibility
+controls before Root modifies the launcher/native wiring. A separately authored
+fixed native journey is frozen before Root integrates it. Source authors do not
+execute tools; Root is the sole heavy worker. Actual commands, versions, failures,
+costs and limitations belong in the later qualification report.

@@ -78,6 +78,9 @@ paths, not a supplied file selector. Refuse product total above productBytes.
 Charge live products in aggregate accounting and positive growth in each step;
 they are not covered by the output-root limit. The external evidence count must
 exclude these separately metered live products to avoid duplicate charging.
+Only the fixed product LEAF may be missing: sourceRoot/ui is a required ordinary
+parent even when host.generated.ts is absent. Missing/replaced required ancestors
+must not silently turn a previously bound product into zero bytes.
 
 The coordinator creates a NEW <=4096-byte admission file. Exact serialization is
 UTF-8 JSON.stringify of the following eight keys IN THIS ORDER plus one LF:
@@ -181,6 +184,11 @@ zero-case PASS or invented behavioral failures.
 
 ## Driver lifetime and evidence
 
+Before ANY Git child, the bounded branch performs a private physical-D/ordinary/
+realpath-ancestor check of its actual source URL directory and the explicit parent
+TEMP and TMP directories. Reject missing, non-D, aliased or non-directory inputs
+without invoking Git. This is not a new exported path/execution service; the
+helper still validates the complete source/output/admission binding afterward.
 The bounded branch obtains current clean HEAD using only fixed read-only Git
 rev-parse HEAD and status --porcelain commands (15s,64KiB each). Failure, malformed
 revision, dirty source or unknown closure refuses before the first Node check.
@@ -196,6 +204,12 @@ stop. Finite240s deadline, one stop attempt and5s grace. A close during grace is
 known closure but still FAILS the timeout/overflow. Missing close at grace expiry
 sticks unknown ownership and stops the runner; no retry or later child. Signal,
 spawn failure and nonzero exit are failures. Listen for close, not merely exit.
+On unknown-close grace expiry, make bounded best-effort attempts to destroy BOTH
+pipe handles and unref the owned ChildProcess so those handles do not keep the
+coordinator alive indefinitely. Attempt each independently even if another throws;
+do not make a second stop attempt, claim the child drained, or clear the unknown
+latch on later events. This releases coordinator references, not a process-tree
+containment/termination guarantee. No real unknown-child probe is admitted here.
 
 Print each bounded child prefix as JSON string fields with bounded
 machine-readable metadata, including original byte counts and known/unknown
@@ -242,6 +256,11 @@ bundle-read/PASS after storage or unknown closure. Keep legacy behavior and ever
 existing check intact. Also test aggregate encoded log limits/JSON expansion and
 the reserved final summary; no over-budget record is printed as complete success.
 Missing helper/registration remains setup unavailable.
+Freeze additional independent cases before the narrow source-review fixes:
+unknown Node/Git closure detaches both pipes and unreferences the process,
+pre-Git source/TEMP refusal, and missing required ui parent (initial and retired).
+Default synthetic source fixtures include that required ui parent and valid parent
+TEMP/TMP; these are fixture prerequisites, not changed original assertions.
 
 Source authors run no formatter/Node/build/test/fixture/native/model/SDK operation.
 Root may propose a fresh <=8MiB policy-test allocation after freeze/review, counting

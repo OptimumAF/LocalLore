@@ -4,6 +4,7 @@ Capture consistency and a human-choice JSON record cannot authenticate their
 own acquisition or human authority. The trusted coordinator supplies both.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
+import copy
 import hashlib
 import json
 import os
@@ -122,7 +123,8 @@ def _expected_runtime():
 
 def _code_pins():
     return [_read(ROOT/name, MAX_JSON)[0] for name in
-            ('benchmarks/phone_identity_enrollment.py', 'benchmarks/phone_identity_enrollment_io.py')]
+            ('benchmarks/phone_identity_enrollment.py', 'benchmarks/phone_identity_enrollment_io.py',
+             'benchmarks/physical_phone_inventory.py')]
 
 
 def _owner(value):
@@ -188,7 +190,8 @@ def read_capture(bundle, result_sha):
          roster_cli._worker_identity(version, started, current_python, result['request']), 'worker')
     _recheck(bindings)
     need(same(_expected_runtime(), (current_sources, current_python)), 'source')
-    return dict(result_pin=result_pin, admission=admission, report=report, bindings=bindings)
+    return dict(result_pin=result_pin, admission=admission, report=report, bindings=bindings,
+                runtime=dict(source_closure=copy.deepcopy(current_sources), python=copy.deepcopy(current_python)))
 
 
 def _write(path, raw):
@@ -206,6 +209,9 @@ def _write(path, raw):
 
 def _check_capture(value):
     _recheck(value['bindings'])
+    current_sources, current_python = _expected_runtime()
+    need(same(current_sources, value['runtime']['source_closure']) and
+         same(current_python, value['runtime']['python']), 'source')
 
 
 def prepare(bundle, result_sha):
@@ -250,6 +256,7 @@ def confirm(bundle, proposal_sha, decision_sha):
          not os.path.lexists(directory/'confirm-result-v1.json'), 'output')
     _check_capture(capture); _recheck([proposed, chosen]+code)
     recorded = _write(directory/'identity-v1.json', contract.encoded(identity))
+    _check_capture(capture); _recheck([proposed, chosen, recorded]+code)
     result = dict(version=1, protocol=contract.PROTOCOL, status='declared_identity',
         feature_acceptance=False, authority_authenticated=False, grants_device_actions=False,
         capture=capture['result_pin'], proposal=proposed, decision=chosen, identity=recorded, enrollment_sources=code)
@@ -295,8 +302,10 @@ def main(argv=None):
         print(json.dumps(dict(status=result['status'], candidate_count=result.get('candidate_count'),
                              feature_acceptance=False, authority_authenticated=False, grants_device_actions=False)))
         return 0
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError, RecursionError) as error:
-        reason = error.reason if type(error) is contract.EnrollmentRefused else 'input'
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError,
+            RecursionError, env.EnvironmentRefused) as error:
+        reason = ('path' if isinstance(error, env.EnvironmentRefused) else
+                  error.reason if type(error) is contract.EnrollmentRefused else 'input')
         print(json.dumps(dict(status='refused', reason=reason, feature_acceptance=False,
                              authority_authenticated=False, grants_device_actions=False)))
         return 1

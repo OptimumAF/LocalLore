@@ -86,6 +86,6 @@ internal object OriginalStoryWire {
             text(o,"title").also { check(validStoryTitle(it)) },originalList((0 until a.length()).map { (a.get(it) as String).also { s -> check(s.isNotEmpty() && localUtf8(s).size <= 4096) } })) }
     fun cancelled(o: JSONObject): Boolean = decode { fields(o,"cancelled"); o.get("cancelled") as Boolean }
     fun valid(value: OriginalInput, world: OriginalProposal? = null): Boolean = try {
-        input(input(value)); if(world != null) proposal(proposal(world)); true
+        check(validOriginalInput(value)); input(input(value)); if(world != null) proposal(proposal(world)); true
     } catch (_: Exception) { false }
 }

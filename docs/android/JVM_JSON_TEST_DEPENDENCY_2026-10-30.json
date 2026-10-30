@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "verified_date": "2026-10-30",
+  "scope": "Local JVM unit tests only; not an Android APK dependency or device-runtime qualification",
+  "coordinate": "org.json:json:20260814",
+  "gradle_configuration": "testImplementation",
+  "lock_configurations": ["debugUnitTestCompileClasspath", "debugUnitTestRuntimeClasspath"],
+  "purpose": "Exercise the real original-story wire validator instead of Android's throwing local-JVM JSON stubs",
+  "release": "https://github.com/stleary/JSON-java/releases/tag/20260814",
+  "upstream_pom": "https://raw.githubusercontent.com/stleary/JSON-java/20260814/pom.xml",
+  "license": {
+    "name": "Public Domain",
+    "source": "https://raw.githubusercontent.com/stleary/JSON-java/20260814/LICENSE"
+  },
+  "java_source_target": "1.8",
+  "published_runtime_dependencies": [],
+  "artifacts": [
+    {
+      "source": "https://repo.maven.apache.org/maven2/org/json/json/20260814/json-20260814.jar",
+      "bytes": 89800,
+      "sha256": "7dd2de1533e766e2b6c07d8194da85145ad313a167a4760050f5c9b6839604fe"
+    },
+    {
+      "source": "https://repo.maven.apache.org/maven2/org/json/json/20260814/json-20260814.pom",
+      "bytes": 9631,
+      "sha256": "61937e25d261f93d16e8d9f5ccdb1b700780ec1ccb4876444654736628c62095"
+    }
+  ],
+  "verification": "Normal Maven Central resolution into the existing D Gradle cache, real JSONObject smoke, actual unit-test classpath provenance and passing valid-input baseline control",
+  "limitations": [
+    "The JVM JSON implementation is not proof of every Android framework JSON edge case.",
+    "Native Rust validation remains authoritative; the app precheck is a user-facing eligibility check.",
+    "The earlier selected Android dependency inventory retains its original date and scope."
+  ]
+}

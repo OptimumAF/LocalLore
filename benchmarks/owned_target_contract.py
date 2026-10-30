@@ -248,6 +248,10 @@ class _Contract:
             ok = len(argv) == 2 and (argv[1] in apk_paths or re.fullmatch('/data/app/[A-Za-z0-9_~=/.-]+/base\\.apk', argv[1]) is not None)
             if ok:
                 _need(all((p not in ('', '.', '..') for p in argv[1].split('/')[1:])), 'command')
+                if not self.profile.MODEL_MATERIAL and argv[1] not in apk_paths:
+                    packages = '(?:' + re.escape(self.profile.APP) + '|' + re.escape(self.profile.TEST) + ')'
+                    _need(re.fullmatch('/data/app/(?:~~[A-Za-z0-9_=-]+/)?' + packages +
+                                      '-[A-Za-z0-9_~=-]+/base\\.apk', argv[1]) is not None, 'command')
         elif argv == ['df', '-k', '/data'] or argv == ['cat', '/proc/meminfo'] or argv == ['screencap', '-p']:
             ok = self.profile.MODEL_MATERIAL
         elif argv[:1] == ['pidof']:

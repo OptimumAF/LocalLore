@@ -29,6 +29,11 @@ APK_PATHS = {"product_apk": BUILD / "outputs/apk/debug/app-debug.apk",
              "test_apk": BUILD / "outputs/apk/androidTest/debug/app-debug-androidTest.apk"}
 EXPECTED_JVM = 345
 EXPECTED_REPORTS = 41
+CRITICAL_TASKS = (
+    "buildRustAndroid", "compileDebugKotlin", "compileDebugAndroidTestKotlin",
+    "testDebugUnitTest", "lintAnalyzeDebug", "lintReportDebug", "lintDebug",
+    "assembleDebug", "assembleDebugAndroidTest",
+)
 MAX_FILE = 128 * 1024 ** 2
 
 
@@ -136,10 +141,13 @@ def _verify_selectors(product, tests, roster):
         _need(evidence.test_roster(source) == methods, "roster")
         descriptor = ("L" + klass.replace(".", "/") + ";").encode("ascii")
         _need(descriptor not in app and descriptor in test, "dex")
+        class_flags, definitions = test[descriptor]
+        _need(class_flags & 1 and not class_flags & (0x200 | 0x400), "dex")
         for method in methods:
-            matches = [(proto, flags) for name, proto, flags in test[descriptor] if name == method.encode("ascii")]
+            matches = [(proto, flags, junit) for name, proto, flags, junit in definitions
+                       if name == method.encode("ascii")]
             _need(len(matches) == 1 and matches[0][0] == (b"V", 0) and matches[0][1] & 1 and
-                  not matches[0][1] & (8 | 0x400), "dex")
+                  not matches[0][1] & (8 | 0x400) and matches[0][2] is True, "dex")
 
 
 def _xml(pin):
@@ -161,11 +169,12 @@ def _reports(reports, lint):
         suite = _xml(pin)
         _need(suite.tag == "testsuite" and all(int(suite.attrib[k]) == 0 for k in
               ("failures", "errors", "skipped")), "report")
+        _need(suite.get("name") and Path(pin["path"]).name == "TEST-" + suite.get("name") + ".xml", "report")
         rows = suite.findall("testcase")
         _need(int(suite.attrib["tests"]) == len(rows), "report")
         for row in rows:
-            _need(not any(row.findall(k) for k in ("failure", "error", "skipped")), "report")
-            _need(row.get("classname") and row.get("name"), "report")
+            _need(not any(row.findall(".//" + k) for k in ("failure", "error", "skipped")), "report")
+            _need(row.get("classname") == suite.get("name") and row.get("name"), "report")
             cases.append((row.get("classname"), row.get("name")))
     _need(len(cases) == len(set(cases)) == EXPECTED_JVM, "report")
     from benchmarks import android_instrumentation_evidence as evidence
@@ -197,7 +206,7 @@ def _public(pins, head):
     _need({Path(p["path"]).name.lower() for p in tools} == expected_tools, "tool")
     for pin in tools:
         _bound(pin, project=Path(pin["path"]).drive.upper() == "D:")
-    _need(result["version"] == 1 and result["passed"] is True and result["sources_equal"] is True and
+    _need(type(result["version"]) is int and result["version"] == 1 and result["passed"] is True and result["sources_equal"] is True and
           result["tools_equal"] is True and result["feature_acceptance"] is False, "public")
     owner = result["owner"]
     _need(owner["status"] == "child_exited" and type(owner["worker_returncode"]) is int and owner["worker_returncode"] == 0 and
@@ -206,12 +215,19 @@ def _public(pins, head):
     _need(type(public["returncode"]) is int and public["returncode"] == 0 and
           type(public["elapsed_ms"]) is int and 0 <= public["elapsed_ms"] <= owner["elapsed_ms"], "public")
     stdout, stderr = _bound(pins["stdout"], 262144), _bound(pins["stderr"], 262144)
-    _need(stderr == b"" and owner["stderr_bytes"] == 0 and owner["stdout_bytes"] == len(stdout), "public")
+    _need(type(owner["stderr_bytes"]) is int and type(owner["stdout_bytes"]) is int and
+          stderr == b"" and owner["stderr_bytes"] == 0 and owner["stdout_bytes"] == len(stdout), "public")
     text = stdout.decode("utf-8", errors="strict")
     lines = text.splitlines(keepends=True)
     starts = [index for index, line in enumerate(lines) if line.startswith("+ ")]
     _need(len(starts) == 3, "public")
     commands = [ast.literal_eval(lines[index][2:].strip()) for index in starts]
+    task_rows = [line.rstrip("\r\n") for line in lines[starts[0] + 1:starts[1]]
+                 if line.startswith("> Task :app:")]
+    for task in CRITICAL_TASKS:
+        expected_task = "> Task :app:" + task
+        _need([row for row in task_rows if row == expected_task or row.startswith(expected_task + " ")]
+              == [expected_task], "freshness")
     java = next(p["path"] for p in tools if Path(p["path"]).name.lower() == "java.exe")
     gradle = [java, "-classpath", str(ROOT / "apps/android/gradle/wrapper/gradle-wrapper.jar"),
               "org.gradle.wrapper.GradleWrapperMain", ":app:assembleDebug", ":app:assembleDebugAndroidTest",
@@ -245,6 +261,8 @@ def _verify_manifest(value):
               Path(item["binding"]["path"]) == APK_PATHS[role] and item["package"] == package and
               item["certificate_sha256"] == pair["certificate_sha256"], "apk")
         _bound(item["binding"])
+        _need(type(pair[key]) is dict and set(pair[key]) == {"bytes", "sha256"} and
+              type(pair[key]["bytes"]) is int, "apk")
         _need(pair[key] == {k: item["binding"][k] for k in ("bytes", "sha256")}, "apk")
     _reports(value["jvm_reports"], value["lint"])
     _verify_selectors(APK_PATHS["product_apk"], APK_PATHS["test_apk"], value["roster"])

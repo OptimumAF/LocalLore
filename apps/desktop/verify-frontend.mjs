@@ -15,6 +15,7 @@ for (const args of [
     ["check-v2-play-controller.mjs"],
     ["check-v2-inspector-paging-review.mjs"],
     ["check-v2-inspector-paging-process-review.mjs"],
+    ["check-v2-inspector-paging-path-review.mjs"],
     ["check-v2-receipt-evidence-review.mjs"],
     ["check-v2-recorded-turn-review.mjs"],
     ["check-v2-provenance-fields-review.mjs"],

@@ -51,7 +51,30 @@ const target = await ownedDirectory(process.env.LOCALLORE_D05_TARGET_DIR);
 const cargoHome = await ownedDirectory(process.env.CARGO_HOME);
 if ((process.env.LIBSQLITE3_FLAGS ?? "").trim())
     throw Error("OrdinaryUncappedSQLiteRequired");
-const folder = path.join(base, `v2-inspector-paging-native-${randomUUID()}`);
+// d05-paging-path-policy-v1:start
+const folder = path.join(base, `p-${randomUUID()}`);
+function fixedPagingWorkspace(folder, identifier) {
+    if (
+        typeof folder !== "string" ||
+        !path.isAbsolute(folder) ||
+        typeof identifier !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+            identifier,
+        )
+    )
+        throw Error("PagingWorkspacePath");
+    const workspace = path.join(
+        folder,
+        `d05-v2-inspector-paging-native-${identifier}`,
+    );
+    const database = path.join(workspace, "stories-v1.sqlite");
+    // UTF-16 units; leave room for the longest SQLite sidecar and its NUL.
+    // This is a fixed launcher preflight, not a changed Store/VFS path policy.
+    if (database.length > 248) throw Error("PagingSQLitePathBudget");
+    return { workspace, database };
+}
+// d05-paging-path-policy-v1:end
+const plannedWorkspace = fixedPagingWorkspace(folder, randomUUID());
 const contains = (a, b) => {
     const rel = path.relative(a.toLowerCase(), b.toLowerCase());
     return (
@@ -836,15 +859,12 @@ try {
     await run(process.execPath, ["build.mjs", "--harness"]);
     await run("cargo", buildArgs());
     productHashes = await hashes(["dist/app.js", executable]);
-    workspace = path.join(
-        folder,
-        `d05-v2-inspector-paging-native-${randomUUID()}`,
-    );
+    workspace = plannedWorkspace.workspace;
     await mkdir(workspace, { recursive: false });
     await run(executable, [], {
         LOCALLORE_D02_HARNESS: "1",
         LOCALLORE_D05_INSPECTOR_PAGING_HARNESS: "1",
-        LOCALLORE_TEST_WORKSPACE: path.join(workspace, "stories-v1.sqlite"),
+        LOCALLORE_TEST_WORKSPACE: plannedWorkspace.database,
         LOCALLORE_D02_ARTIFACT_DIR: path.join(workspace, "evidence"),
     });
     const report = JSON.parse(

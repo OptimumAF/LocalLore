@@ -87,12 +87,12 @@ def _worker(request_pin):
     c6._obj(started, ('request', 'worker'))
     _need(started['request'] == request_pin and started['worker'] == env.process_identity(os.getpid()), 'identity')
     a = c6.validate_admission(_bound(request['admission']))
-    c6.revalidate_inputs(a)
     _need(request['sources'] == a['sources'] == c6.source_bindings() and request['python'] == a['python'], 'source')
     _need(request['controller'] == env.binding(Path(__file__).resolve()), 'source')
     control = c6.validate_session(_bound(request['control_session']), a)
     _need(control['admission'] == request['admission'] and control['running'] == request['running'] and
           control['caller']['pid'] == os.getppid() and root == Path(control['root'])/'pending-author-v1', 'identity')
+    c6.revalidate_inputs(a)
     live = cap = None
     outcome, closed, client_pin, session_pin = 'refused', None, None, None
     try:
@@ -101,7 +101,8 @@ def _worker(request_pin):
         (root/'capture-v1').mkdir()
         cap = OwnedLiveDeathSdkCapture(root/'capture-v1/clients', AUTHOR_SECONDS, live)
         session_pin = cap.session_binding
-        _need(cap.session['deadline_epoch'] <= control['deadline_epoch'], 'aggregate_budget')
+        _need(control['started_epoch'] <= cap.session['started_epoch'] <
+              cap.session['deadline_epoch'] <= control['deadline_epoch'], 'aggregate_budget')
         ready_pending = root/'worker-ready.pending-v1.json'
         env.create_json(ready_pending, dict(version=1, protocol='owned-live-author-ready-v1',
             request=request_pin, session=session_pin, worker=started['worker']))
@@ -201,6 +202,7 @@ class PendingAuthor:
               session['caller'] == self.expected and session['admission'] == self.admission_pin and
               session['running'] == self.running_pin and session['seconds'] == AUTHOR_SECONDS and
               Path(session['root']) == self.root/'capture-v1' and
+              self.control['started_epoch'] <= session['started_epoch'] <
               session['deadline_epoch'] <= self.control['deadline_epoch'], 'pending_session')
         self.require_pending()
         return self

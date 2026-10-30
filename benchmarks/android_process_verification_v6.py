@@ -54,12 +54,22 @@ def _json(pin):
     return _IO._json(pin)
 
 
+def _role(pin, path, cap=4*1024*1024):
+    """Check a known role before opening any bytes named by that binding."""
+    c.binding(pin, max_bytes=cap)
+    c._need(PureWindowsPath(pin['path']) == PureWindowsPath(str(path)), 'binding')
+
+
 def _stdout(row):
     c._need(_raw(row['stderr']) == b'', 'capability')
     return _raw(row['stdout'])
 
 
 def _client(pin, session, admission, argv):
+    c.binding(pin)
+    path = PureWindowsPath(pin['path'])
+    c._need(path.parent == PureWindowsPath(session['root'])/'clients' and
+            re.fullmatch(r'command-[0-9]{4,5}\.json', path.name) is not None, 'binding')
     peek = c.validate_client_record(_json(pin), session)
     _same(peek['operation'], dict(argv=argv, stdin=None), 'command')
     row = _IO.verify_client_record(pin, session, admission)
@@ -241,10 +251,22 @@ def _packages(checks, session, a):
 def verify_pending_author(pin, admission, admission_binding, running_binding, control_session):
     """Authenticate the distinct process/session and known terminal capture."""
     a = c.validate_admission(admission)
+    c.binding(control_session)
+    control_root = PureWindowsPath(control_session['path']).parent
+    _role(control_session, control_root/c.SESSION_FILE)
+    parent_session = c.validate_session(_json(control_session), a)
+    c._need(PureWindowsPath(parent_session['root']) == control_root, 'binding')
+    _same(parent_session['admission'], admission_binding); _same(parent_session['running'], running_binding)
+    expected_root = control_root/'pending-author-v1'
+    _role(pin, expected_root/'result-v1.json')
     value = _json(pin)
     c._obj(value, ('version', 'protocol', 'request', 'started', 'worker', 'owner', 'after'), 'binding')
     c._need(type(value['version']) is int and value['version'] == 1 and
             value['protocol'] == 'owned-live-author-result-v1', 'binding')
+    for key, name in (('request', 'request-v1.json'), ('started', 'started-v1.json'),
+                      ('worker', 'worker-result-v1.json'), ('owner', 'owner-result-v1.json'),
+                      ('after', 'after-v1.json')):
+        _role(value[key], expected_root/name)
     request = _json(value['request'])
     c._obj(request, ('version', 'protocol', 'admission', 'running', 'control_session', 'root',
                      'sources', 'python', 'controller', 'seconds', 'owner_seconds'), 'binding')
@@ -265,7 +287,6 @@ def verify_pending_author(pin, admission, admission_binding, running_binding, co
     started = _json(value['started'])
     c._obj(started, ('request', 'worker'), 'binding'); _same(started['request'], value['request'])
     c._process(started['worker'])
-    parent_session = c.validate_session(_json(control_session), a)
     c._need(PureWindowsPath(request['root']) == PureWindowsPath(parent_session['root'])/'pending-author-v1', 'binding')
     c._need(started['worker']['pid'] != parent_session['caller']['pid'], 'identity')
     owner = _json(value['owner'])
@@ -285,11 +306,14 @@ def verify_pending_author(pin, admission, admission_binding, running_binding, co
             type(worker['client_count']) is int and worker['client_count'] == 1 and
             worker['observer_handles_closed'] is True, 'capability')
     _same(worker['request'], value['request'])
+    _role(worker['session'], expected_root/'capture-v1'/c.SESSION_FILE)
+    _role(worker['client'], expected_root/'capture-v1/clients/command-0001.json')
     session = c.validate_session(_json(worker['session']), a)
     _same(session['admission'], admission_binding); _same(session['running'], running_binding)
     _same(session['caller'], started['worker'], 'identity')
     c._need(PureWindowsPath(session['root']) == PureWindowsPath(str(root/'capture-v1')) and
-            session['seconds'] == 240 and session['deadline_epoch'] <= parent_session['deadline_epoch'], 'budget')
+            session['seconds'] == 240 and parent_session['started_epoch'] <= session['started_epoch'] <
+            session['deadline_epoch'] <= parent_session['deadline_epoch'], 'budget')
     rows = _IO.require_current_clients(session['root'], 1, worker['session'], a)
     _counts(rows, {'import': 0, 'author_live': 1, 'restart': 0})
     instrument = _instrument(worker['client'], session, a, 'author_live')
@@ -309,12 +333,28 @@ def verify_restart_prerequisite(pin, admission, admission_binding, running_bindi
     _same(value['admission'], admission_binding); _same(value['running'], running_binding)
     _same(value['build'], a['artifacts']['build'])
     session = c.validate_session(_json(value['control_session']), a)
+    _role(value['control_session'], PureWindowsPath(session['root'])/c.SESSION_FILE)
     _same(session['caller'], caller, 'identity'); _same(session['admission'], admission_binding)
     _same(session['running'], running_binding)
     pending = verify_pending_author(value['pending'], a, admission_binding, running_binding, value['control_session'])
     _same(pending['session'], value['author_session'])
-    imported = _raw(value['import_proof']); authored = _raw(value['author_proof'])
+    local_root = PureWindowsPath(session['root'])
+    _role(value['ready'], local_root/'ready-captured-v1.json', 8192)
+    _role(value['import_proof'], local_root/'import-proof/import-v1.json')
+    _role(value['author_proof'], local_root/'author-proof/proof-v1.json')
     c._obj(value['author_artifacts'], author.RECORDS+author.TRACES)
+    for name in author.RECORDS+author.TRACES:
+        _role(value['author_artifacts'][name], local_root/'author-proof'/name)
+    c._obj(value['checkpoint_artifacts'], CHECKPOINT_FILES)
+    for name in CHECKPOINT_FILES:
+        _role(value['checkpoint_artifacts'][name], local_root/'checkpoint-proof'/name)
+    c._obj(value['preflight_artifacts'], ('author', 'checkpoint'))
+    for group, names in (('author', ('proof-v1.json', *author.RECORDS, *author.TRACES)),
+                         ('checkpoint', CHECKPOINT_FILES)):
+        c._obj(value['preflight_artifacts'][group], names)
+        for name in names:
+            _role(value['preflight_artifacts'][group][name], local_root/'live-preflight'/group/name)
+    imported = _raw(value['import_proof']); authored = _raw(value['author_proof'])
     artifacts = {name: _raw(p) for name, p in value['author_artifacts'].items()}
     baseline = author.validate_author(authored, artifacts, imported, expected_prompt_version='initial-world-v1.1')
     uids, package_indices = _packages(value['package_checks'], session, a)

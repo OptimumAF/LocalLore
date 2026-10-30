@@ -39,6 +39,22 @@ zero, an exact reverse server tuple with ESTABLISHED5 must exist. The reciprocal
 client state is preserved as its raw DWORD without inventing state meaning.
 The two proofs must use the same actual worker. Uncertain cleanup refuses.
 
+A completed version connection can leave an ownerless row in the next native
+snapshot. The new profile permits only the exact IPv4 reverse tuple derived
+from its fully qualified, EOF-complete, closed version proof, with PID0 and raw
+state11. At most one such row per derived tuple is permitted. It remains in the
+raw snapshot; only candidate validation treats it as history. Unknown, foreign,
+wrong-state or duplicate ownerless rows still refuse. The original live join
+always reads the original rows and still needs a unique live admitted-server
+ESTABLISHED5 connection and reciprocal current-client tuple before byte zero.
+History never replaces live ownership. The old validators remain unchanged.
+
+Post-CLI native checks may additionally use the exact endpoint of a positively
+qualified closed roster proof with the identical embedded version witness.
+There are no caller-provided ignored-port lists or generic PID0 exceptions.
+The failed earlier capture remains refused at its frozen source; this same-wire
+unmerged revision does not reinterpret that result as a successful roster.
+
 The imported production source closure includes the transitive storage helper;
 importing that helper neither reads nor changes the shared guest ledger. Actual
 owner/capture termination, source/runtime pins and external terminal evidence

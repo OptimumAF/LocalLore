@@ -272,3 +272,30 @@ fn cancellation_during_faithful_name_narration_never_commits_a_transfer_or_recei
     assert_eq!(source.state().items["potion"].owner, "player");
     assert!(source.receipts().is_empty());
 }
+
+#[test]
+fn apostrophe_extended_words_cannot_hide_offscreen_name_components_inside_a_full_alias() {
+    for hidden in ["Sera", "Vale"] {
+        for text in [
+            "You pass the potion to sera vale'son.",
+            "You pass the potion to sera vale’son.",
+            "You pass the potion to o'sera vale.",
+            "You pass the potion to o’sera vale.",
+            "You pass the potion to Sera Vale'son.",
+            "You pass the potion to Sera Vale’son.",
+            "You pass the potion to O'Sera Vale.",
+            "You pass the potion to O’Sera Vale.",
+        ] {
+            fallback("Sera Vale", hidden, text);
+        }
+    }
+}
+
+#[test]
+fn unicode_case_expansion_preserves_full_alias_coordinates_at_later_occurrences() {
+    generated(
+        "İpek Arden",
+        "Arden",
+        "You pass the potion to İpek Arden; İpek Arden’s waiting hand is steady.",
+    );
+}

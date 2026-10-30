@@ -115,7 +115,7 @@ fn resolved(visible_name: &str, offscreen_name: &str, text: &str) -> (Engine, Re
     let history = vec![serde_json::to_string(&receipt).unwrap()];
     let restored = Engine::restore(source.seed().clone(), &history).unwrap();
     assert_eq!(restored.canonical_bytes(), source.canonical_bytes());
-    let replayed = Engine::replay(source.seed().clone(), &[receipt.clone()]).unwrap();
+    let replayed = Engine::replay(source.seed().clone(), std::slice::from_ref(&receipt)).unwrap();
     assert_eq!(replayed.canonical_bytes(), source.canonical_bytes());
     assert_eq!(
         play::execute(

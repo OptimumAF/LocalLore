@@ -6,6 +6,7 @@ import { timelineContext } from "./timeline-controller";
 import { decodeBranchCatalog } from "./timeline-model";
 import type { V2PlayController } from "./v2-play-controller";
 import type { FaultGateway } from "./journeys";
+import { browserFinish, browserReadOnlyCallAllowed } from "./domain2-timeline-browser-finalization";
 import {
     category,
     structural,
@@ -664,7 +665,10 @@ export async function domain2TimelineBrowserNativeJourneys({
             captures.push(label);
         }
     };
-    const finish = async (report: Record<string, unknown>) => {
+    const finish = (() => {
+        let finalization: Promise<void> | null = null;
+        return (report: Record<string, unknown>): Promise<void> => {
+        if (finalization) return finalization;
         const value = {
             synthetic: true,
             mode: MODE,
@@ -692,10 +696,16 @@ export async function domain2TimelineBrowserNativeJourneys({
             ],
             ...report,
         };
-        if (new TextEncoder().encode(JSON.stringify(value)).length > 262144)
-            throw Error("D08BrowserFinalReportBudget");
-        await invoke("harness_finish", { report: value });
-    };
+        const checkpoints = captures.map(label => ({
+            label,
+            count: scrollObservations.filter(observation => observation.label === label).length,
+        }));
+        // Assign the promise before invoking native code; the outer catch and
+        // any synchronous reentry share its rejection instead of sending again.
+        finalization = Promise.resolve().then(() => browserFinish(invoke, value, checkpoints));
+        return finalization;
+        };
+    })();
     const armDelivery = (kind: Delivery["kind"]) => {
         check(delivery === null, "one-fixed-local-branches-delivery-at-a-time");
         let release!: () => void;
@@ -784,18 +794,6 @@ export async function domain2TimelineBrowserNativeJourneys({
         );
     };
     const assertCalls = (afterDispose: boolean) => {
-        const allowed = new Set([
-            "workspace",
-            "branches",
-            "resume",
-            "open",
-            "close",
-            "play_snapshot",
-            "play_snapshot_v2",
-            "inspection_query",
-            "inspect",
-            "trace_capture_revoke",
-        ]);
         check(
             trace().length <= 256 && branches().length <= 16,
             "bounded256-call-metadata16-catalog-reads",
@@ -811,15 +809,7 @@ export async function domain2TimelineBrowserNativeJourneys({
             "native-call-records-ordered-settled-finite-errors-digests",
         );
         check(
-            trace().every((item) =>
-                item.channel === "host"
-                    ? !!item.command && allowed.has(item.command.op)
-                    : [
-                          "model_status",
-                          "inspection_storage",
-                          ...(afterDispose ? ["capture_revoke"] : []),
-                      ].includes(item.nativeAction ?? ""),
-            ),
+            trace().every(browserReadOnlyCallAllowed),
             "normal-read-close-roster-no-gameplay-author-fork-model-load-or-provider-dispatch",
         );
         check(

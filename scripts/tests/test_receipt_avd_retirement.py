@@ -211,3 +211,24 @@ class RetirementExecutorTests(unittest.TestCase):
             with self.subTest(role=role):
                 self.assert_refused(fixture,fake)
                 self.assertFalse(fixture.output.exists());self.assertEqual(fake.events,[])
+
+    def test_keyboard_interrupt_between_marks_closes_once_and_preserves_partial_intent_and_charge(self):
+        fixture=f.TinyRetirement()
+        def interrupt(index):
+            if index==1:raise KeyboardInterrupt()
+        fake=f.FakeNative(fixture,retirement.windows.RetirementWindowsError,before_mark=interrupt)
+        with patch.object(storage,'_record_retired_locked',wraps=storage._record_retired_locked) as finalizer:
+            result=self.execute(fixture,fake)
+        self.assertEqual(result['outcome'],'refused');self.assertEqual(result['phase'],'mark')
+        self.assertEqual(result['reason'],'interrupted');self.assertEqual(result['marked_count'],1)
+        self.assertEqual(result['attempted_count'],2);self.assertIs(result['cleanup_known'],True)
+        self.assertIs(result['retirement_recorded'],False);finalizer.assert_not_called()
+        self.assertEqual(fake.instances[0].close_calls,1);self.assertTrue(fake.instances[0].closed)
+        fixture.assert_closed_charge(self)
+        self.assertFalse(fixture.images[0].exists());self.assertTrue(fixture.images[1].exists())
+        self.assertFalse((fixture.registry/'admission.lock').exists())
+        first=storage.read_json(fixture.output/'marked-01-v1.json')
+        second=storage.read_json(fixture.output/'attempt-02-v1.json')
+        self.assertEqual(first['phase'],'marked');self.assertEqual(first['planned'],fixture.plan['remove'][0])
+        self.assertEqual(second['phase'],'before_mark');self.assertEqual(second['planned'],fixture.plan['remove'][1])
+        self.assertFalse((fixture.output/'marked-02-v1.json').exists())

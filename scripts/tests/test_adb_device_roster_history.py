@@ -8,6 +8,7 @@ import copy
 import unittest
 
 from benchmarks import adb_device_roster as roster
+from benchmarks import adb_held_socket as legacy
 from scripts.tests import test_adb_device_roster as original
 from scripts.tests import test_adb_held_socket as held
 
@@ -20,6 +21,11 @@ def closing_row(**changes):
                   remote_port=held.CLIENT_PORT, state=11, pid=0)
     values.update(changes)
     return held.row4(**values)
+
+
+def native_rows(*v4, v6=()):
+    captured = held.snapshot(v4, v6=v6)
+    return [row for table in captured.tables for row in legacy.decode_table(table.raw, table.family)]
 
 
 class HistoryBackend(original.RosterBackend):
@@ -119,6 +125,73 @@ class DeviceRosterHistoryTests(unittest.TestCase):
         self.assertFalse(report['request_sent'])
         self.assertFalse(roster.report_verified(report, original.admission()))
         self.assertTrue(backend.closed)
+
+    def completed(self, version=None, current_port=CURRENT_PORT):
+        version = original.version_proof() if version is None else version
+        value = roster.probe(HistoryBackend(history=[], current_port=current_port), original.admission(), version)
+        self.assertTrue(roster.report_verified(value, original.admission()))
+        return value
+
+    def test_post_readback_accepts_only_the_two_qualified_completed_endpoints(self):
+        version = original.version_proof()
+        completed = self.completed(version)
+        rows = native_rows(held.row4(), closing_row(), closing_row(remote_port=CURRENT_PORT))
+        before = copy.deepcopy(rows)
+        with self.assertRaises(roster.RosterRefused):
+            roster.validate_candidates(rows, original.admission(), version)
+        self.assertIsNone(roster.validate_candidates(rows, original.admission(), version, completed))
+        self.assertEqual(rows, before)
+        self.assertEqual([(row.pid, row.state) for row in rows], [(held.SERVER_PID, 0), (0, 11), (0, 11)])
+        self.assertIsNone(roster.validate_candidates(native_rows(held.row4()), original.admission()))
+        with self.assertRaises(roster.RosterRefused):
+            roster.validate_candidates(rows, original.admission())
+
+    def test_completed_report_requires_closed_verdict_and_exact_embedded_version(self):
+        version = original.version_proof()
+        completed = self.completed(version)
+        rows = native_rows(held.row4(), closing_row(), closing_row(remote_port=CURRENT_PORT))
+        for key, value in (('socket_closed', False), ('process_handles_closed', None),
+                           ('status', 'refused'), ('ownership_verified', False)):
+            bad = copy.deepcopy(completed); bad[key] = value
+            with self.subTest(field=key), self.assertRaises(roster.RosterRefused):
+                roster.validate_candidates(rows, original.admission(), version, bad)
+        other_version = legacy.probe(held.FakeBackend(client_state=1), held.admission())
+        self.assertTrue(legacy.report_verified(other_version, held.admission()))
+        other_completed = self.completed(other_version)
+        with self.assertRaises(roster.RosterRefused):
+            roster.validate_candidates(rows, original.admission(), version, other_completed)
+        with self.assertRaises(roster.RosterRefused):
+            roster.validate_candidates(rows, original.admission(), None, completed)
+        bad_version = copy.deepcopy(version); bad_version['socket_closed'] = False
+        with self.assertRaises(roster.RosterRefused):
+            roster.validate_candidates(rows, original.admission(), bad_version, completed)
+        backend = HistoryBackend()
+        refused = roster.probe(backend, original.admission(), bad_version)
+        self.assertEqual(refused['status'], 'refused')
+        self.assertEqual(backend.counts['open'], 0)
+        self.assertEqual(backend.sent, [])
+
+    def test_post_history_refuses_unknown_extra_duplicates_state_pid_family_and_scope(self):
+        version = original.version_proof(); completed = self.completed(version)
+        bad = [(2, closing_row(remote_port=49992)), (2, closing_row()),
+               (2, closing_row(remote_port=CURRENT_PORT, pid=held.CLIENT_PID))]
+        bad += [(2, closing_row(remote_port=CURRENT_PORT, state=state)) for state in (0, 5, 10, 12)]
+        bad += [(23, held.row6(remote='::1', remote_port=CURRENT_PORT, state=11, pid=0, scope_id=scope))
+                for scope in (0, 1)]
+        for index, (family, row) in enumerate(bad):
+            rows = native_rows(held.row4(), closing_row(), closing_row(remote_port=CURRENT_PORT),
+                               *([row] if family == 2 else []), v6=([row] if family == 23 else []))
+            with self.subTest(row=index), self.assertRaises(roster.RosterRefused):
+                roster.validate_candidates(rows, original.admission(), version, completed)
+
+    def test_equal_completed_endpoints_deduplicate_permission_not_raw_rows(self):
+        version = original.version_proof()
+        completed = self.completed(version, current_port=held.CLIENT_PORT)
+        rows = native_rows(held.row4(), closing_row())
+        self.assertIsNone(roster.validate_candidates(rows, original.admission(), version, completed))
+        duplicate = native_rows(held.row4(), closing_row(), closing_row())
+        with self.assertRaises(roster.RosterRefused):
+            roster.validate_candidates(duplicate, original.admission(), version, completed)
 
 
 if __name__ == '__main__':

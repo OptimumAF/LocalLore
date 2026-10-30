@@ -1,11 +1,10 @@
 # Scripted selected Scene4 desktop qualification
 
 2026-10-29. Refs #29 (scoped D07.02/.04/.06/.07), parent #21. This document
-records measured evidence, not the issue checklist. The application-owned scene
-IPC/render/restart harness is implemented but actual application execution remains
-unrun at this checkpoint. No
-native rendering, new model result, quality improvement or whole D07 acceptance
-is established by the adapter tests below.
+records measured evidence, not the issue checklist. The final native qualification
+below passes actual scripted IPC/render/cold restart at `afb223f4`. Earlier
+checkpoints and failures remain historical evidence. This is no new model result,
+quality improvement or whole D07 acceptance.
 
 ## Behavior and boundaries
 
@@ -189,7 +188,7 @@ Measured tools: Rust1.93.1, Cargo1.93.1, rustfmt1.8.0-stable, Node24.22.1,
 PowerShell7.6.5, Windows10.0.26300.0 X64, React19.3.1, TypeScript7.0.2,
 Tauri2.12.5 pinned. Loaded WebView runtime is unmeasured in this gate so far.
 Complete normal four-file frontend bundle and unlaunched executable hashes are
-retained separately. Normal app.js is
+retained separately. At that earlier checkpoint, normal app.js is
 `71a5446b6ac5a0c6417fe93d6c04c32ec0fb4127517f50b3407099c65f35e1d5`;
 normal executable is
 `dda295ed425a215eaef3c57356ccb0ec234b9bc630465396b53a2d2915f16cfe`.
@@ -291,5 +290,156 @@ complete bundle set. Before app admission, the earlier full driver plus fresh
 affected types/490/29/25/155/61, current normal build/exclusion assertions and
 Rust native/lint/host checks must pass. No check or acceptance criterion is
 waived. GitHub Actions is currently disabled (read-only verification); no setting
-was changed or remote CI runtime claimed. The application cohort remains unrun
-and needs its own exact measured admission record and individual image review.
+was changed or remote CI runtime claimed. The application cohort was still unrun
+at that checkpoint; subsequent admission and image review are recorded below.
+
+## Final actual native qualification
+
+Clean source `afb223f4e954522c7a6051063e69b3f135ee6b94` passes the first
+actual scene cohort, 2026-10-30T00:30:52.5547609Z through
+00:43:03.3470244Z: exit0,730.7922635 seconds, source unchanged. The local packet
+is `selected4-desktop-20261029-v1/comparison-reader-native-a3553a21-c125-4f49-8289-26e8a7cda4fd`.
+Generated private paths, profiles, SQLite, raw reports, bundles and images remain
+local/ignored. No real story, new model asset or model execution is involved.
+
+| Actual native stage | Recorded checks | App-owned native PNGs | Result |
+| --- | ---: | ---: | --- |
+| Initial |263 |25 |pass |
+| Separate-process cold restart |73 |5 |pass |
+
+These are journey assertion counts, not independent test cases or model samples.
+Both stages exercise the actual mounted frontend controllers and native IPC.
+The runtime user agent reports `Edg/156.0.0.0`, Windows10 x64. Rendering uses
+the hidden, unfocused app-owned WebView2 and CapturePreview; no desktop capture,
+activation, mouse/keyboard input, automated native dialog or general debug server
+is used. Picker/consent/lost-ACK controls remain disclosed synthetic test doubles.
+
+The initial journey verifies original courier-05/index4 source requests in both
+arms, actual head4→5 receipts, expected/actual construction evidence, invalid
+inventory guards with no accepted receipt, native-model refusal before consent,
+held scripted consent, actor switching, cancellation/denial, deliberately lost
+Start acknowledgement, same-client recovery and idempotent duplicate Start.
+Context retirement prevents a held late consent result from republishing private
+state. Mira sees three original visible history rows; Sable sees zero. Native
+private receipt/diagnostic requests are denied under both character observers.
+The Player's seed-authorized knowledge is tested positively rather than falsely
+requiring its absence. Live gameplay state remains unchanged.
+
+Three distinct actual durable IDs are labeled paired/right, rollout/left and
+guard. Restart opens all three, selects the exact rollout/index4/left tuple,
+reads its receipt and restricted state, and explicitly verifies completed resume
+with its original source. Saved/reopened ID sets, complete selected-library
+inventory and every source fixture byte match the initial stage. Restart never
+calls Start or generates another turn. Ordinary shutdown only is covered; no
+between-arm native interruption or OS process-kill acceptance is claimed.
+
+The full source freeze is626files/7,453,445 bytes/635entries, SHA256
+`af49228e69b74f0f74706c74fc756db7d2a3e03922732981a091deab1fb30910`.
+The selected-library inventory SHA256 is
+`b51a20b642cd69a18678bd2952e6cb63a4a493523def843676d279d767c50213`.
+Qualification JSON SHA256 is
+`88138cf413f36ba06bf5673cedeb450e1700bfdd284d4a4ceccd0e4b65877890`.
+
+Root individually inspected all30 PNGs, including actual150% text at1280 and620
+widths. Required story/branch, observer, before/after revision, pending operation,
+receipt and visible-error context is legible; controls wrap and no required
+clipping, overlap or obstruction was observed. Evidence JSON stays in bounded
+scroll areas. The generic source setup cue repeats beside a prepared/completed
+attempt, but explicit current-state and close-before-another labels remain clear.
+This finite visual review is no model-quality or general accessibility proof.
+Complete image-roster/hash review SHA256 is
+`49698b3691d631d94b3644bdc8db7106c25da1fc6b07a90c02b470893e4d0717`.
+The first local review record remains retained: its first five stage/label entries
+lacked the path property expected by the hashing command. The corrected second
+record resolves those same inspected images and asserts the exact30-image roster;
+no image/source was changed.
+
+The bounded native error buffers contain exactly one intentional Transport entry
+for the injected lost Start ACK in initial, and no restart errors. No unexpected
+frontend/native error was reported. Direct children closed normally; no timeout,
+kill, unknown drain or storage latch occurred. This proves direct-child closure,
+not whole-process-tree containment or OS isolation.
+
+After closure, the launcher rebuilds normal frontend and no-feature native
+products without launching them. Final normal app.js SHA256 is
+`74e61bffc3385343a512596d37d6b7a275b9efafc14421948df39b50b400662a`;
+normal executable SHA256 is
+`1ddc2ae7f8c60e4b5ba596f8736be664ae50c7efba411b3584453aa3ec0a9a20`.
+The complete four-file frontend hashes are retained locally. Normal products
+exclude development hooks; neither normal restoration nor a hash is native
+execution evidence.
+
+### Final checks and resource accounting
+
+At the same unchanged `afb223f4`, `node verify-frontend.mjs` passes its complete
+72 registered commands, strict TypeScript and actual normal-bundle exclusion
+assertions: exit0,21.8596099 seconds. This includes the490 scene adapter,29 resume,
+25 SSR context,155 simulated process-policy and61 qualification-admission cases.
+Those doubles/SSR checks stay distinct from the actual native journey above.
+Full driver log SHA256 is
+`4bfb9ec5593710b017df239894ea034b12b5814d9d86dec7ea48b5aedb9e095d`.
+
+At `afb223f4`, the exact earlier pre-admission commands also pass:
+
+```powershell
+cargo clippy --locked --offline -p locallore-desktop-spike --all-targets --features dev-harness -- -D warnings
+cargo check --locked --offline -p locallore-android
+cargo fmt --all -- --check
+cargo build --locked --offline -p locallore-desktop-spike --bin locallore-desktop-spike --no-default-features
+```
+
+Whole-command seconds are6.0632308,0.4311755,2.0788911 and11.06864 respectively.
+Android is a Windows-host Rust compatibility check only: no Android target build,
+Gradle, SDK, ADB, emulator or device execution occurred. Stopped D09 qualifier
+code is compile-only; its executable/tests were never run. Native adapter8,
+writer7, original fixture7/1 plus corrected path1/0 and shared-reader evidence
+above retain their exact source revisions; no new all-fixture-green run is implied.
+The one Clippy failure before `afb223f4` was an equivalent comparison lint in
+the test: `len()+1<=8192` became `len()<8192`, without changed production/assertions.
+
+The actual cohort used23,356,205 retained bytes at closure. Cumulative evidence
+after the full frontend driver and image metadata measured501,639,443 bytes,
+leaving35,231,469 under the unchanged512MiB cap before later small documentation
+and tracker records. The original target baseline8,259,980,576 remains fixed;
+final target8,311,481,693 means51,501,117 growth, below2GiB. Whole packet/profile/
+store accounting is observed between child runs, not an atomic filesystem quota.
+The harness writer separately reserves its64MiB/process budget before opening a
+file and permanently refuses later writes after an I/O/budget failure. No failed
+capture, cache, fixture or recovery data was deleted.
+
+### Reproduce within an admitted budget
+
+Use a clean physical D checkout, installed pinned dependencies, D TEMP/TMP and
+the existing offline Cargo home/target. Read the linked harness contract first.
+Set `LOCALLORE_D07_SELECTED_ARTIFACT_ROOT` to the existing ordinary D artifact
+base and `LOCALLORE_D07_SELECTED_TARGET_DIR` to the existing ordinary D target.
+Before launching, atomically CreateNew the fixed base file
+`selected-scene-budget-v1-<full-current-HEAD>.json` with the contract's exact seven
+fields, current source revision, SHA256 of the resolved target string, original
+target baseline and freshly measured external retained evidence. Never reset
+baselines or omit prior roots by selecting a fresh base. The admitted record here
+has SHA256 `300404b30e6c7a670661f1634e3c24b05a641202b1e3c08e040de4c458ce1b41`.
+Its byte-identical creation draft is retained separately; canonical creation was
+corrected to atomic CreateNew before the first launch.
+
+From `apps/desktop`, using the admitted environment:
+
+```powershell
+node selected-evaluation-harness.mjs --scene
+node verify-frontend.mjs
+```
+
+The launcher requires64MiB expected evidence headroom before launch and creates
+a new unique packet. This completed qualification currently has less than64MiB
+remaining, so another native cohort is not admitted by this record/budget; do not
+retry by omitting evidence, deleting failures or silently raising the cap. The
+full frontend run above is already complete. No additional cohort is needed for
+the subsequent documentation-only commit.
+
+Two final independent source reviews at `afb223f4` versus accepted main4c83ed79
+found no actionable native/controller/observer/binding/budget defect. They ran no
+builds/tests and supplied no GitHub or human approval. GitHub Actions remains
+disabled; no CI success or setting change is claimed. Whole D07 stays unchecked.
+Native4 human assessment remains exactly "Reviewed: needs improvement"; no
+dimensional scores, case-specific acceptance, improved prose, physical-device,
+OS isolation, packaging or release qualification is inferred.

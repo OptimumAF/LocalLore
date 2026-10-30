@@ -12,7 +12,7 @@ from benchmarks import adb_held_socket as legacy
 from scripts.tests import test_adb_held_socket as held
 
 
-BODY = (b'ORIGINAL_USB device usb:1-2 product:fixture model:Original_Model '
+BODY = (b'ORIGINAL_USB'.ljust(22, b' ')+b' device usb:1-2 product:fixture model:Original_Model '
         b'device:fixture transport_id:7\n')
 
 

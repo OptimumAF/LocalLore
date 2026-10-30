@@ -65,7 +65,7 @@ class InstrumentationApkTests(unittest.TestCase):
             module.audit_manifests(*values, archive_verification=archive)
 
     def pair(self, *, archive=False, main=False, flags=None, selected_package=None,
-             same=False, mutate=False, signing=None, tool_failure=None):
+             same=False, mutate=False, signing=None, tool_failure=None, java_via_path=False):
         module = self.module()
         directory = Path(tempfile.mkdtemp(prefix="locallore-test-apk-"))
         app = f.ApkAuditTests().archive(directory)
@@ -114,9 +114,18 @@ class InstrumentationApkTests(unittest.TestCase):
             raise AssertionError("unexpected synthetic tool command")
 
         before = {"app": app.read_bytes(), "test": test.read_bytes()}
-        with patch.object(module.base, "aapt2_path", return_value=aapt), \
-                patch.object(module.physical, "tool", side_effect=tool), \
-                patch.dict(os.environ, {"JAVA_HOME": str(java)}):
+        environment = dict(os.environ)
+        if java_via_path:
+            environment.pop("JAVA_HOME", None)
+        else:
+            environment["JAVA_HOME"] = str(java)
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(module.base, "aapt2_path", return_value=aapt))
+            stack.enter_context(patch.object(module.physical, "tool", side_effect=tool))
+            stack.enter_context(patch.dict(os.environ, environment, clear=True))
+            if java_via_path:
+                stack.enter_context(patch.object(module.runner.shutil, "which",
+                    return_value=str(java / "bin" / ("java.exe" if os.name == "nt" else "java"))))
             if main:
                 args = [str(app), str(app if same else test)]
                 args += (["--archive-verification"] if archive else []) if flags is None else flags
@@ -279,6 +288,17 @@ class InstrumentationApkTests(unittest.TestCase):
         self.assertEqual(dispatch.call_count, 3)
         self.assertEqual(dispatch.call_args.args[0], list(commands[2].argv))
         self.assertIs(dispatch.call_args.kwargs["shell"], False)
+
+    def test_path_selected_java_works_without_changing_legacy_phone_certificate_requirements(self):
+        value, _, calls = self.pair(java_via_path=True)
+        self.assertEqual(value["status"], "passed")
+        self.assertEqual(value["certificate_sha256"], SIGNER)
+        self.assertEqual(sum("--print-certs" in c for c in calls), 2)
+        module = self.module()
+        environment = dict(os.environ)
+        environment.pop("JAVA_HOME", None)
+        with patch.dict(os.environ, environment, clear=True), self.assertRaises(module.base.AuditError):
+            module.physical.certificate(Path("not-opened.apk"), Path("synthetic-aapt.exe"))
 
 
 if __name__ == "__main__":

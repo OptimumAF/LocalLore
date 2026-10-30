@@ -51,6 +51,8 @@ class ControllerGraph:
             path = self.g.base/'guest-inputs'/relative
             self.g.write(path,b'SYNTHETIC guest metadata, never executed')
             self.a['guest'][role] = builds.pin(path)
+        self.a['guest']['refuser_source'] = wire.environment.binding(
+            Path(f.core.__file__).resolve().parents[1]/'benchmarks/native/deny_adb_client.c')
         compat = self.g.base/'compatibility-review.md'; self.g.write(compat,b'SYNTHETIC source compatibility only')
         self.a['compatibility'] = builds.pin(compat)
         tools = []

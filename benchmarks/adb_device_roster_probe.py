@@ -176,6 +176,7 @@ def _dispatch(output, admission, admitted):
     source_equal, python_equal = _same(sources, after), _same(python, python_after)
     known = (owner['status'] == 'child_exited' and type(owner['worker_returncode']) is int and owner['worker_returncode'] == 0
         and owner['cleanup_complete'] is True and owner['output_capture_complete'] is True and
+        all(type(owner[key]) is int and owner[key] >= 0 for key in ('stdout_bytes', 'stderr_bytes')) and
         owner['stderr_bytes'] == owner['stdout_bytes'] == 0)
     acquired = observed = False
     reason, report_pin, version_pin = 'owner_failed', None, None

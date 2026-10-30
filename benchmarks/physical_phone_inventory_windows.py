@@ -45,6 +45,7 @@ class WindowsPhoneInventoryBackend(WindowsBackend):
             if type(data) is bytes:
                 received = data[:MAX_WIRE + 1]
             _need(type(data) is bytes and len(data) <= limit)
+            self._read_endpoint()
             return data
         try:
             return self._operation(deadline, action)

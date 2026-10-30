@@ -162,6 +162,27 @@ def _decode_response(raw):
     return parse_devices(raw[8:])
 
 
+def _selected_rows(snapshot, client_port=None):
+    rows = old._record_rows(snapshot)
+    allowed = {5037} if client_port is None else {5037, client_port}
+    _need(all(row.local_port in allowed for row in rows), 'snapshot')
+    return rows
+
+
+def _version_verified(value, resource):
+    if not old.report_verified(value, resource):
+        return False
+    try:
+        first, connected, presend, _, final = value['stages']
+        port = connected['endpoint']['local_port']
+        _selected_rows(first['snapshot'])
+        _selected_rows(presend['snapshot'], port)
+        _selected_rows(final['snapshot'], port)
+        return True
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return False
+
+
 def probe(backend, admission, version_proof):
     """One roster attempt after a complete version proof, no retries or fallback."""
     report = dict(version=1, protocol=PROTOCOL, feature_acceptance=False, admission=None,
@@ -173,7 +194,7 @@ def probe(backend, admission, version_proof):
     try:
         admitted = validate_admission(admission); report['admission'] = admitted
         resource = backend_admission(admitted)
-        _need(old.report_verified(version_proof, resource), 'version')
+        _need(_version_verified(version_proof, resource), 'version')
         report['version_proof'] = copy.deepcopy(version_proof)
         prior_client = version_proof['stages'][0]['bracket']['client']
         started = last = old._now(backend); until = started + MAX_SECONDS
@@ -205,10 +226,19 @@ def probe(backend, admission, version_proof):
         call('send', REQUEST); report['request_sent'] = True
         while True:
             limit = MAX_RESPONSE + 1 - len(response)
-            part = call('recv', limit)
+            tick()
+            try:
+                part = backend.recv(limit, until)
+            except ReceiveRefused as failure:
+                # Actual owned IO can complete before a post-read clock/resource
+                # refusal. Preserve its bounded bytes without accepting them.
+                response.extend(failure.received[:limit])
+                report['response_hex'] = response.hex()
+                raise
             _need(type(part) is bytes, 'framing')
             response.extend(part[:limit]); report['response_hex'] = response.hex()
             _need(len(part) <= limit and len(response) <= MAX_RESPONSE, 'framing')
+            tick()
             if not part:
                 break
         report['rows'] = _decode_response(bytes(response)); report['response_complete'] = True
@@ -250,7 +280,7 @@ def report_verified(value, expected_admission):
         _need(value['status'] == 'observed' and value['reason'] is None and
               all(value[k] is True for k in ('request_sent', 'response_complete', 'ownership_verified',
                   'socket_closed', 'process_handles_closed')), 'backend')
-        _need(old.report_verified(value['version_proof'], resource), 'version')
+        _need(_version_verified(value['version_proof'], resource), 'version')
         _need(value['request_hex'] == REQUEST.hex() and type(value['response_hex']) is str and
               len(value['response_hex']) <= MAX_RESPONSE*2 and
               re.fullmatch('(?:[0-9a-f]{2})*', value['response_hex']) is not None, 'framing')
@@ -271,9 +301,9 @@ def report_verified(value, expected_admission):
             old._endpoint(item, endpoint)
         for item in (presend['bracket'], final['bracket']):
             old._bracket(item, resource, bracket)
-        for stage in (first, presend, final):
-            old._candidates(old._record_rows(stage['snapshot']), resource)
-        state = old._join(old._record_rows(presend['snapshot']), endpoint, resource['server']['pid'], bracket['client']['pid'])
+        for index, stage in enumerate((first, presend, final)):
+            old._candidates(_selected_rows(stage['snapshot'], None if index == 0 else endpoint['local_port']), resource)
+        state = old._join(_selected_rows(presend['snapshot'], endpoint['local_port']), endpoint, resource['server']['pid'], bracket['client']['pid'])
         _need(type(value['client_raw_state']) is int and value['client_raw_state'] == state, 'ownership')
         return True
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError, RecursionError):
@@ -287,7 +317,8 @@ def report_bytes(value, expected_admission):
     _need(type(value['version']) is int and value['version'] == 1 and value['protocol'] == PROTOCOL and
           value['feature_acceptance'] is False and _same(value['admission'], admitted), 'admission')
     _need(value['status'] in ('observed', 'refused') and
-          (value['reason'] is None if value['status'] == 'observed' else value['reason'] in REASONS), 'backend')
+          (value['reason'] is None if value['status'] == 'observed' else
+           type(value['reason']) is str and value['reason'] in REASONS), 'backend')
     _need(value['request_hex'] == REQUEST.hex() and type(value['response_hex']) is str and
           len(value['response_hex']) <= 2*(MAX_RESPONSE+1) and
           re.fullmatch('(?:[0-9a-f]{2})*', value['response_hex']) is not None, 'framing')
@@ -296,13 +327,14 @@ def report_bytes(value, expected_admission):
     old._int(value['elapsed_ms'], 0, 2**63-1, 'deadline')
     if value['client_raw_state'] is not None:
         old._int(value['client_raw_state'], 0, 2**32-1, 'ownership')
-    _need(value['version_proof'] is None or old.report_verified(value['version_proof'], resource), 'version')
+    _need(value['version_proof'] is None or _version_verified(value['version_proof'], resource), 'version')
     _need(value['rows'] is None or _same(value['rows'], _decode_response(bytes.fromhex(value['response_hex']))))
     stages = value['stages']; _need(type(stages) is list and len(stages) <= 5, 'backend')
     allowed = dict(initial={'stage', 'bracket', 'snapshot'}, connected={'stage', 'endpoint'},
         presend={'stage', 'endpoint_before', 'endpoint_after', 'bracket', 'snapshot'},
         send_attempt={'stage'}, final={'stage', 'endpoint', 'bracket', 'snapshot'})
     _need([s.get('stage') for s in stages] == list(allowed)[:len(stages)], 'backend')
+    client_port = None
     for stage in stages:
         _need(type(stage) is dict and set(stage) <= allowed[stage['stage']], 'backend')
         if 'bracket' in stage:
@@ -310,8 +342,10 @@ def report_bytes(value, expected_admission):
         for name in ('endpoint', 'endpoint_before', 'endpoint_after'):
             if name in stage:
                 old._endpoint(stage[name])
+        if stage['stage'] == 'connected' and 'endpoint' in stage:
+            client_port = stage['endpoint']['local_port']
         if 'snapshot' in stage:
-            old._record_rows(stage['snapshot'])
+            _selected_rows(stage['snapshot'], None if stage['stage'] == 'initial' else client_port)
     raw = (json.dumps(value, ensure_ascii=True, allow_nan=False, sort_keys=True, separators=(',', ':'))+'\n').encode()
     _need(0 < len(raw) <= MAX_REPORT, 'framing')
     return raw

@@ -922,10 +922,14 @@ export async function domain2TimelineBrowserNativeJourneys({
             workspace?.persistent === true &&
                 workspace.stories.length === 2 &&
                 workspace.stories.some(
-                    (item) => structural(item.scope) === structural(PARENT) && item.revision === 0,
+                    (item) =>
+                        structural(item.scope) === structural(PARENT) &&
+                        item.revision === 0,
                 ) &&
                 workspace.stories.some(
-                    (item) => structural(item.scope) === structural(OTHER) && item.revision === 1,
+                    (item) =>
+                        structural(item.scope) === structural(OTHER) &&
+                        item.revision === 1,
                 ),
             "actual-library-two-root-stories-no-guessed-child",
         );

@@ -177,6 +177,12 @@ class LiveDeathBuildReplayTests(unittest.TestCase):
         cases[1].set('name', cases[0].attrib['name']); graph.suite_changed(name)
         self.refused(graph.validate)
 
+    def test_xml_suite_name_cannot_disagree_with_the_pinned_report_identity(self):
+        graph = ClosedLiveBuild(); name = graph.summary[0]['name']
+        graph.suites[name].set('name', 'org.locallore.synthetic.UnrelatedSuite')
+        graph.suite_changed(name)
+        self.refused(graph.validate)
+
     def test_matching_summary_totals_cannot_hide_per_report_case_miscounts(self):
         graph = ClosedLiveBuild()
         for index, change in ((0,1), (1,-1)):

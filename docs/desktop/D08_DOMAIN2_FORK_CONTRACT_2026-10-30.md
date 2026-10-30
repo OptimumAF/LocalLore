@@ -1,0 +1,143 @@
+# Domain2 completed-boundary forks: consumer contract
+
+Refs #30 D08.04/.07 and #12 M08.04/.06. This is a source-only integration
+stacked on #286, not evidence of compiled or native execution. The existing
+resource failures remain failed and prohibit new checks/builds/app launches
+until separately admitted. Source/contract/test changes are retained in Git;
+new source is bounded at128KiB and small handoffs at64KiB. No new target,
+profile, cache, database or experiment output is created in this phase.
+
+## Canonical metadata and native read
+
+Use the existing Core `CompletedBoundaryCatalogV2 {version,scope,head,boundaries}`.
+`Engine::completed_boundary_catalog()` returns0 and every accepted canonical
+record's last revision, including private author intervals. An actor receipt
+page, inspection page, seed/head pair or event number cannot replace that list.
+The existing4096 canonical-record ceiling permits4097 entries. With at most8
+events per ordinary record, the current valid head is at most32768; the complete
+bare catalog fits64KiB, including formatted JSON. Do not truncate or paginate it
+under another authority. Future incompatible Core limits require a new contract.
+
+Add exactly one fixed Tauri command `fork_boundaries`, available in both normal
+and development command registrations. Its sole renderer argument is
+`input:{session,scope:{story,branch},expected_head}` with exact keys. Session is
+a nonempty bounded128-byte native ID, scope IDs use existing64-byte ASCII rules,
+and expected_head is a nonnegative safe integer. Reject malformed input before
+copying unbounded strings; accept no observer, grant, file, path, profile or model.
+
+The native test seam is:
+
+```rust
+pub(crate) fn read_boundary_catalog(
+    host: &Host,
+    input: &serde_json::Value,
+    cancel: &dyn Fn() -> bool,
+) -> Result<serde_json::Value, String>;
+
+pub(crate) fn encode_boundary_catalog(
+    catalog: &locallore::author_correction::CompletedBoundaryCatalogV2,
+) -> Result<serde_json::Value, String>;
+```
+
+The actual Core export path must be verified against source before FIRST freezes;
+no new DTO or Core/Host/Store API is permitted merely to fit this spelling.
+The read uses accepted `Host::generation_snapshot` to obtain its coherent native
+Engine, then returns only `engine.completed_boundary_catalog()`. Discard coverage;
+never serialize an Engine, actor state, truth, record kind, author reason or proof.
+Domain2 `RawFallback(Unsupported)` does not make canonical boundaries unavailable
+and does not qualify memory or generation. The accepted port validates the exact
+session/scope/head, seed/player, accepted prefix and sticky safe cancellation.
+Its read-only Store transaction does not create jobs or change canonical data.
+Domain1 may read existing derived metadata; no zero-filesystem-probe claim follows.
+
+Capture the existing native WindowLease and workspace Host. Run the bounded read
+on the existing blocking runtime, with cancellation tied to that lease; recheck
+the lease before publishing the result. No archive worker, provider, gameplay
+operation, session selection or author grant is admitted by this metadata read.
+Reject replies above4097 entries or64KiB compact/formatted JSON with TooLarge;
+reject unsafe numbers. Rust remains the history/boundary authority.
+
+Neutral metadata may also be read from a valid ephemeral Host. It does not grant
+durable fork support: UI creation still requires persistent context and existing
+Host/Store fork admission still rejects unsupported persistence. No second Store,
+boundary validator, memory implementation or provider is introduced.
+
+## Frontend and existing mutation owner
+
+Add a strict detached/frozen `ForkBoundaryCatalog` decoder in
+`ui/fork-boundary-model.ts`: exact four keys, version2, exact expected scope/head,
+at most4097 safe increasing unique entries, first0/last head, and64KiB compact/
+formatted byte bounds. Its exported shape and decoder are:
+
+```typescript
+export interface ForkBoundaryCatalog {
+    readonly version: 2;
+    readonly scope: Scope;
+    readonly head: number;
+    readonly boundaries: readonly number[];
+}
+export function decodeForkBoundaryCatalog(
+    value: unknown, scope: Scope, head: number,
+): ForkBoundaryCatalog;
+```
+
+Extend ForkController with independent boundary loading/error/refresh state,
+`matchesContext(context)`, `refreshBoundaries(context)`,
+`prepareFromCatalog(at,child,context,catalog)`,
+`confirmExact(request,context)` and `setAdmissionBlocked(blocked)`.
+Public state uses `boundaryCatalog`, `boundaryBusy`, `boundaryError` and
+`admissionBlocked`. Metadata reads have an independent sequence/context fence;
+refresh cannot retire or replace an existing fork operation/recovery identity.
+The existing direct prepare/confirm/recovery APIs retain their explicit-input
+contracts; the actual UI uses the stricter catalog/identity-bound entry points.
+Catalog preparation requires its current exact object, complete validated list,
+selected persistent context and unblocked admission. ConfirmExact requires the
+current exact request, current consent and matching context. Existing native
+fork_start/fork_lookup/archive_status/archive_cancel own all mutation/lifetime.
+Keep recovery-v1 identity saved before dispatch, same-child retry, lookup-only
+restart and explicit child opening. No outcome version change or automatic retry.
+
+ForkPanel must use the full returned list, show pending/unavailable/error/retry
+honestly and disable preparation until it is ready. A retained rendered handler
+must match current gameplay context and ForkController snapshot/request/result;
+old consent cannot confirm a replacement request even in the same context.
+Fence actions again after local callbacks and fence async open errors against
+retired context/result. Cover Prepare, consent, confirm/retry, lookup, cancel,
+refresh and Open. Do not infer valid boundaries from ordinary receipts.
+
+Expose the panel in coherent Domain2 Play and acknowledged Story Lab as well as
+legacy stories. Main synchronizes a read-only fork admission block for gameplay
+starting/pending/disposed and V2 pending/uncertain, including V2 notifications.
+Blocking fork admission clears consent; it never cancels gameplay or silently
+discards a saved recovery identity. Native Busy/Stale validation remains final.
+
+Rewind/regenerate preserves the original by forking at the selected completed
+boundary, then explicitly opening the child. A subsequent fresh turn uses existing
+admission/provider validation with a fresh request identity. Fork/read/open/recovery
+never invokes generation, repeats an old turn, replays downstream choices, or uses
+private inspection text as player/generation input. Pre-author history can reopen
+as Domain1; after-author history remains Domain2, as Core already defines.
+
+## Independent FIRST and verification gate
+
+Freeze independent frontend and native source before their producer changes.
+Frontend groups execute actual codec/controller/App/Panel callbacks and actual
+Main admission wiring with disclosed hooks/IPC doubles. Cover full author-only
+catalogs, malformed/stale/error/refresh/pending reads, all context dimensions,
+same-context request/result replacement, consent isolation, cancellation/lost ACK,
+lookup-only recovery and explicit exact-scope Open. Preserve legacy sources;
+an intended exposure change requires an explicit phased-oracle correction.
+
+Native groups exercise the actual adapter with real Core/Host and a small synthetic
+durable mixed ordinary/author history, including a multi-event turn, author-only
+boundary, inherited prefix and fork at each returned boundary. Prove wrong session/
+scope/head/cancel refusal, lease retirement, full neutral keys/limits and unchanged
+parent/sibling canonical state/knowledge. A largest synthetic DTO encoding check
+is wire-size evidence, not a claim to execute4096 real turns. Future fixture output
+requires its own admitted D TEMP/output budget; no fixture runs in this phase.
+
+Compilation, regression execution, Rust/Android host compatibility and an actual
+application-owned native fork journey remain pending separate admission. Keep
+static/headless, Rust adapter, actual native IPC/rendering and physical-device
+evidence distinct. This contract does not authorize another app, cap change,
+model/device/OS qualifier, merge or whole-task acceptance.

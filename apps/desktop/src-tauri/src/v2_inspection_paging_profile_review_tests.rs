@@ -15,7 +15,12 @@ use std::{
 };
 
 fn admitted_base() -> PathBuf {
-    const { assert!(cfg!(windows), "SETUP_UNRUN: Windows physical D profile tests only") };
+    const {
+        assert!(
+            cfg!(windows),
+            "SETUP_UNRUN: Windows physical D profile tests only"
+        )
+    };
     let base = PathBuf::from(
         std::env::var_os("LOCALLORE_D05_ARTIFACT_ROOT")
             .expect("SETUP_UNRUN: coordinator must admit an existing D05 base"),

@@ -22,8 +22,10 @@ Add exactly one fixed Tauri command `fork_boundaries`, available in both normal
 and development command registrations. Its sole renderer argument is
 `input:{session,scope:{story,branch},expected_head}` with exact keys. Session is
 a nonempty bounded128-byte native ID, scope IDs use existing64-byte ASCII rules,
-and expected_head is a nonnegative safe integer. Reject malformed input before
-copying unbounded strings; accept no observer, grant, file, path, profile or model.
+and expected_head is a nonnegative safe integer. Malformed native input returns
+InvalidForkInput; encoder count/byte/unsafe-number refusal returns TooLarge.
+Reject malformed input before copying unbounded strings; accept no observer,
+grant, file, path, profile or model.
 
 The native test seam is:
 
@@ -88,6 +90,10 @@ Extend ForkController with independent boundary loading/error/refresh state,
 Public state uses `boundaryCatalog`, `boundaryBusy`, `boundaryError` and
 `admissionBlocked`. Metadata reads have an independent sequence/context fence;
 refresh cannot retire or replace an existing fork operation/recovery identity.
+It may supersede an earlier metadata read; stale replies cannot publish or clear
+the newer busy/error state. Metadata refresh preserves consent for the same
+exact saved request. Decoder failures use Wire/Version/Scope/Stale/TooLarge;
+ForkController's finite error set includes Version for this new transport.
 The existing direct prepare/confirm/recovery APIs retain their explicit-input
 contracts; the actual UI uses the stricter catalog/identity-bound entry points.
 Catalog preparation requires its current exact object, complete validated list,
@@ -96,6 +102,12 @@ current exact request, current consent and matching context. Existing native
 fork_start/fork_lookup/archive_status/archive_cancel own all mutation/lifetime.
 Keep recovery-v1 identity saved before dispatch, same-child retry, lookup-only
 restart and explicit child opening. No outcome version change or automatic retry.
+ConfirmExact does not require a newly fetched catalog to retry an already saved
+exact identity. Direct confirm rechecks admission after its synchronous pending
+notification, before native dispatch. If newly blocked there, keep the request,
+clear consent/busy/operation, show Busy and prepared status, and dispatch nothing.
+An admission change after real dispatch does not retire status/cancellation
+handling or cancel gameplay.
 
 ForkPanel must use the full returned list, show pending/unavailable/error/retry
 honestly and disable preparation until it is ready. A retained rendered handler
@@ -104,12 +116,18 @@ old consent cannot confirm a replacement request even in the same context.
 Fence actions again after local callbacks and fence async open errors against
 retired context/result. Cover Prepare, consent, confirm/retry, lookup, cancel,
 refresh and Open. Do not infer valid boundaries from ordinary receipts.
+Retain the existing action labels; the new metadata action is
+"Refresh completed boundaries".
 
 Expose the panel in coherent Domain2 Play and acknowledged Story Lab as well as
 legacy stories. Main synchronizes a read-only fork admission block for gameplay
 starting/pending/disposed and V2 pending/uncertain, including V2 notifications.
 Blocking fork admission clears consent; it never cancels gameplay or silently
 discards a saved recovery identity. Native Busy/Stale validation remains final.
+The named Main helper is `syncForkAdmission`. Synchronous V2 notifications during
+context synchronization must not unblock the previous fork context. Include a
+current-context mismatch in the block or establish the new fork context before
+unblocking; test both subscription orders and recheck after contextChanged.
 
 Rewind/regenerate preserves the original by forking at the selected completed
 boundary, then explicitly opening the child. A subsequent fresh turn uses existing

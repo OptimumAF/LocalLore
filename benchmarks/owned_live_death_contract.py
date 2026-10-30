@@ -41,6 +41,13 @@ class _LiveDeathContract(core._Contract):
 
     def validate_operation(self, value, admission):
         argv = value.get('argv') if type(value) is dict else None
+        if type(argv) is list and argv == ['run-as', core.APP, '--user', '0', 'ls', 'no_backup']:
+            # Poll the existing app-owned parent without issuing a failing ls
+            # against a checkpoint child that has not been published yet.
+            self.validate_admission(admission)
+            core._obj(value, ('argv', 'stdin'), 'command')
+            core._need(value['stdin'] is None, 'command')
+            return copy.deepcopy(value)
         if type(argv) is list and argv[:2] == [PROCESS_PROBE, '--snapshot-v2']:
             # Validate the same admission, exact record shape, canonical numeric
             # arguments, bounds and absent stdin as the core snapshot command.

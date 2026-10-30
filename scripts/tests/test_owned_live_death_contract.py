@@ -151,6 +151,26 @@ class OwnedLiveDeathContractTests(unittest.TestCase):
                         ['run-as', live.APP, '--user', '10', 'cat', 'no_backup/ready-v1.json']):
             self.refused(lambda: self.operation(changed))
 
+    def test_only_sdk6_can_poll_the_exact_app_owned_no_backup_parent(self):
+        argv = ['run-as', live.APP, '--user', '0', 'ls', 'no_backup']
+        self.assertEqual(self.operation(argv), {'argv': argv, 'stdin': None})
+        with self.assertRaises(restart.TargetRefused):
+            restart.validate_operation({'argv': argv, 'stdin': None}, fixture.admission())
+        self.refused(lambda: self.operation(argv, self.admission['artifacts']['probe']))
+        for changed in (
+            ['run-as', live.TEST, '--user', '0', 'ls', 'no_backup'],
+            ['run-as', live.APP, '--user', '10', 'ls', 'no_backup'],
+            ['run-as', live.APP, '--user', '0', 'ls', 'files'],
+            ['run-as', live.APP, '--user', '0', 'ls', 'no_backup/'],
+            ['run-as', live.APP, '--user', '0', 'ls', 'no_backup', 'files'],
+            ['run-as', live.APP, '--user', '0', 'ls', '-l', 'no_backup'],
+            ['run-as', live.APP, '--user', '0', 'cat', 'no_backup'],
+            ['run-as', live.APP, '--user', '0', 'mkdir', 'no_backup'],
+            ['run-as', live.APP, '--user', '0', 'rm', 'no_backup'],
+        ):
+            with self.subTest(argv=changed):
+                self.refused(lambda: self.operation(changed))
+
     def test_original_sdk5_still_accepts_only_its_original_identity_and_probe(self):
         prior = fixture.admission()
         self.assertEqual(restart.validate_admission(prior), prior)

@@ -47,6 +47,7 @@ The helper exports immutable FRONTEND_EVIDENCE_LIMITS:
 - productBytes16,777,216;
 - stepReserveBytes4,194,304; metadataReserveBytes1,048,576;
 - entries2,000,000; streamBytes262,144 per stream per child;
+- consoleBytes4,194,304 total ENCODED UTF-8; summaryBytes32,768 reserved within it;
 - childMs240,000; stopGraceMs5,000.
 
 These are local cooperative runner limits, not an OS quota. An individual trusted
@@ -172,8 +173,9 @@ unknown child closure. error is null or the first sticky category: Admission,
 Path,Inventory,Reserve,Sequence,Outcome,StepBudget,OutputBudget,ProductBudget,
 AggregateBudget,UnknownChild. Throw Error("FrontendEvidence"+category).
 parse/open admission errors use the same vocabulary. All three async methods
-return a detached snapshot on success. Calls after failed/finished throw without
-altering the retired state. snapshot itself never performs IO or exposes mutable
+return a detached snapshot on success. Calls after failed rethrow the first sticky
+category; calls after finished throw Sequence. Neither changes the retired state.
+snapshot itself never performs IO or exposes mutable
 internal state. Missing implementations/interfaces are UNRUN_SETUP in FIRST, never
 zero-case PASS or invented behavioral failures.
 
@@ -198,6 +200,15 @@ spawn failure and nonzero exit are failures. Listen for close, not merely exit.
 Print each bounded child prefix as JSON string fields with bounded
 machine-readable metadata, including original byte counts and known/unknown
 closure; do not invent passing cases from truncated evidence.
+Count actual encoded JSON bytes, including escaping/metadata/newlines, against the
+TOTAL consoleBytes budget, keeping summaryBytes available for the final record.
+Per-child raw byte limits alone do not bound JSON expansion or all77 steps' logs.
+If the next receipt would exhaust that allowance, omit its text prefixes, mark
+truncation/FAIL and stop advancing; emit only compact metadata and the bounded
+final summary using the reserved space. No later Git/child/bundle-read/PASS follows
+that failure. Caller admission accounts up to consoleBytes outside outputDir;
+this is separate from the filesystem metadata reserve. Do not promise the console
+sink itself is controlled by the runner or silently truncate successful evidence.
 No automatic artifact directory, model/native execution, output deletion or
 normal-product restoration branch is added. A final bounded summary states exact
 fixed step count, success/failure and cooperative limitations. Public reports
@@ -216,7 +227,9 @@ Exercise actual driver source with disclosed child/fs/Git/timer doubles: unchang
 fixed roster, zero/--bounded arguments, no arbitrary child selection, close versus
 exit, bounded multibyte/error output, deadline/stop/grace and no later Git/child/
 bundle-read/PASS after storage or unknown closure. Keep legacy behavior and every
-existing check intact. Missing helper/registration remains setup unavailable.
+existing check intact. Also test aggregate encoded log limits/JSON expansion and
+the reserved final summary; no over-budget record is printed as complete success.
+Missing helper/registration remains setup unavailable.
 
 Source authors run no formatter/Node/build/test/fixture/native/model/SDK operation.
 Root may propose a fresh <=8MiB policy-test allocation after freeze/review, counting

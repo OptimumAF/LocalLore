@@ -24,7 +24,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -37,7 +36,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -60,10 +58,6 @@ import org.locallore.app.SavedTimeline
 import org.locallore.app.TextProvider
 import org.locallore.app.validPlayInput
 
-private val Paper = Color(0xFFF8F5EC)
-private val Ink = Color(0xFF202D2A)
-private val Teal = Color(0xFF18584E)
-private val MutedInk = Color(0xFF4D5C56)
 private val PlayDraftSaver = Saver<PlayDraft, Any>(
     save = { savePlayDraft(it) },
     restore = { restorePlayDraft(it) },
@@ -116,20 +110,9 @@ internal fun LocalLoreScreen(
     val currentEditorBlocked by rememberUpdatedState(editorBlocked)
     val currentDraftInteractionAllowed by rememberUpdatedState(draftInteractionAllowed)
     val playInput = if (draftPending) PlayInput(PlayInputKind.ACTION, "") else resolvedDraft.input
-    MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Teal,
-            onPrimary = Color.White,
-            surface = Paper,
-            background = Paper,
-            onSurface = Ink,
-            onBackground = Ink,
-            onSurfaceVariant = MutedInk,
-            outline = MutedInk,
-        ),
-    ) {
+    LocalLoreTheme {
         overlay()
-        Scaffold(containerColor = Paper) { safePadding ->
+        Scaffold(containerColor = MaterialTheme.colorScheme.background) { safePadding ->
             Box(
                 modifier = Modifier.fillMaxSize().padding(safePadding),
                 contentAlignment = Alignment.TopCenter,
@@ -167,27 +150,27 @@ internal fun LocalLoreScreen(
                                     TextProvider.UNAVAILABLE -> "Local Rust engine · text inference unavailable"
                                 },
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MutedInk,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.testTag("inference-provider"),
                             )
                             Text(
                                 if (state.persistent) "Local saved progress · database schema ${state.databaseSchemaVersion ?: "opening"}"
                                     else "In-memory session · no saved progress",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MutedInk,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             state.storageLocation?.let { location ->
-                                Text(location, style = MaterialTheme.typography.labelSmall, color = MutedInk,
+                                Text(location, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.testTag("storage-location"))
                             }
                             state.selectedStory?.let { story ->
                                 Text("Rules · ${state.rulesProfile ?: "unknown"} · ${story.story} / ${story.branch} · head ${state.revision}",
-                                    style = MaterialTheme.typography.labelSmall, color = MutedInk,
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.testTag("workspace-detail"))
                             }
                             if (state.uncommittedDrafts > 0) Text(
                                 "${state.uncommittedDrafts} uncommitted response(s). They are retained outside accepted history.",
-                                style = MaterialTheme.typography.bodySmall, color = MutedInk)
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (state.persistent && state.stories.isNotEmpty()) {
                                 var libraryExpanded by remember { mutableStateOf(false) }
                                 Box {
@@ -267,7 +250,7 @@ internal fun LocalLoreScreen(
                     }
                     if (!state.persistent || state.selectedStory != null) item(key = "scene") {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            HorizontalDivider(color = MutedInk.copy(alpha = 0.3f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                             Text(
                                 "Lantern Quay",
                                 style = MaterialTheme.typography.headlineMedium,
@@ -292,7 +275,7 @@ internal fun LocalLoreScreen(
                             Text(
                                 "Accepted revision · ${state.revision}",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MutedInk,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.testTag("revision"),
                             )
                         }
@@ -305,7 +288,7 @@ internal fun LocalLoreScreen(
                             Text(
                                 if (message.isPlayer) "You" else "Narrator",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MutedInk,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
                                 message.text,
@@ -451,7 +434,7 @@ internal fun LocalLoreScreen(
 private fun DemoResponses(mode: DemoMode, busy: Boolean, onMode: (DemoMode) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        HorizontalDivider(color = MutedInk.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
         Box {
             TextButton(
                 onClick = { expanded = true },

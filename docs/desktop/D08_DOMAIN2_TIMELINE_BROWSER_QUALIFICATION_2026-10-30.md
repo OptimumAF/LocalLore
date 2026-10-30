@@ -278,3 +278,41 @@ failure packet, profiles, databases and all source/results remain charged. A
 further20MiB reservation does not fit the40MiB browser cap; its one-run authority
 is also consumed. No further attempt or cap change is authorized here. PR286
 remains draft; native browser acceptance, full D08 and epic gates remain open.
+
+## Source-only finalization correction: not executed
+
+Independent FIRST f8429358ecfccb46a895863d9f07d254d10a32c9, Root42febdc6,
+freezes32 cases in `check-domain2-timeline-finalization-review.mjs` before the
+different-author producer900c8815, Root714a17d2. The checker is21,577B with SHA256
+`66eab7c88bb69f0af87d277cdef09bcedb768f1b75bd14bf4e23b6d0085e4b37`.
+No checker or producer command has run. An absent helper is explicitly a
+per-case UNRUN_SETUP prerequisite, not behavioral RED; actual old roster/finish
+closures can be evaluated independently when execution is admitted.
+
+The development-only helper is4,486B, SHA256
+`317ca27b72abbe55e3783f9dbff40bff8d7715f258f9c87f441109c4235255df`.
+The integrated journey is45,063B, SHA256
+`655e8ce3ca057da06a03bb025c1fe8086ea6c56e91611072ac820e592ad40504`.
+Source/Git review proves changes only to its helper import, final-report closure
+and read-only roster closure. Original checkpoint capture-body LF SHA256 remains
+`704910042dd9ddfb2ca3c285dbb5998425407a9c64af237b35bf73afb9e7d4b8`.
+No original checkpoint fields, capture procedure, journey actions, Rust checks,
+observer/privacy fence or native generic writer changed. This source proof does
+not replace compilation, regression execution or native acceptance.
+
+The fixed helper allows established normal `capture_revoke`, rejects mixed or
+unknown call channels, references the six original per-checkpoint observation
+files, requires96 observations for success, checks compact and formatted UTF8
+limits, and makes at most one detailed finish plus one fixed failed fallback.
+The journey retains a single finalization promise before invoking native code,
+so its outer catch cannot dispatch a third finish. All32 cases use actual helper
+or extracted actual closures with disclosed synthetic metadata/invoke outcomes;
+they are not browser, IPC, Rust serialization or process-lifetime evidence.
+
+Reproduction after a separate execution admission, from `apps/desktop` with
+existing D toolchain and TEMP/TMP above:
+`node check-domain2-timeline-finalization-review.mjs`. It retains no HTML/bundle
+and bounds its stdout report at64KiB. The command is currently **STOPPED**,
+along with TypeScript, formatting, builds and application launches. Proposed
+normal restoration must preserve the failed diagnostic products before overwrite;
+it is distinct from and does not admit a further native application attempt.

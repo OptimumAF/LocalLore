@@ -164,3 +164,33 @@ Independent regression source freezes before producer changes. Its author and
 the producer do not execute it while the stop applies. No further native run,
 resource increase, process control or relaxation of the failed gate is included
 in this source-only correction.
+
+## Prospective execution reconciliation: owner decision pending
+
+The proposed next admission is limited to bounded code checks and restoring
+normal frontend/native products without launching the application. The old
+failed attempt and unknown-lifetime record remain immutable. Immediately before
+any execution, recheck exact owned executable/profile/PID absence, source/product
+identity, remaining metadata reserve and fresh storage inventory. Any new unknown
+lifetime, source/product ownership change or inventory failure stops later work.
+
+Preserve the diagnostic frontend2,169,685B in the existing browser evidence base
+and native44,007,424B as an ordinary byte copy in the existing owned Rust target
+before restoration. A hardlink cannot protect against an in-place rewrite.
+Charge the frontend to the unchanged8MiB source/40MiB browser caps, and the native
+copy's full logical and additional physical allocation to the original2GiB
+target-growth ceiling. Neither copy removes any earlier cost. Copies total less
+than48MiB; existing16MiB product and1MiB metadata reserves stay charged.
+
+At most512KiB additional combined encoded logs/reports/terminal records are
+proposed within the remaining metadata reserve, with stdout and stderr each
+bounded at64KiB per command. Root alone runs fixed source regressions, strict
+TypeScript, formatting/equivalence checks, a normal frontend build and the
+existing locked/offline normal native build. Preserve terminal records and any
+expected baseline FAIL/UNRUN_SETUP classifications. Do not run the77-child
+frontend suite, a browser, native application, Rust test binary, model, SDK,
+device or stopped OS qualifier. A final normal build is recorded as unlaunched.
+
+This proposed reconciliation does not raise a cap, clear the historical latch,
+certify prior tree closure, admit another native attempt or approve a merge.
+It is not authorized until the owner explicitly answers the separate request.

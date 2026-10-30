@@ -13,6 +13,11 @@ The [fixed phone inventory path](../docs/native/PHYSICAL_PHONE_INVENTORY_PROTOCO
 adds same-socket USB selection and read-only software facts without running ADB.
 Its [host verification](../docs/native/PHYSICAL_PHONE_INVENTORY_VERIFICATION_2026-10-30.md)
 passes2,377 tests; actual phone inventory still requires exact fresh admission.
+The [local identity review](../docs/native/PHONE_IDENTITY_ENROLLMENT_PROTOCOL_V1.md)
+records an explicit candidate choice without granting device actions.
+Its [verification](../docs/native/PHONE_IDENTITY_ENROLLMENT_VERIFICATION_2026-10-30.md)
+passes103 dependent checks; one actual candidate attempt safely refused before
+any host query because no existing5037 candidate was captured.
 Legacy ADB CLI collectors can restart a server on a version mismatch; do not
 use them as a service-preservation guarantee.
 The separate [runtime spike](../docs/runtime/spike/README.md) can explicitly run

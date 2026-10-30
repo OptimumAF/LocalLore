@@ -504,7 +504,8 @@ implementation is allowed. The native driver uses these actual helpers.
 Ambient names are root,base,target,folder,executable,revision,sourcePaths,
 sourceHashes,productHashes,initialStorage,limits,ownedDrainUnknown,storageBreached,
 lastStorage,runNumber,unknownChildren,gitChildren,processes,write,digest,footprint,
-hashes,spawn,process,path,Buffer,Date,Promise,setTimeout,clearTimeout. Fake VM
+hashes,boundedBytes,readFile,statfs,spawn,process,path,Buffer,TextDecoder,Date,
+Promise,setTimeout,clearTimeout. Standard JS built-ins remain available. Fake VM
 children/files/timers may replace ambient dependencies, never the policy body.
 Source/product helpers use gitRead/hashes, and compare exact identity snapshots.
 Finite child/Git records and reserve-before-metadata behavior retain the accepted

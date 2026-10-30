@@ -12,7 +12,7 @@ import re
 import sys
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).parents[1]
 if __package__ in (None, ""):
     sys.path.insert(0, str(ROOT))
 from benchmarks import receipt_avd_storage as storage

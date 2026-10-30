@@ -778,9 +778,21 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   ? durableDriver.durableJourneys
                   : driver.journeys;
     const sceneCase = window.__LOCALLORE_TEST__?.sceneCase;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.domain2Fork && domain2ForkModule && domain2ForkTrace) {
+    if (
+        __DEV_HARNESS__ &&
+        window.__LOCALLORE_TEST__?.domain2Fork &&
+        domain2ForkModule &&
+        domain2ForkTrace
+    ) {
         await domain2ForkModule.domain2ForkNativeJourneys({
-            controller, fork, timeline, v2, errors, invoke, trace: domain2ForkTrace, dispose,
+            controller,
+            fork,
+            timeline,
+            v2,
+            errors,
+            invoke,
+            trace: domain2ForkTrace,
+            dispose,
         });
     } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelineBrowser) {
         const { domain2TimelineBrowserNativeJourneys } =

@@ -23,7 +23,11 @@ function pagingLauncherMode(args) {
         args[0] === "--timeline-browser-v1"
     )
         return "timeline-browser";
-    if (Array.isArray(args) && args.length === 1 && args[0] === "--domain2-fork-v1")
+    if (
+        Array.isArray(args) &&
+        args.length === 1 &&
+        args[0] === "--domain2-fork-v1"
+    )
         return "domain2-fork";
     throw Error("ClosedPagingArgumentsRequired");
 }
@@ -36,7 +40,17 @@ function pagingLauncherPlan(mode) {
             expectedEvidence: 20971520,
             pagingEvidence: 33554432,
             reportMode: "domain2_fork_v1",
-            labels: Object.freeze(["catalog", "rejected", "pending", "preauthor", "authored", "recovered", "enlarged"].map((name) => `d08-fork-${name}`)),
+            labels: Object.freeze(
+                [
+                    "catalog",
+                    "rejected",
+                    "pending",
+                    "preauthor",
+                    "authored",
+                    "recovered",
+                    "enlarged",
+                ].map((name) => `d08-fork-${name}`),
+            ),
         });
     if (mode === "timeline-browser")
         return Object.freeze({
@@ -560,8 +574,8 @@ function checkedPagingBudget(
             (mode === "domain2-fork"
                 ? "d08_domain2_fork_budget_v1"
                 : mode === "paging"
-                ? "d05_v2_inspector_paging_budget_v1"
-                : "d08_domain2_timeline_browser_budget_v3") ||
+                  ? "d05_v2_inspector_paging_budget_v1"
+                  : "d08_domain2_timeline_browser_budget_v3") ||
         record.source_revision !== revision ||
         record.target_path_sha256 !==
             digest(Buffer.from(path.resolve(target).toLowerCase(), "utf8")) ||
@@ -604,9 +618,7 @@ const pagingEvidenceBytes =
 const qualificationEvidenceBytes =
     pagingEvidenceBytes +
     qualificationBudget.externalEvidenceBytes +
-    (mode !== "paging"
-        ? qualificationBudget.d05ExternalEvidenceBytes
-        : 0);
+    (mode !== "paging" ? qualificationBudget.d05ExternalEvidenceBytes : 0);
 if (
     !Number.isSafeInteger(pagingEvidenceBytes) ||
     pagingEvidenceBytes < 0 ||
@@ -949,8 +961,12 @@ try {
         LOCALLORE_D02_HARNESS: "1",
         ...(mode === "domain2-fork"
             ? { LOCALLORE_D08_DOMAIN2_FORK_HARNESS: "1" }
-            : { LOCALLORE_D05_INSPECTOR_PAGING_HARNESS: "1",
-                ...(mode === "timeline-browser" ? { LOCALLORE_D08_TIMELINE_BROWSER_HARNESS: "1" } : {}) }),
+            : {
+                  LOCALLORE_D05_INSPECTOR_PAGING_HARNESS: "1",
+                  ...(mode === "timeline-browser"
+                      ? { LOCALLORE_D08_TIMELINE_BROWSER_HARNESS: "1" }
+                      : {}),
+              }),
         LOCALLORE_TEST_WORKSPACE: plannedWorkspace.database,
         LOCALLORE_D02_ARTIFACT_DIR: path.join(workspace, "evidence"),
     });

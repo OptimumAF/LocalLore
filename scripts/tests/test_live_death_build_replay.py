@@ -198,6 +198,21 @@ class LiveDeathBuildReplayTests(unittest.TestCase):
                 ET.SubElement(graph.suites[name].find('testcase'), tag)
                 graph.suite_changed(name); self.refused(graph.validate)
 
+    def test_nested_failure_error_or_skipped_descendants_are_not_success(self):
+        for tag in ('failure', 'error', 'skipped'):
+            with self.subTest(tag=tag):
+                graph = ClosedLiveBuild(); name = graph.summary[0]['name']
+                container = ET.SubElement(graph.suites[name].find('testcase'), 'system-out')
+                ET.SubElement(container, tag)
+                graph.suite_changed(name); self.refused(graph.validate)
+
+    def test_native_owner_cannot_outlive_its_fixed_300_second_parent_budget(self):
+        graph = ClosedLiveBuild()
+        owner = env.read_json(graph.native_value['owner']['path']); owner['elapsed_ms'] = 312001
+        graph.native_value['owner'] = graph.save(graph.native_root/'owner-result-v1.json', owner)
+        graph.value['process_probe_build'] = graph.save(graph.native_root/'result-v1.json', graph.native_value)
+        graph.publish(); self.refused(graph.validate)
+
     def test_native_started_request_and_python_worker_are_bound_to_the_same_build(self):
         for change in ('request', 'legacy_without_request', 'worker_executable', 'worker_pid_bool'):
             with self.subTest(change=change):

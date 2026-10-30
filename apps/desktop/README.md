@@ -49,6 +49,12 @@ From `apps/desktop`, the standalone
 prefix with actual controllers and synthetic transport. It is not native UI
 verification or permission for another application run.
 
+The [Domain2 fork source review](../../docs/desktop/D08_DOMAIN2_FORK_SOURCE_REVIEW_2026-10-30.md)
+describes the next integration: complete canonical boundary metadata, exact
+fork/recovery identity and stale-action/consent fences. That source is currently
+uncompiled and unrun. The existing parent build does not verify these additions;
+new code, generated-permission readback and native fork journeys remain gated.
+
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned
 WebView. It never activates or captures the desktop:

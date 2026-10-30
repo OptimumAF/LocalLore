@@ -1,16 +1,19 @@
-# Domain2 fork integration: source review, execution pending
+# Domain2 fork integration: source lineage
 
 Refs #30 D08.04/.07 and #12 M08.04/.06. This focused stack starts at draft
-#286 db0cfd75164b50278d4d80569e372049ac2a070c. **All new fork source is
-unformatted, uncompiled and unrun.** Source review is not frontend, Rust, native
-IPC/rendering, device, model, security or release acceptance. Full D08 stays open.
+#286 db0cfd75164b50278d4d80569e372049ac2a070c. At that original freeze all new
+fork source was unformatted, uncompiled and unrun. Subsequent owner-approved
+[code verification](D08_DOMAIN2_FORK_CODE_VERIFICATION_2026-10-30.md) now passes;
+native fork IPC/rendering remains unrun. Full D08 stays open.
 
-The current build/evidence guard remains stopped after the parent's failed
+The original build/evidence guard remained stopped after the parent's failed
 restoration inventory. Source/Git/hash commands alone ran; no target/profile/
 cache/database, fixture, test/build/browser process or native application was
 created by this source phase. Existing normal products belong
 to the parent reconciliation, not to this fork source. The pending resource
-proposal for #286 does not itself authorize a new fork application cohort.
+proposal for #286 did not itself authorize a new fork application cohort.
+The parent subsequently passes its separate native V3 gate and merges. Fork
+code checks receive their own owner admission; neither permits a fork app run.
 
 ## Implemented source and authority
 

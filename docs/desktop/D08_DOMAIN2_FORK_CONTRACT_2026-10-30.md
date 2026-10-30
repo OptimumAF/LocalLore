@@ -1,11 +1,12 @@
 # Domain2 completed-boundary forks: consumer contract
 
-Refs #30 D08.04/.07 and #12 M08.04/.06. This is a source-only integration
-stacked on #286, not evidence of compiled or native execution. The existing
-resource failures remain failed and prohibit new checks/builds/app launches
-until separately admitted. Source/contract/test changes are retained in Git;
-new source is bounded at128KiB and small handoffs at64KiB. No new target,
-profile, cache, database or experiment output is created in this phase.
+Refs #30 D08.04/.07 and #12 M08.04/.06. Originally a source-only integration
+stacked on #286, this now has separately admitted passing
+[code verification](D08_DOMAIN2_FORK_CODE_VERIFICATION_2026-10-30.md). Parent #286
+is accepted on main. Native fork UI/IPC remains unrun and requires separate
+admission; all previous resource failures remain failed. The historical raw
+source phase is bounded at128KiB, with no experiment output in that phase.
+The new native proposal is a separate16KiB source-only phase, not an app grant.
 
 ## Canonical metadata and native read
 

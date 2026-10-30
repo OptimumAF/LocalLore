@@ -38,12 +38,12 @@ children. Cancellation never claims an earlier commit was rolled back.
 **Saved timelines** now exposes the existing read-only catalog/resume adapter for
 Domain2 stories as well. Fork creation remains separate. The
 [browser qualification](../../docs/desktop/D08_DOMAIN2_TIMELINE_BROWSER_QUALIFICATION_2026-10-30.md)
-records passing frontend/writer checks and two failed native attempts. The
-corrected attempt produced six native views but failed finalization and timed
-out; final state proof and normal product restoration remain unavailable. All
+records two failed native attempts and the later owner-approved V3 pass:889
+assertions, six individually inspected native images and successful normal
+restoration. All
 evidence is retained. A separately approved reconciliation verifies the32 new
 source checks and rebuilds normal products without launching, but fails its
-build-storage cap. Further execution remains stopped; no native retry is approved.
+build-storage cap. That failure remains failed; the single V3 app attempt is spent.
 From `apps/desktop`, the standalone
 `node check-domain2-timeline-bootstrap-review.mjs` verifies the corrected setup
 prefix with actual controllers and synthetic transport. It is not native UI
@@ -51,9 +51,11 @@ verification or permission for another application run.
 
 The [Domain2 fork source review](../../docs/desktop/D08_DOMAIN2_FORK_SOURCE_REVIEW_2026-10-30.md)
 describes the next integration: complete canonical boundary metadata, exact
-fork/recovery identity and stale-action/consent fences. That source is currently
-uncompiled and unrun. The existing parent build does not verify these additions;
-new code, generated-permission readback and native fork journeys remain gated.
+fork/recovery identity and stale-action/consent fences. Its separate
+[code verification](../../docs/desktop/D08_DOMAIN2_FORK_CODE_VERIFICATION_2026-10-30.md)
+passes21 frontend groups, eight new/six legacy Rust tests and compatibility checks,
+with generated permission readback and unlaunched normal restoration.
+Native fork UI/IPC/rendering remains unrun; the parent browser pass does not prove it.
 
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned

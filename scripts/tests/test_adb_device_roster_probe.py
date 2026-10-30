@@ -21,6 +21,21 @@ from scripts.tests import test_adb_device_roster as f
 from scripts.tests import test_adb_held_socket as held
 
 
+class RecordingVersionBackend(held.FakeBackend):
+    def __init__(self):
+        super().__init__()
+        self._received = bytearray()
+
+    @property
+    def received_bytes(self):
+        return bytes(self._received)
+
+    def recv(self, limit, deadline):
+        value = super().recv(limit, deadline)
+        self._received.extend(value)
+        return value
+
+
 class DeviceRosterCliTests(unittest.TestCase):
     def setUp(self):
         self.base = Path(tempfile.mkdtemp(prefix='locallore-roster-cli-', dir='D:/Dev/_Temp')).resolve()
@@ -36,16 +51,18 @@ class DeviceRosterCliTests(unittest.TestCase):
         self.outputs = []
         self.supervisor_calls = 0
 
-    def backend(self, kind, version_refused=False):
-        value = held.FakeBackend() if kind == 'version' else f.RosterBackend()
+    def backend(self, kind, version_refused=False, version_late=False):
+        value = RecordingVersionBackend() if kind == 'version' else f.RosterBackend()
         for bracket in value.brackets:
             bracket['client']['executable'] = str(self.python)
         if kind == 'version' and version_refused:
             value.errors[('connect', 0)] = OSError('PRIVATE_VERSION_CANARY')
+        if kind == 'version' and version_late:
+            value.jumps[('recv', 0)] = 3.1
         self.backends.append((kind, value))
         return value
 
-    def invoke(self, *, receipt=None, owner_changes=None, version_refused=False, after=None):
+    def invoke(self, *, receipt=None, owner_changes=None, version_refused=False, version_late=False, after=None):
         output = self.base/('output-%02d' % len(self.outputs))
         self.outputs.append(output)
         self.backends = []
@@ -98,7 +115,7 @@ class DeviceRosterCliTests(unittest.TestCase):
              patch.object(cli.os, 'getpid', return_value=self.parent['pid']), \
              patch.object(cli.env, 'supervise', side_effect=supervise), \
              patch.object(cli, '_backend_types', return_value=(
-                 lambda: self.backend('version', version_refused), lambda: self.backend('roster'))), \
+                 lambda: self.backend('version', version_refused, version_late), lambda: self.backend('roster'))), \
              redirect_stdout(stdout):
             code = cli.main(['--admission', str(self.input), '--admission-sha256', self.input_pin['sha256'],
                              '--output', str(output)])

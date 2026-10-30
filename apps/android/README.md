@@ -46,6 +46,21 @@ ANDROID_SERIAL to select one, then repeat for the second. Omit transport IDs
 from public reports. This packet executes on two x86_64 API-35 emulators;
 ARM64 runtime and physical-device qualification remain separate gates.
 
+For local JVM checks that compile Kotlin/Compose without rebuilding unchanged
+Rust libraries, use:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest -x :app:buildRustAndroid --offline --no-daemon
+```
+
+This excludes the native build and does not build or qualify an APK/JNI artifact.
+Tests use pinned `org.json:json:20260814` because Android's local JVM JSON classes
+are throwing stubs. It is a test-only dependency, absent from app runtime
+configurations. Provision dependencies before offline execution. Its
+[upstream license, compatibility and artifact hashes](../../docs/android/JVM_JSON_TEST_DEPENDENCY_2026-10-30.json)
+are recorded separately from the older selected dependency inventory. These JVM
+checks do not replace device, touch, accessibility or real-model verification.
+
 The timeline catalog journey uses an isolated debug identity so existing saves
 remain in their installed app. From `apps/android`, build with:
 

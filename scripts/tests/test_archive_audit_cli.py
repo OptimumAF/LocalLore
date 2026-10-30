@@ -142,7 +142,7 @@ class ArchiveAuditCliTests(unittest.TestCase):
                 self.assertEqual(code, 1, text)
                 self.assertNotIn('"status": "passed"', text)
 
-    def test_default_android_command_vectors_are_unchanged(self):
+    def test_default_android_build_and_product_prefix_are_retained_before_pair_audit(self):
         check = check_fixture.check
         root = check.ROOT
         with patch.object(check, "java_executable", return_value="D:/Synthetic/java.exe"):
@@ -158,9 +158,14 @@ class ArchiveAuditCliTests(unittest.TestCase):
                                    ":app:lintDebug", "--no-daemon", "--console=plain", "-Pandroid.builder.sdkDownload=false"]
                         if offline:
                             gradle.append("--offline")
-                        self.assertEqual(commands, [check.Command(tuple(gradle), root / "apps/android"),
+                        self.assertEqual(commands[:2], [check.Command(tuple(gradle), root / "apps/android"),
                             check.Command((sys.executable, str(root / "scripts/audit_apk.py"),
                                 str(root / "apps/android/app/build/outputs/apk/debug/app-debug.apk")), root)])
+                        self.assertEqual(len(commands), 3)
+                        self.assertEqual(commands[2], check.Command((sys.executable,
+                            str(root / "scripts/audit_instrumentation_apk.py"),
+                            str(root / "apps/android/app/build/outputs/apk/debug/app-debug.apk"),
+                            str(root / "apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")), root))
 
     def test_archive_android_command_selects_only_fixed_property_output_and_audit_flag(self):
         check = check_fixture.check
@@ -172,13 +177,17 @@ class ArchiveAuditCliTests(unittest.TestCase):
             except TypeError as exc:
                 error = str(exc)
         self.assertIsNone(error, "archive command selection was not accepted: " + str(error))
-        self.assertEqual(len(commands), 2)
+        self.assertEqual(len(commands), 3)
         self.assertEqual(commands[0].argv.count("-PlocalLoreArchiveVerification=true"), 1)
         self.assertEqual(tuple(a for a in commands[0].argv if a != "-PlocalLoreArchiveVerification=true"), default[0].argv)
         expected_apk = str(check.ROOT / "apps/android/app/build-archive-verification/outputs/apk/debug/app-debug.apk")
         self.assertEqual(commands[1].argv[:2], default[1].argv[:2])
         self.assertEqual(set(commands[1].argv[2:]), {expected_apk, "--archive-verification"})
         self.assertEqual(len(commands[1].argv), 4)
+        self.assertEqual(commands[2].argv, (sys.executable,
+            str(check.ROOT / "scripts/audit_instrumentation_apk.py"), expected_apk,
+            str(check.ROOT / "apps/android/app/build-archive-verification/outputs/apk/androidTest/debug/app-debug-androidTest.apk"),
+            "--archive-verification"))
         self.assertEqual([c.cwd for c in commands], [c.cwd for c in default])
 
     def test_check_android_cli_forwards_archive_selection_without_running_commands(self):

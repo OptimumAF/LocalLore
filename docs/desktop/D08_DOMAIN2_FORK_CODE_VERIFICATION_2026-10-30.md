@@ -20,7 +20,8 @@ Cargo uses the existing D cache/target, locked/offline, one job, no incremental
 or dev/test debug data. No download or cache reset occurs.
 
 Accepted main is merged into the existing fork branch at3ebcdc7e. Original
-FIRST c54e966b runs20 authored groups:9 execute,3PASS/6FAIL,11 UNRUN_SETUP,
+frontend FIRST at baseline checkout c54e966b runs20 authored groups:9 execute,
+3PASS/6FAIL,11 UNRUN_SETUP,
 exit2,0.1509949s. Missing codec/strict APIs are not behavioral RED. Failures cover
 five stale retained-action paths and absent Domain2 fork entry. Current raw21
 executes21:20PASS/1FAIL,0.1568571s. A diagnostic-only checker change preserves
@@ -97,3 +98,8 @@ is a separate16,318B source-only phase, not an app admission or actual rendering
 Its seven-success/one-failure ceiling and20MiB packet still need an executable
 harness, frozen independent checks, source review and a separate owner resource
 decision. All wider D08/desktop/device/model/quality/release gates remain open.
+
+Independent read-only evidence review finds no blocking discrepancy in all35
+records, case counts, hashes, generated permission, restoration or limits. Final
+small readback records350,214B check output and zero exact owned app/profile
+processes. This confirms current absence, not historical process-tree containment.

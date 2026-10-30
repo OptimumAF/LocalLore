@@ -382,3 +382,138 @@ The target-growth boundary alone is failed. Further execution is **STOPPED**
 pending a separate resource decision; the original native lifetime failure and
 both failed application attempts remain failed. Source checks do not establish
 native acceptance. PR286 stays draft; all wider gates remain open.
+
+## Owner-approved revision3: source checks before the single native attempt
+
+The owner explicitly approves retaining all output and exactly one further
+six-capture attempt, after revised checks/review/fresh admission: browser-only
+4GiB target growth,52MiB browser and660MiB joint evidence, unchanged20MiB packet
+reservation. The original target baseline8,259,980,576B and every earlier failure
+remain. No automatic repeat, deletion, model/device/SDK/OS qualifier or desktop
+control is admitted. The separate source-only fork integration in PR290 is not
+part of this fixed browser recipe.
+
+Independent V3 FIRST c4a781ac, integrated549b7042, freezes the same47 groups before
+the producer. Raw checker SHA256
+`7338cf44306400ef26f6f6cac8382076c78e69e94b3addd7b562ef7c7f6bee82`.
+Against the unchanged V2 launcher, actual47 execute:37PASS/10FAIL, zero setup
+failures, exit1,0.1352741s. The seven producer substitutions update only browser
+budget kind/prefix/version and approved limits. Raw corrected47/47 pass0.1252565s;
+unchanged245 launcher checks pass0.3000924s; Node syntax passes0.0618156s.
+These are source/VM dependency-double checks, not OS admission or native IPC.
+
+Prettier3.9.10 `--debug-check` exits2, known closed,0.4342214s: its AST serializer
+cannot encode the checker's BigInt. No file was written and the native attempt
+remains unused. Preserve the complete failure and original coordinator; an
+immutable reconciliation binds continuation to the exact process/stop/source
+hashes. This is a known tool incompatibility, not an unknown-lifetime or storage
+failure. Four directly spawned installed esbuild0.28.2 CLI transformations then
+compare the two exact files before/after the fixed Prettier write. Both canonical
+output hashes match, with no persistent service. All children close without
+timeout, output overflow or kill; bounded records and inventories remain local.
+
+Fresh inventory corrects a prior D07 charge by276,119B for four later retained
+source files omitted after its preapp record. Current D07 cost501,920,772B includes
+all eight distinct source paths; historic records and outcomes stay unchanged.
+The independent four-file D05 cohort remains separately charged. Updated external
+evidence/reserves560,014,573B and D05total79,500,962B carry forward to V3 admission.
+An ordinary45,176,832B copy preserves the prior normal binary (SHA902e5c37...) in
+the existing target before any diagnostic build. All prior failed copies remain.
+Source-check admission reserves512KiB new combined records and the later20MiB
+packet, forecasting browser51,176,988B, joint690,692,523B and target12,348,487,076B
+(including the ordinary copy and256MiB cached-build forecast). Final native
+admission must remeasure these figures against the clean reviewed source.
+
+At this source checkpoint the one V3 native attempt is still unused. Actual
+native execution, image inspection and normal restoration must be reported
+separately; no whole-D08, Android-device, story-quality or release gate is met.
+
+## Revision3 actual native result: passed, six images individually reviewed
+
+The single owner-approved V3 attempt runs at clean published
+`977f3eed6dedd752055cd25a7982fbf37beb51f9`,2026-10-30T21:06–21:07Z.
+Fresh admission binds the reviewed coordinator/source/verification hashes,
+independently successful Git head/status reads, zero exact owned app/profile
+processes and the unchanged complete costs above. Its closed eight-field V3
+record retains the original target baseline. An immutable attempt-start record
+consumes the one invocation; no automatic repeat remains authorized.
+
+Actual command from `apps/desktop`, using the existing D Cargo cache/target and
+explicit D artifact root, is
+`node v2-inspector-paging-harness.mjs --timeline-browser-v1`.
+The repository launcher pins offline/one-job/no-incremental/no-debug settings.
+Outer coordinator child exits0, known closed,69.5779618s. The five inner children
+all exit0/close without timeout, truncation, kill or new unknown: diagnostic
+frontend1.132s, development native build34.429s, actual native app7.372s, normal
+frontend restoration0.252s and normal native restoration11.039s. This is actual
+native WebView2 rendering and native IPC, not headless rendering or an engine-only
+test. The captured UA is Windows x64 Chrome/Edg156.0.0.0; other environment and
+package versions remain those listed above.
+
+The final report passes889 assertions,518 distinct named checks, six exact
+ordered native captures and32 settled native dispatches with zero call/frontend
+errors. This is the recorded Host/product-native call trace; the32 does not count
+direct fixed harness checkpoint/oracle/viewport/finish invocations. It records
+all96 original normal-scroll observations in their six
+checkpoint files and references them without duplicating geometry in the final
+report. Eighteen actual font targets measure100% baseline,150% wide,150% narrow
+and100% restored. The report's UTF8 size is93,060B, SHA256
+`2aa1e00db6da13cc69431483db6f60df7e879e329e555c1ee1c383e7124fdb4f`.
+Each of four actual Rust oracle observations and the final oracle equal the
+baseline for all three scopes, including canonical/receipt/turn/actor and observer
+fingerprints. No generation, author edit or fork is dispatched.
+
+Root individually opens every original PNG through the local file viewer:
+
+| Capture suffix | Selected state | Actual viewport/text | PNG bytes |
+| --- | --- | --- | --- |
+| catalog | paging44/player |1280x900/100%|64,806|
+| root | main0/player |1280x900/100%|51,229|
+| child | paging44/player |1280x900/100%|67,981|
+| observer | paging44/Mira |1280x900/100%|49,085|
+| enlarged-wide | paging44/Mira |1280x900/150%|68,635|
+| enlarged-narrow | paging44/Mira |620x900/150%|64,742|
+
+The selected row, ancestry/fork point, catalogued head/status and selected/resume
+control are legible, with no observed overlap or horizontal clipping in these
+frames. Narrow enlarged text wraps. These are final scroll frames, not whole-page
+captures: each of16 targets per checkpoint is separately measured at its normal
+scroll position. No claim that all targets appear in one PNG is made. The root
+snapshot includes the inherited legacy create control; Domain2 child Fork is
+still hidden and its new integration remains separately scoped in PR290.
+All six semantic snapshots show coherent selected story/observer/revision, null
+pending/error and explicitly no displayed receipt. Navigation does not invent a
+receipt. Four additional semantic observations retain loading, a visible local
+delivery error, pending context retirement and rejected stale delivery. The
+hold/error/stale cases wrap an already successful real IPC response; they do not
+qualify native transport failure or worker cancellation.
+
+Normal frontend/native restoration passes and neither restored product is
+launched. Normal app.js remains byte-identical SHA57045763...; normal native SHA256
+is`dc2490ab68eefaba1f206b144d1c6635c8470b68e1e913fc45d78e9e1df262a4`.
+All three prior ordinary failed/normal preservation copies match before/after.
+The launcher's final measured packet is11,500,643B before its last records;
+outer final inventory after those records reports browser41,575,975B,
+source7,022,273B, joint681,091,510B and target11,640,378,866B, growth3,380,398,290B.
+All are below prospective V3 limits. The later6,280B Root image-review record
+is additionally retained/charged; it does not modify the generated qualification
+file's original pending-review field. Root observes zero matching owned app/profile
+processes afterward. This is current absence and known direct-child closure;
+process-tree containment remains explicitly unproven.
+
+Local ignored packet: `d08-browser-20261030-v1/p-193049f9-3a14-41df-9308-3da8d57ad9c4`;
+workspace suffix`092f48fc-cdfd-4d2a-8463-47da1d3e5af4`. The separate immutable
+`v3-root-image-review.json` binds every original PNG hash and semantic state.
+All older native/tool/storage failures remain failed and all output is retained.
+The one V3 attempt is spent. No new model, Android/device, process-death/restart,
+network/OS, physical keyboard/screen-reader or public release check ran. Previously
+attributed Rust writer/Clippy/Android host checks were not rerun for the seven
+launcher-only substitutions. Whole D08 and the desktop epic remain open.
+
+Independent read-only review by `main_window_backport_review` compares the
+qualification report, actual report/checkpoint contents, all five inner and23 Git
+terminal records, restoration and retention. It finds no contradiction or
+read-only/oracle failure. The reviewer separately confirms the six ordered native
+captures,96 scroll observations, all four18-target font states,32 settled recorded
+calls and unchanged canonical/observer proofs. This is finite source/evidence
+review, not human story-quality review or approval of the wider milestones.

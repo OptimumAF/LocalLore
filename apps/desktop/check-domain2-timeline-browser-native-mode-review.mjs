@@ -1,8 +1,8 @@
 // Independent D08 FIRST. SOURCE ONLY / UNRUN at freeze; missing seams are SETUP.
 // Actual private launcher blocks run with disclosed memory-only dependencies.
 // No OS child, fixture, image, native application, Rust execution or disk quota.
-// Browser budget revision2: owner decision #6527673039 / contract e4ef252e.
-// Original version1 source and results remain history, never reclassified.
+// Browser budget revision3: owner approval / claim #6533003273.
+// Original version1/version2 sources and results remain history, never reclassified.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -177,11 +177,11 @@ function limitsFor(mode) {
 }
 function record(mode, patch = {}) {
     return {
-        version: mode === "paging" ? 1 : 2,
+        version: mode === "paging" ? 1 : 3,
         kind:
             mode === "paging"
                 ? "d05_v2_inspector_paging_budget_v1"
-                : "d08_domain2_timeline_browser_budget_v2",
+                : "d08_domain2_timeline_browser_budget_v3",
         source_revision: revision,
         target_path_sha256: hash(
             Buffer.from(path.win32.resolve(paths.target).toLowerCase(), "utf8"),
@@ -189,7 +189,7 @@ function record(mode, patch = {}) {
         original_target_bytes: 1000,
         external_evidence_bytes: mode === "paging" ? 480 * MiB : 520 * MiB,
         d05_external_evidence_bytes: mode === "paging" ? 0 : 80 * MiB,
-        cumulative_limit_bytes: (mode === "paging" ? 640 : 648) * MiB,
+        cumulative_limit_bytes: (mode === "paging" ? 640 : 660) * MiB,
         ...patch,
     };
 }
@@ -321,18 +321,18 @@ for (const mode of ["paging", "timeline-browser"])
         assert.equal(
             plan.budgetKind,
             browser
-                ? "d08_domain2_timeline_browser_budget_v2"
+                ? "d08_domain2_timeline_browser_budget_v3"
                 : "d05_v2_inspector_paging_budget_v1",
         );
         assert.equal(
             plan.budgetPrefix,
             browser
-                ? "d08-domain2-timeline-browser-budget-v2-"
+                ? "d08-domain2-timeline-browser-budget-v3-"
                 : "d05-v2-inspector-paging-budget-v1-",
         );
         assert.equal(plan.artifacts, (browser ? 20 : 64) * MiB);
         assert.equal(plan.expectedEvidence, (browser ? 20 : 64) * MiB);
-        assert.equal(plan.pagingEvidence, (browser ? 40 : 128) * MiB);
+        assert.equal(plan.pagingEvidence, (browser ? 52 : 128) * MiB);
         assert.equal(
             plan.reportMode,
             browser ? "domain2_timeline_browser_v1" : "v2_inspector_paging_v1",
@@ -341,13 +341,13 @@ for (const mode of ["paging", "timeline-browser"])
         // Actual top-level expression, not a copied VM limit that could hide
         // an unchanged global 640 MiB bound in browser mode.
         assert.deepEqual(limitsFor(mode), {
-            targetGrowth: 2 * 1024 ** 3,
+            targetGrowth: (browser ? 4 : 2) * 1024 ** 3,
             sourceGrowth: 128 * MiB,
             artifacts: (browser ? 20 : 64) * MiB,
             entries: 2_000_000,
-            cumulativeEvidence: (browser ? 648 : 640) * MiB,
+            cumulativeEvidence: (browser ? 660 : 640) * MiB,
             expectedEvidence: (browser ? 20 : 64) * MiB,
-            pagingEvidence: (browser ? 40 : 128) * MiB,
+            pagingEvidence: (browser ? 52 : 128) * MiB,
         });
     });
 for (const mode of [
@@ -406,9 +406,9 @@ register(
 );
 for (const [mode, patch] of [
     ["paging", { external_evidence_bytes: 512 * MiB + 1 }],
-    ["paging", { kind: "d08_domain2_timeline_browser_budget_v2" }],
+    ["paging", { kind: "d08_domain2_timeline_browser_budget_v3" }],
     ["timeline-browser", { kind: "d05_v2_inspector_paging_budget_v1" }],
-    ["timeline-browser", { cumulative_limit_bytes: 648 * MiB + 1 }],
+    ["timeline-browser", { cumulative_limit_bytes: 660 * MiB + 1 }],
     ["timeline-browser", { source_revision: "b".repeat(40) }],
     ["timeline-browser", { target_path_sha256: "0".repeat(64) }],
     ["timeline-browser", { external_evidence_bytes: 620 * MiB }],
@@ -433,14 +433,14 @@ for (const mode of ["paging", "timeline-browser"])
         await assert.rejects(h.ready);
         assert.deepEqual(h.mkdirs, []);
     });
-register("admission", "browser-exact20MiB-reserve-fits-base40MiB", async () => {
-    await sandbox("timeline-browser", { base: 20 * MiB }).ready;
+register("admission", "browser-exact20MiB-reserve-fits-base52MiB", async () => {
+    await sandbox("timeline-browser", { base: 32 * MiB }).ready;
 });
 register(
     "admission",
     "browser-one-byte-short-reserve-refuses-before-packet",
     async () => {
-        const h = sandbox("timeline-browser", { base: 20 * MiB + 1 });
+        const h = sandbox("timeline-browser", { base: 32 * MiB + 1 });
         await assert.rejects(h.ready);
         assert.deepEqual(h.mkdirs, []);
     },
@@ -498,6 +498,25 @@ register(
                 "timeline-browser",
             ),
         );
+        // V3 extension: the complete old revision2 record cannot admit V3.
+        assert.throws(() =>
+            api.checkedPagingBudget(
+                Buffer.from(
+                    JSON.stringify(
+                        record("timeline-browser", {
+                            version: 2,
+                            kind: "d08_domain2_timeline_browser_budget_v2",
+                            cumulative_limit_bytes: 648 * MiB,
+                        }),
+                    ),
+                ),
+                revision,
+                paths.target,
+                1000,
+                "timeline-browser",
+            ),
+        );
+        // V3 extension end.
         assert.throws(() =>
             api.checkedPagingBudget(
                 Buffer.from(
@@ -520,8 +539,8 @@ register(
 register("decoder", "browser-duplicate-key-stays-refused", async () => {
     const bytes = Buffer.from(
         JSON.stringify(record("timeline-browser")).replace(
-            '"version":2',
-            '"version":2,"version":2',
+            '"version":3',
+            '"version":3,"version":3',
         ),
     );
     const h = sandbox("timeline-browser", { bytes });
@@ -533,24 +552,31 @@ register(
     "storage",
     "browser-exact-postchild-packet-and-base-metadata-reserve-fit",
     async () => {
-        const h = sandbox("timeline-browser", { base: 20 * MiB }),
+        const h = sandbox("timeline-browser", { base: 32 * MiB }),
             api = await h.ready;
         h.control.packet = 19 * MiB;
         const measured = await api.measureStorage();
         assert.equal(measured.packet.bytes, 19 * MiB);
-        assert.equal(measured.pagingEvidence, 39 * MiB);
+        assert.equal(measured.pagingEvidence, 51 * MiB);
+        // V3 growth boundary: preserve the original target baseline in actual accounting.
+        h.control.target = 1000 + 4 * 1024 ** 3;
+        assert.equal((await api.measureStorage()).targetGrowth, 4 * 1024 ** 3);
+        h.control.target++;
+        await assert.rejects(api.measureStorage());
+        assert.equal(api.observe().storageBreached, true);
+        // V3 growth boundary end.
     },
 );
 for (const [name, packet] of [
     ["packet-one-byte-over-metadata-reserve", 19 * MiB + 1],
-    ["base-and-packet-overlap", 41 * MiB],
+    ["base-and-packet-overlap", 53 * MiB],
     ["joint-and-packet-overlap", 19 * MiB + 1],
 ])
     register("storage", `browser-permanent:${name}`, async () => {
         const patch =
             name === "joint-and-packet-overlap"
                 ? {
-                      external_evidence_bytes: 628 * MiB,
+                      external_evidence_bytes: 640 * MiB,
                       d05_external_evidence_bytes: 0,
                   }
                 : {};
@@ -589,6 +615,13 @@ register("storage", "legacy-retains64MiB-packet-and128MiB-base", async () => {
     const observed = await api.measureStorage();
     assert.equal(observed.packet.bytes, 30 * MiB);
     assert.equal(observed.pagingEvidence, 31 * MiB);
+    // Legacy growth boundary: the browser increase never expands paging.
+    h.control.target = 1000 + 2 * 1024 ** 3;
+    assert.equal((await api.measureStorage()).targetGrowth, 2 * 1024 ** 3);
+    h.control.target++;
+    await assert.rejects(api.measureStorage());
+    assert.equal(api.observe().storageBreached, true);
+    // Legacy growth boundary end.
 });
 
 for (const mode of ["paging", "timeline-browser"])
@@ -714,7 +747,7 @@ for (const item of cases) {
 const report = {
     version: 1,
     kind: "d08_timeline_browser_native_mode_first_v1",
-    browserBudgetContractVersion: 2,
+    browserBudgetContractVersion: 3,
     sourceOnlyAtFreeze: true,
     authored: cases.length,
     executed: results.length,

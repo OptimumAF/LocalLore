@@ -484,7 +484,7 @@ function checkedPagingBudget(
         throw Error("PagingBudgetInvalid");
     };
     if (
-        !["paging", "timeline-browser"].includes(mode) ||
+        !["paging", "timeline-browser", "domain2-fork"].includes(mode) ||
         !Buffer.isBuffer(bytes) ||
         bytes.length > 4096 ||
         typeof revision !== "string" ||

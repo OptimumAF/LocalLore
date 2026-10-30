@@ -106,7 +106,8 @@ def parse_probe(raw):
     _object(value, PROBE_KEYS)
     _need(type(value['version']) is int and value['version'] == 2 and
           value['protocol'] == PROBE_PROTOCOL and value['mode'] == 'snapshot', 'probe')
-    _integer(value['observed_boottime_ns'])
+    if value['state'] != 'refused' or value['observed_boottime_ns'] is not None:
+        _integer(value['observed_boottime_ns'])
     semantic = {key: value[key] for key in legacy.PROBE_KEYS}
     semantic.update(version=1, protocol=legacy.PROBE_PROTOCOL)
     try:

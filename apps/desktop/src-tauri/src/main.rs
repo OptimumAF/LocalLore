@@ -269,7 +269,9 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         let path = std::path::PathBuf::from(
             std::env::var_os("LOCALLORE_TEST_WORKSPACE").unwrap_or_default(),
         );
-        let profile = if comparison_run_native_harness::review_active() {
+        let profile = if v2_inspection_paging_harness::active() {
+            v2_inspection_paging_harness::webview_profile(&path).map_err(std::io::Error::other)?
+        } else if comparison_run_native_harness::review_active() {
             comparison_run_native_harness::review_webview_profile(&path)
                 .map_err(std::io::Error::other)?
         } else {

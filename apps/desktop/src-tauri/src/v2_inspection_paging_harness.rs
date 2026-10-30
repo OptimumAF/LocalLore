@@ -163,6 +163,34 @@ fn fixture_scopes() -> [Scope; 3] {
         },
     ]
 }
+
+/// Fresh development profile beside the fixed workspace, inside its packet.
+/// No profile creation, migration, reuse, repair or renderer-supplied address.
+pub fn webview_profile(workspace: &Path) -> Result<PathBuf, String> {
+    validate_workspace_path(workspace)?;
+    let packet = workspace
+        .parent()
+        .and_then(Path::parent)
+        .ok_or_else(workspace_invalid)?;
+    let identifier = packet
+        .file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_prefix("p-"))
+        .ok_or_else(workspace_invalid)?;
+    if !lowercase_uuid(identifier) {
+        return Err(workspace_invalid());
+    }
+    let profile = packet.join("webview-profile");
+    let text = profile.to_str().ok_or_else(workspace_invalid)?;
+    // Conservative test-layout budget; not a vendor limit or startup guarantee.
+    if text.encode_utf16().count() > 190 {
+        return Err(workspace_invalid());
+    }
+    match fs::symlink_metadata(&profile) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(profile),
+        Ok(_) | Err(_) => Err(workspace_invalid()),
+    }
+}
 fn fixed_seed(other: bool) -> Result<Seed, String> {
     let mut seed: Seed =
         serde_json::from_str(include_str!("../../../../fixtures/lantern_quay.json"))
@@ -512,3 +540,7 @@ pub async fn harness_v2_inspection_paging(
 #[cfg(test)]
 #[path = "v2_inspection_paging_harness_review_tests.rs"]
 mod review_tests;
+
+#[cfg(all(test, windows))]
+#[path = "v2_inspection_paging_profile_review_tests.rs"]
+mod profile_review_tests;

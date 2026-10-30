@@ -95,7 +95,7 @@ def _verify_build_closed(pin, admission):
         for row in rows:
             pair = (row.attrib.get('classname'), row.attrib.get('name'))
             _need(all(type(part) is str and part for part in pair) and
-                  not any(row.find(tag) is not None for tag in ('failure', 'error', 'skipped')))
+                  not any(node.tag in ('failure', 'error', 'skipped') for node in row.iter()))
             cases.append(pair)
         total += item['tests']
     _need(total == len(cases) == len(set(cases)) == 600)
@@ -112,6 +112,8 @@ def _verify_build_closed(pin, admission):
               admission['artifacts'][key])
         original._check_binding(admission['artifacts'][key])
     native = original._verify_process_probe_build(value['process_probe_build'], admission)
+    native_owner = original._json(native['owner'])
+    c6._int(native_owner['elapsed_ms'], 0, 312000, 'budget')
     started = original._json(native['started'])
     c6._obj(started, ('worker', 'request'))
     c6._process(started['worker'])

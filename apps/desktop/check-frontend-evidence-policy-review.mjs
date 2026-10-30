@@ -19,6 +19,7 @@ const P = path.win32,
 const SRC = "D:\\d09-source",
     OUT = "D:\\d09-evidence",
     ADMISSION = "D:\\d09-admission.json";
+const PARENT_TEMP = "D:\\Dev\\_Temp";
 const NEW_STEP = "check-frontend-evidence-policy-review.mjs";
 const MODULE = "frontend-evidence-policy.mjs",
     DRIVER = "verify-frontend.mjs";
@@ -167,6 +168,8 @@ function world({
         add(where, { type: "file", size, bytes: Buffer.from(bytes) });
     };
     dir(SRC);
+    dir(P.join(SRC, "ui"));
+    dir(PARENT_TEMP);
     dir(OUT);
     dir(P.join(OUT, "_tmp"));
     if (initial) file(P.join(OUT, "retained.bin"), initial);
@@ -487,6 +490,7 @@ async function driver({
     script = () => ({}),
     w = world({ products: 16 }),
     env = {},
+    sourceUrl = null,
 } = {}) {
     const timer = clock(),
         calls = [],
@@ -501,6 +505,8 @@ async function driver({
         execPath: process.execPath,
         platform: "win32",
         env: {
+            TEMP: PARENT_TEMP,
+            TMP: PARENT_TEMP,
             LOCALLORE_CHECK_OUTPUT_DIR: OUT,
             LOCALLORE_CHECK_BUDGET_FILE: ADMISSION,
             ...env,
@@ -540,6 +546,7 @@ async function driver({
             kills: 0,
             closed: false,
             exit: false,
+            detach: [],
         };
         calls.push(entry);
         w.events.push({
@@ -552,6 +559,20 @@ async function driver({
         child.stdout = new EventEmitter();
         child.stderr = new EventEmitter();
         child.pid = calls.length + 100;
+        // Closed lifecycle doubles: record attempts, not actual pipe/process
+        // detachment. A thrown attempt must not suppress the other two.
+        for (const channel of ["stdout", "stderr"]) {
+            child[channel].destroy = () => {
+                entry.detach.push({ method: `${channel}.destroy`, at: timer.now });
+                if (specification.detachThrows === channel) throw Error("SyntheticDestroyFailure");
+                return child[channel];
+            };
+        }
+        child.unref = () => {
+            entry.detach.push({ method: "child.unref", at: timer.now });
+            if (specification.detachThrows === "unref") throw Error("SyntheticUnrefFailure");
+            return child;
+        };
         const close = () => {
             if (entry.closed) return;
             entry.closed = true;
@@ -619,7 +640,8 @@ async function driver({
             return timer.now;
         }
     };
-    const api = loadCjs(driverParts, {
+    const actualDriverCode = sourceUrl === null ? driverParts : await compile(source[DRIVER], DRIVER, true, "", sourceUrl);
+    const api = loadCjs(actualDriverCode, {
         imports: importsFor(w, {
             "node:child_process": { spawn },
             "./frontend-evidence-policy.mjs": observed,
@@ -746,7 +768,7 @@ function loggedObjects(logs) {
 
 // Actual-source top-level-await adaptation only. Imports stay imports and every
 // original body statement executes; no scheduler/decoder/policy is copied here.
-async function compile(text, filename, wrapped = false, tail = "") {
+async function compile(text, filename, wrapped = false, tail = "", sourceUrl = `file:///D:/d09-source/${filename}`) {
     const importPattern = /^import\s[\s\S]*?;\s*(?:\r?\n|$)/gm;
     const imports = [...text.matchAll(importPattern)]
         .map((m) => m[0])
@@ -755,7 +777,7 @@ async function compile(text, filename, wrapped = false, tail = "") {
         .replace(importPattern, "")
         .replaceAll(
             "import.meta.url",
-            JSON.stringify(`file:///D:/d09-source/${filename}`),
+            JSON.stringify(sourceUrl),
         );
     const contents = wrapped
         ? `${imports}\nexport async function __reviewDriver(){\n${body}\n${tail}\n}`
@@ -1900,20 +1922,88 @@ test("source", "original-normal-bundle-exclusion-assertions-preserved", () => {
     );
 });
 
+// BEGIN_D09_INDEPENDENT_REVIEW_EXTENSION_V1
+// Fixed source-review findings frozen BEFORE the producer corrections. These
+// use ordinary virtual entries and lifecycle method doubles, not OS probes.
+test("path", "required-ui-parent-missing-even-when-generated-leaf-is-absent", async () => {
+    const w = world(); w.remove(P.join(SRC, "ui"));
+    const before = w.bytes();
+    await rejects(() => opened(w), ["Path", "Inventory"]);
+    assert.equal(w.bytes(), before); assert.deepEqual(w.writes, []);
+});
+test("path", "required-ui-parent-lost-after-binding-is-not-zero-products", async () => {
+    const { w, policy } = await opened(); await policy.beforeStep(0);
+    w.remove(P.join(SRC, "ui"));
+    await rejects(() => policy.completeStep(0, goodOutcome()), ["Path", "Inventory"]);
+    const failed = clone(policy.snapshot());
+    checkedSnapshot(failed, { status: "failed", nextIndex: 0, activeIndex: 0, currentBytes: null, productBytes: null });
+    assert(["Path", "Inventory"].includes(failed.error));
+    await rejects(() => policy.beforeStep(1), failed.error); await rejects(() => policy.finish(), failed.error);
+    assert.deepEqual(policy.snapshot(), failed);
+});
+for (const kind of ["node", "git"]) for (const detachThrows of [null, "stdout", "stderr", "unref"])
+    test("driver", `unknown-${kind}-independent-detachment-${detachThrows ?? "all-methods"}`, async () => {
+        const r = await driver({ script: ({ isGit, index }) => index === 0 && isGit === (kind === "git")
+            ? { noClose: true, killFalse: true, detachThrows } : {} });
+        if (kind === "node") {
+            failureStops(r, 1);
+            checkedSnapshot(r.policies[0].snapshot(), { status: "failed", error: "UnknownChild", currentBytes: null, productBytes: null });
+        } else {
+            noDriverSuccess(r); assert.equal(r.nodeCalls.length, 0); assert.equal(r.gitCalls.length, 1);
+            assert.equal(r.timer.pending, 0);
+        }
+        const child = kind === "node" ? r.nodeCalls[0] : r.gitCalls[0];
+        const expiry = (kind === "node" ? 240000 : 15000) + 5000;
+        assert.equal(child.kills, 1); assert.equal(child.closed, false); assert.equal(r.timer.now, expiry);
+        for (const method of ["stdout.destroy", "stderr.destroy", "child.unref"]) {
+            const attempts = child.detach.filter((item) => item.method === method);
+            assert(attempts.length >= 1, `UnknownClosureMustAttempt:${method}`);
+            assert(attempts.every((item) => item.at === expiry), `DetachOnlyAtGraceExpiry:${method}`);
+        }
+        assert.equal(r.calls.at(-1), child, "NoLaterGitOrNodeAfterUnknownOwner");
+    });
+for (const [name, mutate, sourceUrl = null] of [
+    ["source-alias", (w) => { w.dir("D:\\alias-source"); w.get(SRC).real = "D:\\alias-source"; }],
+    ["source-link", (w) => { w.get(SRC).type = "link"; }],
+    ["source-non-D", (w) => { w.dir("C:\\d09-source"); w.dir("C:\\d09-source\\ui"); }, "file:///C:/d09-source/verify-frontend.mjs"],
+    ["source-ancestor-link", (w) => { w.get("D:\\").type = "link"; }],
+]) test("driver", `before-any-Git-${name}`, async () => {
+    const w = world({ products: 16 }); mutate(w);
+    const r = await driver({ w, sourceUrl }); noDriverSuccess(r);
+    assert.equal(r.gitCalls.length, 0); assert.equal(r.nodeCalls.length, 0); assert.equal(r.calls.length, 0);
+});
+for (const field of ["TEMP", "TMP"]) for (const fault of ["alias", "missing", "non-D", "link"])
+    test("driver", `before-any-Git-parent-${field}-${fault}`, async () => {
+        const w = world({ products: 16 }), env = {};
+        const target = `D:\\d09-parent-${field}`;
+        if (fault === "missing") env[field] = undefined;
+        else if (fault === "non-D") {
+            const other = `C:\\d09-parent-${field}`; w.dir(other); env[field] = other;
+        } else {
+            w.dir(target); env[field] = target;
+            if (fault === "alias") {
+                const alias = `D:\\d09-alias-${field}`; w.dir(alias); w.get(target).real = alias;
+            } else w.get(target).type = "link";
+        }
+        const r = await driver({ w, env }); noDriverSuccess(r);
+        assert.equal(r.gitCalls.length, 0); assert.equal(r.nodeCalls.length, 0); assert.equal(r.calls.length, 0);
+    });
+// END_D09_INDEPENDENT_REVIEW_EXTENSION_V1
+
 const frozenGroups = {
     record: 30,
-    path: 24,
+    path: 26,
     budget: 13,
     lifecycle: 24,
     inventory: 4,
-    driver: 40,
+    driver: 60,
     routing: 12,
     source: 2,
 };
 const authoredGroups = {};
 for (const entry of tests)
     authoredGroups[entry.group] = (authoredGroups[entry.group] ?? 0) + 1;
-assert.deepEqual(authoredGroups, frozenGroups, "Frozen149CaseSourceRoster");
+assert.deepEqual(authoredGroups, frozenGroups, "Frozen171CaseSourceRoster");
 
 // Setup must succeed before ANY behavior runs. The absent prospective producer
 // is not behavior RED, a skipped PASS, or permission to supply a copied policy.

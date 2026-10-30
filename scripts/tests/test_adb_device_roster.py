@@ -302,20 +302,22 @@ class DeviceRosterTests(unittest.TestCase):
         self.assertTrue(backend.closed)
 
     def test_well_formed_unrelated_tcp_row_never_passes_verdict_or_serialization(self):
-        report = roster.probe(RosterBackend(), admission(), version_proof())
-        selected = report['stages'][0]['snapshot']
-        unrelated = held.row4(local_port=6000)
-        decoded = legacy.decode_table(b'\x01\x00\x00\x00'+unrelated, 2)[0]
-        selected['rows'].append(dict(family=2, ordinal=1, raw_hex=unrelated.hex(),
-            raw_sha256=hashlib.sha256(unrelated).hexdigest(), row=asdict(decoded)))
-        table = selected['tables'][0]
-        full_table = struct.pack('<I', 2)+bytes.fromhex(selected['rows'][0]['raw_hex'])+unrelated
-        table.update(count=2, returned_bytes=len(full_table), allocated_bytes=len(full_table),
-                     raw_sha256=hashlib.sha256(full_table).hexdigest())
-        with self.subTest(boundary='verdict'):
-            self.assertIs(roster.report_verified(report, admission()), False)
-        with self.subTest(boundary='serialization'):
-            self.refused(lambda: roster.report_bytes(report, admission()))
+        for target in ('outer', 'version_proof'):
+            report = roster.probe(RosterBackend(), admission(), version_proof())
+            selected_report = report if target == 'outer' else report['version_proof']
+            selected = selected_report['stages'][0]['snapshot']
+            unrelated = held.row4(local_port=6000)
+            decoded = legacy.decode_table(b'\x01\x00\x00\x00'+unrelated, 2)[0]
+            selected['rows'].append(dict(family=2, ordinal=1, raw_hex=unrelated.hex(),
+                raw_sha256=hashlib.sha256(unrelated).hexdigest(), row=asdict(decoded)))
+            table = selected['tables'][0]
+            full_table = struct.pack('<I', 2)+bytes.fromhex(selected['rows'][0]['raw_hex'])+unrelated
+            table.update(count=2, returned_bytes=len(full_table), allocated_bytes=len(full_table),
+                         raw_sha256=hashlib.sha256(full_table).hexdigest())
+            with self.subTest(target=target, boundary='verdict'):
+                self.assertIs(roster.report_verified(report, admission()), False)
+            with self.subTest(target=target, boundary='serialization'):
+                self.refused(lambda: roster.report_bytes(report, admission()))
 
 
 if __name__ == '__main__':

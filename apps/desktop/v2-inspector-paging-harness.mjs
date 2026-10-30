@@ -923,6 +923,10 @@ try {
         };
     else
         try {
+            // A failed identity check must never authorize overwriting changed
+            // products. Before the first successful snapshot, known closed
+            // build failures can still restore under the ordinary guards.
+            if (productHashes) await unchangedProducts();
             await run(process.execPath, ["build.mjs"]);
             await run("cargo", buildArgs(true));
             restoration = {

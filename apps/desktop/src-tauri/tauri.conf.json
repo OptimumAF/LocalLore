@@ -32,6 +32,7 @@
                         "allow-archive-catalog",
                         "allow-fork-start",
                         "allow-fork-lookup",
+                        "allow-fork-boundaries",
                         "allow-memory-maintenance-start",
                         "allow-memory-inspection",
                         "allow-harness-memory-case",

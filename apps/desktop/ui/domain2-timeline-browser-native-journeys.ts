@@ -6,7 +6,10 @@ import { timelineContext } from "./timeline-controller";
 import { decodeBranchCatalog } from "./timeline-model";
 import type { V2PlayController } from "./v2-play-controller";
 import type { FaultGateway } from "./journeys";
-import { browserFinish, browserReadOnlyCallAllowed } from "./domain2-timeline-browser-finalization";
+import {
+    browserFinish,
+    browserReadOnlyCallAllowed,
+} from "./domain2-timeline-browser-finalization";
 import {
     category,
     structural,
@@ -668,42 +671,46 @@ export async function domain2TimelineBrowserNativeJourneys({
     const finish = (() => {
         let finalization: Promise<void> | null = null;
         return (report: Record<string, unknown>): Promise<void> => {
-        if (finalization) return finalization;
-        const value = {
-            synthetic: true,
-            mode: MODE,
-            checks,
-            assertions,
-            distinctChecks: checks.length,
-            captures,
-            nativeCaptures: captures.length,
-            baseline,
-            finalOracle,
-            proofs,
-            observations,
-            scrollObservations,
-            deliveries,
-            fontMeasurements: fonts,
-            calls: trace(),
-            errors: errors.snapshot(),
-            realModelGeneration: false,
-            desktopInput: false,
-            rendering: captures.length ? "native-webview2" : "unavailable",
-            unavailable: [
-                "Source author did not execute; Root must individually review every actual image",
-                "Branches hold/error are post-real-IPC delivery doubles, not native Host refusal or worker cancellation",
-                "No physical keyboard/screenreader, restart/process death, Android, model, offline/network or OS isolation qualification",
-            ],
-            ...report,
-        };
-        const checkpoints = captures.map(label => ({
-            label,
-            count: scrollObservations.filter(observation => observation.label === label).length,
-        }));
-        // Assign the promise before invoking native code; the outer catch and
-        // any synchronous reentry share its rejection instead of sending again.
-        finalization = Promise.resolve().then(() => browserFinish(invoke, value, checkpoints));
-        return finalization;
+            if (finalization) return finalization;
+            const value = {
+                synthetic: true,
+                mode: MODE,
+                checks,
+                assertions,
+                distinctChecks: checks.length,
+                captures,
+                nativeCaptures: captures.length,
+                baseline,
+                finalOracle,
+                proofs,
+                observations,
+                scrollObservations,
+                deliveries,
+                fontMeasurements: fonts,
+                calls: trace(),
+                errors: errors.snapshot(),
+                realModelGeneration: false,
+                desktopInput: false,
+                rendering: captures.length ? "native-webview2" : "unavailable",
+                unavailable: [
+                    "Source author did not execute; Root must individually review every actual image",
+                    "Branches hold/error are post-real-IPC delivery doubles, not native Host refusal or worker cancellation",
+                    "No physical keyboard/screenreader, restart/process death, Android, model, offline/network or OS isolation qualification",
+                ],
+                ...report,
+            };
+            const checkpoints = captures.map((label) => ({
+                label,
+                count: scrollObservations.filter(
+                    (observation) => observation.label === label,
+                ).length,
+            }));
+            // Assign the promise before invoking native code; the outer catch and
+            // any synchronous reentry share its rejection instead of sending again.
+            finalization = Promise.resolve().then(() =>
+                browserFinish(invoke, value, checkpoints),
+            );
+            return finalization;
         };
     })();
     const armDelivery = (kind: Delivery["kind"]) => {

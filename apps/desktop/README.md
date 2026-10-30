@@ -63,9 +63,10 @@ and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
 
 The V2 inspector now has bounded Previous/Next navigation that refetches permitted
 pages from Rust. Its [current qualification report](../../docs/desktop/D05_V2_INSPECTOR_PAGING_QUALIFICATION_2026-10-30.md)
-separates frontend/Store/Host tests from the native UI gate. The current native
-attempt reaches a complete synthetic database, then fails during WebView2 startup;
-mounted pager behavior, enlarged target text and image review remain unverified.
+separates frontend/Store/Host tests from the native UI gate. After preserved startup
+failures, the current native attempt renders real first/second pages but fails
+focus restoration after pending navigation. Both early captures were inspected;
+the full journey, enlarged target text and later image review remain unverified.
 
 **Derived memory** reads the selected saved story's shared maintenance status.
 Preparing derived data requires consent; **Process one chunk** performs one

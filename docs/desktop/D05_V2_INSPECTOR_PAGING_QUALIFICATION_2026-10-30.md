@@ -1,7 +1,8 @@
 # D05 V2 inspector paging qualification
 
-Refs #26, D05.03/D05.07 supporting slice. **In progress; no native UI or whole
-D05 acceptance yet.** GitHub owns current status and claims. This report records
+Refs #26, D05.03/D05.07 supporting slice. **In progress; early native navigation
+executes but fails focus, with no full native UI or whole D05 acceptance.** GitHub
+owns current status and claims. This report records
 the preserved failures as well as subsequent checks; a later result does not
 replace an earlier observation.
 
@@ -173,6 +174,43 @@ At3b835f9f strict Clippy/format pass and only the calibrated boundary group runs
 again, passing and retaining two more tiny packet roots/two padding ancestors.
 No repeat of the full five/recipe cohorts, SQLite, WebView or model in these tests.
 
+## First actual mounted pager result
+
+At cleanfa1d5e38 the shortened fresh profile successfully creates the hidden,
+unfocused WebView2. This does not prove the prior HRESULT's exact cause. Actual
+normal native IPC reads the fixture, mounts the first Player history page,
+follows/refetches permitted original-event evidence, and Next displays the real
+second64-row page of130. The journey then fails
+next-second-no-row-or-unrelated-panel-focus-steal: the same Next control remains
+mounted and is reenabled, but automatic pending-disable blur leaves focus on BODY.
+The enabled-completion assertion remains unchanged. Runtime UA is
+WindowsNT10.0/Win64/x64, Edg156.0.0.0.
+
+The launcher exits1 after60.268s with known child closure, normal frontend/exe
+restored/unlaunched and no unknown drain/storage latch. Native error buffer is
+empty. This is a failed partial native journey, not a twenty-capture pass.
+Packet p-e1d4ed35-07b9-4527-a6d5-0445273d1912 is retained10,737,705B; measured
+cumulative paging25,232,868B/joint526,877,521B at closure. No final canonical oracle,
+observer-switch,150% or disposal acceptance follows the early failure.
+
+Exactly two PNGs were produced and individually inspected by Root: d05-page-first
+and d05-page-failure. Both show coherent primary/paging, Player/gameplayactorplayer,
+head44/inspected44, fake fixture/durable/idle labels and readable real row identities.
+Context header and actual pager/status fit together without required pager clipping
+or overlap. The upper query form is partly scrolled behind the sticky context by
+the chosen navigation framing. The failure frame shows a real second page, one
+predecessor, enabled controls and absent button focus; Player-only row022 is
+authorized under Player. No physical input/accessibility acceptance is implied.
+Local per-image path/SHA/UA/notes record native-fa1d5e38-image-review1.json has SHA
+497b863a20eaee5b02e28cfe3cd816cd28f69c689005494f35ad67f6c45f54aa.
+
+The [guarded focus correction contract](D05_V2_PAGER_FOCUS_CONTRACT_2026-10-30.md)
+is independently reviewed at91acb40e before different-author FIRST/production.
+It preserves disabled semantics, guards context/user focus and requires actual
+reentrant-controller cases. No production focus correction or rerun is implied
+by the contract. Acceptedmain328eefe5 is reconciled asdd761ed4; its69 commits do
+not change desktop/shared Rust/Cargo inputs compared with the testedfa source.
+
 ## Resource and acceptance limits
 
 All raw/derived/proofs/logs/failures/SQLite/packets remain local and ignored under
@@ -191,8 +229,9 @@ stream256KiB. Unknown direct-child ownership or failed/over-budget inventory
 sticks and forbids later Git/native/restoration work. This is cooperative
 child-boundary accounting, not process-tree containment or OS isolation.
 
-No native images exist yet. Actual20-label mounted UI/IPC, per-image inspection,
-12-target font measurements and final full frontend driver remain required.
+The first two native images are reviewed, but the actual20-label mounted UI/IPC
+journey, all resulting image inspections,12-target font measurements and final
+full frontend driver remain required.
 Physical keyboard/screen-reader, native restart/process death, actual model,
 Android SDK/device, OS/network isolation, packaging/release and whole D05/desktop
 epic gates are not qualified by these checks. Delivery hold/drop are explicitly

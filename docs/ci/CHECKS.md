@@ -44,6 +44,9 @@ third command, and its failure stops the gate.
 An actual fresh offline archive-profile execution, including 332 passing JVM
 cases, lint and both public audits, is recorded in the
 [2026-10-30 public Android gate report](../android/PUBLIC_ANDROID_GATE_VERIFICATION_2026-10-30.md).
+The [updated system-theme archive report](../android/SYSTEM_THEME_ARCHIVE_VERIFICATION_2026-10-30.md)
+records a later fresh run of the same gate with 337 passing JVM cases and the
+current theme resources; device execution remains separate.
 It does not install APKs or run device tests. `--clean` cleans Android outputs
 before these checks and is rejected for `host`. Android checks require Java 17,
 SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865 and the Rust 1.93.1

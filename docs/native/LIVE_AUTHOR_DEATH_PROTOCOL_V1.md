@@ -117,7 +117,7 @@ Run host regression from the physical D: checkout with process-local `TEMP`,
 
 ```powershell
 python -B -m unittest discover -s scripts/tests
-python -B -m unittest benchmarks.test_runtime_spike
+python -B -m unittest discover -s benchmarks -p test_runtime_spike.py
 ```
 
 The prospective guest path constant is not permission to create, reserve or

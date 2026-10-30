@@ -23,8 +23,8 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 The [held-AUTHOR process-death protocol](docs/native/LIVE_AUTHOR_DEATH_PROTOCOL_V1.md)
 adds a separate SDK6 harness that retains a real native workspace while the
-host observes alive, force-stop and death. Android execution is unrun; host
-replay and offline compilation must retain their separate evidence scope.
+host observes alive, force-stop and death. Its [host and offline-build checks](docs/native/LIVE_AUTHOR_DEATH_VERIFICATION_2026-10-29.md)
+pass; Android live-death execution remains unrun.
 
 The [owned-target model run](docs/native/OWNED_TARGET_VERIFICATION_2026-10-29.md)
 now verifies one real local-model import/AUTHOR/internal-reopen case on an

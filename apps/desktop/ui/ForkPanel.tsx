@@ -20,8 +20,13 @@ export function ForkPanel({
         [openError, setOpenError] = useState<string | null>(null);
     useEffect(() => {
         setBoundary(context?.revision ?? 0);
+    }, [context?.session, context?.scope.story, context?.scope.branch,
+        context?.revision, context?.observer, context?.view, context?.persistent]);
+    useEffect(() => {
         setOpenError(null);
-    }, [context?.session, context?.revision, context?.observer, context?.view]);
+    }, [context?.session, context?.scope.story, context?.scope.branch,
+        context?.revision, context?.observer, context?.view, context?.persistent,
+        s.request, s.result]);
     useEffect(() => {
         if (s.request) setShown(true);
     }, [s.request]);

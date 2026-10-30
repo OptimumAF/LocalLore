@@ -407,8 +407,9 @@ export class ForkController {
         });
         try {
             if (!this.live(epoch)) return;
-            if (this.state.admissionBlocked) {
-                this.patch({ busy: false, status: "prepared", operation: null, error: "Busy", consent: false });
+            if (this.state.admissionBlocked || !this.state.consent) {
+                this.patch({ busy: false, status: "prepared", operation: null,
+                    error: this.state.admissionBlocked ? "Busy" : "ForkConsentRequired", consent: false });
                 return;
             }
             const initial = await this.invoke("fork_start", {

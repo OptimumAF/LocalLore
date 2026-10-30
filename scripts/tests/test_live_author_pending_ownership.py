@@ -82,7 +82,8 @@ class PendingFixture:
         self.p = c.PendingAuthor.__new__(c.PendingAuthor)
         p = self.p
         p.root, p.admission, p.admission_pin, p.running_pin = self.root, self.a, self.admission, self.running
-        p.control = dict(deadline_epoch=self.session['deadline_epoch']+20)
+        p.control = dict(started_epoch=self.session['started_epoch']-10,
+                         deadline_epoch=self.session['deadline_epoch']+20)
         p.request = dict(control_session=self.session_pin)
         p.request_pin = self.save(self.root/'request-v1.json', dict(version=1, original=True))
         p.expected = copy.deepcopy(self.worker)

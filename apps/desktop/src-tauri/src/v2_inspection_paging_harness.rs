@@ -61,8 +61,14 @@ fn runtime_mode() -> Result<bool, String> {
     let browser = std::env::var_os("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS");
     let paging = std::env::var_os(SELECTOR);
     validate_browser_flag(
-        browser.as_ref().map(|v| v.to_str().ok_or("Forbidden")).transpose()?,
-        paging.as_ref().map(|v| v.to_str().ok_or("Forbidden")).transpose()?,
+        browser
+            .as_ref()
+            .map(|v| v.to_str().ok_or("Forbidden"))
+            .transpose()?,
+        paging
+            .as_ref()
+            .map(|v| v.to_str().ok_or("Forbidden"))
+            .transpose()?,
     )?;
     let Some(selector) = paging else {
         return Ok(false);

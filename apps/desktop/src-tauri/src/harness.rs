@@ -95,11 +95,17 @@ const MAX_TIMELINE_BROWSER_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
 mod domain2_timeline_browser_artifact_review_tests;
 
 fn timeline_browser_label(label: &str, enabled: bool) -> bool {
-    enabled && [
-        "d08-browser-catalog", "d08-browser-root", "d08-browser-child",
-        "d08-browser-observer", "d08-browser-enlarged-wide",
-        "d08-browser-enlarged-narrow", "d08-browser-failure",
-    ].contains(&label)
+    enabled
+        && [
+            "d08-browser-catalog",
+            "d08-browser-root",
+            "d08-browser-child",
+            "d08-browser-observer",
+            "d08-browser-enlarged-wide",
+            "d08-browser-enlarged-narrow",
+            "d08-browser-failure",
+        ]
+        .contains(&label)
 }
 
 #[derive(Default)]
@@ -436,11 +442,13 @@ fn selected_scene_active() -> bool {
 // Keep this guard self-contained for the standalone artifact-contract target.
 // Main validates the complete closed environment before fixture/Host setup.
 fn inspector_paging_active() -> bool {
-    active() && std::env::var("LOCALLORE_D05_INSPECTOR_PAGING_HARNESS").as_deref() == Ok("1")
+    active()
+        && std::env::var("LOCALLORE_D05_INSPECTOR_PAGING_HARNESS").as_deref() == Ok("1")
         && std::env::var_os("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS").is_none()
 }
 fn timeline_browser_active() -> bool {
-    active() && std::env::var("LOCALLORE_D05_INSPECTOR_PAGING_HARNESS").as_deref() == Ok("1")
+    active()
+        && std::env::var("LOCALLORE_D05_INSPECTOR_PAGING_HARNESS").as_deref() == Ok("1")
         && std::env::var("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS").as_deref() == Ok("1")
 }
 
@@ -481,8 +489,10 @@ impl HarnessState {
                 labels: HashSet::new(),
                 finished: false,
             }),
-            scene_budget: (selected_scene_active() || inspector_paging_active() || timeline_browser_active())
-                .then(|| Mutex::new(ArtifactBudget::default())),
+            scene_budget: (selected_scene_active()
+                || inspector_paging_active()
+                || timeline_browser_active())
+            .then(|| Mutex::new(ArtifactBudget::default())),
         })
     }
 

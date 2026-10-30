@@ -33,6 +33,18 @@ def version_proof():
     return value
 
 
+def device_row(serial='ORIGINAL_USB', state='device', transport_id=7, *,
+               devpath=None, product=None, model=None, device=None):
+    """Original byte-width %-22s producer fixture, independent of the parser."""
+    value = serial.encode('utf-8').ljust(22, b' ')+b' '+state.encode('utf-8')
+    if devpath is not None:
+        value += b' '+devpath.encode('utf-8')
+    for key, text in (('product', product), ('model', model), ('device', device)):
+        if text is not None:
+            value += (' '+key+':'+text).encode('utf-8')
+    return value+(' transport_id:'+str(transport_id)+'\n').encode('ascii')
+
+
 class RosterBackend(held.FakeBackend):
     def __init__(self, body=BODY, chunks=None, **kwargs):
         super().__init__(chunks=[frame(body), b''] if chunks is None else chunks, **kwargs)
@@ -193,6 +205,82 @@ class DeviceRosterTests(unittest.TestCase):
         report = roster.probe(backend, admission(), version_proof())
         self.assertEqual(report['status'], 'refused')
         self.assertEqual(backend.sent, [])
+
+    def test_parser_retains_untrusted_network_emulator_and_unicode_metadata(self):
+        specifications = [dict(serial='ORIGINAL_USB', state='device', transport_id=7,
+            devpath='usb:1-2', product='original café product', model='Original_Model', device='original device'),
+            dict(serial='192.0.2.11:5555', state='offline', transport_id=8),
+            dict(serial='emulator-7770', state='connecting', transport_id=9),
+            dict(serial='原創端末', state='unauthorized', transport_id=10, devpath='usb:3-1')]
+        body = b''.join(device_row(**specification) for specification in specifications)
+        expected = [dict(serial=None, state=None, devpath=None, product=None, model=None, device=None,
+                         transport_id=None) for _ in specifications]
+        for row, specification in zip(expected, specifications): row.update(specification)
+        actual = roster.parse_devices(body)
+        self.assertEqual(actual, expected)
+        actual[0]['product'] = 'changed'
+        self.assertEqual(roster.parse_devices(body), expected)
+        self.assertEqual(roster.parse_devices(b''), [])
+        for state in ('offline', 'bootloader', 'device', 'host', 'recovery', 'rescue',
+                      'sideload', 'unauthorized', 'authorizing', 'connecting', 'detached', 'any'):
+            self.assertEqual(roster.parse_devices(device_row(state=state))[0]['state'], state)
+
+    def test_parser_preserves_complete_no_permissions_and_missing_serial_placeholders(self):
+        states = ['no permissions; see [http://developer.android.com/tools/device.html]',
+            'no permissions (user in plugdev group; are your udev rules wrong?); see [http://developer.android.com/tools/device.html]']
+        body = b''.join(device_row('(no serial number)', state, index+1, devpath='usb:1-2')
+                        for index, state in enumerate(states))
+        rows = roster.parse_devices(body)
+        self.assertEqual([row['serial'] for row in rows], [None, None])
+        self.assertEqual([row['state'] for row in rows], states)
+        self.assertEqual([row['transport_id'] for row in rows], [1, 2])
+        self.assertEqual([row['devpath'] for row in rows], ['usb:1-2', 'usb:1-2'])
+
+    def test_parser_refuses_duplicate_identity_metadata_markers_and_wrong_order(self):
+        bodies = [device_row()+device_row(transport_id=8),
+                  device_row()+device_row(serial='OTHER', transport_id=7),
+                  device_row(product='a product:b'), device_row(model='A model:B'),
+                  device_row(device='a device:b'), device_row(product='a transport_id:8'),
+                  device_row(model='A product:late'), device_row(device='a model:Late'),
+                  device_row(product=''), device_row(model=''), device_row(device='')]
+        for index, body in enumerate(bodies):
+            with self.subTest(index=index): self.refused(lambda: roster.parse_devices(body))
+
+    def test_parser_refuses_unsupported_wire_controls_partial_rows_and_ambiguous_serials(self):
+        valid = device_row(product='original')
+        bad = [b'\xff', b'\n', valid[:-1], valid+b'\n', b'X device transport_id:1\n',
+               device_row(serial='INTERIOR SPACE'), device_row(state='unknown-state'),
+               device_row(state='no permissions'), device_row(model='Invalid-Model'),
+               device_row(model='模型'), valid.replace(b'original', b'orig\x00inal'),
+               valid.replace(b'original', b'orig\tinal'), valid.replace(b'original', b'orig\rinal'),
+               valid.replace(b'original', b'orig\x7final')]
+        for index, body in enumerate(bad):
+            with self.subTest(index=index): self.refused(lambda: roster.parse_devices(body))
+        for value in (None, True, '', [], bytearray(valid)):
+            self.refused(lambda: roster.parse_devices(value))
+
+    def test_parser_enforces_utf8_byte_field_caps_and_positive_uint64_transport(self):
+        full = device_row(serial='s'*256, product='é'*128, devpath='d'*256, device='v'*256,
+                          transport_id=2**64-1)
+        self.assertEqual(roster.parse_devices(full)[0]['transport_id'], 2**64-1)
+        for specification in (dict(serial='s'*257), dict(product='é'*128+'x'),
+                              dict(devpath='d'*257), dict(device='v'*257),
+                              dict(model='M'*257), dict(transport_id=0), dict(transport_id=-1),
+                              dict(transport_id=2**64), dict(transport_id='+1')):
+            with self.subTest(specification=specification):
+                self.refused(lambda: roster.parse_devices(device_row(**specification)))
+        prefix = 'no permissions ('
+        suffix = '); see [http://developer.android.com/tools/device.html]'
+        state = prefix+'r'*(512-len(prefix+suffix))+suffix
+        self.assertEqual(roster.parse_devices(device_row(state=state))[0]['state'], state)
+        self.refused(lambda: roster.parse_devices(device_row(state=prefix+'r'+state[len(prefix):])))
+
+    def test_parser_row_body_caps_and_last_malformed_row_are_not_silent_truncation(self):
+        body = b''.join(device_row('ROW%d' % index, transport_id=index+1) for index in range(256))
+        self.assertEqual(len(roster.parse_devices(body)), 256)
+        self.refused(lambda: roster.parse_devices(body+device_row('EXTRA', transport_id=257)))
+        self.refused(lambda: roster.parse_devices(body+b'LAST malformed\n'))
+        self.refused(lambda: roster.parse_devices(b'x'*65536))
 
 
 if __name__ == '__main__':

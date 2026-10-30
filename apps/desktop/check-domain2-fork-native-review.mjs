@@ -137,7 +137,8 @@ function record(mode = "domain2-fork", patch = {}) {
         external_evidence_bytes: 500 * MiB,
         d05_external_evidence_bytes: 20 * MiB,
         cumulative_limit_bytes:
-            (mode === "paging" ? 640 : mode === "domain2-fork" ? 692 : 660) * MiB,
+            (mode === "paging" ? 640 : mode === "domain2-fork" ? 692 : 660) *
+            MiB,
         ...patch,
     };
 }

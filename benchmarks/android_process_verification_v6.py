@@ -256,6 +256,7 @@ def verify_pending_author(pin, admission, admission_binding, running_binding, co
     c._obj(started, ('request', 'worker'), 'binding'); _same(started['request'], value['request'])
     c._process(started['worker'])
     parent_session = c.validate_session(_json(control_session), a)
+    c._need(PureWindowsPath(request['root']) == PureWindowsPath(parent_session['root'])/'pending-author-v1', 'binding')
     c._need(started['worker']['pid'] != parent_session['caller']['pid'], 'identity')
     owner = _json(value['owner'])
     c._obj(owner, ('status', 'cleanup_complete', 'elapsed_ms', 'worker_returncode',

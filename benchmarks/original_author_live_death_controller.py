@@ -76,6 +76,9 @@ def _worker(request_pin):
           type(request['seconds']) is int and request['seconds'] == AUTHOR_SECONDS and
           type(request['owner_seconds']) is int and request['owner_seconds'] == AUTHOR_OWNER_SECONDS)
     root = env.safe_path(request['root'], directory=True)
+    _need(root.drive.upper() == 'D:' and root.resolve(strict=True) == root and
+          not root.is_relative_to(ROOT) and
+          all(not os.path.lexists(p/'.git') for p in (root, *root.parents)), 'output')
     _need(request_pin == env.binding(root/'request-v1.json'))
     until = time.monotonic()+5
     while not os.path.lexists(root/'started-v1.json'):
@@ -89,7 +92,7 @@ def _worker(request_pin):
     _need(request['controller'] == env.binding(Path(__file__).resolve()), 'source')
     control = c6.validate_session(_bound(request['control_session']), a)
     _need(control['admission'] == request['admission'] and control['running'] == request['running'] and
-          control['caller']['pid'] == os.getppid(), 'identity')
+          control['caller']['pid'] == os.getppid() and root == Path(control['root'])/'pending-author-v1', 'identity')
     live = cap = None
     outcome, closed, client_pin, session_pin = 'refused', None, None, None
     try:
@@ -99,8 +102,10 @@ def _worker(request_pin):
         cap = OwnedLiveDeathSdkCapture(root/'capture-v1/clients', AUTHOR_SECONDS, live)
         session_pin = cap.session_binding
         _need(cap.session['deadline_epoch'] <= control['deadline_epoch'], 'aggregate_budget')
-        env.create_json(root/'worker-ready-v1.json', dict(version=1, protocol='owned-live-author-ready-v1',
+        ready_pending = root/'worker-ready.pending-v1.json'
+        env.create_json(ready_pending, dict(version=1, protocol='owned-live-author-ready-v1',
             request=request_pin, session=session_pin, worker=started['worker']))
+        ready_pending.rename(root/'worker-ready-v1.json')
         raw = cap.shell(reader.instrument_argv('author_live'), 'instrument-author-live',
                         seconds=210, cap=262144, full_budget=True)
         client_pin = original._record(cap)
@@ -139,6 +144,7 @@ class PendingAuthor:
         self.admission = c6.validate_admission(_bound(admission_pin))
         self.control = c6.validate_session(_bound(control_session), self.admission)
         _need(self.control['admission'] == admission_pin and self.control['running'] == running_pin)
+        _need(self.root == Path(self.control['root'])/'pending-author-v1', 'output')
         _need(self.control['deadline_epoch']-time.time() >= 300, 'aggregate_budget')
         self.root.mkdir()
         self.request = dict(version=1, protocol='owned-live-author-request-v1', admission=admission_pin,
@@ -149,7 +155,7 @@ class PendingAuthor:
         self.request_pin = env.binding(self.root/'request-v1.json')
         self.handles = primitives.ProcessHandles(held._ProcessApi())
         self.lock = threading.Lock()
-        self.expected = self.started_pin = self.owner_result = None
+        self.expected = self.started_pin = self.owner_result = self.ready_pin = None
         self.failed = False
         self.thread = None
         self.until = time.monotonic()+AUTHOR_OWNER_SECONDS+12
@@ -189,6 +195,13 @@ class PendingAuthor:
         _need(type(ready['version']) is int and ready['version'] == 1 and
               ready['protocol'] == 'owned-live-author-ready-v1' and ready['request'] == self.request_pin and
               ready['worker'] == self.expected, 'identity')
+        self.ready_pin = env.binding(self.root/'worker-ready-v1.json')
+        session = c6.validate_session(_bound(ready['session']), self.admission)
+        _need(ready['session'] == env.binding(self.root/'capture-v1'/c6.SESSION_FILE) and
+              session['caller'] == self.expected and session['admission'] == self.admission_pin and
+              session['running'] == self.running_pin and session['seconds'] == AUTHOR_SECONDS and
+              Path(session['root']) == self.root/'capture-v1' and
+              session['deadline_epoch'] <= self.control['deadline_epoch'], 'pending_session')
         self.require_pending()
         return self
 
@@ -199,6 +212,8 @@ class PendingAuthor:
             _need(self.expected is not None and self.started_pin is not None, 'identity')
             self.handles.guard()
             env.check_binding(self.started_pin); env.check_binding(self.request_pin)
+            _need(self.ready_pin is not None, 'pending_session')
+            env.check_binding(self.ready_pin)
         _need(not os.path.lexists(self.root/'worker-result-v1.json') and
               not os.path.lexists(self.root/'capture-v1/clients/command-0001.json'), 'pending_terminal')
 
@@ -209,14 +224,14 @@ class PendingAuthor:
 
     def finish(self):
         self._join()
+        with self.lock:
+            closed = self.handles.close()
+        _need(closed is True and self.expected is not None, 'pending_handles')
         result = self.owner_result
         _need(result is not None and result['status'] == 'child_exited' and
               type(result['worker_returncode']) is int and result['worker_returncode'] == 0 and
               result['cleanup_complete'] is True and result['output_capture_complete'] is True and
               result['stdout_bytes'] == result['stderr_bytes'] == 0, 'pending_capture')
-        with self.lock:
-            closed = self.handles.close()
-        _need(closed is True and self.expected is not None, 'pending_handles')
         env.create_json(self.root/'after-v1.json', dict(request=self.request_pin, worker=self.expected,
             sources=c6.source_bindings(), python=self.admission['python'], process_handles_closed=True))
         value = dict(version=1, protocol='owned-live-author-result-v1', request=self.request_pin,
@@ -234,10 +249,20 @@ class PendingAuthor:
             path = self.root/'worker-output-v1/stop-v1.json'
             # A missing supervisor output is not repaired or adopted.
             if path.parent.is_dir() and not os.path.lexists(path):
-                env.create_json(path, dict(version=1, proposal_sha256=self.request_pin['sha256'], action='stop'))
-        self._join()
-        with self.lock:
-            return self.handles.close() is True
+                staged = path.with_name('stop.pending-v1.json')
+                env.create_json(staged, dict(version=1, proposal_sha256=self.request_pin['sha256'], action='stop'))
+                staged.rename(path)
+        try:
+            self._join()
+        finally:
+            # A failed terminal verdict must still release retained local
+            # handles once the supervisor thread has stopped using them.
+            if self.thread is None or not self.thread.is_alive():
+                with self.lock:
+                    closed = self.handles.close() is True
+            else:
+                closed = False
+        return closed
 
 
 def _ready(cap, live, pending, output):

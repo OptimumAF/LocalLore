@@ -385,8 +385,8 @@ evidence admission, per-step accounting and finite child/output limits to the
 fixed frontend checks. It requires existing ordinary physical-D output/_tmp
 directories and a separate source-bound budget record. [Qualification and retained
 failures](../../docs/desktop/D09_FRONTEND_EVIDENCE_ADMISSION_QUALIFICATION_2026-10-30.md)
-distinguish mocked policy checks, actual routed controller checks and the still
-pending whole-runner gate. This is cooperative development tooling, not an OS
+distinguish171 policy checks with doubles, actual routed controller checks and the
+measured77-step bounded frontend run. This is cooperative development tooling, not an OS
 quota or application security qualification. Legacy zero-argument checks remain.
 
 ```powershell

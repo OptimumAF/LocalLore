@@ -1,7 +1,7 @@
 # Prospective frontend evidence guard qualification
 
-Refs #31, partial D09.03/.04/.07. **Focused source/checks pass; the actual bounded
-77-child driver is not yet executed. Whole D09 remains unchecked.** This report
+Refs #31, partial D09.03/.04/.07. **Focused checks and the actual bounded77-child
+frontend runner pass. Whole D09 remains unchecked.** This report
 does not change the failed D05 allocation or admit another run.
 
 The [contract](D09_FRONTEND_EVIDENCE_ADMISSION_CONTRACT_2026-10-30.md) defines the
@@ -102,6 +102,52 @@ All four actual routed bundles appear under the designated output:276,119 bytes
 total. Their original tests/assertions are retained; this does not imply actual
 native IPC despite older test messages referring to native operations.
 
+## Actual bounded frontend runner
+
+After independent source closure of f3499b92 and a fresh prospective admission,
+clean14f3f8dc executes `node verify-frontend.mjs --bounded` successfully in25.853s
+(2026-10-30T14:30:34.1056092Z–14:30:59.9587112Z). Its only later source changes
+are documentation. This is actual Windows Node/build-tool/filesystem execution,
+not desktop app, browser, native IPC, Rust engine, model, SDK or device execution.
+
+All77 recorded direct Node outcomes are code0/known-closed, with no stop attempt,
+timeout, stream truncation or child error. The added self-check executes171 cases;
+the retained76 arguments/order hash remains
+d021b7a801f051bac71799528cb000c5b8a6636cfa6f81cc2d615877e79a0ec0.
+Initial/final fixed Git source fences succeed; this is not independent OS-wide
+invocation tracing or process-tree containment. Source remains clean/unchanged.
+Strict TypeScript, fixture/schema/controller checks and all67 normal-bundle hook
+exclusions pass. Full frontend format check additionally passes in2.657s.
+
+The driver records initial output276,119B, final39,343,131B and live products718,456B.
+The prospective48MiB output limit,4MiB per-step positive retained growth,1MiB
+metadata reserve,16MiB product limit and640MiB aggregate checks all pass. This
+does not measure peak transient writes or enforce an OS quota. No file is created
+or modified in the legacy source artifacts/checks directory during the measured
+interval. The normal frontend retains its D05-tested SHA
+ddde5846787854b27dbcf39fdb082622444273b5e7c62ae91fd92b8436ad490e.
+
+Independent local record replay verifies all77 indexes/outcomes, the original76
+roster and the single finished summary. Actual encoded console output354,604B
+has SHA9887c43dd29071534503e4ed9a662f5102c95279dd9eede4c3c1f6cd6514c99a,
+within4MiB. The338-byte canonical admission record has SHA
+4788d6a2e575c5fd7ce7c0d5ea62cf3ce0c613c452f508678cb37814b80af7a4.
+It binds the source/output/baseline and is consumed, not reusable run permission.
+
+At the final read-only inventory, D09 retains40,267,350B/264 entries, including
+both phases, every earlier failure/proof, routed bundles, console and metadata.
+Its focused phase closed at834,526B under8MiB before this separate full-run plan;
+combined D09 remains under64MiB. D07 retains501,644,653B; D05 root plus its four
+escaped bundles retains79,500,962B; live normal products add718,456B. Named total
+622,131,421B plus the reserved1MiB final metadata fits the unchanged640MiB ceiling.
+No manual cleanup, discarded evidence, baseline reset or alternative root occurs.
+Ordinary build-tool scratch cleanup is distinct from deleting retained evidence.
+This new prospective gate passes; the original D05 allocation stays FAILED.
+
+Rust/Host/UI/Android/dependency input paths have no changes in this slice. Their
+previous qualified evidence keeps its original attribution; no additional native
+app/Rust/Android/device qualification is inferred from these developer checks.
+
 For a FUTURE separately admitted whole run, use existing physical-D directories
 and a NEW canonical record as specified by the contract, then:
 
@@ -117,6 +163,7 @@ node verify-frontend.mjs --bounded
 
 These illustrative paths are not an admission or a command to recreate old roots.
 Retain previous failures and charge all named external evidence; no full driver
-or application run follows merely from this document. Real bounded-driver results,
-final accounting and remote review remain pending. UI/Rust/Android/real-model/
+or application run follows merely from this document. The measured bounded-driver
+gate above is complete for this scope; remote PR review is separate.
+UI/Rust/Android/real-model/
 keyboard/offline-install/OS isolation and whole D09 gates are separate.

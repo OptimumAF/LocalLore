@@ -135,6 +135,7 @@ export interface V2PlayState {
     snapshot: PlaySnapshotV2 | null;
     history: V2BoundPage | null;
     inspection: V2BoundPage | null;
+    inspectionPaging: V2InspectionPaging;
     draft: string;
     pending: (V2RetainedTurn & { stage: string }) | null;
     uncertain: V2RetainedTurn | null;
@@ -146,6 +147,39 @@ export interface V2PlayState {
     queryBusy: boolean;
     source: SourceV2 | null;
     sourceMatched: boolean | null;
+}
+export interface V2InspectionPaging {
+    bound: boolean;
+    canPrevious: boolean;
+    canNext: boolean;
+    retainedPrevious: number;
+    earlierOmitted: boolean;
+    navigating: "previous" | "next" | null;
+}
+const emptyInspectionPaging = (): V2InspectionPaging => ({
+    bound: false,
+    canPrevious: false,
+    canNext: false,
+    retainedPrevious: 0,
+    earlierOmitted: false,
+    navigating: null,
+});
+interface InspectionFrame {
+    key: string;
+    context: V2PlayContext;
+    snapshot: PlaySnapshotV2;
+    bound: V2BoundPage;
+    query: InspectionQueryV2;
+    page: InspectionPageV2;
+    identity: string;
+    requestCursor: string | null;
+    nextCursor: string | null;
+    previous: (string | null)[];
+    earlierOmitted: boolean;
+}
+interface InspectionNavigation {
+    frame: InspectionFrame;
+    direction: "previous" | "next";
 }
 interface Operation extends V2RetainedTurn {
     player: string;
@@ -420,6 +454,7 @@ export class V2PlayController {
         snapshot: null,
         history: null,
         inspection: null,
+        inspectionPaging: emptyInspectionPaging(),
         draft: "",
         pending: null,
         uncertain: null,
@@ -437,6 +472,12 @@ export class V2PlayController {
     private readSequence = 0;
     private querySequence = 0;
     private historySequence = 0;
+    private refreshSequence = 0;
+    // Only current-object references and at most32 predecessor cursors. No old
+    // rows, pages, receipts or observer bodies are retained for navigation.
+    private inspectionFrame: InspectionFrame | null = null;
+    private inspectionNavigation: "previous" | "next" | null = null;
+    private inspectionRead: number | null = null;
     private turn = 0;
     private active: Operation | null = null;
     private retained: Operation | null = null;
@@ -462,6 +503,105 @@ export class V2PlayController {
     }
     private current(key: string) {
         return !this.disposed && this.key === key;
+    }
+    private queryIdentity(value: InspectionQueryV2) {
+        const { cursor: _cursor, ...identity } = detached(
+            value,
+            24_576,
+        ) as InspectionQueryV2;
+        return structural(identity);
+    }
+    private frameMatches(frame: InspectionFrame) {
+        const c = this.state.context,
+            snapshot = this.state.snapshot;
+        if (
+            this.disposed ||
+            this.inspectionFrame !== frame ||
+            !c ||
+            !snapshot ||
+            this.key !== frame.key ||
+            c !== frame.context ||
+            snapshot !== frame.snapshot ||
+            this.state.inspection !== frame.bound ||
+            frame.bound.query !== frame.query ||
+            frame.bound.page !== frame.page
+        )
+            return false;
+        try {
+            const checked = context(c);
+            if (structural(checked) !== frame.key) return false;
+            const native = checkedPlaySnapshotV2(
+                snapshot,
+                checked.scope,
+                checked.revision,
+            );
+            if (native.player.observer !== checked.player) return false;
+            const query = detached(frame.query, 24_576) as InspectionQueryV2;
+            const page = checkedPageV2(frame.page, query, checked.player);
+            return (
+                this.queryIdentity(query) === frame.identity &&
+                query.cursor === frame.requestCursor &&
+                page.next_cursor === frame.nextCursor
+            );
+        } catch {
+            return false;
+        }
+    }
+    private pagingState(busy = this.state.queryBusy || this.state.readBusy) {
+        const frame = this.inspectionFrame;
+        if (!frame) return emptyInspectionPaging();
+        const navigating = this.inspectionNavigation;
+        return {
+            bound: true,
+            canPrevious: !busy && !navigating && frame.previous.length > 0,
+            canNext: !busy && !navigating && frame.nextCursor !== null,
+            retainedPrevious: frame.previous.length,
+            earlierOmitted: frame.earlierOmitted,
+            navigating,
+        } satisfies V2InspectionPaging;
+    }
+    resetInspectionPaging() {
+        if (this.disposed) return;
+        this.querySequence++;
+        this.inspectionFrame = null;
+        this.inspectionNavigation = null;
+        this.inspectionRead = null;
+        this.patch({
+            inspectionPaging: emptyInspectionPaging(),
+            queryBusy: false,
+            source: null,
+            sourceMatched: null,
+        });
+    }
+    private navigableFrame() {
+        const frame = this.inspectionFrame;
+        if (!frame || this.disposed) return null;
+        if (!this.frameMatches(frame)) {
+            this.resetInspectionPaging();
+            return null;
+        }
+        if (
+            this.inspectionNavigation ||
+            this.inspectionRead !== null ||
+            this.state.queryBusy ||
+            this.state.readBusy
+        )
+            return null;
+        return frame;
+    }
+    previousInspectionPage(): Promise<V2BoundPage | null> {
+        const frame = this.navigableFrame();
+        if (!frame || frame.previous.length === 0) return Promise.resolve(null);
+        return this.query(
+            {
+                view: frame.query.view,
+                atRevision: frame.query.at_revision,
+                search: frame.query.search,
+            },
+            "inspection",
+            frame.previous.at(-1)!,
+            { frame, direction: "previous" },
+        );
     }
     private presenting(op: Operation) {
         return !op.retired && this.current(op.key);
@@ -520,6 +660,9 @@ export class V2PlayController {
         this.readSequence++;
         this.querySequence++;
         this.historySequence++;
+        this.inspectionFrame = null;
+        this.inspectionNavigation = null;
+        this.inspectionRead = null;
         if (this.retained && !this.retained.terminal) {
             this.retained.retired = true;
             this.retained.unknown = true;
@@ -529,6 +672,7 @@ export class V2PlayController {
             snapshot: null,
             history: null,
             inspection: null,
+            inspectionPaging: emptyInspectionPaging(),
             readBusy: false,
             queryBusy: false,
             source: null,
@@ -560,18 +704,42 @@ export class V2PlayController {
     async refresh(reconcile = true) {
         const original = this.state.context;
         if (!original || this.disposed) return;
+        const refresh = ++this.refreshSequence,
+            originalKey = this.key;
+        this.querySequence++;
+        this.inspectionFrame = null;
+        this.inspectionNavigation = null;
+        this.inspectionRead = null;
+        this.patch({
+            readBusy: true,
+            queryBusy: false,
+            inspectionPaging: emptyInspectionPaging(),
+            source: null,
+            sourceMatched: null,
+        });
+        // Reset/pending subscribers can retire this refresh before any I/O.
+        if (
+            !this.current(originalKey) ||
+            this.state.context !== original ||
+            refresh !== this.refreshSequence
+        )
+            return;
         if (reconcile) {
-            const requestedKey = this.key;
-            this.patch({ readBusy: true });
             try {
                 await this.refreshRoot();
             } catch (error) {
-                if (this.current(requestedKey))
+                if (
+                    this.current(originalKey) &&
+                    this.state.context === original &&
+                    refresh === this.refreshSequence
+                )
                     this.patch({ readBusy: false, error: category(error) });
                 return;
             }
             const selected = this.state.context;
             if (
+                this.disposed ||
+                refresh !== this.refreshSequence ||
                 !selected ||
                 selected.session !== original.session ||
                 !sameScope(selected.scope, original.scope) ||
@@ -582,9 +750,15 @@ export class V2PlayController {
         const c = this.state.context,
             key = this.key,
             sequence = ++this.readSequence;
-        if (!c || this.disposed) return;
+        if (!c || this.disposed || refresh !== this.refreshSequence) return;
+        const owns = () =>
+            this.current(key) &&
+            this.state.context === c &&
+            sequence === this.readSequence &&
+            refresh === this.refreshSequence;
         this.patch({ readBusy: true, error: null });
         try {
+            if (!owns()) return;
             const value = await this.gateway.call({
                 op: "play_snapshot_v2",
                 session: c.session,
@@ -593,30 +767,52 @@ export class V2PlayController {
             });
             const snapshot = checkedPlaySnapshotV2(value, c.scope, c.revision);
             if (snapshot.player.observer !== c.player) wire();
-            if (!this.current(key) || sequence !== this.readSequence) return;
+            if (!owns()) return;
             this.patch({ snapshot });
-            if (!this.current(key) || sequence !== this.readSequence) return;
+            if (!owns()) return;
             await this.query(
                 { view: "history", atRevision: null, search: "" },
                 "history",
             );
         } catch (error) {
-            if (this.current(key) && sequence === this.readSequence)
-                this.patch({ error: category(error) });
+            if (owns()) this.patch({ error: category(error) });
         } finally {
-            if (this.current(key) && sequence === this.readSequence)
-                this.patch({ readBusy: false });
+            if (owns()) this.patch({ readBusy: false });
         }
     }
     private async query(
         options: { view: ViewV2; atRevision: number | null; search: string },
         channel: "history" | "inspection",
         cursor: string | null = null,
+        navigation?: InspectionNavigation,
     ): Promise<V2BoundPage | null> {
         const c = this.state.context,
-            key = this.key;
-        if (!c || this.disposed || !this.state.snapshot) return null;
+            key = this.key,
+            snapshot = this.state.snapshot;
+        if (this.disposed) return null;
+        const inspection = channel === "inspection";
+        const sequence = inspection
+            ? ++this.querySequence
+            : ++this.historySequence;
+        if (inspection && !navigation) {
+            // Even an invalid fresh query retires the old chain before its
+            // pending/error notification. The old body keeps its own binding.
+            this.inspectionFrame = null;
+            this.inspectionNavigation = null;
+            this.inspectionRead = null;
+        }
+        if (!c || !snapshot || (inspection && this.state.readBusy)) {
+            if (inspection)
+                this.patch({
+                    queryBusy: false,
+                    inspectionPaging: emptyInspectionPaging(),
+                    source: null,
+                    sourceMatched: null,
+                });
+            return null;
+        }
         if (
+            typeof options.search !== "string" ||
             utf8(options.search) > 256 ||
             /[\u0000-\u001f\u007f-\u009f]/.test(options.search) ||
             (options.atRevision !== null &&
@@ -624,20 +820,41 @@ export class V2PlayController {
                     options.atRevision < 0 ||
                     options.atRevision > c.revision))
         ) {
-            this.patch({ error: "InvalidRequest" });
+            this.patch({
+                error: "InvalidRequest",
+                ...(inspection
+                    ? {
+                          queryBusy: false,
+                          inspectionPaging: emptyInspectionPaging(),
+                          source: null,
+                          sourceMatched: null,
+                      }
+                    : {}),
+            });
             return null;
         }
-        const sequence =
-            channel === "history"
-                ? ++this.historySequence
-                : ++this.querySequence;
-        const owns = () =>
-            this.current(key) &&
-            this.state.context === c &&
-            sequence ===
-                (channel === "history"
-                    ? this.historySequence
-                    : this.querySequence);
+        let published: InspectionFrame | null = null;
+        const owns = () => {
+            if (
+                !this.current(key) ||
+                this.state.context !== c ||
+                this.state.snapshot !== snapshot ||
+                sequence !==
+                    (inspection ? this.querySequence : this.historySequence)
+            )
+                return false;
+            try {
+                if (structural(context(c)) !== key) return false;
+                if (published) return this.frameMatches(published);
+                return (
+                    !navigation ||
+                    (this.inspectionNavigation === navigation.direction &&
+                        this.frameMatches(navigation.frame))
+                );
+            } catch {
+                return false;
+            }
+        };
         const query: InspectionQueryV2 = {
             version: 2,
             scope: { ...c.scope },
@@ -649,13 +866,17 @@ export class V2PlayController {
             limit: 64,
             search: options.search,
         };
-        if (channel === "inspection")
+        if (inspection) {
+            this.inspectionNavigation = navigation?.direction ?? null;
+            this.inspectionRead = sequence;
             this.patch({
                 queryBusy: true,
+                inspectionPaging: this.pagingState(true),
                 error: null,
                 source: null,
                 sourceMatched: null,
             });
+        }
         let result: V2BoundPage | null = null;
         try {
             // Pending notification can synchronously navigate, dispose or start
@@ -670,10 +891,39 @@ export class V2PlayController {
             const page = checkedPageV2(value, query, c.player);
             if (!owns()) return null;
             result = { query, page };
+            if (inspection) {
+                let previous = navigation ? [...navigation.frame.previous] : [];
+                let earlierOmitted = navigation?.frame.earlierOmitted ?? false;
+                if (navigation?.direction === "next") {
+                    previous.push(navigation.frame.requestCursor);
+                    if (previous.length > 32) {
+                        previous = previous.slice(-32);
+                        earlierOmitted = true;
+                    }
+                } else if (navigation) previous.pop();
+                if (cursor === null) earlierOmitted = false;
+                published = {
+                    key,
+                    context: c,
+                    snapshot,
+                    bound: result,
+                    query,
+                    page,
+                    identity: this.queryIdentity(query),
+                    requestCursor: cursor,
+                    nextCursor: page.next_cursor,
+                    previous,
+                    earlierOmitted,
+                };
+                this.inspectionFrame = published;
+            }
             this.patch(
-                channel === "history"
-                    ? { history: result }
-                    : { inspection: result },
+                inspection
+                    ? {
+                          inspection: result,
+                          inspectionPaging: this.pagingState(true),
+                      }
+                    : { history: result },
             );
             // Result notification may retire this page before a caller uses it.
             if (!owns()) return null;
@@ -681,8 +931,20 @@ export class V2PlayController {
             if (owns()) this.patch({ error: category(error) });
             return null;
         } finally {
-            if (channel === "inspection" && owns())
-                this.patch({ queryBusy: false });
+            if (
+                inspection &&
+                this.current(key) &&
+                this.state.context === c &&
+                sequence === this.querySequence
+            ) {
+                if (!owns()) this.inspectionFrame = null;
+                this.inspectionNavigation = null;
+                this.inspectionRead = null;
+                this.patch({
+                    queryBusy: false,
+                    inspectionPaging: this.pagingState(this.state.readBusy),
+                });
+            }
         }
         // The final busy notification is synchronous too. Never return a page
         // retired there even when its earlier result notification was current.
@@ -824,8 +1086,25 @@ export class V2PlayController {
             : null;
     }
     page(cursor: string, channel: "history" | "inspection" = "inspection") {
-        const bound =
-            channel === "history" ? this.state.history : this.state.inspection;
+        if (channel === "inspection") {
+            const frame = this.navigableFrame();
+            if (!frame) return Promise.resolve(null);
+            if (frame.nextCursor === null || cursor !== frame.nextCursor) {
+                this.patch({ error: "InvalidCursor" });
+                return Promise.resolve(null);
+            }
+            return this.query(
+                {
+                    view: frame.query.view,
+                    atRevision: frame.query.at_revision,
+                    search: frame.query.search,
+                },
+                "inspection",
+                cursor,
+                { frame, direction: "next" },
+            );
+        }
+        const bound = this.state.history;
         if (!bound || cursor !== bound.page.next_cursor) {
             this.patch({ error: "InvalidCursor" });
             return Promise.resolve(null);
@@ -865,7 +1144,7 @@ export class V2PlayController {
         const atRevision = from
             ? from.query.at_revision
             : (this.state.inspection?.query.at_revision ?? null);
-        const result = await this.query(
+        const pending = this.query(
             source.kind === "seed"
                 ? { view: "profiles", atRevision: 0, search: "" }
                 : {
@@ -875,7 +1154,15 @@ export class V2PlayController {
                   },
             "inspection",
         );
-        if (!result || !this.current(key) || this.state.inspection !== result)
+        const sequence = this.querySequence;
+        const result = await pending;
+        if (
+            !result ||
+            !this.current(key) ||
+            this.state.context !== c ||
+            sequence !== this.querySequence ||
+            this.state.inspection !== result
+        )
             return;
         const matched =
             source.kind === "scoped_event" &&
@@ -1258,6 +1545,18 @@ export class V2PlayController {
             this.retained.unknown = true;
         }
         this.disposed = true;
+        this.refreshSequence++;
+        this.querySequence++;
+        this.inspectionFrame = null;
+        this.inspectionNavigation = null;
+        this.inspectionRead = null;
+        this.state = {
+            ...this.state,
+            inspectionPaging: emptyInspectionPaging(),
+            queryBusy: false,
+            source: null,
+            sourceMatched: null,
+        };
         this.listeners.clear();
     }
 }

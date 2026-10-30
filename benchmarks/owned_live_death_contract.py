@@ -37,7 +37,7 @@ PROCESS_PROBE = '/data/local/tmp/locallore-author-process-probe-v1'
 
 
 class _LiveDeathContract(core._Contract):
-    """The sole new command is the fixed read-only v2 native snapshot."""
+    """Only fixed v2 snapshots and app-parent polling extend core commands."""
 
     def validate_operation(self, value, admission):
         argv = value.get('argv') if type(value) is dict else None

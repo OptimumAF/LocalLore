@@ -22,6 +22,9 @@ The [owned phone discovery service](../docs/native/OWNED_PHONE_DISCOVERY_SERVICE
 adds a distinct, short-lived foreground profile on freshly verified-unused5037.
 It enables ordinary USB discovery, disables active emulator/mDNS scanning and
 requires separate roster qualification; it never restarts an existing service.
+Its [verification](../docs/native/OWNED_PHONE_DISCOVERY_VERIFICATION_2026-10-30.md)
+records 190 host tests and one qualified, closed service/empty-roster run;
+physical-phone/model gates remain separate.
 Legacy ADB CLI collectors can restart a server on a version mismatch; do not
 use them as a service-preservation guarantee.
 The separate [runtime spike](../docs/runtime/spike/README.md) can explicitly run

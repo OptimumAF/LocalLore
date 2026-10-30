@@ -49,6 +49,94 @@ class FakeBindSocket:
     def fileno(self): return -1 if self.closed else 77
 
 
+class WorkerCase:
+    """Actual worker/guard/readiness/cleanup algorithms, with only IO replaced."""
+    def __init__(self, *, fault=None):
+        self.root = Path(tempfile.mkdtemp(prefix='locallore-phone-owner-', dir='D:/Dev/_Temp'))
+        self.admission = admission(); self.admission['root'] = str(self.root)
+        self.admission_path = self.root/'admission-input-v1.json'
+        env.create_json(self.admission_path, self.admission); self.binding = env.binding(self.admission_path)
+        self.request = dict(version=1, protocol=PHONE_PROTOCOL, admission=self.binding,
+            validated_admission=self.admission, owner=copy.deepcopy(original.OWNER),
+            sources=self.admission['sources'], python=self.admission['python'],
+            worker_script=next(pin for pin in self.admission['sources'] if Path(pin['path']).name == 'isolated_adb_owner.py'),
+            owner_seconds=60)
+        env.create_json(self.root/'request-v1.json', self.request); self.request_pin = env.binding(self.root/'request-v1.json')
+        if fault != 'receipt':
+            env.create_json(self.root/'started-v1.json', dict(worker=original.CLIENT, request=self.request_pin))
+        if fault != 'deadline':
+            env.create_json(self.root/'stop-v1.json', dict(version=1, protocol=PHONE_PROTOCOL,
+                admission_sha256=self.binding['sha256'], action='stop'))
+        self.runtime = owner.WorkerRuntime(self.request, self.request_pin, self.root)
+        self.runtime.worker = copy.deepcopy(original.CLIENT)
+        self.api = FakeApi()
+        self.processes = SimpleNamespace(guard=Mock(), add=Mock(return_value=(903, copy.deepcopy(original.SERVER))),
+                                       close=Mock(return_value=True), failed_close=False)
+        self.auth = SimpleNamespace(key=None, descriptor=None, failed_close=False, close=Mock(return_value=True))
+        descriptor = dict(path=self.admission['auth_key'], native_profile='C:\\Users\\Synthetic',
+            metadata=dict(volume_serial=3, file_index=9, bytes=2048, attributes=0x20,
+                          creation_filetime=1001, write_filetime=1002, links=1))
+        def auth_open(path):
+            if path != self.admission['auth_key']: raise AssertionError('unselected credential metadata')
+            self.auth.key = 901; self.auth.descriptor = copy.deepcopy(descriptor)
+        self.auth.open = Mock(side_effect=auth_open)
+        self.auth.check = Mock(side_effect=lambda: copy.deepcopy(self.auth.descriptor))
+        self.runtime.auth = self.auth
+        self.runtime.open_identity = Mock(side_effect=self.open_identity)
+        self.handle = SimpleNamespace(closed=False)
+        def close_handle(): self.handle.closed = True
+        self.handle.Close = Mock(side_effect=close_handle)
+        self.child = SimpleNamespace(pid=original.SERVER['pid'], poll=Mock(return_value=None),
+                                    terminate=Mock(), wait=Mock(return_value=0), _handle=self.handle)
+        self.socket = FakeBindSocket()
+        self.capture = None; self.clock = 1.0; self.fault = fault
+
+    def open_identity(self):
+        self.runtime.api = self.api; self.runtime.processes = self.processes
+
+    def now(self): self.clock += .01; return self.clock
+
+    def make_capture(self, path):
+        path.mkdir()
+        (path/'owner-stdout-v1.bin').write_bytes(b''); (path/'owner-stderr-v1.bin').write_bytes(b'')
+        self.capture = SimpleNamespace(start=Mock(), guard=Mock(), close=Mock(return_value=self.fault != 'close'),
+                                       pipes_closed=True, capture=SimpleNamespace(sizes=[0, 0]))
+        return self.capture
+
+    def popen(self, command, **kwargs):
+        if self.fault == 'start': raise OSError('PRIVATE_START_CANARY')
+        if command != [self.admission['adb']['path'], '-L', 'tcp:localhost:5037', 'server', 'nodaemon']:
+            raise AssertionError('wrong service command')
+        if kwargs['env']['ADB_USB'] != '1': raise AssertionError('USB profile lost')
+        self.api.tables[2] = tcp.capture(2, tcp.row4(local_port=5037, pid=original.SERVER['pid']))
+        return self.child
+
+    def run(self):
+        actual_create = env.create_json
+        def publish(path, value):
+            result = actual_create(path, value)
+            if Path(path) == self.root/'running-v1.json':
+                if self.fault == 'deadline': self.clock = 1000.0
+                elif self.fault == 'cancel': self.runtime.guard = Mock(side_effect=KeyboardInterrupt('PRIVATE_CANCEL'))
+            return result
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(owner, 'WorkerRuntime', return_value=self.runtime))
+            stack.enter_context(patch.object(owner, '_guards'))
+            stack.enter_context(patch.object(owner.native, '_check_abi'))
+            stack.enter_context(patch.object(owner.socket, 'socket', return_value=self.socket))
+            self.spawn = stack.enter_context(patch.object(owner.subprocess, 'Popen', side_effect=self.popen))
+            stack.enter_context(patch.object(owner, 'ServerCapture', side_effect=self.make_capture))
+            self.exchange = stack.enter_context(patch.object(owner, '_exchange', side_effect=AssertionError('phone profile emitted host frame')))
+            stack.enter_context(patch.object(owner.lease, 'source_bindings', return_value=self.admission['sources']))
+            stack.enter_context(patch.object(owner.file_guard, '_python_bindings', return_value=self.admission['python']))
+            stack.enter_context(patch.object(owner.time, 'monotonic', side_effect=self.now))
+            stack.enter_context(patch.object(owner.time, 'time', return_value=1800000000.25))
+            stack.enter_context(patch.object(owner.time, 'sleep'))
+            stack.enter_context(patch.object(owner.env, 'create_json', side_effect=publish))
+            code = owner._run_worker(self.request, self.request_pin, self.root)
+        return code, env.read_json(self.root/'worker-result-v1.json')
+
+
 class OwnedPhoneServiceTests(unittest.TestCase):
     def accepted(self, action):
         error, value = None, None
@@ -160,6 +248,57 @@ class OwnedPhoneServiceTests(unittest.TestCase):
         self.assertEqual(item.binds, [('127.0.0.1', 5037)])
         self.assertEqual((result['created_mask'], result['close_attempted_mask'], result['closed_mask']), (1, 1, 1))
         self.assertTrue(item.closed); opened.assert_called_once(); child.assert_not_called()
+
+    def test_actual_phone_worker_stops_with_zero_host_frames_and_real_closed_receipt_reader(self):
+        case = WorkerCase()
+        code, value = case.run()
+        self.assertEqual(code, 0)
+        self.assertEqual(value['protocol'], PHONE_PROTOCOL)
+        self.assertEqual(value['proofs'], [])
+        self.assertIsNotNone(value['running'])
+        live = env.read_json(case.root/'running-v1.json')
+        self.assertEqual(live['port'], 5037)
+        self.assertIsNone(live['version_proof']); self.assertIsNone(live['devices_proof'])
+        self.assertEqual(value['reason'], 'stop_requested')
+        self.assertTrue(all(value['cleanup'].values()))
+        self.assertEqual(lease.validate_worker_result(env.binding(case.root/'worker-result-v1.json'),
+            case.admission, case.binding, case.request_pin, original.CLIENT), value)
+        case.exchange.assert_not_called(); case.spawn.assert_called_once()
+        case.child.terminate.assert_called_once(); case.child.wait.assert_called_once()
+        case.handle.Close.assert_called_once(); case.auth.close.assert_called_once(); case.processes.close.assert_called_once()
+
+    def test_worker_deadline_cancel_start_failure_and_uncertain_close_never_retry_or_query(self):
+        for fault in ('deadline', 'cancel', 'start', 'close'):
+            case = WorkerCase(fault=fault)
+            code, value = case.run()
+            with self.subTest(fault=fault):
+                self.assertEqual(value['protocol'], PHONE_PROTOCOL)
+                self.assertEqual(value['proofs'], [])
+                case.exchange.assert_not_called()
+                self.assertLessEqual(case.spawn.call_count, 1)
+                case.auth.close.assert_called_once(); case.processes.close.assert_called_once()
+                if fault == 'deadline':
+                    self.assertEqual((code, value['reason']), (0, 'expired'))
+                    self.assertTrue(all(value['cleanup'].values()))
+                else:
+                    self.assertEqual(code, 1)
+                    if fault == 'cancel': self.assertEqual(value['reason'], 'cancelled')
+                    if fault == 'close': self.assertEqual(value['reason'], 'cleanup')
+                if fault == 'start':
+                    case.child.terminate.assert_not_called(); case.handle.Close.assert_not_called()
+                else:
+                    case.child.terminate.assert_called_once(); case.handle.Close.assert_called_once()
+                self.assertNotIn('PRIVATE_', value['reason'])
+
+    def test_missing_started_receipt_blocks_auth_port_spawn_and_host_exchange(self):
+        case = WorkerCase(fault='receipt')
+        with patch.object(owner, '_exclusive_preflight') as preflight:
+            code, value = case.run()
+        self.assertEqual(code, 1)
+        self.assertIsNone(value['running']); self.assertEqual(value['proofs'], [])
+        case.auth.open.assert_not_called(); case.spawn.assert_not_called(); case.exchange.assert_not_called()
+        preflight.assert_not_called(); case.child.terminate.assert_not_called()
+        case.auth.close.assert_called_once(); case.processes.close.assert_called_once()
 
 
 if __name__ == '__main__': unittest.main()

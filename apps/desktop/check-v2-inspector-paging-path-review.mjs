@@ -46,7 +46,7 @@ if (!setup.length)
         block = source.slice(blockStart + start.length, blockEnd);
         assert.match(
             block,
-            /\bfunction\s+fixedPagingWorkspace\s*\(\s*folder\s*,\s*identifier\s*\)/,
+            /\bfunction\s+fixedPagingWorkspace\s*\(\s*folder\s*,\s*identifier(?:\s*,\s*mode\s*=\s*(?:"paging"|'paging'))?\s*\)/,
             "ActualFixedWorkspaceHelper",
         );
         assert.match(

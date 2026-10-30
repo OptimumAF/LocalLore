@@ -299,7 +299,11 @@ test(
     () => {
         const a = runInNewContext(
                 `(()=>{${B.workspace};return {fixedPagingWorkspace};})()`,
-                { path: path.win32 },
+                {
+                    path: path.win32,
+                    base: P.base,
+                    randomUUID: () => path.win32.basename(P.packet).slice(2),
+                },
                 { timeout: 1000 },
             ),
             id = "00000000-0000-4000-8000-000000000002";
@@ -330,9 +334,16 @@ test(
                 `(()=>{${B.workspace}\n${source.launcher.slice(start, end + 1)}\nreturn plannedWorkspace;})()`,
                 {
                     path: path.win32,
+                    base: P.base,
                     mode,
                     folder: P.packet,
-                    randomUUID: () => id,
+                    randomUUID: (() => {
+                        let draw = 0;
+                        return () =>
+                            draw++ === 0
+                                ? path.win32.basename(P.packet).slice(2)
+                                : id;
+                    })(),
                 },
                 { timeout: 1000 },
             );

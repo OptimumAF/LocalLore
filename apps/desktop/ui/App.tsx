@@ -728,7 +728,7 @@ export function App({
                             context={timelineContext(c)}
                         />
                     )}
-                    {!s.playV2 && fork && selected && (
+                    {fork && selected && (
                         <ForkPanel
                             fork={fork}
                             gameplay={c}

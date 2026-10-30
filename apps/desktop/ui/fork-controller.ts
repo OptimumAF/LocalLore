@@ -2,6 +2,8 @@ import type { Scope } from "./model";
 import { sameScope } from "./model";
 import { contextIdentity, timelineId, timelineNumber } from "./timeline-model";
 import type { TimelineContext } from "./timeline-model";
+import { decodeForkBoundaryCatalog } from "./fork-boundary-model";
+import type { ForkBoundaryCatalog } from "./fork-boundary-model";
 type Invoke = (
     name: string,
     args?: Record<string, unknown>,
@@ -110,6 +112,7 @@ const errors = new Set([
     "Rule",
     "RetryMismatch",
     "TooLarge",
+    "Version",
     "Internal",
     "ArchiveInternal",
     "ArchiveBusy",
@@ -141,11 +144,16 @@ export class ForkController {
         notice: "",
         lookupOnly: false,
         consent: false,
+        boundaryCatalog: null as ForkBoundaryCatalog | null,
+        boundaryBusy: false,
+        boundaryError: null as string | null,
+        admissionBlocked: false,
     };
     private context: TimelineContext | null = null;
     private key = "none";
     private requestKey = "";
     private epoch = 0;
+    private boundarySequence = 0;
     private disposed = false;
     private cancelRequested = false;
     private preparing = false;
@@ -169,6 +177,57 @@ export class ForkController {
     private cancelOperation(id: number) {
         void this.invoke("archive_cancel", { operationId: id }).catch(() => {});
     }
+    matchesContext(context: TimelineContext | null) {
+        if (this.disposed) return false;
+        try {
+            return this.key === contextIdentity(context);
+        } catch {
+            return false;
+        }
+    }
+    async refreshBoundaries(context: TimelineContext) {
+        if (!this.matchesContext(context) || !this.context) return;
+        const sequence = ++this.boundarySequence,
+            key = this.key,
+            selected = this.context;
+        const live = () => !this.disposed && sequence === this.boundarySequence &&
+            key === this.key && this.context === selected;
+        this.patch({ boundaryCatalog: null, boundaryBusy: true, boundaryError: null });
+        try {
+            if (!live()) return;
+            const value = await this.invoke("fork_boundaries", {
+                input: { session: selected.session, scope: selected.scope, expected_head: selected.revision },
+            });
+            if (!live()) return;
+            const boundaryCatalog = decodeForkBoundaryCatalog(value, selected.scope, selected.revision);
+            if (live()) this.patch({ boundaryCatalog, boundaryBusy: false, boundaryError: null });
+        } catch (error) {
+            if (live()) this.patch({ boundaryCatalog: null, boundaryBusy: false, boundaryError: errorName(error) });
+        }
+    }
+    prepareFromCatalog(at: number, child: string, context: TimelineContext, catalog: ForkBoundaryCatalog) {
+        if (!this.matchesContext(context) || !context.persistent || this.state.admissionBlocked ||
+            this.state.boundaryBusy || this.state.boundaryError || catalog !== this.state.boundaryCatalog)
+            return;
+        try {
+            const checked = decodeForkBoundaryCatalog(catalog, context.scope, context.revision);
+            if (!checked.boundaries.includes(at)) return;
+            if (!this.matchesContext(context) || catalog !== this.state.boundaryCatalog || this.state.admissionBlocked)
+                return;
+            this.prepare(at, child);
+        } catch {
+            // Only a current complete native catalog can prepare a UI request.
+        }
+    }
+    async confirmExact(request: ForkRequest, context: TimelineContext) {
+        if (!this.matchesContext(context) || request !== this.state.request || !this.state.consent ||
+            this.state.admissionBlocked) return;
+        await this.confirm(true);
+    }
+    setAdmissionBlocked(blocked: boolean) {
+        if (this.disposed || blocked === this.state.admissionBlocked) return;
+        this.patch({ admissionBlocked: blocked, ...(blocked ? { consent: false } : {}) });
+    }
     contextChanged(context: TimelineContext | null) {
         if (this.disposed) return;
         let key: string;
@@ -180,6 +239,7 @@ export class ForkController {
         }
         if (key === this.key) return;
         this.epoch++;
+        this.boundarySequence++;
         if (this.state.operation !== null && this.state.busy)
             this.cancelOperation(this.state.operation);
         this.key = key;
@@ -190,6 +250,9 @@ export class ForkController {
               })
             : null;
         this.patch({
+            boundaryCatalog: null,
+            boundaryBusy: false,
+            boundaryError: null,
             busy: false,
             operation: null,
             result: null,
@@ -214,6 +277,7 @@ export class ForkController {
             this.disposed ||
             this.preparing ||
             this.state.busy ||
+            this.state.admissionBlocked ||
             !this.context?.persistent
         )
             return;
@@ -309,7 +373,8 @@ export class ForkController {
         return !this.disposed && epoch === this.epoch;
     }
     setConsent(value: boolean) {
-        if (!this.disposed && !this.state.busy) this.patch({ consent: value });
+        if (!this.disposed && !this.state.busy && (!value || !this.state.admissionBlocked))
+            this.patch({ consent: value });
     }
     async confirm(consent: boolean) {
         const request = this.state.request,
@@ -318,6 +383,7 @@ export class ForkController {
             this.disposed ||
             this.preparing ||
             this.state.busy ||
+            this.state.admissionBlocked ||
             !request ||
             !context?.persistent ||
             this.state.lookupOnly ||
@@ -341,6 +407,10 @@ export class ForkController {
         });
         try {
             if (!this.live(epoch)) return;
+            if (this.state.admissionBlocked) {
+                this.patch({ busy: false, status: "prepared", operation: null, error: "Busy", consent: false });
+                return;
+            }
             const initial = await this.invoke("fork_start", {
                 session: context.session,
                 input: request,
@@ -488,8 +558,13 @@ export class ForkController {
             this.cancelOperation(this.state.operation);
         this.disposed = true;
         this.epoch++;
+        this.boundarySequence++;
         this.context = null;
         this.patch({
+            boundaryCatalog: null,
+            boundaryBusy: false,
+            boundaryError: null,
+            admissionBlocked: true,
             busy: false,
             operation: null,
             result: null,

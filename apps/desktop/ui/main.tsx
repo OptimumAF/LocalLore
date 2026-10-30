@@ -495,6 +495,14 @@ function syncTraceGameplayFence() {
             : null,
     );
 }
+function syncForkAdmission() {
+    const s = controller.get(), gameplay = v2.get();
+    fork.setAdmissionBlocked(
+        stopping || s.starting || !!s.pending || s.disposed ||
+        !!gameplay.pending || !!gameplay.uncertain ||
+        !fork.matchesContext(timelineContext(controller)),
+    );
+}
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {
@@ -514,6 +522,7 @@ const syncEvaluationContext = () => {
         memorySelectionEpoch++;
     }
     syncV2Context();
+    syncForkAdmission();
     syncTraceGameplayFence();
     author.contextChanged(authorContext());
     maintenance.contextChanged(memoryContext(controller, memorySelectionEpoch));
@@ -526,6 +535,7 @@ const syncEvaluationContext = () => {
     );
     timeline.contextChanged(timelineContext(controller));
     fork.contextChanged(timelineContext(controller));
+    syncForkAdmission();
     capture.contextChanged(
         controller.selected(),
         s.play?.revision ?? 0,
@@ -610,6 +620,7 @@ function authorContext(): AuthorContext | null {
 }
 const releaseEvaluationContext = controller.subscribe(syncEvaluationContext);
 const releaseV2Context = v2.subscribe(() => {
+    syncForkAdmission();
     syncTraceGameplayFence();
     author.contextChanged(authorContext());
 });
@@ -684,6 +695,7 @@ root.render(
 );
 const dispose = async () => {
     stopping = true;
+    syncForkAdmission();
     controller.setTraceGameplayFence(null);
     for (const release of releaseBrokerConsumption) release();
     releaseEvaluationContext();

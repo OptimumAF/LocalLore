@@ -496,11 +496,16 @@ function syncTraceGameplayFence() {
     );
 }
 function syncForkAdmission() {
-    const s = controller.get(), gameplay = v2.get();
+    const s = controller.get(),
+        gameplay = v2.get();
     fork.setAdmissionBlocked(
-        stopping || s.starting || !!s.pending || s.disposed ||
-        !!gameplay.pending || !!gameplay.uncertain ||
-        !fork.matchesContext(timelineContext(controller)),
+        stopping ||
+            s.starting ||
+            !!s.pending ||
+            s.disposed ||
+            !!gameplay.pending ||
+            !!gameplay.uncertain ||
+            !fork.matchesContext(timelineContext(controller)),
     );
 }
 // Invalidate evaluation replies before React observes a changed story/lens/Play

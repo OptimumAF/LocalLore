@@ -190,29 +190,73 @@ export class ForkController {
         const sequence = ++this.boundarySequence,
             key = this.key,
             selected = this.context;
-        const live = () => !this.disposed && sequence === this.boundarySequence &&
-            key === this.key && this.context === selected;
-        this.patch({ boundaryCatalog: null, boundaryBusy: true, boundaryError: null });
+        const live = () =>
+            !this.disposed &&
+            sequence === this.boundarySequence &&
+            key === this.key &&
+            this.context === selected;
+        this.patch({
+            boundaryCatalog: null,
+            boundaryBusy: true,
+            boundaryError: null,
+        });
         try {
             if (!live()) return;
             const value = await this.invoke("fork_boundaries", {
-                input: { session: selected.session, scope: selected.scope, expected_head: selected.revision },
+                input: {
+                    session: selected.session,
+                    scope: selected.scope,
+                    expected_head: selected.revision,
+                },
             });
             if (!live()) return;
-            const boundaryCatalog = decodeForkBoundaryCatalog(value, selected.scope, selected.revision);
-            if (live()) this.patch({ boundaryCatalog, boundaryBusy: false, boundaryError: null });
+            const boundaryCatalog = decodeForkBoundaryCatalog(
+                value,
+                selected.scope,
+                selected.revision,
+            );
+            if (live())
+                this.patch({
+                    boundaryCatalog,
+                    boundaryBusy: false,
+                    boundaryError: null,
+                });
         } catch (error) {
-            if (live()) this.patch({ boundaryCatalog: null, boundaryBusy: false, boundaryError: errorName(error) });
+            if (live())
+                this.patch({
+                    boundaryCatalog: null,
+                    boundaryBusy: false,
+                    boundaryError: errorName(error),
+                });
         }
     }
-    prepareFromCatalog(at: number, child: string, context: TimelineContext, catalog: ForkBoundaryCatalog) {
-        if (!this.matchesContext(context) || !context.persistent || this.state.admissionBlocked ||
-            this.state.boundaryBusy || this.state.boundaryError || catalog !== this.state.boundaryCatalog)
+    prepareFromCatalog(
+        at: number,
+        child: string,
+        context: TimelineContext,
+        catalog: ForkBoundaryCatalog,
+    ) {
+        if (
+            !this.matchesContext(context) ||
+            !context.persistent ||
+            this.state.admissionBlocked ||
+            this.state.boundaryBusy ||
+            this.state.boundaryError ||
+            catalog !== this.state.boundaryCatalog
+        )
             return;
         try {
-            const checked = decodeForkBoundaryCatalog(catalog, context.scope, context.revision);
+            const checked = decodeForkBoundaryCatalog(
+                catalog,
+                context.scope,
+                context.revision,
+            );
             if (!checked.boundaries.includes(at)) return;
-            if (!this.matchesContext(context) || catalog !== this.state.boundaryCatalog || this.state.admissionBlocked)
+            if (
+                !this.matchesContext(context) ||
+                catalog !== this.state.boundaryCatalog ||
+                this.state.admissionBlocked
+            )
                 return;
             this.prepare(at, child);
         } catch {
@@ -220,13 +264,21 @@ export class ForkController {
         }
     }
     async confirmExact(request: ForkRequest, context: TimelineContext) {
-        if (!this.matchesContext(context) || request !== this.state.request || !this.state.consent ||
-            this.state.admissionBlocked) return;
+        if (
+            !this.matchesContext(context) ||
+            request !== this.state.request ||
+            !this.state.consent ||
+            this.state.admissionBlocked
+        )
+            return;
         await this.confirm(true);
     }
     setAdmissionBlocked(blocked: boolean) {
         if (this.disposed || blocked === this.state.admissionBlocked) return;
-        this.patch({ admissionBlocked: blocked, ...(blocked ? { consent: false } : {}) });
+        this.patch({
+            admissionBlocked: blocked,
+            ...(blocked ? { consent: false } : {}),
+        });
     }
     contextChanged(context: TimelineContext | null) {
         if (this.disposed) return;
@@ -373,7 +425,11 @@ export class ForkController {
         return !this.disposed && epoch === this.epoch;
     }
     setConsent(value: boolean) {
-        if (!this.disposed && !this.state.busy && (!value || !this.state.admissionBlocked))
+        if (
+            !this.disposed &&
+            !this.state.busy &&
+            (!value || !this.state.admissionBlocked)
+        )
             this.patch({ consent: value });
     }
     async confirm(consent: boolean) {
@@ -408,8 +464,15 @@ export class ForkController {
         try {
             if (!this.live(epoch)) return;
             if (this.state.admissionBlocked || !this.state.consent) {
-                this.patch({ busy: false, status: "prepared", operation: null,
-                    error: this.state.admissionBlocked ? "Busy" : "ForkConsentRequired", consent: false });
+                this.patch({
+                    busy: false,
+                    status: "prepared",
+                    operation: null,
+                    error: this.state.admissionBlocked
+                        ? "Busy"
+                        : "ForkConsentRequired",
+                    consent: false,
+                });
                 return;
             }
             const initial = await this.invoke("fork_start", {

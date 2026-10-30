@@ -20,38 +20,65 @@ export function ForkPanel({
         [openError, setOpenError] = useState<string | null>(null);
     useEffect(() => {
         setBoundary(context?.revision ?? 0);
-    }, [context?.session, context?.scope.story, context?.scope.branch,
-        context?.revision, context?.observer, context?.view, context?.persistent]);
+    }, [
+        context?.session,
+        context?.scope.story,
+        context?.scope.branch,
+        context?.revision,
+        context?.observer,
+        context?.view,
+        context?.persistent,
+    ]);
     useEffect(() => {
         setOpenError(null);
-    }, [context?.session, context?.scope.story, context?.scope.branch,
-        context?.revision, context?.observer, context?.view, context?.persistent,
-        s.request, s.result]);
+    }, [
+        context?.session,
+        context?.scope.story,
+        context?.scope.branch,
+        context?.revision,
+        context?.observer,
+        context?.view,
+        context?.persistent,
+        s.request,
+        s.result,
+    ]);
     useEffect(() => {
         if (s.request) setShown(true);
     }, [s.request]);
-    if (!context || !fork.matchesContext(context) ||
-        !fork.matchesContext(timelineContext(gameplay))) return null;
+    if (
+        !context ||
+        !fork.matchesContext(context) ||
+        !fork.matchesContext(timelineContext(gameplay))
+    )
+        return null;
     // Event callbacks belong to this exact render and gameplay selection. A
     // retained callback cannot act on a replacement request or operation.
-    const currentContext = () => fork.matchesContext(context) &&
+    const currentContext = () =>
+        fork.matchesContext(context) &&
         fork.matchesContext(timelineContext(gameplay));
     const current = () => fork.get() === s && currentContext();
     const catalog = s.boundaryCatalog;
     const boundaries = catalog?.boundaries ?? [];
-    const canPrepare = !!catalog && !s.boundaryBusy && !s.boundaryError &&
-        !s.busy && !s.admissionBlocked && context.persistent &&
+    const canPrepare =
+        !!catalog &&
+        !s.boundaryBusy &&
+        !s.boundaryError &&
+        !s.busy &&
+        !s.admissionBlocked &&
+        context.persistent &&
         !["pending", "uncertain"].includes(s.status);
     const sameParent =
         !!s.request && sameScope(s.request.parent, context.scope);
     const receipt = gameplay.receipt();
     if (!shown)
         return (
-            <button onClick={() => {
-                if (!current()) return;
-                setShown(true);
-                if (current()) void fork.refreshBoundaries(context);
-            }}>
+            <button
+                onClick={() => {
+                    if (!current()) return;
+                    setShown(true);
+                    if (current()) void fork.refreshBoundaries(context);
+                }}
+            >
                 {s.request
                     ? "Timeline creation & recovery"
                     : "Create alternate timeline"}
@@ -61,9 +88,12 @@ export function ForkPanel({
         <section className="fork-panel" aria-labelledby="fork-title">
             <div className="panel-heading">
                 <h2 id="fork-title">Alternate timeline</h2>
-                <button onClick={() => {
-                    if (current()) setShown(false);
-                }} disabled={s.busy}>
+                <button
+                    onClick={() => {
+                        if (current()) setShown(false);
+                    }}
+                    disabled={s.busy}
+                >
                     Close timeline creation
                 </button>
             </div>
@@ -92,22 +122,33 @@ export function ForkPanel({
                     "No accepted receipt selected."
                 )}
             </p>
-            <button onClick={() => {
-                if (current()) void fork.refreshBoundaries(context);
-            }}>
+            <button
+                onClick={() => {
+                    if (current()) void fork.refreshBoundaries(context);
+                }}
+            >
                 Refresh completed boundaries
             </button>
             {s.boundaryBusy ? (
                 <p role="status">Loading completed boundaries.</p>
             ) : s.boundaryError ? (
-                <p role="alert">Completed boundaries: {s.boundaryError}. Refresh to retry.</p>
+                <p role="alert">
+                    Completed boundaries: {s.boundaryError}. Refresh to retry.
+                </p>
             ) : !catalog ? (
-                <p role="status">Completed boundaries are unavailable until refreshed.</p>
+                <p role="status">
+                    Completed boundaries are unavailable until refreshed.
+                </p>
             ) : (
-                <p role="status">Complete boundary list for parent head {catalog.head}.</p>
+                <p role="status">
+                    Complete boundary list for parent head {catalog.head}.
+                </p>
             )}
             {s.admissionBlocked && (
-                <p role="status">Timeline creation is paused while gameplay is pending or its outcome is uncertain.</p>
+                <p role="status">
+                    Timeline creation is paused while gameplay is pending or its
+                    outcome is uncertain.
+                </p>
             )}
             {!context.persistent ? (
                 <p role="status">
@@ -125,7 +166,8 @@ export function ForkPanel({
                             onChange={(e) => {
                                 if (!current() || !canPrepare) return;
                                 const value = Number(e.target.value);
-                                if (!current() || !boundaries.includes(value)) return;
+                                if (!current() || !boundaries.includes(value))
+                                    return;
                                 setBoundary(value);
                                 if (current()) fork.setConsent(false);
                             }}
@@ -144,7 +186,13 @@ export function ForkPanel({
                         onClick={() => {
                             if (!current() || !canPrepare || !catalog) return;
                             const child = crypto.randomUUID();
-                            if (current()) fork.prepareFromCatalog(boundary, child, context, catalog);
+                            if (current())
+                                fork.prepareFromCatalog(
+                                    boundary,
+                                    child,
+                                    context,
+                                    catalog,
+                                );
                         }}
                     >
                         Prepare new timeline
@@ -185,7 +233,13 @@ export function ForkPanel({
                                     checked={s.consent}
                                     disabled={s.busy || s.admissionBlocked}
                                     onChange={(e) => {
-                                        if (!current() || s.busy || s.admissionBlocked || !s.request) return;
+                                        if (
+                                            !current() ||
+                                            s.busy ||
+                                            s.admissionBlocked ||
+                                            !s.request
+                                        )
+                                            return;
                                         const checked = e.target.checked;
                                         if (current()) fork.setConsent(checked);
                                     }}
@@ -195,9 +249,15 @@ export function ForkPanel({
                             </label>
                             <button
                                 className="primary"
-                                disabled={s.busy || !s.consent || s.admissionBlocked}
+                                disabled={
+                                    s.busy || !s.consent || s.admissionBlocked
+                                }
                                 onClick={() => {
-                                    if (current() && s.request) void fork.confirmExact(s.request, context);
+                                    if (current() && s.request)
+                                        void fork.confirmExact(
+                                            s.request,
+                                            context,
+                                        );
                                 }}
                             >
                                 {s.status === "prepared"
@@ -209,16 +269,23 @@ export function ForkPanel({
                     <button
                         disabled={s.busy || !sameParent || !context.persistent}
                         onClick={() => {
-                            if (current() && s.request && sameParent && context.persistent)
+                            if (
+                                current() &&
+                                s.request &&
+                                sameParent &&
+                                context.persistent
+                            )
                                 void fork.lookup();
                         }}
                     >
                         Check saved child only
                     </button>
                     {s.busy && (
-                        <button onClick={() => {
-                            if (current() && s.busy) void fork.cancel();
-                        }}>
+                        <button
+                            onClick={() => {
+                                if (current() && s.busy) void fork.cancel();
+                            }}
+                        >
                             Cancel pending fork
                         </button>
                     )}
@@ -248,15 +315,17 @@ export function ForkPanel({
                             const result = s.result;
                             setOpenError(null);
                             if (!current()) return;
-                            void resumeTimeline(
-                                gameplay,
-                                result.scope,
-                            ).catch(() => {
-                                if (currentContext() && fork.get().result === result)
-                                    setOpenError(
-                                    "The saved child could not be opened. Check the active story and retry explicitly.",
-                                    );
-                            });
+                            void resumeTimeline(gameplay, result.scope).catch(
+                                () => {
+                                    if (
+                                        currentContext() &&
+                                        fork.get().result === result
+                                    )
+                                        setOpenError(
+                                            "The saved child could not be opened. Check the active story and retry explicitly.",
+                                        );
+                                },
+                            );
                         }}
                     >
                         Open confirmed child

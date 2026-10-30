@@ -10,7 +10,10 @@ export interface ForkBoundaryCatalog {
 
 // Read only own data properties. Native wire JSON cannot contain accessors,
 // inherited fields or symbol keys; do not invoke them while rejecting input.
-function fields(value: unknown, keys: readonly string[]): Record<string, unknown> {
+function fields(
+    value: unknown,
+    keys: readonly string[],
+): Record<string, unknown> {
     if (!value || typeof value !== "object" || Array.isArray(value))
         throw Error("Wire");
     const descriptors = Object.getOwnPropertyDescriptors(value);
@@ -18,7 +21,8 @@ function fields(value: unknown, keys: readonly string[]): Record<string, unknown
     const result: Record<string, unknown> = {};
     for (const key of keys) {
         const descriptor = descriptors[key];
-        if (!descriptor || !Object.hasOwn(descriptor, "value")) throw Error("Wire");
+        if (!descriptor || !Object.hasOwn(descriptor, "value"))
+            throw Error("Wire");
         result[key] = descriptor.value;
     }
     return result;
@@ -29,7 +33,8 @@ export function decodeForkBoundaryCatalog(
     scope: Scope,
     head: number,
 ): ForkBoundaryCatalog {
-    if (!timelineId(scope.story) || !timelineId(scope.branch)) throw Error("Scope");
+    if (!timelineId(scope.story) || !timelineId(scope.branch))
+        throw Error("Scope");
     if (!timelineNumber(head)) throw Error("Stale");
     const row = fields(value, ["version", "scope", "head", "boundaries"]);
     if (row.version !== 2) throw Error("Version");
@@ -40,7 +45,10 @@ export function decodeForkBoundaryCatalog(
     if (row.head !== head) throw Error("Stale");
     if (!Array.isArray(row.boundaries)) throw Error("Wire");
     const descriptors = Object.getOwnPropertyDescriptors(row.boundaries);
-    const length = Object.getOwnPropertyDescriptor(row.boundaries, "length")?.value;
+    const length = Object.getOwnPropertyDescriptor(
+        row.boundaries,
+        "length",
+    )?.value;
     if (!timelineNumber(length)) throw Error("Wire");
     if (length > 4097) throw Error("TooLarge");
     if (!length || Reflect.ownKeys(row.boundaries).length !== length + 1)
@@ -48,9 +56,13 @@ export function decodeForkBoundaryCatalog(
     const boundaries: number[] = [];
     for (let index = 0; index < length; index++) {
         const descriptor = descriptors[String(index)];
-        if (!descriptor || !Object.hasOwn(descriptor, "value")) throw Error("Wire");
+        if (!descriptor || !Object.hasOwn(descriptor, "value"))
+            throw Error("Wire");
         const boundary: unknown = descriptor.value;
-        if (!timelineNumber(boundary) || (index > 0 && boundary <= boundaries[index - 1]))
+        if (
+            !timelineNumber(boundary) ||
+            (index > 0 && boundary <= boundaries[index - 1])
+        )
             throw Error("Wire");
         boundaries.push(boundary);
     }
@@ -62,8 +74,10 @@ export function decodeForkBoundaryCatalog(
         boundaries: Object.freeze(boundaries),
     };
     const encoder = new TextEncoder();
-    if (encoder.encode(JSON.stringify(catalog)).byteLength > 65536 ||
-        encoder.encode(JSON.stringify(catalog, null, 2)).byteLength > 65536)
+    if (
+        encoder.encode(JSON.stringify(catalog)).byteLength > 65536 ||
+        encoder.encode(JSON.stringify(catalog, null, 2)).byteLength > 65536
+    )
         throw Error("TooLarge");
     return Object.freeze(catalog);
 }

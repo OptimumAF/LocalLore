@@ -65,6 +65,29 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
 ];
 
 const MAX_JSON: usize = 256 * 1024;
+const INSPECTOR_PAGING_LABELS: &[&str] = &[
+    "d05-page-first",
+    "d05-page-second",
+    "d05-page-third",
+    "d05-page-back-second",
+    "d05-page-back-first",
+    "d05-page-forward-refetched",
+    "d05-page-pending-next",
+    "d05-page-error",
+    "d05-page-retry-second",
+    "d05-page-search-reset",
+    "d05-page-historical",
+    "d05-page-mira",
+    "d05-page-sable",
+    "d05-page-other-story",
+    "d05-page-same-head-refresh",
+    "d05-page-stale-delivery",
+    "d05-page-unsupported",
+    "d05-page-enlarged-wide",
+    "d05-page-enlarged-narrow",
+    "d05-page-final",
+    "d05-page-failure",
+];
 const MAX_SELECTED_SCENE_ARTIFACT_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Default)]
@@ -395,6 +418,12 @@ fn selected_scene_active() -> bool {
         && std::env::var("LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER").as_deref() != Ok("1")
 }
 
+// Keep this guard self-contained for the standalone artifact-contract target.
+// Main validates the complete closed environment before fixture/Host setup.
+fn inspector_paging_active() -> bool {
+    active() && std::env::var("LOCALLORE_D05_INSPECTOR_PAGING_HARNESS").as_deref() == Ok("1")
+}
+
 struct Progress {
     labels: HashSet<String>,
     finished: bool,
@@ -432,7 +461,8 @@ impl HarnessState {
                 labels: HashSet::new(),
                 finished: false,
             }),
-            scene_budget: selected_scene_active().then(|| Mutex::new(ArtifactBudget::default())),
+            scene_budget: (selected_scene_active() || inspector_paging_active())
+                .then(|| Mutex::new(ArtifactBudget::default())),
         })
     }
 
@@ -460,6 +490,7 @@ impl HarnessState {
                 && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
                 && SELECTED_LABELS.contains(&label))
             || (selected_scene_active() && SELECTED_SCENE_LABELS.contains(&label))
+            || (inspector_paging_active() && INSPECTOR_PAGING_LABELS.contains(&label))
             || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label))
             || (active()
                 && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")

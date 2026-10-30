@@ -19,6 +19,7 @@ fn main() {
                 "author_preview_discard",
                 "harness_author_case",
                 "harness_scene_oracle",
+                "harness_v2_inspection_paging",
                 "capture_preview",
                 "capture_save",
                 "capture_revoke",

@@ -1,4 +1,5 @@
 // Independent SOURCE FIRST 7c8f3417; author UNRUN. Actual launcher JS in VM;
+// Fork-only owner-approved envelope amendment; one app attempt pending fresh admission.
 // memory-only filesystem/Git/child observations. Native/TS checks are disclosed
 // source controls, not Rust execution, IPC, rendering or resource admission.
 import assert from "node:assert/strict";
@@ -135,7 +136,8 @@ function record(mode = "domain2-fork", patch = {}) {
         original_target_bytes: 1000,
         external_evidence_bytes: 500 * MiB,
         d05_external_evidence_bytes: 20 * MiB,
-        cumulative_limit_bytes: (mode === "paging" ? 640 : 660) * MiB,
+        cumulative_limit_bytes:
+            (mode === "paging" ? 640 : mode === "domain2-fork" ? 692 : 660) * MiB,
         ...patch,
     };
 }
@@ -250,11 +252,11 @@ test("launcher", "actual-fork-plan-closed-fields-no-resource-admission", () => {
         labels,
     });
     assert.deepEqual(limitsFor("domain2-fork"), {
-        targetGrowth: 2 * 1024 ** 3,
+        targetGrowth: 4 * 1024 ** 3,
         sourceGrowth: 128 * MiB,
         artifacts: 20 * MiB,
         entries: 2000000,
-        cumulativeEvidence: 660 * MiB,
+        cumulativeEvidence: 692 * MiB,
         expectedEvidence: 20 * MiB,
         pagingEvidence: 32 * MiB,
     });
@@ -396,7 +398,7 @@ test("launcher", "actual-record-refusals-never-mkdir-or-child", async () => {
         { kind: "d05_v2_inspector_paging_budget_v1" },
         { source_revision: "b".repeat(40) },
         { target_path_sha256: "0".repeat(64) },
-        { cumulative_limit_bytes: 660 * MiB + 1 },
+        { cumulative_limit_bytes: 692 * MiB + 1 },
         { original_target_bytes: 1001 },
         { extra: 1 },
     ];
@@ -433,7 +435,7 @@ test(
         const exact = sandbox("domain2-fork", {
             base: 0,
             patch: {
-                external_evidence_bytes: 640 * MiB,
+                external_evidence_bytes: 672 * MiB,
                 d05_external_evidence_bytes: 0,
             },
         });
@@ -441,7 +443,7 @@ test(
         const over = sandbox("domain2-fork", {
             base: 1,
             patch: {
-                external_evidence_bytes: 640 * MiB,
+                external_evidence_bytes: 672 * MiB,
                 d05_external_evidence_bytes: 0,
             },
         });
@@ -458,7 +460,7 @@ test(
                 a = await h.ready;
             h.control.packet = 19 * MiB;
             assert.equal((await a.measureStorage()).pagingEvidence, 31 * MiB);
-            if (fault === "target") h.control.target = 1000 + 2 * 1024 ** 3 + 1;
+            if (fault === "target") h.control.target = 1000 + 4 * 1024 ** 3 + 1;
             if (fault === "packet") h.control.packet++;
             if (fault === "inventory") h.control.broken = true;
             await assert.rejects(a.measureStorage());
@@ -626,7 +628,7 @@ const report = {
         Object.entries(source).map(([k, v]) => [k, hash(v)]),
     ),
     limits: [
-        "Author UNRUN; new mode/resource numbers prospective, not app admission",
+        "Author UNRUN; fork-only envelope owner-approved; one app attempt pending fresh admission",
         "Actual launcher JS uses memory-only FS/Git/children/clock; no child/runtime/storage qualification",
         "Native flags/labels/writer and TS routing are source controls; Rust and future independent journey FIRST remain separate",
         "No model/provider/SDK/OS/browser/nativeIPC/rendering/focus/permissions or whole task acceptance",

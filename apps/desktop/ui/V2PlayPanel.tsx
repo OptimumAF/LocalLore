@@ -1,4 +1,5 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { beginInspectionPagingFocus } from "./v2-inspector-paging-focus";
 import { sameScope } from "./model";
 import type { Action, FakeMode } from "./model";
 import type { V2BoundPage, V2PlayController } from "./v2-play-controller";
@@ -400,6 +401,16 @@ export function V2PlayPanel({
 }) {
     const state = useSyncExternalStore(controller.subscribe, controller.get),
         c = state.context;
+    const pagingFocus = useRef<ReturnType<
+        typeof beginInspectionPagingFocus
+    > | null>(null);
+    useEffect(
+        () => () => {
+            pagingFocus.current?.cancel();
+            pagingFocus.current = null;
+        },
+        [controller],
+    );
     const [view, setView] = useState<ViewV2>("knowledge");
     const [search, setSearch] = useState("");
     const [at, setAt] = useState("");
@@ -479,6 +490,36 @@ export function V2PlayPanel({
                   renderedNextCursor !== null &&
                   live.inspection.page.next_cursor === renderedNextCursor)
         );
+    };
+    const runPager = (
+        direction: "previous" | "next",
+        button?: HTMLButtonElement,
+    ) => {
+        if (
+            !livePager(direction) ||
+            (direction === "next" && renderedNextCursor === null)
+        )
+            return;
+        pagingFocus.current?.cancel();
+        const ticket = beginInspectionPagingFocus(
+            controller,
+            button,
+            c,
+            renderedSnapshot,
+            direction,
+        );
+        pagingFocus.current = ticket;
+        try {
+            const work =
+                direction === "previous"
+                    ? controller.previousInspectionPage()
+                    : controller.page(renderedNextCursor!);
+            void Promise.resolve(work).finally(ticket.settled);
+        } catch (error) {
+            ticket.cancel();
+            if (pagingFocus.current === ticket) pagingFocus.current = null;
+            throw error;
+        }
     };
     const pagingBusy =
         state.queryBusy || state.readBusy || paging.navigating !== null;
@@ -984,23 +1025,18 @@ export function V2PlayPanel({
                     <button
                         type="button"
                         disabled={!pagingReady || !paging.canPrevious}
-                        onClick={() => {
-                            if (livePager("previous"))
-                                void controller.previousInspectionPage();
-                        }}
+                        onClick={(event) =>
+                            runPager("previous", event?.currentTarget)
+                        }
                     >
                         Previous inspection page
                     </button>
                     <button
                         type="button"
                         disabled={!pagingReady || !paging.canNext}
-                        onClick={() => {
-                            if (
-                                livePager("next") &&
-                                renderedNextCursor !== null
-                            )
-                                void controller.page(renderedNextCursor);
-                        }}
+                        onClick={(event) =>
+                            runPager("next", event?.currentTarget)
+                        }
                     >
                         Next inspection page
                     </button>

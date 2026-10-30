@@ -289,7 +289,7 @@ const sourcePaths = (await gitRead(["ls-files", "--full-name", "../.."]))
                 name,
             ) && /\.(?:rs|ts|tsx|css|html|json|mjs|toml|lock)$/.test(name),
     )
-    .map((name) => path.resolve(root, "../..", name));
+    .map((name) => path.join("../..", name));
 if (!sourcePaths.length || sourcePaths.length > 2048)
     throw Error("SourceRosterBudget");
 async function hashes(files) {

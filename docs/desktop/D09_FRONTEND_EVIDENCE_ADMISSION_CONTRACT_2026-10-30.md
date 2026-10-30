@@ -209,6 +209,10 @@ final summary using the reserved space. No later Git/child/bundle-read/PASS foll
 that failure. Caller admission accounts up to consoleBytes outside outputDir;
 this is separate from the filesystem metadata reserve. Do not promise the console
 sink itself is controlled by the runner or silently truncate successful evidence.
+Compact failure metadata AND the final summary jointly fit the reserved32KiB,
+using one counter across stdout/stderr. Label omitted text as runner ConsoleBudget
+truncation; preserve the actual child's close/code/original byte counts rather
+than implying it exceeded its raw stream cap. Policy failure may remain Outcome.
 No automatic artifact directory, model/native execution, output deletion or
 normal-product restoration branch is added. A final bounded summary states exact
 fixed step count, success/failure and cooperative limitations. Public reports

@@ -63,12 +63,13 @@ and [verification](../../docs/desktop/D05_NATIVE_VERIFICATION_2026-10-22.md).
 
 The V2 inspector now has bounded Previous/Next navigation that refetches permitted
 pages from Rust. Its [current qualification report](../../docs/desktop/D05_V2_INSPECTOR_PAGING_QUALIFICATION_2026-10-30.md)
-separates frontend/Store/Host tests from the native UI gate. After preserved startup
-failures, the current native attempt renders real first/second pages but fails
-focus restoration after pending navigation. Both early captures were inspected;
-the guarded correction passes84 frontend focus checks and92 paging regressions.
-Its native rerun, full journey, enlarged target text and later image review remain
-unverified.
+separates frontend/Store/Host tests from actual native UI/IPC execution. After
+preserved startup/focus failures, the guarded correction passes84 frontend focus
+checks,92 paging regressions and the20-capture native journey. Every image was
+individually inspected, including150% wide/narrow layouts. The full76-command
+frontend suite functionally passes, but its retained output exceeds the declared
+32MiB allocation; that failed resource check is preserved and further runs stop.
+Physical keyboard/screen-reader and whole-D05 acceptance remain open.
 
 **Derived memory** reads the selected saved story's shared maintenance status.
 Preparing derived data requires consent; **Process one chunk** performs one

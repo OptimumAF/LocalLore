@@ -1,7 +1,7 @@
 # D05 V2 inspector paging qualification
 
-Refs #26, D05.03/D05.07 supporting slice. **In progress; early native navigation
-executes but fails focus, with no full native UI or whole D05 acceptance.** GitHub
+Refs #26, D05.03/D05.07 supporting slice. **The scoped native journey passes;
+the final frontend evidence allocation fails. Whole D05 remains unaccepted.** GitHub
 owns current status and claims. This report records
 the preserved failures as well as subsequent checks; a later result does not
 replace an earlier observation.
@@ -29,9 +29,8 @@ Summary/index views retain their existing unsupported results.
 V2 base/header text now derives from the enclosing app text scale while retaining
 the original100% sizes. Some existing descendant provenance/source labels still
 use rem; this is not universal text-scale or accessibility qualification. The
-native journey requires12 actual target measurements at100%,150% wide/narrow and
-restored100%, preserving node/text/query identity. These measurements remain
-unrun at this report revision.
+native journey measures12 actual targets at100%,150% wide/narrow and restored100%,
+preserving node/text/query identity; the measured results appear below.
 
 ## Independent source lineage
 
@@ -101,6 +100,12 @@ React19.3.1, TypeScript7.0.2, Tauri2.12.5, esbuild0.28.2, Prettier3.9.10.
 |628b4434 focus FIRST |desktop cwd: `node check-v2-inspector-paging-focus-review.mjs` |84/84;0.165s; actual helper/controller/panel handlers with disclosed DOM/rAF/hooks doubles, no browser/native execution |
 |628b4434 paging regression |desktop cwd: `node check-v2-inspector-paging-review.mjs` |92/92;1.009s |
 |628b4434 types |desktop cwd: `node node_modules/typescript/bin/tsc --noEmit` |PASS;0.317s |
+|b87ecc3a native UI/IPC |desktop cwd: `node v2-inspector-paging-harness.mjs` with the admitted closed budget record and existing physical-D artifact/target/Cargo directories |PASS;47.247s launcher/11.356s app;5,248 assertions/942 distinct checks;20 app-only captures |
+|b87ecc3a full frontend |desktop cwd: `node verify-frontend.mjs`, with explicit D05 `LOCALLORE_CHECK_OUTPUT_DIR` |Functional PASS;76 child commands;23.179s. Final evidence allocation FAIL below |
+|b87ecc3a frontend format |`node apps/desktop/node_modules/prettier/bin/prettier.cjs --check "apps/desktop/ui/*.{ts,tsx,html,css}" "apps/desktop/*.{json,mjs}"` |PASS;2.801s |
+|b87ecc3a Rust format |`cargo fmt --all -- --check` |PASS;1.957s |
+|b87ecc3a strict native dev lint |same strict dev/all-target Clippy command above |PASS;8.616s; compile only |
+|b87ecc3a strict native normal lint |same Clippy command without `--features dev-harness` |PASS;9.498s; compile only |
 
 Native FIRST executes production Store/Workspace/Host/Engine, not IPC/WebView.
 Its source-planned positive recipe has45 canonical operations/44 ordinary turns
@@ -161,8 +166,8 @@ metadata, and does not move/reuse/delete the failed profile or affect normal/oth
 modes. A conservative190-unit ceiling is a local test-layout budget, not a
 Microsoft limit or proven HRESULT remedy. [Microsoft's UDF guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/user-data-folder)
 supports custom writable app-owned data directories; it does not establish this
-failure's cause. Actual WebView rendering and longer descendant paths remain
-unverified. No installed runtime, registry, permission, browser option or other
+failure's cause. WebView rendering was unverified at that source; the later actual
+runs are recorded below. No installed runtime, registry, permission, browser option or other
 app is changed. Absence validation is cooperative, not atomic OS isolation.
 
 Five actual-helper filesystem groups pass at a66d6852, retaining seven tiny
@@ -234,12 +239,79 @@ The focus helper and panel subscribe only to public state, own one interaction,
 retire on user/context/new-operation changes, and use one guarded animation frame
 to restore only the original enabled button from BODY. Weak identity metadata is
 bounded to64 notifications and retains no page bodies. Independent source review
-atfe4b44d5 closes without actionable findings. A new native run remains pending.
+atfe4b44d5 closes without actionable findings.
 
 Independent journey calibrationfd29335f recognizes only the two existing capture
 revocation operations during normal disposal. It adds a stronger settled
 close/revocations-only post-dispose roster assertion; every original20-label and
-focus assertion remains. That new postcondition has not yet executed.
+focus assertion remains. That postcondition executes successfully in the run below.
+
+## Completed scoped native journey
+
+At cleanb87ecc3a, one admitted closed run passes in47.247s including builds and
+restoration; the actual app runs11.356s. Hidden, unfocused native WebView2 uses
+normal IPC and the actual mounted UI handlers. No headless/browser substitution,
+desktop capture/input, model execution or SDK/device work occurs. It produces
+exactly20 success captures,5,248 assertions/942 distinct checks,79 Gateway calls,
+48 inspection queries,42 page proofs and5 read-only oracle proofs. The four
+deliberate native negative probes return exactly Scope, Stale, UnknownObserver
+and InvalidCursor; those are the bounded error buffer's four expected entries.
+
+Actual first/second/last pages, backward refetch, repeated forward refetch,
+post-successful-IPC held/drop/retry delivery, literal-search reset, historical
+revision23, Player/Mira/Sable/Omniscient lenses, another story/session, same-head
+snapshot replacement and stale delivery execute. Canonical/actor/seed/projection/
+record/receipt/turn hashes remain unchanged across all three fixture scopes,
+including the final oracle after disposal. Post-dispose Gateway work is limited
+to settled close and the two exact capture revocations. Inspection does not
+change gameplay actor permissions or character knowledge.
+
+All six enabled-completion observations restore the original focused pager.
+Six first/last disabled-boundary observations leave focus on BODY without a peer
+fallback; this is an explicit accessibility limitation, not universal focus
+qualification. Each of12 named actual font targets measures baseline100%,150%
+at1280x900 and620x900, and restored100%, within0.05px. Existing descendant rem
+labels outside that roster remain outside the scaling claim.
+
+Root individually viewed every generated PNG. Context, pager labels/status and
+record identities remain readable without required-control clipping, horizontal
+overflow or overlap, including enlarged narrow layout. The upper query form is
+partly scrolled under the sticky context in navigation framing. Other-story
+selection shows its own receipt; empty observer/stale snapshots show no old row
+body. Unsupported summaries show the actual unavailable response and no substitute.
+Per-image hashes/notes are retained in native-b87ecc3a-image-review1.json, SHA
+3faa03dcbbf445436b1f9b29338a9b17ae4bcbcbba3c2cb4f10b02f917e2694a.
+
+Packet suffix5d2d0b8c-52d1-4359-a1ee-afdeaba3d052 retains the reports, semantic
+snapshots,20 images, synthetic database and app-owned WebView profile. At launcher
+closure: packet12,717,243B, D0539,917,353B, joint541,562,006B and target growth
+78,023,959B. All children known-close, normal frontend/executable restore and
+remain unlaunched, with no unknown drain or launcher storage latch.
+
+## Final frontend allocation failure
+
+The76-command registered frontend driver functionally passes, including strict
+types, all existing checks and exclusion of development controls/journey markers
+from the normal frontend. Both final native Clippy configurations compile only;
+the stopped qualifier, AppContainer/network probes and frozen real-model cohorts
+are never executed. This does not replace the native UI evidence above.
+
+The subsequent inventory FAILS UnchangedResourceCap: the explicit frontend output
+root retains38,790,893B/214 entries against its declared32MiB/33,554,432B allocation,
+an overrun of5,236,461B. Multiple retained actual-source bundles account for the
+underestimate. This coordinator allocation had a post-run inventory, not a live
+pre-write enforcement guard. Functional PASS and resource FAIL are separate.
+The failed boundary is not raised, reset or reported green; no output is deleted,
+and further test/build/native execution stops. Only the originally reserved final
+metadata/documentation and source review proceed.
+
+Measured D05 is79,221,913B/1,083 entries, joint580,866,566B and target8,338,402,270B/
+growth78,421,694B. The original D05128MiB, joint640MiB and target-growth2GiB caps
+remain intact; all previous failures/captures remain charged. Local failure record
+final-frontend-allocation-failure-b87ecc3a1.json SHA is
+c1a5b24b9b74afc9d2594531087287ffe7969740e1337203cde75bda398d3a7a.
+No further run is admitted by this report. Future verification needs a fresh,
+prospective bounded output plan; it must not reinterpret this failed allocation.
 
 ## Resource and acceptance limits
 
@@ -259,9 +331,9 @@ stream256KiB. Unknown direct-child ownership or failed/over-budget inventory
 sticks and forbids later Git/native/restoration work. This is cooperative
 child-boundary accounting, not process-tree containment or OS isolation.
 
-The first two native images are reviewed, but the actual20-label mounted UI/IPC
-journey, all resulting image inspections,12-target font measurements and final
-full frontend driver remain required.
+The20-label mounted UI/IPC journey, every resulting image inspection and12-target
+font measurements pass. The final frontend driver functionally passes while its
+evidence allocation fails as recorded above. No all-gates-green result is claimed.
 Physical keyboard/screen-reader, native restart/process death, actual model,
 Android SDK/device, OS/network isolation, packaging/release and whole D05/desktop
 epic gates are not qualified by these checks. Delivery hold/drop are explicitly

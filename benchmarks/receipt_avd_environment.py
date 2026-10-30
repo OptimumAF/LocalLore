@@ -51,10 +51,12 @@ def safe_path(value, exists=True, directory=False):
     p = Path(value)
     require(p.is_absolute() and str(p) == os.path.abspath(str(p)), "unsafe_path")
     for part in [p] + list(p.parents):
-        if part.exists() or part.is_symlink():
+        try:
             info = part.lstat()
-            require(not stat.S_ISLNK(info.st_mode) and
-                    not getattr(info, "st_file_attributes", 0) & 0x400, "unsafe_path")
+        except FileNotFoundError:
+            continue
+        require(not stat.S_ISLNK(info.st_mode) and
+                not getattr(info, "st_file_attributes", 0) & 0x400, "unsafe_path")
     if exists:
         require(p.exists() and (p.is_dir() if directory else p.is_file()), "missing_path")
     return p

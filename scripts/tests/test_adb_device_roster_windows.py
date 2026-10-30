@@ -25,8 +25,8 @@ class FakeSocket:
     def close(self): self.closes += 1; self.handle = -1
 
 
-def active():
-    value, owned = roster.WindowsRosterBackend(), FakeSocket()
+def active(backend_type=None):
+    value, owned = (backend_type or roster.WindowsRosterBackend)(), FakeSocket()
     value.now = lambda: 1.0
     value._deadline = 4.0
     value._opened = value._connected = True
@@ -144,6 +144,51 @@ class RosterWindowsTests(unittest.TestCase):
                 value.recv(len(received), 4.0)
         self.assertEqual(getattr(caught.exception, 'received', None), received)
         self.assertTrue(value._poisoned)
+
+
+    def test_version_recorder_constructs_without_native_or_socket_io(self):
+        with patch.object(old, '_WindowsApi') as native, patch.object(old.socket, 'socket') as network:
+            value = roster.WindowsVersionRecordingBackend()
+            self.assertIsInstance(value, old.WindowsBackend)
+            self.assertEqual(value.received_bytes, b'')
+            native.assert_not_called(); network.assert_not_called()
+
+    def test_version_recorder_keeps_fixed_legacy_request_and_actual_fragments(self):
+        value, owned = active(roster.WindowsVersionRecordingBackend)
+        value.send(old.REQUEST, 4.0)
+        self.assertEqual(owned.sent, [b'000Chost:version'])
+        for fragment in (b'OKAY', b'0004', b'0029', b''):
+            owned.data = fragment
+            self.assertEqual(value.recv(max(1, 13-len(value.received_bytes)), 4.0), fragment)
+        self.assertEqual(value.received_bytes, b'OKAY00040029')
+
+    def test_version_recorder_property_is_immutable_and_not_assignable(self):
+        value, owned = active(roster.WindowsVersionRecordingBackend)
+        value.send(old.REQUEST, 4.0); owned.data = b'OKAY'; value.recv(13, 4.0)
+        frozen = value.received_bytes
+        with self.assertRaises(AttributeError): value.received_bytes = b'fabricated'
+        self.assertIs(type(frozen), bytes)
+        owned.data = b'0004'; value.recv(9, 4.0)
+        self.assertEqual(frozen, b'OKAY'); self.assertEqual(value.received_bytes, b'OKAY0004')
+
+    def test_version_recorder_preserves_bytes_after_post_read_deadline_failure(self):
+        value, owned = active(roster.WindowsVersionRecordingBackend)
+        value.send(old.REQUEST, 4.0)
+        def late_read(limit):
+            value.now = lambda: 4.0
+            return b'OKAY0000'
+        with patch.object(owned, 'recv', side_effect=late_read):
+            with self.assertRaises(ProbeRefused): value.recv(13, 4.0)
+        self.assertEqual(value.received_bytes, b'OKAY0000')
+        self.assertTrue(value._poisoned)
+
+    def test_version_recorder_never_accepts_roster_request_or_larger_receive_limit(self):
+        value, owned = active(roster.WindowsVersionRecordingBackend)
+        with self.assertRaises(ProbeRefused): value.send(roster.REQUEST, 4.0)
+        self.assertEqual(owned.sent, [])
+        value, owned = active(roster.WindowsVersionRecordingBackend); value.send(old.REQUEST, 4.0)
+        with self.assertRaises(ProbeRefused): value.recv(14, 4.0)
+        self.assertEqual(owned.receives, [])
 
 
 if __name__ == '__main__': unittest.main()

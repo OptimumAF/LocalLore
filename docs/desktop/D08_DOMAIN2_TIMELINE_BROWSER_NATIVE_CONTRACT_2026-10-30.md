@@ -197,7 +197,7 @@ The owner answered "Approve checks and restoration". Actual source checks pass,
 but the normal build's post-inventory fails the original target-growth limit.
 The private runner omitted the repository launcher's existing pinned build
 settings and performed a broad default-debug rebuild. All outputs are retained.
-No further execution is admitted by that consumed, failed reconciliation.
+The failed storage boundary stops further execution under that reconciliation.
 
 ## Prospective resource revision3: decision pending
 
@@ -213,6 +213,11 @@ One further fixed six-capture attempt would also need a52MiB browser base and
 reservation,8MiB native writer,8MiB source phase,16MiB products,1MiB metadata,
 all failed packets/copies and all old D05/D07 costs. Existing no-argument paging
 and frozen cohort limits are unchanged; no old failure becomes a pass.
+Stored pre-final-record figures forecast browser50,650,015B and joint689,889,431B
+after reserving the next20MiB packet; fresh admission must replace those stale
+figures and retain space for later source/records. The target256MiB reservation
+is a cached-build forecast. Inventory checks bracket each child and can detect a
+build overrun only after allocation; they do not enforce an operating-system quota.
 
 If explicitly approved, browser admission would use version3, kind
 `d08_domain2_timeline_browser_budget_v3` and matching filename prefix, with the

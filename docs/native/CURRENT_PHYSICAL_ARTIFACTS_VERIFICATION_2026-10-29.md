@@ -127,7 +127,7 @@ Artifact index:
 
 ## Preserved preparation, storage and remaining gates
 
-All v1-v5 private preparation drafts remain UNRUN. Before dispatch, both
+All v1-v5 private build-preparation drafts remain UNRUN. Before dispatch, both
 reviewers reject generated==APK as an invalid oracle because AGP strips the
 app library. V6 preserves both legitimate stages instead. Earlier compiled
 input count985 is replaced by the actual989 inventory before dispatch.
@@ -159,8 +159,9 @@ ignored builds, caches and preparation records remain intact.
 
 Private output:
 D:/Dev/Experiments/LocalLore/2026-10-29-current-physical-artifacts-v1.
-Matching D recovery includes exact source, closed evidence and built APK/JNI
-copies within the0.3GiB allowance. No signing-key, model-weight, private-save or guest
+The matching D recovery plan includes exact source, closed evidence and built
+APK/JNI copies within the0.3GiB allowance. See issue #14 for terminal recovery
+receipts. No signing-key, model-weight, private-save or guest
 image is copied; no private artifact is uploaded.
 
 No phone installation, Android instrumentation/JNI execution, inference,

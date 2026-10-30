@@ -1,6 +1,8 @@
 # D05 V2 inspector paging native harness proposal
 
-2026-10-29. **Proposal only; no implementation, fixtures or execution admitted.**
+2026-10-29. **Native fixture/oracle source contract accepted with Root precisions
+below; no implementation, fixtures or native execution admitted yet. Launcher
+extraction interfaces/policy FIRST and actual runtime admission remain pending.**
 Refs #26 (bounded D05.03/D05.07 supporting slice), allocation6512170345 and the
 [accepted frontend contract](D05_V2_INSPECTOR_BACK_PAGING_CONTRACT_2026-10-29.md)
 at f3add8f84d5aea63d5987e31c3314d5e3072f265. The later eca52680 precision permits
@@ -107,8 +109,10 @@ author replacement/reason. Mira sees its private seed belief and cannot see the
 Player seed secret, even-only statements or author replacement/reason. Sable sees
 none of those. Omni knowledge may inspect the canonical replacement and secret;
 it must not confer them on an actor. Neither primary lens may receive either
-other-story sentinel. Other-story queries contain their own sentinel and exclude
-primary sentinels. Actor context/event fingerprints must remain unchanged after
+other-story sentinel. Other-story Player/Omni knowledge contains its seed
+sentinel515; Player/Omni/Mira history contains its message516. Sable history is
+empty and its knowledge need not contain either sentinel. All exclude primary
+sentinels. Actor context/event fingerprints must remain unchanged after
 inspection and after returning from Omni to an actor.
 
 ## Fixed native surface and canonical oracle
@@ -178,7 +182,9 @@ live oracle does not call author lookup or use a writable Store fallback.
 All fields/counts must match the recipe before a baseline oracle is accepted.
 
 Compare complete oracle replies before navigation, after actor/session/reset/error
-journeys and after final closure. Also compare selected actual play_snapshot_v2
+journeys and after final controller/session cleanup while the main-window lease
+is still active, BEFORE harness_finish/app.exit. No IPC oracle is available after
+OS app closure in this one-process gate. Also compare selected actual play_snapshot_v2
 and fixed Query2 actor pages. This establishes unchanged canonical projections,
 records/receipts/fixed fixture turns and actor observations. The public fixed-key
 turn lookup does not enumerate arbitrary unknown draft keys; zero navigation
@@ -364,5 +370,118 @@ Android Windows-host compatibility as applicable. No Android runtime, SDK/JVM/
 Gradle/ADB/emulator/device, native-model, OS/network isolation, accessibility,
 release, whole D05 or desktop-epic acceptance follows. GitHub receives exact
 lineage/commands/counts/environment/errors/resource/capture-review limitations
-and the next runnable task. This proposal remains pending Root acceptance; only
-the new document, source/Git/hash checks and its focused commit are authorized now.
+and the next runnable task. Source-only fixture/oracle acceptance and independent
+FIRST allocation are fixed below; no implementation/runtime admission follows.
+
+## Root pre-FIRST fixture and oracle precision
+
+Root accepts the source-derived recipe, bounded fixture/oracle interfaces and
+finite journey boundaries after independent source review. Original proposal
+3e7c5421 is imported e5495dee; its unrun expectations remain explicit. This accepts
+no observed row count, fixture generation, app launch or model result. The separate
+launcher extraction/FIRST contract still must freeze before launcher production.
+
+Actual environment-free helper signatures in the new native module are:
+
+```rust
+fn validate_mode(
+    selector: Option<&str>, development: bool,
+    legacy_inspecting: bool, other_harness: bool,
+) -> Result<bool, String>;
+fn validate_workspace_path(path: &std::path::Path) -> Result<(), String>;
+fn prepare_fixture(path: &std::path::Path) -> Result<(), String>;
+fn fixture_oracle(path: &std::path::Path) -> Result<serde_json::Value, String>;
+```
+
+`path` is the fixed SQLite path, not its directory and never a renderer argument.
+Helpers may remain private, with the independent review file included as a child
+test module. Tests exercise these actual helpers; no test-only recipe or copied
+mode/path/oracle implementation establishes success. Independent FIRST uses the
+current production `locallore_workspace::open(path, story_lab)` and normal session
+resume for grant checks, with no fake Persistence adapter or private session
+injection. Host grant denial follows Store reopen, so it is not zero-file-probe
+evidence.
+
+Absent selector means Ok(false), preserving existing modes. Exactly Some("1")
+requires development=true, legacy_inspecting=false and other_harness=false;
+all other present selectors return Forbidden. The runtime wrapper preserves
+var_os presence: a present non-Unicode value must fail, never become absent through
+`.ok()`. Runtime development includes the existing dev-harness compile boundary
+and exact D02 base guard. In the requested new mode, allow only these case-folded
+LOCALLORE_ child keys: LOCALLORE_D02_HARNESS, LOCALLORE_D02_ARTIFACT_DIR,
+LOCALLORE_TEST_WORKSPACE, LOCALLORE_D05_INSPECTOR_PAGING_HARNESS. Any other present
+LOCALLORE_ key is conflicting, including fixture/memory/restart/model selectors.
+The launcher scrubs all inherited aliases before setting these four fixed keys.
+Validate requested mode before ANY existing fixture/Host/model setup; absence
+must retain existing bootstrap behavior. Unit tests do not mutate global env.
+
+The path guard accepts only ordinary physical D paths, fixed leaf
+stories-v1.sqlite, and a parent named d05-v2-inspector-paging-native-<UUID>, with
+a canonical lowercase hyphenated UUID suffix. Parent exists and is ordinary;
+all ancestors and an existing file must be non-reparse ordinary entries.
+Reject raw literal dot/parent segments, including interior '.' that Rust
+Path::components can normalize away; do not normalize a negative input into a
+valid test. An absent database is allowed by validation, because the same guard
+serves preparation and oracle. Only prepare_fixture demands a fresh database
+through create_new_pinned and refuses an existing ordinary file without repair.
+Runtime wrappers additionally require exact equality with the task-owned
+LOCALLORE_TEST_WORKSPACE/WorkspaceState path. These are cooperative path controls,
+not an AppContainer/race-free OS filesystem isolation claim.
+
+Exact helper/command error vocabulary is Forbidden, Closed,
+SyntheticWorkspaceRequired, SyntheticFreshWorkspaceRequired,
+SyntheticFixtureInvalid, SyntheticReadOnly, SyntheticOracleBudget,
+SyntheticWorker. Mode errors use Forbidden; lexical/ordinary-path errors use
+SyntheticWorkspaceRequired; an existing ordinary preparation target uses
+SyntheticFreshWorkspaceRequired. Invalid recipe/failed setup/missing canonical
+records or turns map to SyntheticFixtureInvalid. Failed read-only Store open
+uses SyntheticReadOnly. Failed/oversize JSON encoding uses SyntheticOracleBudget;
+failed blocking task uses SyntheticWorker. Preserve native WindowLease's existing
+Forbidden/Closed semantics. Never forward arbitrary Store/SQLite/path error text.
+Normal host_call Query2 negative probes keep their existing native error types.
+
+The no-argument command captures the actual main-window lease, dispatches the
+bounded read-only helper in blocking work, then rechecks with lease.dispatch
+AGAIN before publishing. Dispatch only around the whole blocking closure checks
+before the action and is insufficient as an after-read lease check. No writable
+WorkspaceState/get fallback, renderer token, user path or grant is introduced.
+
+Scope order is primary/main, primary/paging, other/main. Hash raw
+Engine::canonical_bytes directly, not a serialized Vec<u8>. Seed, records and
+receipts use their actual serde_json::to_vec bytes. actors_sha256 hashes ordered
+Vec<(String, CharacterContextV2, Vec<ActorReceiptViewV2>)> for seed.player, mira,
+oren, sable, each actual scope/head. turns_sha256 hashes ordered
+Vec<(String, &'static str, Request, Receipt)> in NNN001..043 order for child,
+other001 for other and empty for parent. Require actual TurnPhase::Committed and
+Some(receipt), encode the phase as literal "committed" and include the actual
+request/receipt. No synthetic surrogate hash or inferred canonical equality.
+
+AuthorCorrection wire rows are exactly {kind:"author_correction",revision}; their
+native sorting key is serde-skipped. Across IPC use typed kind+revision identity
+for that marker, actual keys for other rows, and compare actual serialized DTOs.
+Do not invent a marker key/source identity or change the shared schema.
+
+The other/main story is Domain1 with literal player ID and no scene mode. The
+current app routes it to the legacy surface, so d05-page-other-story must capture
+the actual selected other-story header, absence of V2 pager/old private body,
+then return to the exact paging child with a fresh V2 chain. Domain1 Query2
+counts/sentinels are actual Host-library/direct native reads, not mounted V2
+paging evidence. Do not enable a scene/provider or alter routing to force V2.
+
+For actual fixed form-edit journeys, Root permits only the mounted inspector's
+existing view/select, completed-revision and literal-search controls: native DOM
+value setters followed by input/change events, and form.requestSubmit or its
+normal submit button. These run the real React handlers on app-owned elements.
+They inject no OS keys/mouse input, use no React fiber/private-state mutation,
+accept no arbitrary selector/value over IPC and expose no general event/script
+service. Values/actions are fixed in the reviewed development journey. DOM
+click/focus and these form events remain separate from physical keyboard or
+screen-reader qualification. Mounted stale local-draft behavior needs actual
+WebView observation; SSR does not establish it.
+
+Independent native FIRST owns only the new review-test file, frozen before
+different-author helper production. During eventual execution, all test fixtures
+must be retained under the admitted D05 paging artifact base via its explicit
+environment, with unique fixed-prefix child folders and no drop-time cleanup.
+Missing admission/helper/module is setup/unrun, never zero-test pass. FIRST source
+authoring itself is source/Git/hash only and creates no fixture/output roots.

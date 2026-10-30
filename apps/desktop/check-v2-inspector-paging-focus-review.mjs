@@ -1158,21 +1158,17 @@ try {
             },
         ],
     });
-    const module = { exports: {} };
-    vm.runInNewContext(
-        bundled.outputFiles[0].text,
-        {
-            module,
-            exports: module.exports,
-            crypto: webcrypto,
-            TextEncoder,
-            TextDecoder,
-            structuredClone,
-            console,
-        },
+    // Real transport DTOs and the strict decoder must share JS intrinsics.
+    // Keep CommonJS bindings local without creating a foreign fixture realm.
+    actual = vm.runInThisContext(
+        `(function () {
+            const module = { exports: {} };
+            const exports = module.exports;
+            ${bundled.outputFiles[0].text}
+            return module.exports;
+        })()`,
         { timeout: 1000, filename: "actual-focus-controller-panel.cjs" },
     );
-    actual = module.exports;
     if (
         typeof actual.beginInspectionPagingFocus !== "function" ||
         typeof actual.V2PlayPanel !== "function" ||

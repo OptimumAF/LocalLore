@@ -56,6 +56,11 @@ fork/recovery identity and stale-action/consent fences. Its separate
 passes21 frontend groups, eight new/six legacy Rust tests and compatibility checks,
 with generated permission readback and unlaunched normal restoration.
 Native fork UI/IPC/rendering remains unrun; the parent browser pass does not prove it.
+The new [native harness code checks](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_CODE_VERIFICATION_2026-10-30.md)
+pass three Rust fixture/oracle groups,12 launcher groups and29 finalization
+groups, with21 fork regressions, compatibility checks and unlaunched normal
+restoration. They preserve the initial failures and require separate permission
+and fresh resource admission before the proposed seven-image native journey.
 
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned

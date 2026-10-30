@@ -94,10 +94,12 @@ local evidence group:`d08-fork-checks-20261030-v1`, with immutable per-child
 logs/terminal/source hashes, fixtures baseline, equivalence and restoration.
 
 The independent [native proposal](D08_DOMAIN2_FORK_NATIVE_CONTRACT_2026-10-30.md)
-is a separate16,318B source-only phase, not an app admission or actual rendering.
-Its seven-success/one-failure ceiling and20MiB packet still need an executable
-harness, frozen independent checks, source review and a separate owner resource
-decision. All wider D08/desktop/device/model/quality/release gates remain open.
+was a separate16,318B source-only phase. Later
+[native harness code verification](D08_DOMAIN2_FORK_NATIVE_CODE_VERIFICATION_2026-10-30.md)
+records its implemented harness, frozen checks, source review and actual code
+results. Its seven-success/one-failure ceiling and20MiB packet still need a
+separate owner resource decision and fresh admission before any app execution.
+All wider D08/desktop/device/model/quality/release gates remain open.
 
 Independent read-only evidence review finds no blocking discrepancy in all35
 records, case counts, hashes, generated permission, restoration or limits. Final

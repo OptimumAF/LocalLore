@@ -6,6 +6,9 @@ Baseline: `3ebcdc7e2b87fbbbfe844abca37de624b8344637`. Proposal only; GitHub owns
 status. PR286's browser cohort is passed/spent; its failures and six-capture
 oracle stay unchanged. Current PR290 approval covers code checks/restoration,
 not application execution. Root remains the sole execution owner.
+The later [native harness code evidence](D08_DOMAIN2_FORK_NATIVE_CODE_VERIFICATION_2026-10-30.md)
+records implementation and passing checks while retaining this original proposal.
+Its runtime/resource gate is still unrun and unadmitted.
 
 ## Existing interfaces and prerequisite freeze
 
@@ -247,3 +250,43 @@ permission readback and fresh inventory must close before one fixed launch.
 Record commands, versions, hashes, costs, closure and limitations later. Native
 IPC/pixels, doubles, Rust tests, restart, devices, models and release are distinct
 gates. This proposal accepts none.
+
+## Post-code-check resource proposal: not authorized
+
+The implemented harness now passes the separate code gate at `1779b0bd`.
+The code-only owner approvals do not permit launching it. Its new launcher
+mode still has prospective2GiB target growth /660MiB joint limits; these refuse
+the actual retained target and complete packet reservation. Existing paging
+and browser limits must remain byte-for-byte unchanged.
+
+Propose one fixed fork attempt after separate owner approval, independent
+policy FIRST, focused producer change, review, checks and fresh admission:
+
+| Bound | Proposed fork-only value |
+| --- | --- |
+| Target growth from original8,259,980,576B |4GiB, including preserved binaries and build output |
+| Joint retained evidence |692MiB =725,614,592B |
+| Entire new fork group, including records |32MiB |
+| One packet including workspace/profile/images/logs |20MiB |
+| Existing sticky in-app artifact writer |8MiB |
+| Captures |Seven ordered successes; at most one terminal failure, max eight |
+| Code-check records / synthetic fixtures |Existing576KiB decoded-and-physical /8MiB; no increase |
+
+The fresh code audit measures target11,785,149,088B, growth3,525,168,512B;
+joint682,321,284B; code records549,989B physical /570,664B decoded; fixtures
+671,744B. Retaining all output and reserving the full existing576KiB records,
+all8MiB fixtures and the entire32MiB new fork group forecasts723,632,415B,
+below the proposed725,614,592B joint ceiling by1,982,177B. This charges the
+whole new group rather than only its20MiB packet. It is an admission forecast,
+not an OS quota or guarantee of child output; existing checks can detect excess
+after a child closes. Source growth remains128MiB, with the same existing target,
+offline pins, source/product/permission binding and ownership/closure rules.
+
+The one attempt includes bounded preparation/checks, build, one app launch,
+seven-checkpoint journey, individual inspection of every original app-owned
+image and normal restoration after confirmed closure. Failed admission does
+not permit an automatic launch retry; any launched failure remains failed.
+Unknown shutdown/storage/ownership stops later work under the existing latch.
+No desktop control, model/device/SDK/OS work, downloads, deletion, cleanup,
+second app attempt or other group's limit increase follows. Keep all prior
+failures and evidence. This table is a reviewable request, not permission.

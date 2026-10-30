@@ -25,11 +25,19 @@ export function timelineContext(
 ): TimelineContext | null {
     const s = c.get(),
         selected = c.selected();
+    if (
+        s.playV2 &&
+        (!selected ||
+            !sameScope(s.playV2.scope, selected.scope) ||
+            s.playV2.revision !== selected.revision)
+    )
+        return null;
     return selected && !s.disposed
         ? {
               session: selected.id,
               scope: { ...selected.scope },
-              revision: s.play?.revision ?? selected.revision,
+              revision:
+                  s.playV2?.revision ?? s.play?.revision ?? selected.revision,
               view: s.view,
               observer: s.observer,
               persistent: s.workspace?.persistent === true,

@@ -67,6 +67,7 @@ declare global {
             sceneFullComparing?: boolean;
             sceneModelGuard?: boolean;
             inspectorPaging?: boolean;
+            timelineBrowser?: boolean;
             nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
@@ -747,7 +748,19 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   ? durableDriver.durableJourneys
                   : driver.journeys;
     const sceneCase = window.__LOCALLORE_TEST__?.sceneCase;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.inspectorPaging) {
+    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelineBrowser) {
+        const { domain2TimelineBrowserNativeJourneys } =
+            await import("./domain2-timeline-browser-native-journeys");
+        await domain2TimelineBrowserNativeJourneys({
+            controller,
+            timeline,
+            v2,
+            gateway: gateway as InstanceType<typeof driver.FaultGateway>,
+            errors,
+            invoke,
+            dispose,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.inspectorPaging) {
         const { v2InspectorPagingNativeJourneys } =
             await import("./v2-inspector-paging-native-journeys");
         await v2InspectorPagingNativeJourneys({

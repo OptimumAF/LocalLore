@@ -397,7 +397,8 @@ check(
         markup.includes(
             "downstream choices are never replayed automatically",
         ) &&
-        markup.includes("corrections remain unavailable") &&
+        markup.includes("Saved drafts stay uncommitted.") &&
+        !markup.includes("Author corrections remain unavailable") &&
         !markup.includes(">Apply author correction<"),
     "no-unimplemented-author-controls",
 );

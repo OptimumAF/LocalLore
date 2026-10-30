@@ -35,6 +35,20 @@ fork identity before dispatch. Lost acknowledgements retain that identity;
 same-session retry is explicit, and restart recovery only checks existing saved
 children. Cancellation never claims an earlier commit was rolled back.
 
+**Saved timelines** now exposes the existing read-only catalog/resume adapter for
+Domain2 stories as well. Fork creation remains separate. The
+[browser qualification](../../docs/desktop/D08_DOMAIN2_TIMELINE_BROWSER_QUALIFICATION_2026-10-30.md)
+records passing frontend/writer checks and two failed native attempts. The
+corrected attempt produced six native views but failed finalization and timed
+out; final state proof and normal product restoration remain unavailable. All
+evidence is retained. A separately approved reconciliation verifies the32 new
+source checks and rebuilds normal products without launching, but fails its
+build-storage cap. Further execution remains stopped; no native retry is approved.
+From `apps/desktop`, the standalone
+`node check-domain2-timeline-bootstrap-review.mjs` verifies the corrected setup
+prefix with actual controllers and synthetic transport. It is not native UI
+verification or permission for another application run.
+
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned
 WebView. It never activates or captures the desktop:
@@ -119,7 +133,7 @@ Story Lab also provides an explicit author correction preview and confirmation
 for replacing a fact's proposition on a new saved timeline. The original history
 and private correction reason are retained; later choices are not replayed
 automatically. Corrected timelines use scoped native Play and inspection views.
-Legacy debugging, readable inspection exports, timeline navigation and derived
+Legacy debugging, readable inspection exports and derived
 memory maintenance remain unavailable for that domain version. See the
 [author/scoped-Play verification](../../docs/desktop/M08_AUTHOR_NATIVE_UI_QUALIFICATION_2026-10-23.md).
 

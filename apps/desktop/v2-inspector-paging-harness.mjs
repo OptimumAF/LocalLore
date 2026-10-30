@@ -1,5 +1,5 @@
 // Fixed development-only V2 inspector journey. No desktop control or model.
-// Private coordinator launcher, zero CLI arguments; never a remote service.
+// Private coordinator launcher with two fixed journeys; never a remote service.
 import { spawn } from "node:child_process";
 import {
     mkdir,
@@ -14,18 +14,86 @@ import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-if (process.argv.length !== 2) throw Error("ClosedPagingArgumentsRequired");
+// d08-browser-mode-policy-v1:start
+function pagingLauncherMode(args) {
+    if (Array.isArray(args) && args.length === 0) return "paging";
+    if (
+        Array.isArray(args) &&
+        args.length === 1 &&
+        args[0] === "--timeline-browser-v1"
+    )
+        return "timeline-browser";
+    throw Error("ClosedPagingArgumentsRequired");
+}
+function pagingLauncherPlan(mode) {
+    if (mode === "timeline-browser")
+        return Object.freeze({
+            budgetKind: "d08_domain2_timeline_browser_budget_v3",
+            budgetPrefix: "d08-domain2-timeline-browser-budget-v3-",
+            artifacts: 20971520,
+            expectedEvidence: 20971520,
+            pagingEvidence: 54525952,
+            reportMode: "domain2_timeline_browser_v1",
+            labels: Object.freeze(
+                [
+                    "catalog",
+                    "root",
+                    "child",
+                    "observer",
+                    "enlarged-wide",
+                    "enlarged-narrow",
+                ].map((name) => `d08-browser-${name}`),
+            ),
+        });
+    if (mode === "paging")
+        return Object.freeze({
+            budgetKind: "d05_v2_inspector_paging_budget_v1",
+            budgetPrefix: "d05-v2-inspector-paging-budget-v1-",
+            artifacts: 67108864,
+            expectedEvidence: 67108864,
+            pagingEvidence: 134217728,
+            reportMode: "v2_inspector_paging_v1",
+            labels: Object.freeze(
+                [
+                    "first",
+                    "second",
+                    "third",
+                    "back-second",
+                    "back-first",
+                    "forward-refetched",
+                    "pending-next",
+                    "error",
+                    "retry-second",
+                    "search-reset",
+                    "historical",
+                    "mira",
+                    "sable",
+                    "other-story",
+                    "same-head-refresh",
+                    "stale-delivery",
+                    "unsupported",
+                    "enlarged-wide",
+                    "enlarged-narrow",
+                    "final",
+                ].map((name) => `d05-page-${name}`),
+            ),
+        });
+    throw Error("ClosedPagingModeRequired");
+}
+// d08-browser-mode-policy-v1:end
+const mode = pagingLauncherMode(process.argv.slice(2));
+const plan = pagingLauncherPlan(mode);
 process.env.TEMP = "D:/Dev/_Temp";
 process.env.TMP = "D:/Dev/_Temp";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const limits = Object.freeze({
-    targetGrowth: 2147483648,
+    targetGrowth: mode === "timeline-browser" ? 4294967296 : 2147483648,
     sourceGrowth: 134217728,
-    artifacts: 67108864,
+    artifacts: plan.artifacts,
     entries: 2000000,
-    cumulativeEvidence: 671088640,
-    expectedEvidence: 67108864,
-    pagingEvidence: 134217728,
+    cumulativeEvidence: mode === "timeline-browser" ? 692060160 : 671088640,
+    expectedEvidence: plan.expectedEvidence,
+    pagingEvidence: plan.pagingEvidence,
 });
 async function ownedDirectory(value) {
     if (!value || !path.isAbsolute(value))
@@ -378,11 +446,18 @@ async function footprint(directory, source = false) {
 }
 // d05-paging-footprint-v1:end
 // d05-paging-budget-policy-v1:start
-function checkedPagingBudget(bytes, revision, target, currentTargetBytes) {
+function checkedPagingBudget(
+    bytes,
+    revision,
+    target,
+    currentTargetBytes,
+    mode = "paging",
+) {
     const invalid = () => {
         throw Error("PagingBudgetInvalid");
     };
     if (
+        !["paging", "timeline-browser"].includes(mode) ||
         !Buffer.isBuffer(bytes) ||
         bytes.length > 4096 ||
         typeof revision !== "string" ||
@@ -467,8 +542,11 @@ function checkedPagingBudget(bytes, revision, target, currentTargetBytes) {
     if (
         cursor !== text.length ||
         Object.keys(record).length !== keys.length ||
-        record.version !== 1 ||
-        record.kind !== "d05_v2_inspector_paging_budget_v1" ||
+        record.version !== (mode === "paging" ? 1 : 3) ||
+        record.kind !==
+            (mode === "paging"
+                ? "d05_v2_inspector_paging_budget_v1"
+                : "d08_domain2_timeline_browser_budget_v3") ||
         record.source_revision !== revision ||
         record.target_path_sha256 !==
             digest(Buffer.from(path.resolve(target).toLowerCase(), "utf8")) ||
@@ -476,7 +554,8 @@ function checkedPagingBudget(bytes, revision, target, currentTargetBytes) {
         !safe(record.original_target_bytes) ||
         record.original_target_bytes > currentTargetBytes ||
         !safe(record.external_evidence_bytes) ||
-        record.external_evidence_bytes > 536870912 ||
+        record.external_evidence_bytes >
+            (mode === "paging" ? 536870912 : limits.cumulativeEvidence) ||
         !safe(record.d05_external_evidence_bytes)
     )
         invalid();
@@ -491,17 +570,28 @@ const disk = await statfs(root, { bigint: true });
 const observedTarget = await footprint(target);
 const observedBase = await footprint(base);
 const budgetBytes = await boundedBytes(
-    path.join(base, "d05-v2-inspector-paging-budget-v1-" + revision + ".json"),
+    path.join(base, plan.budgetPrefix + revision + ".json"),
     4096,
 );
 const qualificationBudget = {
-    ...checkedPagingBudget(budgetBytes, revision, target, observedTarget.bytes),
+    ...checkedPagingBudget(
+        budgetBytes,
+        revision,
+        target,
+        observedTarget.bytes,
+        mode,
+    ),
     recordSHA256: digest(budgetBytes),
 };
 const pagingEvidenceBytes =
-    observedBase.bytes + qualificationBudget.d05ExternalEvidenceBytes;
+    observedBase.bytes +
+    (mode === "paging" ? qualificationBudget.d05ExternalEvidenceBytes : 0);
 const qualificationEvidenceBytes =
-    pagingEvidenceBytes + qualificationBudget.externalEvidenceBytes;
+    pagingEvidenceBytes +
+    qualificationBudget.externalEvidenceBytes +
+    (mode === "timeline-browser"
+        ? qualificationBudget.d05ExternalEvidenceBytes
+        : 0);
 if (
     !Number.isSafeInteger(pagingEvidenceBytes) ||
     pagingEvidenceBytes < 0 ||
@@ -822,28 +912,7 @@ function buildArgs(normal = false) {
         ...(normal ? [] : ["--features", "dev-harness"]),
     ];
 }
-const labels = [
-    "first",
-    "second",
-    "third",
-    "back-second",
-    "back-first",
-    "forward-refetched",
-    "pending-next",
-    "error",
-    "retry-second",
-    "search-reset",
-    "historical",
-    "mira",
-    "sable",
-    "other-story",
-    "same-head-refresh",
-    "stale-delivery",
-    "unsupported",
-    "enlarged-wide",
-    "enlarged-narrow",
-    "final",
-].map((name) => `d05-page-${name}`);
+const labels = plan.labels;
 let originalError = null,
     restoration = null,
     workspace = null,
@@ -864,6 +933,9 @@ try {
     await run(executable, [], {
         LOCALLORE_D02_HARNESS: "1",
         LOCALLORE_D05_INSPECTOR_PAGING_HARNESS: "1",
+        ...(mode === "timeline-browser"
+            ? { LOCALLORE_D08_TIMELINE_BROWSER_HARNESS: "1" }
+            : {}),
         LOCALLORE_TEST_WORKSPACE: plannedWorkspace.database,
         LOCALLORE_D02_ARTIFACT_DIR: path.join(workspace, "evidence"),
     });
@@ -877,8 +949,8 @@ try {
     );
     if (
         report.passed !== true ||
-        report.mode !== "v2_inspector_paging_v1" ||
-        report.nativeCaptures !== 20 ||
+        report.mode !== plan.reportMode ||
+        report.nativeCaptures !== labels.length ||
         JSON.stringify(report.captures) !== JSON.stringify(labels)
     )
         throw Error("NativePagingJourneyIncomplete");
@@ -905,7 +977,7 @@ try {
         );
         if (
             !semantic.synthetic ||
-            semantic.mode !== "v2_inspector_paging_v1" ||
+            semantic.mode !== plan.reportMode ||
             capture.rendering !== "native-webview2" ||
             !png
                 .subarray(0, 8)

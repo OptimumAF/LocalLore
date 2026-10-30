@@ -63,6 +63,10 @@ if (!setup.length)
             end = tail.search(/\n\}(?:\s*\n|$)/);
         assert(end >= 0, "ActualGlobalFinallyEnd");
         blocks = {
+            mode: between(
+                "// d08-browser-mode-policy-v1:start",
+                "// d08-browser-mode-policy-v1:end",
+            ),
             git: between(
                 "// d05-paging-git-policy-v1:start",
                 "// d05-paging-git-policy-v1:end",
@@ -415,6 +419,9 @@ function sandbox(options = {}) {
     };
     const api = runInNewContext(
         `(() => { "use strict";
+      // Faithful module ambient: keep this legacy checker on actual zero-arg paging.
+      ${blocks.mode}
+      const mode=pagingLauncherMode([]),plan=pagingLauncherPlan(mode);
       let ownedDrainUnknown=false,storageBreached=false,lastStorage=null,runNumber=0;
       const unknownChildren=[],gitChildren=[],processes=[];
       let originalError=null,restoration=null,workspace=null;

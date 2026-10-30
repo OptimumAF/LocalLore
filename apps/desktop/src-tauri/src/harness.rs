@@ -89,6 +89,24 @@ const INSPECTOR_PAGING_LABELS: &[&str] = &[
     "d05-page-failure",
 ];
 const MAX_SELECTED_SCENE_ARTIFACT_BYTES: usize = 64 * 1024 * 1024;
+const MAX_TIMELINE_BROWSER_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
+#[cfg(test)]
+#[path = "domain2_timeline_browser_artifact_review_tests.rs"]
+mod domain2_timeline_browser_artifact_review_tests;
+
+fn timeline_browser_label(label: &str, enabled: bool) -> bool {
+    enabled
+        && [
+            "d08-browser-catalog",
+            "d08-browser-root",
+            "d08-browser-child",
+            "d08-browser-observer",
+            "d08-browser-enlarged-wide",
+            "d08-browser-enlarged-narrow",
+            "d08-browser-failure",
+        ]
+        .contains(&label)
+}
 
 #[derive(Default)]
 struct ArtifactBudget {
@@ -97,11 +115,14 @@ struct ArtifactBudget {
 }
 impl ArtifactBudget {
     fn reserve(&mut self, amount: usize) -> Result<(), &'static str> {
+        self.reserve_with_limit(amount, MAX_SELECTED_SCENE_ARTIFACT_BYTES)
+    }
+    fn reserve_with_limit(&mut self, amount: usize, limit: usize) -> Result<(), &'static str> {
         if self.failed {
             return Err("ArtifactWriteBudget");
         }
         match self.reserved.checked_add(amount) {
-            Some(total) if total <= MAX_SELECTED_SCENE_ARTIFACT_BYTES => {
+            Some(total) if total <= limit => {
                 self.reserved = total;
                 Ok(())
             }
@@ -421,7 +442,14 @@ fn selected_scene_active() -> bool {
 // Keep this guard self-contained for the standalone artifact-contract target.
 // Main validates the complete closed environment before fixture/Host setup.
 fn inspector_paging_active() -> bool {
-    active() && std::env::var("LOCALLORE_D05_INSPECTOR_PAGING_HARNESS").as_deref() == Ok("1")
+    active()
+        && std::env::var("LOCALLORE_D05_INSPECTOR_PAGING_HARNESS").as_deref() == Ok("1")
+        && std::env::var_os("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS").is_none()
+}
+fn timeline_browser_active() -> bool {
+    active()
+        && std::env::var("LOCALLORE_D05_INSPECTOR_PAGING_HARNESS").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS").as_deref() == Ok("1")
 }
 
 struct Progress {
@@ -461,8 +489,10 @@ impl HarnessState {
                 labels: HashSet::new(),
                 finished: false,
             }),
-            scene_budget: (selected_scene_active() || inspector_paging_active())
-                .then(|| Mutex::new(ArtifactBudget::default())),
+            scene_budget: (selected_scene_active()
+                || inspector_paging_active()
+                || timeline_browser_active())
+            .then(|| Mutex::new(ArtifactBudget::default())),
         })
     }
 
@@ -474,6 +504,9 @@ impl HarnessState {
     }
 
     fn reserve(&self, label: &str) -> Result<(), &'static str> {
+        if timeline_browser_active() && !timeline_browser_label(label, true) {
+            return Err("CheckpointInvalid");
+        }
         if !(LABELS.contains(&label)
             || (active()
                 && matches!(
@@ -491,6 +524,7 @@ impl HarnessState {
                 && SELECTED_LABELS.contains(&label))
             || (selected_scene_active() && SELECTED_SCENE_LABELS.contains(&label))
             || (inspector_paging_active() && INSPECTOR_PAGING_LABELS.contains(&label))
+            || timeline_browser_label(label, timeline_browser_active())
             || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label))
             || (active()
                 && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
@@ -529,7 +563,11 @@ impl HarnessState {
             // This owned guard spans reservation and the complete create-new
             // write. Failed/partial writes remain charged and preserved.
             let mut budget = budget.lock().map_err(|_| "ArtifactWriteBudget")?;
-            budget.reserve(bytes.len())?;
+            if timeline_browser_active() {
+                budget.reserve_with_limit(bytes.len(), MAX_TIMELINE_BROWSER_ARTIFACT_BYTES)?;
+            } else {
+                budget.reserve(bytes.len())?;
+            }
             let result = write();
             if result.is_err() {
                 budget.fail();

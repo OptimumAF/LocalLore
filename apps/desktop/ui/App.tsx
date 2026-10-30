@@ -722,7 +722,7 @@ export function App({
                                 }
                             />
                         )}
-                    {!s.playV2 && timeline && selected && (
+                    {timeline && selected && (
                         <TimelinePanel
                             timeline={timeline}
                             context={timelineContext(c)}
@@ -838,10 +838,10 @@ export function App({
                             />
                             <p className="muted">
                                 This timeline uses scoped native views. Legacy
-                                receipt inspection, inspection exports, timeline
-                                navigation and derived-memory maintenance remain
-                                unavailable for this domain version until their
-                                shared adapters support it.
+                                receipt inspection, inspection exports and
+                                derived-memory maintenance remain unavailable
+                                for this domain version until their shared
+                                adapters support it.
                             </p>
                             <button
                                 disabled={!selected}

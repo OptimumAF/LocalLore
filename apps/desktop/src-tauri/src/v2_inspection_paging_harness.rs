@@ -19,11 +19,12 @@ const SELECTOR: &str = "LOCALLORE_D05_INSPECTOR_PAGING_HARNESS";
 const PRIMARY_STORY: &str = "d05-inspector-native";
 const OTHER_STORY: &str = "d05-inspector-other";
 const ORACLE_CAP: usize = 32 * 1024;
-const ALLOWED_KEYS: [&str; 4] = [
+const ALLOWED_KEYS: [&str; 5] = [
     "LOCALLORE_D02_HARNESS",
     "LOCALLORE_D02_ARTIFACT_DIR",
     "LOCALLORE_TEST_WORKSPACE",
     SELECTOR,
+    "LOCALLORE_D08_TIMELINE_BROWSER_HARNESS",
 ];
 
 fn fixture_invalid() -> String {
@@ -47,9 +48,29 @@ fn validate_mode(
 }
 pub fn requested() -> bool {
     std::env::var_os(SELECTOR).is_some()
+        || std::env::var_os("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS").is_some()
+}
+fn validate_browser_flag(browser: Option<&str>, paging: Option<&str>) -> Result<bool, String> {
+    match browser {
+        None => Ok(false),
+        Some("1") if paging == Some("1") => Ok(true),
+        Some(_) => Err("Forbidden".into()),
+    }
 }
 fn runtime_mode() -> Result<bool, String> {
-    let Some(selector) = std::env::var_os(SELECTOR) else {
+    let browser = std::env::var_os("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS");
+    let paging = std::env::var_os(SELECTOR);
+    validate_browser_flag(
+        browser
+            .as_ref()
+            .map(|v| v.to_str().ok_or("Forbidden"))
+            .transpose()?,
+        paging
+            .as_ref()
+            .map(|v| v.to_str().ok_or("Forbidden"))
+            .transpose()?,
+    )?;
+    let Some(selector) = paging else {
         return Ok(false);
     };
     let selector = selector.to_str().ok_or("Forbidden")?;

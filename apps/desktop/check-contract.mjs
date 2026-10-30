@@ -2,9 +2,15 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { build } from "esbuild";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import evidencePath from "node:path";
 import assert from "node:assert/strict";
-const folder = new URL("./artifacts/checks/", import.meta.url);
+const folder = process.env.LOCALLORE_CHECK_OUTPUT_DIR
+    ? pathToFileURL(
+          evidencePath.resolve(process.env.LOCALLORE_CHECK_OUTPUT_DIR) +
+              evidencePath.sep,
+      )
+    : new URL("./artifacts/checks/", import.meta.url);
 mkdirSync(folder, { recursive: true });
 const file = new URL(`model-${randomUUID()}.mjs`, folder);
 const bundled = await build({

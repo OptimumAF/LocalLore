@@ -1,10 +1,16 @@
 // Actual-controller regression: real UnknownTurn recovery cannot inherit fake fault mode.
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import evidencePath from "node:path";
 import { build } from "esbuild";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
-const dir = new URL("./artifacts/checks/", import.meta.url);
+const dir = process.env.LOCALLORE_CHECK_OUTPUT_DIR
+    ? pathToFileURL(
+          evidencePath.resolve(process.env.LOCALLORE_CHECK_OUTPUT_DIR) +
+              evidencePath.sep,
+      )
+    : new URL("./artifacts/checks/", import.meta.url);
 mkdirSync(dir, { recursive: true });
 const file = new URL(`model-controller-${randomUUID()}.mjs`, dir);
 const compiled = await build({

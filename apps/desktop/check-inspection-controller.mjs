@@ -1,10 +1,16 @@
 // Actual-controller regression: complete inspection context and late-response fencing.
 import { build } from "esbuild";
 import { mkdir, writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import evidencePath from "node:path";
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
-const dir = new URL("artifacts/checks/", import.meta.url);
+const dir = process.env.LOCALLORE_CHECK_OUTPUT_DIR
+    ? pathToFileURL(
+          evidencePath.resolve(process.env.LOCALLORE_CHECK_OUTPUT_DIR) +
+              evidencePath.sep,
+      )
+    : new URL("artifacts/checks/", import.meta.url);
 await mkdir(dir, { recursive: true });
 const output = new URL(`inspection-controller-${randomUUID()}.mjs`, dir);
 const bundled = await build({

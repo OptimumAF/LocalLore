@@ -6,6 +6,9 @@ requires existing Android platform-tools and never prints serial numbers.
 The [explicit held device-roster client](../docs/native/HELD_DEVICE_ROSTER_PROTOCOL_V1.md)
 uses fixed host socket queries without launching ADB or changing its service.
 It returns private untrusted metadata and grants no target/phone admission.
+Its [verification report](../docs/native/HELD_DEVICE_ROSTER_VERIFICATION_2026-10-29.md)
+records 2,349 host tests, the preserved first refusal and one revised-source
+host-only acquisition with an empty roster; physical-device gates stay separate.
 Legacy ADB CLI collectors can restart a server on a version mismatch; do not
 use them as a service-preservation guarantee.
 The separate [runtime spike](../docs/runtime/spike/README.md) can explicitly run

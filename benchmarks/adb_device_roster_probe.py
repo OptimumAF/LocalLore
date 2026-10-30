@@ -8,6 +8,7 @@ cover its own resources; external owner capture/termination is additional.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import importlib
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,10 +30,11 @@ MAX_ADMISSION = helpers.MAX_ADMISSION
 MAX_REQUEST = helpers.MAX_REQUEST
 MAX_REPORT = 2 * 1024 * 1024
 PUBLIC_SOURCES = (*helpers.PUBLIC_SOURCES, 'benchmarks/adb_device_roster.py',
-                  'benchmarks/adb_device_roster_windows.py', 'benchmarks/adb_device_roster_probe.py')
+                  'benchmarks/adb_device_roster_windows.py', 'benchmarks/adb_device_roster_probe.py',
+                  'benchmarks/receipt_avd_storage.py')
 RESULT_KEYS = {'version', 'protocol', 'status', 'reason', 'acquisition_completed',
                'roster_observed', 'feature_acceptance', 'sources_equal', 'python_equal',
-               'admission', 'request', 'owner', 'version_report', 'report', 'worker'}
+               'admission', 'request', 'owner', 'version_report', 'report', 'worker', 'version_bytes'}
 CliRefused = helpers.CliRefused
 _need = helpers._need
 _same = helpers._same
@@ -51,7 +53,7 @@ def _contract():
 
 def _backend_types():
     # Fixed code imports, never a module/class supplied by a request or caller.
-    legacy = importlib.import_module('benchmarks.adb_held_socket_windows').WindowsBackend
+    legacy = importlib.import_module('benchmarks.adb_device_roster_windows').WindowsVersionRecordingBackend
     roster = importlib.import_module('benchmarks.adb_device_roster_windows').WindowsRosterBackend
     return legacy, roster
 
@@ -120,7 +122,12 @@ def _worker(path, sha):
     _set_temporary()
     legacy_type, roster_type = _backend_types()
     translated = _contract().backend_admission(admitted)
-    version = old.probe(legacy_type(), translated)
+    version_backend = legacy_type()
+    version = old.probe(version_backend, translated)
+    version_bytes = version_backend.received_bytes
+    _need(type(version_bytes) is bytes and len(version_bytes) <= 13, 'report')
+    _write_bytes(output/'version-bytes-v1.bin', version_bytes)
+    version_bytes_pin = env.binding(output/'version-bytes-v1.bin')
     # Raw bounded report publication precedes verdict; no successful roster is
     # fabricated from a refused version. The new pure probe owns this gate.
     _write_bytes(output/'version-report-v1.json', helpers._report_bytes(version, translated))
@@ -129,9 +136,21 @@ def _worker(path, sha):
     _write_bytes(output/'report-v1.json', _contract().report_bytes(report, admitted))
     report_pin = env.binding(output/'report-v1.json')
     _check_bindings(request['source_closure'], request['python'])
-    for pin in (bound, request_pin, started_pin, version_pin, report_pin):
+    for pin in (bound, request_pin, started_pin, version_pin, version_bytes_pin, report_pin):
         env.check_binding(pin)
     return 0
+
+
+def _read_version_bytes(binding, output):
+    _need(type(binding) is dict and set(binding) == {'path', 'bytes', 'sha256'} and
+          binding['path'] == str(output/'version-bytes-v1.bin') and
+          type(binding['bytes']) is int and 0 <= binding['bytes'] <= 13, 'report')
+    env.check_binding(binding)
+    with env.safe_path(binding['path']).open('rb') as source:
+        raw = source.read(14)
+    _need(len(raw) == binding['bytes'] and hashlib.sha256(raw).hexdigest() == binding['sha256'], 'report')
+    env.check_binding(binding)
+    return raw
 
 
 def _worker_identity(report, started, python, request):
@@ -179,7 +198,7 @@ def _dispatch(output, admission, admitted):
         all(type(owner[key]) is int and owner[key] >= 0 for key in ('stdout_bytes', 'stderr_bytes')) and
         owner['stderr_bytes'] == owner['stdout_bytes'] == 0)
     acquired = observed = False
-    reason, report_pin, version_pin = 'owner_failed', None, None
+    reason, report_pin, version_pin, version_bytes_pin = 'owner_failed', None, None, None
     row_count = None
     try:
         _need(known, 'report')
@@ -191,6 +210,8 @@ def _dispatch(output, admission, admitted):
         reason = 'admission_changed'; env.check_binding(admission)
         reason = 'report_missing'
         report_pin, version_pin = env.binding(output/'report-v1.json'), env.binding(output/'version-report-v1.json')
+        version_bytes_pin = env.binding(output/'version-bytes-v1.bin')
+        version_bytes = _read_version_bytes(version_bytes_pin, output)
         reason = 'report_invalid'
         _, report = _read_bound(output/'report-v1.json', report_pin['sha256'], MAX_REPORT, 'report')
         _, version = _read_bound(output/'version-report-v1.json', version_pin['sha256'], helpers.MAX_REPORT, 'report')
@@ -199,7 +220,8 @@ def _dispatch(output, admission, admitted):
         acquired = True; reason = 'proof_refused'
         if _contract().report_verified(report, admitted) is True:
             reason = 'version_report'
-            _need(_same(report['version_proof'], version), 'report')
+            _need(_same(report['version_proof'], version) and
+                  version['response_hex'] == version_bytes.hex(), 'report')
             reason = 'worker_identity'
             _need(started_pin is not None, 'report')
             _, actual_started = _read_bound(output/'started-v1.json', started_pin['sha256'], MAX_ADMISSION, 'report')
@@ -207,7 +229,7 @@ def _dispatch(output, admission, admitted):
                         _worker_identity(version, actual_started, python, request_pin))
             row_count = len(report['rows']) if observed else None
         _check_bindings(sources, python)
-        for pin in (admission, request_pin, report_pin, version_pin): env.check_binding(pin)
+        for pin in (admission, request_pin, report_pin, version_pin, version_bytes_pin): env.check_binding(pin)
         if observed: reason = None
     except (CliRefused, env.EnvironmentRefused, OSError, ValueError, TypeError, KeyError, OverflowError, RecursionError):
         observed = False; row_count = None
@@ -221,7 +243,8 @@ def _dispatch(output, admission, admitted):
         acquired = observed = False; row_count = None; reason = 'python_changed'
     else:
         for pin, failure in ((admission, 'admission_changed'), (request_pin, 'request_changed'),
-                             (report_pin, 'report_invalid'), (version_pin, 'version_report'), (started_pin, 'worker_identity')):
+                             (report_pin, 'report_invalid'), (version_pin, 'version_report'),
+                             (version_bytes_pin, 'version_report'), (started_pin, 'worker_identity')):
             if pin is None: continue
             try: env.check_binding(pin)
             except (env.EnvironmentRefused, OSError, ValueError, TypeError, KeyError, OverflowError):
@@ -231,7 +254,7 @@ def _dispatch(output, admission, admitted):
         acquisition_completed=acquired, roster_observed=observed, feature_acceptance=False,
         sources_equal=source_equal, python_equal=python_equal, admission=admission,
         request=request_pin, owner=env.binding(output/'owner-result-v1.json'),
-        version_report=version_pin, report=report_pin, worker=started_pin)
+        version_report=version_pin, report=report_pin, worker=started_pin, version_bytes=version_bytes_pin)
     _need(set(value) == RESULT_KEYS, 'report')
     env.create_json(output/'result-v1.json', value)
     print(json.dumps(dict(status=status, reason=reason, acquisition_completed=acquired,

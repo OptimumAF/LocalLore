@@ -226,8 +226,10 @@ def _public(pins, head):
                  if line.startswith("> Task :app:")]
     for task in CRITICAL_TASKS:
         expected_task = "> Task :app:" + task
-        _need([row for row in task_rows if row == expected_task or row.startswith(expected_task + " ")]
-              == [expected_task], "freshness")
+        matching = [row for row in task_rows if row == expected_task or row.startswith(expected_task + " ")]
+        # Gradle can repeat a bare heading when grouping compiler warnings.
+        # Every observed state must still indicate execution, never a cache hit.
+        _need(matching and all(row == expected_task for row in matching), "freshness")
     java = next(p["path"] for p in tools if Path(p["path"]).name.lower() == "java.exe")
     gradle = [java, "-classpath", str(ROOT / "apps/android/gradle/wrapper/gradle-wrapper.jar"),
               "org.gradle.wrapper.GradleWrapperMain", ":app:assembleDebug", ":app:assembleDebugAndroidTest",

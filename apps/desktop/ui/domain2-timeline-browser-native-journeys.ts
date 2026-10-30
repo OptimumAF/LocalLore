@@ -433,6 +433,59 @@ export async function domain2TimelineBrowserNativeJourneys({
         );
         observations.push(value);
     };
+    // A normal-flow browser may span screens. Each actual target is checked
+    // after its own normal scroll; the final PNG is one separately tagged view.
+    const scrollObservations: Record<string, unknown>[] = [];
+    let renderWaitSequence = 0;
+    const geometryOf = (node: HTMLElement) => {
+        const r = node.getBoundingClientRect();
+        const positive = node.isConnected && r.width > 0 && r.height > 0 &&
+            [r.left, r.top, r.right, r.bottom].every(Number.isFinite);
+        const visible = positive && r.left >= -2 && r.top >= -2 &&
+            r.right <= innerWidth + 2 && r.bottom <= innerHeight + 2;
+        const hits = [0.05, 0.5, 0.95].map((point) => {
+            if (!visible) return false;
+            const found = document.elementFromPoint(r.left + r.width / 2,
+                r.top + Math.max(1, Math.min(r.height - 1, r.height * point)));
+            return !!found && (node === found || node.contains(found));
+        });
+        return { tag: node.tagName, text: node.innerText.slice(0, 1024),
+            rect: { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom },
+            connected: node.isConnected, positive, visible, hits };
+    };
+    const scrollContext = () => {
+        const selected = c.selected(), state = c.get(), ancestors = [];
+        for (let node = panel()?.parentElement, count = 0; node && count < 12; node = node.parentElement, count++)
+            ancestors.push({ tag: node.tagName, scrollTop: node.scrollTop, scrollLeft: node.scrollLeft, clientHeight: node.clientHeight, scrollHeight: node.scrollHeight });
+        return { selectedStory: selected ? { ...selected.scope } : null,
+            session: selected?.id ?? null, head: (state.play ?? state.playV2)?.revision ?? null,
+            view: state.view, observer: state.view === "play" ? "player" : state.observer,
+            browserStatus: timeline.get().status, renderWaitSequence, afterTwoAnimationFrames: true,
+            scrollX, scrollY, width: innerWidth, height: innerHeight, textScale: state.textScale, ancestors };
+    };
+    const browserGeometryTargets = (region: HTMLElement) => {
+        const targets: { name: string; node: HTMLElement }[] = [];
+        const add = (name: string, node: HTMLElement | null) => {
+            check(node?.isConnected, `${name}-actual-connected-browser-scroll-target`);
+            targets.push({ name, node: node! });
+        };
+        add("toolbar-title", region.querySelector<HTMLElement>(".panel-heading h2"));
+        add("toolbar-close", button("Close saved timelines", region));
+        add("catalog-title", region.querySelector<HTMLElement>("h3"));
+        add("catalog-refresh", button("Refresh timeline catalog", region));
+        for (const branch of ["main", "paging"] as const) {
+            const selected = c.selected()?.scope.branch === branch;
+            const control = button(`${selected ? "Selected" : "Resume"} timeline ${branch}`, region);
+            const row = control.closest("li");
+            check(row && region.contains(row), `${branch}-actual-owned-browser-row`);
+            add(`${branch}-row-heading`, row!.querySelector<HTMLElement>("h4"));
+            const details = [...row!.querySelectorAll<HTMLElement>(":scope > p")];
+            check(details.length > 0, `${branch}-actual-ancestry-head-status-details-present`);
+            details.forEach((node, index) => add(`${branch}-row-detail-${index}`, node));
+            add(`${branch}-row-control`, control);
+        }
+        return targets;
+    };
     const capture = async (label: string, failure = false) => {
         if (!failure)
             check(
@@ -441,59 +494,28 @@ export async function domain2TimelineBrowserNativeJourneys({
             );
         const region = panel();
         if (!failure) check(region, `${label}-actual-mounted-browser-required`);
-        region?.scrollIntoView({ block: "start" });
-        await frames();
-        const nodes = region
-            ? [
-                  region.querySelector<HTMLElement>(".panel-heading"),
-                  region.querySelector<HTMLElement>("h3"),
-                  ...region.querySelectorAll<HTMLButtonElement>("button"),
-              ]
-            : [];
-        const geometry = nodes
-            .filter((node): node is HTMLElement => !!node)
-            .map((node) => {
-                const r = node.getBoundingClientRect();
-                const visible =
-                    r.width > 0 &&
-                    r.height > 0 &&
-                    [r.left, r.top, r.right, r.bottom].every(Number.isFinite) &&
-                    r.left >= -2 &&
-                    r.top >= -2 &&
-                    r.right <= innerWidth + 2 &&
-                    r.bottom <= innerHeight + 2;
-                const hits = [0.05, 0.5, 0.95].map((point) => {
-                    if (!visible) return false;
-                    const found = document.elementFromPoint(
-                        r.left + r.width / 2,
-                        r.top +
-                            Math.max(
-                                1,
-                                Math.min(r.height - 1, r.height * point),
-                            ),
-                    );
-                    return !!found && (node === found || node.contains(found));
-                });
-                if (!failure)
-                    check(
-                        visible && hits.every(Boolean),
-                        `${label}-actual-control-heading-fit-and-unoccluded`,
-                    );
-                return {
-                    tag: node.tagName,
-                    text: node.innerText.slice(0, 1024),
-                    rect: {
-                        x: r.x,
-                        y: r.y,
-                        width: r.width,
-                        height: r.height,
-                        right: r.right,
-                        bottom: r.bottom,
-                    },
-                    visible,
-                    hits,
-                };
-            });
+        const targets = !failure && region ? browserGeometryTargets(region) : [];
+        const captureScrollObservations: Record<string, unknown>[] = [];
+        for (const target of targets) {
+            const owner = structural(timelineContext(c));
+            target.node.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+            await frames(); renderWaitSequence++;
+            const measured = geometryOf(target.node);
+            const observation = { label, target: target.name, context: scrollContext(), geometry: measured };
+            captureScrollObservations.push(observation); scrollObservations.push(observation);
+            check(panel() === region && structural(timelineContext(c)) === owner && region!.contains(target.node), `${label}-${target.name}-same-real-owner-after-normal-scroll`);
+            check(measured.positive && measured.visible && measured.hits.every(Boolean), `${label}-${target.name}-actual-control-heading-fit-and-unoccluded-after-own-scroll`);
+            check(document.documentElement.scrollWidth <= innerWidth + 2 && region!.scrollWidth <= region!.clientWidth + 2, `${label}-${target.name}-no-horizontal-overflow-after-own-scroll`);
+        }
+        // Final framing centers the selected row's actual control. Other targets
+        // may be offscreen here; earlier reachability samples are not PNG claims.
+        const selectedTarget = targets.find(target => target.name === `${c.selected()?.scope.branch}-row-control`);
+        if (!failure) check(selectedTarget, `${label}-fixed-selected-row-final-framing-target`);
+        selectedTarget?.node.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+        await frames(); renderWaitSequence++;
+        const geometry = targets.map(target => ({ target: target.name, ...geometryOf(target.node) }));
+        const finalTargetGeometry = selectedTarget ? geometryOf(selectedTarget.node) : null;
+        if (!failure) check(finalTargetGeometry?.positive && finalTargetGeometry.visible && finalTargetGeometry.hits.every(Boolean), `${label}-selected-control-visible-in-final-PNG-framing`);
         if (!failure)
             check(
                 document.documentElement.scrollWidth <= innerWidth + 2 &&
@@ -503,6 +525,8 @@ export async function domain2TimelineBrowserNativeJourneys({
         const snapshot = {
             ...semantic(),
             geometry,
+            finalFraming: { strategy: "selected-row-control-centered-by-normal-scroll", target: selectedTarget?.name ?? null, context: scrollContext(), simultaneousVisibilityClaim: false },
+            scrollObservations: captureScrollObservations,
             fontMeasurements: fonts,
             checks: checks.slice(-120),
         };
@@ -535,6 +559,7 @@ export async function domain2TimelineBrowserNativeJourneys({
             finalOracle,
             proofs,
             observations,
+            scrollObservations,
             deliveries,
             fontMeasurements: fonts,
             calls: trace(),
@@ -704,7 +729,12 @@ export async function domain2TimelineBrowserNativeJourneys({
             targets.every((node) => node?.isConnected),
             "all-fixed-browser-font-targets-connected-no-omissions",
         );
-        return targets as HTMLElement[];
+        // Retain every original font target and include each separately scrolled
+        // row detail/control, with one measurement per actual mounted element.
+        return [...new Set([
+            ...(targets as HTMLElement[]),
+            ...browserGeometryTargets(region!).map(target => target.node),
+        ])];
     };
     const measureFonts = async (
         label: string,

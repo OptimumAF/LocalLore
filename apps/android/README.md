@@ -252,6 +252,16 @@ a new independent saved story and retains earlier stories in **Saved stories**.
 Cancel reconciles against accepted history: a commit that already won remains
 visible. Simulated delay is not a performance measurement.
 
+Transcript navigation is scoped to the current story and timeline. New replies
+follow when you had reached the previous transcript end; reading earlier history
+keeps your position. **Latest** returns to the newest message and is also available
+while browsing loaded history. Seeing only the start of a long reply does not
+count as reaching its end. Changing stories/timelines or replacing history cancels
+stale navigation; navigation never sends a turn. The list retains Compose's scoped
+saved scroll state; actual recreation and keyboard behavior need device testing.
+See [implementation and host verification](../../docs/android/TRANSCRIPT_NAVIGATION_VERIFICATION_2026-10-30.md)
+for the tested policy and the four compiled, unrun screen journeys.
+
 Accepted state survives Activity recreation and native/process owner recreation.
 Startup resumes a default saved story; use **Saved stories** to select another.
 Use **Timelines** to resume an existing root, child or sibling in that story.

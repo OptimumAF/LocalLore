@@ -282,7 +282,7 @@ class OwnedPhoneServiceTests(unittest.TestCase):
                     self.assertTrue(all(value['cleanup'].values()))
                 else:
                     self.assertEqual(code, 1)
-                    if fault == 'cancel': self.assertEqual(value['reason'], 'cancelled')
+                    if fault == 'cancel': self.assertEqual(value['reason'], 'owner')
                     if fault == 'close': self.assertEqual(value['reason'], 'cleanup')
                 if fault == 'start':
                     case.child.terminate.assert_not_called(); case.handle.Close.assert_not_called()

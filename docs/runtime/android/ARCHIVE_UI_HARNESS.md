@@ -81,6 +81,10 @@ constraints apply. Do not repurpose a previous guest, duplicate the registry,
 or invoke SDK creation directly. Existing guest capacity and fresh owner
 authorization are independent prerequisites.
 
+The [read-only storage preflight](ARCHIVE_UI_STORAGE_PREFLIGHT_2026-10-30.md)
+records the exact first-root candidate, preserved evidence and missing executor
+boundary. It grants neither retirement nor a new guest run.
+
 `owned_ui_owner.py` uses the existing owner CLI with its fixed profile.
 After separately qualified admission/running bindings, the controller accepts
 only those two records and their digests:

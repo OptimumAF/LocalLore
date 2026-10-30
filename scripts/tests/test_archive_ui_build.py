@@ -107,3 +107,37 @@ class ArchiveUiBuildTests(unittest.TestCase):
             self.graph.publish()
             with self.subTest(variant=variant), self.assertRaises(build.BuildRefused):
                 build._public(self.graph.manifest['public'],self.graph.head)
+
+    def test_nested_failure_error_or_skip_inside_a_testcase_wrapper_cannot_hide_behind_zero_totals(self):
+        path = self.graph.reports[1]
+        original = path.read_bytes()
+        for outcome in ('failure','error','skipped'):
+            tree = ET.fromstring(original)
+            wrapper = ET.SubElement(tree[0],'synthetic-wrapper')
+            ET.SubElement(wrapper,outcome,message='SYNTHETIC outcome must not be hidden')
+            path.write_bytes(ET.tostring(tree)); self.graph.publish()
+            with self.subTest(outcome=outcome), self.assertRaises(build.BuildRefused):
+                build._reports(self.graph.manifest['jvm_reports'],self.graph.manifest['lint'])
+
+    def test_report_filename_suite_name_and_testcase_classname_must_identify_the_same_suite(self):
+        for mismatch in ('suite_name','case_classname','filename'):
+            graph = fixture.BuildGraph()
+            path = graph.reports[1]
+            tree = ET.fromstring(path.read_bytes())
+            if mismatch == 'suite_name': tree.set('name','synthetic.Unrelated')
+            elif mismatch == 'case_classname': tree[0].set('classname','synthetic.Unrelated')
+            else:
+                moved = path.with_name('TEST-synthetic.Unrelated.xml')
+                path.rename(moved); graph.reports[1] = moved; path = moved
+            path.write_bytes(ET.tostring(tree)); graph.publish()
+            with graph.inputs(build), self.subTest(mismatch=mismatch), self.assertRaises(build.BuildRefused):
+                build._reports(graph.manifest['jvm_reports'],graph.manifest['lint'])
+
+    def test_missing_or_up_to_date_critical_gradle_tasks_cannot_be_replaced_by_success_text(self):
+        for task in ('buildRustAndroid','testDebugUnitTest','lintAnalyzeDebug','compileDebugAndroidTestKotlin'):
+            for state in ('missing','UP-TO-DATE'):
+                tasks = [name for name in fixture.EXECUTED_TASKS if name != task]
+                if state != 'missing': tasks.append(task+' '+state)
+                self.graph.publish(tasks=tasks)
+                with self.subTest(task=task,state=state), self.assertRaises(build.BuildRefused):
+                    build._public(self.graph.manifest['public'],self.graph.head)

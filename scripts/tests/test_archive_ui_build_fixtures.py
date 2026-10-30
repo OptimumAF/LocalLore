@@ -23,6 +23,12 @@ POLICY_METHODS = (
     'aReadWitnessForAnotherStoryOrOlderHistoryCannotClearCurrentUnread',
     'tailGeometryRequiresTheBottomOrAnActualLaterItemAndDoesNotOverflow',
 )
+EXECUTED_TASKS = (
+    'buildRustAndroid','stripDebugDebugSymbols','compileDebugKotlin','compileDebugJavaWithJavac',
+    'compileDebugAndroidTestKotlin','compileDebugAndroidTestJavaWithJavac','compileDebugUnitTestKotlin',
+    'testDebugUnitTest','lintAnalyzeDebug','lintAnalyzeDebugAndroidTest','lintAnalyzeDebugUnitTest',
+    'lintReportDebug','lintDebug','assembleDebug','assembleDebugAndroidTest',
+)
 
 def encoded(value):
     return (json.dumps(value,sort_keys=True,separators=(',',':'))+'\n').encode()
@@ -63,11 +69,11 @@ class BuildGraph:
         self.write_apks()
         self.reports = []
         cases = [('org.locallore.app.TranscriptFollowTest',name) for name in POLICY_METHODS]
-        self.report('TEST-00-policy.xml',cases)
+        self.report('TEST-org.locallore.app.TranscriptFollowTest.xml',cases)
         remaining = 337
         for index in range(40):
             count = 9 if index < 17 else 8
-            self.report('TEST-%02d-synthetic.xml'%(index+1),
+            self.report('TEST-synthetic.Unit%d.xml'%index,
                         [('synthetic.Unit%d'%index,'case%d'%n) for n in range(count)])
             remaining -= count
         assert remaining == 0
@@ -112,7 +118,7 @@ class BuildGraph:
                 z.writestr('classes.dex',dex_fixture.dex(definitions))
 
     def report(self,name,cases):
-        suite = ET.Element('testsuite',tests=str(len(cases)),failures='0',errors='0',skipped='0')
+        suite = ET.Element('testsuite',name=cases[0][0],tests=str(len(cases)),failures='0',errors='0',skipped='0')
         for cls,method in cases:
             ET.SubElement(suite,'testcase',classname=cls,name=method)
         path = self.build/'test-results/testDebugUnitTest'/name
@@ -133,11 +139,13 @@ class BuildGraph:
                 [sys.executable,str(self.root/'scripts/audit_instrumentation_apk.py'),
                  str(self.apks['product_apk']),str(self.apks['test_apk']),'--archive-verification']]
 
-    def publish(self, *, commands=None):
+    def publish(self, *, commands=None, tasks=None):
         self.pair.update(app={k:v for k,v in pin(self.apks['product_apk']).items() if k != 'path'},
                          test={k:v for k,v in pin(self.apks['test_apk']).items() if k != 'path'})
         commands = self.commands() if commands is None else commands
-        stdout = ('+ '+repr(commands[0])+'\nBUILD SUCCESSFUL\n+ '+repr(commands[1])+'\n'+
+        tasks = EXECUTED_TASKS if tasks is None else tasks
+        task_log = ''.join('> Task :app:'+name+'\n' for name in tasks)
+        stdout = ('+ '+repr(commands[0])+'\n'+task_log+'BUILD SUCCESSFUL\n+ '+repr(commands[1])+'\n'+
                   json.dumps(self.product)+'\n+ '+repr(commands[2])+'\n'+json.dumps(self.pair)+'\n').encode()
         self.write(self.public/'owner-stdout-v1.bin',stdout)
         self.result['owner']['stdout_bytes'] = len(stdout)

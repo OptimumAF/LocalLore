@@ -90,6 +90,10 @@ const INSPECTOR_PAGING_LABELS: &[&str] = &[
 ];
 const MAX_SELECTED_SCENE_ARTIFACT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_TIMELINE_BROWSER_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
+#[cfg(test)]
+#[path = "domain2_timeline_browser_artifact_review_tests.rs"]
+mod domain2_timeline_browser_artifact_review_tests;
+
 fn timeline_browser_label(label: &str, enabled: bool) -> bool {
     enabled && [
         "d08-browser-catalog", "d08-browser-root", "d08-browser-child",

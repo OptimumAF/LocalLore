@@ -258,7 +258,12 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
     };
     #[cfg(feature = "dev-harness")]
     let script = if v2_inspection_paging_harness::active() {
-        format!("{script}window.__LOCALLORE_TEST__.inspectorPaging=true;")
+        format!("{script}window.__LOCALLORE_TEST__.{}=true;",
+            if std::env::var("LOCALLORE_D08_TIMELINE_BROWSER_HARNESS").as_deref() == Ok("1") {
+                "timelineBrowser"
+            } else {
+                "inspectorPaging"
+            })
     } else {
         script
     };

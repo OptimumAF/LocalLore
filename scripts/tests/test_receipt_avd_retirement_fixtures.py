@@ -77,6 +77,7 @@ class TinyRetirement:
         self.plan_path = self.base/'reviewed-plan-v1.json'
         self.write(self.plan_path,self.plan)
         self.plan_binding = storage.binding(self.plan_path)
+        self.original_reserved_bytes = self.entry()['reserved_bytes']
         self.original_charge = storage._charge(self.entry())
 
     def write(self,path,value):
@@ -87,10 +88,23 @@ class TinyRetirement:
         ledger = storage.read_json(self.registry/'ledger-v1.json')
         return copy.deepcopy(next(e for e in ledger['entries'] if e['root'] == str(self.root)))
 
-    def assert_closed_charge(self, test):
+    def assert_closed_charge(self, test, *, expected_charge_refusal=None):
         entry = self.entry()
         test.assertEqual(entry['state'],'closed')
-        test.assertEqual(storage._charge(entry),self.original_charge)
+        test.assertEqual(entry['reserved_bytes'],self.original_reserved_bytes)
+        if expected_charge_refusal is None:
+            test.assertGreaterEqual(storage._charge(entry),self.original_charge)
+        else:
+            with test.assertRaises(storage.StorageRefused) as error:
+                storage._charge(entry)
+            test.assertEqual(str(error.exception),expected_charge_refusal)
+            candidate=self.base/'new-admission-must-refuse'
+            with test.assertRaises(storage.StorageRefused) as error:
+                storage.reserve_prepare(candidate,'a'*64,self.registry)
+            test.assertEqual(str(error.exception),expected_charge_refusal)
+            test.assertFalse(candidate.exists())
+            test.assertFalse(any(row['root']==str(candidate)
+                for row in storage.read_json(self.registry/'ledger-v1.json')['entries']))
 
     def expected_retained_charge(self):
         """Count this fixture's explicit retained paths, independently of _charge.

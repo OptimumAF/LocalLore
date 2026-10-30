@@ -51,13 +51,13 @@ class RetirementExecutorTests(unittest.TestCase):
             return retirement._execute(fixture.plan_binding,fixture.output,fixture.registry,
                                        execute_reviewed_plan=True,**kwargs)
 
-    def assert_refused(self, fixture, fake):
+    def assert_refused(self, fixture, fake, *, expected_charge_refusal=None):
         try:
             result=self.execute(fixture,fake)
         except (retirement.RetirementRefused,storage.StorageRefused,retirement.windows.RetirementWindowsError,OSError):
             result=None
         if result is not None: self.assertEqual(result['outcome'],'refused')
-        fixture.assert_closed_charge(self)
+        fixture.assert_closed_charge(self,expected_charge_refusal=expected_charge_refusal)
         return result
 
     def test_complete_exact_plan_keeps_lock_and_durable_intent_through_finalization(self):
@@ -109,7 +109,8 @@ class RetirementExecutorTests(unittest.TestCase):
             elif variant=='unknown_image':fixture.write(fixture.root/'unknown.img',b'SYNTHETIC unknown')
             else:fixture.proof_paths['after'].write_bytes(b'changed')
             with self.subTest(variant=variant):
-                self.assert_refused(fixture,fake);self.assertEqual(fake.events,[])
+                refusal={'unknown_image':'unknown_guest_image','proof':'binding_changed'}.get(variant)
+                self.assert_refused(fixture,fake,expected_charge_refusal=refusal);self.assertEqual(fake.events,[])
 
     def test_coherent_rebound_proofs_still_require_typed_owner_cleanup_and_identity(self):
         changes=(lambda x:x['owner_result'].update(worker_returncode=False),
@@ -153,7 +154,7 @@ class RetirementExecutorTests(unittest.TestCase):
     def test_proof_drift_after_first_mark_stops_before_the_next_mark(self):
         fixture=f.TinyRetirement();fake=f.FakeNative(fixture,retirement.windows.RetirementWindowsError,
             after_mark=lambda index:fixture.proof_paths['after'].write_bytes(b'changed after first mark'))
-        result=self.assert_refused(fixture,fake)
+        result=self.assert_refused(fixture,fake,expected_charge_refusal='binding_changed')
         self.assertEqual(result['marked_count'],1);self.assertEqual(result['attempted_count'],1)
         self.assertNotIn('mark:1',fake.events);self.assertTrue(fixture.images[1].exists())
 

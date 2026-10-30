@@ -165,7 +165,7 @@ the producer do not execute it while the stop applies. No further native run,
 resource increase, process control or relaxation of the failed gate is included
 in this source-only correction.
 
-## Prospective execution reconciliation: owner decision pending
+## Code-check/restoration reconciliation: approved, then storage failure
 
 The proposed next admission is limited to bounded code checks and restoring
 normal frontend/native products without launching the application. The old
@@ -191,6 +191,38 @@ expected baseline FAIL/UNRUN_SETUP classifications. Do not run the77-child
 frontend suite, a browser, native application, Rust test binary, model, SDK,
 device or stopped OS qualifier. A final normal build is recorded as unlaunched.
 
-This proposed reconciliation does not raise a cap, clear the historical latch,
+This reconciliation does not raise a cap, clear the historical latch,
 certify prior tree closure, admit another native attempt or approve a merge.
-It is not authorized until the owner explicitly answers the separate request.
+The owner answered "Approve checks and restoration". Actual source checks pass,
+but the normal build's post-inventory fails the original target-growth limit.
+The private runner omitted the repository launcher's existing pinned build
+settings and performed a broad default-debug rebuild. All outputs are retained.
+No further execution is admitted by that consumed, failed reconciliation.
+
+## Prospective resource revision3: decision pending
+
+Retaining the failed build leaves target growth3,774,894,212B against the failed
+2GiB limit. The proposed prospective browser-only growth cap is4GiB, retaining
+the original8,259,980,576B baseline and the historical failure. A256MiB cached-build
+reservation forecasts total12,303,310,244B below baseline plus4GiB12,554,947,872B.
+Reuse the repository launcher's existing one-job/no-incremental/no-debug/offline
+settings; no fresh target, dependency download or discarded build output.
+
+One further fixed six-capture attempt would also need a52MiB browser base and
+660MiB joint ceiling, each12MiB above revision2. Preserve the same20MiB packet
+reservation,8MiB native writer,8MiB source phase,16MiB products,1MiB metadata,
+all failed packets/copies and all old D05/D07 costs. Existing no-argument paging
+and frozen cohort limits are unchanged; no old failure becomes a pass.
+
+If explicitly approved, browser admission would use version3, kind
+`d08_domain2_timeline_browser_budget_v3` and matching filename prefix, with the
+same eight closed fields. Browser base limit54,525,952B; joint692,060,160B;
+browser target-growth limit4,294,967,296B. The UI recipe/argument stays v1.
+Independent revised source checks, source review and fresh source/product/owned
+process/storage admission must precede exactly one application launch. Root must
+inspect every resulting original image. Retain failures; stop on any new unknown
+lifetime, storage or ownership failure. There is no automatic repeat or deletion.
+
+This is a concrete resource proposal, **not authorization**. No version3 runtime
+limit, canonical admission record, new code check/build or app execution is
+implemented/admitted until the owner explicitly approves that separate scope.

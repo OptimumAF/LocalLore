@@ -41,8 +41,9 @@ Domain2 stories as well. Fork creation remains separate. The
 records passing frontend/writer checks and two failed native attempts. The
 corrected attempt produced six native views but failed finalization and timed
 out; final state proof and normal product restoration remain unavailable. All
-evidence is retained. Its unknown-lifetime guard stops further builds/tests/app
-launches pending reconciliation, and the single approved attempt is consumed.
+evidence is retained. A separately approved reconciliation verifies the32 new
+source checks and rebuilds normal products without launching, but fails its
+build-storage cap. Further execution remains stopped; no native retry is approved.
 From `apps/desktop`, the standalone
 `node check-domain2-timeline-bootstrap-review.mjs` verifies the corrected setup
 prefix with actual controllers and synthetic transport. It is not native UI

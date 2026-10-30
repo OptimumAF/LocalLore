@@ -279,13 +279,13 @@ further20MiB reservation does not fit the40MiB browser cap; its one-run authorit
 is also consumed. No further attempt or cap change is authorized here. PR286
 remains draft; native browser acceptance, full D08 and epic gates remain open.
 
-## Source-only finalization correction: not executed
+## Source-only finalization freeze, before reconciliation
 
 Independent FIRST f8429358ecfccb46a895863d9f07d254d10a32c9, Root42febdc6,
 freezes32 cases in `check-domain2-timeline-finalization-review.mjs` before the
 different-author producer900c8815, Root714a17d2. The checker is21,577B with SHA256
 `66eab7c88bb69f0af87d277cdef09bcedb768f1b75bd14bf4e23b6d0085e4b37`.
-No checker or producer command has run. An absent helper is explicitly a
+At this freeze no checker or producer command had run. An absent helper is explicitly a
 per-case UNRUN_SETUP prerequisite, not behavioral RED; actual old roster/finish
 closures can be evaluated independently when execution is admitted.
 
@@ -312,7 +312,73 @@ they are not browser, IPC, Rust serialization or process-lifetime evidence.
 Reproduction after a separate execution admission, from `apps/desktop` with
 existing D toolchain and TEMP/TMP above:
 `node check-domain2-timeline-finalization-review.mjs`. It retains no HTML/bundle
-and bounds its stdout report at64KiB. The command is currently **STOPPED**,
+and bounds its stdout report at64KiB. At the source-only freeze it was **STOPPED**,
 along with TypeScript, formatting, builds and application launches. Proposed
 normal restoration must preserve the failed diagnostic products before overwrite;
 it is distinct from and does not admit a further native application attempt.
+
+## Approved reconciliation: code checks pass, storage boundary fails
+
+The owner answered **"Approve checks and restoration"** to the separate bounded
+proposal. Fresh17:09:08Z reads find no exact owned executable, recorded-PID direct
+child or exact-profile WebView. The original failed run/latch remain unchanged.
+Before overwrite, ordinary copies preserve the failed frontend2,169,685B and
+native44,007,424B; hashes match the original products before and after all children.
+The frontend copy is charged to source/browser evidence; the native copy is
+charged in full to the original target-growth allowance. No hardlink is used.
+
+Root temporarily checks out frozen FIRST42febdc6, then restores the claimed
+branch. Its actual32 authored cases yield10 executed:5PASS/5FAIL, with22 separately
+UNRUN_SETUP because the helper is absent;0.1135637s, exit2. Failures exercise the
+actual pre-disposal cleanup roster, duplicated observations, formatted overflow,
+missing failure fallback and missing single-flight behavior. This is not a
+32-case behavioral RED. Corrected raw sources at12a6904b run the same32 cases:
+32/32,0.1201019s; bootstrap4/4,0.0944094s; strict TypeScript0.2787898s.
+
+Formatting compares actual esbuild executable hashes before/after all three
+owned files; each pair is identical. Same formatted32/32 then pass0.1239666s,
+bootstrap4/4 in0.0966115s, strict TypeScript0.274826s and complete frontend format
+in2.720351s. The initial Git stage used a wrong prefix from apps/desktop and
+refused; corrected Root45937afbd4db8c692bdb16e5f193b6ba4e399921 commits the exact
+already-verified bytes. No clean-head rerun is invented. Independent source/hash
+review matches every raw/derived hash, the32 named cases and original capture body.
+
+| Formatted source at45937afb | SHA256 |
+| --- | --- |
+| Independent checker |2703223455d7cdc44733150a028e0670168fa73021cec5b16dc704f8526e9cce |
+| Development finalization helper |d03917535f521c32581a6c6e1c12bfa07fedd19ebe7acf5f0f318b6fc00bdbf7 |
+| Fixed native journey |9c1c297005a4c3fe2cfc441f554c2aa3af14bfb22804a43250b6ea83a94da4c2 |
+
+Normal `node build.mjs` passes0.2437901s and produces byte-identical app.js
+`57045763cf10f39a62ec454037224c71491da9f791e895072e97f5a6eed52cb7`;
+the actual unchanged verifier block passes70 exclusions. Then normal
+`cargo build --manifest-path src-tauri/Cargo.toml --bin locallore-desktop-spike
+--locked --offline` exits0, closed,44.9805331s. All16 direct children have terminal
+records; none times out, overflows output or produces a new unknown closure.
+No browser, app, Rust test binary, model, SDK/device or stopped OS qualifier runs.
+
+**The overall reconciliation fails `OriginalTargetGrowthCap`.** Its local runner
+omits the earlier process-local one-job/no-incremental/no-debug settings. Cargo
+reports a broad rebuild with `unoptimized + debuginfo`; retained compiler metadata
+still identifies Rust1.93.1. This supports build-settings drift as the cause,
+without attributing every added byte. The repository native launcher already
+pins these settings at module initialization; the omission belongs to the new
+private orchestration, not a demonstrated public-launcher defect. A proposed
+public hardening claim is withdrawn before any checker/producer edit.
+
+Separate read-only measurement finds target12,034,874,788B versus original
+8,259,980,576B: growth3,774,894,212B, exceeding2GiB by1,627,410,564B.
+The83B stop record contains the failure category; the separate read-only observation
+preserves the exact measured totals. There is no restoration-success record.
+Normal products were produced and stay unlaunched, but no successful overall
+restoration/admission is claimed. Normal executable SHA256 is
+`902e5c37abdea753bd90fbb1a0d26eafc5527f2e03e9a332b7c8e340cd12ce49`.
+Read-only hashes confirm the checked sources and both failed-product copies remain
+unchanged. All generated output is retained; no deletion, budget reset or retry.
+
+Before its final small read-only record, browser29,678,495B, source6,766,102B and
+combined check records95,876B remain below40MiB,8MiB and512KiB respectively.
+The target-growth boundary alone is failed. Further execution is **STOPPED**
+pending a separate resource decision; the original native lifetime failure and
+both failed application attempts remain failed. Source checks do not establish
+native acceptance. PR286 stays draft; all wider gates remain open.

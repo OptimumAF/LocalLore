@@ -44,9 +44,9 @@ mod shutdown;
 mod shutdown_harness;
 use lease::WindowLease;
 #[cfg(feature = "dev-harness")]
-mod fork_harness;
-#[cfg(feature = "dev-harness")]
 mod domain2_fork_harness;
+#[cfg(feature = "dev-harness")]
+mod fork_harness;
 #[cfg(feature = "dev-harness")]
 mod harness;
 #[cfg(feature = "dev-harness")]
@@ -261,7 +261,9 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
     #[cfg(feature = "dev-harness")]
     let script = if domain2_fork_harness::active() {
         format!("{script}window.__LOCALLORE_TEST__.domain2Fork=true;")
-    } else { script };
+    } else {
+        script
+    };
     #[cfg(feature = "dev-harness")]
     let script = if v2_inspection_paging_harness::active() {
         format!(

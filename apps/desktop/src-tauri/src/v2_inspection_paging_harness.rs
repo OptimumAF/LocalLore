@@ -522,15 +522,21 @@ fn environment_workspace() -> Result<PathBuf, String> {
 /// Called before any Host/other fixture setup; normal absence is a no-op.
 pub fn prepare() -> Result<(), String> {
     if crate::domain2_fork_harness::requested() {
-        if !crate::domain2_fork_harness::runtime_mode()? { return Err("Forbidden".into()); }
+        if !crate::domain2_fork_harness::runtime_mode()? {
+            return Err("Forbidden".into());
+        }
         let path = crate::domain2_fork_harness::environment_workspace()?;
         // Validate all fixed addresses before creating the database or profile.
         crate::domain2_fork_harness::webview_profile(&path)?;
         let parent = path.parent().ok_or_else(workspace_invalid)?;
-        let artifact = std::env::var_os("LOCALLORE_D02_ARTIFACT_DIR").map(PathBuf::from).ok_or_else(workspace_invalid)?;
-        if artifact != parent.join("evidence") { return Err(workspace_invalid()); }
+        let artifact = std::env::var_os("LOCALLORE_D02_ARTIFACT_DIR")
+            .map(PathBuf::from)
+            .ok_or_else(workspace_invalid)?;
+        if artifact != parent.join("evidence") {
+            return Err(workspace_invalid());
+        }
         match fs::symlink_metadata(&artifact) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             _ => return Err(workspace_invalid()),
         }
         let _pins = crate::archive::pin(parent).map_err(|_| workspace_invalid())?;

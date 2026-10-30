@@ -99,11 +99,18 @@ mod domain2_fork_native_review_tests;
 mod domain2_timeline_browser_artifact_review_tests;
 
 fn domain2_fork_label(label: &str, enabled: bool) -> bool {
-    enabled && [
-        "d08-fork-catalog", "d08-fork-rejected", "d08-fork-pending",
-        "d08-fork-preauthor", "d08-fork-authored", "d08-fork-recovered",
-        "d08-fork-enlarged", "d08-fork-failure",
-    ].contains(&label)
+    enabled
+        && [
+            "d08-fork-catalog",
+            "d08-fork-rejected",
+            "d08-fork-pending",
+            "d08-fork-preauthor",
+            "d08-fork-authored",
+            "d08-fork-recovered",
+            "d08-fork-enlarged",
+            "d08-fork-failure",
+        ]
+        .contains(&label)
 }
 
 fn timeline_browser_label(label: &str, enabled: bool) -> bool {
@@ -471,9 +478,15 @@ fn domain2_fork_active() -> bool {
         && std::env::var("LOCALLORE_D08_DOMAIN2_FORK_HARNESS").as_deref() == Ok("1")
         && std::env::vars_os().all(|(key, _)| {
             let folded = key.to_string_lossy().to_ascii_uppercase();
-            !folded.starts_with("LOCALLORE_") || (key.to_str() == Some(folded.as_str())
-                && ["LOCALLORE_D08_DOMAIN2_FORK_HARNESS", "LOCALLORE_D02_HARNESS",
-                    "LOCALLORE_D02_ARTIFACT_DIR", "LOCALLORE_TEST_WORKSPACE"].contains(&folded.as_str()))
+            !folded.starts_with("LOCALLORE_")
+                || (key.to_str() == Some(folded.as_str())
+                    && [
+                        "LOCALLORE_D08_DOMAIN2_FORK_HARNESS",
+                        "LOCALLORE_D02_HARNESS",
+                        "LOCALLORE_D02_ARTIFACT_DIR",
+                        "LOCALLORE_TEST_WORKSPACE",
+                    ]
+                    .contains(&folded.as_str()))
         })
 }
 

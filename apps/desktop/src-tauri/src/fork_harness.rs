@@ -82,7 +82,8 @@ pub async fn harness_fork_case(
     match action.as_str() {
         "domain2-oracle" if domain2 => {
             let path = workspace.path.clone();
-            if crate::domain2_fork_harness::environment_workspace()?.as_os_str() != path.as_os_str() {
+            if crate::domain2_fork_harness::environment_workspace()?.as_os_str() != path.as_os_str()
+            {
                 return Err("SyntheticWorkspaceRequired".into());
             }
             let lease = workspace.lease.clone();
@@ -91,15 +92,20 @@ pub async fn harness_fork_case(
                     if !crate::domain2_fork_harness::runtime_mode()? {
                         return Err("Forbidden".into());
                     }
-                    if crate::domain2_fork_harness::environment_workspace()?.as_os_str() != path.as_os_str() {
+                    if crate::domain2_fork_harness::environment_workspace()?.as_os_str()
+                        != path.as_os_str()
+                    {
                         return Err("SyntheticWorkspaceRequired".into());
                     }
                     crate::domain2_fork_harness::validate_workspace_path(&path)?;
-                    let _pins = crate::archive::pin(&path).map_err(|_| "SyntheticWorkspaceRequired")?;
+                    let _pins =
+                        crate::archive::pin(&path).map_err(|_| "SyntheticWorkspaceRequired")?;
                     crate::domain2_fork_harness::oracle(&path)
                 })?;
                 lease.dispatch(epoch, || Ok(value))
-            }).await.map_err(|_| "SyntheticWorker".to_owned())?
+            })
+            .await
+            .map_err(|_| "SyntheticWorker".to_owned())?
         }
         "hold" => {
             state.hold.store(true, Ordering::SeqCst);

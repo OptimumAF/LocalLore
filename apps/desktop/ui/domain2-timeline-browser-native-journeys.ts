@@ -917,9 +917,17 @@ export async function domain2TimelineBrowserNativeJourneys({
             "SETUP-existing-fixed-call-trace-interface",
         );
         gateway.startInspectorPagingTrace();
-        await until(
-            () => !!c.get().workspace && !!c.selected(),
-            "actual-Main-existing-workspace-ready",
+        const workspace = await c.library();
+        check(
+            workspace?.persistent === true &&
+                workspace.stories.length === 2 &&
+                workspace.stories.some(
+                    (item) => structural(item.scope) === structural(PARENT) && item.revision === 0,
+                ) &&
+                workspace.stories.some(
+                    (item) => structural(item.scope) === structural(OTHER) && item.revision === 1,
+                ),
+            "actual-library-two-root-stories-no-guessed-child",
         );
         baseline = await oracle("before-browser-navigation");
         await c.resume(CHILD);

@@ -105,6 +105,21 @@ class ArchiveUiContractTests(unittest.TestCase):
         old = f.legacy.admission()
         self.assertEqual(legacy.validate_operation({'argv':['df','-k','/data'],'stdin':None},old)['argv'],['df','-k','/data'])
 
+    def test_installed_apk_hash_paths_bind_own_package_segments_without_changing_legacy(self):
+        value = f.admission()
+        for package in (f.APP,f.TEST):
+            path = '/data/app/~~synthetic/'+package+'-opaque==/base.apk'
+            self.assertEqual(c.validate_operation({'argv':['sha256sum',path],'stdin':None},value)['argv'],
+                             ['sha256sum',path])
+        for package in ('unrelated.app','org.locallore.app',f.APP+'evil',f.APP.upper()):
+            path = '/data/app/~~synthetic/'+package+'-opaque==/base.apk'
+            with self.subTest(package=package):
+                self.refused(lambda:c.validate_operation({'argv':['sha256sum',path],'stdin':None},value))
+        path = '/data/app/~~synthetic/unrelated.app-opaque==/base.apk'
+        old = f.legacy.admission()
+        self.assertEqual(legacy.validate_operation({'argv':['sha256sum',path],'stdin':None},old)['argv'],
+                         ['sha256sum',path])
+
     def test_source_roster_root_and_resource_metadata_cannot_be_relaxed(self):
         for path, bad in ((('guest','root'),str(legacy.GUEST_ROOT)),(('guest','memory_mib'),4096),
                           (('guest','cores'),True),(('guest','api'),34),(('seconds',),True),

@@ -39,7 +39,7 @@ class ResourceTableProcessTests(unittest.TestCase):
         self.base=Path(tempfile.mkdtemp(prefix='locallore-resource-owner-',dir='D:/Dev/_Temp'))
         self.assertEqual(self.base.drive.upper(),'D:')
         self.program=self.base/'original-producer.py'
-        self.program.write_text(PROGRAM,encoding='utf-8',newline='\n')
+        self.program.write_bytes(PROGRAM.encode('utf-8'))
 
     def command(self,mode):
         return [sys.executable,'-I','-S','-B',str(self.program),mode]

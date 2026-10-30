@@ -144,3 +144,8 @@ not fit the existing original-baseline target growth and full packet reserve.
 Keep the app closed until a concrete resource decision and fresh admission.
 No new native render artifacts exist to inspect. D08, the desktop epic, real
 model quality, Android device, security/OS and release gates remain open.
+
+Subsequently, the separate owner-approved [native attempt](D08_DOMAIN2_FORK_NATIVE_ATTEMPT_2026-10-30.md)
+runs and fails before its first checkpoint image. Its approval is spent; this
+earlier code gate remains a code result. The later report retains the exact
+partial IPC/DOM evidence, restoration, preservation gap and next required gate.

@@ -8,7 +8,9 @@ oracle stay unchanged. Current PR290 approval covers code checks/restoration,
 not application execution. Root remains the sole execution owner.
 The later [native harness code evidence](D08_DOMAIN2_FORK_NATIVE_CODE_VERIFICATION_2026-10-30.md)
 records implementation and passing checks while retaining this original proposal.
-Its runtime/resource gate is still unrun and unadmitted.
+The subsequent [one admitted native attempt](D08_DOMAIN2_FORK_NATIVE_ATTEMPT_2026-10-30.md)
+fails before its first capture. That approval is spent; the original proposal
+below is retained as history rather than a second-run authorization.
 
 ## Existing interfaces and prerequisite freeze
 

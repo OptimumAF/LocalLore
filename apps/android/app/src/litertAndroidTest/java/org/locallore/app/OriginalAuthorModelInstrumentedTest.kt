@@ -23,6 +23,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -80,6 +81,19 @@ class OriginalAuthorModelInstrumentedTest {
     }
 
     @Test fun recordsOneRealAuthorCreationAndInferenceFreeReopen() = runBlocking {
+        recordAuthorPhase("recordsOneRealAuthorCreationAndInferenceFreeReopen")
+    }
+
+    @Test fun recordsOneRealAuthorCreationWithLiveDeathCheckpoint() = runBlocking {
+        val deadline = Math.addExact(SystemClock.elapsedRealtimeNanos(), PHASE_MS * 1_000_000L)
+        withTimeout(PHASE_MS) {
+            recordAuthorPhase("recordsOneRealAuthorCreationWithLiveDeathCheckpoint")
+            withContext(Dispatchers.IO) { holdAuthorForExternalDeath(deadline) }
+        }
+        fail("Live AUTHOR checkpoint returned without external process death")
+    }
+
+    private suspend fun recordAuthorPhase(method: String) {
         val phase = AuthorProof()
         var artifacts: Artifacts? = null
         var diagnostics: DiagnosticArtifacts? = null
@@ -96,7 +110,7 @@ class OriginalAuthorModelInstrumentedTest {
         var tracesObserved = false
         try {
             withTimeout(PHASE_MS) { withContext(Dispatchers.IO) {
-                val app = selected("recordsOneRealAuthorCreationAndInferenceFreeReopen")
+                val app = selected(method)
                 val anchor = anchor(app)
                 val priorFile = File(File(anchor, IMPORT_ROOT), "import-v1.json")
                 directory(checkNotNull(priorFile.parentFile), anchor)
@@ -276,6 +290,138 @@ class OriginalAuthorModelInstrumentedTest {
         if (phase.reason != null || phase.stage != "completed") fail("Original author probe refused: ${phase.stage}/${phase.reason ?: "checks_failed"}")
     }
 
+
+    /** This continuation is real JNI/SQLite in the same target process, after legacy SDK cleanup. */
+    private suspend fun holdAuthorForExternalDeath(overallDeadlineNs: Long) {
+        val app = selected("recordsOneRealAuthorCreationWithLiveDeathCheckpoint")
+        val anchor = anchor(app)
+        val authorRoot = File(anchor, AUTHOR_ROOT).also { directory(it, anchor) }
+        val importedRoot = File(anchor, IMPORT_ROOT).also { directory(it, anchor) }
+        val authorRaw = read(File(authorRoot, "proof-v1.json"), ARTIFACT_CAP)
+        val importRaw = read(File(importedRoot, "import-v1.json"), ARTIFACT_CAP)
+        val author = parse(authorRaw)
+        fields(author, "version", "scope", "status", "stage", "reason", "process", "package", "elapsed_ms",
+            "prior_import_sha256", "profile", "job", "input_sha256", "review_sha256", "creation_id", "records", "traces")
+        check(author.getInt("version") == 1 && author.getString("scope") == "original_author_model_v1" &&
+            author.getString("status") == "completed" && author.getString("stage") == "completed" && author.isNull("reason") &&
+            author.getString("package") == PACKAGE && author.getString("prior_import_sha256") == sha(importRaw))
+        val identity = author.getJSONObject("process")
+        fields(identity, "pid", "uid", "start_elapsed_ms")
+        check(identity.getInt("pid") == Process.myPid() && identity.getInt("uid") == Process.myUid() &&
+            identity.getLong("start_elapsed_ms") == Process.getStartElapsedRealtime())
+        fun baseline(name: String): JSONObject {
+            val raw = read(File(authorRoot, name), ARTIFACT_CAP)
+            val pin = author.getJSONObject("records").getJSONObject(name)
+            fields(pin, "bytes", "sha256")
+            check(pin.getInt("bytes") == raw.size && pin.getString("sha256") == sha(raw))
+            return data(parse(raw))
+        }
+        val expectedCatalog = baseline("workspace-created-v1.json")
+        val expectedSnapshot = baseline("snapshot-created-v1.json")
+        val created = baseline("create-v1.json").also { creation(it, true) }
+        val scope = created.getJSONObject("scope")
+        val databaseRoot = File(authorRoot, "workspace-v1").also { directory(it, authorRoot) }
+        val database = File(databaseRoot, "stories.sqlite3").also { regular(it) }
+        val profile = localUtf8(author.getJSONObject("profile").toString()).also { check(it.size in 1..4096) }
+        OriginalAuthorLiveCheckpointPolicy.admitWindow(SystemClock.elapsedRealtimeNanos(), overallDeadlineNs)
+        val root = freshDirectory(anchor, LIVE_ROOT)
+        var handle = 0L
+        var window: OriginalAuthorLiveCheckpointPolicy.Window? = null
+        var readyMayBeVisible = false
+        var readyRaw: ByteArray? = null
+        var process: JSONObject? = null
+        var reason = "checks_failed"
+        var primary: Throwable? = null
+        try {
+            handle = NativeWorkspace.openLocal(database.path, profile).also { check(it > 0) }
+            noPending(handle)
+            val catalogReply = native(handle, command("workspace"))
+            same(expectedCatalog, data(catalogReply))
+            val recovery = command("authoring_create").put("job", author.getString("job"))
+                .put("review_sha256", author.getString("review_sha256")).put("creation_id", author.getString("creation_id"))
+            val recovered = data(native(handle, recovery)).also { creation(it, false) }
+            same(scope, recovered.getJSONObject("scope"))
+            val snapshotReply = native(handle, command("play_snapshot").put("session", recovered.getString("session"))
+                .put("scope", scope).put("expected_revision", 0))
+            same(expectedSnapshot, data(snapshotReply))
+            noPending(handle)
+            val catalogRaw = localUtf8(catalogReply.toString())
+            val snapshotRaw = localUtf8(snapshotReply.toString())
+            writeNew(File(root, "catalog-v1.json"), catalogRaw)
+            writeNew(File(root, "snapshot-v1.json"), snapshotRaw)
+            val ticks = selfStartTicks()
+            process = JSONObject(identity.toString()).put("start_ticks", ticks)
+            val admitted = OriginalAuthorLiveCheckpointPolicy.admitWindow(SystemClock.elapsedRealtimeNanos(), overallDeadlineNs)
+            window = admitted
+            check(selfStartTicks() == ticks)
+            readyRaw = localUtf8(JSONObject().put("version", 1).put("protocol", LIVE_PROTOCOL).put("package", PACKAGE)
+                .put("process", process).put("author_proof_sha256", sha(authorRaw)).put("import_proof_sha256", sha(importRaw))
+                .put("catalog_sha256", sha(catalogRaw)).put("snapshot_sha256", sha(snapshotRaw)).put("workspace_open", true)
+                .put("model_owner_closed", true).put("pending", false).put("ready_elapsed_ns", admitted.readyNs)
+                .put("expires_elapsed_ns", admitted.expiresNs).toString())
+            // Treat every attempted publication as potentially visible, including late I/O failures.
+            readyMayBeVisible = true
+            publishLiveReady(root, checkNotNull(readyRaw))
+            while (SystemClock.elapsedRealtimeNanos() < admitted.expiresNs) delay(25)
+            reason = "deadline"
+            error("Live AUTHOR checkpoint expired without external death")
+        } catch (failure: Throwable) {
+            if (failure is CancellationException) reason = if (window != null &&
+                SystemClock.elapsedRealtimeNanos() >= checkNotNull(window).expiresNs) "deadline" else "cancelled"
+            primary = failure
+            throw failure
+        } finally {
+            withContext(NonCancellable + Dispatchers.IO) {
+                if (handle > 0) {
+                    if (readyMayBeVisible) {
+                        val admitted = checkNotNull(window)
+                        var terminalForced = false
+                        try {
+                            val terminal = JSONObject().put("version", 1).put("protocol", LIVE_PROTOCOL).put("package", PACKAGE)
+                                .put("process", checkNotNull(process)).put("status", "refused").put("reason", reason)
+                                .put("ready_sha256", sha(checkNotNull(readyRaw))).put("observed_elapsed_ns", SystemClock.elapsedRealtimeNanos())
+                                .put("workspace_open", true)
+                            writeNew(File(root, "terminal-v1.json"), localUtf8(terminal.toString()))
+                            terminalForced = true
+                        } catch (_: Throwable) { /* An invisible early close is forbidden even if capture fails. */ }
+                        while (!OriginalAuthorLiveCheckpointPolicy.mayClose(admitted, SystemClock.elapsedRealtimeNanos(), terminalForced))
+                            delay(25)
+                    }
+                    // Exactly one close attempt. No retry after an uncertain native close.
+                    val owned = handle; handle = 0
+                    try { NativeWorkspace.close(owned); invalidated(owned) }
+                    catch (closing: Throwable) { primary?.addSuppressed(closing) ?: throw closing }
+                }
+            }
+        }
+    }
+
+    private fun selfStartTicks(): Long {
+        val raw = ByteArray(OriginalAuthorLiveCheckpointPolicy.STAT_CAP + 1)
+        var used = 0
+        // This is the kernel's current-process alias, not a caller-selected path or a regular file.
+        File("/proc/self/stat").inputStream().use { input ->
+            while (used < raw.size) {
+                val count = input.read(raw, used, raw.size - used)
+                if (count < 0) break
+                check(count > 0); used += count
+            }
+        }
+        check(used in 1..OriginalAuthorLiveCheckpointPolicy.STAT_CAP)
+        return OriginalAuthorLiveCheckpointPolicy.startTicks(raw.copyOf(used), Process.myPid())
+    }
+
+    private fun publishLiveReady(root: File, raw: ByteArray) {
+        val pending = File(checkNotNull(root.parentFile), "original-author-live-checkpoint.pending-v1.json")
+        val ready = File(root, "ready-v1.json")
+        writeNew(pending, raw)
+        check(!exists(ready))
+        // Same-directory hard link publishes complete forced bytes atomically and never replaces a target.
+        Files.createLink(ready.toPath(), pending.toPath())
+        check(regular(ready, raw.size.toLong()).fileKey() == regular(pending, raw.size.toLong()).fileKey())
+        Files.delete(pending.toPath()) // Only this redundant alias; the exact bytes remain at ready-v1.json.
+    }
+
     private class SourceCounts(private val file: File, private val pin: BasicFileAttributes) {
         private val claimed = AtomicBoolean()
         val opened = AtomicLong(); val closed = AtomicLong(); val bytes = AtomicLong(); val offMain = AtomicBoolean(true)
@@ -374,6 +520,8 @@ class OriginalAuthorModelInstrumentedTest {
         private const val SOURCE_ROOT = "original-author-source-v1"
         private const val IMPORT_ROOT = "original-author-import-proof-v1"
         private const val AUTHOR_ROOT = "original-author-proof-v1"
+        private const val LIVE_ROOT = "original-author-live-checkpoint-v1"
+        private const val LIVE_PROTOCOL = "original-author-live-checkpoint-v1"
         private const val DIAGNOSTIC_ROOT = "original-author-diagnostic-v1"
         private const val INPUT_SHA256 = "1180137865b47041f2827df2e5aac05bc8170b740da49970105648a191b37abb"
         private const val MODEL_BYTES = 2_588_147_712L

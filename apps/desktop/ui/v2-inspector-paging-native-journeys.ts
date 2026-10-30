@@ -1519,9 +1519,11 @@ export async function v2InspectorPagingNativeJourneys({
             trace().every((item) =>
                 item.channel === "host"
                     ? !!item.command && allowed.has(item.command.op)
-                    : ["model_status", "inspection_storage", "capture_revoke"].includes(
-                          item.nativeAction ?? "",
-                      ),
+                    : [
+                          "model_status",
+                          "inspection_storage",
+                          "capture_revoke",
+                      ].includes(item.nativeAction ?? ""),
             ),
             "no-gameplay-generation-author-memory-export-or-model-execution-dispatch",
         );
@@ -1561,11 +1563,18 @@ export async function v2InspectorPagingNativeJourneys({
         const disposeTraceStart = trace().length;
         await dispose();
         check(
-            trace().slice(disposeTraceStart).every((item) =>
-                item.settled && (item.channel === "host"
-                    ? !!item.command && ["close", "trace_capture_revoke"].includes(item.command.op)
-                    : item.nativeAction === "capture_revoke"),
-            ),
+            trace()
+                .slice(disposeTraceStart)
+                .every(
+                    (item) =>
+                        item.settled &&
+                        (item.channel === "host"
+                            ? !!item.command &&
+                              ["close", "trace_capture_revoke"].includes(
+                                  item.command.op,
+                              )
+                            : item.nativeAction === "capture_revoke"),
+                ),
             "post-dispose-only-settled-close-and-exact-capture-revocations",
         );
         finalOracle = await oracle("after-dispose-before-window-exit");
@@ -1578,9 +1587,11 @@ export async function v2InspectorPagingNativeJourneys({
             trace().every((item) =>
                 item.channel === "host"
                     ? !!item.command && allowed.has(item.command.op)
-                    : ["model_status", "inspection_storage", "capture_revoke"].includes(
-                          item.nativeAction ?? "",
-                      ),
+                    : [
+                          "model_status",
+                          "inspection_storage",
+                          "capture_revoke",
+                      ].includes(item.nativeAction ?? ""),
             ),
             "closure-roster-has-no-new-gameplay-model-or-provider-dispatch",
         );

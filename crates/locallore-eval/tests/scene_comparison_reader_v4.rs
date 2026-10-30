@@ -142,7 +142,7 @@ fn actual_scene_report_snapshot_is_bound_read_only_and_lossless() {
     assert_eq!(summary["execution_available"], false);
     assert_eq!(
         summary["unavailable"],
-        json!(["selected_protocol4_rerun_not_implemented"])
+        json!(["selected_protocol4_native_rerun_unavailable"])
     );
     assert_eq!(summary["report"]["human_reviewed"], 0);
     assert_eq!(summary["report"]["human_rubric"], "not_reviewed");

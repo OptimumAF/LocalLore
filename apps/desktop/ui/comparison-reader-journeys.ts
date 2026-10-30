@@ -1331,7 +1331,11 @@ export async function comparisonReaderJourneys({
                     text.includes("Relevant memory scene") &&
                     text.includes("committed narrator inputs checked") &&
                     text.includes("needs improvement") &&
-                    text.includes("Protocol 4 selected-case rerun unavailable"),
+                    text.includes("Read-only Protocol 4 scene report") &&
+                    text.includes("Scripted selected experiments") &&
+                    text.includes(
+                        "Native selected scene reruns are unavailable",
+                    ),
                 "actual-protocol4-visible-scope-and-limits",
             );
         }

@@ -194,13 +194,15 @@ fn source_binding(dir: &Path) -> String {
     let opened = source4::desktop_api::open_read_only(dir).unwrap();
     let summary = source4::desktop_api::summary(&opened, true).unwrap();
     assert_eq!(summary["protocol_version"], 4);
+    assert_eq!(summary["read_only"], true);
+    assert_eq!(summary["execution_available"], false);
     assert!(
         summary["unavailable"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|item| item == "selected_protocol4_rerun_not_implemented"),
-        "shared producer does not silently enable the desktop rerun control"
+            .any(|item| item == "selected_protocol4_native_rerun_unavailable"),
+        "the full reader remains read-only; native selected scene execution stays unavailable"
     );
     summary["binding"].as_str().unwrap().into()
 }

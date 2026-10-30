@@ -841,6 +841,8 @@ function sceneConstruction(
     );
     return o as ComparisonArmDescriptorV4;
 }
+// Shared descriptor validation only; callers retain their own transport errors.
+export { sceneConstruction as checkedReaderSceneConstruction };
 function sceneTurn(v: unknown): void {
     const o = exact(v, [
         "turn",

@@ -69,7 +69,7 @@ pub(super) fn snapshot(directory: &Path) -> Result<(Value, Manifest, [Vec<Stored
     )?);
     let value = json!({"version":1,"protocol_version":4,"binding":binding,
         "report":report,"rows":rows,"read_only":true,"execution_available":false,
-        "unavailable":["selected_protocol4_rerun_not_implemented"]});
+        "unavailable":["selected_protocol4_native_rerun_unavailable"]});
     if encode(&value)?.len() > MAX_SUMMARY {
         return Err("ReportBudget".into());
     }

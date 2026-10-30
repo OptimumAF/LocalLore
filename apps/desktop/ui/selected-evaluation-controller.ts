@@ -13,6 +13,7 @@ import {
     checkedSelectedSummary,
     selectedArm,
     selectedErrors,
+    selectedHash,
     selectedLane,
     selectedUuid,
 } from "./selected-evaluation-model";
@@ -85,6 +86,15 @@ type ExpectedIdentity = {
     lane?: SelectedLane;
     planToken?: string;
     runId?: string;
+    sourceProtocol?: 2 | 3 | 4;
+    sourceBinding?: string;
+    pendingResume?: {
+        serial: number;
+        previousOperation: number | null;
+        operation: number | null;
+        sourceBinding: string;
+        sourceProtocol?: 2 | 3 | 4;
+    };
 };
 const POLL_MS = 300,
     MAX_STATUS_POLLS = 1000;
@@ -355,6 +365,56 @@ export class SelectedEvaluationController {
                 ),
                 expected = this.expected.get(t.client);
             if (expected) {
+                const resume = expected.pendingResume;
+                const ownsResume =
+                    resume !== undefined &&
+                    (resume.serial === t.serial ||
+                        (resume.operation !== null &&
+                            resume.operation === value.operation_id) ||
+                        (action === "status" &&
+                            resume.operation === null &&
+                            value.operation_id !== null &&
+                            value.operation_id !== resume.previousOperation));
+                if (
+                    ownsResume &&
+                    resume.operation !== null &&
+                    value.operation_id !== null &&
+                    value.operation_id !== resume.operation &&
+                    value.phase !== "closed"
+                )
+                    throw new Error("SelectedEvaluationWire");
+                if (
+                    ownsResume &&
+                    resume.operation === null &&
+                    value.operation_id !== resume.previousOperation
+                )
+                    resume.operation = value.operation_id;
+                const resumed =
+                    ownsResume &&
+                    value.error === null &&
+                    !value.running &&
+                    (value.phase === "completed" || value.phase === "paused");
+                const sourceProtocol = resumed
+                    ? (resume.sourceProtocol ?? expected.sourceProtocol)
+                    : expected.sourceProtocol;
+                const sourceBinding = resumed
+                    ? resume.sourceBinding
+                    : expected.sourceBinding;
+                // A pending/failed resume may still carry the old prepared
+                // metadata. Validate that against its previously bound source;
+                // a successful resume alone can promote the requested identity.
+                if (
+                    resumed &&
+                    sourceProtocol === 4 &&
+                    value.prepared?.version !== 3
+                )
+                    throw new Error("SelectedEvaluationWire");
+                if (
+                    value.prepared?.version === 3 &&
+                    value.error !== null &&
+                    sourceBinding === undefined
+                )
+                    throw new Error("SelectedEvaluationWire");
                 if (
                     (expected.lane &&
                         value.lane !== null &&
@@ -369,8 +429,13 @@ export class SelectedEvaluationController {
                     throw new Error("SelectedEvaluationWire");
                 if (
                     value.prepared &&
-                    ((expected.turn &&
-                        value.prepared.selection.turn !== expected.turn) ||
+                    ((sourceProtocol !== undefined &&
+                        value.prepared.version !== sourceProtocol - 1) ||
+                        (value.prepared.version === 3 &&
+                            sourceBinding !== undefined &&
+                            value.prepared.source_binding !== sourceBinding) ||
+                        (expected.turn &&
+                            value.prepared.selection.turn !== expected.turn) ||
                         (expected.arm &&
                             value.prepared.selection.clicked_arm !==
                                 expected.arm) ||
@@ -381,6 +446,25 @@ export class SelectedEvaluationController {
                                     : "scripted_selected_case")))
                 )
                     throw new Error("SelectedEvaluationWire");
+                if (resumed) {
+                    expected.sourceBinding = resume.sourceBinding;
+                    expected.sourceProtocol = sourceProtocol;
+                    delete expected.pendingResume;
+                } else if (
+                    ownsResume &&
+                    !value.running &&
+                    (value.error !== null || value.phase === "closed")
+                ) {
+                    delete expected.pendingResume;
+                }
+                if (
+                    value.error === null &&
+                    !value.running &&
+                    value.prepared?.version === 3
+                ) {
+                    expected.sourceBinding ??= value.prepared.source_binding;
+                    expected.sourceProtocol ??= 4;
+                }
                 if (!expected.runId && value.run_id !== null)
                     expected.runId = value.run_id;
                 if (!expected.planToken && value.plan_token !== null)
@@ -492,6 +576,10 @@ export class SelectedEvaluationController {
     private async newClient(
         action: "prepare" | "open",
         body: Record<string, unknown>,
+        sourceExpectation?: Pick<
+            ExpectedIdentity,
+            "sourceProtocol" | "sourceBinding"
+        >,
     ): Promise<void> {
         if (!this.canAdmit()) return;
         const epoch = this.contextEpoch;
@@ -513,6 +601,7 @@ export class SelectedEvaluationController {
                       }).turn,
                       arm: selectedArm(body.arm),
                       lane: selectedLane(body.lane),
+                      ...sourceExpectation,
                   }
                 : { runId: selectedUuid(body.runId) },
         );
@@ -544,19 +633,34 @@ export class SelectedEvaluationController {
         source: SelectedSourceIdentity,
         row: RowId,
         lane: SelectedLane,
+        expectedSourceProtocol?: 2 | 3 | 4,
     ): Promise<void> {
         try {
+            if (
+                expectedSourceProtocol !== undefined &&
+                expectedSourceProtocol !== 2 &&
+                expectedSourceProtocol !== 3 &&
+                expectedSourceProtocol !== 4
+            )
+                throw new Error("SelectedEvaluationWire");
             const s = checkedSelectedSource(source),
                 r = checkedSelectedRow(row),
                 l = selectedLane(lane);
-            await this.newClient("prepare", {
-                readerClientId: s.readerClientId,
-                runToken: s.runToken,
-                binding: s.binding,
-                turnId: r.turn,
-                arm: r.arm,
-                lane: l,
-            });
+            await this.newClient(
+                "prepare",
+                {
+                    readerClientId: s.readerClientId,
+                    runToken: s.runToken,
+                    binding: s.binding,
+                    turnId: r.turn,
+                    arm: r.arm,
+                    lane: l,
+                },
+                {
+                    sourceProtocol: expectedSourceProtocol,
+                    sourceBinding: s.binding,
+                },
+            );
         } catch (error) {
             if (!this.disposed) this.failed(error);
         }
@@ -744,6 +848,20 @@ export class SelectedEvaluationController {
             serial: ++this.lifecycleEpoch,
             client,
         };
+        if (action === "resume") {
+            const expected = this.expected.get(client);
+            const known = this.state.summary ?? this.state.status?.prepared;
+            if (expected)
+                expected.pendingResume = {
+                    serial: t.serial,
+                    previousOperation: this.state.status?.operation_id ?? null,
+                    operation: null,
+                    sourceBinding: selectedHash(body.sourceBinding),
+                    sourceProtocol: known
+                        ? ((known.version + 1) as 2 | 3 | 4)
+                        : expected.sourceProtocol,
+                };
+        }
         if (action === "resume")
             this.lastAttemptedSourceToken = selectedUuid(body.sourceToken);
         this.patch({

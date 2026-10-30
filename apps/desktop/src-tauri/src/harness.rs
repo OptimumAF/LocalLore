@@ -65,6 +65,35 @@ pub(crate) const AUTHOR_LABELS: &[&str] = &[
 ];
 
 const MAX_JSON: usize = 256 * 1024;
+const MAX_SELECTED_SCENE_ARTIFACT_BYTES: usize = 64 * 1024 * 1024;
+
+#[derive(Default)]
+struct ArtifactBudget {
+    reserved: usize,
+    failed: bool,
+}
+impl ArtifactBudget {
+    fn reserve(&mut self, amount: usize) -> Result<(), &'static str> {
+        if self.failed {
+            return Err("ArtifactWriteBudget");
+        }
+        match self.reserved.checked_add(amount) {
+            Some(total) if total <= MAX_SELECTED_SCENE_ARTIFACT_BYTES => {
+                self.reserved = total;
+                Ok(())
+            }
+            _ => {
+                self.fail();
+                Err("ArtifactWriteBudget")
+            }
+        }
+    }
+
+    fn fail(&mut self) {
+        self.failed = true;
+    }
+}
+
 const FULL_COMPARISON_LABELS: &[&str] = &[
     "full-idle",
     "full-running",
@@ -121,6 +150,39 @@ const SELECTED_LABELS: &[&str] = &[
     "selected-context-retired",
     "selected-finished",
     "selected-restarted",
+];
+const SELECTED_SCENE_LABELS: &[&str] = &[
+    "selected-scene-prepared",
+    "selected-scene-completed",
+    "selected-scene-summary",
+    "selected-scene-left-after",
+    "selected-scene-right-after",
+    "selected-scene-receipt",
+    "selected-scene-capture",
+    "selected-scene-outputs",
+    "selected-scene-constructions",
+    "selected-scene-mira",
+    "selected-scene-sable",
+    "selected-scene-guard",
+    "selected-scene-guard-results",
+    "selected-scene-native-unavailable",
+    "selected-scene-unknown",
+    "selected-scene-recovered",
+    "selected-scene-consent-pending",
+    "selected-scene-consent-actor",
+    "selected-scene-consent-cancelled",
+    "selected-scene-consent-denied",
+    "selected-scene-context-retired",
+    "selected-scene-enlarged-wide",
+    "selected-scene-enlarged-narrow",
+    "selected-scene-resumed",
+    "selected-scene-finished",
+    "selected-scene-restarted",
+    "selected-scene-restart-receipt",
+    "selected-scene-restart-actor",
+    "selected-scene-restart-resumed",
+    "selected-scene-restart-finished",
+    "selected-scene-failure",
 ];
 const COMPARISON_READER_LABELS: &[&str] = &[
     "comparison-open",
@@ -323,6 +385,16 @@ fn comparison_reader_active() -> bool {
     active() && std::env::var("LOCALLORE_D07_COMPARISON_READER_HARNESS").as_deref() == Ok("1")
 }
 
+// Keep this label-only guard self-contained: this module is also compiled by
+// the standalone artifact-contract target, without the application managers.
+fn selected_scene_active() -> bool {
+    comparison_reader_active()
+        && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_SCENE_COMPARISON_READER").as_deref() == Ok("1")
+        && std::env::var("LOCALLORE_D07_LITERAL_COMPARISON_READER").as_deref() != Ok("1")
+        && std::env::var("LOCALLORE_D07_NARRATION_DIAGNOSTIC_READER").as_deref() != Ok("1")
+}
+
 struct Progress {
     labels: HashSet<String>,
     finished: bool,
@@ -331,6 +403,7 @@ struct Progress {
 pub struct HarnessState {
     directory: PathBuf,
     progress: Mutex<Progress>,
+    scene_budget: Option<Mutex<ArtifactBudget>>,
 }
 
 impl HarnessState {
@@ -359,6 +432,7 @@ impl HarnessState {
                 labels: HashSet::new(),
                 finished: false,
             }),
+            scene_budget: selected_scene_active().then(|| Mutex::new(ArtifactBudget::default())),
         })
     }
 
@@ -385,6 +459,7 @@ impl HarnessState {
             || (active()
                 && std::env::var("LOCALLORE_D07_SELECTED_HARNESS").as_deref() == Ok("1")
                 && SELECTED_LABELS.contains(&label))
+            || (selected_scene_active() && SELECTED_SCENE_LABELS.contains(&label))
             || (comparison_reader_active() && COMPARISON_READER_LABELS.contains(&label))
             || (active()
                 && std::env::var("LOCALLORE_TEST_MEMORY").as_deref() == Ok("1")
@@ -411,12 +486,27 @@ impl HarnessState {
 
     fn write(&self, name: &str, bytes: &[u8]) -> Result<(), &'static str> {
         // Every caller passes a literal or a name formed from LABELS above.
-        OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(self.directory.join(name))
-            .and_then(|mut file| file.write_all(bytes))
-            .map_err(|_| "ArtifactWriteFailed")
+        let write = || {
+            OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(self.directory.join(name))
+                .and_then(|mut file| file.write_all(bytes))
+                .map_err(|_| "ArtifactWriteFailed")
+        };
+        if let Some(budget) = &self.scene_budget {
+            // This owned guard spans reservation and the complete create-new
+            // write. Failed/partial writes remain charged and preserved.
+            let mut budget = budget.lock().map_err(|_| "ArtifactWriteBudget")?;
+            budget.reserve(bytes.len())?;
+            let result = write();
+            if result.is_err() {
+                budget.fail();
+            }
+            result
+        } else {
+            write()
+        }
     }
 }
 
@@ -597,6 +687,10 @@ async fn capture(window: &tauri::WebviewWindow) -> Result<Vec<u8>, &'static str>
 async fn capture(_: &tauri::WebviewWindow) -> Result<Vec<u8>, &'static str> {
     Err("CaptureUnsupported")
 }
+
+#[cfg(test)]
+#[path = "selected_scene_artifact_budget_review_tests.rs"]
+mod selected_scene_artifact_budget_review_tests;
 
 #[cfg(test)]
 mod tests {

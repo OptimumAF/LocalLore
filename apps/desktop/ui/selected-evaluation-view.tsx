@@ -9,6 +9,7 @@ import type {
     SelectedLane,
     SelectedSourceIdentity,
     SelectedDiagnosticRow,
+    SelectedEvidence,
 } from "./selected-evaluation-model";
 import type { ViewV2 } from "./v2-view-model";
 import { sameReaderObserver } from "./comparison-reader-model";
@@ -30,14 +31,34 @@ const armLabel = (arm: SelectedArm, version: number | undefined) =>
         ? arm === "left"
             ? "Left arm"
             : "Right arm"
-        : version === 2
+        : version === 3
           ? arm === "left"
-              ? "Literal player conversation"
-              : "Relevant memory"
-          : arm === "left"
-            ? "Recent transcript baseline"
-            : "Relevant memory";
+              ? "Literal scene"
+              : "Relevant memory scene"
+          : version === 2
+            ? arm === "left"
+                ? "Literal player conversation"
+                : "Relevant memory"
+            : arm === "left"
+              ? "Recent transcript baseline"
+              : "Relevant memory";
 const privateCheckLabel = (item: SelectedDiagnosticRow, context = false) => {
+    if ("privacy_evidence_status" in item) {
+        if (context)
+            return item.construction_evidence_status ===
+                "validated_committed_scene_narrator_v1"
+                ? "Validated committed scene input"
+                : item.construction_evidence_status.startsWith(
+                        "not_applicable_",
+                    )
+                  ? "Not applicable"
+                  : "Unavailable · scene evidence was not recovered";
+        return item.privacy_evidence_status === "checked_finite_sentinels"
+            ? "Checked finite sentinels · no general privacy guarantee"
+            : item.privacy_evidence_status === "not_applicable_guard"
+              ? "Not applicable · engine guard"
+              : "Unavailable · not established";
+    }
     if ("construction_evidence_status" in item) {
         if (item.construction_evidence_status === "not_applicable_guard")
             return "Not applicable · engine guard";
@@ -99,6 +120,7 @@ export type SelectedEvaluationViewProps = {
     row: RowId | null;
     observer: ObserverV2;
     sourceUnavailable?: boolean;
+    sourceProtocolVersion?: 2 | 3 | 4;
 };
 export function SelectedEvaluationView({
     controller: c,
@@ -106,6 +128,7 @@ export function SelectedEvaluationView({
     row,
     observer,
     sourceUnavailable = false,
+    sourceProtocolVersion,
 }: SelectedEvaluationViewProps) {
     const subscribe = useCallback(
         (listener: () => void) => c.subscribe(listener),
@@ -118,6 +141,11 @@ export function SelectedEvaluationView({
             ? linkedSource
             : null;
     const [lane, setLane] = useState<SelectedLane>("scripted_baseline");
+    const sceneSource = sourceProtocolVersion === 4;
+    useEffect(() => {
+        if (sceneSource && lane === "approved_native")
+            setLane("scripted_baseline");
+    }, [sceneSource, lane]);
     const [savedId, setSavedId] = useState("");
     const [arm, setArm] = useState<SelectedArm>("left");
     const [edge, setEdge] = useState<"before" | "after">("after");
@@ -181,6 +209,106 @@ export function SelectedEvaluationView({
         else if (now.observer.kind === "omniscient")
             void c.readEvidence(arm, { kind, observer: now.observer });
     };
+    const attemptContext = (
+        shown?: SelectedEvidence,
+        diagnosticRow?: SelectedDiagnosticRow,
+    ) => {
+        // Only artifact-owned identity belongs beside a recorded artifact. A
+        // different linked reader row is a candidate, never this saved attempt.
+        const metadata = s.allowed ? (summary ?? prepared) : null;
+        const selectedTurn =
+            diagnosticRow?.turn ?? shown?.row.turn ?? metadata?.selection.turn;
+        const selectedArm =
+            diagnosticRow?.arm ??
+            shown?.row.arm ??
+            metadata?.selection.clicked_arm;
+        const heads = shown
+            ? [
+                  {
+                      arm: shown.row.arm,
+                      scope: shown.scope,
+                      before_head: shown.before_head,
+                      after_head: shown.after_head,
+                  },
+              ]
+            : (metadata?.arms.filter(
+                  (item) => !diagnosticRow || item.arm === diagnosticRow.arm,
+              ) ?? []);
+        const awaitingAcknowledgement =
+            s.pending?.operationId === null &&
+            ["prepare", "start", "resume", "open"].includes(s.pending.action);
+        const visibleError =
+            s.error ??
+            (awaitingAcknowledgement
+                ? "Unavailable until acknowledgement"
+                : (status?.error ?? (status ? "None" : "Unavailable")));
+        return (
+            <div
+                className="selected-attempt-context"
+                role="group"
+                aria-label="Selected attempt context"
+            >
+                <p>
+                    <strong>Selected attempt</strong> · selection:{" "}
+                    {selectedTurn
+                        ? `${selectedTurn} · ${selectedArm} arm`
+                        : "Unavailable until preparation or read access returns"}
+                </p>
+                {heads.length ? (
+                    heads.map((item) => (
+                        <p key={item.arm}>
+                            Story {item.scope.story} · branch{" "}
+                            {item.scope.branch}
+                            {" · "}
+                            {item.arm} before {item.before_head} → after{" "}
+                            {"after_head" in item
+                                ? (item.after_head ?? "Unavailable")
+                                : "Unavailable"}
+                        </p>
+                    ))
+                ) : (
+                    <p>
+                        Story / branch: Unavailable · before / after:
+                        Unavailable.
+                    </p>
+                )}
+                <p>
+                    Observer: {lens} · workflow phase:{" "}
+                    {label(status?.phase ?? "idle")} · last acknowledged
+                    operation: {status?.operation_id ?? "Unavailable"}.
+                    {s.uncertain ? " Outcome not confirmed." : ""}
+                </p>
+                <p>
+                    Pending:{" "}
+                    {s.pending
+                        ? `${label(s.pending.action)} · operation ${s.pending.operationId ?? "Unavailable until acknowledgement"}`
+                        : status?.running
+                          ? `native work · operation ${status.operation_id ?? "Unavailable"}`
+                          : "None"}
+                    . Receipt:{" "}
+                    {shown?.body.kind === "receipt"
+                        ? "Displayed"
+                        : "Not displayed"}
+                    . Visible error: {visibleError}.
+                </p>
+                {diagnosticRow && (
+                    <p>
+                        Row phase: {label(diagnosticRow.phase)} · row error:{" "}
+                        {diagnosticRow.error
+                            ? boundedText(diagnosticRow.error)
+                            : "None recorded"}
+                        .
+                    </p>
+                )}
+                <p>
+                    {metadata?.lane === "scripted_selected_case" ||
+                    status?.lane === "scripted_baseline"
+                        ? "Fake inference · quality not established."
+                        : "Quality not established."}
+                </p>
+            </div>
+        );
+    };
     return (
         <section
             id="selected-evaluation"
@@ -221,7 +349,7 @@ export function SelectedEvaluationView({
                             const value = event.target.value;
                             if (
                                 value === "scripted_baseline" ||
-                                value === "approved_native"
+                                (value === "approved_native" && !sceneSource)
                             )
                                 setLane(value);
                         }}
@@ -229,17 +357,34 @@ export function SelectedEvaluationView({
                         <option value="scripted_baseline">
                             Scripted baseline · fake inference
                         </option>
-                        <option value="approved_native">
-                            Installed native model · approved assets required
+                        <option value="approved_native" disabled={sceneSource}>
+                            {sceneSource
+                                ? "Native selected scene execution unavailable"
+                                : "Installed native model · approved assets required"}
                         </option>
                     </select>
                 </label>
                 <button
                     disabled={
-                        !s.allowed || blocked || !!s.clientId || !source || !row
+                        !s.allowed ||
+                        blocked ||
+                        !!s.clientId ||
+                        !source ||
+                        !row ||
+                        (sceneSource && lane !== "scripted_baseline")
                     }
                     onClick={() => {
-                        if (source && row) void c.prepare(source, row, lane);
+                        if (
+                            source &&
+                            row &&
+                            !(sceneSource && lane !== "scripted_baseline")
+                        )
+                            void c.prepare(
+                                source,
+                                row,
+                                lane,
+                                sourceProtocolVersion,
+                            );
                     }}
                 >
                     Prepare selected case
@@ -264,6 +409,9 @@ export function SelectedEvaluationView({
                       : "Choose a comparison report and a source turn in the reader before preparing an experiment."}
             </p>
             <p>
+                {sceneSource
+                    ? "Native selected scene execution is unavailable. "
+                    : ""}
                 {lane === "scripted_baseline"
                     ? "Scripted inference is a synthetic plumbing check; it does not measure model quality."
                     : "Native execution requires installed approved model assets and fresh native confirmation. Availability is checked on admission."}
@@ -345,6 +493,7 @@ export function SelectedEvaluationView({
                     .
                 </p>
             )}
+            {attemptContext()}
 
             {s.allowed && prepared && (
                 <div
@@ -352,6 +501,7 @@ export function SelectedEvaluationView({
                     aria-label="Prepared experiment identity"
                 >
                     <h3>Prepared original turn: {prepared.selection.turn}</h3>
+                    {attemptContext()}
                     <p>
                         {laneLabel(prepared.lane)} · original index{" "}
                         {prepared.selection.index} · clicked{" "}
@@ -368,6 +518,12 @@ export function SelectedEvaluationView({
                     <details>
                         <summary>Prepared identity hashes</summary>
                         <p className="hash-value">{prepared.binding}</p>
+                        {prepared.version === 3 && (
+                            <p className="hash-value">
+                                Source snapshot binding:{" "}
+                                {prepared.source_binding}
+                            </p>
+                        )}
                         {prepared.arms.map((item) => (
                             <p key={item.arm} className="hash-value">
                                 {item.arm} prefix {item.prefix_sha256} · input{" "}
@@ -470,6 +626,7 @@ export function SelectedEvaluationView({
                     className="comparison-selected"
                     aria-label="Selected experiment summary"
                 >
+                    {attemptContext()}
                     <h3>Opened original turn: {summary.selection.turn}</h3>
                     <p>
                         {laneLabel(summary.lane)} · index{" "}
@@ -676,6 +833,7 @@ export function SelectedEvaluationView({
                         Displayed evidence: {evidence.row.turn} ·{" "}
                         {evidence.row.arm} · {evidence.body.kind}
                     </h4>
+                    {attemptContext(evidence)}
                     <p>
                         Story {evidence.scope.story} · branch{" "}
                         {evidence.scope.branch} · before {evidence.before_head}{" "}
@@ -739,6 +897,7 @@ export function SelectedEvaluationView({
                                 {item.turn} · {item.arm} ·{" "}
                                 {armLabel(item.arm, diagnostics.version)}
                             </h4>
+                            {attemptContext(undefined, item)}
                             <dl>
                                 <dt>Expected</dt>
                                 <dd>{boundedText(item.expected)}</dd>
@@ -782,35 +941,39 @@ export function SelectedEvaluationView({
                                                 ? "Matches recorded construction"
                                                 : "Not established"}
                                         </dd>
-                                        {item.construction.arm ===
-                                            "literal_player_v1" && (
-                                            <>
-                                                <dt>Literal source units</dt>
-                                                <dd>
-                                                    {item.literal_source_units ??
-                                                        (item.construction_evidence_status.startsWith(
-                                                            "not_applicable_",
-                                                        )
-                                                            ? "Not applicable"
-                                                            : "Unavailable")}
-                                                </dd>
-                                                <dt>
-                                                    Selected conversation suffix
-                                                </dt>
-                                                <dd>
-                                                    {item.literal_selected_start ===
-                                                        null ||
-                                                    item.literal_selected_units ===
-                                                        null
-                                                        ? item.construction_evidence_status.startsWith(
-                                                              "not_applicable_",
-                                                          )
-                                                            ? "Not applicable"
-                                                            : "Unavailable"
-                                                        : `Start ${item.literal_selected_start} · ${item.literal_selected_units} units`}
-                                                </dd>
-                                            </>
-                                        )}
+                                        {"literal_source_units" in item &&
+                                            item.construction.arm ===
+                                                "literal_player_v1" && (
+                                                <>
+                                                    <dt>
+                                                        Literal source units
+                                                    </dt>
+                                                    <dd>
+                                                        {item.literal_source_units ??
+                                                            (item.construction_evidence_status.startsWith(
+                                                                "not_applicable_",
+                                                            )
+                                                                ? "Not applicable"
+                                                                : "Unavailable")}
+                                                    </dd>
+                                                    <dt>
+                                                        Selected conversation
+                                                        suffix
+                                                    </dt>
+                                                    <dd>
+                                                        {item.literal_selected_start ===
+                                                            null ||
+                                                        item.literal_selected_units ===
+                                                            null
+                                                            ? item.construction_evidence_status.startsWith(
+                                                                  "not_applicable_",
+                                                              )
+                                                                ? "Not applicable"
+                                                                : "Unavailable"
+                                                            : `Start ${item.literal_selected_start} · ${item.literal_selected_units} units`}
+                                                    </dd>
+                                                </>
+                                            )}
                                         <dt>Narration fallback</dt>
                                         <dd>
                                             {item.fallback === null
@@ -819,6 +982,49 @@ export function SelectedEvaluationView({
                                                   ? "Recorded fallback"
                                                   : "No recorded fallback"}
                                         </dd>
+                                        {"recovered_without_checkpoint" in
+                                            item && (
+                                            <>
+                                                <dt>
+                                                    Construction evidence reason
+                                                </dt>
+                                                <dd>
+                                                    {item.construction_evidence_reason ===
+                                                    null
+                                                        ? "None recorded"
+                                                        : boundedText(
+                                                              item.construction_evidence_reason,
+                                                          )}
+                                                </dd>
+                                                <dt>Checkpoint recovery</dt>
+                                                <dd>
+                                                    {item.recovered_without_checkpoint
+                                                        ? "Recovered from the accepted receipt; original scene validation and timing remain unavailable"
+                                                        : "Recorded workflow checkpoint"}
+                                                </dd>
+                                                <dt>Narration repairs</dt>
+                                                <dd>
+                                                    {item.repairs ??
+                                                        "Unknown; not recovered"}
+                                                </dd>
+                                                <dt>
+                                                    First final response time
+                                                </dt>
+                                                <dd>
+                                                    {item.first_final_response_ms ===
+                                                    null
+                                                        ? "Unavailable"
+                                                        : `${item.first_final_response_ms} ms`}
+                                                </dd>
+                                                <dt>Commit elapsed time</dt>
+                                                <dd>
+                                                    {item.commit_elapsed_ms ===
+                                                    null
+                                                        ? "Unavailable"
+                                                        : `${item.commit_elapsed_ms} ms`}
+                                                </dd>
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </dl>

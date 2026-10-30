@@ -136,12 +136,18 @@ function SelectedExperiment({
         () => comparison.get(),
         () => comparison.get(),
     );
+    const sourceProtocolVersion = snapshot.source?.protocol_version;
+    const supportedSourceProtocol =
+        sourceProtocolVersion === 2 ||
+        sourceProtocolVersion === 3 ||
+        sourceProtocolVersion === 4;
     const source =
         snapshot.clientId &&
+        snapshot.status?.phase === "ready" &&
+        snapshot.status.running === false &&
         snapshot.status?.run_token &&
         snapshot.source &&
-        (snapshot.source.protocol_version === 2 ||
-            snapshot.source.protocol_version === 3)
+        supportedSourceProtocol
             ? {
                   readerClientId: snapshot.clientId,
                   runToken: snapshot.status.run_token,
@@ -154,7 +160,9 @@ function SelectedExperiment({
             source={source}
             row={snapshot.selected}
             observer={snapshot.observer}
-            sourceUnavailable={snapshot.source?.protocol_version === 4}
+            sourceProtocolVersion={
+                supportedSourceProtocol ? sourceProtocolVersion : undefined
+            }
         />
     );
 }

@@ -864,14 +864,14 @@ fn actual_denied_native4_managed_reader_is_empty_read_only_and_cannot_reconstruc
 }
 
 #[test]
-fn separate_actual_scripted_scene_source_is_raw_readable_but_both_selected_lanes_refuse_before_consent(
-) {
+fn separate_actual_scripted_scene_source_prepares_scripted_but_native_refuses_before_consent() {
     // Each prepare transfers its opaque reader capability. Use a fresh actual
     // fixture/reader per lane, and compare full file bytes only while unlocked.
     for lane in [
         SelectedInputLane::ScriptedBaseline,
         SelectedInputLane::ApprovedNative,
     ] {
+        let scripted = matches!(&lane, SelectedInputLane::ScriptedBaseline);
         let f = Fixture::new();
         let path = f.root.join("actual-scripted-scene");
         let report = scene_v4::run_comparison(
@@ -905,9 +905,11 @@ fn separate_actual_scripted_scene_source_is_raw_readable_but_both_selected_lanes
         );
         assert_eq!(
             summary["snapshot"]["unavailable"],
-            json!(["selected_protocol4_rerun_not_implemented"])
+            json!(["selected_protocol4_native_rerun_unavailable"])
         );
         let client = uuid().unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observed = calls.clone();
         f.manager
             .selected_prepare(
                 &f.lease,
@@ -923,24 +925,45 @@ fn separate_actual_scripted_scene_source_is_raw_readable_but_both_selected_lanes
                     arm: Arm::Left,
                     lane,
                 },
-                |_| panic!("Protocol4 selected refusal must precede consent"),
+                move |metadata| {
+                    assert!(
+                        scripted,
+                        "native selected scene refusal must precede consent"
+                    );
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    assert_eq!(metadata["version"], 3);
+                    assert_eq!(metadata["source_protocol_version"], 4);
+                    Ok(true)
+                },
             )
             .unwrap();
         let terminal = f.wait(|| f.manager.selected_status(&f.lease, f.epoch, true, &client));
-        assert_eq!(terminal["phase"], "failed");
-        assert_eq!(terminal["error"], "NativeUnavailable");
-        assert!(
-            terminal["plan_token"].is_null()
-                && terminal["run_token"].is_null()
-                && terminal["run_id"].is_null()
-        );
+        if scripted {
+            assert_eq!(terminal["phase"], "prepared", "{terminal}");
+            assert!(terminal["error"].is_null());
+            assert!(terminal["plan_token"].as_str().is_some());
+            assert!(terminal["run_token"].is_null() && terminal["run_id"].is_null());
+            assert_eq!(terminal["prepared"]["source_binding"], ready["binding"]);
+        } else {
+            assert_eq!(terminal["phase"], "failed");
+            assert_eq!(terminal["error"], "NativeUnavailable");
+            assert!(
+                terminal["plan_token"].is_null()
+                    && terminal["run_token"].is_null()
+                    && terminal["run_id"].is_null()
+            );
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), usize::from(scripted));
         assert_eq!(terminal["cleanup_required"], false);
-        assert!(!f.manager.selected_root().exists());
-        assert_eq!(inventory(&f.root), before);
-        assert_eq!(f.sequence(), 0);
+        f.manager
+            .selected_close(&f.lease, f.epoch, &client)
+            .unwrap();
         f.manager
             .comparison_close(&f.lease, f.epoch, &reader, Some(token(&ready)))
             .unwrap();
+        assert!(!f.manager.selected_root().exists());
+        assert_eq!(inventory(&f.root), before);
+        assert_eq!(f.sequence(), 0);
         assert_eq!(inventory(&path), source_before);
     }
 }

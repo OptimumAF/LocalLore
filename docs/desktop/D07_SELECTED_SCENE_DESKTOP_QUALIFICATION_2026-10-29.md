@@ -2,7 +2,8 @@
 
 2026-10-29. Refs #29 (scoped D07.02/.04/.06/.07), parent #21. This document
 records measured evidence, not the issue checklist. The application-owned scene
-IPC/render/restart harness remains unimplemented/unrun at this checkpoint. No
+IPC/render/restart harness is implemented but actual application execution remains
+unrun at this checkpoint. No
 native rendering, new model result, quality improvement or whole D07 acceptance
 is established by the adapter tests below.
 
@@ -216,3 +217,79 @@ observed behavioral RED. Process-policy FIRST is still source-only in preparatio
 Actual native IPC/render/restart, improved story quality, native selected Scene4
 inference, between-arm native interruption, Android runtime parity, stopped OS
 security gates, packaging/release and whole D07 remain unqualified here.
+
+## Subsequent harness integration checks before app execution
+
+Native fixture FIRST edfad063 is integrateddd9bc39a/221cd4ab; actual producer/
+launcher source e68e8790 is integrated17bc72b6/02df4593. Journey/labels af20a774
+are integratedc65e2617 and writer8c605e5f is integratedf8dbf42b, formattedbe5d0370.
+The source-only writer FIRST4128b6f1 precedes that implementation; seven groups
+exercise the actual private writer, including pre-open refusal/no-refund I/O
+failure, without large allocations or environment mutation.
+
+| Check | Source | Actual result / whole command seconds |
+| --- | --- | --- |
+| Original process policy FIRST |02df4593 |152pass/3fail;155simulated cases;0.245323 |
+| Context FIRST before product framing |02df4593 |0pass/25fail;26SSR HTML;0.3026773 |
+| Framing types |7ece5405 |pass;0.3292751 |
+| Unchanged context FIRST after product fix |7ece5405 |25pass/0fail;0.2906844 |
+| Unchanged adapter FIRST after product fix |7ece5405 |490pass/0fail;1.3034198 |
+| Calibrated policy FIRST |be5d0370 |155pass/0fail;0.2440883 |
+| Native complete source-set calibration |88642b82 |1pass;185.98s test/201.8540142s command |
+| Original native fixture eight groups |88642b82 |7pass/1fail;459.00s test/459.6881518s command |
+| Actual writer seven groups |88642b82 |7pass;0.01s test/0.7322052s command |
+| Corrected native path group only |5b3a2ef4 |1pass;0.01s test/19.1832561s command |
+| Qualification baseline FIRST |5b3a2ef4 |61pass/0fail;0.208923 |
+| Existing policy after baseline amendment |5b3a2ef4 |155pass/0fail;0.2809795 |
+
+The policy's three original failures were synthetic timeout scheduling: a queued
+successful predecessor Git child had not closed when the fake clock advanced.
+Independent author correction cf92aef0 preserves all155cases and every original
+post-fault assertion, adding a bounded wait/assertion for the intended manual Git
+child and its timer before time advances. Unreachable readiness is setup/unrun.
+The actual production policy helper hashes stay identical across that correction.
+
+The native path failure was a portable fixture-construction defect, verified
+against installed Rust1.93.1 source: canonical Windows verbatim paths make
+PathBuf::push normalize parent components, and join calls push. The negative
+therefore supplied a valid path. Independent correction98909267 builds the exact
+lexical input via OsString then PathBuf::from, asserting ParentDir survives before
+the unchanged refusal/byte checks. Production guards and other seven groups did
+not change. Evidence is original7/1 plus corrected1/0, not one current all-eight
+green command. The accidentally valid source set remains retained628files/
+7,517,514 bytes, exact full failure-freeze SHA256
+`6571ec1cddc8f7952d3d69fef3bce5490d74e15611b24fcf9c2b01458ce51522`.
+Original policy/context failure-log freeze is
+`31a3edf4673c02f1253e7d98a27e72915db2fb2e8c993cb3d98d9fe89c7c8c2a`.
+
+The context checks use actual View/React SSR with a disclosed immutable
+state/subscription double; no actual controller, pixels or native permission is
+proven by those25cases. Existing490/29 controller checks remain separate. Native
+fixture/writer checks execute actual Rust helpers/files with synthetic inputs;
+they do not launch a WebView, IPC app, model or OS isolation probe.
+
+Whole-qualification admission source9af0ddfd is integratede0dae2e9/6b3c418a;
+independent FIRST dcac928c is integrated174c7775, registered5b3a2ef4. It requires
+a create-new coordinator record with exact source/target binding and the original
+target baseline plus measured external evidence. Its61cases exercise actual
+decoder/startup/storage/process policy through disclosed VM doubles. Scene
+snapshot semanticVersion3 is checked separately from legacy2. Final paired/right
+and rollout/left fixtures retain the same original courier-05/index4 inputs;
+restart checks exact role IDs and all saved/reopened IDs without generation.
+
+Calibration measured one complete source set627files/7,517,007 bytes. The full
+fixture forecast was revised BEFORE execution from128MiB to224MiB, preserving
+all copies/failed bytes and the same512MiB total. Frontend forecast was likewise
+revised from64MiB to96MiB before another justified full driver run. Neither
+per-source64MiB, writer64MiB/process, original target2GiB growth nor the512MiB
+cumulative cap was lifted. Retained total after native checks is440,735,510
+bytes, with96,135,402 bytes remaining before later logs/metadata.
+
+Full current frontend execution is deliberately scheduled AFTER actual native
+layout/debugging and BEFORE the PR review/merge gate, avoiding another soon-stale
+complete bundle set. Before app admission, the earlier full driver plus fresh
+affected types/490/29/25/155/61, current normal build/exclusion assertions and
+Rust native/lint/host checks must pass. No check or acceptance criterion is
+waived. GitHub Actions is currently disabled (read-only verification); no setting
+was changed or remote CI runtime claimed. The application cohort remains unrun
+and needs its own exact measured admission record and individual image review.

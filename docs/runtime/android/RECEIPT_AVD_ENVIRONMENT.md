@@ -287,6 +287,22 @@ receipt instrumentation evidence separately. No model weights, inference SDK,
 story workspace, old emulator lifecycle or old app data action is authorized by
 this document.
 
+## Shared disk retention budget
+
+New preparations and run dispatches now use the durable shared storage ledger in
+[`RECEIPT_AVD_STORAGE.md`](RECEIPT_AVD_STORAGE.md). Admission occurs before root
+creation or SDK execution: no more than two unretired roots, with a 64 GiB
+accounting budget and 40 GiB reservation per preparing/live guest. Verified
+closed roots charge their measured files; interrupted attempts remain charged.
+The storage implementation is included in proposal source bindings, so old
+authorizations do not silently pick up changed lifecycle behavior.
+
+Process cleanup does not remove guest disks or snapshot RAM. Retire them only
+after evidence preservation, verified closure and exact authorized cleanup;
+the ledger keeps records and refuses new guests when its budget cannot fit.
+This does not automatically delete failed evidence, adopt old untracked roots,
+bound arbitrary external writes, or prove an Android/device run.
+
 ## Primary references
 
 - [Android avdmanager](https://developer.android.com/tools/avdmanager): content

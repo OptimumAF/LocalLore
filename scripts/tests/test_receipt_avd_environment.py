@@ -16,6 +16,7 @@ import unittest
 from unittest import mock
 
 from benchmarks import receipt_avd_environment as env
+from scripts.tests.receipt_c_fixture import SyntheticCVolume
 
 # Exact 3201-byte generated profile from the stopped prepare; no device/model data.
 # SHA256 5774eccd6c920ec3157a7a43710620645284c7e064a9f06933915f12d05aa6ac
@@ -168,6 +169,12 @@ class EnvironmentTests(unittest.TestCase):
         self.commit_patch = mock.patch.object(env.commit_capacity, "read_commit", return_value=self.commit_snapshot)
         self.commit_reader = self.commit_patch.start()
         self.addCleanup(self.commit_patch.stop)
+        # These SDK/ownership unit tests use fake guests. Storage admission and
+        # wiring have separate suites; never reserve the real host registry here.
+        for operation in ("reserve_prepare", "record_state", "record_closed"):
+            storage_patch = mock.patch.object(env.guest_storage, operation)
+            storage_patch.start()
+            self.addCleanup(storage_patch.stop)
 
     def tearDown(self):
         self.token_patch.stop()
@@ -317,7 +324,8 @@ class EnvironmentTests(unittest.TestCase):
 
     def proposal(self, phase="prepare"):
         # No dependency on actual installed SDK or credentials in any host test.
-        files = [Path(env.__file__).resolve(), Path(env.host.__file__).resolve(), Path(env.commit_capacity.__file__).resolve()]
+        files = [Path(env.__file__).resolve(), Path(env.host.__file__).resolve(),
+                 Path(env.commit_capacity.__file__).resolve(), Path(env.guest_storage.__file__).resolve()]
         self.java.mkdir(exist_ok=True)
         (self.sdk / "licenses").mkdir(parents=True, exist_ok=True)
         for relative in ("platform-tools/adb.exe", "emulator/emulator.exe",
@@ -347,6 +355,13 @@ class EnvironmentTests(unittest.TestCase):
                              "proposal_sha256": env.digest(proposal),
                              "allow_environment_calls": authorized, "root_go_pending": not authorized})
         return proposal, auth
+
+    def test_missing_storage_source_binding_refuses_before_SDK(self):
+        value = self.proposal()
+        storage_path = str(Path(env.guest_storage.__file__).resolve())
+        value["bindings"] = [item for item in value["bindings"] if item["path"] != storage_path]
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.validate_proposal(value, "prepare")
 
     def prepared_run(self, real_candidate=False, four_core_candidate=False):
         prepare = self.proposal()
@@ -469,11 +484,14 @@ class EnvironmentTests(unittest.TestCase):
         self.assertFalse(self.root.exists())
 
     def c_root(self):
-        scratch = tempfile.TemporaryDirectory(prefix="receipt-c-root-test-", dir=Path(os.environ["LOCALAPPDATA"]) / "Temp")
-        self.addCleanup(scratch.cleanup)
-        parent = Path(scratch.name).resolve()
-        self.assertEqual(parent.drive.upper(), "C:")
-        return parent / "new-avd"
+        # Keep lexical C policy/provenance while every actual IO stays on D.
+        number = len(getattr(self, "_synthetic_c_volumes", ()))
+        volume = SyntheticCVolume(self.base / ("synthetic-c-volume-%d" % number))
+        volume.__enter__()
+        self.addCleanup(volume.__exit__, None, None, None)
+        self._synthetic_c_volumes = [*getattr(self, "_synthetic_c_volumes", ()), volume]
+        self.assertEqual(volume.root.drive.upper(), "C:")
+        return volume.root
 
     def test_explicit_c_plan_binds_stronger_floors_without_changing_d_plan(self):
         fixture = self.proposal()

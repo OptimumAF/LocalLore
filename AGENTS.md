@@ -49,6 +49,22 @@ Make the engine testable without an Android device or real model. Use a determin
 
 Respect existing uncommitted human work. Never force-push or rewrite history without explicit permission. Public documentation must distinguish proposed, implemented, measured, and verified behavior.
 
+## Local Android test storage
+
+All guest preparation and runs must use the current `receipt_avd_environment`
+entry points and the shared D: admission ledger described in
+`docs/runtime/android/RECEIPT_AVD_STORAGE.md`. Do not copy an old helper, change
+registry paths, invoke SDK creation directly, or add fresh-root retries to evade
+the two-root / 64 GiB budget. Interrupted attempts remain charged. Stopping the
+emulator does not reclaim its disks or RAM snapshot files.
+
+Before retirement, preserve unique captures and recovery, verify process closure,
+and show exact image targets for the applicable user authorization. Keep failed
+or frozen results, small records, source bindings and retirement receipts. Never
+delete evidence or recovery to make another run fit. This admission guard covers
+new receipt AVDs, not every project output or an operating-system disk quota.
+Other large experiments must inventory and bound their outputs before starting.
+
 ## Completion report
 
 Report task IDs and status; files/PRs; exact commands and results; device/model/runtime versions where relevant; limitations and blocked gates; plan changes; and next task. Do not fabricate commands, test output, performance numbers, citations, repository settings, or release readiness.

@@ -52,6 +52,205 @@ def _same(left, right):
     return file_guard._same(left, right)
 
 
+_GUARD_PHASES = ("total", "budget_before", "inputs", "metadata", "observation", "validation", "budget_after")
+_GUARD_FIELDS = ("calls", "completed", "raised", "wall_ns", "max_ns")
+_GUARD_REASONS = frozenset(("clock", "overflow", "state", "busy", "observer", "unavailable"))
+_GUARD_MAX_CALLS = 1_000_000
+_GUARD_MAX_NS = (1 << 63) - 1
+
+
+def _guard_phase_data(closed, *, valid=False, reason="unavailable", opened=0, rows=None):
+    return dict(version=1, scope="owned-target-guard-phases-v1", valid=valid, reason=reason,
+                observer_closed=closed, open_phases=opened, complete=valid and closed and opened == 0,
+                feature_acceptance=False, instrumentation_overhead_included=True,
+                rows=[] if rows is None else rows)
+
+
+def validate_guard_phase_snapshot(value):
+    """Validate diagnostic shape only. This never qualifies a guard or resource."""
+    _need(type(value) is dict and set(value) == {"version", "scope", "valid", "reason", "observer_closed",
+          "open_phases", "complete", "feature_acceptance", "instrumentation_overhead_included", "rows"}, "guard_phase_data")
+    _need(type(value["version"]) is int and value["version"] == 1 and
+          type(value["scope"]) is str and value["scope"] == "owned-target-guard-phases-v1" and
+          all(type(value[k]) is bool for k in ("valid", "observer_closed", "complete")) and
+          value["feature_acceptance"] is False and value["instrumentation_overhead_included"] is True,
+          "guard_phase_data")
+    _need(type(value["open_phases"]) is int and 0 <= value["open_phases"] <= _GUARD_MAX_CALLS and
+          value["complete"] == (value["valid"] and value["observer_closed"] and value["open_phases"] == 0) and
+          ((value["valid"] and value["reason"] is None) or
+           (not value["valid"] and type(value["reason"]) is str and value["reason"] in _GUARD_REASONS)),
+          "guard_phase_data")
+    rows = value["rows"]
+    _need(type(rows) is list and (len(rows) == len(_GUARD_PHASES) or (not rows and not value["valid"])), "guard_phase_data")
+    for name, row in zip(_GUARD_PHASES, rows):
+        _need(type(row) is dict and set(row) == {"phase", *_GUARD_FIELDS} and
+              type(row["phase"]) is str and row["phase"] == name and
+              all(type(row[k]) is int and 0 <= row[k] <= (_GUARD_MAX_NS if k.endswith("ns") else _GUARD_MAX_CALLS)
+                  for k in _GUARD_FIELDS) and row["completed"] + row["raised"] == row["calls"] and
+              row["max_ns"] <= row["wall_ns"] and
+              (row["calls"] > 0 or row["wall_ns"] == row["max_ns"] == 0), "guard_phase_data")
+
+
+class _NoGuardPhase:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+
+_NO_GUARD_PHASE = _NoGuardPhase()
+
+
+class _GuardPhaseSpan:
+    def __init__(self, stats, name):
+        self.stats, self.name, self.started = stats, name, None
+
+    def __enter__(self):
+        try:
+            self.started = self.stats._begin(self.name)
+        except Exception:
+            self.stats._invalidate("observer")
+        return None
+
+    def __exit__(self, exc_type, exc, traceback):
+        try:
+            self.stats._finish(self.name, self.started, exc_type is not None)
+        except BaseException as error:
+            self.stats._invalidate("observer")
+            # An observation must preserve the primary action failure. With no
+            # primary failure, a user interrupt remains an interrupt.
+            if exc_type is None and not isinstance(error, Exception):
+                raise
+        return False
+
+
+class _GuardPhases:
+    """Bounded observations, with no lock held across an authoritative action.
+
+    Total includes the child phases. Concurrent spans can overlap. These wall
+    costs include observation overhead, never infer model latency or acceptance.
+    """
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._valid, self._reason, self._last_clock, self._open_phases = True, None, None, 0
+        self._rows = {name: dict.fromkeys(_GUARD_FIELDS, 0) for name in _GUARD_PHASES}
+
+    def _invalidate(self, reason):
+        self._valid = False
+        if self._reason is None:
+            self._reason = reason
+
+    def phase(self, name):
+        try:
+            return _GuardPhaseSpan(self, name)
+        except Exception:
+            self._invalidate("observer")
+            return _NO_GUARD_PHASE
+
+    def _sample(self):
+        try:
+            value = time.perf_counter_ns()
+        except BaseException as error:
+            self._invalidate("clock")
+            if not isinstance(error, Exception):
+                raise
+            return None
+        if (type(value) is not int or not 0 <= value <= _GUARD_MAX_NS or
+                self._last_clock is not None and value < self._last_clock):
+            self._invalidate("clock")
+            return None
+        self._last_clock = value
+        return value
+
+    def _rows_copy(self):
+        _need(type(self._rows) is dict and set(self._rows) == set(_GUARD_PHASES), "guard_phase_data")
+        result = []
+        for name in _GUARD_PHASES:
+            row = self._rows[name]
+            _need(type(row) is dict and set(row) == set(_GUARD_FIELDS), "guard_phase_data")
+            result.append(dict(phase=name, **row))
+        return result
+
+    def _begin(self, name):
+        if not self._valid:
+            return None
+        if type(name) is not str or name not in _GUARD_PHASES:
+            self._invalidate("state")
+            return None
+        if not self._lock.acquire(False):
+            self._invalidate("busy")
+            return None
+        try:
+            try:
+                validate_guard_phase_snapshot(_guard_phase_data(False, valid=self._valid, reason=self._reason,
+                    opened=self._open_phases, rows=self._rows_copy()))
+            except Exception:
+                self._invalidate("state")
+                return None
+            if self._open_phases >= _GUARD_MAX_CALLS:
+                self._invalidate("overflow")
+                return None
+            started = self._sample()
+            if started is not None:
+                self._open_phases += 1
+            return started
+        finally:
+            self._lock.release()
+
+    def _finish(self, name, started, raised):
+        if started is None:
+            return
+        if not self._lock.acquire(False):
+            self._invalidate("busy")
+            return
+        try:
+            if type(self._open_phases) is not int or self._open_phases <= 0:
+                self._invalidate("state")
+                return
+            self._open_phases -= 1
+            if not self._valid:
+                return
+            try:
+                validate_guard_phase_snapshot(_guard_phase_data(False, valid=self._valid, reason=self._reason,
+                    opened=self._open_phases, rows=self._rows_copy()))
+            except Exception:
+                self._invalidate("state")
+                return
+            end = self._sample()
+            if end is None:
+                return
+            row = self._rows[name]
+            elapsed = end - started
+            if row["calls"] >= _GUARD_MAX_CALLS or row["wall_ns"] + elapsed > _GUARD_MAX_NS:
+                self._invalidate("overflow")
+                return
+            row["calls"] += 1
+            row["raised" if raised else "completed"] += 1
+            row["wall_ns"] += elapsed
+            row["max_ns"] = max(row["max_ns"], elapsed)
+        finally:
+            self._lock.release()
+
+    def snapshot(self, observer_closed):
+        closed = observer_closed is True
+        if not self._lock.acquire(False):
+            self._invalidate("busy")
+            return _guard_phase_data(closed, reason="busy")
+        try:
+            try:
+                _need(type(observer_closed) is bool, "guard_phase_data")
+                result = _guard_phase_data(closed, valid=self._valid, reason=self._reason,
+                    opened=self._open_phases, rows=self._rows_copy())
+                validate_guard_phase_snapshot(result)
+                return result
+            except Exception:
+                self._invalidate("state")
+                return _guard_phase_data(closed, reason="state")
+        finally:
+            self._lock.release()
+
+
 def _read_json(pin, cap=2 * 1024 * 1024, *, _contract=None):
     selected = contract if _contract is None else _contract
     selected.binding(copy.deepcopy(pin))
@@ -202,9 +401,15 @@ class _LiveOwnedTarget:
         self._closed = True
         self._api = None
         self._handles = None
+        self._guard_phases = None
+        self._guard_close_known = False
         self._last_time = None
         self._clock_lock = threading.Lock()
         try:
+            try:
+                self._guard_phases = _GuardPhases()
+            except Exception:
+                pass
             _need(os.name == "nt", "platform")
             self._admission_binding = copy.deepcopy(admission_binding)
             self._running_binding = copy.deepcopy(running_binding)
@@ -267,17 +472,45 @@ class _LiveOwnedTarget:
             raise OwnerRefused("stop")
 
     def guard(self, min_seconds=0):
-        _need(type(min_seconds) in (int, float) and math.isfinite(min_seconds) and min_seconds >= 0, "deadline")
-        self.fast_guard()
-        _need(self._deadline - time.monotonic() >= min_seconds and
-              self._descriptor["deadline_epoch"] - time.time() >= min_seconds, "deadline")
-        self._contract.revalidate_inputs(self._admission)
-        _need(_same(_read_json(self._admission_binding, _contract=self._contract), self._admission) and
-              _same(_read_json(self._running_binding, _contract=self._contract), self._descriptor), "source")
-        observation, tables = _observe(self._api, guest=True)
-        self._contract.validate_guest_observation(observation, self._descriptor["guest"], self._descriptor["server"])
-        server_contract._tables(tables, observation)
-        self.fast_guard()
+        with self._guard_phase("total"):
+            with self._guard_phase("budget_before"):
+                _need(type(min_seconds) in (int, float) and math.isfinite(min_seconds) and min_seconds >= 0, "deadline")
+                self.fast_guard()
+                _need(self._deadline - time.monotonic() >= min_seconds and
+                      self._descriptor["deadline_epoch"] - time.time() >= min_seconds, "deadline")
+            with self._guard_phase("inputs"):
+                self._contract.revalidate_inputs(self._admission)
+            with self._guard_phase("metadata"):
+                _need(_same(_read_json(self._admission_binding, _contract=self._contract), self._admission) and
+                      _same(_read_json(self._running_binding, _contract=self._contract), self._descriptor), "source")
+            with self._guard_phase("observation"):
+                observation, tables = _observe(self._api, guest=True)
+            with self._guard_phase("validation"):
+                self._contract.validate_guest_observation(observation, self._descriptor["guest"], self._descriptor["server"])
+                server_contract._tables(tables, observation)
+            with self._guard_phase("budget_after"):
+                self.fast_guard()
+
+    def _guard_phase(self, name):
+        stats = getattr(self, "_guard_phases", None)
+        if type(stats) is _GuardPhases:
+            try:
+                return stats.phase(name)
+            except Exception:
+                stats._invalidate("observer")
+        return _NO_GUARD_PHASE
+
+    def guard_phase_snapshot(self):
+        """Pure diagnostic snapshot; closed counters are not cleanup authority."""
+        closed = getattr(self, "_guard_close_known", False) is True
+        stats = getattr(self, "_guard_phases", None)
+        if type(stats) is _GuardPhases:
+            try:
+                return stats.snapshot(closed)
+            except Exception:
+                stats._invalidate("observer")
+                return _guard_phase_data(closed, reason="observer")
+        return _guard_phase_data(closed)
 
     def _bracket(self):
         self.guard()
@@ -425,7 +658,10 @@ class _LiveOwnedTarget:
 
     def close(self):
         self._closed = True
-        return self._handles.close() if self._handles is not None else True
+        self._guard_close_known = False
+        result = self._handles.close() if self._handles is not None else True
+        self._guard_close_known = result is True
+        return result
 
 
 
@@ -680,6 +916,10 @@ class _TargetRuntimeCore:
         self.guard()
         _need(self.proposal is not None, "guest")
         environment.verify_prepared(self.proposal, initial=True)
+        environment.check_binding(self.admission["guest"]["proposal"])
+        environment.storage_transition(environment.guest_storage.record_state,
+            Path(self.admission["guest"]["root"]), "retained",
+            proposal_sha256=self.admission["guest"]["proposal"]["sha256"])
         claim_path = Path(self.admission["guest"]["root"]) / self._contract.BOOT_CLAIM_FILE
         environment.create_json(claim_path, dict(version=1, protocol=self._contract.PROTOCOL,
             admission=self.admission_binding, worker=copy.deepcopy(self.worker),
@@ -1222,7 +1462,19 @@ def _parent(admission_binding, admission, *, _contract=None, _verification=None)
             environment.check_binding(pin)
         _inputs(admission, admission_binding, _contract=selected)
         qualified, reason = True, record["reason"]
+        # The direct SDK4/SDK5 launcher shares the central guest's storage ledger.
+        # Preserve the frozen owner/worker result schemas; this new guest record
+        # binds their already verified cleanup plus the final source/handle proof.
+        closure_path = Path(admission["guest"]["root"]) / "guest-storage-closure-v1.json"
+        environment.create_json(closure_path, dict(version=1,
+            proposal_sha256=admission["guest"]["proposal"]["sha256"],
+            closure_verified=True, cleanup_complete=True,
+            admission=copy.deepcopy(admission_binding), owner_result=copy.deepcopy(owner_binding),
+            worker_result=copy.deepcopy(worker_binding), after=copy.deepcopy(after_binding)))
+        environment.storage_transition(environment.guest_storage.record_closed,
+            Path(admission["guest"]["root"]), closure_path)
     except BaseException as error:
+        qualified = False
         reason = _reason(error)
         if worker_binding is None and out.is_dir() and os.path.lexists(out / "worker-result-v1.json"):
             try:

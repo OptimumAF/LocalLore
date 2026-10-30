@@ -21,7 +21,7 @@ from scripts.tests import test_android_instrumentation_evidence as junit_fixture
 PROTOCOL='owned-emulator-restart-target-v1'
 SDK_PROTOCOL='sdk-owned-restart-v1'
 PROOF_PROTOCOL='owned-restart-socket-proof-v1'
-GUEST_ROOT='D:/Dev/Experiments/LocalLore/2026-10-29-author-restart-controller-v1/avd-v1'
+GUEST_ROOT='D:/Dev/Experiments/LocalLore/2026-10-29-buffered-restart-v1/avd-v1'
 PROBE_PATH='/data/local/tmp/locallore-author-process-probe-v1'
 RESTART_CLASS='org.locallore.app.OriginalAuthorRestartInstrumentedTest'
 RESTART_METHOD='recordsOriginalAuthorAfterExternalRestartWithoutInference'
@@ -213,7 +213,8 @@ class RestartProfileTests(unittest.TestCase):
         value['protocol']='owned-emulator-target-v1';self.refused(lambda:r.validate_admission(value))
 
     def test_new_source_closure_is_complete_sorted_and_pinned_to_one_parent(self):
-        value=admission();self.assertEqual(len(value['sources']),23)
+        value=admission();self.assertEqual(len(value['sources']),24)
+        self.assertIn('receipt_avd_storage.py', {PureWindowsPath(item['path']).name for item in value['sources']})
         for change in(lambda v:v['sources'].pop(),lambda v:v['sources'].reverse(),lambda v:v['sources'][0].update(path='D:/Foreign/benchmarks/owned_target_contract.py')):
             value=admission();change(value);self.refused(lambda:r.validate_admission(value))
 

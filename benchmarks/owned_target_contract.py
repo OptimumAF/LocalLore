@@ -23,7 +23,7 @@ METHODS=('importsTheVerifiedOriginalAuthorModelOnce','recordsOneRealAuthorCreati
 GUEST_ROOT=PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-10-28-author-player-contract-v1/avd-v1')
 MODEL_BYTES=2588147712
 MODEL_SHA256='181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c'
-SOURCE_NAMES=base.SOURCE_NAMES|{'owned_target_contract.py','owned_target_owner.py',
+SOURCE_NAMES=base.SOURCE_NAMES|{'owned_target_contract.py','owned_target_owner.py','receipt_avd_storage.py',
  'android_process_client_v4.py','android_process_verification_v4.py'}
 ADMISSION_KEYS={'version','protocol','run_id','root','seconds','server','guest','artifacts','sources','python','compatibility'}
 GUEST_KEYS={'root','proposal','authorization','emulator','qemu','refuser','refuser_source',

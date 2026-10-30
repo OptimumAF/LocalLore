@@ -43,6 +43,31 @@ measures host hashing and proof replay against that preserved refusal. Its
 bounded diagnostic keeps existing guards and deadlines intact; it does not
 qualify a restart or infer Android/model latency from profiled host costs.
 
+[Host guard phase observations](docs/native/HOST_GUARD_PHASES_V1.md) separately
+break down the live observer's existing checks into bounded diagnostic counters.
+Their optional sidecar follows cleanup and the authoritative result; it cannot
+grant acceptance, remove checks or extend a session.
+
+The [receipt SHA256 streaming comparison](docs/native/RECEIPT_DIGEST_STREAM_V1.md)
+adds a measured reusable-buffer implementation while preserving fresh full-file
+checks. Its synthetic host result is separate from Android/model qualification.
+
+The [buffered restart preparation](docs/native/BUFFERED_RESTART_ADMISSION_2026-10-29.md)
+advances the fixed target to an unused path while preserving previous guests
+and all admission requirements. It grants no emulator run.
+
+The [current phone-profile artifacts](docs/native/CURRENT_PHYSICAL_ARTIFACTS_VERIFICATION_2026-10-29.md)
+pass606 JVM tests, fresh lint and the complete paired APK audit from a frozen
+offline build. Phone installation, inference and privacy qualification remain separate.
+
+The [physical APK backup linkage](docs/native/PHYSICAL_APK_BACKUP_LINKAGE_2026-10-29.md)
+defines the strict resource contract for the phone artifact checker. The
+current build above supplies its qualified APK pair.
+
+The [APK backup policy audit](docs/native/APK_BACKUP_AUDIT_2026-10-29.md) checks
+compiled backup flags and referenced cloud/device-transfer exclusions.
+Physical backup/restore behavior remains a separate qualification gate.
+
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.
 It preserves the first unsupported-listener failure and uses a distinct corrected

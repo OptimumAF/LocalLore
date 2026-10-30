@@ -111,3 +111,20 @@ completed proof bytes against the complete original AUTHOR/import/canonical
 baseline; it performs no file, model or device operations and cannot authenticate
 execution from metadata. Old SDK4/spent guest claims do not authorize this case.
 A future device run requires its own admitted same-boot process-death controller.
+
+The [fresh path metadata verification](../docs/native/SAFE_PATH_METADATA_VERIFICATION_2026-10-29.md)
+records the follow-up host change: one fresh no-follow query per ancestor,
+original adversarial failures and passing checks, a fixed benign cost sample,
+and the six legacy C: fixture tests left unrun under D: storage policy. It does
+not requalify the old runtime admission or establish device/model performance.
+
+The later [D-resident fixture migration](../docs/native/D_ONLY_RECEIPT_FIXTURES_2026-10-29.md)
+keeps the six original C-policy test bodies while moving all their fixture IO
+to D:. Its final host suite passes all 2,169 checks without exclusions; C: paths
+are explicitly simulated, and device/runtime gates remain separate.
+
+The [frozen restart build checkpoint](../docs/native/RESTART_BUILD_PREFLIGHT_2026-10-29.md)
+records current offline APK/JVM/fresh-lint and actual-build-bound host simulation
+checks. It also records why the frozen source is blocked from guest work until
+the shared AVD storage guard is reviewed and integrated; build success grants
+no emulator, phone or model authority.

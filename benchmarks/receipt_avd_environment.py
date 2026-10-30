@@ -23,9 +23,11 @@ import time
 try:
     from benchmarks import runtime_spike as host
     from benchmarks import host_commit_capacity as commit_capacity
+    from benchmarks import receipt_avd_storage as guest_storage
 except ModuleNotFoundError:
     import runtime_spike as host
     import host_commit_capacity as commit_capacity
+    import receipt_avd_storage as guest_storage
 
 NAME = "locallore_receipt_api35_v1"
 PORT = 5592
@@ -47,14 +49,24 @@ def require(condition, reason):
         raise EnvironmentRefused(reason)
 
 
+def storage_transition(operation, *args, **kwargs):
+    """Keep storage refusals separate from process/SDK cleanup evidence."""
+    try:
+        return operation(*args, **kwargs)
+    except guest_storage.StorageRefused as error:
+        raise EnvironmentRefused("storage_" + str(error)) from None
+
+
 def safe_path(value, exists=True, directory=False):
     p = Path(value)
     require(p.is_absolute() and str(p) == os.path.abspath(str(p)), "unsafe_path")
     for part in [p] + list(p.parents):
-        if part.exists() or part.is_symlink():
+        try:
             info = part.lstat()
-            require(not stat.S_ISLNK(info.st_mode) and
-                    not getattr(info, "st_file_attributes", 0) & 0x400, "unsafe_path")
+        except FileNotFoundError:
+            continue
+        require(not stat.S_ISLNK(info.st_mode) and
+                not getattr(info, "st_file_attributes", 0) & 0x400, "unsafe_path")
     if exists:
         require(p.exists() and (p.is_dir() if directory else p.is_file()), "missing_path")
     return p
@@ -63,9 +75,15 @@ def safe_path(value, exists=True, directory=False):
 def digest(path):
     p = safe_path(path)
     h = hashlib.sha256()
+    buffer = bytearray(1024 * 1024)
+    view = memoryview(buffer)
     with p.open("rb") as source:
-        for block in iter(lambda: source.read(1024 * 1024), b""):
-            h.update(block)
+        while True:
+            count = source.readinto(buffer)
+            require(type(count) is int and 0 <= count <= len(buffer), "invalid_hash_read")
+            if count == 0:
+                break
+            h.update(view[:count])
     return h.hexdigest()
 
 
@@ -196,7 +214,8 @@ def tree_files(root):
 
 def installation_files(sdk, java):
     sdk, java = Path(sdk), Path(java)
-    files = [Path(__file__).resolve(), Path(host.__file__).resolve(), Path(commit_capacity.__file__).resolve()]
+    files = [Path(__file__).resolve(), Path(host.__file__).resolve(), Path(commit_capacity.__file__).resolve(),
+             Path(guest_storage.__file__).resolve()]
     for folder in (sdk / "emulator", sdk / "cmdline-tools/latest",
                    sdk / "system-images/android-35/google_apis/x86_64", java,
                    sdk / "licenses", sdk / "platform-tools"):
@@ -272,7 +291,7 @@ def validate_proposal(proposal, phase):
     items = proposal["bindings"]
     require(isinstance(items, list) and len({x["path"] for x in items}) == len(items), "invalid_proposal")
     required = {str(Path(__file__).resolve()), str(Path(host.__file__).resolve()),
-                str(Path(commit_capacity.__file__).resolve()), proposal["adb_path"],
+                str(Path(commit_capacity.__file__).resolve()), str(Path(guest_storage.__file__).resolve()), proposal["adb_path"],
                 str(Path(proposal["sdk"]) / "emulator/emulator.exe"),
                 str(Path(proposal["sdk"]) / "cmdline-tools/latest/bin/avdmanager.bat"),
                 str(Path(proposal["sdk"]) / "system-images/android-35/google_apis/x86_64/data/empty_data_disk")}
@@ -421,6 +440,8 @@ def prepare(proposal_path, authorization_path):
     root = Path(proposal["paths"]["root"])
     require(not root.exists(), "target_exists")
     facts = resource_facts(proposal)
+    # Admission is durable before either target creation or any SDK worker.
+    storage_transition(guest_storage.reserve_prepare, root, admitted_sha)
     # Every path below belongs exclusively to this newly created target.
     root.mkdir()
     create_json(root / "prepare-start-v1.json", {"proposal_sha256": admitted_sha, "facts": facts,
@@ -447,6 +468,7 @@ def prepare(proposal_path, authorization_path):
                 "child_cleanup_complete": known, "prepared_created": failure is None})
     if failure is not None:
         raise failure
+    storage_transition(guest_storage.record_state, root, "prepared")
     return pending
 
 
@@ -795,6 +817,7 @@ def run(proposal_path, authorization_path):
                     ("run-start-v1.json", "running-v1.json", "worker-start-v1.json", "stop-v1.json", "owner-result-v1.json",
                      *LiveOutput.names)),
             "target_used")
+    storage_transition(guest_storage.record_state, root, "retained", proposal_sha256=admitted_sha)
     create_json(root / "run-start-v1.json", {"proposal_sha256": admitted_sha, "facts": facts,
                                            "owner": process_identity(os.getpid())})
     started_epoch = time.time(); owner = process_identity(os.getpid())
@@ -841,6 +864,10 @@ def run(proposal_path, authorization_path):
     except (EnvironmentRefused, OSError, ValueError, KeyError, TypeError):
         result["status"] = "closure_failed"
     create_json(root / "owner-result-v1.json", result)
+    if result["cleanup_complete"] and result["closure_verified"]:
+        # Closed processes do not imply deleted disks: keep them charged until
+        # a separately reviewed, evidence-preserving retirement is finalized.
+        storage_transition(guest_storage.record_closed, root, root / "owner-result-v1.json")
     return result
 
 

@@ -16,9 +16,9 @@ type Category =
     | "D08ForkReportInvalid"
     | "D08ForkCheckpointSummary"
     | "D08ForkFinalReportBudget";
-const invalid = (category: Category): never => {
+function invalid(category: Category): never {
     throw Error(category);
-};
+}
 function object(value: unknown): value is Report {
     return value !== null && typeof value === "object" && !Array.isArray(value);
 }

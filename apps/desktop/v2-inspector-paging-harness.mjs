@@ -28,11 +28,11 @@ function pagingLauncherMode(args) {
 function pagingLauncherPlan(mode) {
     if (mode === "timeline-browser")
         return Object.freeze({
-            budgetKind: "d08_domain2_timeline_browser_budget_v1",
-            budgetPrefix: "d08-domain2-timeline-browser-budget-v1-",
+            budgetKind: "d08_domain2_timeline_browser_budget_v2",
+            budgetPrefix: "d08-domain2-timeline-browser-budget-v2-",
             artifacts: 20971520,
             expectedEvidence: 20971520,
-            pagingEvidence: 33554432,
+            pagingEvidence: 41943040,
             reportMode: "domain2_timeline_browser_v1",
             labels: Object.freeze(
                 [
@@ -91,7 +91,7 @@ const limits = Object.freeze({
     sourceGrowth: 134217728,
     artifacts: plan.artifacts,
     entries: 2000000,
-    cumulativeEvidence: 671088640,
+    cumulativeEvidence: mode === "timeline-browser" ? 679477248 : 671088640,
     expectedEvidence: plan.expectedEvidence,
     pagingEvidence: plan.pagingEvidence,
 });
@@ -542,11 +542,11 @@ function checkedPagingBudget(
     if (
         cursor !== text.length ||
         Object.keys(record).length !== keys.length ||
-        record.version !== 1 ||
+        record.version !== (mode === "paging" ? 1 : 2) ||
         record.kind !==
             (mode === "paging"
                 ? "d05_v2_inspector_paging_budget_v1"
-                : "d08_domain2_timeline_browser_budget_v1") ||
+                : "d08_domain2_timeline_browser_budget_v2") ||
         record.source_revision !== revision ||
         record.target_path_sha256 !==
             digest(Buffer.from(path.resolve(target).toLowerCase(), "utf8")) ||

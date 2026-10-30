@@ -3,8 +3,11 @@
 Only expected installed-runtime metadata is replaced with a tiny D: fixture.
 All graph, source, hash, version, roster, proposal and identity readers run.
 """
+import ast
 import copy
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout, redirect_stderr
+import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -240,6 +243,83 @@ class PhoneIdentityEnrollmentIoTests(unittest.TestCase):
                 with self.subTest(fault=fault), self.assertRaises(ValueError):
                     enrollment_io.confirm(captured.bundle, proposal_sha, decision_sha)
                 self.assertFalse((review/'identity-v1.json').exists())
+
+    def test_enrollment_code_pins_cover_actual_transitive_project_imports(self):
+        root = Path(enrollment_io.__file__).absolute().parents[1]
+        inherited = {Path(binding['path']) for binding in roster_cli._source_bindings()}
+        pending = [Path(enrollment.__file__).absolute(), Path(enrollment_io.__file__).absolute()]
+        required = set()
+        while pending:
+            path = pending.pop()
+            if path in required or path in inherited: continue
+            required.add(path)
+            for node in ast.walk(ast.parse(path.read_bytes())):
+                if isinstance(node, ast.ImportFrom) and node.module == 'benchmarks':
+                    for alias in node.names:
+                        dependency = root/'benchmarks'/(alias.name+'.py')
+                        if dependency.is_file(): pending.append(dependency)
+                elif isinstance(node, ast.ImportFrom) and (node.module or '').startswith('benchmarks.'):
+                    dependency = root/Path(node.module.replace('.', '/')+'.py')
+                    if dependency.is_file(): pending.append(dependency)
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name.startswith('benchmarks.'):
+                            dependency = root/Path(alias.name.replace('.', '/')+'.py')
+                            if dependency.is_file(): pending.append(dependency)
+        self.assertIn(root/'benchmarks/physical_phone_inventory.py', required)
+        declared = {Path(binding['path']) for binding in enrollment_io._code_pins()}
+        self.assertTrue(required <= declared, 'current enrollment code pins omit imported project code')
+
+    def test_runtime_change_during_real_publication_refuses_before_success_record(self):
+        for operation in ('prepare', 'confirm'):
+            captured = self.capture()
+            def current_python():
+                return dict(executable=env.binding(captured.runtime), runtime_dll=None)
+            with patch.object(roster_cli, '_python_bindings', side_effect=current_python):
+                if operation == 'confirm': review, proposal_sha, decision_sha = self.prepare_choice(captured)
+                else: review = captured.bundle/'review-v1'
+                trigger = review/('proposal-v1.json' if operation == 'prepare' else 'identity-v1.json')
+                actual_write = enrollment_io._write
+                changed = []
+                def write_then_change(path, raw):
+                    result = actual_write(path, raw)
+                    if path == trigger:
+                        captured.runtime.write_bytes(b'changed synthetic Python runtime metadata')
+                        changed.append(True)
+                    return result
+                failure = None
+                with patch.object(enrollment_io, '_write', side_effect=write_then_change):
+                    try:
+                        if operation == 'prepare': enrollment_io.prepare(captured.bundle, captured.sha)
+                        else: enrollment_io.confirm(captured.bundle, proposal_sha, decision_sha)
+                    except (ValueError, OSError, env.EnvironmentRefused) as error:
+                        failure = error
+                self.assertEqual(changed, [True])
+                with self.subTest(operation=operation, boundary='refusal'):
+                    self.assertIsNotNone(failure, 'runtime drift during publication must refuse')
+                with self.subTest(operation=operation, boundary='success_record'):
+                    self.assertFalse((review/(operation+'-result-v1.json')).exists())
+
+    def test_main_missing_bundle_returns_static_refusal_instead_of_escaping(self):
+        missing = self.base/'PRIVATE_MISSING_BUNDLE_CANARY'
+        stdout, stderr = io.StringIO(), io.StringIO()
+        escaped, code = None, None
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            try:
+                code = enrollment_io.main(['prepare', '--bundle', str(missing), '--result-sha256', '0'*64])
+            except Exception as error:
+                escaped = error
+        self.assertIsNone(escaped, 'file-only CLI must translate missing bundle to static refusal')
+        self.assertEqual(code, 1)
+        public = json.loads(stdout.getvalue())
+        self.assertEqual(set(public), {'status', 'reason', 'feature_acceptance',
+                                      'authority_authenticated', 'grants_device_actions'})
+        self.assertEqual(public['status'], 'refused')
+        for flag in ('feature_acceptance', 'authority_authenticated', 'grants_device_actions'):
+            self.assertIs(public[flag], False)
+        self.assertEqual(stderr.getvalue(), '')
+        self.assertNotIn('PRIVATE_MISSING_BUNDLE_CANARY', stdout.getvalue())
+        self.assertNotIn(str(self.base), stdout.getvalue())
 
 
 if __name__ == '__main__': unittest.main()

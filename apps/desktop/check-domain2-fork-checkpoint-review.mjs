@@ -28,7 +28,7 @@ try {
     // This is source/interface evidence, not execution of Rust or a copied guard.
     assert.match(rust, /value\.get\("synthetic"\) != Some\(&Value::Bool\(true\)\)/);
     assert.match(rust, /snapshot && value\.get\("uiRevision"\)\.and_then\(Value::as_u64\)\.is_none\(\)/);
-    factory = vm.compileFunction(stripTypeScriptTypes(`${semantic}\n${capture}\nreturn {semantic,capture};`, { mode: "strip" }), [
+    factory = vm.compileFunction(stripTypeScriptTypes(`${semantic}\n${capture}`, { mode: "strip" }) + "\nreturn {semantic,capture};", [
         "c", "f", "v2", "document", "panel", "innerWidth", "innerHeight", "navigator", "errors", "MODE", "text",
         "HTMLSelectElement", "HTMLInputElement", "check", "LABELS", "captures", "targets", "structural", "timelineContext",
         "frames", "geometry", "scrollX", "scrollY", "fonts", "checks", "invoke", "object", "receipts", "refs",

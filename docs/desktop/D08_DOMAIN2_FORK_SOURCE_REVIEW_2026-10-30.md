@@ -6,8 +6,9 @@ unformatted, uncompiled and unrun.** Source review is not frontend, Rust, native
 IPC/rendering, device, model, security or release acceptance. Full D08 stays open.
 
 The current build/evidence guard remains stopped after the parent's failed
-restoration inventory. No target/profile/cache/database, fixture, process or
-application was created by this source phase. Existing normal products belong
+restoration inventory. Source/Git/hash commands alone ran; no target/profile/
+cache/database, fixture, test/build/browser process or native application was
+created by this source phase. Existing normal products belong
 to the parent reconciliation, not to this fork source. The pending resource
 proposal for #286 does not itself authorize a new fork application cohort.
 
@@ -116,7 +117,8 @@ Use app-owned semantic snapshots/render images and individually inspect original
 No desktop input/capture, model/device/SDK/stopped OS test, automatic retry or
 manual click-through is authorized by this document.
 
-Source patch before this report is87,791 UTF8 bytes against128KiB. Final report/
-README integration is recounted before publication. All source stays in the
+Source patch before this report is87,791 UTF8 bytes against128KiB. At ec7bf437,
+the complete report/README/code patch measures97,558B, still below128KiB.
+Later bookkeeping is recounted before publication. All source stays in the
 claimed physical D worktrees/Git; no private raw data or new local output root
 is published. This stack stays draft and all task acceptance remains unchecked.

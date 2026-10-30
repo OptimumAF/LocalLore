@@ -43,6 +43,11 @@ measures host hashing and proof replay against that preserved refusal. Its
 bounded diagnostic keeps existing guards and deadlines intact; it does not
 qualify a restart or infer Android/model latency from profiled host costs.
 
+[Host guard phase observations](docs/native/HOST_GUARD_PHASES_V1.md) separately
+break down the live observer's existing checks into bounded diagnostic counters.
+Their optional sidecar follows cleanup and the authoritative result; it cannot
+grant acceptance, remove checks or extend a session.
+
 The [isolated ADB owner](docs/native/ISOLATED_ADB_LEASE_VERIFICATION_2026-10-29.md)
 passes77 focused checks and one actual finite host-only readiness/stop lease.
 It preserves the first unsupported-listener failure and uses a distinct corrected

@@ -385,8 +385,13 @@ function importsFor(w, extra = {}) {
     const urlDouble = {
         ...url,
         fileURLToPath: (v) => key(v),
-        pathToFileURL: (v) =>
-            new URL(`file:///${key(v).replaceAll("\\", "/")}`),
+        pathToFileURL: (v) => {
+            const value = new URL(`file:///${key(v).replaceAll("\\", "/")}`);
+            // Node preserves a supplied directory separator; resolve() does not.
+            if (/[\\/]$/.test(String(v)) && !value.pathname.endsWith("/"))
+                value.pathname += "/";
+            return value;
+        },
     };
     const closed = (value, label) =>
         new Proxy(value, {
@@ -639,6 +644,9 @@ async function driver({
         );
     for (let n = 0; n < 1200 && !completedRun; n++) {
         await flush();
+        // Drain queued fake-child microtasks through an actual event-loop turn
+        // before advancing virtual time. This does not wait a real deadline.
+        await new Promise(setImmediate);
         if (!completedRun) timer.next();
     }
     assert(

@@ -190,6 +190,20 @@ class LiveProcessDeathWitnessTests(unittest.TestCase):
         self.refused(lambda: witness.validate_after(changed, self.before(),
                      raw(packet('absent', READY + 2))))
 
+    def test_refused_native_unknown_clock_is_retained_but_never_becomes_authority(self):
+        value = packet(clock=None)
+        value.update(state='refused', error='io', errno=5)
+        result = witness.parse_probe(raw(value))
+        self.assertEqual(result, value)
+        result['error'] = 'close'
+        self.assertEqual(value['error'], 'io')
+        self.refused(lambda: self.before(value))
+        self.refused(lambda: witness.validate_after(self.validate(), self.before(), raw(value)))
+        for state in ('alive', 'absent', 'exited'):
+            changed = packet(state, clock=None)
+            with self.subTest(state=state):
+                self.refused(lambda: witness.parse_probe(raw(changed)))
+
 
 if __name__ == '__main__':
     unittest.main()

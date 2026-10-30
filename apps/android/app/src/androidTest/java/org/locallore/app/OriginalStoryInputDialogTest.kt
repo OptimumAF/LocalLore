@@ -122,8 +122,8 @@ class OriginalStoryInputDialogTest {
             }
             compose.onNodeWithTag("original-create").assertDoesNotExist()
 
-            // Player Mira now conflicts with the retained input cast Mira; Cancel remains usable.
-            replace("original-player-name", "Mira")
+            // A real post-generation edit makes the draft invalid again; Cancel remains usable.
+            replace("original-character-0-name", "Iris")
             compose.onNodeWithTag("original-generate").performScrollTo().assertIsNotEnabled()
             warning()
             compose.onNodeWithTag("original-cancel").assertIsEnabled().performClick()

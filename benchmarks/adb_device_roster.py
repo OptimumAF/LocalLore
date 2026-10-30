@@ -183,6 +183,46 @@ def _version_verified(value, resource):
         return False
 
 
+def validate_candidates(rows, admission, version_proof=None, completed_roster=None):
+    """Retain raw rows; exempt only exact proof-derived completed connections.
+
+    This is consistency, not acquisition. No arbitrary ignored ports/PIDs are
+    accepted. The live ownership join must still inspect the ORIGINAL rows.
+    """
+    resource = backend_admission(admission)
+    _need(type(rows) in (list, tuple) and len(rows) <= 2*old.MAX_ROWS and
+          all(type(row) is old.TcpRow for row in rows), 'candidates')
+    history = set()
+    if version_proof is None:
+        _need(completed_roster is None, 'version')
+    else:
+        _need(_version_verified(version_proof, resource), 'version')
+        endpoints = [version_proof['stages'][1]['endpoint']]
+        if completed_roster is not None:
+            _need(report_verified(completed_roster, admission) and
+                  _same(completed_roster['version_proof'], version_proof), 'version')
+            endpoints.append(completed_roster['stages'][1]['endpoint'])
+        for endpoint in endpoints:
+            old._endpoint(endpoint)
+            history.add((2, endpoint['peer_address'], endpoint['peer_port'],
+                         endpoint['local_address'], endpoint['local_port'], 0, 0))
+    current, seen = [], set()
+    for row in rows:
+        key = (row.family, row.local_address, row.local_port, row.remote_address,
+               row.remote_port, row.local_scope_id, row.remote_scope_id)
+        # Raw11 is the supported signature from the recorded API view, never a
+        # replacement listener/live-owner assertion or a general PID0 rule.
+        if (type(row.pid) is int and row.pid == 0 and type(row.state) is int and
+                row.state == 11 and key in history):
+            _need(key not in seen, 'candidates'); seen.add(key)
+        else:
+            current.append(row)
+    try:
+        old._candidates(current, resource)
+    except old.ProbeRefused as error:
+        raise RosterRefused(error.reason) from None
+
+
 def probe(backend, admission, version_proof):
     """One roster attempt after a complete version proof, no retries or fallback."""
     report = dict(version=1, protocol=PROTOCOL, feature_acceptance=False, admission=None,
@@ -210,7 +250,7 @@ def probe(backend, admission, version_proof):
         rows, snapshot = old._snapshot(call('snapshot'))
         report['stages'].append(dict(stage='initial', bracket=initial, snapshot=snapshot))
         _need(_same(initial['client'], prior_client), 'identity')
-        old._candidates(rows, resource)
+        validate_candidates(rows, admitted, version_proof)
         call('connect')
         endpoint = old._endpoint(call('endpoint'))
         report['stages'].append(dict(stage='connected', endpoint=endpoint))
@@ -219,7 +259,7 @@ def probe(backend, admission, version_proof):
         report['stages'].append(presend)
         presend['endpoint_after'] = old._endpoint(call('endpoint'), endpoint)
         presend['bracket'] = old._bracket(call('bracket', resource), resource, initial)
-        old._candidates(rows, resource)
+        validate_candidates(rows, admitted, version_proof)
         report['client_raw_state'] = old._join(rows, endpoint, resource['server']['pid'], initial['client']['pid'])
         report['ownership_verified'] = True
         report['stages'].append(dict(stage='send_attempt'))
@@ -246,7 +286,7 @@ def probe(backend, admission, version_proof):
                      bracket=old._bracket(call('bracket', resource), resource, initial))
         report['stages'].append(final)
         rows, final['snapshot'] = old._snapshot(call('snapshot'), endpoint)
-        old._candidates(rows, resource)
+        validate_candidates(rows, admitted, version_proof)
         report['status'], report['reason'] = 'observed', None
     except BaseException as error:
         report['reason'] = (error.reason if isinstance(error, (RosterRefused, old.ProbeRefused)) else
@@ -302,7 +342,8 @@ def report_verified(value, expected_admission):
         for item in (presend['bracket'], final['bracket']):
             old._bracket(item, resource, bracket)
         for index, stage in enumerate((first, presend, final)):
-            old._candidates(_selected_rows(stage['snapshot'], None if index == 0 else endpoint['local_port']), resource)
+            validate_candidates(_selected_rows(stage['snapshot'], None if index == 0 else endpoint['local_port']),
+                                admitted, value['version_proof'])
         state = old._join(_selected_rows(presend['snapshot'], endpoint['local_port']), endpoint, resource['server']['pid'], bracket['client']['pid'])
         _need(type(value['client_raw_state']) is int and value['client_raw_state'] == state, 'ownership')
         return True

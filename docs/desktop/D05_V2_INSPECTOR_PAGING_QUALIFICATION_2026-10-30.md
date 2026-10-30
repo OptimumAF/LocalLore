@@ -50,6 +50,7 @@ formatting proofs locally.
 | Restoration245 checks |57ce05b3; raw SHA27fafc9d59390bf10ad8a3b46c77940c0b5d73ea6b5735a6c3b2625a8fcf53b0 |f4ba609f; fix1f7271a5; formatdfb3a372 |
 | Fixed-path38 checks |7a9284c0; raw SHA2afee4043e048058819142d415d98d7ecd6cdf4e4c28982f91747c582ab233e2 |cd7a239e/815a7bc3; production2da3ee84 |
 | Native profile5 groups |b9b6d1c9; raw SHA334adc50d9067de3643da5112cd3dc4a6787a597f5f63c4f26274f373cf7a187 |6cdde0d3/a8202add; productiona66d6852 |
+| Pager focus84 checks |fbd60688; raw SHAb0251401904dfc12e4ae5aaf629eaf261aeb93bb0b93b39b33b8595168147c2e |2db35501/c08df7c3; productionfe4b44d5 |
 
 The old controller test stalled at dc8069fa: it changed context before the older
 refresh had entered its intended fake RPC. Independent f7c8e158 adds bounded
@@ -97,6 +98,9 @@ React19.3.1, TypeScript7.0.2, Tauri2.12.5, esbuild0.28.2, Prettier3.9.10.
 |3b835f9f strict lint |same strict native Clippy command above |PASS;8.110s |
 |3b835f9f Rust format |`cargo fmt --all -- --check` |PASS;5.532s |
 |3b835f9f calibrated profile boundary |same native flags; exact `v2_inspection_paging_harness::profile_review_tests::profile_limit_counts_utf16_units_with_exact190_and191_unicode_boundaries -- --exact --test-threads=1` |1/1 separately;23.131s command; Rust reports0.00s test |
+|628b4434 focus FIRST |desktop cwd: `node check-v2-inspector-paging-focus-review.mjs` |84/84;0.165s; actual helper/controller/panel handlers with disclosed DOM/rAF/hooks doubles, no browser/native execution |
+|628b4434 paging regression |desktop cwd: `node check-v2-inspector-paging-review.mjs` |92/92;1.009s |
+|628b4434 types |desktop cwd: `node node_modules/typescript/bin/tsc --noEmit` |PASS;0.317s |
 
 Native FIRST executes production Store/Workspace/Host/Engine, not IPC/WebView.
 Its source-planned positive recipe has45 canonical operations/44 ordinary turns
@@ -207,9 +211,35 @@ Local per-image path/SHA/UA/notes record native-fa1d5e38-image-review1.json has 
 The [guarded focus correction contract](D05_V2_PAGER_FOCUS_CONTRACT_2026-10-30.md)
 is independently reviewed at91acb40e before different-author FIRST/production.
 It preserves disabled semantics, guards context/user focus and requires actual
-reentrant-controller cases. No production focus correction or rerun is implied
-by the contract. Acceptedmain328eefe5 is reconciled asdd761ed4; its69 commits do
+reentrant-controller cases. Acceptedmain328eefe5 is reconciled asdd761ed4; its69 commits do
 not change desktop/shared Rust/Cargo inputs compared with the testedfa source.
+
+Independent FIRSTfbd60688 freezes84 cases before Root productionfe4b44d5.
+The missing-helper baselinec08df7c3 is UNRUN_SETUP,84 authored/0 executed/0 pass.
+The first production process reports80PASS/4 fixture-readiness failures; all four
+real-controller cases stop at RealControllerFixtureMustBeBound before focus.
+The test loads the actual strict decoder into a different VM realm while passing
+ordinary outer-realm DTOs; its prototype guard correctly refuses those objects.
+Independent calibration1bdc5572 changes only bundle loading to a local CommonJS
+IIFE in the same Node realm, with evaluation still under the original1000ms
+timeout. All84 case bodies/assertions and actual imports remain unchanged; no
+production decoder or fixture is weakened. Raw/derived bytes are identical, SHA
+3c198202ad6664a2786f72e70d93bf354874d6840d55ec69c2536f0a637ac660.
+At628b4434 all84 execute/pass, including both actual-controller reentrant listener
+orders, disposal and six actual-panel handler/cleanup cases. These use disclosed
+DOM/rAF/public-state and panel-hook doubles, not a mounted browser. Original80/4
+and setup baseline remain retained.
+
+The focus helper and panel subscribe only to public state, own one interaction,
+retire on user/context/new-operation changes, and use one guarded animation frame
+to restore only the original enabled button from BODY. Weak identity metadata is
+bounded to64 notifications and retains no page bodies. Independent source review
+atfe4b44d5 closes without actionable findings. A new native run remains pending.
+
+Independent journey calibrationfd29335f recognizes only the two existing capture
+revocation operations during normal disposal. It adds a stronger settled
+close/revocations-only post-dispose roster assertion; every original20-label and
+focus assertion remains. That new postcondition has not yet executed.
 
 ## Resource and acceptance limits
 

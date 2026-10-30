@@ -66,7 +66,9 @@ pages from Rust. Its [current qualification report](../../docs/desktop/D05_V2_IN
 separates frontend/Store/Host tests from the native UI gate. After preserved startup
 failures, the current native attempt renders real first/second pages but fails
 focus restoration after pending navigation. Both early captures were inspected;
-the full journey, enlarged target text and later image review remain unverified.
+the guarded correction passes84 frontend focus checks and92 paging regressions.
+Its native rerun, full journey, enlarged target text and later image review remain
+unverified.
 
 **Derived memory** reads the selected saved story's shared maintenance status.
 Preparing derived data requires consent; **Process one chunk** performs one

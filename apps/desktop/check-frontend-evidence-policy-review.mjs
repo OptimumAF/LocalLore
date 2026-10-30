@@ -563,14 +563,19 @@ async function driver({
         // detachment. A thrown attempt must not suppress the other two.
         for (const channel of ["stdout", "stderr"]) {
             child[channel].destroy = () => {
-                entry.detach.push({ method: `${channel}.destroy`, at: timer.now });
-                if (specification.detachThrows === channel) throw Error("SyntheticDestroyFailure");
+                entry.detach.push({
+                    method: `${channel}.destroy`,
+                    at: timer.now,
+                });
+                if (specification.detachThrows === channel)
+                    throw Error("SyntheticDestroyFailure");
                 return child[channel];
             };
         }
         child.unref = () => {
             entry.detach.push({ method: "child.unref", at: timer.now });
-            if (specification.detachThrows === "unref") throw Error("SyntheticUnrefFailure");
+            if (specification.detachThrows === "unref")
+                throw Error("SyntheticUnrefFailure");
             return child;
         };
         const close = () => {
@@ -640,7 +645,10 @@ async function driver({
             return timer.now;
         }
     };
-    const actualDriverCode = sourceUrl === null ? driverParts : await compile(source[DRIVER], DRIVER, true, "", sourceUrl);
+    const actualDriverCode =
+        sourceUrl === null
+            ? driverParts
+            : await compile(source[DRIVER], DRIVER, true, "", sourceUrl);
     const api = loadCjs(actualDriverCode, {
         imports: importsFor(w, {
             "node:child_process": { spawn },
@@ -768,17 +776,20 @@ function loggedObjects(logs) {
 
 // Actual-source top-level-await adaptation only. Imports stay imports and every
 // original body statement executes; no scheduler/decoder/policy is copied here.
-async function compile(text, filename, wrapped = false, tail = "", sourceUrl = `file:///D:/d09-source/${filename}`) {
+async function compile(
+    text,
+    filename,
+    wrapped = false,
+    tail = "",
+    sourceUrl = `file:///D:/d09-source/${filename}`,
+) {
     const importPattern = /^import\s[\s\S]*?;\s*(?:\r?\n|$)/gm;
     const imports = [...text.matchAll(importPattern)]
         .map((m) => m[0])
         .join("\n");
     let body = text
         .replace(importPattern, "")
-        .replaceAll(
-            "import.meta.url",
-            JSON.stringify(sourceUrl),
-        );
+        .replaceAll("import.meta.url", JSON.stringify(sourceUrl));
     const contents = wrapped
         ? `${imports}\nexport async function __reviewDriver(){\n${body}\n${tail}\n}`
         : text;
@@ -1925,69 +1936,162 @@ test("source", "original-normal-bundle-exclusion-assertions-preserved", () => {
 // BEGIN_D09_INDEPENDENT_REVIEW_EXTENSION_V1
 // Fixed source-review findings frozen BEFORE the producer corrections. These
 // use ordinary virtual entries and lifecycle method doubles, not OS probes.
-test("path", "required-ui-parent-missing-even-when-generated-leaf-is-absent", async () => {
-    const w = world(); w.remove(P.join(SRC, "ui"));
-    const before = w.bytes();
-    await rejects(() => opened(w), ["Path", "Inventory"]);
-    assert.equal(w.bytes(), before); assert.deepEqual(w.writes, []);
-});
-test("path", "required-ui-parent-lost-after-binding-is-not-zero-products", async () => {
-    const { w, policy } = await opened(); await policy.beforeStep(0);
-    w.remove(P.join(SRC, "ui"));
-    await rejects(() => policy.completeStep(0, goodOutcome()), ["Path", "Inventory"]);
-    const failed = clone(policy.snapshot());
-    checkedSnapshot(failed, { status: "failed", nextIndex: 0, activeIndex: 0, currentBytes: null, productBytes: null });
-    assert(["Path", "Inventory"].includes(failed.error));
-    await rejects(() => policy.beforeStep(1), failed.error); await rejects(() => policy.finish(), failed.error);
-    assert.deepEqual(policy.snapshot(), failed);
-});
-for (const kind of ["node", "git"]) for (const detachThrows of [null, "stdout", "stderr", "unref"])
-    test("driver", `unknown-${kind}-independent-detachment-${detachThrows ?? "all-methods"}`, async () => {
-        const r = await driver({ script: ({ isGit, index }) => index === 0 && isGit === (kind === "git")
-            ? { noClose: true, killFalse: true, detachThrows } : {} });
-        if (kind === "node") {
-            failureStops(r, 1);
-            checkedSnapshot(r.policies[0].snapshot(), { status: "failed", error: "UnknownChild", currentBytes: null, productBytes: null });
-        } else {
-            noDriverSuccess(r); assert.equal(r.nodeCalls.length, 0); assert.equal(r.gitCalls.length, 1);
-            assert.equal(r.timer.pending, 0);
-        }
-        const child = kind === "node" ? r.nodeCalls[0] : r.gitCalls[0];
-        const expiry = (kind === "node" ? 240000 : 15000) + 5000;
-        assert.equal(child.kills, 1); assert.equal(child.closed, false); assert.equal(r.timer.now, expiry);
-        for (const method of ["stdout.destroy", "stderr.destroy", "child.unref"]) {
-            const attempts = child.detach.filter((item) => item.method === method);
-            assert(attempts.length >= 1, `UnknownClosureMustAttempt:${method}`);
-            assert(attempts.every((item) => item.at === expiry), `DetachOnlyAtGraceExpiry:${method}`);
-        }
-        assert.equal(r.calls.at(-1), child, "NoLaterGitOrNodeAfterUnknownOwner");
-    });
+test(
+    "path",
+    "required-ui-parent-missing-even-when-generated-leaf-is-absent",
+    async () => {
+        const w = world();
+        w.remove(P.join(SRC, "ui"));
+        const before = w.bytes();
+        await rejects(() => opened(w), ["Path", "Inventory"]);
+        assert.equal(w.bytes(), before);
+        assert.deepEqual(w.writes, []);
+    },
+);
+test(
+    "path",
+    "required-ui-parent-lost-after-binding-is-not-zero-products",
+    async () => {
+        const { w, policy } = await opened();
+        await policy.beforeStep(0);
+        w.remove(P.join(SRC, "ui"));
+        await rejects(
+            () => policy.completeStep(0, goodOutcome()),
+            ["Path", "Inventory"],
+        );
+        const failed = clone(policy.snapshot());
+        checkedSnapshot(failed, {
+            status: "failed",
+            nextIndex: 0,
+            activeIndex: 0,
+            currentBytes: null,
+            productBytes: null,
+        });
+        assert(["Path", "Inventory"].includes(failed.error));
+        await rejects(() => policy.beforeStep(1), failed.error);
+        await rejects(() => policy.finish(), failed.error);
+        assert.deepEqual(policy.snapshot(), failed);
+    },
+);
+for (const kind of ["node", "git"])
+    for (const detachThrows of [null, "stdout", "stderr", "unref"])
+        test(
+            "driver",
+            `unknown-${kind}-independent-detachment-${detachThrows ?? "all-methods"}`,
+            async () => {
+                const r = await driver({
+                    script: ({ isGit, index }) =>
+                        index === 0 && isGit === (kind === "git")
+                            ? { noClose: true, killFalse: true, detachThrows }
+                            : {},
+                });
+                if (kind === "node") {
+                    failureStops(r, 1);
+                    checkedSnapshot(r.policies[0].snapshot(), {
+                        status: "failed",
+                        error: "UnknownChild",
+                        currentBytes: null,
+                        productBytes: null,
+                    });
+                } else {
+                    noDriverSuccess(r);
+                    assert.equal(r.nodeCalls.length, 0);
+                    assert.equal(r.gitCalls.length, 1);
+                    assert.equal(r.timer.pending, 0);
+                }
+                const child = kind === "node" ? r.nodeCalls[0] : r.gitCalls[0];
+                const expiry = (kind === "node" ? 240000 : 15000) + 5000;
+                assert.equal(child.kills, 1);
+                assert.equal(child.closed, false);
+                assert.equal(r.timer.now, expiry);
+                for (const method of [
+                    "stdout.destroy",
+                    "stderr.destroy",
+                    "child.unref",
+                ]) {
+                    const attempts = child.detach.filter(
+                        (item) => item.method === method,
+                    );
+                    assert(
+                        attempts.length >= 1,
+                        `UnknownClosureMustAttempt:${method}`,
+                    );
+                    assert(
+                        attempts.every((item) => item.at === expiry),
+                        `DetachOnlyAtGraceExpiry:${method}`,
+                    );
+                }
+                assert.equal(
+                    r.calls.at(-1),
+                    child,
+                    "NoLaterGitOrNodeAfterUnknownOwner",
+                );
+            },
+        );
 for (const [name, mutate, sourceUrl = null] of [
-    ["source-alias", (w) => { w.dir("D:\\alias-source"); w.get(SRC).real = "D:\\alias-source"; }],
-    ["source-link", (w) => { w.get(SRC).type = "link"; }],
-    ["source-non-D", (w) => { w.dir("C:\\d09-source"); w.dir("C:\\d09-source\\ui"); }, "file:///C:/d09-source/verify-frontend.mjs"],
-    ["source-ancestor-link", (w) => { w.get("D:\\").type = "link"; }],
-]) test("driver", `before-any-Git-${name}`, async () => {
-    const w = world({ products: 16 }); mutate(w);
-    const r = await driver({ w, sourceUrl }); noDriverSuccess(r);
-    assert.equal(r.gitCalls.length, 0); assert.equal(r.nodeCalls.length, 0); assert.equal(r.calls.length, 0);
-});
-for (const field of ["TEMP", "TMP"]) for (const fault of ["alias", "missing", "non-D", "link"])
-    test("driver", `before-any-Git-parent-${field}-${fault}`, async () => {
-        const w = world({ products: 16 }), env = {};
-        const target = `D:\\d09-parent-${field}`;
-        if (fault === "missing") env[field] = undefined;
-        else if (fault === "non-D") {
-            const other = `C:\\d09-parent-${field}`; w.dir(other); env[field] = other;
-        } else {
-            w.dir(target); env[field] = target;
-            if (fault === "alias") {
-                const alias = `D:\\d09-alias-${field}`; w.dir(alias); w.get(target).real = alias;
-            } else w.get(target).type = "link";
-        }
-        const r = await driver({ w, env }); noDriverSuccess(r);
-        assert.equal(r.gitCalls.length, 0); assert.equal(r.nodeCalls.length, 0); assert.equal(r.calls.length, 0);
+    [
+        "source-alias",
+        (w) => {
+            w.dir("D:\\alias-source");
+            w.get(SRC).real = "D:\\alias-source";
+        },
+    ],
+    [
+        "source-link",
+        (w) => {
+            w.get(SRC).type = "link";
+        },
+    ],
+    [
+        "source-non-D",
+        (w) => {
+            w.dir("C:\\d09-source");
+            w.dir("C:\\d09-source\\ui");
+        },
+        "file:///C:/d09-source/verify-frontend.mjs",
+    ],
+    [
+        "source-ancestor-link",
+        (w) => {
+            w.get("D:\\").type = "link";
+        },
+    ],
+])
+    test("driver", `before-any-Git-${name}`, async () => {
+        const w = world({ products: 16 });
+        mutate(w);
+        const r = await driver({ w, sourceUrl });
+        noDriverSuccess(r);
+        assert.equal(r.gitCalls.length, 0);
+        assert.equal(r.nodeCalls.length, 0);
+        assert.equal(r.calls.length, 0);
     });
+for (const field of ["TEMP", "TMP"])
+    for (const fault of ["alias", "missing", "non-D", "link"])
+        test("driver", `before-any-Git-parent-${field}-${fault}`, async () => {
+            const w = world({ products: 16 }),
+                env = {};
+            const target = `D:\\d09-parent-${field}`;
+            if (fault === "missing") env[field] = undefined;
+            else if (fault === "non-D") {
+                const other = `C:\\d09-parent-${field}`;
+                w.dir(other);
+                env[field] = other;
+            } else {
+                w.dir(target);
+                env[field] = target;
+                if (fault === "alias") {
+                    const alias = `D:\\d09-alias-${field}`;
+                    w.dir(alias);
+                    w.get(target).real = alias;
+                } else w.get(target).type = "link";
+            }
+            const r = await driver({ w, env });
+            noDriverSuccess(r);
+            assert.equal(r.gitCalls.length, 0);
+            assert.equal(r.nodeCalls.length, 0);
+            assert.equal(r.calls.length, 0);
+        });
 // END_D09_INDEPENDENT_REVIEW_EXTENSION_V1
 
 const frozenGroups = {

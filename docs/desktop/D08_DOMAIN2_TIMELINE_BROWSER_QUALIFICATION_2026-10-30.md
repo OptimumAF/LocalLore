@@ -126,12 +126,15 @@ drain/storage breach occurs. Both normal products restore and remain unlaunched.
 
 The real hidden/unfocused WebView2 renders the empty shell. The fixed journey
 fails `actual-Main-existing-workspace-ready` / `D08BrowserDeadline` before any
-story Gateway call: trace0, buffered errors0, no selected story/session/revision,
+story Host call: failure snapshot traceCount0, buffered errors0, no selected story/session/revision,
 no receipt and no baseline/final Rust oracle. Report3 assertions/3 distinct,
 zero successful captures; one actual failure PNG is retained and individually
 viewed by Root. Its snapshot honestly says Storage unavailable/no session.
 Checkpoint/finish and CapturePreview use actual native harness IPC; no
 successful story Host IPC/browser journey is inferred from that evidence.
+The final report records one settled native `capture_revoke` cleanup call after
+disposal. That final trace is distinct from the empty failure-snapshot trace;
+neither contains a story Host call.
 
 Original failure PNG SHA256:
 `c8b0b9af9d9d5b2da7108d0eaaec657be6ead1f18abb2df786e6b82c2fa6a260`.

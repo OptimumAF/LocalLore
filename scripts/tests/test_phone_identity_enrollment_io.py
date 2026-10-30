@@ -321,5 +321,30 @@ class PhoneIdentityEnrollmentIoTests(unittest.TestCase):
         self.assertNotIn('PRIVATE_MISSING_BUNDLE_CANARY', stdout.getvalue())
         self.assertNotIn(str(self.base), stdout.getvalue())
 
+    def test_confirmation_requires_complete_unchanged_presented_review(self):
+        for fault in ('missing_prepare_result', 'changed_html'):
+            captured = self.capture()
+            with self.runtime(captured):
+                review, proposal_sha, decision_sha = self.prepare_choice(captured)
+                if fault == 'missing_prepare_result':
+                    # Retain the original synthetic record while making the
+                    # canonical preparation marker absent for this attempt.
+                    (review/'prepare-result-v1.json').rename(review/'preserved-prepare-result-v1.json')
+                else:
+                    original = (review/'review.html').read_bytes()
+                    (review/'preserved-review.html').write_bytes(original)
+                    (review/'review.html').write_bytes(original+b'\n<p>Changed private presentation</p>\n')
+                failure = None
+                try:
+                    enrollment_io.confirm(captured.bundle, proposal_sha, decision_sha)
+                except (ValueError, OSError, env.EnvironmentRefused) as error:
+                    failure = error
+                with self.subTest(fault=fault, boundary='refusal'):
+                    self.assertIsNotNone(failure, 'confirmation must replay complete unchanged preparation')
+                with self.subTest(fault=fault, boundary='identity'):
+                    self.assertFalse((review/'identity-v1.json').exists())
+                with self.subTest(fault=fault, boundary='confirmation'):
+                    self.assertFalse((review/'confirm-result-v1.json').exists())
+
 
 if __name__ == '__main__': unittest.main()

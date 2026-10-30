@@ -176,7 +176,7 @@ export async function openFrontendEvidencePolicy({
             try {
                 result = await lstat(current, { bigint: true });
             } catch (cause) {
-                if (optional && cause?.code === "ENOENT") return null;
+                if (optional && leaf && cause?.code === "ENOENT") return null;
                 throw error("Path");
             }
             demand(!result.isSymbolicLink(), "Path");

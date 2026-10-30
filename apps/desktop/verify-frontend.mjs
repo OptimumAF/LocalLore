@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, lstat, realpath } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -63,6 +63,25 @@ async function capture(command, args, env, duration, maximum) {
             done = true;
             clearTimeout(deadline);
             clearTimeout(grace);
+            if (!closed && child) {
+                // Release coordinator handles, while ownership remains unknown.
+                // Each attempt is independent; none proves process termination.
+                try {
+                    child.stdout.destroy();
+                } catch {
+                    failed = true;
+                }
+                try {
+                    child.stderr.destroy();
+                } catch {
+                    failed = true;
+                }
+                try {
+                    child.unref();
+                } catch {
+                    failed = true;
+                }
+            }
             resolve({
                 code,
                 closed,
@@ -171,6 +190,28 @@ async function cleanRevision() {
         throw Error("Source");
     return revision;
 }
+async function physicalDirectory(value) {
+    try {
+        if (typeof value !== "string" || !path.isAbsolute(value))
+            throw Error("Path");
+        const resolved = path.resolve(value);
+        if (path.parse(resolved).root.toLowerCase() !== "d:\\")
+            throw Error("Path");
+        for (let current = resolved; ; current = path.dirname(current)) {
+            const info = await lstat(current);
+            if (
+                !info.isDirectory() ||
+                info.isSymbolicLink() ||
+                path.resolve(await realpath(current)).toLowerCase() !==
+                    current.toLowerCase()
+            )
+                throw Error("Path");
+            if (path.dirname(current) === current) break;
+        }
+    } catch {
+        throw Error("Path");
+    }
+}
 function finalRecord(passed, error = null) {
     return {
         kind: "d09_frontend_evidence_run_v1",
@@ -193,6 +234,9 @@ async function verifyFrontend() {
             process.env.ESBUILD_BINARY_PATH
         )
             throw Error("Admission");
+        await physicalDirectory(fileURLToPath(root));
+        await physicalDirectory(process.env.TEMP);
+        await physicalDirectory(process.env.TMP);
         sourceRevision = await cleanRevision();
         policy = await openFrontendEvidencePolicy({
             sourceRoot: fileURLToPath(root),

@@ -245,15 +245,22 @@ class PendingAuthor:
 
     def cancel(self):
         """Only the owned host worker is stopped; no target fault is dispatched."""
-        if self.thread is not None and self.thread.is_alive():
-            path = self.root/'worker-output-v1/stop-v1.json'
-            # A missing supervisor output is not repaired or adopted.
-            if path.parent.is_dir() and not os.path.lexists(path):
-                staged = path.with_name('stop.pending-v1.json')
-                env.create_json(staged, dict(version=1, proposal_sha256=self.request_pin['sha256'], action='stop'))
-                staged.rename(path)
+        primary = None
+        try:
+            if self.thread is not None and self.thread.is_alive():
+                path = self.root/'worker-output-v1/stop-v1.json'
+                # A missing supervisor output is not repaired or adopted.
+                if path.parent.is_dir() and not os.path.lexists(path):
+                    staged = path.with_name('stop.pending-v1.json')
+                    env.create_json(staged, dict(version=1, proposal_sha256=self.request_pin['sha256'], action='stop'))
+                    staged.rename(path)
+        except BaseException as error:
+            primary = error
         try:
             self._join()
+        except BaseException as error:
+            if primary is None:
+                primary = error
         finally:
             # A failed terminal verdict must still release retained local
             # handles once the supervisor thread has stopped using them.
@@ -262,6 +269,8 @@ class PendingAuthor:
                     closed = self.handles.close() is True
             else:
                 closed = False
+        if primary is not None:
+            raise primary
         return closed
 
 

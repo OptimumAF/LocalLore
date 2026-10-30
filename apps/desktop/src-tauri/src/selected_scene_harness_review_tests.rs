@@ -315,9 +315,19 @@ fn stage_and_fixed_path_guards_refuse_before_fixture_writes() {
         reject_unchanged(&root, stage);
     }
     let before = bytes(&root);
+    // PathBuf::join normalizes ParentDir on Windows verbatim roots. Append
+    // lexical bytes instead so the negative actually reaches the entry guard.
+    let mut lexical = root.as_os_str().to_os_string();
+    for component in ["comparison-fixtures", "..", "comparison-fixtures"] {
+        lexical.push(std::path::MAIN_SEPARATOR.to_string());
+        lexical.push(component);
+    }
+    let lexical = PathBuf::from(lexical);
+    assert!(lexical.components().any(|part| matches!(part, std::path::Component::ParentDir)));
+    assert_ne!(lexical, root.join("comparison-fixtures"));
     for bad in [
         root.join("other-fixtures"),
-        root.join("comparison-fixtures/../comparison-fixtures"),
+        lexical,
         root.join("nested/comparison-fixtures"),
     ] {
         assert!(selected_scene_prepare(&bad, "initial").is_err());

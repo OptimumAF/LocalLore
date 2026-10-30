@@ -1,6 +1,8 @@
 // Independent D08 FIRST. SOURCE ONLY / UNRUN at freeze; missing seams are SETUP.
 // Actual private launcher blocks run with disclosed memory-only dependencies.
 // No OS child, fixture, image, native application, Rust execution or disk quota.
+// Browser budget revision2: owner decision #6527673039 / contract e4ef252e.
+// Original version1 source and results remain history, never reclassified.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -104,6 +106,14 @@ if (!setup.length)
                 "// d05-paging-process-policy-v1:end",
             ),
         };
+        const limitsStart = source.indexOf("const limits = Object.freeze({"),
+            limitsEnd = source.indexOf("\n});", limitsStart);
+        assert(
+            limitsStart >= 0 && limitsEnd > limitsStart &&
+                source.indexOf("const limits = Object.freeze({", limitsStart + 1) < 0,
+            "UniqueActualLimitsDeclaration",
+        );
+        blocks.limits = source.slice(limitsStart, limitsEnd + "\n});".length);
         for (const helper of ["pagingLauncherMode", "pagingLauncherPlan"])
             assert.match(
                 blocks.mode,
@@ -153,23 +163,19 @@ function modeApi() {
 }
 function limitsFor(mode) {
     const plan = plain(modeApi().pagingLauncherPlan(mode));
-    return {
-        targetGrowth: 2 * 1024 ** 3,
-        sourceGrowth: 128 * MiB,
-        entries: 2_000_000,
-        cumulativeEvidence: 640 * MiB,
-        artifacts: plan.artifacts,
-        expectedEvidence: plan.expectedEvidence,
-        pagingEvidence: plan.pagingEvidence,
-    };
+    return plain(runInNewContext(
+        `(()=>{${blocks.limits}\nreturn limits;})()`,
+        { mode, plan },
+        { timeout: 1000 },
+    ));
 }
 function record(mode, patch = {}) {
     return {
-        version: 1,
+        version: mode === "paging" ? 1 : 2,
         kind:
             mode === "paging"
                 ? "d05_v2_inspector_paging_budget_v1"
-                : "d08_domain2_timeline_browser_budget_v1",
+                : "d08_domain2_timeline_browser_budget_v2",
         source_revision: revision,
         target_path_sha256: hash(
             Buffer.from(path.win32.resolve(paths.target).toLowerCase(), "utf8"),
@@ -177,7 +183,7 @@ function record(mode, patch = {}) {
         original_target_bytes: 1000,
         external_evidence_bytes: mode === "paging" ? 480 * MiB : 520 * MiB,
         d05_external_evidence_bytes: mode === "paging" ? 0 : 80 * MiB,
-        cumulative_limit_bytes: 640 * MiB,
+        cumulative_limit_bytes: (mode === "paging" ? 640 : 648) * MiB,
         ...patch,
     };
 }
@@ -309,23 +315,34 @@ for (const mode of ["paging", "timeline-browser"])
         assert.equal(
             plan.budgetKind,
             browser
-                ? "d08_domain2_timeline_browser_budget_v1"
+                ? "d08_domain2_timeline_browser_budget_v2"
                 : "d05_v2_inspector_paging_budget_v1",
         );
         assert.equal(
             plan.budgetPrefix,
             browser
-                ? "d08-domain2-timeline-browser-budget-v1-"
+                ? "d08-domain2-timeline-browser-budget-v2-"
                 : "d05-v2-inspector-paging-budget-v1-",
         );
         assert.equal(plan.artifacts, (browser ? 20 : 64) * MiB);
         assert.equal(plan.expectedEvidence, (browser ? 20 : 64) * MiB);
-        assert.equal(plan.pagingEvidence, (browser ? 32 : 128) * MiB);
+        assert.equal(plan.pagingEvidence, (browser ? 40 : 128) * MiB);
         assert.equal(
             plan.reportMode,
             browser ? "domain2_timeline_browser_v1" : "v2_inspector_paging_v1",
         );
         assert.deepEqual(plan.labels, browser ? browserLabels : pagingLabels);
+        // Actual top-level expression, not a copied VM limit that could hide
+        // an unchanged global 640 MiB bound in browser mode.
+        assert.deepEqual(limitsFor(mode), {
+            targetGrowth: 2 * 1024 ** 3,
+            sourceGrowth: 128 * MiB,
+            artifacts: (browser ? 20 : 64) * MiB,
+            entries: 2_000_000,
+            cumulativeEvidence: (browser ? 648 : 640) * MiB,
+            expectedEvidence: (browser ? 20 : 64) * MiB,
+            pagingEvidence: (browser ? 40 : 128) * MiB,
+        });
     });
 for (const mode of [
     "",
@@ -383,9 +400,9 @@ register(
 );
 for (const [mode, patch] of [
     ["paging", { external_evidence_bytes: 512 * MiB + 1 }],
-    ["paging", { kind: "d08_domain2_timeline_browser_budget_v1" }],
+    ["paging", { kind: "d08_domain2_timeline_browser_budget_v2" }],
     ["timeline-browser", { kind: "d05_v2_inspector_paging_budget_v1" }],
-    ["timeline-browser", { cumulative_limit_bytes: 640 * MiB + 1 }],
+    ["timeline-browser", { cumulative_limit_bytes: 648 * MiB + 1 }],
     ["timeline-browser", { source_revision: "b".repeat(40) }],
     ["timeline-browser", { target_path_sha256: "0".repeat(64) }],
     ["timeline-browser", { external_evidence_bytes: 620 * MiB }],
@@ -410,14 +427,14 @@ for (const mode of ["paging", "timeline-browser"])
         await assert.rejects(h.ready);
         assert.deepEqual(h.mkdirs, []);
     });
-register("admission", "browser-exact20MiB-reserve-fits-base32MiB", async () => {
-    await sandbox("timeline-browser", { base: 12 * MiB }).ready;
+register("admission", "browser-exact20MiB-reserve-fits-base40MiB", async () => {
+    await sandbox("timeline-browser", { base: 20 * MiB }).ready;
 });
 register(
     "admission",
     "browser-one-byte-short-reserve-refuses-before-packet",
     async () => {
-        const h = sandbox("timeline-browser", { base: 12 * MiB + 1 });
+        const h = sandbox("timeline-browser", { base: 20 * MiB + 1 });
         await assert.rejects(h.ready);
         assert.deepEqual(h.mkdirs, []);
     },
@@ -464,13 +481,24 @@ register(
             ).externalEvidenceBytes,
             520 * MiB,
         );
+        assert.throws(() => api.checkedPagingBudget(
+            Buffer.from(JSON.stringify(record("timeline-browser", { version: 1 }))),
+            revision, paths.target, 1000, "timeline-browser",
+        ));
+        assert.throws(() => api.checkedPagingBudget(
+            Buffer.from(JSON.stringify(record("timeline-browser", {
+                version: 1, kind: "d08_domain2_timeline_browser_budget_v1",
+                cumulative_limit_bytes: 640 * MiB,
+            }))),
+            revision, paths.target, 1000, "timeline-browser",
+        ));
     },
 );
 register("decoder", "browser-duplicate-key-stays-refused", async () => {
     const bytes = Buffer.from(
         JSON.stringify(record("timeline-browser")).replace(
-            '"version":1',
-            '"version":1,"version":1',
+            '"version":2',
+            '"version":2,"version":2',
         ),
     );
     const h = sandbox("timeline-browser", { bytes });
@@ -482,24 +510,24 @@ register(
     "storage",
     "browser-exact-postchild-packet-and-base-metadata-reserve-fit",
     async () => {
-        const h = sandbox("timeline-browser", { base: 12 * MiB }),
+        const h = sandbox("timeline-browser", { base: 20 * MiB }),
             api = await h.ready;
         h.control.packet = 19 * MiB;
         const measured = await api.measureStorage();
         assert.equal(measured.packet.bytes, 19 * MiB);
-        assert.equal(measured.pagingEvidence, 31 * MiB);
+        assert.equal(measured.pagingEvidence, 39 * MiB);
     },
 );
 for (const [name, packet] of [
     ["packet-one-byte-over-metadata-reserve", 19 * MiB + 1],
-    ["base-and-packet-overlap", 33 * MiB],
+    ["base-and-packet-overlap", 41 * MiB],
     ["joint-and-packet-overlap", 19 * MiB + 1],
 ])
     register("storage", `browser-permanent:${name}`, async () => {
         const patch =
             name === "joint-and-packet-overlap"
                 ? {
-                      external_evidence_bytes: 620 * MiB,
+                      external_evidence_bytes: 628 * MiB,
                       d05_external_evidence_bytes: 0,
                   }
                 : {};
@@ -663,6 +691,7 @@ for (const item of cases) {
 const report = {
     version: 1,
     kind: "d08_timeline_browser_native_mode_first_v1",
+    browserBudgetContractVersion: 2,
     sourceOnlyAtFreeze: true,
     authored: cases.length,
     executed: results.length,

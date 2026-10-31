@@ -86,7 +86,7 @@ try {
     );
     category = vm.compileFunction(`${projection}\nreturn category;`)();
     const tailStart = journey.lastIndexOf(
-            "        const report = stateReport(false,",
+            "        const report = stateReport(",
         ),
         tailEnd = journey.indexOf("        await finish(report);", tailStart);
     assert(
@@ -94,6 +94,7 @@ try {
         "ActualFinalFailureStatements",
     );
     const tail = journey.slice(tailStart, tailEnd);
+    assert.match(tail, /^\s*const report = stateReport\(\s*false\s*,/, "ActualFailedReportFirstArgument");
     sources.failureTail = hash(tail);
     failure = vm.compileFunction(
         stripTypeScriptTypes(tail, { mode: "strip" }) + "\nreturn report;",

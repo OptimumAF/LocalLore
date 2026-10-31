@@ -2,7 +2,8 @@ pub(crate) fn requires_generation_permit(input: &str) -> bool {
     matches!(
         serde_json::from_str::<locallore::host::Envelope>(input),
         Ok(locallore::host::Envelope {
-            command: locallore::host::HostCommand::Prepare { .. },
+            command: locallore::host::HostCommand::Prepare { .. }
+                | locallore::host::HostCommand::AuthoringGenerate { .. },
             ..
         })
     )

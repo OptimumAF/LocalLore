@@ -1202,3 +1202,47 @@ fn unicode_label_words_survive_original_segmentation_but_real_first_person_contr
         );
     }
 }
+
+#[test]
+fn unicode_punctuation_cannot_hide_first_person_words_in_authored_wait_prose() {
+    let source = world("Copper Orchard").engine;
+    for text in [
+        "You pause with me， waiting.",
+        "You pause; we—wait.",
+        "You pause with us… waiting.",
+    ] {
+        let (after, receipt, script) =
+            generated(&source, "punctuated-pronoun-refusal", text, memory());
+        assert!(
+            receipt.play().unwrap().fallback,
+            "punctuation must not hide a first-person word: {text}"
+        );
+        assert_eq!(
+            receipt.narration(),
+            locallore::engine::render(receipt.events())
+        );
+        assert_eq!(
+            receipt.proposal().commands,
+            vec![Command::Wait { ticks: 1 }]
+        );
+        assert_eq!(script.seen.len(), 2);
+        let mut mechanical = source.clone();
+        append(
+            &mut mechanical,
+            "typed-punctuation-control",
+            vec![Command::Wait { ticks: 1 }],
+        );
+        assert_eq!(
+            after.state(),
+            mechanical.state(),
+            "unapproved prose cannot add effects"
+        );
+        assert_eq!(
+            after.canonical_record_count(),
+            source.canonical_record_count() + 1
+        );
+        let replayed =
+            Engine::replay_records(after.seed().clone(), after.canonical_records()).unwrap();
+        unchanged(&replayed, &after);
+    }
+}

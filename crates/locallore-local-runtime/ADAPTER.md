@@ -1,5 +1,13 @@
 # Optional shared-engine adapter
 
+Packet A seam extraction (2026-10-30): the private compiled-call, reply-bound and
+default-disabled Author gates are present for independent baseline verification.
+Author requests still fail compilation; even the fixed test-only Author fixture
+cannot send an Author frame yet. Reply validation remains at the legacy Play
+ceilings350 tokens/16384 bytes. No Author inference, worker adoption or new
+production capability is qualified by this extraction. The new independent cases
+have not been compiled or run by the production author.
+
 Refs #25 D04.02/.04 and #9 shared M05. Claim comments6356602412/6356602624.
 The `engine-adapter` feature depends on the existing portable `locallore` crate;
 the portable engine does not depend on this Windows runtime or on desktop code.

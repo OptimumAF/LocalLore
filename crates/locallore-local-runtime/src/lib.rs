@@ -129,6 +129,28 @@ pub enum Status {
 pub enum Role {
     Director,
     Narrator,
+    Author,
+}
+#[derive(Clone, Copy)]
+pub(crate) enum AuthorAccess {
+    Disabled,
+    #[cfg(all(test, feature = "development-worker"))]
+    Fixture,
+}
+#[derive(Clone, Copy)]
+pub(crate) struct ReplyBounds {
+    output_tokens: u16,
+    text_bytes: usize,
+}
+const PLAY_REPLY_BOUNDS: ReplyBounds = ReplyBounds {
+    output_tokens: 350,
+    text_bytes: 16_384,
+};
+#[cfg(feature = "development-worker")]
+enum DevelopmentFixtureCase {
+    Completed,
+    #[cfg(test)]
+    BlockedGenerationObserved,
 }
 #[derive(Clone, Debug)]
 pub struct Generation {
@@ -341,6 +363,7 @@ pub struct LocalRuntime {
     status: Status,
     deadline: Duration,
     last_metrics: Option<Metrics>,
+    author_access: AuthorAccess,
 }
 impl LocalRuntime {
     pub fn spawn_packaged(resource_dir: &Path, model: &Path) -> Result<Self, Error> {
@@ -397,6 +420,12 @@ impl LocalRuntime {
     /// No caller path, executable, mode, arguments or model artifact is accepted.
     #[cfg(feature = "development-worker")]
     pub fn development_protocol_fixture() -> Result<(Self, std::path::PathBuf), OwnedStartFailure> {
+        Self::development_protocol_fixture_case(DevelopmentFixtureCase::Completed)
+    }
+    #[cfg(feature = "development-worker")]
+    fn development_protocol_fixture_case(
+        case: DevelopmentFixtureCase,
+    ) -> Result<(Self, std::path::PathBuf), OwnedStartFailure> {
         let current = std::env::current_exe()
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
         let parent = current
@@ -428,7 +457,11 @@ impl LocalRuntime {
         ));
         std::fs::create_dir(&directory)
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
-        let model = directory.join("valid");
+        let model = directory.join(match case {
+            DevelopmentFixtureCase::Completed => "valid",
+            #[cfg(test)]
+            DevelopmentFixtureCase::BlockedGenerationObserved => "blocked-generation-observed",
+        });
         let file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -564,6 +597,7 @@ impl LocalRuntime {
                 status: Status::Unloaded,
                 deadline: Duration::from_secs(60),
                 last_metrics: None,
+                author_access: AuthorAccess::Disabled,
             },
         );
         #[cfg(all(test, windows, feature = "development-worker"))]
@@ -705,6 +739,15 @@ impl LocalRuntime {
         generation: Option<&Generation>,
         cancel: impl Fn() -> bool,
     ) -> Result<GenerationResult, Error> {
+        self.call_bounded(op, generation, PLAY_REPLY_BOUNDS, cancel)
+    }
+    fn call_bounded(
+        &mut self,
+        op: &str,
+        generation: Option<&Generation>,
+        bounds: ReplyBounds,
+        cancel: impl Fn() -> bool,
+    ) -> Result<GenerationResult, Error> {
         self.last_metrics = None;
         if self.status == Status::Failed {
             return Err(Error::WorkerUnavailable);
@@ -740,7 +783,7 @@ impl LocalRuntime {
             }
             match self.replies.recv_timeout(Duration::from_millis(10)) {
                 Ok(Ok(frame)) => {
-                    let reply = match parse_reply(&frame, id) {
+                    let reply = match parse_reply(&frame, id, bounds) {
                         Ok(r) => r,
                         Err(e) => return self.fail(e),
                     };
@@ -815,9 +858,24 @@ impl LocalRuntime {
         generation: Generation,
         cancel: impl Fn() -> bool,
     ) -> Result<GenerationResult, Error> {
+        self.generate_bounded(generation, PLAY_REPLY_BOUNDS, cancel)
+    }
+    pub(crate) fn generate_bounded(
+        &mut self,
+        generation: Generation,
+        bounds: ReplyBounds,
+        cancel: impl Fn() -> bool,
+    ) -> Result<GenerationResult, Error> {
         self.last_metrics = None;
         if self.status != Status::Loaded {
             return Err(Error::WorkerUnavailable);
+        }
+        if matches!(generation.role, Role::Author) {
+            return Err(match self.author_access {
+                AuthorAccess::Disabled => Error::WorkerUnavailable,
+                #[cfg(all(test, feature = "development-worker"))]
+                AuthorAccess::Fixture => Error::InvalidRequest,
+            });
         }
         if generation.prompt.is_empty()
             || generation.prompt.contains('\0')
@@ -829,7 +887,7 @@ impl LocalRuntime {
         if generation.schema.as_ref().is_some_and(|s| !s.is_object()) {
             return Err(Error::InvalidRequest);
         }
-        self.call("generate", Some(&generation), cancel)
+        self.call_bounded("generate", Some(&generation), bounds, cancel)
     }
     pub fn unload(&mut self) -> Result<(), Error> {
         self.call("unload", None, || false)?;
@@ -896,7 +954,7 @@ impl Drop for LocalRuntime {
         }
     }
 }
-fn parse_reply(frame: &[u8], id: u64) -> Result<Reply, Error> {
+fn parse_reply(frame: &[u8], id: u64, _bounds: ReplyBounds) -> Result<Reply, Error> {
     let reply: Reply = serde_json::from_slice(frame).map_err(|_| Error::Protocol)?;
     if reply.version != 1
         || reply.id != id
@@ -926,6 +984,8 @@ fn parse_reply(frame: &[u8], id: u64) -> Result<Reply, Error> {
 
 #[cfg(all(test, feature = "development-worker"))]
 mod owned_cleanup_tests;
+#[cfg(all(test, feature = "engine-adapter", feature = "development-worker"))]
+mod author_reply_review;
 #[cfg(all(test, feature = "development-worker"))]
 mod tests {
     use super::*;
@@ -1302,7 +1362,7 @@ mod tests {
     #[test]
     fn reply_identity_bounds_and_channels() {
         let base = json!({"version":1,"id":1,"status":"completed","error":null,"text":"ok","metrics":{"load_ms":0,"prefill_ms":0,"decode_ms":0,"total_ms":0,"input_tokens":1,"output_tokens":1,"model_loads":1,"contexts_created":1,"abort_callbacks":0}});
-        assert!(parse_reply(&serde_json::to_vec(&base).unwrap(), 1).is_ok());
+        assert!(parse_reply(&serde_json::to_vec(&base).unwrap(), 1, PLAY_REPLY_BOUNDS).is_ok());
         for (key, value) in [
             ("id", json!(2)),
             ("version", json!(2)),
@@ -1313,12 +1373,12 @@ mod tests {
         ] {
             let mut changed = base.clone();
             changed[key] = value;
-            assert!(parse_reply(&serde_json::to_vec(&changed).unwrap(), 1).is_err());
+            assert!(parse_reply(&serde_json::to_vec(&changed).unwrap(), 1, PLAY_REPLY_BOUNDS).is_err());
         }
         for key in ["input_tokens", "output_tokens"] {
             let mut changed = base.clone();
             changed["metrics"][key] = json!(10000);
-            assert!(parse_reply(&serde_json::to_vec(&changed).unwrap(), 1).is_err());
+            assert!(parse_reply(&serde_json::to_vec(&changed).unwrap(), 1, PLAY_REPLY_BOUNDS).is_err());
         }
     }
 }

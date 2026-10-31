@@ -81,6 +81,10 @@ restoration and physical diagnostic copies are verified. The separate bounded
 close-trace correction has passing focused cases; all three native grants are
 spent. There is no post-fix native PASS or full D08 acceptance.
 
+The owner separately approves [one bounded V4 run](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_V4_2026-10-30.md).
+Its independent budget baseline and code checks pass, preserving the strict
+cleanup gate. Fresh admission and actual native verification remain pending.
+
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned
 WebView. It never activates or captures the desktop:

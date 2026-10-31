@@ -351,3 +351,9 @@ authority, admission, canonical record, packet or app exists. Current active
 launcher bounds remain48MiB/708MiB; prospective64MiB/724MiB/1152KiB requires a
 NEW owner decision, actual independent baseline/producer/checks and fresh
 admission. Syntax and source review are not native execution or permission.
+
+The owner subsequently approves ONE bounded V4 run in
+`call_a7722615b86b44779439d97962690221`. The separate
+[V4 record](D08_DOMAIN2_FORK_NATIVE_V4_2026-10-30.md) preserves that decision,
+actual policy baseline, producer/check results and pending native gate. It does
+not reclassify this failed V3 attempt or reuse its spent grant.

@@ -429,6 +429,11 @@ See [desktop epic #21](https://github.com/OptimumAF/LocalLore/issues/21) for the
 staged scope and current qualification; the D02 record describes its original
 fixture gate.
 
+The [authoring generation admission checks](docs/desktop/D04_AUTHORING_GENERATION_ADMISSION_VERIFICATION_2026-10-30.md)
+verify that the native routing leaves cancellation/status available during shared
+authoring generation. This code prerequisite does not enable original-story
+creation or qualify author-role inference.
+
 The [scripted selected-scene Rust gate](docs/desktop/D07_SELECTED_SCENE_V4_SHARED_QUALIFICATION_2026-10-29.md)
 adds isolated Protocol4 selected-turn runs, durable resume and observer-filtered
 reads through the existing engine/Store. The [desktop selected-scene qualification](docs/desktop/D07_SELECTED_SCENE_DESKTOP_QUALIFICATION_2026-10-29.md)

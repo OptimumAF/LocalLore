@@ -137,6 +137,18 @@ impl Engine {
         record: &PlayRecord,
         cancel: &dyn Fn() -> bool,
     ) -> Result<Receipt, Error> {
+        self.commit_scene_play_history_v1(bound, record, cancel, false)
+    }
+
+    /// Only recorded-history dispatch may retain a prior scene prose policy.
+    /// The public commit remains fresh-only, with the same capability checks.
+    pub(crate) fn commit_scene_play_history_v1(
+        &mut self,
+        bound: BoundScenePlayV1,
+        record: &PlayRecord,
+        cancel: &dyn Fn() -> bool,
+        recorded_history: bool,
+    ) -> Result<Receipt, Error> {
         if let Some(receipt) = self.recorded(bound.approved().request())? {
             return Ok(receipt);
         }
@@ -151,7 +163,13 @@ impl Engine {
         if regenerated.presentation != presentation || regenerated.provenance != provenance {
             return Err(Error::Stale);
         }
-        scene_narration::validate_record(self, &regenerated, record, cancel)?;
+        scene_narration::validate_record_history(
+            self,
+            &regenerated,
+            record,
+            cancel,
+            recorded_history,
+        )?;
         self.validate_story_narration(&record.narration.text)?;
         let mut receipt = regenerated.preparation.staged.approved;
         receipt.narration = record.narration.text.clone();

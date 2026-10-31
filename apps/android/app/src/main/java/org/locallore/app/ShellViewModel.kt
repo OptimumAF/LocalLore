@@ -374,6 +374,10 @@ class ShellViewModel internal constructor(
         if (expectedContext != null && expectedContext == storyRecord.value.context)
             recordController.openEvent(sequence)
     }
+    fun openScopedRecordEvent(reference: StoryRecordScopedEvent, expectedContext: StoryRecordContext?) {
+        if (expectedContext != null && expectedContext == storyRecord.value.context)
+            recordController.openScopedEvent(reference)
+    }
     fun backToStoryRecord() = recordController.back()
     fun retryRecordEvent() = recordController.retryEvent()
     fun closeDiagnostics() { diagnosticController.dismiss(); synchronizeForkContext() }

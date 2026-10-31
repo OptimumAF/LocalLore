@@ -52,16 +52,31 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
     fun retryEvent() {
         val current = mutable.value
         val detail = current.eventDetail ?: return
-        if (!detail.loading) readEvent(current, detail.reference)
+        if (!detail.loading) readEvent(current, detail.reference, detail.scopedReference)
     }
-    private fun readEvent(current: StoryRecordState, sequence: Long) {
+    fun openScopedEvent(reference: StoryRecordScopedEvent) {
+        val current = mutable.value
+        if (current.eventDetail == null) readEvent(current, reference.sequence, reference)
+    }
+    private fun readEvent(current: StoryRecordState, sequence: Long, reference: StoryRecordScopedEvent? = null) {
         val context = current.context ?: return
         if (disposed || !current.visible || current.loading || current.problem != null ||
-            sequence !in 1..context.revision || current.entries.none { sequence in it.eventSources }) return
-        val query = StoryRecordQuery(context, StoryRecordSection.HISTORY, "\"sequence\":$sequence,")
+            sequence !in 1..context.revision) return
+        if (reference == null && current.entries.none { sequence in it.eventSources }) return
+        if (reference != null && current.entries.none { reference in it.scopedEventSources }) return
+        val search = if (reference == null) "\"sequence\":$sequence," else {
+            val original = reference.originalScope
+            if (original.story != context.story.story || !validStoryRecordTurn(original.story) ||
+                !validStoryRecordTurn(original.branch)) return
+            // Search the exact serialized EventRow prefix in the CURRENT player
+            // lens. Never open another branch session or flatten an ancestor ID.
+            "\"event\":{\"sequence\":$sequence,\"scope\":{\"story\":\"${original.story}\",\"branch\":\"${original.branch}\"}"
+        }
+        val query = StoryRecordQuery(context, StoryRecordSection.HISTORY, search,
+            version = if (reference == null) 1 else 2)
         val ticket = ++generation
         pending?.cancel()
-        mutable.value = current.copy(eventDetail = StoryRecordEventDetail(sequence))
+        mutable.value = current.copy(eventDetail = StoryRecordEventDetail(sequence, scopedReference = reference))
         pending = scope.launch {
             try {
                 val page = reader.readStoryRecord(query)
@@ -73,13 +88,15 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 val entry = page.entries.single()
                 validateEntry(entry, query, page.storyTime)
                 check(entry.origin == StoryRecordOrigin.RECORDED_OBSERVATION && entry.event?.sequence == sequence)
+                check(entry.event?.originalScope == reference?.originalScope)
                 mutable.value = mutable.value.copy(eventDetail = StoryRecordEventDetail(sequence, loading = false,
-                    entry = freeze(entry)))
+                    entry = freeze(entry), scopedReference = reference))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
                 if (!disposed && ticket == generation) mutable.value = mutable.value.copy(
                     eventDetail = StoryRecordEventDetail(sequence, loading = false,
-                        problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE))
+                        problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE,
+                        scopedReference = reference))
             }
         }
     }
@@ -136,16 +153,25 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
     fun dispose() { disposed = true; dismiss() }
 
     private fun freeze(entry: StoryRecordEntry) = entry.copy(sources = entry.sources.toList(),
-        eventSources = entry.eventSources.toList())
+        eventSources = entry.eventSources.toList(), scopedEventSources = entry.scopedEventSources.toList())
 
     private fun validateEntry(entry: StoryRecordEntry, query: StoryRecordQuery, time: Long) {
-        check(entry.key.isNotEmpty() && entry.eventSources.size <= 64)
+        check(entry.key.isNotEmpty() && entry.eventSources.size <= 64 && entry.scopedEventSources.size <= 64)
         check(entry.eventSources.all { it in 1..query.context.revision } &&
             entry.eventSources.toSet().size == entry.eventSources.size)
+        check(entry.scopedEventSources.distinct().size == entry.scopedEventSources.size)
+        check(entry.scopedEventSources.all { ref ->
+            ref.sequence in 1..query.context.revision && ref.originalScope.story == query.context.story.story &&
+                validStoryRecordTurn(ref.originalScope.story) && validStoryRecordTurn(ref.originalScope.branch)
+        })
+        check(if (query.version == 1) entry.scopedEventSources.isEmpty() else entry.eventSources.isEmpty())
         if (entry.origin == StoryRecordOrigin.RECORDED_OBSERVATION) {
             val event = checkNotNull(entry.event)
             check(query.section == StoryRecordSection.HISTORY && event.sequence in 1..query.context.revision &&
-                event.storyTime in 0..time && validStoryRecordTurn(event.turn) && entry.eventSources == listOf(event.sequence))
+                event.storyTime in 0..time && validStoryRecordTurn(event.turn))
+            if (query.version == 1) check(event.originalScope == null && entry.eventSources == listOf(event.sequence))
+            else check(event.originalScope != null &&
+                entry.scopedEventSources == listOf(StoryRecordScopedEvent(event.originalScope, event.sequence)))
         } else check(entry.event == null)
     }
 }

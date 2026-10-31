@@ -43,6 +43,7 @@ import androidx.compose.ui.window.DialogProperties
 import org.locallore.app.StoryRecordEntry
 import org.locallore.app.StoryRecordSection
 import org.locallore.app.StoryRecordState
+import org.locallore.app.StoryRecordScopedEvent
 
 /** Renders only the coordinator's player-eligible records; it cannot change story state. */
 @Composable
@@ -57,6 +58,7 @@ fun StoryRecordDialog(
     onEvent: (Long) -> Unit = {},
     onEventBack: () -> Unit = {},
     onEventRetry: (() -> Unit)? = null,
+    onScopedEvent: (StoryRecordScopedEvent) -> Unit = {},
 ) {
     if (!state.visible) return
     // A new story/head or applied query must never inherit another context's edited search.
@@ -204,7 +206,7 @@ fun StoryRecordDialog(
                                 )
                             }
                             state.entries.forEachIndexed { index, entry ->
-                                StoryRecordRow(entry, index, onEvent)
+                                StoryRecordRow(entry, index, onEvent, onScopedEvent)
                             }
                         }
                         else -> Text("No saved story is selected.")
@@ -246,7 +248,8 @@ fun StoryRecordDialog(
 }
 
 @Composable
-private fun StoryRecordRow(entry: StoryRecordEntry, index: Int, onEvent: (Long) -> Unit) {
+private fun StoryRecordRow(entry: StoryRecordEntry, index: Int, onEvent: (Long) -> Unit,
+    onScopedEvent: (StoryRecordScopedEvent) -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().testTag("story-record-entry-$index"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -272,6 +275,15 @@ private fun StoryRecordRow(entry: StoryRecordEntry, index: Int, onEvent: (Long) 
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                     .testTag("story-record-source-$index-$sourceIndex"),
             ) { Text("Open event #$reference") }
+        }
+        entry.scopedEventSources.forEachIndexed { sourceIndex, reference ->
+            OutlinedButton(
+                onClick = { onScopedEvent(reference) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .testTag("story-record-scoped-source-$index-$sourceIndex"),
+            ) {
+                Text("Open event #${reference.sequence} · ${reference.originalScope.story} / ${reference.originalScope.branch}")
+            }
         }
     }
 }

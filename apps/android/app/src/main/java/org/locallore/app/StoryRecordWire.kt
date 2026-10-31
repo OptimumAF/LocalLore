@@ -8,8 +8,11 @@ import org.json.JSONObject
 internal object StoryRecordWire {
     fun command(session: String, query: StoryRecordQuery): JSONObject {
         if (!validStoryRecordSearch(query.search)) throw StoryRecordFailure(StoryRecordProblem.BAD_SEARCH)
+        if (!validVersion(query)) throw StoryRecordFailure(StoryRecordProblem.INVALID_RESPONSE)
+        if (query.version == 2 && query.cursor != null && !cursorPattern(query).matches(query.cursor))
+            throw StoryRecordFailure(StoryRecordProblem.INVALID_RESPONSE)
         return JSONObject().put("op", "inspection_query").put("session", session).put("query",
-            JSONObject().put("version", 1).put("scope", JSONObject().put("story", query.context.story.story)
+            JSONObject().put("version", query.version).put("scope", JSONObject().put("story", query.context.story.story)
                 .put("branch", query.context.story.branch)).put("expected_head", query.context.revision)
                 .put("at_revision", JSONObject.NULL).put("observer", JSONObject().put("kind", "player"))
                 .put("view", query.section.wire).put("limit", STORY_RECORD_PAGE_ROWS)
@@ -19,7 +22,7 @@ internal object StoryRecordWire {
     fun decode(data: JSONObject, query: StoryRecordQuery): StoryRecordPage = try {
         if (data.toString().toByteArray(Charsets.UTF_8).size > 65536)
             throw StoryRecordFailure(StoryRecordProblem.TOO_LARGE)
-        require(data.get("version") == 1)
+        require(validVersion(query) && data.get("version") == query.version)
         val scope = data.getJSONObject("scope")
         require(scope.text("story") == query.context.story.story && scope.text("branch") == query.context.story.branch)
         require(data.number("head") == query.context.revision && data.number("revision") == query.context.revision)
@@ -39,12 +42,12 @@ internal object StoryRecordWire {
         val next = if (data.isNull("next_cursor")) null else data.text("next_cursor", 128).also {
             require(it.isNotEmpty() && it != query.cursor && it.all { ch -> ch.code in 33..126 })
             require(entries.isNotEmpty() && total > entries.size)
-            require(Regex("1:[1-9][0-9]{0,4}:[0-9a-f]{64}").matches(it))
+            require(cursorPattern(query).matches(it))
             val offset = it.split(':')[1].toInt()
             require(offset < total && offset >= entries.size)
         }
         val offset = query.cursor?.let {
-            require(Regex("1:[1-9][0-9]{0,4}:[0-9a-f]{64}").matches(it))
+            require(cursorPattern(query).matches(it))
             it.split(':')[1].toInt()
         } ?: 0
         require(offset <= total)
@@ -98,7 +101,33 @@ internal object StoryRecordWire {
                     row.text("text"), origin, evidence.map { source(it, query.context.revision) },
                     evidence.mapNotNull(::eventSource).distinct())
             }
+            "promise" -> {
+                require(query.section == StoryRecordSection.PROMISES && query.version == 2 &&
+                    origin == StoryRecordOrigin.DERIVED_COMPARISON)
+                val id = row.text("id", 512)
+                val from = row.text("from", 512)
+                val to = row.text("to", 512)
+                require(from == "player" || to == "player")
+                val deadline = row.number("deadline").also { require(it >= 0) }
+                val status = when (row.text("status")) {
+                    "open" -> "Open"
+                    "overdue" -> "Overdue"
+                    "fulfilled" -> "Fulfilled"
+                    else -> error("Unknown promise status")
+                }
+                require(row.has("return_item"))
+                val item = if (row.isNull("return_item")) null else row.text("return_item", 512)
+                val evidence = row.getJSONArray("sources").also { require(it.length() in 1..64) }
+                val sources = (0 until evidence.length()).map { evidence.getJSONObject(it) }
+                val labels = sources.map { scopedSourceLabel(it, query) }
+                val references = sources.mapNotNull { scopedEventSource(it, query) }.distinct()
+                StoryRecordEntry(key, "Promise · $id",
+                    "From · $from\nTo · $to\nStatus · $status\nDue at story time · $deadline\n${row.text("terms")}" +
+                        (item?.let { "\nReturn item · $it" } ?: ""),
+                    origin, labels, scopedEventSources = references)
+            }
             "message" -> {
+                require(query.version == 1)
                 require(query.section == StoryRecordSection.HISTORY && origin == StoryRecordOrigin.RECORDED_MESSAGE)
                 val kind = row.text("message_kind").also { require(it in setOf("original_input", "narration")) }
                 val ids = row.getJSONArray("event_ids").also { require(it.length() <= 64) }
@@ -112,19 +141,55 @@ internal object StoryRecordWire {
                 require(query.section == StoryRecordSection.HISTORY && origin == StoryRecordOrigin.RECORDED_OBSERVATION)
                 val event = row.getJSONObject("event")
                 val scope = event.getJSONObject("scope")
-                require(scope.text("story") == query.context.story.story && scope.text("branch") == query.context.story.branch)
+                val originalScope = if (query.version == 2) readScope(scope, query) else null
+                if (query.version == 1)
+                    require(scope.text("story") == query.context.story.story && scope.text("branch") == query.context.story.branch)
                 val sequence = event.number("sequence").also { require(it in 1..query.context.revision) }
                 require(event.number("story_time") in 0..storyTime)
                 val witnesses = event.getJSONArray("witnesses")
                 require(strings(witnesses).contains("player"))
                 strings(event.getJSONArray("participants"))
                 val turn = event.text("turn", 64).also { require(validStoryRecordTurn(it)) }
+                val reference = originalScope?.let { StoryRecordScopedEvent(it, sequence) }
                 StoryRecordEntry(key, "Event #$sequence", effect(event.getJSONObject("consequence"), query.context.revision),
-                    origin, listOf("Event #$sequence"), listOf(sequence), StoryRecordEvent(sequence, turn, event.number("story_time")))
+                    origin, listOf(reference?.let(::scopedEventLabel) ?: "Event #$sequence"),
+                    if (reference == null) listOf(sequence) else emptyList(),
+                    StoryRecordEvent(sequence, turn, event.number("story_time"), originalScope),
+                    reference?.let { listOf(it) } ?: emptyList())
             }
             else -> error("Unknown record")
         }
     }
+
+    private fun validVersion(query: StoryRecordQuery) = when (query.version) {
+        1 -> query.section != StoryRecordSection.PROMISES
+        2 -> query.section == StoryRecordSection.PROMISES || query.section == StoryRecordSection.HISTORY
+        else -> false
+    }
+    private fun cursorPattern(query: StoryRecordQuery) = Regex("${query.version}:[1-9][0-9]{0,4}:[0-9a-f]{64}")
+    private fun readScope(scope: JSONObject, query: StoryRecordQuery): StoryRecordScope {
+        require(scope.length() == 2 && scope.has("story") && scope.has("branch"))
+        val story = scope.text("story", 64)
+        val branch = scope.text("branch", 64)
+        require(story == query.context.story.story && validStoryRecordTurn(story) && validStoryRecordTurn(branch))
+        return StoryRecordScope(story, branch)
+    }
+    private fun scopedEventSource(value: JSONObject, query: StoryRecordQuery): StoryRecordScopedEvent? {
+        if (value.text("kind") != "scoped_event") return null
+        require(value.length() == 2 && value.has("kind") && value.has("value"))
+        val source = value.getJSONObject("value")
+        require(source.length() == 2 && source.has("original_scope") && source.has("sequence"))
+        return StoryRecordScopedEvent(readScope(source.getJSONObject("original_scope"), query),
+            source.number("sequence").also { require(it in 1..query.context.revision) })
+    }
+    private fun scopedEventLabel(reference: StoryRecordScopedEvent) =
+        "Event #${reference.sequence} · ${reference.originalScope.story} / ${reference.originalScope.branch}"
+    private fun scopedSourceLabel(value: JSONObject, query: StoryRecordQuery): String =
+        when (value.text("kind")) {
+            "seed", "withheld" -> source(value, query.context.revision)
+            "scoped_event" -> scopedEventLabel(checkNotNull(scopedEventSource(value, query)))
+            else -> error("Unknown scoped source")
+        }
 
     private fun fieldValue(value: JSONObject): String = when (value.text("type")) {
         "text" -> value.text("value")

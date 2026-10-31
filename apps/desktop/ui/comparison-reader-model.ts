@@ -138,8 +138,7 @@ export type ComparisonArmDescriptorV3 = {
     arm: "literal_player_v1" | "relevant_memory_v1";
     prompt_version: string;
     narration_policy:
-        | "grounded-prose-v2.2"
-        | "grounded-prose-v2.5-whole-evidence-words-v1";
+        "grounded-prose-v2.2" | "grounded-prose-v2.5-whole-evidence-words-v1";
     director_schema_id:
         "locallore-director-literal-v1" | "locallore-director-v2";
     context_policy: "state_relevant_memory_v1" | null;
@@ -785,9 +784,10 @@ function construction(
         wire(physicalArm === (index === 0 ? "left" : "right"));
     wire(
         [constructionValues[index], currentConstructionValues[index]].some(
-            (expected) => Object.entries(expected).every(
-                ([key, value]) => o[key] === value,
-            ),
+            (expected) =>
+                Object.entries(expected).every(
+                    ([key, value]) => o[key] === value,
+                ),
         ),
     );
     return o as ComparisonArmDescriptorV3;
@@ -840,7 +840,8 @@ const sceneConstructionValues = [
 const currentSceneConstructionValues = sceneConstructionValues.map(
     (value): ComparisonArmDescriptorV4 => ({
         ...value,
-        narration_policy: "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1",
+        narration_policy:
+            "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1",
     }),
 );
 function sceneConstruction(
@@ -853,10 +854,11 @@ function sceneConstruction(
     if (physicalArm !== undefined)
         wire(physicalArm === (index === 0 ? "left" : "right"));
     wire(
-        [sceneConstructionValues[index], currentSceneConstructionValues[index]].some(
-            (expected) => Object.entries(expected).every(
-                ([key, value]) => o[key] === value,
-            ),
+        [
+            sceneConstructionValues[index],
+            currentSceneConstructionValues[index],
+        ].some((expected) =>
+            Object.entries(expected).every(([key, value]) => o[key] === value),
         ),
     );
     return o as ComparisonArmDescriptorV4;
@@ -1154,7 +1156,9 @@ function report(v: unknown): ComparisonReport {
         wire(descriptors.length === 2);
         decodeConstruction(descriptors[0], "left");
         decodeConstruction(descriptors[1], "right");
-        wire(descriptors[0].narration_policy === descriptors[1].narration_policy);
+        wire(
+            descriptors[0].narration_policy === descriptors[1].narration_policy,
+        );
     }
     if (version === 4) integer(o.source_bound_committed_rows, 0, 48);
     choices(o.kind, ["paired_snapshots", "continuous_rollout"]);

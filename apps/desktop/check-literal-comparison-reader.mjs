@@ -255,14 +255,21 @@ for (const policy of ["grounded-prose-v2.2", currentGrounding3])
         const value = groundingSnapshot3(policy);
         assert.deepEqual(JSON.parse(JSON.stringify(decode(value))), value);
         for (const [index, descriptor] of value.report.arms.entries())
-            assert.deepEqual(m.checkedReaderConstruction(descriptor, index === 0 ? "left" : "right"), descriptor);
+            assert.deepEqual(
+                m.checkedReaderConstruction(
+                    descriptor,
+                    index === 0 ? "left" : "right",
+                ),
+                descriptor,
+            );
         assert.equal(value.execution_available, false);
     });
 for (const changed of [0, 1])
     test(`B34 protocol3 refuses mixed family arm ${changed} even when rows agree`, () => {
         const value = snapshot();
         value.report.arms[changed].narration_policy = currentGrounding3;
-        value.report.turns[changed].construction.narration_policy = currentGrounding3;
+        value.report.turns[changed].construction.narration_policy =
+            currentGrounding3;
         assert.throws(() => decode(value), /ComparisonReaderWire/);
     });
 test("B34 protocol3 refuses a valid row from the other declared family", () => {
@@ -276,7 +283,10 @@ test("B34 current protocol3 tuples still refuse prompt/schema/count/policy drift
         ["director_schema_id", "locallore-director-v2"],
         ["literal_packing_version", 2],
         ["compiler_version", 2],
-        ["narration_policy", "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1"],
+        [
+            "narration_policy",
+            "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1",
+        ],
     ]) {
         const value = groundingSnapshot3(currentGrounding3);
         value.report.arms[0][field] = drift;

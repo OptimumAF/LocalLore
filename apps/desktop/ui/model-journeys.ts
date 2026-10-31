@@ -328,7 +328,8 @@ export async function modelJourneys({
             | undefined;
         check(
             currentPlay?.prompt_version === "locallore-play-v2.5" &&
-                currentPlay.policy === "grounded-prose-v2.5-whole-evidence-words-v1" &&
+                currentPlay.policy ===
+                    "grounded-prose-v2.5-whole-evidence-words-v1" &&
                 currentPlay.context?.version === 2 &&
                 currentPlay.context.compiler_version === 2 &&
                 currentPlay.context_policy === "state_relevant_memory_v1",

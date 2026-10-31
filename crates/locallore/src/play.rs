@@ -1242,10 +1242,9 @@ fn validate_prose(
                 ]
                 .contains(&token.to_lowercase().as_str());
             let capitalized = if mode == ProseMode::WholeEvidenceWordsV1 {
-                token
-                    .chars()
-                    .find(|c| c.is_alphabetic())
-                    .is_some_and(char::is_uppercase)
+                // A prefix such as o' must not hide an unsupported capitalized
+                // continuation. Ground the complete original atomic word.
+                token.chars().any(char::is_uppercase)
             } else {
                 token.chars().next().is_some_and(char::is_uppercase)
             };

@@ -54,7 +54,9 @@ are crate-private. Root owns restore dispatch in engine.rs and pipeline wiring.
 `NarratorAuthoredSceneFrameV2` serializes only `version:2`, scope,
 before_revision, after_revision, player, location (actual post-candidate opaque
 location ID), and optional `location_label`. These fields have read-only getters.
-`NarratorLocationLabelV1` serializes only `location_id`, `name`, `fact_id`, and
+Absent `location_label` serializes as explicit null; its getter returns
+`Option<&NarratorLocationLabelV1>`. `NarratorLocationLabelV1` serializes only
+`location_id`, `name`, `fact_id`, and
 the existing typed `ObservationSource` observation provenance. It has read-only
 getters; neither type has a Deserialize constructor.
 
@@ -67,10 +69,16 @@ seed value, not effective hidden truth: an unseen correction must not silently
 change remembered labels. If the player later observes a corrected free-text
 value that has no typed label mapping, omit the label rather than parse it.
 
-Do not serialize a description, remote location, raw origin/generation/config,
+Do not serialize in the added frame a description, remote location, raw origin/generation/config,
 NPC sheet, belief, hidden corrected truth, proposal, ordinary receipt, director
 package or arbitrary observed fact. Label provenance is a reference, not a new
 observation or discovery. Move alone does not grant a destination label.
+The existing staged narrator evidence still includes exact propositions of
+discoveries actually accepted in this turn, including a description or corrected
+free-text value. That explicit observation is not a hidden-origin leak. It must
+not become a typed label through prose parsing. Unrelated hidden data stays out.
+Inherited observation provenance may refer to an eligible ancestor scope; do not
+force it to equal a child frame's scope. Validate origins against seed.scope.
 
 Staging reuses stage_play_v25 and actual candidate append on a transient clone.
 Binding compares complete accepted-history basis and regenerated approved plan,
@@ -94,8 +102,11 @@ complete occurrences of the eligible current label extend visible-name spans;
 fragments/continuations cannot become independent word authority. Existing
 sensitive phrase guards may conservatively fall back; this is not entailment.
 No old caller passes an extra label. Root also exposes crate-private
-`scene_narration::renderer::validate_generated_for_player(approved, player, text)`
+`scene_narration::renderer::validate_generated_for_player(approved, player, text)
+-> Result<(), NarrationValidationFailureV1>`
 with the existing scene first-person/unapproved-movement checks unchanged.
+The rendered prompt/schema constructor is crate-private
+`RenderedSceneNarratorV1::from_parts(String, serde_json::Value) -> Self`.
 
 New Host native selectors: `MemoryAuthoredSceneV2(PlayContextPolicy)` and
 `PlayerLiteralAuthoredSceneV2`. Existing defaults/wire/Android selection are

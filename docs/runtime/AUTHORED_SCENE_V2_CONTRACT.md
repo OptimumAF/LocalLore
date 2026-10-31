@@ -7,8 +7,9 @@ Base: PR #300 at `efaab06499a8e4a4a9324c0b464400ae0d529090`, unmerged.
 
 Add authored-world narration through trusted native selection. Preserve every
 V1 recipe, prompt, frame encoding, default and initial_world refusal. New V2
-requires a validated authored seed. No new dependency, canonical effect, wire
-selector, provider role/schema, Kotlin rule or runtime capability is introduced.
+requires a validated authored seed. The pinned Unicode category utility described
+below is the only added dependency. No canonical effect, wire selector, provider
+role/schema, Kotlin rule or runtime capability is introduced.
 The provider remains untrusted. All staging is transient; only validated commit
 can append. Restore reconstructs the exact recipe and revalidates full history.
 

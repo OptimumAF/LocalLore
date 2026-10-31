@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [authored scene V2 slice](docs/runtime/AUTHORED_SCENE_V2_2026-10-30.md)
+adds explicit Core/Host narration using typed location names the player has
+observed. Existing Android defaults remain unchanged; fake-provider and build
+checks do not qualify a real model or physical device.
+
 The [complete evidence-word narration guard](docs/runtime/NARRATOR_EVIDENCE_WORDS_2026-10-30.md)
 adds versioned fresh validation while preserving genuine recorded histories.
 Its host, desktop consumer and Android packaging checks remain separate from

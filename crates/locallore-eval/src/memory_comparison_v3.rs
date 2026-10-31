@@ -93,7 +93,8 @@ impl ArmDescriptorV3 {
             ComparisonArmV3::LiteralPlayerV1 => &arm_descriptors()[0],
             ComparisonArmV3::RelevantMemoryV1 => &arm_descriptors()[1],
         };
-        let current = &current_arm_descriptors()[usize::from(self.arm == ComparisonArmV3::RelevantMemoryV1)];
+        let current =
+            &current_arm_descriptors()[usize::from(self.arm == ComparisonArmV3::RelevantMemoryV1)];
         if self != expected && self != current {
             return Err("ArmDescriptorBinding".into());
         }
@@ -140,7 +141,13 @@ impl CapturedLiteralContext {
         forwarded_budget_version: u16,
     ) -> Result<Self> {
         Self::from_capture_policy(
-            before, request, attempt, reply, captures, profile, forwarded_budget_version,
+            before,
+            request,
+            attempt,
+            reply,
+            captures,
+            profile,
+            forwarded_budget_version,
             play::NARRATION_POLICY,
         )
     }
@@ -161,7 +168,13 @@ impl CapturedLiteralContext {
             return Err("ArmDescriptorBinding".into());
         }
         Self::from_capture_policy(
-            before, request, attempt, reply, captures, profile, forwarded_budget_version,
+            before,
+            request,
+            attempt,
+            reply,
+            captures,
+            profile,
+            forwarded_budget_version,
             &descriptor.narration_policy,
         )
     }

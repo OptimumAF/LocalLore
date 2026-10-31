@@ -723,7 +723,10 @@ fn public_noninitial_paired_and_rollout_keep_exact_requests_prefixes_and_closed_
             assert_eq!(full.receipts().len(), before.receipts().len() + 1);
             let actual_row: TurnReportV4 =
                 serde_json::from_value(report["rows"][arm_index].clone()).unwrap();
-            assert_eq!(actual_row.construction, v4::current_arm_descriptors()[arm_index]);
+            assert_eq!(
+                actual_row.construction,
+                v4::current_arm_descriptors()[arm_index]
+            );
             assert_eq!(actual_row.phase, "committed");
             assert_eq!(
                 actual_row.construction_evidence_status,

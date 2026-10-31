@@ -56,7 +56,16 @@ fn produce_genuine_pre_whole_word_comparisons() {
     assert!(v2.turns.iter().any(|row| row.phase == "committed"));
     assert!(v3.turns.iter().any(|row| row.phase == "committed"));
     assert!(v4.turns.iter().any(|row| row.phase == "committed"));
-    assert!(v3.arms.iter().all(|arm| arm.narration_policy == "grounded-prose-v2.2"));
-    assert!(v4.arms.iter().all(|arm| arm.narration_policy == "grounded-prose-v2.4-scene-frame-v1"));
-    println!("genuine old synthetic comparison fixtures: {}", output.display());
+    assert!(v3
+        .arms
+        .iter()
+        .all(|arm| arm.narration_policy == "grounded-prose-v2.2"));
+    assert!(v4
+        .arms
+        .iter()
+        .all(|arm| arm.narration_policy == "grounded-prose-v2.4-scene-frame-v1"));
+    println!(
+        "genuine old synthetic comparison fixtures: {}",
+        output.display()
+    );
 }

@@ -97,9 +97,10 @@ impl RunManifest {
             Some(1) => {}
             Some(_) => return Err("ComparisonBinding".into()),
         }
-        if !matches!(self.binding.narration_policy.as_str(),
-            v2::LEGACY_NARRATION_POLICY | NARRATION_POLICY)
-        {
+        if !matches!(
+            self.binding.narration_policy.as_str(),
+            v2::LEGACY_NARRATION_POLICY | NARRATION_POLICY
+        ) {
             return Err("ComparisonBinding".into());
         }
         current.binding.narration_policy = self.binding.narration_policy.clone();
@@ -442,7 +443,10 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
     make_row_for_policy(observation, NARRATION_POLICY)
 }
 
-fn make_row_for_policy(observation: Observation<'_>, narration_policy: &str) -> Result<TurnReportV2> {
+fn make_row_for_policy(
+    observation: Observation<'_>,
+    narration_policy: &str,
+) -> Result<TurnReportV2> {
     let Observation {
         step,
         arm,
@@ -955,26 +959,29 @@ fn load_turn(
         recording,
         capture,
     } = evidence;
-    let actual = make_row_for_policy(Observation {
-        step,
-        arm,
-        policy,
-        before: &before,
-        after: &after,
-        phase: &stored.row.phase,
-        error: stored.row.error.clone(),
-        receipt: receipt.as_ref(),
-        recording: recording.as_ref(),
-        capture: capture.as_ref(),
-        trace: stored.row.trace.clone(),
-        admission: stored.row.admission,
-        elapsed_ms: stored.row.elapsed_ms,
-        first_final_response_ms: stored.row.first_final_response_ms,
-        commit_elapsed_ms: stored.row.commit_elapsed_ms,
-        profile,
-        recovered: stored.row.recovered_without_checkpoint,
-        forwarded_budget_version: manifest.binding.forwarded_budget_version,
-    }, &manifest.binding.narration_policy)?;
+    let actual = make_row_for_policy(
+        Observation {
+            step,
+            arm,
+            policy,
+            before: &before,
+            after: &after,
+            phase: &stored.row.phase,
+            error: stored.row.error.clone(),
+            receipt: receipt.as_ref(),
+            recording: recording.as_ref(),
+            capture: capture.as_ref(),
+            trace: stored.row.trace.clone(),
+            admission: stored.row.admission,
+            elapsed_ms: stored.row.elapsed_ms,
+            first_final_response_ms: stored.row.first_final_response_ms,
+            commit_elapsed_ms: stored.row.commit_elapsed_ms,
+            profile,
+            recovered: stored.row.recovered_without_checkpoint,
+            forwarded_budget_version: manifest.binding.forwarded_budget_version,
+        },
+        &manifest.binding.narration_policy,
+    )?;
     if actual != stored.row {
         return Err("CheckpointEvidenceMismatch".into());
     }

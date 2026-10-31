@@ -25,7 +25,8 @@ const CONSTRUCTIONS: [ComparisonArmV4; 2] = [
     ComparisonArmV4::RelevantMemorySceneV1,
 ];
 fn descriptor(arm: ComparisonArmV4) -> ArmDescriptorV4 {
-    v4::current_arm_descriptors()[usize::from(arm == ComparisonArmV4::RelevantMemorySceneV1)].clone()
+    v4::current_arm_descriptors()[usize::from(arm == ComparisonArmV4::RelevantMemorySceneV1)]
+        .clone()
 }
 fn host_construction(arm: ComparisonArmV4) -> HostPlayConstructionV1 {
     match arm {
@@ -706,26 +707,30 @@ fn load_turn4(
         },
     )?;
     let corpus = suite()?;
-    let actual = make_row4_bound(Observation4 {
-        dir,
-        step: &corpus.steps()[index],
-        arm: ARM_NAMES[arm],
-        construction: CONSTRUCTIONS[arm],
-        before: &evidence.before,
-        after: &evidence.after,
-        phase: &stored.row.phase,
-        error: stored.row.error.clone(),
-        receipt: evidence.receipt.as_ref(),
-        recording: evidence.recording.as_ref(),
-        capture: evidence.capture.as_ref(),
-        trace: stored.row.trace.clone(),
-        admission: stored.row.admission,
-        elapsed_ms: stored.row.elapsed_ms,
-        first_final_response_ms: stored.row.first_final_response_ms,
-        commit_elapsed_ms: stored.row.commit_elapsed_ms,
-        profile: &manifest.profile,
-        recovered: stored.row.recovered_without_checkpoint,
-    }, &manifest.binding.arms[arm], true)?;
+    let actual = make_row4_bound(
+        Observation4 {
+            dir,
+            step: &corpus.steps()[index],
+            arm: ARM_NAMES[arm],
+            construction: CONSTRUCTIONS[arm],
+            before: &evidence.before,
+            after: &evidence.after,
+            phase: &stored.row.phase,
+            error: stored.row.error.clone(),
+            receipt: evidence.receipt.as_ref(),
+            recording: evidence.recording.as_ref(),
+            capture: evidence.capture.as_ref(),
+            trace: stored.row.trace.clone(),
+            admission: stored.row.admission,
+            elapsed_ms: stored.row.elapsed_ms,
+            first_final_response_ms: stored.row.first_final_response_ms,
+            commit_elapsed_ms: stored.row.commit_elapsed_ms,
+            profile: &manifest.profile,
+            recovered: stored.row.recovered_without_checkpoint,
+        },
+        &manifest.binding.arms[arm],
+        true,
+    )?;
     if actual != stored.row {
         return Err("CheckpointEvidenceMismatch".into());
     }

@@ -253,7 +253,10 @@ fn real_paired_inputs_and_reference_prefixes_keep_distinct_construction_evidence
     let paired_before = inventory(&c.paired);
     let r = &c.paired_report;
     assert_eq!(r["version"], 3);
-    assert_eq!(r["arms"], serde_json::to_value(current_arm_descriptors()).unwrap());
+    assert_eq!(
+        r["arms"],
+        serde_json::to_value(current_arm_descriptors()).unwrap()
+    );
     assert_eq!(r["turns"].as_array().unwrap().len(), 12);
     assert_eq!(r["completed_scenes"], 1);
     assert_eq!(r["completed"], false);

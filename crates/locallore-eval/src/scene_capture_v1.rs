@@ -110,11 +110,7 @@ fn hash<T: Serialize + ?Sized>(source: &T) -> Result<String> {
 pub fn check_committed_scene_capture_v1(
     input: SceneCaptureInputV1<'_>,
 ) -> Result<CheckedSceneCaptureV1> {
-    check_scene_capture(
-        input,
-        scene_narration::SCENE_NARRATION_POLICY_V2,
-        false,
-    )
+    check_scene_capture(input, scene_narration::SCENE_NARRATION_POLICY_V2, false)
 }
 
 /// Closed historical inspection only. This cannot install an old-policy turn.
@@ -122,9 +118,10 @@ pub(crate) fn check_recorded_scene_capture_v1(
     input: SceneCaptureInputV1<'_>,
     expected_policy: &str,
 ) -> Result<CheckedSceneCaptureV1> {
-    if !matches!(expected_policy,
-        scene_narration::SCENE_NARRATION_POLICY_V1 | scene_narration::SCENE_NARRATION_POLICY_V2)
-    {
+    if !matches!(
+        expected_policy,
+        scene_narration::SCENE_NARRATION_POLICY_V1 | scene_narration::SCENE_NARRATION_POLICY_V2
+    ) {
         return Err(E::RecipeBinding);
     }
     check_scene_capture(input, expected_policy, true)

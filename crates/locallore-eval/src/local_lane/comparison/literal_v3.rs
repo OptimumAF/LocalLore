@@ -272,12 +272,24 @@ fn make_row3_bound(
                 ComparisonArmV3::LiteralPlayerV1 => {
                     let checked = if recorded_capture {
                         CapturedLiteralContext::from_recorded_host_capture(
-                            before, &request, attempt, capture, &recording.captures,
-                            profile, 1, expected,
+                            before,
+                            &request,
+                            attempt,
+                            capture,
+                            &recording.captures,
+                            profile,
+                            1,
+                            expected,
                         )
                     } else {
                         CapturedLiteralContext::from_host_capture(
-                            before, &request, attempt, capture, &recording.captures, profile, 1,
+                            before,
+                            &request,
+                            attempt,
+                            capture,
+                            &recording.captures,
+                            profile,
+                            1,
                         )
                     };
                     checked.ok().map(Checked::Literal)
@@ -672,25 +684,29 @@ fn load_turn3(
         },
     )?;
     let corpus = suite()?;
-    let actual = make_row3_bound(Observation3 {
-        step: &corpus.steps()[index],
-        arm: ARM_NAMES[arm],
-        construction: CONSTRUCTIONS[arm],
-        before: &evidence.before,
-        after: &evidence.after,
-        phase: &stored.row.phase,
-        error: stored.row.error.clone(),
-        receipt: evidence.receipt.as_ref(),
-        recording: evidence.recording.as_ref(),
-        capture: evidence.capture.as_ref(),
-        trace: stored.row.trace.clone(),
-        admission: stored.row.admission,
-        elapsed_ms: stored.row.elapsed_ms,
-        first_final_response_ms: stored.row.first_final_response_ms,
-        commit_elapsed_ms: stored.row.commit_elapsed_ms,
-        profile: &manifest.profile,
-        recovered: stored.row.recovered_without_checkpoint,
-    }, &manifest.binding.arms[arm], true)?;
+    let actual = make_row3_bound(
+        Observation3 {
+            step: &corpus.steps()[index],
+            arm: ARM_NAMES[arm],
+            construction: CONSTRUCTIONS[arm],
+            before: &evidence.before,
+            after: &evidence.after,
+            phase: &stored.row.phase,
+            error: stored.row.error.clone(),
+            receipt: evidence.receipt.as_ref(),
+            recording: evidence.recording.as_ref(),
+            capture: evidence.capture.as_ref(),
+            trace: stored.row.trace.clone(),
+            admission: stored.row.admission,
+            elapsed_ms: stored.row.elapsed_ms,
+            first_final_response_ms: stored.row.first_final_response_ms,
+            commit_elapsed_ms: stored.row.commit_elapsed_ms,
+            profile: &manifest.profile,
+            recovered: stored.row.recovered_without_checkpoint,
+        },
+        &manifest.binding.arms[arm],
+        true,
+    )?;
     if actual != stored.row {
         return Err("CheckpointEvidenceMismatch".into());
     }

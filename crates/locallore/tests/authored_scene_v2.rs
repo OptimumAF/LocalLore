@@ -73,7 +73,16 @@ fn presented_world(name: &str, presentation: StoryPresentationV1) -> World {
         fact: format!("f-{prefix}-location-0"), remote_fact: format!("f-{prefix}-location-1") }
 }
 fn request(source: &Engine, key: &str) -> Request {
-    source.request(key, Intent::FreeText { kind: PlayInputKind::Action, text: "I take the chosen action.".into() })
+    source.request(key, Intent::FreeText { kind: PlayInputKind::Action, text: "I wait for one tide tick.".into() })
+}
+fn command_request(source: &Engine, key: &str, commands: &[Command]) -> Request {
+    let text = match commands {
+        [Command::Wait { ticks: 1 }] => "I wait for one tide tick.".into(),
+        [Command::Move { to }] => format!("I move to {to}."),
+        [Command::Discover { fact }] => format!("I discover {fact}."),
+        _ => panic!("fixture requires one supported exact action"),
+    };
+    source.request(key, Intent::FreeText { kind: PlayInputKind::Action, text })
 }
 fn proposal(request: &Request, commands: Vec<Command>) -> Proposal {
     Proposal { version: VERSION, scope: request.scope.clone(), turn: request.turn.clone(),
@@ -142,7 +151,7 @@ fn bound(source: &Engine, receipt: &Receipt, recipe: AuthoredSceneRecipeV2) -> B
 }
 fn frame(source: &Engine, key: &str, commands: Vec<Command>) -> (Value, Value) {
     let before = source.clone();
-    let request = request(source, key);
+    let request = command_request(source, key, &commands);
     let staged = source.stage_authored_scene_play_v2(&request, &proposal(&request, commands), &|| false).unwrap();
     let frame = serde_json::to_value(staged.scene_frame()).unwrap();
     let evidence = serde_json::to_value(staged.narrator_evidence()).unwrap();

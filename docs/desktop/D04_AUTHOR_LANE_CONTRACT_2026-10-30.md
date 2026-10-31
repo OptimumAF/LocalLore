@@ -100,6 +100,11 @@ struct CompiledCall {
 fn compile(request: &GenerationRequest) -> Result<CompiledCall, Error>;
 fn parse_reply(frame: &[u8], id: u64, bounds: ReplyBounds)
     -> Result<Reply, RuntimeError>;
+// Existing LocalRuntime, crate-private method; no new public generation fields.
+fn generate_bounded(
+    &mut self, generation: Generation, bounds: ReplyBounds,
+    cancel: impl Fn() -> bool,
+) -> Result<GenerationResult, RuntimeError>;
 #[cfg(all(test, feature = "development-worker"))]
 fn author_fixture(log: Option<RoleMetricsLog>, case: AuthorFixtureCase)
     -> Result<(RuntimeProvider, SharedRuntime, PathBuf), OwnedStartFailure>;
@@ -251,6 +256,8 @@ Root must execute a valid compiled old-behavior baseline before the producer
 admits Author or changes Author reply validation. Missing fixture binaries,
 registration, types or compilation are setup, never behavioral failures.
 
+Register the adapter review as its `#[cfg(all(test, feature = "development-worker"))]`
+child, and the root reply review under test/engine-adapter/development-worker.
 Producer owns only `src/adapter.rs`, `src/lib.rs`, `src/role_metrics.rs` and
 `ADAPTER.md` in the existing runtime crate. Independent FIRST owns the two new
 test files. Root owns this contract, integration and bounded execution. Worker,

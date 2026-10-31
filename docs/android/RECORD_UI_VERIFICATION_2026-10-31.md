@@ -145,7 +145,7 @@ no target admission, caller, service or device was created by that replay.
 
 Private originals are under
 `D:/Dev/Experiments/LocalLore/2026-10-31-record-ui-v1`; selected create-only
-recovery is prepared at the matching `D:/Dev/Recovery/LocalLore` root. Ticket
+recovery targets the matching `D:/Dev/Recovery/LocalLore` root. Ticket
 handoff records actual recovery seals/readback. Four source worktrees, all failed
 captures, both SQLite scratch pairs and targets remain. Selected recovery is
 capped256MiB raw, excludes build targets/caches/models/keys/guest images, and

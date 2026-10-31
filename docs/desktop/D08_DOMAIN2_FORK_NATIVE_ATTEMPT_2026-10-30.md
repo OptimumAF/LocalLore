@@ -248,3 +248,9 @@ entire remaining512KiB metadata and20MiB packet is32,537,698B, below32MiB by
 1,016,734B. Full joint/target forecasts above still fit. Historical cohort
 totals retain their earlier verified frozen values; actual admission must
 remeasure them afresh. No future authority, admission, attempt or packet exists.
+
+That paragraph records the historical V2 proposal. The owner subsequently
+approved it; the corrected attempt also failed and its grant is spent. See the
+[V2 actual attempt and subsequent code correction](D08_DOMAIN2_FORK_NATIVE_V2_ATTEMPT_2026-10-30.md)
+for five inspected native images, physical diagnostic-copy readback, the
+session-readiness correction and the still-unapproved V3 resource proposal.

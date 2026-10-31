@@ -55,7 +55,7 @@ fork/recovery identity and stale-action/consent fences. Its separate
 [code verification](../../docs/desktop/D08_DOMAIN2_FORK_CODE_VERIFICATION_2026-10-30.md)
 passes21 frontend groups, eight new/six legacy Rust tests and compatibility checks,
 with generated permission readback and unlaunched normal restoration.
-Native fork UI/IPC/rendering remains unrun; the parent browser pass does not prove it.
+The parent browser pass does not establish fork UI/IPC/rendering qualification.
 The new [native harness code checks](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_CODE_VERIFICATION_2026-10-30.md)
 pass three Rust fixture/oracle groups,12 launcher groups and29 finalization
 groups, with21 fork regressions, compatibility checks and unlaunched normal
@@ -67,6 +67,15 @@ Its81 initial native DOM/IPC assertions produce no images or fork outcomes.
 Normal builds restore without launching; the attempt is spent. The checkpoint
 and diagnostic-retention corrections now pass five/six focused code groups plus
 regressions and normal-bundle readback. A separate native gate remains required.
+
+The separately approved [corrected native attempt](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_V2_ATTEMPT_2026-10-30.md)
+also fails:476 assertions and five individually inspected app-owned native images
+provide partial evidence, then a session-switch readiness check stops the journey.
+Diagnostic copies survive verified normal restoration. The harness now waits for
+matching session/story/revision state; six focused source regressions and the
+documented compatibility checks pass. Both native grants are spent. Proposed
+additional storage and a third bounded run remain unapproved; no native PASS or
+full D08 acceptance follows from these code checks.
 
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned

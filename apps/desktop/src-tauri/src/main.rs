@@ -27,6 +27,9 @@ mod evaluation_commands;
 mod export_commands;
 mod exports;
 mod fork_commands;
+mod generation_admission;
+#[cfg(test)]
+mod generation_admission_review;
 mod lease;
 mod memory_inspection_commands;
 mod memory_maintenance_commands;
@@ -129,13 +132,7 @@ async fn host_call(
     if input.len() > locallore::host::MAX_INPUT {
         return Err("TooLarge".into());
     }
-    let preparing = matches!(
-        serde_json::from_str::<locallore::host::Envelope>(&input),
-        Ok(locallore::host::Envelope {
-            command: locallore::host::HostCommand::Prepare { .. },
-            ..
-        })
-    );
+    let preparing = generation_admission::requires_generation_permit(&input);
     // Disk/replay/commit and generation all stay outside the UI event thread.
     // Only generation consumes the bounded permit; cancel/status can still run.
     let permit = if preparing {
@@ -153,14 +150,9 @@ async fn host_call(
     let lease = workspace.lease.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _permit = permit;
-        if preparing {
-            if !lease.valid(epoch) {
-                return Err("Closed".into());
-            }
+        generation_admission::dispatch(&lease, epoch, preparing, || {
             Ok(host.call(input.as_bytes()))
-        } else {
-            lease.dispatch(epoch, || Ok(host.call(input.as_bytes())))
-        }
+        })
     })
     .await
     .map_err(|_| "Transport".to_owned())?

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fork-boundaries"
+description = "Enables the fork_boundaries command without any pre-configured scope."
+commands.allow = ["fork_boundaries"]
+
+[[permission]]
+identifier = "deny-fork-boundaries"
+description = "Denies the fork_boundaries command without any pre-configured scope."
+commands.deny = ["fork_boundaries"]

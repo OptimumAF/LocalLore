@@ -38,16 +38,55 @@ children. Cancellation never claims an earlier commit was rolled back.
 **Saved timelines** now exposes the existing read-only catalog/resume adapter for
 Domain2 stories as well. Fork creation remains separate. The
 [browser qualification](../../docs/desktop/D08_DOMAIN2_TIMELINE_BROWSER_QUALIFICATION_2026-10-30.md)
-records passing frontend/writer checks and two failed native attempts. The
-corrected attempt produced six native views but failed finalization and timed
-out; final state proof and normal product restoration remain unavailable. All
+records two failed native attempts and the later owner-approved V3 pass:889
+assertions, six individually inspected native images and successful normal
+restoration. All
 evidence is retained. A separately approved reconciliation verifies the32 new
 source checks and rebuilds normal products without launching, but fails its
-build-storage cap. Further execution remains stopped; no native retry is approved.
+build-storage cap. That failure remains failed; the single V3 app attempt is spent.
 From `apps/desktop`, the standalone
 `node check-domain2-timeline-bootstrap-review.mjs` verifies the corrected setup
 prefix with actual controllers and synthetic transport. It is not native UI
 verification or permission for another application run.
+
+The [Domain2 fork source review](../../docs/desktop/D08_DOMAIN2_FORK_SOURCE_REVIEW_2026-10-30.md)
+describes the next integration: complete canonical boundary metadata, exact
+fork/recovery identity and stale-action/consent fences. Its separate
+[code verification](../../docs/desktop/D08_DOMAIN2_FORK_CODE_VERIFICATION_2026-10-30.md)
+passes21 frontend groups, eight new/six legacy Rust tests and compatibility checks,
+with generated permission readback and unlaunched normal restoration.
+The parent browser pass does not establish fork UI/IPC/rendering qualification.
+The new [native harness code checks](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_CODE_VERIFICATION_2026-10-30.md)
+pass three Rust fixture/oracle groups,12 launcher groups and29 finalization
+groups, with21 fork regressions, compatibility checks and unlaunched normal
+restoration. They preserve the initial failures and require separate permission
+and fresh resource admission before the proposed seven-image native journey.
+The later [one approved native attempt](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_ATTEMPT_2026-10-30.md)
+fails before its first capture: a required checkpoint revision field is missing.
+Its81 initial native DOM/IPC assertions produce no images or fork outcomes.
+Normal builds restore without launching; the attempt is spent. The checkpoint
+and diagnostic-retention corrections now pass five/six focused code groups plus
+regressions and normal-bundle readback. A separate native gate remains required.
+
+The separately approved [corrected native attempt](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_V2_ATTEMPT_2026-10-30.md)
+also fails:476 assertions and five individually inspected app-owned native images
+provide partial evidence, then a session-switch readiness check stops the journey.
+Diagnostic copies survive verified normal restoration. The harness now waits for
+matching session/story/revision state; six focused source regressions and the
+documented compatibility checks pass. Both earlier native grants are spent.
+The owner separately approves [one bounded V3 attempt](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_V3_2026-10-30.md),
+with the same retained group48MiB/joint708MiB/metadata768KiB. V3 captures all seven
+planned native images, but fails the final in-app resource cleanup check. Normal
+restoration and physical diagnostic copies are verified. The separate bounded
+close-trace correction has passing focused cases; all three native grants are
+spent. There is no post-fix native PASS or full D08 acceptance.
+
+The owner separately approves [one bounded V4 run](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_V4_2026-10-30.md).
+Its native gate passes1058 assertions/726 distinct checks,131 settled dispatches
+and all seven individually inspected app-owned images, including620px/150% text.
+All four native closes complete and the strict final sessions/workers values are
+zero; normal products restore unlaunched. Earlier failures remain preserved and
+the grant is spent. Whole D08 and broader acceptance gates remain separate.
 
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned

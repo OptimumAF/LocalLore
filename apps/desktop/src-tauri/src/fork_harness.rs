@@ -16,7 +16,8 @@ pub struct ForkHarnessState {
     pub lose_ack: AtomicBool,
 }
 pub fn active() -> bool {
-    crate::harness::active() && std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1")
+    (crate::harness::active() && std::env::var("LOCALLORE_D08_FORK_HARNESS").as_deref() == Ok("1"))
+        || crate::domain2_fork_harness::active()
 }
 pub fn seed(path: &Path) -> Result<(), String> {
     let mut store = Store::create_new_pinned(path).map_err(|e| e.to_string())?;
@@ -67,6 +68,10 @@ pub async fn harness_fork_case(
     state: tauri::State<'_, Arc<ForkHarnessState>>,
     action: String,
 ) -> Result<Value, String> {
+    let domain2 = crate::domain2_fork_harness::runtime_mode()?;
+    if domain2 && !crate::domain2_fork_harness::allowed_action(&action) {
+        return Err("Forbidden".into());
+    }
     if !active() {
         return Err("Forbidden".into());
     }
@@ -75,6 +80,33 @@ pub async fn harness_fork_case(
         .capture(window.label())
         .map_err(str::to_owned)?;
     match action.as_str() {
+        "domain2-oracle" if domain2 => {
+            let path = workspace.path.clone();
+            if crate::domain2_fork_harness::environment_workspace()?.as_os_str() != path.as_os_str()
+            {
+                return Err("SyntheticWorkspaceRequired".into());
+            }
+            let lease = workspace.lease.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let value = lease.dispatch(epoch, || {
+                    if !crate::domain2_fork_harness::runtime_mode()? {
+                        return Err("Forbidden".into());
+                    }
+                    if crate::domain2_fork_harness::environment_workspace()?.as_os_str()
+                        != path.as_os_str()
+                    {
+                        return Err("SyntheticWorkspaceRequired".into());
+                    }
+                    crate::domain2_fork_harness::validate_workspace_path(&path)?;
+                    let _pins =
+                        crate::archive::pin(&path).map_err(|_| "SyntheticWorkspaceRequired")?;
+                    crate::domain2_fork_harness::oracle(&path)
+                })?;
+                lease.dispatch(epoch, || Ok(value))
+            })
+            .await
+            .map_err(|_| "SyntheticWorker".to_owned())?
+        }
         "hold" => {
             state.hold.store(true, Ordering::SeqCst);
             Ok(json!({"held":true}))

@@ -2,19 +2,117 @@
 //! Uses the existing archive worker/registration/lifetime owner; no new Store.
 use crate::{archive::ArchiveBroker, WorkspaceState};
 use locallore::{
-    contracts::Scope,
+    author_correction::CompletedBoundaryCatalogV2,
+    contracts::{Scope, MAX_COMMANDS, MAX_HISTORY_RECEIPTS},
     host::{Host, WorkspaceForkRequest},
 };
 use serde_json::{json, Value};
 use std::sync::Arc;
 
 const MAX_SAFE: u64 = 9_007_199_254_740_991;
+const MAX_BOUNDARY_BYTES: usize = 64 * 1024;
+const MAX_BOUNDARY_HEAD: u64 = (MAX_HISTORY_RECEIPTS * MAX_COMMANDS) as u64;
 fn id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 64
         && value
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+}
+struct BoundaryInput<'a> {
+    session: &'a str,
+    story: &'a str,
+    branch: &'a str,
+    head: u64,
+}
+fn boundary_input(value: &Value) -> Result<BoundaryInput<'_>, String> {
+    let object = value.as_object().ok_or("InvalidForkInput")?;
+    let keys = ["session", "scope", "expected_head"];
+    if object.len() != keys.len() || object.keys().any(|key| !keys.contains(&key.as_str())) {
+        return Err("InvalidForkInput".into());
+    }
+    let session = value["session"]
+        .as_str()
+        .filter(|value| {
+            !value.is_empty()
+                && value.len() <= 128
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+        })
+        .ok_or("InvalidForkInput")?;
+    let scope = value["scope"].as_object().ok_or("InvalidForkInput")?;
+    if scope.len() != 2
+        || scope
+            .keys()
+            .any(|key| !["story", "branch"].contains(&key.as_str()))
+    {
+        return Err("InvalidForkInput".into());
+    }
+    let story = value["scope"]["story"]
+        .as_str()
+        .filter(|value| id(value))
+        .ok_or("InvalidForkInput")?;
+    let branch = value["scope"]["branch"]
+        .as_str()
+        .filter(|value| id(value))
+        .ok_or("InvalidForkInput")?;
+    let head = value["expected_head"]
+        .as_u64()
+        .filter(|head| *head <= MAX_SAFE)
+        .ok_or("InvalidForkInput")?;
+    Ok(BoundaryInput {
+        session,
+        story,
+        branch,
+        head,
+    })
+}
+/// Wire admission only. Core computes the full canonical boundaries.
+pub(crate) fn encode_boundary_catalog(
+    catalog: &CompletedBoundaryCatalogV2,
+) -> Result<Value, String> {
+    if catalog.boundaries.is_empty()
+        || catalog.boundaries.len() > MAX_HISTORY_RECEIPTS + 1
+        || catalog.head > MAX_SAFE
+        || catalog.head > MAX_BOUNDARY_HEAD
+        || catalog
+            .boundaries
+            .iter()
+            .any(|head| *head > MAX_SAFE || *head > MAX_BOUNDARY_HEAD)
+        || !id(&catalog.scope.story)
+        || !id(&catalog.scope.branch)
+    {
+        return Err("TooLarge".into());
+    }
+    if catalog.version != 2
+        || catalog.boundaries.first() != Some(&0)
+        || catalog.boundaries.last() != Some(&catalog.head)
+        || catalog.boundaries.windows(2).any(|pair| pair[0] >= pair[1])
+    {
+        return Err("Integrity".into());
+    }
+    let compact = serde_json::to_vec(catalog).map_err(|_| "Internal")?;
+    let pretty = serde_json::to_vec_pretty(catalog).map_err(|_| "Internal")?;
+    if compact.len() > MAX_BOUNDARY_BYTES || pretty.len() > MAX_BOUNDARY_BYTES {
+        return Err("TooLarge".into());
+    }
+    serde_json::from_slice(&compact).map_err(|_| "Internal".into())
+}
+/// Reuse the existing coherent Host read; neither Engine nor coverage escapes.
+/// Unsupported derived coverage in Domain2 does not disable canonical metadata.
+pub(crate) fn read_boundary_catalog(
+    host: &Host,
+    input: &Value,
+    cancel: &dyn Fn() -> bool,
+) -> Result<Value, String> {
+    let request = boundary_input(input)?;
+    let scope = Scope {
+        story: request.story.into(),
+        branch: request.branch.into(),
+    };
+    let snapshot = host.generation_snapshot(request.session, &scope, request.head, cancel)?;
+    encode_boundary_catalog(&snapshot.engine.completed_boundary_catalog())
 }
 pub fn request(value: &Value) -> Result<WorkspaceForkRequest, String> {
     let object = value.as_object().ok_or("InvalidForkInput")?;
@@ -115,6 +213,30 @@ pub fn lookup(host: &Host, input: &WorkspaceForkRequest) -> Result<Value, String
     }
 }
 #[tauri::command]
+pub async fn fork_boundaries(
+    window: tauri::WebviewWindow,
+    workspace: tauri::State<'_, WorkspaceState>,
+    input: Value,
+) -> Result<Value, String> {
+    // Borrow/validate all renderer scalars before copying or entering the owner.
+    boundary_input(&input)?;
+    let epoch = workspace
+        .lease
+        .capture(window.label())
+        .map_err(str::to_owned)?;
+    let host = workspace.get(epoch).await?;
+    let lease = workspace.lease.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        lease.dispatch(epoch, || Ok(()))?;
+        let value = read_boundary_catalog(&host, &input, &|| !lease.valid(epoch))?;
+        // A retired window cannot publish a read even if closure followed its
+        // final Store cancellation observation. This admits no archive worker.
+        lease.dispatch(epoch, || Ok(value))
+    })
+    .await
+    .map_err(|_| "Transport".to_owned())?
+}
+#[tauri::command]
 pub async fn fork_start(
     window: tauri::WebviewWindow,
     workspace: tauri::State<'_, WorkspaceState>,
@@ -211,7 +333,12 @@ pub async fn fork_lookup(
         .map_err(|_| "Transport".to_owned())?
 }
 // Status/cancel reuse archive_status/archive_cancel with the returned operation_id.
-// The root integration must register only these two closed commands.
+// The root integration registers these two mutation/recovery commands and the
+// separate closed, neutral fork_boundaries read.
+
+#[cfg(test)]
+#[path = "fork_boundary_review_tests.rs"]
+mod boundary_catalog_review_tests;
 
 #[cfg(test)]
 mod fork_adapter_tests {

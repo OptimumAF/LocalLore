@@ -68,6 +68,7 @@ declare global {
             sceneModelGuard?: boolean;
             inspectorPaging?: boolean;
             timelineBrowser?: boolean;
+            domain2Fork?: boolean;
             nativeComparisonDenied?: boolean;
             archiving?: boolean;
             timelining?: boolean;
@@ -103,6 +104,13 @@ const authorHarnessModule =
         : null;
 const authorTransport = authorHarnessModule
     ? new authorHarnessModule.AuthorHarnessTransport()
+    : null;
+const domain2ForkModule =
+    __DEV_HARNESS__ && window.__LOCALLORE_TEST__?.domain2Fork
+        ? await import("./domain2-fork-native-journeys")
+        : null;
+const domain2ForkTrace = domain2ForkModule
+    ? new domain2ForkModule.Domain2ForkTrace()
     : null;
 const brokerRetention = new BrokerRetention((surface) =>
     surface === "author"
@@ -179,7 +187,12 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
                 maintenance.get().operation?.running))
     )
         return Promise.reject("ArchiveBusy");
-    const rawNative = () => window.__TAURI__.core.invoke(command, args);
+    const rawNative = () =>
+        domain2ForkTrace
+            ? domain2ForkTrace.dispatch(command, args, () =>
+                  window.__TAURI__.core.invoke(command, args),
+              )
+            : window.__TAURI__.core.invoke(command, args);
     const native = () =>
         authorTransport
             ? authorTransport.native(command, args, rawNative)
@@ -495,6 +508,19 @@ function syncTraceGameplayFence() {
             : null,
     );
 }
+function syncForkAdmission() {
+    const s = controller.get(),
+        gameplay = v2.get();
+    fork.setAdmissionBlocked(
+        stopping ||
+            s.starting ||
+            !!s.pending ||
+            s.disposed ||
+            !!gameplay.pending ||
+            !!gameplay.uncertain ||
+            !fork.matchesContext(timelineContext(controller)),
+    );
+}
 // Invalidate evaluation replies before React observes a changed story/lens/Play
 // context. Evaluation is independent of gameplay; no gameplay controller changes.
 const syncEvaluationContext = () => {
@@ -514,6 +540,7 @@ const syncEvaluationContext = () => {
         memorySelectionEpoch++;
     }
     syncV2Context();
+    syncForkAdmission();
     syncTraceGameplayFence();
     author.contextChanged(authorContext());
     maintenance.contextChanged(memoryContext(controller, memorySelectionEpoch));
@@ -526,6 +553,7 @@ const syncEvaluationContext = () => {
     );
     timeline.contextChanged(timelineContext(controller));
     fork.contextChanged(timelineContext(controller));
+    syncForkAdmission();
     capture.contextChanged(
         controller.selected(),
         s.play?.revision ?? 0,
@@ -610,6 +638,7 @@ function authorContext(): AuthorContext | null {
 }
 const releaseEvaluationContext = controller.subscribe(syncEvaluationContext);
 const releaseV2Context = v2.subscribe(() => {
+    syncForkAdmission();
     syncTraceGameplayFence();
     author.contextChanged(authorContext());
 });
@@ -684,6 +713,7 @@ root.render(
 );
 const dispose = async () => {
     stopping = true;
+    syncForkAdmission();
     controller.setTraceGameplayFence(null);
     for (const release of releaseBrokerConsumption) release();
     releaseEvaluationContext();
@@ -748,7 +778,23 @@ if (driver && window.__LOCALLORE_TEST__?.enabled) {
                   ? durableDriver.durableJourneys
                   : driver.journeys;
     const sceneCase = window.__LOCALLORE_TEST__?.sceneCase;
-    if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelineBrowser) {
+    if (
+        __DEV_HARNESS__ &&
+        window.__LOCALLORE_TEST__?.domain2Fork &&
+        domain2ForkModule &&
+        domain2ForkTrace
+    ) {
+        await domain2ForkModule.domain2ForkNativeJourneys({
+            controller,
+            fork,
+            timeline,
+            v2,
+            errors,
+            invoke,
+            trace: domain2ForkTrace,
+            dispose,
+        });
+    } else if (__DEV_HARNESS__ && window.__LOCALLORE_TEST__?.timelineBrowser) {
         const { domain2TimelineBrowserNativeJourneys } =
             await import("./domain2-timeline-browser-native-journeys");
         await domain2TimelineBrowserNativeJourneys({

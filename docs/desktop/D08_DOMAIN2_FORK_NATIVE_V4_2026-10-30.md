@@ -127,6 +127,86 @@ outside Git; no desktop imagery or input is used.
 
 ## Actual native outcome
 
-Fresh admission and the ONE native invocation remain pending at this checkpoint.
-No native pass, whole-D08/desktop acceptance, merge or release follows from the
-code gate. The actual run and image/closure inspection will be recorded here.
+The ONE admitted native invocation PASSES at exact source
+`9c8106b1707da6be4157d9134290463fc97087a0`. Its grant is now spent. Fresh admission
+finds zero owned/ambiguous app/profile processes and fits full joint
+reserve757,186,847B, group reserve60,352,156B and target forecast12,446,240,371B.
+Both admission and the final process observation meet the two0–30s checks.
+
+Actual app5.500s,04:47:44.955Z–04:47:50.455Z October31 (October30 local).
+Coordinator107.2444112s. All five inner children close0/0/0/0/0; outer code0.
+No timeout, overflow/truncation, kill, unknown shutdown or storage breach. The
+strict final measured values are sessions0/workers0, not inferred from process
+exit. All131 product dispatches settle:64 ordinary Host reads,4 attempted native
+closes,53 fork calls and10 other native calls; no unexpected bounded errors.
+Total report1058 assertions/726 distinct checks, failure null and passed true.
+
+The actual Main/controllers/native IPC exercise mixed completed boundaries,
+consent refusal, native invalid-boundary probes, pending/cancel/retry/retirement,
+stale completion during selection changes, pre-author child2, after-author
+child3 and exact lost-ack lookup recovery at0. All three children match the
+Rust Core prefix proofs; original/sibling/other scopes and canonical/observer
+fingerprints remain unchanged. Inherited receipts retain their original scope.
+Recovery reconstructs the fixed frontend surface and looks up its saved identity
+within this app process; this is not a second OS-process restart test.
+
+Native probes, deliberate Rust gates and local delivery-fault doubles remain
+separately labeled in the report. They do not turn every rejected UI operation
+into a Rust transport failure. Inspection does not mutate character knowledge
+or native generation construction; real inference is not invoked in this fixture.
+
+## Original images and independent product readback
+
+SAME retained group packet `p-a8cfdf80-4b1e-4996-89b3-5fb8f35b4109`, workspace
+`d08-domain2-fork-native-2480fa4d-08c6-4cea-b697-99d24eb5fd8a`.
+The207,632B report SHA256 is
+`15232c382a0592c4c7604dd0f71b80d309abfc30f1b39e49c836ded01c26275a`.
+Root individually views all seven ORIGINAL application-owned CapturePreview
+PNGs, reads their hashes/dimensions and compares semantic snapshot dimensions:
+
+| Image | Visible-state review |
+| --- | --- |
+| Catalog | Authored3/player, complete boundary selector and explicit no-selected-receipt state readable. |
+| Rejected | Authored3/omniscient, unchecked consent, disabled confirmation and `ForkConsentRequired` visible. |
+| Pending | Operation3, cancel enabled, retry/lookup disabled; cancellation/lost-ack notice readable. Context lies outside this target frame. |
+| Pre-author | Selected child2/player, inherited receipt's original main scope and exact recovery identity readable. |
+| After-author | Selected child3/omniscient; no selected receipt honestly labeled; original authored3 request visible. |
+| Recovered | Saved child0/player, exact lookup-only recovery identity and no selected receipt readable. |
+| Enlarged | Actual620×900/150% text; UUID wraps, head3/player and controls readable without horizontal overlap. |
+
+Other six images are1280×900/100% text. No overlap or horizontal clipping is
+found in the captured targets. Vertical content outside each target frame remains
+outside that image's claim; this is not whole-page accessibility, physical-input
+or screen-reader qualification. Actual WebView UA is Chrome/Edg156.0.0.0.
+No desktop imagery, mouse/keyboard injection or window activation is used.
+
+Root reads back both exclusive ordinary diagnostic copies after normal
+restoration and verifies length/SHA256 against the generated proof:
+
+| Product | Bytes | SHA256 |
+| --- | ---: | --- |
+| Packet `diagnostic-app.js` |2,238,871 |`ba5eb82c5d892c1e09170673003d39989c0827fab5d51cb557fe46c3d7e23e1d` |
+| Target `d08-fork-diagnostic-p-a8cfdf80-4b1e-4996-89b3-5fb8f35b4109.exe` |44,253,696 |`b08bf90fa4bc84feca48a243bfbd1b2c2035ed04ae913254dc102bba59ea0766` |
+
+Normal frontend remains574a665a…; normal native becomes
+`25104670e54e467e5bb0a9b18fbf3d194b3f7e7c5a4f37df8f499203a1617bf9`,
+matching direct readback of the actual restoration record, UNLAUNCHED. Old
+ff2/0d21/D144 ordinary copies and every earlier failed packet remain intact.
+Source/proof hashes for all38 current inputs, seven fresh checks and three
+carried checks still match. Root's subsequent read-only process query finds
+zero owned/zero ambiguous processes. Neither that query nor the child records
+claim OS process-tree containment.
+
+Before Root's4,798B review record: packet14,000,077B, group53,103,092B,
+joint735,424,376B and target12,088,292,911B (growth3,828,312,335B from the ORIGINAL
+baseline). After the record, logical metadata906,825B remains below1152KiB;
+group53,107,890B and joint735,429,174B remain within64MiB/724MiB. Old records,
+fixtures and frozen external cohorts retain their bounds. No output is deleted,
+deduplicated, moved or reclassified. The generated qualification's pending-image
+marker stays unchanged; separate immutable `v4-root-image-review.json` records
+the completed individual review and source/product/report/qualification hashes.
+
+This passes the scoped Domain2 fork native UI/IPC/render/recovery/cleanup gate.
+All three earlier native failures remain failed; the V1 raw-copy gap remains.
+Whole D08, cross-platform transfer, broader desktop/model/device/OS and release
+gates remain separate. There is no additional application-run permission.

@@ -46,8 +46,23 @@ class Query2StoryRecordTest {
         .put("observer", JSONObject().put("kind", "player")).put("privacy", "player_visible").put("status", "supported")
         .put("view", q.section.wire).put("total", total).put("rows", JSONArray(rows)).put("next_cursor", next ?: JSONObject.NULL).put("unsupported", JSONArray())
     private fun copy(value: JSONObject) = JSONObject(value.toString())
+    private val nativePlayers = mutableMapOf<StoryRecordQuery, String>()
+    private fun decodeBoundFixture(data: JSONObject, q: StoryRecordQuery): StoryRecordPage {
+        val player = nativePlayers[q] ?: "player"
+        if (player == "player") return StoryRecordWire.decode(data, q)
+        // Test-only adaptation keeps the original FIRST file compilable on the
+        // old API. The old baseline runs its real decoder and refuses opaque
+        // rows; the new API receives ONLY the captured case metadata, never an
+        // actor inferred from the returned page. Production is tested below
+        // through DurableGateway's actual private snapshot binding instead.
+        val decoder = try {
+            StoryRecordWire::class.java.getDeclaredMethod("decode", JSONObject::class.java, StoryRecordQuery::class.java, String::class.java)
+        } catch (_: NoSuchMethodException) { return StoryRecordWire.decode(data, q) }
+        return try { decoder.invoke(StoryRecordWire, data, q, player) as StoryRecordPage }
+        catch (failure: java.lang.reflect.InvocationTargetException) { throw failure.targetException }
+    }
     private fun required(data: JSONObject, q: StoryRecordQuery): StoryRecordPage = try {
-        StoryRecordWire.decode(data, q)
+        decodeBoundFixture(data, q)
     } catch (failure: StoryRecordFailure) {
         throw AssertionError("The fixed player adapter must decode this valid Query${q.version} ${q.section.wire} page", failure)
     }
@@ -77,7 +92,7 @@ class Query2StoryRecordTest {
         assertTrue(q.isNull("at_revision")); assertEquals(context.revision, q.getLong("expected_head"))
         assertEquals(context.story.story, q.getJSONObject("scope").getString("story")); assertEquals(context.story.branch, q.getJSONObject("scope").getString("branch"))
         return StoryRecordQuery(context, StoryRecordSection.entries.single { it.wire == q.getString("view") }, q.getString("search"),
-            if (q.isNull("cursor")) null else q.getString("cursor"), version = 2)
+            if (q.isNull("cursor")) null else q.getString("cursor"), version = 2).also { nativePlayers[it] = case.getString("player") }
     }
     private fun reference(value: JSONObject) = StoryRecordScopedEvent(
         StoryRecordScope(value.getJSONObject("original_scope").getString("story"), value.getJSONObject("original_scope").getString("branch")), value.getLong("sequence"))
@@ -326,6 +341,193 @@ class Query2StoryRecordTest {
             assertFalse(controller.state.value.toString().contains("PRIVATE_ADAPTER_FAILURE"))
             val before = reads.toList(); controller.openScopedEvent(StoryRecordScopedEvent(StoryRecordScope("survey-story", "ancestor"), 3)); advanceUntilIdle()
             assertEquals(before, reads); assertNull(controller.state.value.eventDetail); controller.dispose()
+        }
+    }
+
+    /** OS/native IO seam only: the real gateway performs all attachment/snapshot/decoder checks. */
+    private class PlayerPort(val context: StoryRecordContext, var snapshotNativeObserver: Any?) : WorkspaceTransport {
+        val sharedScope = JSONObject().put("story", context.story.story).put("branch", context.story.branch)
+        val operations = mutableListOf<String>()
+        val inspections = mutableListOf<JSONObject>()
+        var head = context.revision
+        var closes = 0
+        var answer = JSONObject()
+        var beforeReply: (suspend () -> Unit)? = null
+        private fun ok(data: JSONObject) = JSONObject().put("version", 1).put("status", "ok").put("data", data)
+        override suspend fun exchange(command: JSONObject): JSONObject {
+            val op = command.getString("op"); operations += op
+            return when (op) {
+                "workspace" -> ok(JSONObject().put("persistent", true).put("location", "synthetic transport, no file")
+                    .put("schema_version", 1).put("database_schema_version", 5).put("stories", JSONArray().put(JSONObject()
+                        .put("scope", sharedScope).put("title", context.story.title).put("revision", head).put("drafts", 0))))
+                "branches" -> ok(JSONObject().put("version", 2).put("story_id", context.story.story).put("title", context.story.title)
+                    .put("root_branch", context.story.branch).put("branches", JSONArray().put(JSONObject().put("scope", sharedScope)
+                        .put("parent_branch", JSONObject.NULL).put("fork_revision", JSONObject.NULL).put("revision", head).put("drafts", 0).put("retired", false))))
+                "resume", "open" -> ok(JSONObject().put("session", "same-session").put("scope", sharedScope).put("revision", head))
+                "play_snapshot" -> ok(JSONObject().put("scope", sharedScope).put("revision", head).put("rules", "narrative_v1")
+                    .put("inventory", JSONObject()).put("receipts", JSONArray()).put("player", JSONObject().put("scope", sharedScope)
+                        .put("revision", head).put("observer", snapshotNativeObserver ?: JSONObject.NULL)))
+                "capabilities" -> ok(JSONObject().put("free_text", false))
+                "inspection_query" -> {
+                    inspections += JSONObject(command.toString())
+                    val callback = beforeReply; beforeReply = null; callback?.invoke()
+                    ok(JSONObject(answer.toString()))
+                }
+                "close" -> ok(JSONObject().put("closed", true))
+                else -> throw AssertionError("Unexpected operation in fixed read-only transport: $op")
+            }
+        }
+        override fun close() { closes++ }
+    }
+    private suspend fun gatewayRefuses(gateway: DurableGateway, q: StoryRecordQuery, expected: Set<StoryRecordProblem>) {
+        var refused: StoryRecordFailure? = null
+        try { gateway.readStoryRecord(q) } catch (failure: StoryRecordFailure) { refused = failure }
+        assertNotNull("An unbound, forged or stale response must not become a player record", refused)
+        assertTrue("Wrong refusal category: ${refused?.problem}", checkNotNull(refused).problem in expected)
+    }
+    private fun opaqueField(player: String, source: JSONObject) = field(source).put("actor", player)
+
+    @Test fun actualGatewayDecodesEveryOpaqueAuthoredNativePageUsingItsSnapshotBoundPlayer() = runTest {
+        for (id in listOf("authored", "authored_corrected")) {
+            val case = nativeCase(id); val player = case.getString("player")
+            assertNotEquals("player", player)
+            assertEquals(if (id == "authored") 1 else 2, case.getInt("domain_version"))
+            val pages = objects(case.getJSONArray("pages")); assertTrue(pages.isNotEmpty())
+            val first = nativeQuery(case, pages.first())
+            val port = PlayerPort(first.context, player); val gateway = DurableGateway(port, autoCreateIfEmpty = false)
+            try {
+                val saved = gateway.initialize(); assertEquals(first.context.story, saved.selected)
+                for (raw in pages) {
+                    val q = nativeQuery(case, raw); port.answer = copy(raw.getJSONObject("page"))
+                    val decoded = gateway.readStoryRecord(q)
+                    val rows = objects(raw.getJSONObject("page").getJSONArray("rows")); assertEquals(rows.size, decoded.entries.size)
+                    decoded.entries.forEachIndexed { index, entry -> assertTrue(entry.eventSources.isEmpty()); assertEquals(rawReferences(rows[index]), entry.scopedEventSources) }
+                    val sent = port.inspections.last(); assertEquals("same-session", sent.getString("session"))
+                    val observer = sent.getJSONObject("query").getJSONObject("observer")
+                    assertEquals(setOf("kind"), observer.keys().asSequence().toSet()); assertEquals("player", observer.getString("kind"))
+                }
+                assertEquals(pages.size, port.inspections.size)
+                assertTrue(port.operations.all { it in setOf("workspace", "branches", "resume", "open", "play_snapshot", "capabilities", "inspection_query") })
+            } finally { gateway.close() }
+            assertEquals(1, port.closes)
+        }
+    }
+
+    @Test fun actualGatewayBindsOpaqueProfileItemsBeliefsPromisesAndEventWitnessesWithoutRewritingSpeakers() = runTest {
+        val player = "a-0123456789abcdef0123-0"
+        val port = PlayerPort(context, player); val gateway = DurableGateway(port, autoCreateIfEmpty = false)
+        val seed = JSONObject().put("kind", "seed").put("value", "opaque-seed")
+        val item = opaqueField(player, copy(seed)).put("key", "owned-item").put("field", "Possession")
+            .put("value", JSONObject().put("type", "item").put("value", JSONObject().put("owner", player).put("quantity", 1)
+                .put("healing", false).put("return_to", JSONObject.NULL)))
+        val belief = knowledge(copy(seed)).put("key", "opaque-belief").put("origin", "subjective_belief").put("subject", player).put("confidence", "suspected")
+        val statement = knowledge(copy(seed)).put("key", "other-speaker").put("origin", "recorded_statement").put("subject", "a-visible-speaker")
+        val promise = JSONObject().put("kind", "promise").put("key", "opaque-promise").put("origin", "derived_comparison")
+            .put("id", "return-key").put("from", "a-mentor").put("to", player).put("terms", "Return the key.")
+            .put("deadline", 9).put("status", "open").put("return_item", JSONObject.NULL).put("sources", JSONArray().put(copy(seed)))
+        val ref = StoryRecordScopedEvent(StoryRecordScope(context.story.story, "ancestor"), 3)
+        val witnessed = event(ref).also { it.getJSONObject("event").put("participants", JSONArray().put(player)).put("witnesses", JSONArray().put(player)) }
+        val fixtures = listOf(
+            StoryRecordSection.PROGRESSION to listOf(opaqueField(player, copy(seed)), item),
+            StoryRecordSection.RELATIONSHIPS to listOf(relationship(copy(seed)).put("from", player)),
+            StoryRecordSection.KNOWLEDGE to listOf(knowledge(copy(seed)).put("subject", player), belief, statement),
+            StoryRecordSection.PROMISES to listOf(promise), StoryRecordSection.HISTORY to listOf(witnessed),
+        )
+        try {
+            gateway.initialize()
+            for ((section, rows) in fixtures) {
+                val q = query(section); port.answer = page(q, rows)
+                val decoded = gateway.readStoryRecord(q); assertEquals(rows.size, decoded.entries.size)
+                if (section == StoryRecordSection.KNOWLEDGE) {
+                    assertEquals("known_as_observed", decoded.entries[0].origin.wire)
+                    assertTrue(decoded.entries[2].title.contains("a-visible-speaker"))
+                }
+                if (section == StoryRecordSection.PROGRESSION) assertTrue(decoded.entries[1].text.contains("Owner: $player"))
+            }
+            for ((section, row) in listOf(
+                StoryRecordSection.PROGRESSION to opaqueField("player", copy(seed)),
+                StoryRecordSection.PROGRESSION to copy(item).also { it.getJSONObject("value").getJSONObject("value").put("owner", "player") },
+                StoryRecordSection.RELATIONSHIPS to relationship(copy(seed)),
+                StoryRecordSection.KNOWLEDGE to knowledge(copy(seed)),
+                StoryRecordSection.KNOWLEDGE to copy(belief).put("subject", "player"),
+                StoryRecordSection.PROMISES to copy(promise).put("to", "player"),
+                StoryRecordSection.HISTORY to copy(witnessed).also { it.getJSONObject("event").put("witnesses", JSONArray().put("player")) },
+            )) {
+                val q = query(section); port.answer = page(q, listOf(row))
+                gateway.snapshot()
+                gatewayRefuses(gateway, q, setOf(StoryRecordProblem.INVALID_RESPONSE))
+            }
+        } finally { gateway.close() }
+    }
+
+    @Test fun explicitQuery1GatewayUsesOpaqueSnapshotIdentityAndRefusesAValidLiteralPlayerForgery() = runTest {
+        val player = "a-0123456789abcdef0123-0"
+        val port = PlayerPort(context, player); val gateway = DurableGateway(port, autoCreateIfEmpty = false)
+        val q = query(StoryRecordSection.PROGRESSION, version = 1)
+        val seed = JSONObject().put("kind", "seed").put("value", "opaque-seed")
+        try {
+            gateway.initialize()
+            val foreign = q.copy(context = context.copy(story = context.story.copy(story = "another-story")))
+            gatewayRefuses(gateway, foreign, setOf(StoryRecordProblem.STALE))
+            assertTrue(port.inspections.isEmpty())
+            // This is otherwise a fully valid legacy row. The old literal-ID
+            // decoder accepts it despite the gateway's opaque native observer.
+            port.answer = page(q, listOf(opaqueField("player", copy(seed))))
+            gatewayRefuses(gateway, q, setOf(StoryRecordProblem.INVALID_RESPONSE))
+            port.answer = page(q, listOf(opaqueField(player, copy(seed))))
+            assertEquals("Energy", gateway.readStoryRecord(q).entries.single().title)
+            val wire = port.inspections.last().getJSONObject("query")
+            assertEquals(1, wire.getInt("version")); assertEquals(setOf("kind"), wire.getJSONObject("observer").keys().asSequence().toSet())
+        } finally { gateway.close() }
+    }
+
+    @Test fun missingOrFailedSnapshotBindingRefusesBeforeAnyInspectionBytesAreRequested() = runTest {
+        val q = query(StoryRecordSection.PROGRESSION, version = 1)
+        for (observer in listOf<Any?>(null, true, 42)) {
+            val port = PlayerPort(context, observer); val gateway = DurableGateway(port, autoCreateIfEmpty = false)
+            try {
+                gatewayRefuses(gateway, q, setOf(StoryRecordProblem.UNAVAILABLE))
+                var failure: WorkspaceFailure? = null
+                try { gateway.initialize() } catch (invalid: WorkspaceFailure) { failure = invalid }
+                assertNotNull("Malformed native observer cannot establish coherent binding", failure)
+                port.answer = page(q, listOf(field(JSONObject().put("kind", "seed").put("value", "synthetic-seed"))))
+                gatewayRefuses(gateway, q, setOf(StoryRecordProblem.UNAVAILABLE))
+                assertTrue(port.inspections.isEmpty())
+            } finally { gateway.close() }
+        }
+    }
+
+    @Test fun inFlightReadRejectsObserverChangeReusedAttachmentHeadAdvanceAndClosure() = runTest {
+        val player = "a-0123456789abcdef0123-0"
+        val q = query(StoryRecordSection.PROGRESSION, version = 1)
+        for (action in listOf("observer", "attachment", "head", "close")) {
+            val port = PlayerPort(context, player); val gateway = DurableGateway(port, autoCreateIfEmpty = false)
+            try {
+                val selected = checkNotNull(gateway.initialize().selected)
+                // Valid for the old literal decoder, so an unchanged session,
+                // scope-object and head cannot accidentally mask the binding bug.
+                port.answer = page(q, listOf(field(JSONObject().put("kind", "seed").put("value", "synthetic-seed"))))
+                port.beforeReply = {
+                    when (action) {
+                        "observer" -> {
+                            port.snapshotNativeObserver = "a-other-native-observer"
+                            var failure: WorkspaceFailure? = null
+                            try { gateway.snapshot() } catch (invalid: WorkspaceFailure) { failure = invalid }
+                            assertEquals("Stale", checkNotNull(failure).category)
+                        }
+                        "attachment" -> {
+                            val next = gateway.resumeSaved(selected)
+                            assertEquals(selected, next.selected)
+                            assertEquals(2, port.operations.count { it == "resume" })
+                        }
+                        "head" -> { port.head++; assertEquals(9L, gateway.snapshot().revision) }
+                        else -> gateway.close()
+                    }
+                }
+                gatewayRefuses(gateway, q, setOf(StoryRecordProblem.STALE))
+                assertEquals(1, port.inspections.size)
+            } finally { gateway.close() }
+            assertEquals(1, port.closes)
         }
     }
 }

@@ -7,6 +7,7 @@ enum class StoryRecordSection(val wire: String, val label: String) {
     HISTORY("history", "History"),
     RELATIONSHIPS("relationships", "Relationships"),
     KNOWLEDGE("knowledge", "Knowledge"),
+    PROMISES("promises", "Promises"),
 }
 
 enum class StoryRecordOrigin(val wire: String, val label: String) {
@@ -26,6 +27,7 @@ data class StoryRecordQuery(
     val section: StoryRecordSection = StoryRecordSection.PROGRESSION,
     val search: String = "",
     val cursor: String? = null,
+    val version: Int = if (section == StoryRecordSection.PROMISES) 2 else 1,
 )
 data class StoryRecordEntry(
     val key: String,
@@ -35,15 +37,20 @@ data class StoryRecordEntry(
     val sources: List<String> = emptyList(),
     val eventSources: List<Long> = emptyList(),
     val event: StoryRecordEvent? = null,
+    val scopedEventSources: List<StoryRecordScopedEvent> = emptyList(),
 )
 
-data class StoryRecordEvent(val sequence: Long, val turn: String, val storyTime: Long)
+data class StoryRecordScope(val story: String, val branch: String)
+data class StoryRecordScopedEvent(val originalScope: StoryRecordScope, val sequence: Long)
+data class StoryRecordEvent(val sequence: Long, val turn: String, val storyTime: Long,
+    val originalScope: StoryRecordScope? = null)
 
 data class StoryRecordEventDetail(
     val reference: Long,
     val loading: Boolean = true,
     val entry: StoryRecordEntry? = null,
     val problem: StoryRecordProblem? = null,
+    val scopedReference: StoryRecordScopedEvent? = null,
 )
 data class StoryRecordPage(
     val query: StoryRecordQuery,

@@ -477,13 +477,25 @@ pub enum HostPlayConstructionV1 {
     /// Additive scene recipes; defaults and historical mappings stay unchanged.
     MemorySceneV1(crate::play::PlayContextPolicy),
     PlayerLiteralSceneV1,
+    /// Native app construction resolves each validated story snapshot separately.
+    MemoryStorySceneV1(crate::play::PlayContextPolicy),
     /// Explicit authored-world scene construction; never selected from wire.
     MemoryAuthoredSceneV2(crate::play::PlayContextPolicy),
     PlayerLiteralAuthoredSceneV2,
 }
 impl HostPlayConstructionV1 {
-    fn labels(self, presentation: bool) -> (&'static str, &'static str) {
+    fn for_seed(self, seed: &Seed) -> Self {
         match self {
+            Self::MemoryStorySceneV1(policy) if seed.initial_world.is_some() => {
+                Self::MemoryAuthoredSceneV2(policy)
+            }
+            Self::MemoryStorySceneV1(policy) => Self::MemorySceneV1(policy),
+            fixed => fixed,
+        }
+    }
+    fn labels(self, presentation: bool, seed: &Seed) -> (&'static str, &'static str) {
+        match self {
+            Self::MemoryStorySceneV1(_) => self.for_seed(seed).labels(presentation, seed),
             Self::MemoryAuthoredSceneV2(_) => (
                 crate::play::authored_scene_narration::AUTHORED_SCENE_PROMPT_VERSION_V2,
                 "locallore-play-v2",
@@ -2569,6 +2581,7 @@ impl Host {
             let snapshot = match construction {
                 HostPlayConstructionV1::Memory(_)
                 | HostPlayConstructionV1::MemorySceneV1(_)
+                | HostPlayConstructionV1::MemoryStorySceneV1(_)
                 | HostPlayConstructionV1::MemoryAuthoredSceneV2(_) => self
                     .generation_snapshot(session, scope, work.request.expected_revision, &|| {
                         work.cancel.is_cancelled()
@@ -2613,7 +2626,10 @@ impl Host {
                         .trace
                         .clone()
                         .map(|handle| RingSink::new(Arc::clone(&self.trace), handle));
-                    match local.construction {
+                    match local.construction.for_seed(engine.seed()) {
+                        // Resolution is pure and must produce a fixed recipe. Refuse
+                        // rather than add a fallback if that invariant ever changes.
+                        HostPlayConstructionV1::MemoryStorySceneV1(_) => Err(Error::Version),
                         HostPlayConstructionV1::MemoryAuthoredSceneV2(policy) => {
                             let recipe = crate::play::authored_scene_narration::AuthoredSceneRecipeV2::Memory(policy);
                             crate::play::authored_scene_narration::check_seed(&engine, recipe)?;
@@ -2833,7 +2849,7 @@ impl Host {
                         trace_provenance(
                             local_play.as_ref(),
                             matches!(t.request.intent, Intent::FreeText { .. }),
-                            s.engine.seed().presentation.is_some(),
+                            s.engine.seed(),
                         ),
                     )
                     .handle
@@ -3189,10 +3205,11 @@ fn trace_saved_outcome(saved: &SavedTurn, prepared: Option<&Receipt>) -> Outcome
         _ => Outcome::Unknown,
     }
 }
-fn trace_provenance(local: Option<&LocalPlay>, free_text: bool, presentation: bool) -> Provenance {
+fn trace_provenance(local: Option<&LocalPlay>, free_text: bool, seed: &Seed) -> Provenance {
     if free_text {
         if let Some(local) = local {
-            let (prompt_label, schema_label) = local.construction.labels(presentation);
+            let (prompt_label, schema_label) =
+                local.construction.labels(seed.presentation.is_some(), seed);
             if !local.real_model {
                 return Provenance {
                     profile_label: Label::new(&local.profile.id),
@@ -3415,6 +3432,8 @@ mod tests {
         };
         let provider: ProviderFactory =
             Arc::new(|| Box::new(FakeProvider::new(FakeMode::Accepted)));
+        let seed: Seed =
+            serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
         for real in [false, true] {
             if real {
                 h.configure_local_provider(profile.clone(), provider.clone())
@@ -3434,7 +3453,7 @@ mod tests {
                 true
             );
             let local = h.state.lock().unwrap().local_play.clone();
-            let provenance = trace_provenance(local.as_ref(), true, false);
+            let provenance = trace_provenance(local.as_ref(), true, &seed);
             assert_eq!(provenance.model_sha256.is_some(), real);
             assert_eq!(provenance.worker_sha256.is_some(), real);
             assert_eq!(provenance.profile_sha256.is_some(), real);

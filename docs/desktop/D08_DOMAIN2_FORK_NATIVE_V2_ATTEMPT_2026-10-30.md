@@ -254,3 +254,8 @@ these are refusal forecasts, not OS quotas.
 PR290 stays draft and D08/epic remain open. Both native approvals are spent.
 No automatic retry, deletion, desktop/model/device/OS action, merge or release
 follows from this failed attempt, code correction or unactivated source proposal.
+
+The owner subsequently grants ONE bounded V3 run in `call_983daf6fa26f4dc89bcb271b29ee59b5`.
+The [V3 record](D08_DOMAIN2_FORK_NATIVE_V3_2026-10-30.md) preserves that separate
+decision, actual policy baseline, focused producer, code results and next gate.
+It does not reclassify this failed V2 attempt or reuse its spent grant.

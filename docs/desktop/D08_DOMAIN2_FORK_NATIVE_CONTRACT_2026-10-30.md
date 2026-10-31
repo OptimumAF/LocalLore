@@ -306,3 +306,13 @@ paging remains2GiB/640MiB and browser remains4GiB/660MiB. Fresh verification,
 source/permission/product readback, independent preparer review and an exclusive
 eight-field source-bound admission still precede the sole launch. A written
 owner decision alone is not a successful runtime result.
+
+## Separate V3 owner decision
+
+After both earlier fork attempts fail, the owner separately answers
+`call_983daf6fa26f4dc89bcb271b29ee59b5`, “Approve one bounded V3 run.” Its exact
+same-group48MiB/joint708MiB/metadata768KiB amendment, retained failures, independent
+FIRST/producer and verification are recorded in the
+[V3 admission and attempt record](D08_DOMAIN2_FORK_NATIVE_V3_2026-10-30.md).
+All other limits and prohibitions above remain. This is one new attempt, with
+fresh admission; it permits no automatic retry or retrospective acceptance.

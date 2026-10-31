@@ -73,9 +73,11 @@ also fails:476 assertions and five individually inspected app-owned native image
 provide partial evidence, then a session-switch readiness check stops the journey.
 Diagnostic copies survive verified normal restoration. The harness now waits for
 matching session/story/revision state; six focused source regressions and the
-documented compatibility checks pass. Both native grants are spent. Proposed
-additional storage and a third bounded run remain unapproved; no native PASS or
-full D08 acceptance follows from these code checks.
+documented compatibility checks pass. Both earlier native grants are spent.
+The owner separately approves [one bounded V3 attempt](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_V3_2026-10-30.md),
+with the same retained group48MiB/joint708MiB/metadata768KiB. Its corrected source
+checks pass; fresh admission and the native journey remain pending. No native
+PASS or full D08 acceptance follows from these code checks.
 
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned

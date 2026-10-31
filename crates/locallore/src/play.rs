@@ -1250,6 +1250,9 @@ fn validate_prose(
             };
             if capitalized
                 && !opening_word
+                // The English pronoun is inherently capitalized, not a named
+                // entity. Scene-specific first-person restrictions still run.
+                && !(mode == ProseMode::WholeEvidenceWordsV1 && token == "I")
                 && !visible_labels.contains(&token.to_lowercase())
                 && !(if mode == ProseMode::WholeEvidenceWordsV1 {
                     source_words.contains(&token.to_lowercase())

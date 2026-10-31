@@ -23,6 +23,11 @@ import org.junit.runner.RunWith
 class EventSourceInstrumentedTest {
     @Before fun noActivityBefore() = assertNoRecordActivities()
     @After fun noActivityAfter() = assertNoRecordActivities()
+    private fun originalScope(receipt: JSONObject) = receipt.getJSONObject("request").getJSONObject("scope").let {
+        StoryRecordScope(it.getString("story"), it.getString("branch"))
+    }
+    private fun label(reference: StoryRecordScopedEvent) =
+        "Event #${reference.sequence} · ${reference.originalScope.story} / ${reference.originalScope.branch}"
 
     @Test fun crossSceneSourcesNavigateToExactAcceptedEventsWithoutNewTurnsAndReopenStrictly() = runBlocking {
         withRecordFixture { fixture ->
@@ -40,32 +45,40 @@ class EventSourceInstrumentedTest {
             val profiles = awaitEventRecord(model)
             val location = profiles.entries.single { it.title == "location" }
             assertEquals("pier", location.text)
-            assertEquals(listOf(2L), location.eventSources)
-            assertEquals(listOf("Event #2"), location.sources)
+            val moveReference = StoryRecordScopedEvent(originalScope(receipts.getJSONObject(1)), 2)
+            assertEquals(listOf(moveReference), location.scopedEventSources)
+            assertTrue(location.eventSources.isEmpty())
+            assertEquals(listOf(label(moveReference)), location.sources)
             val relationships = owner.gateway.readStoryRecord(StoryRecordQuery(
                 StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.RELATIONSHIPS))
             assertTrue(relationships.entries.isNotEmpty())
             // Giving updates an NPC's incoming obligation; that is not the player's outgoing edge.
             assertTrue(relationships.entries.all { it.origin == StoryRecordOrigin.CANONICAL_FIELD &&
-                it.eventSources.isEmpty() && it.sources == listOf("Seed \u00B7 lantern-quay-v1") })
-            withContext(Dispatchers.Main) { model.openRecordEvent(2) }
+                it.eventSources.isEmpty() && it.scopedEventSources.isEmpty() && it.sources == listOf("Seed \u00B7 lantern-quay-v1") })
+            withContext(Dispatchers.Main) { model.openScopedRecordEvent(moveReference, profiles.context) }
             val moved = awaitEventRecord(model) { it.eventDetail?.let { detail -> !detail.loading } == true }.eventDetail!!
             assertNull(moved.problem)
             assertEquals(2L, moved.reference)
             val movement = checkNotNull(moved.entry)
             assertEquals(StoryRecordOrigin.RECORDED_OBSERVATION, movement.origin)
-            assertEquals(StoryRecordEvent(2, receipts.getJSONObject(1).getJSONObject("request").getString("turn"), 100), movement.event)
+            assertEquals(StoryRecordEvent(2, receipts.getJSONObject(1).getJSONObject("request").getString("turn"), 100, moveReference.originalScope), movement.event)
             assertTrue(movement.text.contains("quay") && movement.text.contains("pier"))
             withContext(Dispatchers.Main) { model.backToStoryRecord() }
             assertEquals(profiles, model.storyRecord.value)
             // An ID that exists in history is still not a grant from this displayed profile page.
             withContext(Dispatchers.Main) { model.openRecordEvent(1); model.openRecordEvent(5) }
+            withContext(Dispatchers.Main) {
+                model.openScopedRecordEvent(moveReference.copy(sequence = 1), profiles.context)
+                model.openScopedRecordEvent(moveReference.copy(sequence = 5), profiles.context)
+            }
             assertEquals(profiles, model.storyRecord.value)
             withContext(Dispatchers.Main) { model.recordSection(StoryRecordSection.HISTORY) }
             val history = awaitEventRecord(model) { it.section == StoryRecordSection.HISTORY }
             val events = history.entries.filter { it.event != null }
             assertEquals(setOf(1L, 2L, 3L, 4L), events.map { it.event!!.sequence }.toSet())
-            assertTrue(events.all { it.eventSources == listOf(it.event!!.sequence) && it.event!!.storyTime == 100L })
+            val original = originalScope(receipts.getJSONObject(0))
+            assertTrue(events.all { it.eventSources.isEmpty() &&
+                it.scopedEventSources == listOf(StoryRecordScopedEvent(original, it.event!!.sequence)) && it.event!!.storyTime == 100L })
             val rawEvents = jsonRows(owner.recordData(StoryRecordQuery(
                 StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY)))
                 .filter { it.getString("kind") == "event" }.map { it.getJSONObject("event") }
@@ -79,8 +92,10 @@ class EventSourceInstrumentedTest {
             assertEquals(setOf("player", "oren"), actors(4, "participants"))
             val returnedTurn = receipts.getJSONObject(2).getJSONObject("request").getString("turn")
             assertTrue(events.filter { it.event!!.sequence in 3L..4L }.all { it.event!!.turn == returnedTurn })
-            assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_MESSAGE && it.eventSources == listOf(3L, 4L) })
-            withContext(Dispatchers.Main) { model.openRecordEvent(1) }
+            assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_MESSAGE && it.eventSources.isEmpty() &&
+                it.scopedEventSources == listOf(3L, 4L).map { sequence -> StoryRecordScopedEvent(originalScope(receipts.getJSONObject(2)), sequence) } })
+            val firstReference = history.entries.flatMap { it.scopedEventSources }.distinct().single { it.sequence == 1L }
+            withContext(Dispatchers.Main) { model.openScopedRecordEvent(firstReference, history.context) }
             val oldScene = awaitEventRecord(model) { it.eventDetail?.loading == false }.eventDetail!!.entry!!
             assertEquals(1L, oldScene.event!!.sequence)
             assertEquals(receipts.getJSONObject(0).getJSONObject("request").getString("turn"), oldScene.event!!.turn)
@@ -117,10 +132,15 @@ class EventSourceInstrumentedTest {
             assertEquals(0, owner.gateway.readStoryRecord(queryA.copy(search = "\"sequence\":4,")).total)
             val quoted = owner.gateway.readStoryRecord(queryA.copy(search = "999"))
             assertTrue(quoted.entries.isNotEmpty())
-            assertTrue(quoted.entries.all { 999L !in it.eventSources && it.eventSources.all { source -> source in 2L..3L } })
+            assertTrue(quoted.entries.all { it.eventSources.isEmpty() && it.scopedEventSources.isNotEmpty() &&
+                it.scopedEventSources.all { source -> source.sequence in 2L..3L && source.originalScope ==
+                    StoryRecordScope(queryA.context.story.story, queryA.context.story.branch) } })
             val claim = owner.gateway.readStoryRecord(queryA.copy(section = StoryRecordSection.KNOWLEDGE, search = "999"))
-            assertEquals(listOf(2L), claim.entries.single { it.origin == StoryRecordOrigin.RECORDED_STATEMENT }.eventSources)
-            assertEquals(setOf(2L, 3L), claim.entries.single { it.origin == StoryRecordOrigin.SUBJECTIVE_BELIEF }.eventSources.toSet())
+            val original = StoryRecordScope(queryA.context.story.story, queryA.context.story.branch)
+            assertEquals(listOf(StoryRecordScopedEvent(original, 2)), claim.entries.single { it.origin == StoryRecordOrigin.RECORDED_STATEMENT }.scopedEventSources)
+            assertEquals(setOf(StoryRecordScopedEvent(original, 2), StoryRecordScopedEvent(original, 3)),
+                claim.entries.single { it.origin == StoryRecordOrigin.SUBJECTIVE_BELIEF }.scopedEventSources.toSet())
+            assertTrue(claim.entries.all { it.eventSources.isEmpty() })
             val turnCallsA = owner.transport.turnCalls.get()
             for (observer in listOf(JSONObject().put("kind", "character").put("id", "mira"), JSONObject().put("kind", "omniscient"))) {
                 val rejected = owner.transport.exchange(owner.recordCommand(queryA, observer))
@@ -145,20 +165,23 @@ class EventSourceInstrumentedTest {
             awaitEventRecord(model)
             withContext(Dispatchers.Main) { model.recordSection(StoryRecordSection.KNOWLEDGE) }
             val knowledge = awaitEventRecord(model) { it.section == StoryRecordSection.KNOWLEDGE }
-            assertTrue(knowledge.entries.filter { it.origin == StoryRecordOrigin.CANONICAL_TRUTH }
-                .all { it.eventSources.isEmpty() && !it.text.contains("999") })
+            val known = knowledge.entries.filter { it.origin == StoryRecordOrigin.KNOWN_AS_OBSERVED }
+            assertTrue(known.isNotEmpty())
+            assertTrue(known.all { it.eventSources.isEmpty() && it.scopedEventSources.isEmpty() && !it.text.contains("999") })
             withContext(Dispatchers.Main) { model.openRecordEvent(999) }
+            withContext(Dispatchers.Main) { model.openScopedRecordEvent(StoryRecordScopedEvent(original, 999), knowledge.context) }
             assertEquals("Narrative source-like text granted an event", knowledge, model.storyRecord.value)
             val receipts = JSONObject(beforeA).getJSONArray("receipts")
             for (sequence in listOf(2L, 3L)) {
-                withContext(Dispatchers.Main) { model.openRecordEvent(sequence) }
+                val reference = knowledge.entries.flatMap { it.scopedEventSources }.distinct().single { it.sequence == sequence }
+                withContext(Dispatchers.Main) { model.openScopedRecordEvent(reference, knowledge.context) }
                 val detail = awaitEventRecord(model) { it.eventDetail?.loading == false }.eventDetail!!
                 assertNull(detail.problem)
                 val event = checkNotNull(detail.entry)
                 assertEquals(StoryRecordOrigin.RECORDED_OBSERVATION, event.origin)
                 assertTrue(event.text.contains("999"))
                 assertEquals(StoryRecordEvent(sequence, receipts.getJSONObject(sequence.toInt() - 1)
-                    .getJSONObject("request").getString("turn"), 100), event.event)
+                    .getJSONObject("request").getString("turn"), 100, reference.originalScope), event.event)
                 withContext(Dispatchers.Main) { model.backToStoryRecord() }
                 assertEquals(knowledge, model.storyRecord.value)
             }
@@ -177,7 +200,7 @@ class EventSourceInstrumentedTest {
             assertEquals(0, owner.gateway.readStoryRecord(queryB).total)
             withContext(Dispatchers.Main) { model.openStoryRecord() }
             val current = awaitEventRecord(model)
-            assertTrue(current.entries.all { it.eventSources.isEmpty() })
+            assertTrue(current.entries.all { it.eventSources.isEmpty() && it.scopedEventSources.isEmpty() })
             withContext(Dispatchers.Main) { model.openRecordEvent(1); model.openRecordEvent(Long.MAX_VALUE) }
             assertEquals(current, model.storyRecord.value)
             assertTrue(beforeB == owner.acceptedView())
@@ -195,7 +218,8 @@ class EventSourceInstrumentedTest {
         withRecordFixture { fixture ->
             val owner = fixture.owner()
             val saved = seedEventScenes(owner)
-            val query = StoryRecordQuery(StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY)
+            // Preserve the original raw Query1 branch/source mutation controls.
+            val query = StoryRecordQuery(StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY, version = 1)
             val original = owner.recordData(query)
             val decoded = StoryRecordWire.decode(original, query)
             assertEquals(setOf(1L, 2L, 3L, 4L), decoded.entries.mapNotNull { it.event?.sequence }.toSet())

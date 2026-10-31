@@ -48,7 +48,7 @@ class PromiseStoryRecordTest {
         rows: List<JSONObject> = listOf(promise()),
         total: Int = rows.size,
         next: String? = null,
-    ) = JSONObject().put("version", if (q.section == promises()) 2 else 1)
+    ) = JSONObject().put("version", q.version)
         .put("scope", JSONObject().put("story", q.context.story.story).put("branch", q.context.story.branch))
         .put("head", q.context.revision).put("revision", q.context.revision).put("story_time", 100L)
         .put("observer", JSONObject().put("kind", "player")).put("privacy", "player_visible")
@@ -97,7 +97,7 @@ class PromiseStoryRecordTest {
         assertEquals(q.cursor, wire.getString("cursor"))
         for (legacy in StoryRecordSection.entries.filter { it != promises() }) {
             val original = StoryRecordWire.command("bound-session",
-                StoryRecordQuery(context, legacy, q.search, "1:1:${"a".repeat(64)}"))
+                StoryRecordQuery(context, legacy, q.search, "1:1:${"a".repeat(64)}", version = 1))
                 .getJSONObject("query")
             assertEquals(1, original.getInt("version"))
             assertEquals(legacy.wire, original.getString("view"))

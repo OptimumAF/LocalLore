@@ -80,20 +80,32 @@ internal class DurableGateway(
     }
     private fun command(op: String) = JSONObject().put("op", op)
     override suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage {
-        val capturedSession = session ?: throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
-        val capturedScope = scope ?: throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
-        fun current() = !closed.get() && session == capturedSession && operation == null &&
-            revision == query.context.revision && scope === capturedScope &&
-            capturedScope.getString("story") == query.context.story.story &&
-            capturedScope.getString("branch") == query.context.story.branch
+        val (owner, binding) = synchronized(playerMetadataLock) {
+            val capturedSession = session ?: throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
+            val capturedScope = scope ?: throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
+            val bound = playerBinding
+            if (closed.get() || !coherentPlayerSnapshot || bound == null)
+                throw StoryRecordFailure(StoryRecordProblem.UNAVAILABLE)
+            if (bound.session != capturedSession)
+                throw StoryRecordFailure(StoryRecordProblem.STALE)
+            PlayerReadOwner(playerAttachment, capturedSession, capturedScope, bound.scope) to bound
+        }
+        fun current() = synchronized(playerMetadataLock) {
+            try {
+                requirePlayerOwner(owner)
+                coherentPlayerSnapshot && playerBinding == binding && operation == null &&
+                    revision == query.context.revision &&
+                    owner.scope.story == query.context.story.story && owner.scope.branch == query.context.story.branch
+            } catch (_: WorkspaceFailure) { false }
+        }
         if (!current()) throw StoryRecordFailure(StoryRecordProblem.STALE)
-        val data = try { call(StoryRecordWire.command(capturedSession, query)) }
+        val data = try { call(StoryRecordWire.command(owner.session, query)) }
         catch (failure: WorkspaceFailure) {
             throw StoryRecordFailure(if (failure.category in setOf("Stale", "Scope", "Session"))
                 StoryRecordProblem.STALE else StoryRecordProblem.UNAVAILABLE)
         }
         if (!current()) throw StoryRecordFailure(StoryRecordProblem.STALE)
-        return StoryRecordWire.decode(data, query)
+        return StoryRecordWire.decode(data, query, binding.observer)
     }
     private fun scoped(op: String, pending: Pending? = null): JSONObject = command(op)
         .put("session", pending?.session ?: checkNotNull(session))

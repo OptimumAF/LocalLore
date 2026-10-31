@@ -605,3 +605,10 @@ Shared durability is wired to the app; the reports above record explicit
 process-stop/resume checks on two selected API 35 x86_64 emulators. Physical
 phones, ARM64 execution and M01 model feasibility remain separate unmeasured gates.
 Local build checks do not establish hosted CI execution or release readiness.
+
+The [player-record Query2 follow-up](../../docs/android/RECORD_QUERY2_VERIFICATION_2026-10-31.md)
+supports corrected histories and native opaque player identities in all five
+inspector sections. Scoped evidence retains its original story/branch/sequence;
+known observations and non-navigable correction notices remain distinct from
+world truth. Its 380 JVM tests and archive APK checks pass on the host.
+Current-source device UI execution remains unverified.

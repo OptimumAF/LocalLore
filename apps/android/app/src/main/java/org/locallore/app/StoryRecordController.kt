@@ -165,6 +165,10 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 validStoryRecordTurn(ref.originalScope.story) && validStoryRecordTurn(ref.originalScope.branch)
         })
         check(if (query.version == 1) entry.scopedEventSources.isEmpty() else entry.eventSources.isEmpty())
+        if (entry.origin == StoryRecordOrigin.AUTHOR_CORRECTION)
+            check(query.version == 2 && query.section == StoryRecordSection.HISTORY &&
+                entry.sources.isEmpty() && entry.eventSources.isEmpty() &&
+                entry.scopedEventSources.isEmpty() && entry.event == null)
         if (entry.origin == StoryRecordOrigin.RECORDED_OBSERVATION) {
             val event = checkNotNull(entry.event)
             check(query.section == StoryRecordSection.HISTORY && event.sequence in 1..query.context.revision &&

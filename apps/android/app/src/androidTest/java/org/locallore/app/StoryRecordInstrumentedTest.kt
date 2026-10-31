@@ -73,8 +73,11 @@ class StoryRecordInstrumentedTest {
             val historyQuery = StoryRecordQuery(StoryRecordContext(checkNotNull(committed.selected), 1), StoryRecordSection.HISTORY)
             val history = owner.gateway.readStoryRecord(historyQuery)
             assertEquals(100L, history.storyTime)
-            assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_OBSERVATION && "Event #1" in it.sources })
-            assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_MESSAGE && "Event #1" in it.sources && it.text.contains(receipt.getString("narration")) })
+            val original = receipt.getJSONObject("request").getJSONObject("scope")
+            val reference = StoryRecordScopedEvent(StoryRecordScope(original.getString("story"), original.getString("branch")), 1)
+            assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_OBSERVATION && it.scopedEventSources == listOf(reference) && it.eventSources.isEmpty() })
+            assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_MESSAGE && it.scopedEventSources == listOf(reference) &&
+                it.eventSources.isEmpty() && it.text.contains(receipt.getString("narration")) })
             val raw = owner.recordData(historyQuery).toString()
             assertTrue("History lost the original receipt key", raw.contains(turn))
             assertTrue(after == owner.acceptedView())
@@ -107,9 +110,14 @@ class StoryRecordInstrumentedTest {
             val belief = page.entries.single { it.origin == StoryRecordOrigin.SUBJECTIVE_BELIEF }
             assertTrue(statement.text.contains(claim))
             assertTrue(belief.text.contains(claim))
-            assertEquals(listOf("Event #1"), statement.sources)
-            assertEquals(setOf("Event #1", "Event #2"), belief.sources.toSet())
-            val truths = page.entries.filter { it.origin == StoryRecordOrigin.CANONICAL_TRUTH }
+            val original = StoryRecordScope(query.context.story.story, query.context.story.branch)
+            fun source(sequence: Long) = "Event #$sequence · ${original.story} / ${original.branch}"
+            assertEquals(listOf(source(1)), statement.sources)
+            assertEquals(setOf(source(1), source(2)), belief.sources.toSet())
+            assertEquals(listOf(StoryRecordScopedEvent(original, 1)), statement.scopedEventSources)
+            assertEquals(setOf(StoryRecordScopedEvent(original, 1), StoryRecordScopedEvent(original, 2)), belief.scopedEventSources.toSet())
+            assertTrue(statement.eventSources.isEmpty() && belief.eventSources.isEmpty())
+            val truths = page.entries.filter { it.origin == StoryRecordOrigin.KNOWN_AS_OBSERVED }
             assertTrue(truths.any { it.text.contains("SECRET-TIDE-731") }) // Known to the player in this seed.
             assertFalse(truths.any { it.text.contains(claim) })
             assertTrue(truths.all { "Seed \u00B7 lantern-quay-v1" in it.sources })
@@ -125,7 +133,8 @@ class StoryRecordInstrumentedTest {
                 assertEquals("Forbidden", reply.getString("error"))
             }
             val history = owner.gateway.readStoryRecord(query.copy(section = StoryRecordSection.HISTORY))
-            assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_MESSAGE && it.text.contains(claim) && "Event #1" in it.sources })
+            assertTrue(history.entries.any { it.origin == StoryRecordOrigin.RECORDED_MESSAGE && it.text.contains(claim) &&
+                StoryRecordScopedEvent(original, 1) in it.scopedEventSources && it.eventSources.isEmpty() })
             assertTrue("Inspection changed accepted receipts, inventory or time", before == owner.acceptedView())
             assertTrue(saved == owner.gateway.snapshot())
             assertEquals("Inspection dispatched a turn or inference preparation", turnCalls, owner.transport.turnCalls.get())
@@ -136,7 +145,8 @@ class StoryRecordInstrumentedTest {
         withRecordFixture { fixture ->
             val owner = fixture.owner()
             val saved = owner.gateway.initialize()
-            val query = StoryRecordQuery(StoryRecordContext(checkNotNull(saved.selected), 0))
+            // This matrix deliberately retains explicit legacy Query1 coverage.
+            val query = StoryRecordQuery(StoryRecordContext(checkNotNull(saved.selected), 0), version = 1)
             val original = owner.recordData(query)
             assertEquals(8, StoryRecordWire.decode(original, query).entries.size)
             val canary = "PRIVATE-DECODER-CANARY-9182"
@@ -197,7 +207,7 @@ class StoryRecordInstrumentedTest {
             assertTrue(owner.gateway.commitAsync(owner.gateway.respond(DemoAction.GIVE_POTION, 0, DemoMode.ACCEPTED)) is DemoResult.Accepted)
             val committed = owner.gateway.snapshot()
             val accepted = owner.acceptedView()
-            val historyQuery = StoryRecordQuery(StoryRecordContext(checkNotNull(committed.selected), 1), StoryRecordSection.HISTORY)
+            val historyQuery = StoryRecordQuery(StoryRecordContext(checkNotNull(committed.selected), 1), StoryRecordSection.HISTORY, version = 1)
             val history = owner.recordData(historyQuery)
             for (ids in listOf(JSONArray(), JSONArray().put(1).put(1))) {
                 val page = JSONObject(history.toString())
@@ -258,7 +268,7 @@ internal class RecordOwner(val transport: RecordTransport) {
     }
     fun recordCommand(query: StoryRecordQuery, observer: JSONObject = JSONObject().put("kind", "player")) =
         JSONObject().put("op", "inspection_query").put("session", checkNotNull(transport.session)).put("query", JSONObject()
-            .put("version", 1).put("scope", JSONObject().put("story", query.context.story.story).put("branch", query.context.story.branch))
+            .put("version", query.version).put("scope", JSONObject().put("story", query.context.story.story).put("branch", query.context.story.branch))
             .put("expected_head", query.context.revision).put("at_revision", JSONObject.NULL)
             .put("observer", observer).put("view", query.section.wire).put("limit", 8)
             .put("search", query.search).put("cursor", query.cursor ?: JSONObject.NULL))

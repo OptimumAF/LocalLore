@@ -19,7 +19,8 @@ internal object StoryRecordWire {
                 .put("search", query.search).put("cursor", query.cursor ?: JSONObject.NULL))
     }
 
-    fun decode(data: JSONObject, query: StoryRecordQuery): StoryRecordPage = try {
+    fun decode(data: JSONObject, query: StoryRecordQuery, player: String = "player"): StoryRecordPage = try {
+        require(validStoryRecordTurn(player))
         if (data.toString().toByteArray(Charsets.UTF_8).size > 65536)
             throw StoryRecordFailure(StoryRecordProblem.TOO_LARGE)
         require(validVersion(query) && data.get("version") == query.version)
@@ -34,7 +35,7 @@ internal object StoryRecordWire {
         val time = data.number("story_time").also { require(it >= 0) }
         val rows = data.getJSONArray("rows")
         require(rows.length() <= STORY_RECORD_PAGE_ROWS && rows.length() <= total)
-        val entries = (0 until rows.length()).map { row(rows.getJSONObject(it), query, time) }
+        val entries = (0 until rows.length()).map { row(rows.getJSONObject(it), query, time, player) }
         require(data.has("next_cursor"))
         require(entries.map { it.key }.toSet().size == entries.size)
         val eventIds = entries.mapNotNull { it.event?.sequence }
@@ -61,45 +62,58 @@ internal object StoryRecordWire {
     } catch (failure: StoryRecordFailure) { throw failure }
     catch (_: Exception) { throw StoryRecordFailure(StoryRecordProblem.INVALID_RESPONSE) }
 
-    private fun row(row: JSONObject, query: StoryRecordQuery, storyTime: Long): StoryRecordEntry {
+    private fun row(row: JSONObject, query: StoryRecordQuery, storyTime: Long, player: String): StoryRecordEntry {
+        val kind = row.text("kind")
+        if (kind == "author_correction") {
+            require(query.version == 2 && query.section == StoryRecordSection.HISTORY && row.length() == 2)
+            val revision = row.number("revision").also { require(it in 1..query.context.revision) }
+            return StoryRecordEntry("author-correction:$revision", "History correction",
+                "History was corrected at revision #$revision. This marker is not a witnessed event.",
+                StoryRecordOrigin.AUTHOR_CORRECTION)
+        }
         val key = row.text("key", 512)
         require(key.isNotEmpty())
         val origin = StoryRecordOrigin.entries.single { it.wire == row.text("origin") }
-        return when (row.text("kind")) {
+        return when (kind) {
             "field" -> {
                 require(query.section == StoryRecordSection.PROGRESSION && origin == StoryRecordOrigin.CANONICAL_FIELD)
-                require(row.text("actor") == "player")
+                require(row.text("actor") == player)
                 val field = row.text("field", 512)
                 val evidence = row.getJSONObject("source")
-                StoryRecordEntry(key, field, fieldValue(row.getJSONObject("value")), origin,
-                    listOf(source(evidence, query.context.revision)), listOfNotNull(eventSource(evidence)))
+                val (labels, events, scoped) = sources(listOf(evidence), query)
+                StoryRecordEntry(key, field, fieldValue(row.getJSONObject("value"), player), origin,
+                    labels, events, scopedEventSources = scoped)
             }
             "relationship" -> {
                 require(query.section == StoryRecordSection.RELATIONSHIPS && origin == StoryRecordOrigin.CANONICAL_FIELD)
-                require(row.text("from") == "player")
+                require(row.text("from") == player)
                 val dimension = row.text("dimension").also { require(it in setOf("respect", "trust", "obligation")) }
                 val value = row.number("value").also { require(it in -32768..32767) }
                 val evidence = row.getJSONObject("source")
+                val (labels, events, scoped) = sources(listOf(evidence), query)
                 StoryRecordEntry(key, "${row.text("to")} · $dimension", value.toString(), origin,
-                    listOf(source(evidence, query.context.revision)), listOfNotNull(eventSource(evidence)))
+                    labels, events, scopedEventSources = scoped)
             }
             "knowledge" -> {
                 require(query.section == StoryRecordSection.KNOWLEDGE)
-                require(origin in setOf(StoryRecordOrigin.CANONICAL_TRUTH, StoryRecordOrigin.RECORDED_STATEMENT,
-                    StoryRecordOrigin.SUBJECTIVE_BELIEF, StoryRecordOrigin.RECORDED_DISCOVERY))
+                require(origin in setOf(StoryRecordOrigin.RECORDED_STATEMENT,
+                    StoryRecordOrigin.SUBJECTIVE_BELIEF, StoryRecordOrigin.RECORDED_DISCOVERY) ||
+                    (query.version == 1 && origin == StoryRecordOrigin.CANONICAL_TRUTH) ||
+                    (query.version == 2 && origin == StoryRecordOrigin.KNOWN_AS_OBSERVED))
                 require(row.has("subject") && row.has("confidence"))
                 val subject = if (row.isNull("subject")) null else row.text("subject", 512)
                 val confidence = if (row.isNull("confidence")) null else row.text("confidence")
                 when (origin) {
-                    StoryRecordOrigin.SUBJECTIVE_BELIEF -> require(subject == "player" && confidence in setOf("uncertain", "suspected", "believed"))
+                    StoryRecordOrigin.SUBJECTIVE_BELIEF -> require(subject == player && confidence in setOf("uncertain", "suspected", "believed"))
                     StoryRecordOrigin.CANONICAL_TRUTH -> require(subject == null && confidence == null)
+                    StoryRecordOrigin.KNOWN_AS_OBSERVED -> require(subject == player && confidence == null)
                     else -> require(subject != null && confidence == null)
                 }
-                val sources = row.getJSONArray("sources").also { require(it.length() in 1..64) }
-                val evidence = (0 until sources.length()).map { sources.getJSONObject(it) }
+                val values = row.getJSONArray("sources").also { require(it.length() in 1..64) }
+                val evidence = (0 until values.length()).map { values.getJSONObject(it) }
+                val (labels, events, scoped) = sources(evidence, query)
                 StoryRecordEntry(key, listOfNotNull(row.text("id", 512), subject, confidence).joinToString(" · "),
-                    row.text("text"), origin, evidence.map { source(it, query.context.revision) },
-                    evidence.mapNotNull(::eventSource).distinct())
+                    row.text("text"), origin, labels, events, scopedEventSources = scoped)
             }
             "promise" -> {
                 require(query.section == StoryRecordSection.PROMISES && query.version == 2 &&
@@ -107,7 +121,7 @@ internal object StoryRecordWire {
                 val id = row.text("id", 512)
                 val from = row.text("from", 512)
                 val to = row.text("to", 512)
-                require(from == "player" || to == "player")
+                require(from == player || to == player)
                 val deadline = row.number("deadline").also { require(it >= 0) }
                 val status = when (row.text("status")) {
                     "open" -> "Open"
@@ -126,16 +140,21 @@ internal object StoryRecordWire {
                         (item?.let { "\nReturn item · $it" } ?: ""),
                     origin, labels, scopedEventSources = references)
             }
-            "message" -> {
-                require(query.version == 1)
+            "message", "scoped_message" -> {
+                require(if (kind == "message") query.version == 1 else query.version == 2)
                 require(query.section == StoryRecordSection.HISTORY && origin == StoryRecordOrigin.RECORDED_MESSAGE)
                 val kind = row.text("message_kind").also { require(it in setOf("original_input", "narration")) }
                 val ids = row.getJSONArray("event_ids").also { require(it.length() <= 64) }
                 require(validStoryRecordTurn(row.text("turn", 64)))
                 val eventIds = (0 until ids.length()).map { ids.integer(it).also { id -> require(id <= query.context.revision) } }
                 require(eventIds.isNotEmpty() && eventIds.toSet().size == eventIds.size)
+                if (query.version == 2) require(eventIds.zipWithNext().all { (before, after) -> before < after })
+                val original = if (query.version == 2) readScope(row.getJSONObject("original_scope"), query) else null
+                val scoped = original?.let { scope -> eventIds.map { StoryRecordScopedEvent(scope, it) } } ?: emptyList()
                 StoryRecordEntry(key, if (kind == "original_input") "Recorded player input" else "Recorded narration",
-                    row.text("text"), origin, eventIds.map { "Event #$it" }, eventIds)
+                    row.text("text"), origin,
+                    if (original == null) eventIds.map { "Event #$it" } else scoped.map(::scopedEventLabel),
+                    if (original == null) eventIds else emptyList(), scopedEventSources = scoped)
             }
             "event" -> {
                 require(query.section == StoryRecordSection.HISTORY && origin == StoryRecordOrigin.RECORDED_OBSERVATION)
@@ -147,7 +166,7 @@ internal object StoryRecordWire {
                 val sequence = event.number("sequence").also { require(it in 1..query.context.revision) }
                 require(event.number("story_time") in 0..storyTime)
                 val witnesses = event.getJSONArray("witnesses")
-                require(strings(witnesses).contains("player"))
+                require(strings(witnesses).contains(player))
                 strings(event.getJSONArray("participants"))
                 val turn = event.text("turn", 64).also { require(validStoryRecordTurn(it)) }
                 val reference = originalScope?.let { StoryRecordScopedEvent(it, sequence) }
@@ -163,7 +182,7 @@ internal object StoryRecordWire {
 
     private fun validVersion(query: StoryRecordQuery) = when (query.version) {
         1 -> query.section != StoryRecordSection.PROMISES
-        2 -> query.section == StoryRecordSection.PROMISES || query.section == StoryRecordSection.HISTORY
+        2 -> true
         else -> false
     }
     private fun cursorPattern(query: StoryRecordQuery) = Regex("${query.version}:[1-9][0-9]{0,4}:[0-9a-f]{64}")
@@ -186,12 +205,20 @@ internal object StoryRecordWire {
         "Event #${reference.sequence} · ${reference.originalScope.story} / ${reference.originalScope.branch}"
     private fun scopedSourceLabel(value: JSONObject, query: StoryRecordQuery): String =
         when (value.text("kind")) {
-            "seed", "withheld" -> source(value, query.context.revision)
+            "seed" -> source(value, query.context.revision).also { require(value.length() == 2) }
+            "withheld" -> source(value, query.context.revision).also { require(value.length() == 1) }
             "scoped_event" -> scopedEventLabel(checkNotNull(scopedEventSource(value, query)))
             else -> error("Unknown scoped source")
         }
 
-    private fun fieldValue(value: JSONObject): String = when (value.text("type")) {
+    private fun sources(values: List<JSONObject>, query: StoryRecordQuery):
+        Triple<List<String>, List<Long>, List<StoryRecordScopedEvent>> =
+        if (query.version == 2) Triple(values.map { scopedSourceLabel(it, query) }, emptyList(),
+            values.mapNotNull { scopedEventSource(it, query) }.distinct())
+        else Triple(values.map { source(it, query.context.revision) },
+            values.mapNotNull(::eventSource).distinct(), emptyList())
+
+    private fun fieldValue(value: JSONObject, player: String): String = when (value.text("type")) {
         "text" -> value.text("value")
         "bool" -> (value.get("value") as Boolean).toString()
         "number" -> value.number("value").toString()
@@ -199,7 +226,7 @@ internal object StoryRecordWire {
         "item" -> value.getJSONObject("value").let {
             val quantity = it.number("quantity").also { n -> require(n in 0..65535) }
             val healing = it.get("healing") as Boolean
-            require(it.has("return_to") && it.text("owner", 512) == "player")
+            require(it.has("return_to") && it.text("owner", 512) == player)
             val returnTo = if (it.isNull("return_to")) null else it.text("return_to", 512)
             "Owner: ${it.text("owner", 512)} · Quantity: $quantity · Healing: $healing" +
                 (returnTo?.let { actor -> " · Return to: $actor" } ?: "")

@@ -145,3 +145,24 @@ See [implementation, evidence and limits](../runtime/AUTHORED_SCENE_V2_2026-10-3
 This is an explicit Core/Host slice; Android/default selection and real-model,
 physical-device and release gates remain separate. Refs #9 (M05.03),
 #14 (M10.04 supporting reliability).
+
+## 2026-10-31: Android native per-story scene adoption
+
+The native-only MemoryStorySceneV1(policy) constructor resolves each validated
+seed independently: absent initial_world selects the existing MemorySceneV1;
+present initial_world selects MemoryAuthoredSceneV2. Domain version alone does
+not distinguish authored stories: materialized authored seeds initially use
+Domain1 and accepted corrections can produce Domain2.
+
+The same pure seed rule labels the selected trace and resolves again on the
+coherent generation snapshot before provider construction. Existing exact-seed
+and accepted-prefix fences reconcile these reads. Never cache the first story's
+choice in global provider configuration or accept a model/profile/UI selector.
+All fixed recipes, Host defaults and concrete seed guards remain unchanged.
+
+Android's existing external Bridge explicitly selects this constructor. JNI,
+Kotlin owners, request envelope, profile/role bounds and ordinary fake-open
+construction remain unchanged. No new prompt, frame, policy or canonical schema
+is introduced; saved records retain their concrete provenance. See the
+[closed host/packaging checks and limitations](../native/ANDROID_STORY_SCENE_V1_VERIFICATION_2026-10-31.md).
+Refs #9 (M05.03), #14 (M10.02 supporting ownership).

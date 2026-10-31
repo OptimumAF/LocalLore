@@ -1,7 +1,10 @@
 # Author packet A: proposed bounded code checks
 
-Refs #25 D04.02, supporting D04.04 and shared #9. **Owner metadata decision
-pending; no check admission or code child has run.** This is the execution plan
+Refs #25 D04.02, supporting D04.04 and shared #9. **Historical approved plan:
+format/prep passed; the first baseline capture failed and is invalid.** See the
+[retained failure](D04_AUTHOR_CODE_CAPTURE_FAILURE_2026-10-31.md) and
+[proposed separate R2 decision](D04_AUTHOR_CODE_R2_ADMISSION_2026-10-31.md).
+The original plan below predates that attempt. This is the execution plan
 for the [frozen default-disabled Author contract](D04_AUTHOR_LANE_CONTRACT_2026-10-30.md).
 It grants no application, model or worker-adoption execution.
 

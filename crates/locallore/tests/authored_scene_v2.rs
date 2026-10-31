@@ -937,3 +937,268 @@ fn authored_presentation_is_bound_and_exclusions_apply_without_becoming_world_au
         );
     }
 }
+
+#[test]
+fn inherited_discovery_keeps_ancestor_event_scope_but_sibling_and_earlier_cut_gain_no_label() {
+    let mut world = world("Copper Orchard");
+    append(
+        &mut world.engine,
+        "main-move",
+        vec![Command::Move {
+            to: world.remote.clone(),
+        }],
+    );
+    let sibling = world
+        .engine
+        .fork("sibling-before-discovery", world.engine.revision())
+        .unwrap();
+    let cut_head = world.engine.revision();
+    append(
+        &mut world.engine,
+        "main-discovery",
+        vec![Command::Discover {
+            fact: world.remote_fact.clone(),
+        }],
+    );
+    let observed_scope = world.engine.scope().clone();
+    let observed_head = world.engine.revision();
+    let observed = world
+        .engine
+        .observed_facts(&world.engine.seed().player, &observed_scope, observed_head)
+        .unwrap();
+    let expected = &observed[&world.remote_fact].observation;
+    assert_eq!(
+        expected,
+        &ObservationSource::Event {
+            source: EventRef {
+                original_scope: observed_scope.clone(),
+                sequence: observed_head
+            }
+        }
+    );
+    // Correct a DIFFERENT location's fact after the main-branch discovery.
+    let child = corrected(
+        &world.engine,
+        &world.fact,
+        "inherits-main-observation",
+        CORRECTED,
+    );
+    assert_eq!(child.domain_version(), 2);
+    let (inherited, _) = frame(&child, "inherited-label", vec![Command::Wait { ticks: 1 }]);
+    assert_eq!(inherited["scope"], json!(child.scope()));
+    assert_eq!(inherited["before_revision"], child.revision());
+    assert_eq!(inherited["location"], world.remote);
+    assert_eq!(inherited["location_label"]["fact_id"], world.remote_fact);
+    assert_eq!(inherited["location_label"]["name"], REMOTE_NAME);
+    assert_eq!(inherited["location_label"]["observation"], json!(expected));
+    assert_ne!(child.scope(), &observed_scope);
+    let (_, receipt, _) = generated(
+        &child,
+        "inherited-prose",
+        "You pause at Silver Grotto.",
+        memory(),
+    );
+    assert!(!receipt.play().unwrap().fallback);
+    let cut = world.engine.fork("cut-before-discovery", cut_head).unwrap();
+    for excluded in [&sibling, &cut] {
+        assert_eq!(excluded.revision(), cut_head);
+        assert!(!excluded
+            .observed_facts(
+                &excluded.seed().player,
+                excluded.scope(),
+                excluded.revision()
+            )
+            .unwrap()
+            .contains_key(&world.remote_fact));
+        let (unseen, _) = frame(excluded, "not-inherited", vec![Command::Wait { ticks: 1 }]);
+        assert_eq!(unseen["location"], world.remote);
+        assert!(unseen["location_label"].is_null());
+    }
+}
+
+#[test]
+fn full_history_restore_refuses_policy_prompt_and_scene_version_drift_in_both_domains() {
+    let world = world("Copper Orchard");
+    for source in [
+        world.engine.clone(),
+        corrected(&world.engine, &world.fact, "restore-child", CORRECTED),
+    ] {
+        let (after, _, _) = generated(
+            &source,
+            "restore-matrix",
+            "You pause at Copper Orchard.",
+            memory(),
+        );
+        let original: Vec<Value> = after
+            .canonical_records()
+            .iter()
+            .map(|record| serde_json::to_value(record).unwrap())
+            .collect();
+        let strings: Vec<String> = original.iter().map(Value::to_string).collect();
+        unchanged(
+            &Engine::restore(after.seed().clone(), &strings).unwrap(),
+            &after,
+        );
+        for fault in 0..4 {
+            let mut history = original.clone();
+            let last = history.last_mut().unwrap();
+            let receipt = if last.get("record_version").is_some() {
+                &mut last["receipt"]
+            } else {
+                last
+            };
+            assert_eq!(receipt["play"]["scene"]["version"], 2);
+            match fault {
+                0 => receipt["play"]["policy"] = json!(play::NARRATION_POLICY),
+                1 => {
+                    receipt["play"]["prompt_version"] =
+                        json!(play::scene_narration::SCENE_PROMPT_VERSION_V1)
+                }
+                2 => receipt["play"]["scene"]["version"] = json!(1),
+                _ => receipt["play"]["scene"]["version"] = json!(3),
+            }
+            let strings: Vec<String> = history.iter().map(Value::to_string).collect();
+            assert!(
+                Engine::restore(after.seed().clone(), &strings).is_err(),
+                "domain {}, tamper {fault}",
+                after.domain_version()
+            );
+            assert_eq!(
+                after
+                    .canonical_records()
+                    .iter()
+                    .map(|record| serde_json::to_value(record).unwrap())
+                    .collect::<Vec<_>>(),
+                original
+            );
+        }
+    }
+}
+
+#[test]
+fn final_commit_checkpoint_cancellation_discards_candidate_before_install_and_retry_is_clean() {
+    use std::cell::Cell;
+    let world = world("Copper Orchard");
+    for source in [
+        world.engine.clone(),
+        corrected(&world.engine, &world.fact, "cancel-child", CORRECTED),
+    ] {
+        let (_, receipt, _) = generated(
+            &source,
+            "last-checkpoint",
+            "You pause at Copper Orchard.",
+            memory(),
+        );
+        let polls = Cell::new(0usize);
+        let mut completed = source.clone();
+        assert_eq!(
+            completed
+                .commit_authored_scene_play_v2(
+                    bound(&source, &receipt, memory()),
+                    receipt.play().unwrap(),
+                    &|| {
+                        let next = polls.get() + 1;
+                        assert!(next <= 512, "bounded checkpoint calibration");
+                        polls.set(next);
+                        false
+                    }
+                )
+                .unwrap(),
+            receipt
+        );
+        let final_poll = polls.get();
+        assert!(final_poll > 1);
+        // Calibrate the successful public call, then cancel at its LAST poll.
+        // The contract places this check after transient append, before install;
+        // no private validator, candidate or cancellation callback is replaced.
+        let seen = Cell::new(0usize);
+        let mut cancelled = source.clone();
+        assert_eq!(
+            cancelled.commit_authored_scene_play_v2(
+                bound(&source, &receipt, memory()),
+                receipt.play().unwrap(),
+                &|| {
+                    let next = seen.get() + 1;
+                    assert!(next <= final_poll);
+                    seen.set(next);
+                    next == final_poll
+                }
+            ),
+            Err(Error::Cancelled)
+        );
+        assert_eq!(seen.get(), final_poll);
+        assert!(cancelled.recorded(receipt.request()).unwrap().is_none());
+        unchanged(&cancelled, &source);
+        assert_eq!(
+            cancelled
+                .commit_authored_scene_play_v2(
+                    bound(&source, &receipt, memory()),
+                    receipt.play().unwrap(),
+                    &|| false
+                )
+                .unwrap(),
+            receipt
+        );
+        unchanged(&cancelled, &completed);
+    }
+}
+
+#[test]
+fn unicode_label_words_survive_original_segmentation_but_real_first_person_contractions_fall_back()
+{
+    for label in ["İpek Terrace", "I\u{301}pek Terrace"] {
+        let source = world(label).engine;
+        let text = format!("You pause at {label}.");
+        let (after, receipt, script) = generated(&source, "unicode-original-word", &text, memory());
+        assert!(
+            !receipt.play().unwrap().fallback,
+            "whole original Unicode label: {label}"
+        );
+        assert_eq!(receipt.narration(), text);
+        assert_eq!(script.seen.len(), 2);
+        let mut mechanical = source.clone();
+        append(
+            &mut mechanical,
+            "typed-unicode-control",
+            vec![Command::Wait { ticks: 1 }],
+        );
+        assert_eq!(after.state(), mechanical.state());
+    }
+    let source = world("Copper Orchard").engine;
+    for text in [
+        "I wait here.",
+        "You pause; I'm waiting.",
+        "You pause; I’m waiting.",
+        "You pause; we're waiting.",
+    ] {
+        let (after, receipt, script) = generated(&source, "actual-pronoun-refusal", text, memory());
+        assert!(
+            receipt.play().unwrap().fallback,
+            "actual pronoun/contraction: {text}"
+        );
+        assert_eq!(
+            receipt.narration(),
+            locallore::engine::render(receipt.events())
+        );
+        assert_eq!(
+            receipt.proposal().commands,
+            vec![Command::Wait { ticks: 1 }]
+        );
+        assert_eq!(script.seen.len(), 2);
+        let mut mechanical = source.clone();
+        append(
+            &mut mechanical,
+            "typed-pronoun-control",
+            vec![Command::Wait { ticks: 1 }],
+        );
+        assert_eq!(
+            after.state(),
+            mechanical.state(),
+            "refused prose adds no canonical effect"
+        );
+        assert_eq!(
+            after.canonical_record_count(),
+            source.canonical_record_count() + 1
+        );
+    }
+}

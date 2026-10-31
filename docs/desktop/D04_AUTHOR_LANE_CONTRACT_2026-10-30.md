@@ -1,11 +1,12 @@
-# D04 initial-world Author lane: proposal for review
+# D04 initial-world Author lane: frozen packet A contract
 
-**DRAFT, NOT FROZEN.** Refs #25 D04.02, supporting D04.04, shared #9 and
+**Packet A frozen by Root; implementation and checks pending.** Refs #25 D04.02, supporting D04.04, shared #9 and
 #21. [Documentation-only claim](https://github.com/OptimumAF/LocalLore/issues/9#issuecomment-6539800717).
 Base: accepted `eab64f7625de48b8d18e139226223fb4c6f11791`, including PR299's
 generation-admission seam. This document grants no implementation or execution
-authority. Root must resolve the choices below and freeze the contract before
-independent FIRST and a different production author start.
+authority. The existing owner assignment authorizes code work. Independent FIRST
+must freeze before a different production author changes behavior. Packet B's
+artifact, capability and adoption decisions remain open.
 
 ## Existing authority and missing consumer
 
@@ -74,10 +75,11 @@ model ID or supported-runtime claim in this document. No caller-supplied expecte
 hash, capability advertisement alone, second worker owner or fallback enables B.
 New runtime/model/native execution needs its own concrete authorization.
 
-## Proposed private seams
+## Frozen private seams
 
 These names describe constructible crate-private seams for A, not a new public
-wire API. Root may rename them before freezing; do not duplicate shared types.
+wire API. Keep existing public `Generation` fields and constructors compatible;
+adding the typed `Role::Author` cannot itself grant production access.
 
 ```rust
 enum Lane { Play, InitialWorld }
@@ -87,6 +89,8 @@ enum AuthorAccess {
     Fixture,
 }
 struct ReplyBounds { output_tokens: u16, text_bytes: usize }
+#[cfg(all(test, feature = "development-worker"))]
+enum AuthorFixtureCase { Completed, BlockedGenerationObserved }
 struct CompiledCall {
     identity: Identity,       // existing full immutable request identity
     generation: Generation,  // existing native generation value
@@ -97,7 +101,7 @@ fn compile(request: &GenerationRequest) -> Result<CompiledCall, Error>;
 fn parse_reply(frame: &[u8], id: u64, bounds: ReplyBounds)
     -> Result<Reply, RuntimeError>;
 #[cfg(all(test, feature = "development-worker"))]
-fn author_fixture(log: Option<RoleMetricsLog>)
+fn author_fixture(log: Option<RoleMetricsLog>, case: AuthorFixtureCase)
     -> Result<(RuntimeProvider, SharedRuntime, PathBuf), OwnedStartFailure>;
 ```
 
@@ -116,10 +120,22 @@ starting work, and native runtime admission independently checks it before a
 frame is sent. A future production capability variant/mint is deliberately absent
 from A and requires B's reviewed artifact/adoption contract. A forged generation
 role or a loaded legacy worker does not satisfy that missing gate.
-The proposed fixture helper takes no executable/model path or raw command. It
-uses only the existing `development_protocol_fixture()` owner, returns its retained
-directory, and preserves `OwnedStartFailure` ownership. Synthetic fixture load and
+The fixture helper takes no executable/model path or raw command. It uses the
+existing development protocol owner and exactly two fixed cases: the ordinary
+empty terminal fixture, or its existing generation-observed blocked case.
+Factor a private typed case selector under test configuration; the existing public
+`development_protocol_fixture()` remains fixed to its ordinary case. No raw mode,
+path, environment capability or process argument is accepted from a caller.
+Return the retained directory and preserve `OwnedStartFailure` ownership. Synthetic fixture load and
 explicit cleanup are separately visible test steps, not implicit model execution.
+
+Keep public `LocalRuntime::generate` compatible. A crate-private bounded-generation
+method may carry compiled Author reply limits to the existing operation. Ordinary
+Play and non-generation calls keep their current reply ceilings350/16384, including
+when a smaller Play token count was requested. Tightening that legacy behavior
+would be a separate change. Author bounds instead use the exact admitted token and
+byte budget; native admission rechecks those bounds and its private access gate
+before sending a frame. Never use a mutable global last-role/limit variable.
 
 For Author compilation require all of:
 
@@ -169,6 +185,26 @@ repeat generation. Preserve the existing provider's behavior for invalid inputs
 before admission and its current late-reply/cancellation fences; do not make
 failed play eligible for an Author retry.
 
+Finite error policy for A:
+
+| Condition | Existing enum/category |
+| --- | --- |
+| Legacy/unstructured input | Engine `Provider`, unchanged |
+| Invalid Author version/profile/schema/binding/budget/prompt | Engine `Rule` |
+| Compiled request above32000 bytes | Engine `TooLarge` |
+| Serialization failure | Engine `Malformed`, unchanged |
+| Unbound valid Author but provider or native access disabled | Engine `Provider`, private runtime failure `WorkerUnavailable`; no native dispatch |
+| Changed valid active/completed identity or cross-lane borrowing | Existing `RetryMismatch`/cancel/poison rules |
+| An invalid request while work is active | Preserve existing compile-error cancellation/poison behavior and its original category |
+| Pre-cancel/in-flight cancel, timeout, Busy, unknown drain | Existing cancellation/timeout/provider mappings; retain exact owner |
+| Native invalid generation or bounds | Runtime `InvalidRequest` |
+| Malformed/extra/duplicate/stale/over-bound reply | Runtime `Protocol` |
+
+A disabled unbound Author attempt does not bind a lane or poison a later valid
+Director call; it never started native work. A successful fixture admission fixes
+the lane even if its operation later fails. Test assertions must not run before
+bounded worker release and positive cleanup; setup failures remain distinct.
+
 Author responses are noncanonical proposals. The Host still parses and validates
 them, drops the provider before publication, and requires explicit review/create.
 The provider cannot apply a proposal, attach a session, insert a seed, write a
@@ -176,7 +212,7 @@ receipt, grant character knowledge or automatically retry a creation.
 
 ## Metrics and compatibility
 
-Preferred A choice: Author role metrics are explicitly **unavailable**, preserving
+Frozen A choice: Author role metrics are explicitly **unavailable**, preserving
 the existing D07 Play role vocabulary and report schema. Do not call the existing
 non-director-to-Narrator observation branch for Author. Merely calling
 `RoleMetricsLog::lost()` is insufficient: the current snapshot may still say
@@ -204,6 +240,22 @@ author changes production behavior. Missing APIs or compilation failures are
 UNRUN_SETUP; they cannot establish behavioral RED. Use the real shared request,
 actual adapter/state helpers and actual reply parser rather than copied guards.
 
+Freeze new `src/adapter_author_review.rs` and `src/author_reply_review.rs` first.
+The producer then registers those tests and extracts the named call/bounds/gate
+seams while preserving old production behavior: compile accepts only the two
+Play roles, public constructors disable Author, generation/reply checks remain
+350/16384 and Play sequencing stays unchanged. The new enum value and fixed
+fixture-only construction cannot enable production access. Mechanical updates to
+existing parser calls supply legacy Play bounds without changing assertions.
+Root must execute a valid compiled old-behavior baseline before the producer
+admits Author or changes Author reply validation. Missing fixture binaries,
+registration, types or compilation are setup, never behavioral failures.
+
+Producer owns only `src/adapter.rs`, `src/lib.rs`, `src/role_metrics.rs` and
+`ADAPTER.md` in the existing runtime crate. Independent FIRST owns the two new
+test files. Root owns this contract, integration and bounded execution. Worker,
+profile, model manager, Eval/B34, Host, UI, Android and lockfiles stay unowned by A.
+
 | Group | Required independent controls |
 | --- | --- |
 | Actual shared request | Current constructor/schema/prompt provenance; valid Author candidate versus old refusal |
@@ -211,11 +263,11 @@ actual adapter/state helpers and actual reply parser rather than copied guards.
 | Limits | Author1024 accepted/1025 refused;8192/8193 bytes; zero/overflow bounds; unchanged Play350/351; full frame bounds |
 | Singleton | Exact pending/terminal polls dispatch once; changed prompt/schema/budget/identity refuses; no Author/play borrowing or author repair |
 | Ownership | Busy, pre-cancel, in-flight cancel, timeout, drop/join and unknown cleanup; no replacement owner or detached test worker |
-| Reply | Wrong ID, duplicate/extra/malformed frame, token count above the exact request, oversized text, forbidden reasoning/tool output; no weakening of Play parsing |
+| Reply | Wrong ID, duplicate/extra/malformed frame, Author token/byte count above its exact request, existing forbidden thinking markers and unknown tool-frame fields; Play parsing unchanged |
 | Availability | Current production gate remains disabled; fixture access cannot be supplied by wire/environment/profile; unsupported worker cannot be relabeled |
 | Metrics | Author explicitly unavailable, never Narrator; ordinary three-record Play/repair behavior and D07 tuple/decoder fixtures unchanged |
-| Worker source | Pure validator tests for exact role/budgets and grammar forwarding; no model load or compiled-worker qualification inferred |
-| Host authority | Reuse existing original-story authoring/recovery tests; generated text alone cannot create a story or change existing canon |
+| Worker source (B) | Pure validator tests for exact role/budgets and grammar forwarding belong to B; worker source is unchanged in A |
+| Host authority | Reuse actual shared request/schema fixtures; existing authoring/recovery acceptance stays separate and unchanged; generated text alone cannot create a story |
 
 Rust request/reply tests, controlled-work lifecycle tests, actual development
 fixture processes and compiled C++ validator tests are different evidence
@@ -254,16 +306,13 @@ fixtures and outputs before admission. Do not let an existing helper's temporary
 path escape accounting. Start with pure fixed tests; budget compiled fixture
 processes/worker builds separately. All failed and unrun cases retain their status.
 
-## Open choices and acceptance
+## Freeze decisions and remaining adoption gate
 
-The first three choices block A's freeze. The last blocks production adoption,
-not independent development of the disabled, synthetic-tested A seam.
+Root freezes the private, default-disabled gate, two fixed test-only fixture cases,
+unavailable version2 metrics, exact errors above, unchanged Play reply ceilings,
+and worker-source allocation to B. These are code choices under the existing
+assignment; no production authority mint or app/model execution is approved.
 
-- Root must confirm A's default-disabled production gate and the exact private
-  test-only fixture access seam. No production authority-minting API is approved.
-- Confirm the unavailable-metrics representation without changing Play/D07 output.
-- Freeze exact error categories, bound checks and the worker-validation allocation
-  before FIRST; retain existing error behavior outside the new Author lane.
 - B needs a reviewed truthful capability/profile representation, new actual worker
   identity and separate qualified adoption. There is no proposed hash or assumed
   compatibility with the currently pinned binary.
@@ -271,5 +320,5 @@ not independent development of the disabled, synthetic-tested A seam.
 This packet leaves original-world UI, actual Author inference, native application
 execution, model quality, Android/device parity, OS/network isolation, packaging
 and release unqualified. All four existing app-run grants remain spent. The
-reviewable output here is a documentation proposal; it is not a frozen contract,
-passing test result, owner acceptance or permission for another run.
+reviewable output here is the frozen code-only A contract. It is not a passing
+test result, accepted implementation or permission for another app/model run.

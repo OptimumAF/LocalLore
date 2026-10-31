@@ -891,8 +891,10 @@ impl Session3 {
                 load: None,
             },
         )?;
-        self.execute_body(cancel, max_new_scenes, &factory)?;
-        drop(factory);
+        {
+            let owned_factory = factory;
+            self.execute_body(cancel, max_new_scenes, &owned_factory)?;
+        }
         self.finish()
     }
     fn execute_body(

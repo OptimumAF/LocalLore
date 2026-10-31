@@ -1248,19 +1248,19 @@ fn validate_prose(
             } else {
                 token.chars().next().is_some_and(char::is_uppercase)
             };
-            if capitalized
-                && !opening_word
-                // The English pronoun is inherently capitalized, not a named
-                // entity. Scene-specific first-person restrictions still run.
-                && !(mode == ProseMode::WholeEvidenceWordsV1 && index == 0 && token == "I")
-                && !visible_labels.contains(&token.to_lowercase())
-                && !(if mode == ProseMode::WholeEvidenceWordsV1 {
-                    source_words.contains(&token.to_lowercase())
-                } else {
-                    source.contains(&token.to_lowercase())
-                })
-                && !covered_label(folded_start, folded_end)
-            {
+            // The English pronoun is inherently capitalized, not a named
+            // entity. Scene-specific first-person restrictions still run.
+            let grammatical_opening = opening_word
+                || (mode == ProseMode::WholeEvidenceWordsV1 && index == 0 && token == "I");
+            let evidence_word = if mode == ProseMode::WholeEvidenceWordsV1 {
+                source_words.contains(&token.to_lowercase())
+            } else {
+                source.contains(&token.to_lowercase())
+            };
+            let grounded = visible_labels.contains(&token.to_lowercase())
+                || evidence_word
+                || covered_label(folded_start, folded_end);
+            if capitalized && !grammatical_opening && !grounded {
                 return Err(Error::Narration);
             }
         }

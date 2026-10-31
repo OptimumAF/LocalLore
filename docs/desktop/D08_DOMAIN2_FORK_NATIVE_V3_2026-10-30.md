@@ -299,3 +299,55 @@ expanded pair,20KiB verifier,128KiB streams for eight checks,32KiB check records
 1,077,248B below proposed1,179,648B by102,400B. Nothing is deleted or reset to make
 these forecasts fit. The prospective source patch, static/source review and
 concrete new owner decision must be complete before any new admission or launch.
+
+### Prospective source review completed; owner decision still absent
+
+The plain local `v4-source.patch.json` is9,054B, SHA256
+`56f0c483e20901dc97c3887b13926ca19ddb24a29a3450d660da3b2fe77f2400`.
+Its separate plain `v4-source-safety-delta.json` is1,033B, SHA256
+`e906ce3d4ceb3db38e7562350ccbeb3354299c355ca403e8ffeaa20a0f63bc99`.
+Both stay immutable. Their10,087B physical source has no compression inflation;
+the existing original10,825 decoded bytes remain charged independently.
+
+Root strictly checks all22 common literal-replacement counts, subsequent file
+operations, base/result byte lengths and SHA256s, and exact inverses back to the
+two retained V3 scripts. Expansion happens in memory only. The final46,410B pair
+fits its48KiB forecast. Node's non-executing module syntax check and PowerShell's
+non-executing parser pass. Independent source review finds no remaining must-fix:
+
+| Prospective source | Bytes | SHA256 |
+| --- | ---: | --- |
+| Runner |22,074 |`adef7f91dc9844873f0a5cad27d004b67e2fe6a203b4c878766001024d38e851` |
+| Preparer |24,336 |`c2081ebf520a47480b210d2a14aab4b2410bf7efe2049b60252a1a6f656b1d7a` |
+
+Source authoring retains two sizing refusals before any patch file is written
+(9,959B then8,969B against the initial8KiB source allocation). Root permits9KiB
+within the existing shared768KiB hard cap; no user cap changes. The primary then
+reveals a PowerShell temporary clobbering the old checks-root variable. That
+primary remains intact; the separate delta isolates the entire new history
+block in a fixed function and renames its file temporary. One in-memory literal
+anchor refusal precedes the delta write. Refused candidates and the uncorrected
+primary are never parsed or executed; only the final combined source is
+syntax-parsed. No experiment or native artifact is overwritten.
+
+The prospective V4 authority rejects ALL three spent call IDs. New verification
+requires the exact38-key post-V3 source roster, permitting only the separate
+Native12/launcher budget amendment to differ. Seven fresh proof references and
+three exact carried close8/types/session6 references bind the existing passing
+code gate. All three native failure histories, known closures, ordinary raw
+copies, restored products and old markers remain hash-bound. Old restoration
+checks do not incorrectly demand that a freshly rebuilt normal executable keep
+its predecessor's bytes. The new exclusive normal backup preserves ff2 before
+build while earlier0d21/D144 backups stay intact.
+
+Both final strict zero-owned-process observation time and admission-record time
+must be0–30s old before the attempt marker and again before the sole fixed spawn.
+Unknown/ambiguous ownership, storage, terminal parse or shutdown still stops.
+This source refinement adds no general command or debugging service.
+
+The1,017B static record brings current metadata to767,342B physical/778,167B
+logical, under the UNCHANGED768KiB limit by8,265B. No expanded V4 script,
+authority, admission, canonical record, packet or app exists. Current active
+launcher bounds remain48MiB/708MiB; prospective64MiB/724MiB/1152KiB requires a
+NEW owner decision, actual independent baseline/producer/checks and fresh
+admission. Syntax and source review are not native execution or permission.

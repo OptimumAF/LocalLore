@@ -248,8 +248,9 @@ fn prepare(fixture: &Fixture, session: &Value, scope: &Scope, turn: &str,
 fn commit(fixture: &Fixture, session: &Value, before: &Engine, turn: &str) -> Receipt {
     let committed = ok(fixture.call(op(session, before.scope(), "commit", turn)));
     assert_eq!(committed["phase"], "committed");
-    let receipt: Receipt = serde_json::from_value(committed["receipt"].clone()).unwrap();
     let after = fixture.engine(before.scope());
+    let receipt = after.receipts().iter().find(|receipt| receipt.request().turn == turn).unwrap().clone();
+    assert_eq!(serde_json::to_value(&receipt).unwrap(), committed["receipt"]);
     assert_eq!(after.canonical_records().len(), before.canonical_records().len() + 1);
     assert_eq!(after.recorded(receipt.request()).unwrap(), Some(receipt.clone()));
     receipt

@@ -858,7 +858,15 @@ impl LocalRuntime {
         generation: Generation,
         cancel: impl Fn() -> bool,
     ) -> Result<GenerationResult, Error> {
-        self.generate_bounded(generation, PLAY_REPLY_BOUNDS, cancel)
+        let bounds = if matches!(generation.role, Role::Author) {
+            ReplyBounds {
+                output_tokens: generation.max_tokens,
+                text_bytes: 8192,
+            }
+        } else {
+            PLAY_REPLY_BOUNDS
+        };
+        self.generate_bounded(generation, bounds, cancel)
     }
     pub(crate) fn generate_bounded(
         &mut self,

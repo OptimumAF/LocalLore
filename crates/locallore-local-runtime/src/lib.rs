@@ -982,10 +982,10 @@ fn parse_reply(frame: &[u8], id: u64, _bounds: ReplyBounds) -> Result<Reply, Err
     Ok(reply)
 }
 
-#[cfg(all(test, feature = "development-worker"))]
-mod owned_cleanup_tests;
 #[cfg(all(test, feature = "engine-adapter", feature = "development-worker"))]
 mod author_reply_review;
+#[cfg(all(test, feature = "development-worker"))]
+mod owned_cleanup_tests;
 #[cfg(all(test, feature = "development-worker"))]
 mod tests {
     use super::*;
@@ -1373,12 +1373,16 @@ mod tests {
         ] {
             let mut changed = base.clone();
             changed[key] = value;
-            assert!(parse_reply(&serde_json::to_vec(&changed).unwrap(), 1, PLAY_REPLY_BOUNDS).is_err());
+            assert!(
+                parse_reply(&serde_json::to_vec(&changed).unwrap(), 1, PLAY_REPLY_BOUNDS).is_err()
+            );
         }
         for key in ["input_tokens", "output_tokens"] {
             let mut changed = base.clone();
             changed["metrics"][key] = json!(10000);
-            assert!(parse_reply(&serde_json::to_vec(&changed).unwrap(), 1, PLAY_REPLY_BOUNDS).is_err());
+            assert!(
+                parse_reply(&serde_json::to_vec(&changed).unwrap(), 1, PLAY_REPLY_BOUNDS).is_err()
+            );
         }
     }
 }

@@ -9,7 +9,10 @@
 
 use super::*;
 use locallore::{contracts::Scope, inference::Budget, story_authoring as author};
-use std::{path::{Path, PathBuf}, time::Instant};
+use std::{
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 fn author_request() -> GenerationRequest {
     let input = author::InitialStoryInputV1 {
@@ -18,7 +21,8 @@ fn author_request() -> GenerationRequest {
         player_name: "Sable".into(),
         player_description: "A patient cartographer.".into(),
         cast: vec![author::InitialCastHintV1 {
-            name: "Finch".into(), description: "An orchard keeper.".into(),
+            name: "Finch".into(),
+            description: "An orchard keeper.".into(),
         }],
         profile: author::InitialRuleProfileV1::NarrativeV1,
         presentation: locallore::story_presentation::StoryPresentationV1::default(),
@@ -29,68 +33,114 @@ fn author_request() -> GenerationRequest {
 fn play_request(role: &str) -> GenerationRequest {
     GenerationRequest {
         version: 1,
-        scope: Scope { story: "review-play".into(), branch: "root".into() },
-        turn: "review-turn".into(), revision: 0, model_profile: PROFILE.into(),
+        scope: Scope {
+            story: "review-play".into(),
+            branch: "root".into(),
+        },
+        turn: "review-turn".into(),
+        revision: 0,
+        model_profile: PROFILE.into(),
         schema: "review-play-v1".into(),
-        budget: Budget { max_output_bytes: 16_384, max_output_tokens: 64,
-            max_pending_polls: 1000, deadline_ms: 5000 },
-        input: Input::Structured { role: role.into(), prompt: "Synthetic play prompt.".into(),
-            schema: json!({"type":"object"}) },
+        budget: Budget {
+            max_output_bytes: 16_384,
+            max_output_tokens: 64,
+            max_pending_polls: 1000,
+            deadline_ms: 5000,
+        },
+        input: Input::Structured {
+            role: role.into(),
+            prompt: "Synthetic play prompt.".into(),
+            schema: json!({"type":"object"}),
+        },
     }
 }
 
 fn prompt(request: &mut GenerationRequest, value: String) {
-    if let Input::Structured { prompt, .. } = &mut request.input { *prompt = value; }
+    if let Input::Structured { prompt, .. } = &mut request.input {
+        *prompt = value;
+    }
 }
 
-fn ready(provider: &mut RuntimeProvider, request: &GenerationRequest,
-    cancel: &Cancellation) -> Option<Result<Vec<u8>, Error>> {
+fn ready(
+    provider: &mut RuntimeProvider,
+    request: &GenerationRequest,
+    cancel: &Cancellation,
+) -> Option<Result<Vec<u8>, Error>> {
     let started = Instant::now();
     loop {
-        if let Poll::Ready(result) = provider.poll(request, cancel) { return Some(result); }
-        if started.elapsed() >= Duration::from_secs(5) { return None; }
+        if let Poll::Ready(result) = provider.poll(request, cancel) {
+            return Some(result);
+        }
+        if started.elapsed() >= Duration::from_secs(5) {
+            return None;
+        }
         thread::sleep(Duration::from_millis(5));
     }
 }
 
 fn generation_observed(directory: &Path) -> bool {
-    let marker = directory.join("blocked-generation-observed").with_extension("generation-started");
+    let marker = directory
+        .join("blocked-generation-observed")
+        .with_extension("generation-started");
     let started = Instant::now();
     while started.elapsed() < Duration::from_secs(2) {
-        if marker.is_file() { return true; }
+        if marker.is_file() {
+            return true;
+        }
         thread::sleep(Duration::from_millis(5));
     }
     false
 }
 
 struct Fixture {
-    provider: Option<RuntimeProvider>, runtime: SharedRuntime, directory: PathBuf,
-    initial: crate::Status, finished: bool,
+    provider: Option<RuntimeProvider>,
+    runtime: SharedRuntime,
+    directory: PathBuf,
+    initial: crate::Status,
+    finished: bool,
 }
 struct Cleanup {
-    initial: crate::Status, result: Result<(), RuntimeError>, terminal: bool,
-    pipes_joined: bool, next_id: u64,
+    initial: crate::Status,
+    result: Result<(), RuntimeError>,
+    terminal: bool,
+    pipes_joined: bool,
+    next_id: u64,
 }
 impl Fixture {
     fn new(log: Option<RoleMetricsLog>, case: AuthorFixtureCase) -> Self {
         let (provider, runtime, directory) = match author_fixture(log, case) {
             Ok(value) => value,
-            Err(crate::OwnedStartFailure::BeforeChild(_)) => panic!("SETUP_UNRUN author fixture unavailable"),
+            Err(crate::OwnedStartFailure::BeforeChild(_)) => {
+                panic!("SETUP_UNRUN author fixture unavailable")
+            }
             Err(crate::OwnedStartFailure::AfterChild { mut owner, .. }) => {
                 let cleanup = owner.terminate_and_reap();
-                assert!(cleanup.is_ok(), "SETUP_UNRUN partial-start cleanup unresolved");
+                assert!(
+                    cleanup.is_ok(),
+                    "SETUP_UNRUN partial-start cleanup unresolved"
+                );
                 panic!("SETUP_UNRUN author fixture partial start");
             }
         };
         let initial = runtime.lock().unwrap().status();
         let load = if initial == crate::Status::Unloaded {
             runtime.lock().unwrap().load(|| false).map(|_| ())
-        } else { Ok(()) };
-        let mut fixture = Self { provider: Some(provider), runtime, directory, initial, finished: false };
+        } else {
+            Ok(())
+        };
+        let mut fixture = Self {
+            provider: Some(provider),
+            runtime,
+            directory,
+            initial,
+            finished: false,
+        };
         if load.is_err() {
             let cleanup = fixture.finish();
-            assert!(cleanup.result.is_ok() && cleanup.terminal && cleanup.pipes_joined,
-                "SETUP_UNRUN fixture load cleanup unresolved");
+            assert!(
+                cleanup.result.is_ok() && cleanup.terminal && cleanup.pipes_joined,
+                "SETUP_UNRUN fixture load cleanup unresolved"
+            );
             panic!("SETUP_UNRUN fixture load failed");
         }
         fixture
@@ -104,7 +154,13 @@ impl Fixture {
         let terminal = owner.child.try_wait().is_ok_and(|v| v.is_some());
         let pipes_joined = owner.threads.is_empty() && owner.writer.is_none();
         self.finished = result.is_ok() && terminal && pipes_joined;
-        Cleanup { initial: self.initial, result, terminal, pipes_joined, next_id }
+        Cleanup {
+            initial: self.initial,
+            result,
+            terminal,
+            pipes_joined,
+            next_id,
+        }
     }
 }
 impl Drop for Fixture {
@@ -112,15 +168,26 @@ impl Drop for Fixture {
         // Panic fallback only; this is never counted as positive cleanup evidence.
         if !self.finished {
             drop(self.provider.take());
-            let _ = self.runtime.lock().unwrap_or_else(|p| p.into_inner()).terminate_and_reap();
+            let _ = self
+                .runtime
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .terminate_and_reap();
         }
         // All fixture files remain retained; no cleanup/delete of evidence.
     }
 }
 fn cleaned(result: &Cleanup) {
-    assert_eq!(result.initial, crate::Status::Unloaded, "fixture must start unloaded");
+    assert_eq!(
+        result.initial,
+        crate::Status::Unloaded,
+        "fixture must start unloaded"
+    );
     assert_eq!(result.result, Ok(()), "exact owner cleanup");
-    assert!(result.terminal && result.pipes_joined, "positive reap and pipe joins");
+    assert!(
+        result.terminal && result.pipes_joined,
+        "positive reap and pipe joins"
+    );
 }
 
 #[test]
@@ -135,13 +202,29 @@ fn actual_shared_author_request_preserves_schema_profile_and_prompt_provenance()
     assert_eq!(request.model_profile, PROFILE);
     assert_eq!(request.schema, author::SCHEMA_VERSION);
     assert_ne!(request.model_profile, request.schema);
-    assert!(call.generation.schema == Some(author::proposal_schema()), "canonical schema forwarded");
-    let Input::Structured { role, prompt, schema } = request.input else { panic!("structured request") };
+    assert!(
+        call.generation.schema == Some(author::proposal_schema()),
+        "canonical schema forwarded"
+    );
+    let Input::Structured {
+        role,
+        prompt,
+        schema,
+    } = request.input
+    else {
+        panic!("structured request")
+    };
     assert_eq!(role, "author");
     assert_eq!(author::PROMPT_VERSION, "initial-world-v1.1");
     assert!(prompt.starts_with(include_str!("../../../prompts/initial-world-v1.txt")));
-    assert!(call.generation.prompt == prompt, "prompt forwarded unchanged");
-    assert!(schema == author::proposal_schema(), "shared schema unchanged");
+    assert!(
+        call.generation.prompt == prompt,
+        "prompt forwarded unchanged"
+    );
+    assert!(
+        schema == author::proposal_schema(),
+        "shared schema unchanged"
+    );
     assert_eq!(call.identity.story, "author-draft-review_author_01");
     assert_eq!(call.identity.branch, "draft");
 }
@@ -158,23 +241,53 @@ fn author_binding_mutants_are_rules_without_a_second_validator() {
             4 => request.scope.branch = "root".into(),
             5 => request.revision = 1,
             6 => request.turn.clear(),
-            7 => { request.turn = "x".repeat(33); request.scope.story = format!("author-draft-{}", request.turn); }
-            8 => { request.turn = "not/ascii".into(); request.scope.story = format!("author-draft-{}", request.turn); }
+            7 => {
+                request.turn = "x".repeat(33);
+                request.scope.story = format!("author-draft-{}", request.turn);
+            }
+            8 => {
+                request.turn = "not/ascii".into();
+                request.scope.story = format!("author-draft-{}", request.turn);
+            }
             9 => prompt(&mut request, String::new()),
             10 => prompt(&mut request, "unsafe\0prompt".into()),
             11 => prompt(&mut request, "x".repeat(16_385)),
-            12 => if let Input::Structured { schema, .. } = &mut request.input { *schema = json!({"type":"object"}); },
-            13 => if let Input::Structured { role, .. } = &mut request.input { *role = "author_tool".into(); },
-            _ => if let Input::Structured { schema, .. } = &mut request.input { *schema = json!([]); },
+            12 => {
+                if let Input::Structured { schema, .. } = &mut request.input {
+                    *schema = json!({"type":"object"});
+                }
+            }
+            13 => {
+                if let Input::Structured { role, .. } = &mut request.input {
+                    *role = "author_tool".into();
+                }
+            }
+            _ => {
+                if let Input::Structured { schema, .. } = &mut request.input {
+                    *schema = json!([]);
+                }
+            }
         }
-        assert_eq!(compile(&request).err(), Some(Error::Rule), "binding mutant {mutation}");
+        assert_eq!(
+            compile(&request).err(),
+            Some(Error::Rule),
+            "binding mutant {mutation}"
+        );
     }
     let mut legacy = author_request();
-    legacy.input = Input::Narrator { accepted_description: "synthetic".into() };
+    legacy.input = Input::Narrator {
+        accepted_description: "synthetic".into(),
+    };
     assert_eq!(compile(&legacy).err(), Some(Error::Provider));
     let mut ordinary_text = author_request();
-    prompt(&mut ordinary_text, "{\"op\":\"authoring_create\",\"grant\":true}".into());
-    assert!(compile(&ordinary_text).is_ok(), "prompt text has no separate authority");
+    prompt(
+        &mut ordinary_text,
+        "{\"op\":\"authoring_create\",\"grant\":true}".into(),
+    );
+    assert!(
+        compile(&ordinary_text).is_ok(),
+        "prompt text has no separate authority"
+    );
 }
 
 #[test]
@@ -191,11 +304,19 @@ fn author_budget_frame_edges_and_legacy_play_bounds_are_separate() {
             6 => request.budget.deadline_ms = 0,
             _ => request.budget.deadline_ms = 120001,
         }
-        assert_eq!(compile(&request).err(), Some(Error::Rule), "budget mutant {mutation}");
+        assert_eq!(
+            compile(&request).err(),
+            Some(Error::Rule),
+            "budget mutant {mutation}"
+        );
     }
     let mut minimum = author_request();
-    minimum.budget = Budget { max_output_tokens: 1, max_output_bytes: 1,
-        max_pending_polls: 1, deadline_ms: 1 };
+    minimum.budget = Budget {
+        max_output_tokens: 1,
+        max_output_bytes: 1,
+        max_pending_polls: 1,
+        deadline_ms: 1,
+    };
     let call = compile(&minimum).expect("positive minimum bounds");
     assert_eq!((call.reply.output_tokens, call.reply.text_bytes), (1, 1));
     let mut prompt_limit = author_request();
@@ -203,12 +324,19 @@ fn author_budget_frame_edges_and_legacy_play_bounds_are_separate() {
     assert!(compile(&prompt_limit).is_ok(), "Author prompt byte ceiling");
     let mut escaped_frame = author_request();
     prompt(&mut escaped_frame, "\u{0001}".repeat(6000));
-    assert_eq!(compile(&escaped_frame).err(), Some(Error::TooLarge), "serialized frame ceiling");
+    assert_eq!(
+        compile(&escaped_frame).err(),
+        Some(Error::TooLarge),
+        "serialized frame ceiling"
+    );
     let mut play = play_request("director");
     let call = compile(&play).expect("legacy Play compile");
     assert!(matches!(call.lane, Lane::Play));
-    assert_eq!((call.reply.output_tokens, call.reply.text_bytes), (350, 16_384),
-        "Play request64 keeps legacy reply ceilings");
+    assert_eq!(
+        (call.reply.output_tokens, call.reply.text_bytes),
+        (350, 16_384),
+        "Play request64 keeps legacy reply ceilings"
+    );
     play.budget.max_output_tokens = 350;
     assert!(compile(&play).is_ok());
     play.budget.max_output_tokens = 351;
@@ -224,14 +352,22 @@ fn default_provider_refuses_author_before_frame_but_does_not_poison_play() {
     let denied = provider.poll(&author_request(), &Cancellation::default());
     let failure = provider.last_failure();
     let after = fixture.runtime.lock().unwrap().next_id;
-    let play = ready(&mut provider, &play_request("director"), &Cancellation::default());
+    let play = ready(
+        &mut provider,
+        &play_request("director"),
+        &Cancellation::default(),
+    );
     drop(provider);
     let cleanup = fixture.finish();
     cleaned(&cleanup);
     assert_eq!(denied, Poll::Ready(Err(Error::Provider)));
     assert_eq!(failure, Some(RuntimeError::WorkerUnavailable));
     assert_eq!(after, before, "disabled Author cannot send generation");
-    assert_eq!(play, Some(Ok(vec![])), "disabled attempt did not bind/poison");
+    assert_eq!(
+        play,
+        Some(Ok(vec![])),
+        "disabled attempt did not bind/poison"
+    );
     assert_eq!(cleanup.next_id, before + 1);
 }
 
@@ -249,7 +385,10 @@ fn completed_author_is_singleton_cached_and_metrics_are_unavailable() {
         let mut changed = request.clone();
         match mutation {
             0 => prompt(&mut changed, "changed Author prompt".into()),
-            1 => { changed.turn = "different_job".into(); changed.scope.story = "author-draft-different_job".into(); }
+            1 => {
+                changed.turn = "different_job".into();
+                changed.scope.story = "author-draft-different_job".into();
+            }
             2 => changed.budget.max_output_tokens -= 1,
             3 => changed.budget.max_output_bytes -= 1,
             4 => changed.budget.max_pending_polls -= 1,
@@ -265,7 +404,9 @@ fn completed_author_is_singleton_cached_and_metrics_are_unavailable() {
     cleaned(&cleanup);
     assert_eq!(first, Some(Ok(vec![])));
     assert_eq!(cached, Poll::Ready(Ok(vec![])));
-    assert!(rejected.iter().all(|r| *r == Poll::Ready(Err(Error::RetryMismatch))));
+    assert!(rejected
+        .iter()
+        .all(|r| *r == Poll::Ready(Err(Error::RetryMismatch))));
     assert_eq!(original_again, Poll::Ready(Ok(vec![])));
     assert_eq!(cleanup.next_id, before + 1, "one actual generate operation");
     assert_eq!(snapshot.version, 2);
@@ -277,19 +418,38 @@ fn completed_author_is_singleton_cached_and_metrics_are_unavailable() {
 fn pending_author_polls_one_operation_then_changed_identity_cancels_and_poison_fences() {
     let mut fixture = Fixture::new(None, AuthorFixtureCase::BlockedGenerationObserved);
     let request = author_request();
-    let first = fixture.provider.as_mut().unwrap().poll(&request, &Cancellation::default());
+    let first = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&request, &Cancellation::default());
     let observed = first.is_pending() && generation_observed(&fixture.directory);
-    let repeated = fixture.provider.as_mut().unwrap().poll(&request, &Cancellation::default());
+    let repeated = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&request, &Cancellation::default());
     let mut changed = request.clone();
     prompt(&mut changed, "valid changed prompt".into());
-    let mismatch = fixture.provider.as_mut().unwrap().poll(&changed, &Cancellation::default());
-    let poisoned = fixture.provider.as_mut().unwrap().poll(&request, &Cancellation::default());
+    let mismatch = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&changed, &Cancellation::default());
+    let poisoned = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&request, &Cancellation::default());
     let cleanup = fixture.finish();
     cleaned(&cleanup);
     assert!(first.is_pending() && observed && repeated.is_pending());
     assert_eq!(mismatch, Poll::Ready(Err(Error::RetryMismatch)));
     assert_eq!(poisoned, Poll::Ready(Err(Error::RetryMismatch)));
-    assert_eq!(cleanup.next_id, 2, "load plus one generate, never a replacement");
+    assert_eq!(
+        cleanup.next_id, 2,
+        "load plus one generate, never a replacement"
+    );
 }
 
 #[test]
@@ -300,14 +460,26 @@ fn pre_cancel_and_busy_do_not_dispatch_and_busy_terminal_has_no_refund() {
     cancel.cancel();
     let cancelled = fixture.provider.as_mut().unwrap().poll(&request, &cancel);
     let held = fixture.runtime.lock().unwrap();
-    let busy = ready(fixture.provider.as_mut().unwrap(), &request, &Cancellation::default());
+    let busy = ready(
+        fixture.provider.as_mut().unwrap(),
+        &request,
+        &Cancellation::default(),
+    );
     let failure = fixture.provider.as_ref().unwrap().last_failure();
     let native_id = held.next_id;
     drop(held);
-    let cached = fixture.provider.as_mut().unwrap().poll(&request, &Cancellation::default());
+    let cached = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&request, &Cancellation::default());
     let mut changed = request.clone();
     prompt(&mut changed, "cannot refund Busy".into());
-    let replacement = fixture.provider.as_mut().unwrap().poll(&changed, &Cancellation::default());
+    let replacement = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&changed, &Cancellation::default());
     let cleanup = fixture.finish();
     cleaned(&cleanup);
     assert_eq!(cancelled, Poll::Ready(Err(Error::Cancelled)));
@@ -330,12 +502,19 @@ fn observed_author_cancel_and_drop_both_join_and_reap_without_replacement() {
         let terminal = if explicit_cancel && observed {
             cancel.cancel();
             ready(fixture.provider.as_mut().unwrap(), &request, &cancel)
-        } else { None };
+        } else {
+            None
+        };
         // finish drops the provider (joining its role thread), then positively reaps.
         let cleanup = fixture.finish();
         cleaned(&cleanup);
-        assert!(first.is_pending() && observed, "fixed synthetic generation was observed");
-        if explicit_cancel { assert_eq!(terminal, Some(Err(Error::Cancelled))); }
+        assert!(
+            first.is_pending() && observed,
+            "fixed synthetic generation was observed"
+        );
+        if explicit_cancel {
+            assert_eq!(terminal, Some(Err(Error::Cancelled)));
+        }
         assert_eq!(cleanup.next_id, 2, "one generate despite cancel/drop");
     }
 }
@@ -347,18 +526,37 @@ fn author_timeout_is_cached_and_changed_request_cannot_reset_deadline() {
     request.budget.deadline_ms = 500;
     struct DelayReset;
     impl Drop for DelayReset {
-        fn drop(&mut self) { crate::AFTER_REPLY_DELAY.with(|delay| delay.set(None)); }
+        fn drop(&mut self) {
+            crate::AFTER_REPLY_DELAY.with(|delay| delay.set(None));
+        }
     }
     let delay_reset = DelayReset;
     // Existing hook delays an already validated terminal reply. Unlike a child
     // that never acknowledges cancellation, this exercises Timeout, not Cleanup.
     crate::AFTER_REPLY_DELAY.with(|delay| delay.set(Some(Duration::from_millis(650))));
-    let first = fixture.provider.as_mut().unwrap().poll(&request, &Cancellation::default());
-    let result = ready(fixture.provider.as_mut().unwrap(), &request, &Cancellation::default());
+    let first = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&request, &Cancellation::default());
+    let result = ready(
+        fixture.provider.as_mut().unwrap(),
+        &request,
+        &Cancellation::default(),
+    );
     let failure = fixture.provider.as_ref().unwrap().last_failure();
-    let cached = fixture.provider.as_mut().unwrap().poll(&request, &Cancellation::default());
-    let mut changed = request.clone(); changed.budget.deadline_ms = 1000;
-    let reset = fixture.provider.as_mut().unwrap().poll(&changed, &Cancellation::default());
+    let cached = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&request, &Cancellation::default());
+    let mut changed = request.clone();
+    changed.budget.deadline_ms = 1000;
+    let reset = fixture
+        .provider
+        .as_mut()
+        .unwrap()
+        .poll(&changed, &Cancellation::default());
     let cleanup = fixture.finish();
     drop(delay_reset); // Old compile refusal must not leak an unconsumed test delay.
     cleaned(&cleanup);
@@ -377,20 +575,29 @@ fn ordinary_two_three_role_metrics_stay_intact_and_author_never_relabels_them() 
     let mut two = RuntimeProvider::with_metrics(fixture.runtime.clone(), two_log.clone());
     let director = play_request("director");
     let narrator = play_request("narrator");
-    let two_results = [ready(&mut two, &director, &Cancellation::default()),
-        ready(&mut two, &narrator, &Cancellation::default())];
+    let two_results = [
+        ready(&mut two, &director, &Cancellation::default()),
+        ready(&mut two, &narrator, &Cancellation::default()),
+    ];
     let play_to_author = two.poll(&author_request(), &Cancellation::default());
     drop(two);
     let two_snapshot = two_log.snapshot();
     let three_log = RoleMetricsLog::new();
     let mut three = RuntimeProvider::with_metrics(fixture.runtime.clone(), three_log.clone());
-    let mut repair = director.clone(); prompt(&mut repair, "one bounded synthetic repair".into());
-    let three_results = [ready(&mut three, &director, &Cancellation::default()),
+    let mut repair = director.clone();
+    prompt(&mut repair, "one bounded synthetic repair".into());
+    let three_results = [
+        ready(&mut three, &director, &Cancellation::default()),
         ready(&mut three, &repair, &Cancellation::default()),
-        ready(&mut three, &narrator, &Cancellation::default())];
+        ready(&mut three, &narrator, &Cancellation::default()),
+    ];
     drop(three);
     let three_snapshot = three_log.snapshot();
-    let author = ready(fixture.provider.as_mut().unwrap(), &author_request(), &Cancellation::default());
+    let author = ready(
+        fixture.provider.as_mut().unwrap(),
+        &author_request(),
+        &Cancellation::default(),
+    );
     let cleanup = fixture.finish();
     let hidden_old_records = two_log.snapshot();
     cleaned(&cleanup);
@@ -403,9 +610,19 @@ fn ordinary_two_three_role_metrics_stay_intact_and_author_never_relabels_them() 
         assert_eq!(snapshot.records.len(), count);
         for (index, record) in snapshot.records.iter().enumerate() {
             let is_director = index + 1 < count;
-            assert_eq!(record.role, if is_director { MetricRole::Director } else { MetricRole::Narrator });
+            assert_eq!(
+                record.role,
+                if is_director {
+                    MetricRole::Director
+                } else {
+                    MetricRole::Narrator
+                }
+            );
             assert_eq!(record.ordinal, index as u8);
-            assert_eq!(record.director_attempt, if is_director { Some(index as u8) } else { None });
+            assert_eq!(
+                record.director_attempt,
+                if is_director { Some(index as u8) } else { None }
+            );
             assert_eq!(record.adapter_terminal, AdapterTerminal::Completed);
             assert_eq!(record.native_terminal, NativeTerminal::Completed);
         }

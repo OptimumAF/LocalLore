@@ -1,8 +1,8 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Optional shared-engine provider. This adapter never validates or commits canonical outcomes.
 use crate::{
-    resource_metrics::Sampler, Error as RuntimeError, Generation, LocalRuntime, Metrics,
-    AuthorAccess, ReplyBounds, ResourceMetrics, Role, PLAY_REPLY_BOUNDS, PROFILE,
+    resource_metrics::Sampler, AuthorAccess, Error as RuntimeError, Generation, LocalRuntime,
+    Metrics, ReplyBounds, ResourceMetrics, Role, PLAY_REPLY_BOUNDS, PROFILE,
 };
 use crate::{
     role_metrics::digest, AdapterError, AdapterTerminal, MetricRole, NativeTerminal, RoleMetrics,
@@ -360,7 +360,12 @@ impl RuntimeProvider {
         request: &GenerationRequest,
         external: Cancellation,
     ) -> Result<(), Error> {
-        let CompiledCall { identity, generation, reply, .. } = call;
+        let CompiledCall {
+            identity,
+            generation,
+            reply,
+            ..
+        } = call;
         self.metrics = None;
         self.failure = None;
         let observation = self
@@ -498,9 +503,7 @@ impl InferenceProvider for RuntimeProvider {
                 return Poll::Ready(Err(error));
             }
         };
-        if call.lane == Lane::InitialWorld
-            && matches!(self.author_access, AuthorAccess::Disabled)
-        {
+        if call.lane == Lane::InitialWorld && matches!(self.author_access, AuthorAccess::Disabled) {
             self.metrics = None;
             self.failure = Some(RuntimeError::WorkerUnavailable);
             return Poll::Ready(Err(Error::Provider));
@@ -1123,9 +1126,7 @@ mod tests {
             // Enter the production admission helper without receiving its terminal channel yet.
             let call = compile(&req).unwrap();
             provider.directors_started = 1;
-            provider
-                .start(call, &req, cancel.clone())
-                .unwrap();
+            provider.start(call, &req, cancel.clone()).unwrap();
             let start = Instant::now();
             while !provider
                 .active

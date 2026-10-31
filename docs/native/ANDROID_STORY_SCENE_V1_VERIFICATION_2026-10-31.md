@@ -166,7 +166,7 @@ have no unexpected meter errors. Source/permission/unknown accounting errors
 remain fail-closed. Shared global caches/Git metadata are not fully attributed;
 observed named-path size is not aggregate peak use or a system quota.
 
-All device grants remain spent; no emulator/phone/ADB/model/app action, AVD ledger
+Prior bounded emulator grants remain spent; no emulator/phone/ADB/model/app action, AVD ledger
 change, unrelated-emulator stop, system setting, cleanup, release or merge occurred.
 M01.01/M01.02/M10.05 device gates remain blocked/unverified. New-source emulator,
 physical-phone/ARM64 execution, real inference, story quality, joined SDK drain,

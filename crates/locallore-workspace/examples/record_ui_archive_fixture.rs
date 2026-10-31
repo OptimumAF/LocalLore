@@ -6,7 +6,7 @@ use locallore::{
     contracts::*,
     engine::Engine,
     inspection::sha256,
-    inspection_query::{self, Observer, Query, Row, Source, ValueOrigin, View},
+    inspection_query::{self, FieldValue, Observer, Query, Row, Source, ValueOrigin, View},
     play::PlayProfile,
     story_authoring::{
         self, InitialGenerationV1, InitialModelConfigurationV1, InitialProviderKindV1,
@@ -25,6 +25,7 @@ use std::{
 const STORY: &str = "query2-ui-opaque-v1";
 const OLD: &str = "The survey beacon flashes amber at the north pier.";
 const NEW: &str = "The survey beacon flashes violet at the north pier.";
+const PROMISE_TERMS: &str = "Bring the survey notes before the bell.";
 const NPC_NAME: &str = "PRIVATE_RECORD_UI_NPC_NAME";
 const NPC_SHEET: &str = "PRIVATE_RECORD_UI_NPC_SHEET";
 const NPC_BELIEF: &str = "PRIVATE_RECORD_UI_NPC_BELIEF";
@@ -120,6 +121,13 @@ fn inspect(engine: &Engine, fact: &str, expected: &str, drill_scope: &Scope, dri
     let before = engine.canonical_bytes();
     let records = engine.canonical_records().to_vec();
     let basis = engine.accepted_history_basis().expect("accepted history basis");
+    let player = &engine.seed().player;
+    let mentor = engine.seed().actors.iter().find_map(|(id, actor)|
+        (actor.name == "Nia").then_some(id)).expect("actual materialized Nia");
+    let location = &engine.state().actors[player].location;
+    let mut profile_location = false;
+    let mut relationship_dimensions = BTreeSet::new();
+    let mut promise = false;
     let mut known = false;
     let mut witnessed_drill = false;
     let mut inherited_discovery = false;
@@ -140,6 +148,37 @@ fn inspect(engine: &Engine, fact: &str, expected: &str, drill_scope: &Scope, dri
             if expected == OLD { assert!(!encoded.contains(NEW), "unseen correction reached Player inspection"); }
             for row in &page.rows {
                 match row {
+                    Row::Field { actor, field, value, source, origin: ValueOrigin::CanonicalField, .. }
+                        if field == "location" => {
+                        assert_eq!(view, View::Profiles);
+                        assert_eq!(actor, player);
+                        assert!(matches!(value, FieldValue::Text(actual) if actual == location));
+                        assert!(matches!(source, Source::Seed(id) if id == &engine.seed().id));
+                        assert!(!profile_location, "one current-player location row required");
+                        profile_location = true;
+                    }
+                    Row::Relationship { from, to, dimension, value, source,
+                        origin: ValueOrigin::CanonicalField, .. } if from == player && to == mentor => {
+                        assert_eq!(view, View::Relationships);
+                        assert!(matches!(dimension.as_str(), "respect" | "trust" | "obligation"));
+                        assert_eq!(*value, 0);
+                        assert!(matches!(source, Source::Seed(id) if id == &engine.seed().id));
+                        assert!(relationship_dimensions.insert(dimension.clone()), "unique Nia dimension");
+                    }
+                    Row::Promise { id, from, to, terms, deadline, status, return_item, sources,
+                        origin: ValueOrigin::DerivedComparison, .. } if id == "survey-notes" => {
+                        assert_eq!(view, View::Promises);
+                        assert_eq!(from, player);
+                        assert_eq!(to, mentor);
+                        assert_eq!(terms, PROMISE_TERMS);
+                        assert_eq!(*deadline, 10);
+                        assert_eq!(status, "open");
+                        assert!(return_item.is_none());
+                        assert!(matches!(sources.as_slice(), [Source::ScopedEvent { original_scope, sequence: 3 }]
+                            if original_scope == drill_scope));
+                        assert!(!promise, "one exact survey promise required");
+                        promise = true;
+                    }
                     Row::Knowledge { id, subject, text, sources, origin: ValueOrigin::KnownAsObserved, .. } if id == fact => {
                         assert_eq!(subject.as_deref(), Some(engine.seed().player.as_str()));
                         assert_eq!(text, expected);
@@ -175,6 +214,8 @@ fn inspect(engine: &Engine, fact: &str, expected: &str, drill_scope: &Scope, dri
         assert!(complete, "finite fixture inspection budget exhausted");
     }
     assert!(known && witnessed_drill && inherited_discovery);
+    assert!(profile_location && relationship_dimensions.len() == 3 && promise,
+        "all five Player views require meaningful native fixture rows");
     assert_eq!(marker, engine.domain_version() == 2);
     assert!(engine.canonical_bytes() == before && engine.canonical_records() == records.as_slice());
     assert!(engine.accepted_history_basis().expect("history remains valid") == basis);
@@ -202,10 +243,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     apply(&mut source, &root_scope, "stated-survey", Intent::Dialogue {
         text: "The survey record needs another look.".into(), audience: [mentor.clone()].into(),
     });
-    apply(&mut source, &root_scope, "return-survey", Intent::Actions(vec![Command::Promise {
-        id: "survey-notes".into(), to: mentor, terms: "Bring the survey notes before the bell.".into(),
+    let promised = apply(&mut source, &root_scope, "return-survey", Intent::Actions(vec![Command::Promise {
+        id: "survey-notes".into(), to: mentor, terms: PROMISE_TERMS.into(),
         deadline: 10, return_item: None,
     }]));
+    assert_eq!(promised.events()[0].sequence(), 3);
     apply(&mut source, &root_scope, "wait-before", Intent::Actions(vec![Command::Wait { ticks: 1 }]));
     let before = source.resume(&root_scope).expect("durable root replay").engine;
     assert_eq!(before.domain_version(), 1);
@@ -279,7 +321,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "rediscovered":branch_metadata(&rediscovered)},
         "drill":{"original_scope":root_scope,"sequence":sequence}});
     let metadata = serde_json::to_vec(&metadata)?;
-    assert!(metadata.len() + 1 <= 32 * 1024);
+    assert!(metadata.len() < 32 * 1024);
     drop(target);
     drop(source);
     let mut stdout = io::stdout().lock();

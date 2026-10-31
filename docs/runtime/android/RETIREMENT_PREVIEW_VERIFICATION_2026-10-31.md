@@ -139,3 +139,16 @@ M09.04 remain unchecked/in review for their full criteria; M01.01/M01.02 and
 M10.05 device/model/performance gates remain blocked/unverified. No phone,
 real-model, ARM64 execution, privacy, release or merge qualification follows
 from this packet.
+
+## Approved execution follow-up
+
+The subsequent B40 grant was actually executed: all nine approved images were
+retired with qualified finalization; one fresh guarded SDK7 guest ran eight
+passing methods, then the ninth failed and the tenth remained unrun. Owned
+guest/service cleanup and storage closure passed. The native Host reproduction
+confirms the separate Android Domain2 snapshot-consumer prerequisite in
+[#307](https://github.com/OptimumAF/LocalLore/issues/307). See the
+[actual execution, failures, recovery and limits](https://github.com/OptimumAF/LocalLore/blob/c6dfd53e0993aa98c42cf268c10a36c43f3522b1/docs/android/RECORD_UI_EXECUTION_2026-10-31.md).
+This later authorized executor operation does not change the preview's read-only
+contract or qualify the failed corrected-history UI cohort. No further boot,
+deletion, model operation or merge is granted.

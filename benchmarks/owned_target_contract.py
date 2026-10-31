@@ -85,6 +85,9 @@ class ContractProfile:
     INSTRUMENTATIONS: tuple
     ARTIFACT_KEYS: frozenset
     CLAIM_KINDS: tuple
+    APP: str = APP
+    TEST: str = TEST
+    MODEL_MATERIAL: bool = True
 
 def _legacy_spec():
     # Kept in this already pinned module; no import of a new profile occurs on v1.
@@ -141,7 +144,7 @@ class _Contract:
         _need(g['serial'] == 'emulator-5592' and g['abi'] == 'x86_64')
         a = value['artifacts']
         _obj(a, self.profile.ARTIFACT_KEYS)
-        for key in ('build', 'probe'):
+        for key in (('build', 'probe') if self.profile.MODEL_MATERIAL else ('build',)):
             self.binding(a[key])
         for key in ('product_apk', 'test_apk'):
             self.binding(a[key], max_bytes=256 * 1024 * 1024)
@@ -149,9 +152,10 @@ class _Contract:
             self.binding(a[key])
         if 'process_probe_source' in self.profile.ARTIFACT_KEYS:
             _need(PureWindowsPath(a['process_probe_source']['path']).name == 'android_author_process_probe.c', 'source')
-        self.binding(a['model'], max_bytes=4 * 1024 ** 3)
-        _need(a['model']['bytes'] == MODEL_BYTES and a['model']['sha256'] == MODEL_SHA256, 'binding')
-        _need(PureWindowsPath(a['probe']['path']).name == 'physical_model_probe_v1.txt', 'binding')
+        if self.profile.MODEL_MATERIAL:
+            self.binding(a['model'], max_bytes=4 * 1024 ** 3)
+            _need(a['model']['bytes'] == MODEL_BYTES and a['model']['sha256'] == MODEL_SHA256, 'binding')
+            _need(PureWindowsPath(a['probe']['path']).name == 'physical_model_probe_v1.txt', 'binding')
         self.binding(value['compatibility'])
         _need(PureWindowsPath(value['compatibility']['path']).suffix == '.md', 'source')
         return copy.deepcopy(value)
@@ -233,27 +237,31 @@ class _Contract:
         elif argv == ['am', 'get-current-user']:
             ok = True
         elif argv[:3] == ['am', 'force-stop', '--user']:
-            ok = len(argv) == 5 and argv[3] == '0' and (argv[4] in (APP, TEST))
+            ok = len(argv) == 5 and argv[3] == '0' and (argv[4] in (self.profile.APP, self.profile.TEST))
         elif argv[:1] == ['am']:
-            ok = any((argv == ['am', 'instrument', '-w', '-r', '-e', 'class', cl + '#' + m, TEST + '/androidx.test.runner.AndroidJUnitRunner'] for _, cl, m in self.profile.INSTRUMENTATIONS))
+            ok = any((argv == ['am', 'instrument', '-w', '-r', '-e', 'class', cl + '#' + m, self.profile.TEST + '/androidx.test.runner.AndroidJUnitRunner'] for _, cl, m in self.profile.INSTRUMENTATIONS))
         elif argv[:1] == ['cmd']:
-            ok = any((argv == ['cmd', 'package', 'list', 'packages', '-U', '--user', '0', p] or argv == ['cmd', 'package', 'path', '--user', '0', p] for p in (APP, TEST)))
+            ok = any((argv == ['cmd', 'package', 'list', 'packages', '-U', '--user', '0', p] or argv == ['cmd', 'package', 'path', '--user', '0', p] for p in (self.profile.APP, self.profile.TEST)))
         elif argv[:1] == ['pm']:
             ok = any((argv == ['pm', 'install', '-r', '-t', '--user', '0', p] for p in apk_paths))
         elif argv[:1] == ['sha256sum']:
             ok = len(argv) == 2 and (argv[1] in apk_paths or re.fullmatch('/data/app/[A-Za-z0-9_~=/.-]+/base\\.apk', argv[1]) is not None)
             if ok:
                 _need(all((p not in ('', '.', '..') for p in argv[1].split('/')[1:])), 'command')
+                if not self.profile.MODEL_MATERIAL and argv[1] not in apk_paths:
+                    packages = '(?:' + re.escape(self.profile.APP) + '|' + re.escape(self.profile.TEST) + ')'
+                    _need(re.fullmatch('/data/app/(?:~~[A-Za-z0-9_=-]+/)?' + packages +
+                                      '-[A-Za-z0-9_~=-]+/base\\.apk', argv[1]) is not None, 'command')
         elif argv == ['df', '-k', '/data'] or argv == ['cat', '/proc/meminfo'] or argv == ['screencap', '-p']:
-            ok = True
+            ok = self.profile.MODEL_MATERIAL
         elif argv[:1] == ['pidof']:
-            ok = len(argv) == 2 and argv[1] in (APP, TEST)
+            ok = len(argv) == 2 and argv[1] in (self.profile.APP, self.profile.TEST)
         elif argv[:1] == ['dd']:
             for name, path in zip(('product_apk', 'test_apk'), apk_paths):
                 if argv == ['dd', 'of=' + path, 'bs=65536']:
                     ok = True
                     expected = a['artifacts'][name]
-        elif argv[:4] == ['run-as', APP, '--user', '0']:
+        elif self.profile.MODEL_MATERIAL and argv[:4] == ['run-as', self.profile.APP, '--user', '0']:
             op = argv[4:]
             if op == ['mkdir', '-p', 'no_backup/original-author-source-v1']:
                 ok = True
@@ -583,14 +591,16 @@ class _Contract:
         for pin in a['sources'] + [a['compatibility']] + [a['guest'][k] for k in ('proposal', 'authorization', 'emulator', 'qemu', 'refuser', 'refuser_source')]:
             env.check_binding(pin)
         root = Path(__file__).resolve().parents[1]
-        _need(_same(a['guest']['refuser_source'], env.binding(root / 'benchmarks/native/deny_adb_client.c')) and _same(a['artifacts']['probe'], env.binding(root / 'benchmarks/fixtures/physical_model_probe_v1.txt')), 'source')
+        _need(_same(a['guest']['refuser_source'], env.binding(root / 'benchmarks/native/deny_adb_client.c')), 'source')
+        if self.profile.MODEL_MATERIAL:
+            _need(_same(a['artifacts']['probe'], env.binding(root / 'benchmarks/fixtures/physical_model_probe_v1.txt')), 'source')
         if 'process_probe_source' in a['artifacts']:
             _need(_same(a['artifacts']['process_probe_source'], env.binding(root / 'benchmarks/native/android_author_process_probe.c')), 'source')
         return None
 
     def instrumentation_kind(self, argv):
         for kind, cl, method in self.profile.INSTRUMENTATIONS:
-            if argv == ['am', 'instrument', '-w', '-r', '-e', 'class', cl + '#' + method, TEST + '/androidx.test.runner.AndroidJUnitRunner']:
+            if argv == ['am', 'instrument', '-w', '-r', '-e', 'class', cl + '#' + method, self.profile.TEST + '/androidx.test.runner.AndroidJUnitRunner']:
                 return kind
         raise TargetRefused('command')
 

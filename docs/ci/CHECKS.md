@@ -50,6 +50,11 @@ current theme resources; device execution remains separate.
 The [transcript-navigation archive report](../android/TRANSCRIPT_ARCHIVE_VERIFICATION_2026-10-30.md)
 records the subsequent fresh run with 345 passing JVM cases, both public audits
 and four compiled, unrun transcript journeys.
+The [guarded archive UI harness](../runtime/android/ARCHIVE_UI_HARNESS.md) adds
+a fixed model-free ten-method controller with current-source build admission.
+Its [verification report](../android/ARCHIVE_UI_HARNESS_VERIFICATION_2026-10-30.md)
+records 2,567 Python cases, a fresh 345-case Android JVM/build gate and genuine
+build-manifest replay; all ten Android UI methods remain unrun.
 It does not install APKs or run device tests. `--clean` cleans Android outputs
 before these checks and is rejected for `host`. Android checks require Java 17,
 SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865 and the Rust 1.93.1

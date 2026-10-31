@@ -182,7 +182,10 @@ fn generated(engine: &mut Engine, key: &str, discover: bool) -> (Request, Receip
         receipt.play().unwrap().prompt_version,
         "locallore-play-v2.5"
     );
-    assert_eq!(receipt.play().unwrap().policy, "grounded-prose-v2.2");
+    assert_eq!(
+        receipt.play().unwrap().policy,
+        "grounded-prose-v2.5-whole-evidence-words-v1"
+    );
     assert!(!receipt.play().unwrap().fallback);
     (request, receipt, provider)
 }

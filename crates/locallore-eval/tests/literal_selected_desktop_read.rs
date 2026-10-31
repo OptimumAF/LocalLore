@@ -23,7 +23,7 @@ use locallore_eval::{
         LaneFactory,
     },
     memory_comparison::frozen_suite,
-    memory_comparison_v3::arm_descriptors,
+    memory_comparison_v3::current_arm_descriptors,
 };
 use locallore_storage::Store;
 use serde_json::{json, Value};
@@ -293,7 +293,7 @@ fn selected2_safe_metadata_lock_lifecycle_and_both_version_readers_remain_distin
     assert_eq!(summary["source_protocol_version"], 3);
     assert_eq!(
         summary["constructions"],
-        serde_json::to_value(arm_descriptors()).unwrap()
+        serde_json::to_value(current_arm_descriptors()).unwrap()
     );
     assert_eq!(summary["selection"], report["selection"]);
     assert_eq!(summary["lane"], "scripted_selected_case");
@@ -544,7 +544,7 @@ fn omniscient_receipt_capture_outputs_and_manual_diagnostics_match_actual_select
     assert_eq!(diagnostics["source_protocol_version"], 3);
     assert_eq!(
         diagnostics["constructions"],
-        serde_json::to_value(arm_descriptors()).unwrap()
+        serde_json::to_value(current_arm_descriptors()).unwrap()
     );
     assert_eq!(diagnostics["binding"], binding(&summary));
     for field in [
@@ -597,7 +597,7 @@ fn omniscient_receipt_capture_outputs_and_manual_diagnostics_match_actual_select
         }
         assert_eq!(
             row["construction"],
-            serde_json::to_value(&arm_descriptors()[index]).unwrap()
+            serde_json::to_value(&current_arm_descriptors()[index]).unwrap()
         );
     }
     no_private(&diagnostics, &fixture.root);

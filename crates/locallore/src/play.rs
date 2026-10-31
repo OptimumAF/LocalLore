@@ -202,13 +202,14 @@ fn remaining(clock: GameplayClock, overhead: Duration, deadline_ms: u64) -> Resu
 }
 
 pub const PLAY_VERSION: u16 = 2;
-pub const NARRATION_POLICY: &str = "grounded-prose-v2.2";
+pub const NARRATION_POLICY: &str = "grounded-prose-v2.5-whole-evidence-words-v1";
+const RECORDED_STAGED_NARRATION_POLICY: &str = "grounded-prose-v2.2";
 pub const PROMPT_VERSION: &str = "locallore-play-v2.5";
 /// Immutable construction mapping: Domain1/player, source/render/schema/packing
-/// v1, no compiler/coverage context, grounded-prose-v2.2 narration. A future
+/// v1, no compiler/coverage context, current versioned narration policy. A future
 /// construction change requires a new version, never repoint this identifier.
 pub const LITERAL_PLAY_PROMPT_VERSION_V1: &str = "locallore-play-v2.6-literal-director-v1";
-const LITERAL_NARRATION_POLICY_V1: &str = "grounded-prose-v2.2";
+const LITERAL_NARRATION_POLICY_V1: &str = NARRATION_POLICY;
 const LITERAL_DIRECTOR_SCHEMA_ID_V1: &str = "locallore-director-literal-v1";
 pub const RECORDED_PROMPT_VERSION: &str = "locallore-play-v2.1";
 const RECORDED_PROMPT_V2_2: &str = "locallore-play-v2.2";
@@ -559,7 +560,28 @@ pub(crate) fn validate_record(
     {
         return Err(Error::Narration);
     }
-    validate_record_contents(engine, approved, record, None)
+    validate_record_contents(engine, approved, record, None, ProseMode::Legacy)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ProseMode {
+    Legacy,
+    WholeEvidenceWordsV1,
+}
+
+pub(super) fn narration_policy_mode(
+    record: &PlayRecord,
+    recorded_history: bool,
+    current: &str,
+    legacy: &str,
+) -> Result<ProseMode, Error> {
+    if record.policy == current {
+        Ok(ProseMode::WholeEvidenceWordsV1)
+    } else if recorded_history && record.policy == legacy {
+        Ok(ProseMode::Legacy)
+    } else {
+        Err(Error::Narration)
+    }
 }
 
 /// Core calls this only after regenerating the actual staged candidate/evidence.
@@ -569,9 +591,9 @@ pub(crate) fn validate_record_v25(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
-    _recorded_history: bool,
+    recorded_history: bool,
 ) -> Result<(), Error> {
-    validate_record_v25_inner(engine, approved, evidence, record, false)
+    validate_record_v25_inner(engine, approved, evidence, record, false, recorded_history)
 }
 
 pub(crate) fn validate_record_presentation_v1(
@@ -579,9 +601,9 @@ pub(crate) fn validate_record_presentation_v1(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
-    _recorded_history: bool,
+    recorded_history: bool,
 ) -> Result<(), Error> {
-    validate_record_v25_inner(engine, approved, evidence, record, true)
+    validate_record_v25_inner(engine, approved, evidence, record, true, recorded_history)
 }
 
 fn validate_record_v25_inner(
@@ -590,6 +612,7 @@ fn validate_record_v25_inner(
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
     presentation: bool,
+    recorded_history: bool,
 ) -> Result<(), Error> {
     if record.scene.is_some() {
         return Err(Error::Narration);
@@ -597,12 +620,6 @@ fn validate_record_v25_inner(
     story_presentation::validate_binding(engine, record, presentation)?;
     record.profile.validate()?;
     if record.version != PLAY_VERSION
-        || record.policy
-            != if presentation {
-                PRESENTATION_NARRATION_POLICY
-            } else {
-                NARRATION_POLICY
-            }
         || record.prompt_version
             != if presentation {
                 PRESENTATION_PROMPT_VERSION
@@ -612,8 +629,22 @@ fn validate_record_v25_inner(
     {
         return Err(Error::Narration);
     }
+    let mode = narration_policy_mode(
+        record,
+        recorded_history,
+        if presentation {
+            PRESENTATION_NARRATION_POLICY
+        } else {
+            NARRATION_POLICY
+        },
+        if presentation {
+            story_presentation::RECORDED_PRESENTATION_NARRATION_POLICY
+        } else {
+            RECORDED_STAGED_NARRATION_POLICY
+        },
+    )?;
     validate_memory_context_record(engine, approved, record)?;
-    validate_staged_record_contents(engine, approved, evidence, record)
+    validate_staged_record_contents(engine, approved, evidence, record, mode)
 }
 
 fn validate_memory_context_record(
@@ -656,10 +687,18 @@ pub(crate) fn validate_record_literal_v1(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
-    _recorded_history: bool,
+    recorded_history: bool,
     cancel: &dyn Fn() -> bool,
 ) -> Result<(), Error> {
-    validate_record_literal_inner(engine, approved, evidence, record, cancel, false)
+    validate_record_literal_inner(
+        engine,
+        approved,
+        evidence,
+        record,
+        cancel,
+        false,
+        recorded_history,
+    )
 }
 
 pub(crate) fn validate_record_literal_presentation_v1(
@@ -667,10 +706,18 @@ pub(crate) fn validate_record_literal_presentation_v1(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
-    _recorded_history: bool,
+    recorded_history: bool,
     cancel: &dyn Fn() -> bool,
 ) -> Result<(), Error> {
-    validate_record_literal_inner(engine, approved, evidence, record, cancel, true)
+    validate_record_literal_inner(
+        engine,
+        approved,
+        evidence,
+        record,
+        cancel,
+        true,
+        recorded_history,
+    )
 }
 
 fn validate_record_literal_inner(
@@ -680,6 +727,7 @@ fn validate_record_literal_inner(
     record: &PlayRecord,
     cancel: &dyn Fn() -> bool,
     presentation: bool,
+    recorded_history: bool,
 ) -> Result<(), Error> {
     if record.scene.is_some() {
         return Err(Error::Narration);
@@ -696,17 +744,25 @@ fn validate_record_literal_inner(
             } else {
                 LITERAL_PLAY_PROMPT_VERSION_V1
             }
-        || record.policy
-            != if presentation {
-                PRESENTATION_NARRATION_POLICY
-            } else {
-                LITERAL_NARRATION_POLICY_V1
-            }
     {
         return Err(Error::Narration);
     }
+    let mode = narration_policy_mode(
+        record,
+        recorded_history,
+        if presentation {
+            PRESENTATION_NARRATION_POLICY
+        } else {
+            LITERAL_NARRATION_POLICY_V1
+        },
+        if presentation {
+            story_presentation::RECORDED_PRESENTATION_NARRATION_POLICY
+        } else {
+            RECORDED_STAGED_NARRATION_POLICY
+        },
+    )?;
     validate_literal_context_record(engine, approved, record, cancel)?;
-    validate_staged_record_contents(engine, approved, evidence, record)
+    validate_staged_record_contents(engine, approved, evidence, record, mode)
 }
 
 fn validate_literal_context_record(
@@ -758,6 +814,7 @@ fn validate_staged_record_contents(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
+    mode: ProseMode,
 ) -> Result<(), Error> {
     // Evidence is opaque Core output. Even trusted internal callers must keep
     // its event catalogue/observation attribution bound to this approved turn.
@@ -784,7 +841,7 @@ fn validate_staged_record_contents(
         return Err(Error::Narration);
     }
     crate::engine::check_json_budget(evidence, MAX_RECEIPT_BYTES)?;
-    validate_record_contents(engine, approved, record, Some(evidence))
+    validate_record_contents(engine, approved, record, Some(evidence), mode)
 }
 
 fn validate_record_contents(
@@ -792,6 +849,7 @@ fn validate_record_contents(
     approved: &Receipt,
     record: &PlayRecord,
     evidence: Option<&NarratorEvidenceV22>,
+    mode: ProseMode,
 ) -> Result<(), Error> {
     if record.repairs > record.profile.repair_limit
         || record.stages.len() > 8
@@ -821,7 +879,7 @@ fn validate_record_contents(
             return Err(Error::Narration);
         }
     } else {
-        validate_prose(engine, approved, &record.narration.text, evidence)?;
+        validate_prose(engine, approved, &record.narration.text, evidence, mode)?;
     }
     engine.validate_story_narration(&record.narration.text)
 }
@@ -901,8 +959,21 @@ fn narration_reclaims_transferred_item(approved: &Receipt, player: &str, lower: 
 
 /// Complete visible labels only. Ranges are in the lowercased text's byte
 /// coordinates; they are never used to slice the original Unicode prose.
-fn narrator_visible_label_spans(lower: &str, labels: &BTreeSet<String>) -> Vec<(usize, usize)> {
-    let boundary = |c: char| !c.is_alphanumeric() && !matches!(c, '_' | '-' | '\'' | '’');
+fn narrator_visible_label_spans(
+    lower: &str,
+    labels: &BTreeSet<String>,
+    mode: ProseMode,
+) -> Vec<(usize, usize)> {
+    let boundary = move |c: char| {
+        if mode == ProseMode::WholeEvidenceWordsV1 {
+            // Match the original-word rule used by evidence checks. A combining
+            // mark or non-ASCII continuation must not create a partial label
+            // span that masks a hidden display name, even in lowercase prose.
+            prose_word_boundary(c) || matches!(c, '‘' | '“' | '”')
+        } else {
+            !c.is_alphanumeric() && !matches!(c, '_' | '-' | '\'' | '’')
+        }
+    };
     labels
         .iter()
         .filter(|label| !label.is_empty())
@@ -935,11 +1006,37 @@ fn narrator_visible_label_spans(lower: &str, labels: &BTreeSet<String>) -> Vec<(
         .collect()
 }
 
+// English-first lexical boundaries, deliberately conservative for non-ASCII
+// punctuation. All non-whitespace Unicode scalars remain in the original word,
+// including combining marks; folding must never create a new partial word.
+fn prose_word_boundary(character: char) -> bool {
+    character.is_whitespace()
+        || (character.is_ascii_punctuation() && !matches!(character, '_' | '-' | '\''))
+}
+
+fn prose_word(word: &str) -> &str {
+    let word = word.trim_matches(|character| {
+        prose_word_boundary(character) || matches!(character, '\'' | '‘' | '’' | '“' | '”')
+    });
+    word.strip_suffix("'s")
+        .or_else(|| word.strip_suffix("’s"))
+        .unwrap_or(word)
+}
+
+fn prose_words(text: &str) -> Vec<String> {
+    text.split(prose_word_boundary)
+        .map(prose_word)
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
 fn validate_prose(
     engine: &Engine,
     approved: &Receipt,
     text: &str,
     evidence: Option<&NarratorEvidenceV22>,
+    mode: ProseMode,
 ) -> Result<(), Error> {
     if text.trim().is_empty()
         || text.len() > 4096
@@ -964,13 +1061,26 @@ fn validate_prose(
     {
         return Err(Error::Narration);
     }
-    let mut source = crate::engine::render(approved.events()).to_lowercase();
+    let mut original_source = crate::engine::render(approved.events());
     if let Some(evidence) = evidence {
         for observation in evidence.observations() {
-            source.push('\n');
-            source.push_str(&observation.proposition().to_lowercase());
+            original_source.push('\n');
+            original_source.push_str(observation.proposition());
         }
     }
+    let source = original_source.to_lowercase();
+    // Segment before case folding: Unicode lowercasing can expand one scalar
+    // into a letter plus a combining mark, which must not create a new word.
+    let source_words = if mode == ProseMode::WholeEvidenceWordsV1 {
+        prose_words(&original_source)
+    } else {
+        Vec::new()
+    };
+    let output_words = if mode == ProseMode::WholeEvidenceWordsV1 {
+        prose_words(text)
+    } else {
+        Vec::new()
+    };
     for phrase in [
         "appears",
         "materializes",
@@ -988,20 +1098,36 @@ fn validate_prose(
         "everyone knows",
         "secret-",
     ] {
-        if (if phrase.contains(' ') {
-            lower.contains(phrase)
-        } else {
-            lower
-                .split(|c: char| !c.is_alphanumeric() && c != '-')
-                .any(|word| {
-                    if phrase.ends_with('-') {
+        let unsupported = if mode == ProseMode::WholeEvidenceWordsV1 {
+            if phrase.contains(' ') {
+                let words = prose_words(phrase);
+                output_words.windows(words.len()).any(|part| part == words)
+                    && !source_words.windows(words.len()).any(|part| part == words)
+            } else {
+                output_words.iter().any(|word| {
+                    (if phrase.ends_with('-') {
                         word.starts_with(phrase)
                     } else {
                         word == phrase
-                    }
+                    }) && !source_words.contains(word)
                 })
-        }) && !source.contains(phrase)
-        {
+            }
+        } else {
+            (if phrase.contains(' ') {
+                lower.contains(phrase)
+            } else {
+                lower
+                    .split(|c: char| !c.is_alphanumeric() && c != '-')
+                    .any(|word| {
+                        if phrase.ends_with('-') {
+                            word.starts_with(phrase)
+                        } else {
+                            word == phrase
+                        }
+                    })
+            }) && !source.contains(phrase)
+        };
+        if unsupported {
             return Err(Error::Narration);
         }
     }
@@ -1067,7 +1193,7 @@ fn validate_prose(
         .filter(|(id, _)| visible.contains(id.as_str()))
         .flat_map(|(id, actor)| [id.to_lowercase(), actor.name.to_lowercase()])
         .collect();
-    let label_spans = narrator_visible_label_spans(&lower, &visible_labels);
+    let label_spans = narrator_visible_label_spans(&lower, &visible_labels, mode);
     let covered_label = |start, end| {
         label_spans
             .iter()
@@ -1078,16 +1204,33 @@ fn validate_prose(
     let mut sentence_start = 0;
     for sentence in text.split(['.', '!', '?', '\n']) {
         let mut word_end = 0;
-        for (index, word) in sentence.split_whitespace().enumerate() {
+        let words: Vec<_> = if mode == ProseMode::WholeEvidenceWordsV1 {
+            sentence
+                .split(prose_word_boundary)
+                .filter(|word| !word.is_empty())
+                .collect()
+        } else {
+            sentence.split_whitespace().collect()
+        };
+        for (index, word) in words.into_iter().enumerate() {
             let word_start = word_end + sentence[word_end..].find(word).ok_or(Error::Narration)?;
             word_end = word_start + word.len();
-            let token_start = sentence_start + word_start + word.len()
-                - word.trim_start_matches(|c: char| !c.is_alphabetic()).len();
-            let token = word.trim_matches(|c: char| !c.is_alphabetic());
-            let token = token
-                .strip_suffix("'s")
-                .or_else(|| token.strip_suffix("’s"))
-                .unwrap_or(token);
+            let token = if mode == ProseMode::WholeEvidenceWordsV1 {
+                prose_word(word)
+            } else {
+                let token = word.trim_matches(|c: char| !c.is_alphabetic());
+                token
+                    .strip_suffix("'s")
+                    .or_else(|| token.strip_suffix("’s"))
+                    .unwrap_or(token)
+            };
+            let token_start = sentence_start
+                + word_start
+                + if mode == ProseMode::WholeEvidenceWordsV1 {
+                    word.find(token).ok_or(Error::Narration)?
+                } else {
+                    word.len() - word.trim_start_matches(|c: char| !c.is_alphabetic()).len()
+                };
             // Lowercasing may expand a Unicode scalar. Convert the original
             // prefix/token lengths, rather than applying folded offsets to text.
             let folded_start = text[..token_start].to_lowercase().len();
@@ -1111,12 +1254,26 @@ fn validate_prose(
                     "quietly",
                 ]
                 .contains(&token.to_lowercase().as_str());
-            if token.chars().next().is_some_and(char::is_uppercase)
-                && !opening_word
-                && !visible_labels.contains(&token.to_lowercase())
-                && !source.contains(&token.to_lowercase())
-                && !covered_label(folded_start, folded_end)
-            {
+            let capitalized = if mode == ProseMode::WholeEvidenceWordsV1 {
+                // A prefix such as o' must not hide an unsupported capitalized
+                // continuation. Ground the complete original atomic word.
+                token.chars().any(char::is_uppercase)
+            } else {
+                token.chars().next().is_some_and(char::is_uppercase)
+            };
+            // The English pronoun is inherently capitalized, not a named
+            // entity. Scene-specific first-person restrictions still run.
+            let grammatical_opening = opening_word
+                || (mode == ProseMode::WholeEvidenceWordsV1 && index == 0 && token == "I");
+            let evidence_word = if mode == ProseMode::WholeEvidenceWordsV1 {
+                source_words.contains(&token.to_lowercase())
+            } else {
+                source.contains(&token.to_lowercase())
+            };
+            let grounded = visible_labels.contains(&token.to_lowercase())
+                || evidence_word
+                || covered_label(folded_start, folded_end);
+            if capitalized && !grammatical_opening && !grounded {
                 return Err(Error::Narration);
             }
         }
@@ -1946,7 +2103,7 @@ fn execute_with_presentation_input(
     let mut record = PlayRecord {
         version: PLAY_VERSION,
         policy: if scene_recipe.is_some() {
-            scene_narration::SCENE_NARRATION_POLICY_V1
+            scene_narration::SCENE_NARRATION_POLICY_V2
         } else if presentation {
             PRESENTATION_NARRATION_POLICY
         } else if literal {

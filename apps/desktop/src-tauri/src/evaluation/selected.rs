@@ -239,7 +239,22 @@ fn keys(value: &Value, expected: &[&str]) -> bool {
         o.len() == expected.len() && expected.iter().all(|key| o.contains_key(*key))
     })
 }
-fn prepared_valid(value: &Value) -> bool {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PreparedUse {
+    Fresh,
+    Recorded,
+}
+fn construction_family_matches<T: serde::Serialize>(
+    value: &Value,
+    current: T,
+    legacy: T,
+    usage: PreparedUse,
+) -> bool {
+    serde_json::to_value(current).is_ok_and(|expected| *value == expected)
+        || (usage == PreparedUse::Recorded
+            && serde_json::to_value(legacy).is_ok_and(|expected| *value == expected))
+}
+fn prepared_valid(value: &Value, usage: PreparedUse) -> bool {
     let version_valid = match versioned::prepared_protocol(value) {
         Some(versioned::Protocol::V1) => keys(
             value,
@@ -258,8 +273,12 @@ fn prepared_valid(value: &Value) -> bool {
                     "source_protocol_version",
                     "constructions",
                 ],
-            ) && serde_json::to_value(locallore_eval::memory_comparison_v3::arm_descriptors())
-                .is_ok_and(|expected| value["constructions"] == expected)
+            ) && construction_family_matches(
+                &value["constructions"],
+                locallore_eval::memory_comparison_v3::current_arm_descriptors(),
+                locallore_eval::memory_comparison_v3::arm_descriptors(),
+                usage,
+            )
         }
         Some(versioned::Protocol::V3) => {
             keys(
@@ -277,8 +296,12 @@ fn prepared_valid(value: &Value) -> bool {
                 ],
             ) && value["lane"] == "scripted_selected_case"
                 && value["source_binding"].as_str().is_some_and(hex)
-                && serde_json::to_value(locallore_eval::memory_comparison_v4::arm_descriptors())
-                    .is_ok_and(|expected| value["constructions"] == expected)
+                && construction_family_matches(
+                    &value["constructions"],
+                    locallore_eval::memory_comparison_v4::current_arm_descriptors(),
+                    locallore_eval::memory_comparison_v4::arm_descriptors(),
+                    usage,
+                )
         }
         None => false,
     };
@@ -620,7 +643,9 @@ impl EvaluationManager {
             || !id(&index.client_id)
             || index.created > SAFE
             || !hex(&index.source_binding)
-            || !prepared_valid(&index.prepared)
+            // Historical readability supplies no execution grant. Resume below
+            // still requires an exact match to newly prepared current metadata.
+            || !prepared_valid(&index.prepared, PreparedUse::Recorded)
             || (versioned::prepared_protocol(&index.prepared) == Some(versioned::Protocol::V3)
                 && index.prepared["source_binding"].as_str() != Some(index.source_binding.as_str()))
             || index.prepared["lane"].as_str()
@@ -640,7 +665,7 @@ impl EvaluationManager {
         Ok((path, pins))
     }
     fn selected_make_index(&self, client: &str, run: &str, prepared: &Prepared) -> Result<Index> {
-        if !prepared_valid(&prepared.metadata)
+        if !prepared_valid(&prepared.metadata, PreparedUse::Fresh)
             || versioned::prepared_protocol(&prepared.metadata) != Some(prepared.plan.protocol())
             || (prepared.plan.protocol() == versioned::Protocol::V3
                 && prepared.metadata["source_binding"].as_str()
@@ -2118,5 +2143,8 @@ impl EvaluationManager {
     }
 }
 
+#[cfg(test)]
+#[path = "selected/prepared_policy_review_tests.rs"]
+mod prepared_policy_review_tests;
 #[cfg(test)]
 mod tests;

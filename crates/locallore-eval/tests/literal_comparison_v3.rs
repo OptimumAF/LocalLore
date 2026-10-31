@@ -8,7 +8,7 @@ use locallore_eval::{
         LaneFactory,
     },
     memory_comparison::frozen_suite,
-    memory_comparison_v3::arm_descriptors,
+    memory_comparison_v3::current_arm_descriptors,
 };
 use locallore_storage::Store;
 use serde_json::{json, Value};
@@ -178,7 +178,7 @@ fn assert_row_contract(row: &Value) {
     let literal = row["arm"] == "left";
     assert_eq!(
         row["construction"],
-        serde_json::to_value(&arm_descriptors()[usize::from(!literal)]).unwrap()
+        serde_json::to_value(&current_arm_descriptors()[usize::from(!literal)]).unwrap()
     );
     if literal {
         for key in [
@@ -253,7 +253,10 @@ fn real_paired_inputs_and_reference_prefixes_keep_distinct_construction_evidence
     let paired_before = inventory(&c.paired);
     let r = &c.paired_report;
     assert_eq!(r["version"], 3);
-    assert_eq!(r["arms"], serde_json::to_value(arm_descriptors()).unwrap());
+    assert_eq!(
+        r["arms"],
+        serde_json::to_value(current_arm_descriptors()).unwrap()
+    );
     assert_eq!(r["turns"].as_array().unwrap().len(), 12);
     assert_eq!(r["completed_scenes"], 1);
     assert_eq!(r["completed"], false);

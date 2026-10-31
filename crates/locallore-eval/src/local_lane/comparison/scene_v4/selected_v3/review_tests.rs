@@ -278,7 +278,7 @@ fn public_source(kind: comparison::ComparisonKind, fault: bool) -> &'static Path
                 (4, 2, 24)
             );
             assert_eq!(source4::inspect_comparison(&source).unwrap(), report);
-            assert_eq!(report.arms, v4::arm_descriptors());
+            assert_eq!(report.arms, v4::current_arm_descriptors());
             assert!(!report.quality_accepted);
             source
         })
@@ -588,7 +588,7 @@ fn public_noninitial_paired_and_rollout_keep_exact_requests_prefixes_and_closed_
         assert_eq!(metadata["source_binding"], source_id);
         assert_eq!(
             metadata["constructions"],
-            serde_json::to_value(v4::arm_descriptors()).unwrap()
+            serde_json::to_value(v4::current_arm_descriptors()).unwrap()
         );
         assert!(encode(&metadata).unwrap().len() <= 16 * 1024);
         let target = f.root.join("selected");
@@ -665,7 +665,7 @@ fn public_noninitial_paired_and_rollout_keep_exact_requests_prefixes_and_closed_
         assert_eq!(report["completed"], true);
         assert_eq!(
             report["arms"],
-            serde_json::to_value(v4::arm_descriptors()).unwrap()
+            serde_json::to_value(v4::current_arm_descriptors()).unwrap()
         );
         assert_eq!(
             report["selection"],
@@ -723,7 +723,10 @@ fn public_noninitial_paired_and_rollout_keep_exact_requests_prefixes_and_closed_
             assert_eq!(full.receipts().len(), before.receipts().len() + 1);
             let actual_row: TurnReportV4 =
                 serde_json::from_value(report["rows"][arm_index].clone()).unwrap();
-            assert_eq!(actual_row.construction, v4::arm_descriptors()[arm_index]);
+            assert_eq!(
+                actual_row.construction,
+                v4::current_arm_descriptors()[arm_index]
+            );
             assert_eq!(actual_row.phase, "committed");
             assert_eq!(
                 actual_row.construction_evidence_status,
@@ -1103,7 +1106,7 @@ fn public_reader_query2_and_finite_diagnostics_do_not_change_character_knowledge
     assert_eq!(summary["execution_available"], false);
     assert_eq!(
         summary["constructions"],
-        serde_json::to_value(v4::arm_descriptors()).unwrap()
+        serde_json::to_value(v4::current_arm_descriptors()).unwrap()
     );
     assert_eq!(summary["selection"], report["selection"]);
     assert_eq!(summary["arms"].as_array().unwrap().len(), 2);

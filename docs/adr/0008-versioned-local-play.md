@@ -90,3 +90,29 @@ model input, repair/deadline/cancel/stale races, exact durable retry/restart,
 v1/v2 restore and tamper rejection, no-inference replay and actual native scene
 evidence. Real local worker lifecycle measurements alone do not satisfy the
 scene or enjoyment gates. This ADR does not close physical-phone qualification.
+
+
+## 2026-10-30: complete evidence words and immutable history
+
+Fresh narration advances to `grounded-prose-v2.5-whole-evidence-words-v1`,
+presentation to `grounded-prose-v2.6-story-presentation-whole-evidence-words-v1`,
+and scene narration to `grounded-prose-v2.7-scene-frame-whole-evidence-words-v1`.
+Complete words are segmented before Unicode case folding; sensitive phrases and
+complete visible-name spans use consistent boundaries. This finite English-first
+guard does not prove semantic entailment or authorize canonical effects.
+
+Recognized 2.1–2.4 records retain their original policies and interpretation only
+through private validated history reconstruction and exact recorded retry.
+Fresh generation and commits, including staged commits, require the current
+policy. Preserve the
+old public scene V1 constant; use a separate current V2 constant. Never retag old
+receipts, normalize their stored prose or add an arbitrary legacy commit mode.
+
+Eval's old descriptor APIs remain immutable. Explicit current APIs serve new
+writers; readers retain exact whole old/current descriptor families and reject
+mixed or drifted tuples. Tauri's private Fresh/Recorded index validation preserves
+historical inspectability, while Resume still compares full freshly prepared
+metadata/source/protocol before consent and execution grants. Prompt, provider
+schema, dependencies, receipt fields and canonical storage schema are unchanged.
+See [verification and limitations](../runtime/NARRATOR_EVIDENCE_WORDS_2026-10-30.md).
+Refs #9 (M05.03), #14 (M10.04), #29 (D07.04 supporting compatibility).

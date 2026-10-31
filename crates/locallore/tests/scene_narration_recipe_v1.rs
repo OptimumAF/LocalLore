@@ -325,7 +325,10 @@ fn actual_provider_receives_exact_shared_renderer_frame_evidence_schema_and_pres
                 );
             }
             let record = receipt.play().unwrap();
-            assert_eq!(record.policy, SCENE_NARRATION_POLICY_V1);
+            assert_eq!(
+                record.policy,
+                locallore::play::scene_narration::SCENE_NARRATION_POLICY_V2
+            );
             assert_eq!(
                 record.prompt_version,
                 if matches!(recipe, SceneRecipeV1::LiteralV1) {

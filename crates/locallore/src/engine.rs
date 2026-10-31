@@ -521,7 +521,7 @@ impl Engine {
                 };
             let preparation = self.stage_scene_play_v1(request, proposal, &|| false)?;
             let bound = self.bind_scene_play_v1(preparation, recipe, &|| false)?;
-            return self.commit_scene_play_v1(bound, record, &|| false);
+            return self.commit_scene_play_history_v1(bound, record, &|| false, recorded_history);
         }
         if record.prompt_version == crate::play::LITERAL_PRESENTATION_PROMPT_VERSION_V1 {
             if let Some(receipt) = self.recorded(request)? {

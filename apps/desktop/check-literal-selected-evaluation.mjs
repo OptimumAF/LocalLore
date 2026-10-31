@@ -209,6 +209,60 @@ async function check(name, body) {
         clearTimeout(timer);
     }
 }
+const currentGrounding = "grounded-prose-v2.5-whole-evidence-words-v1";
+function selectedGrounding(value, policy) {
+    for (const descriptor of value.constructions)
+        descriptor.narration_policy = policy;
+    for (const row of value.rows ?? [])
+        row.construction.narration_policy = policy;
+    return value;
+}
+for (const policy of ["grounded-prose-v2.2", currentGrounding])
+    await check(
+        `B34 selected2 preserves complete ${policy} preparation/summary/rows`,
+        () => {
+            const p = selectedGrounding(prepared(), policy),
+                s = selectedGrounding(summary(), policy),
+                d = selectedGrounding(diagnostics(), policy);
+            assert.deepEqual(decoders.prepared(p), p);
+            assert.deepEqual(decoders.summary(s), s);
+            assert.deepEqual(decoders.diagnostics(d, s), d);
+        },
+    );
+for (const changed of [0, 1])
+    await check(`B34 selected2 refuses mixed family arm ${changed}`, () => {
+        for (const [kind, factory] of Object.entries({
+            prepared,
+            summary,
+            diagnostics,
+        })) {
+            const value = factory();
+            value.constructions[changed].narration_policy = currentGrounding;
+            if (value.rows)
+                value.rows[changed].construction.narration_policy =
+                    currentGrounding;
+            assert.throws(
+                () => decoders[kind](value),
+                /SelectedEvaluationWire/,
+            );
+        }
+    });
+await check(
+    "B34 selected2 diagnostics cannot drift from summary or declared row family",
+    () => {
+        const d = selectedGrounding(diagnostics(), currentGrounding),
+            s = selectedGrounding(summary(), currentGrounding);
+        assert.throws(
+            () => decoders.diagnostics(d, summary()),
+            /SelectedEvaluationWire/,
+        );
+        d.rows[0].construction.narration_policy = "grounded-prose-v2.2";
+        assert.throws(
+            () => decoders.diagnostics(d, s),
+            /SelectedEvaluationWire/,
+        );
+    },
+);
 async function bad(kind, name, mutate, version = 2) {
     await check(`${kind}: rejects ${name}`, () => {
         const fixture = { prepared, summary, diagnostics }[kind](version);

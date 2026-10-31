@@ -23,7 +23,7 @@ use std::{
 };
 const MEMORY: &str = "locallore-play-v2.9-scene-frame-v1";
 const LITERAL: &str = "locallore-play-v2.10-literal-director-v1-scene-frame-v1";
-const POLICY: &str = "grounded-prose-v2.4-scene-frame-v1";
+const POLICY: &str = "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1";
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Temp {
     path: PathBuf,
@@ -585,9 +585,9 @@ fn actual_workspace_old_ordinary_and_presented_host_recipes_are_not_repointed() 
             assert_eq!(
                 play["policy"],
                 if presented {
-                    "grounded-prose-v2.3-story-presentation-v1"
+                    "grounded-prose-v2.6-story-presentation-whole-evidence-words-v1"
                 } else {
-                    "grounded-prose-v2.2"
+                    "grounded-prose-v2.5-whole-evidence-words-v1"
                 }
             );
             assert_eq!(

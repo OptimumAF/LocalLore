@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [complete evidence-word narration guard](docs/runtime/NARRATOR_EVIDENCE_WORDS_2026-10-30.md)
+adds versioned fresh validation while preserving genuine recorded histories.
+Its host, desktop consumer and Android packaging checks remain separate from
+phone, real-model and release qualification.
+
 The [owned-target model run](docs/native/OWNED_TARGET_VERIFICATION_2026-10-29.md)
 now verifies one real local-model import/AUTHOR/internal-reopen case on an
 explicitly approved emulator. The [external restart follow-up](docs/native/ORIGINAL_AUTHOR_RESTART_VERIFICATION_2026-10-29.md)

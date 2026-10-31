@@ -240,6 +240,60 @@ function test(name, work) {
         });
     }
 }
+// B34 retains old independent tuples and replaces only current policy values.
+function groundingSnapshot3(policy) {
+    const value = snapshot();
+    for (const descriptor of value.report.arms)
+        descriptor.narration_policy = policy;
+    for (const row of value.report.turns)
+        row.construction.narration_policy = policy;
+    return value;
+}
+const currentGrounding3 = "grounded-prose-v2.5-whole-evidence-words-v1";
+for (const policy of ["grounded-prose-v2.2", currentGrounding3])
+    test(`B34 protocol3 preserves the complete ${policy} family`, () => {
+        const value = groundingSnapshot3(policy);
+        assert.deepEqual(JSON.parse(JSON.stringify(decode(value))), value);
+        for (const [index, descriptor] of value.report.arms.entries())
+            assert.deepEqual(
+                m.checkedReaderConstruction(
+                    descriptor,
+                    index === 0 ? "left" : "right",
+                ),
+                descriptor,
+            );
+        assert.equal(value.execution_available, false);
+    });
+for (const changed of [0, 1])
+    test(`B34 protocol3 refuses mixed family arm ${changed} even when rows agree`, () => {
+        const value = snapshot();
+        value.report.arms[changed].narration_policy = currentGrounding3;
+        value.report.turns[changed].construction.narration_policy =
+            currentGrounding3;
+        assert.throws(() => decode(value), /ComparisonReaderWire/);
+    });
+test("B34 protocol3 refuses a valid row from the other declared family", () => {
+    const value = groundingSnapshot3(currentGrounding3);
+    value.report.turns[0].construction.narration_policy = "grounded-prose-v2.2";
+    assert.throws(() => decode(value), /ComparisonReaderWire/);
+});
+test("B34 current protocol3 tuples still refuse prompt/schema/count/policy drift", () => {
+    for (const [field, drift] of [
+        ["prompt_version", "locallore-play-v2.5"],
+        ["director_schema_id", "locallore-director-v2"],
+        ["literal_packing_version", 2],
+        ["compiler_version", 2],
+        [
+            "narration_policy",
+            "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1",
+        ],
+    ]) {
+        const value = groundingSnapshot3(currentGrounding3);
+        value.report.arms[0][field] = drift;
+        value.report.turns[0].construction[field] = drift;
+        assert.throws(() => decode(value), /ComparisonReaderWire/);
+    }
+});
 function rejects(name, mutate) {
     test(name, () => {
         const value = snapshot();

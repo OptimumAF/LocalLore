@@ -341,7 +341,7 @@ fn durable_play25_discovery_archive3_roundtrip_preserves_observation_sources_and
     let play = receipt.play().unwrap();
     assert_eq!(play.version, 2);
     assert_eq!(play.prompt_version, "locallore-play-v2.5");
-    assert_eq!(play.policy, "grounded-prose-v2.2");
+    assert_eq!(play.policy, "grounded-prose-v2.5-whole-evidence-words-v1");
     assert_eq!(play.profile, profile());
     assert_eq!(
         play.context_policy,

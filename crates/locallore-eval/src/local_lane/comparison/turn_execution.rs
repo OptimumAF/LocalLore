@@ -167,6 +167,34 @@ pub(super) fn assess_outcome(
     receipt: Option<&Receipt>,
     roles: usize,
 ) -> Result<OutcomeAssessment> {
+    assess_outcome_inner(before, after, step, phase, error, receipt, roles, false)
+}
+
+// Closed checkpoint inspection alone may restore a recorded policy. Active
+// producers still revalidate prepared receipts through the fresh commit gate.
+pub(super) fn assess_recorded_outcome(
+    before: &Engine,
+    after: &Engine,
+    step: &protocol::Step,
+    phase: &str,
+    error: Option<&str>,
+    receipt: Option<&Receipt>,
+    roles: usize,
+) -> Result<OutcomeAssessment> {
+    assess_outcome_inner(before, after, step, phase, error, receipt, roles, true)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn assess_outcome_inner(
+    before: &Engine,
+    after: &Engine,
+    step: &protocol::Step,
+    phase: &str,
+    error: Option<&str>,
+    receipt: Option<&Receipt>,
+    roles: usize,
+    recorded_history: bool,
+) -> Result<OutcomeAssessment> {
     let request = step.request(before);
     let same = before.accepted_history_basis().map_err(|_| "Source")?
         == after.accepted_history_basis().map_err(|_| "Source")?;
@@ -176,10 +204,27 @@ pub(super) fn assess_outcome(
         if receipt.request() != &request {
             return Err("ReceiptBinding".into());
         }
-        let mut replay = before.clone();
-        replay
-            .commit_prepared(receipt)
-            .map_err(|_| "ReceiptReplay")?;
+        let replay = if recorded_history {
+            let serialized = serde_json::to_string(receipt).map_err(|_| "Encoding")?;
+            let replay = before
+                .restore_continuation(&[serialized])
+                .map_err(|_| "ReceiptReplay")?;
+            if replay
+                .recorded(&request)
+                .map_err(|_| "ReceiptReplay")?
+                .as_ref()
+                != Some(receipt)
+            {
+                return Err("ReceiptReplay".into());
+            }
+            replay
+        } else {
+            let mut replay = before.clone();
+            replay
+                .commit_prepared(receipt)
+                .map_err(|_| "ReceiptReplay")?;
+            replay
+        };
         if replay.accepted_history_basis().map_err(|_| "Source")?
             != after.accepted_history_basis().map_err(|_| "Source")?
         {

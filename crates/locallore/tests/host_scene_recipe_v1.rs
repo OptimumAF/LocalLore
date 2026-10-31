@@ -23,7 +23,7 @@ use std::{
 
 const MEMORY: &str = "locallore-play-v2.9-scene-frame-v1";
 const LITERAL: &str = "locallore-play-v2.10-literal-director-v1-scene-frame-v1";
-const POLICY: &str = "grounded-prose-v2.4-scene-frame-v1";
+const POLICY: &str = "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1";
 #[derive(Clone, Copy, Debug)]
 enum Arm {
     Memory,
@@ -500,7 +500,10 @@ fn ordinary_host_default_and_literal_constructions_keep_their_old_versions() {
                 "locallore-play-v2.5"
             }
         );
-        assert_eq!(play["policy"], "grounded-prose-v2.2");
+        assert_eq!(
+            play["policy"],
+            "grounded-prose-v2.5-whole-evidence-words-v1"
+        );
         assert!(play.get("scene").is_none());
         h.close_all();
         assert_eq!(h.live_counts(), (0, 0));

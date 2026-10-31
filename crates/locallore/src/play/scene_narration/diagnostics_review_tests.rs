@@ -979,7 +979,7 @@ fn native_metadata_is_copy_small_content_free_and_old_wire_keys_stay_exact() {
         };
         assert_eq!(consumer_label, "first_person");
         let record = serde_json::to_value(receipt.play().unwrap()).unwrap();
-        assert_eq!(record["policy"], super::SCENE_NARRATION_POLICY_V1);
+        assert_eq!(record["policy"], super::SCENE_NARRATION_POLICY_V2);
         assert_eq!(
             record["prompt_version"],
             if matches!(policy, Policy::SceneMemory) {

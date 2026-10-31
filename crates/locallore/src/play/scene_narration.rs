@@ -18,6 +18,8 @@ pub const SCENE_PROMPT_VERSION_V1: &str = "locallore-play-v2.9-scene-frame-v1";
 pub const LITERAL_SCENE_PROMPT_VERSION_V1: &str =
     "locallore-play-v2.10-literal-director-v1-scene-frame-v1";
 pub const SCENE_NARRATION_POLICY_V1: &str = "grounded-prose-v2.4-scene-frame-v1";
+pub const SCENE_NARRATION_POLICY_V2: &str =
+    "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1";
 
 /// Deliberate trusted-native construction; no wire constructor or policy guess.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -85,11 +87,41 @@ pub(crate) fn validate_record_detailed(
     record: &PlayRecord,
     cancel: &dyn Fn() -> bool,
 ) -> Result<(), NarrationValidationFailureV1> {
+    validate_record_detailed_inner(engine, bound, record, cancel, false)
+}
+
+/// Recorded-history permission is supplied by Engine replay, never receipt JSON.
+pub(crate) fn validate_record_history(
+    engine: &Engine,
+    bound: &BoundScenePlayV1,
+    record: &PlayRecord,
+    cancel: &dyn Fn() -> bool,
+    recorded_history: bool,
+) -> Result<(), Error> {
+    if !recorded_history {
+        return validate_record(engine, bound, record, cancel);
+    }
+    validate_record_detailed_inner(engine, bound, record, cancel, true)
+        .map_err(NarrationValidationFailureV1::into_engine_error)
+}
+
+fn validate_record_detailed_inner(
+    engine: &Engine,
+    bound: &BoundScenePlayV1,
+    record: &PlayRecord,
+    cancel: &dyn Fn() -> bool,
+    recorded_history: bool,
+) -> Result<(), NarrationValidationFailureV1> {
     check(cancel)?;
     check_seed(engine, bound.recipe())?;
     record.profile.validate()?;
+    let mode = super::narration_policy_mode(
+        record,
+        recorded_history,
+        SCENE_NARRATION_POLICY_V2,
+        SCENE_NARRATION_POLICY_V1,
+    )?;
     if record.version != PLAY_VERSION
-        || record.policy != SCENE_NARRATION_POLICY_V1
         || record.prompt_version != bound.recipe().prompt_version()
         || record.scene.as_ref() != Some(&provenance(bound.scene_frame())?)
         || record.story_presentation
@@ -113,6 +145,7 @@ pub(crate) fn validate_record_detailed(
         bound.approved(),
         bound.narrator_evidence(),
         record,
+        mode,
     )?;
     if !record.fallback {
         renderer::validate_generated_detailed(bound, &record.narration.text)?;

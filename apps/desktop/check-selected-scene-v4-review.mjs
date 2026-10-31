@@ -534,6 +534,53 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             await flush();
         }
     }
+    const currentGrounding =
+        "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1";
+    function selectedGrounding(value, policy) {
+        for (const descriptor of value.constructions)
+            descriptor.narration_policy = policy;
+        for (const row of value.rows ?? [])
+            row.construction.narration_policy = policy;
+        return value;
+    }
+    for (const policy of [
+        "grounded-prose-v2.4-scene-frame-v1",
+        currentGrounding,
+    ])
+        await check(
+            `B34 selected3 preserves complete ${policy} preparation/summary/rows`,
+            () => {
+                const p = selectedGrounding(prepared(), policy),
+                    s = selectedGrounding(summary(), policy),
+                    d = selectedGrounding(diagnostics(), policy);
+                assert.deepEqual(decode.prepared(p), p);
+                assert.deepEqual(decode.summary(s), s);
+                assert.deepEqual(decode.diagnostics(d, s), d);
+            },
+        );
+    for (const changed of [0, 1])
+        await check(`B34 selected3 refuses mixed family arm ${changed}`, () => {
+            for (const [kind, factory] of Object.entries(factories)) {
+                const value = factory();
+                value.constructions[changed].narration_policy =
+                    currentGrounding;
+                if (value.rows)
+                    value.rows[changed].construction.narration_policy =
+                        currentGrounding;
+                finiteWire(() => decode[kind](value));
+            }
+        });
+    await check(
+        "B34 selected3 diagnostics cannot drift from summary or declared row family",
+        () => {
+            const d = selectedGrounding(diagnostics(), currentGrounding),
+                s = selectedGrounding(summary(), currentGrounding);
+            finiteWire(() => decode.diagnostics(d, summary()));
+            d.rows[0].construction.narration_policy =
+                "grounded-prose-v2.4-scene-frame-v1";
+            finiteWire(() => decode.diagnostics(d, s));
+        },
+    );
     async function bad(kind, name, mutate, version = 3) {
         await check(`${kind}${version}: rejects ${name}`, () => {
             const value = factories[kind](version);

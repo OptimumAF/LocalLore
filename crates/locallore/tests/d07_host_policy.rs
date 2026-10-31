@@ -119,7 +119,10 @@ fn assert_record(reply: &Value, policy: ContextPolicy) {
     assert_eq!(reply["data"]["phase"], "committed", "{reply}");
     let record = &reply["data"]["receipt"]["play"];
     assert_eq!(record["prompt_version"], "locallore-play-v2.5");
-    assert_eq!(record["policy"], "grounded-prose-v2.2");
+    assert_eq!(
+        record["policy"],
+        "grounded-prose-v2.5-whole-evidence-words-v1"
+    );
     assert_eq!(
         record["context_policy"],
         serde_json::to_value(policy).unwrap()

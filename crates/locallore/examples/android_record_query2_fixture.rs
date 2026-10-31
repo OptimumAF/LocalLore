@@ -5,12 +5,20 @@ use locallore::{
     author_correction::{AuthorCorrectionInputV1, AuthorCorrectionOperationV1},
     contracts::*,
     engine::Engine,
-    inspection_query::{self, FieldValue, Observer, Privacy, Query, Row, Source, ValueOrigin, View, ViewStatus},
-    story_authoring::{self, InitialGenerationV1, InitialModelConfigurationV1, InitialPossessionV1,
-        InitialProviderKindV1, InitialRouteV1, InitialStoryInputV1, InitialWorldOriginV1, InitialWorldProposalV1},
+    inspection_query::{
+        self, FieldValue, Observer, Privacy, Query, Row, Source, ValueOrigin, View, ViewStatus,
+    },
+    story_authoring::{
+        self, InitialGenerationV1, InitialModelConfigurationV1, InitialPossessionV1,
+        InitialProviderKindV1, InitialRouteV1, InitialStoryInputV1, InitialWorldOriginV1,
+        InitialWorldProposalV1,
+    },
 };
 use serde_json::{json, Value};
-use std::{collections::BTreeSet, io::{self, Write}};
+use std::{
+    collections::BTreeSet,
+    io::{self, Write},
+};
 
 const FACT_ID: &str = "relic-location";
 const OLD: &str = "The survey beacon flashes amber at the north pier.";
@@ -67,8 +75,12 @@ fn initial() -> Engine {
 fn commit(engine: &mut Engine, turn: &str, intent: Intent) -> Receipt {
     let request = engine.request(turn, intent);
     let proposal = Engine::proposal(&request).expect("mechanical fixture proposal");
-    let preview = engine.preview(&request, &proposal).expect("mechanically valid fixture action");
-    engine.commit_prepared(&preview).expect("accepted exact mechanical fixture action")
+    let preview = engine
+        .preview(&request, &proposal)
+        .expect("mechanically valid fixture action");
+    engine
+        .commit_prepared(&preview)
+        .expect("accepted exact mechanical fixture action")
 }
 
 fn actions(engine: &mut Engine, turn: &str, commands: Vec<Command>) -> Receipt {
@@ -76,28 +88,53 @@ fn actions(engine: &mut Engine, turn: &str, commands: Vec<Command>) -> Receipt {
 }
 
 fn observed(engine: &Engine, fact: &str) -> String {
-    engine.observed_facts(&engine.seed().player, engine.scope(), engine.revision())
-        .expect("actual actor lens").get(fact).expect("actual discovered fact").proposition.clone()
+    engine
+        .observed_facts(&engine.seed().player, engine.scope(), engine.revision())
+        .expect("actual actor lens")
+        .get(fact)
+        .expect("actual discovered fact")
+        .proposition
+        .clone()
 }
 
 fn source_is(source: &Source, scope: &Scope) -> bool {
     matches!(source, Source::ScopedEvent { original_scope, .. } if original_scope == scope)
 }
 
-fn corpus_case(id: &str, engine: &Engine, original_scope: &Scope, fact_id: &str, expected: &str) -> Value {
+fn corpus_case(
+    id: &str,
+    engine: &Engine,
+    original_scope: &Scope,
+    fact_id: &str,
+    expected: &str,
+) -> Value {
     let before = engine.canonical_bytes();
     let records = engine.canonical_records().to_vec();
-    let basis = engine.accepted_history_basis().expect("complete accepted history basis");
+    let basis = engine
+        .accepted_history_basis()
+        .expect("complete accepted history basis");
     let player = engine.seed().player.as_str();
     let authored = engine.seed().initial_world.is_some();
     if !authored {
         // The helpful gift changed an incoming edge in actual canonical state.
         // Player Relationships intentionally exposes only outgoing edges.
-        assert!(engine.state().relationships.iter().any(|edge|
-            edge.from == "mentor" && edge.to == player && edge.obligation == 1));
+        assert!(engine
+            .state()
+            .relationships
+            .iter()
+            .any(|edge| edge.from == "mentor" && edge.to == player && edge.obligation == 1));
     }
-    let mut forbidden = vec![NPC_NAME, NPC_SHEET, NPC_BELIEF, HIDDEN_FACT, AUTHOR_REASON, AUTHORED_REMOTE];
-    if id != "rediscovered" { forbidden.push(NEW); }
+    let mut forbidden = vec![
+        NPC_NAME,
+        NPC_SHEET,
+        NPC_BELIEF,
+        HIDDEN_FACT,
+        AUTHOR_REASON,
+        AUTHORED_REMOTE,
+    ];
+    if id != "rediscovered" {
+        forbidden.push(NEW);
+    }
     let mut pages = Vec::new();
     let mut progression = false;
     let mut relationship = false;
@@ -110,18 +147,31 @@ fn corpus_case(id: &str, engine: &Engine, original_scope: &Scope, fact_id: &str,
     let mut marker = false;
     let mut statuses = BTreeSet::new();
     let mut paginated_views = BTreeSet::new();
-    for view in [View::Profiles, View::History, View::Relationships, View::Knowledge, View::Promises] {
+    for view in [
+        View::Profiles,
+        View::History,
+        View::Relationships,
+        View::Knowledge,
+        View::Promises,
+    ] {
         let mut query = Query {
-            version: 2, scope: engine.scope().clone(), expected_head: engine.revision(),
-            at_revision: None, observer: Observer::Player, view, cursor: None,
-            limit: 8, search: String::new(),
+            version: 2,
+            scope: engine.scope().clone(),
+            expected_head: engine.revision(),
+            at_revision: None,
+            observer: Observer::Player,
+            view,
+            cursor: None,
+            limit: 8,
+            search: String::new(),
         };
         let mut cursors = BTreeSet::new();
         let mut complete = false;
         let mut count = 0;
         let mut total = None;
         for _ in 0..16 {
-            let page = inspection_query::query(engine, &query, false).expect("actual bounded Player Query2");
+            let page = inspection_query::query(engine, &query, false)
+                .expect("actual bounded Player Query2");
             assert_eq!(page.version, 2);
             assert_eq!(page.scope, *engine.scope());
             assert_eq!(page.head, engine.revision());
@@ -130,40 +180,86 @@ fn corpus_case(id: &str, engine: &Engine, original_scope: &Scope, fact_id: &str,
             assert_eq!(page.privacy, Privacy::PlayerVisible);
             assert_eq!(page.status, ViewStatus::Supported);
             assert!(page.rows.len() <= 8);
-            assert!(total.replace(page.total).is_none_or(|prior| prior == page.total));
+            assert!(total
+                .replace(page.total)
+                .is_none_or(|prior| prior == page.total));
             count += page.rows.len();
             for row in &page.rows {
                 match row {
-                    Row::Field { actor, field, value, source, .. } => {
+                    Row::Field {
+                        actor,
+                        field,
+                        value,
+                        source,
+                        ..
+                    } => {
                         assert_eq!(actor, player);
                         progression |= source_is(source, original_scope)
-                            && if authored { field == "location" } else {
+                            && if authored {
+                                field == "location"
+                            } else {
                                 field == "ability/measure" && *value == FieldValue::Number(1)
                             };
                     }
-                    Row::Relationship { from, to, dimension, value, source, .. } => {
+                    Row::Relationship {
+                        from,
+                        to,
+                        dimension,
+                        value,
+                        source,
+                        ..
+                    } => {
                         assert_eq!(from, player, "native Player view is outgoing only");
-                        relationship |= matches!(source, Source::Seed(_)) && if authored {
-                            dimension == "trust" && *value == 0
-                        } else {
-                            to == "mentor" && dimension == "trust" && *value == 1
-                        };
+                        relationship |= matches!(source, Source::Seed(_))
+                            && if authored {
+                                dimension == "trust" && *value == 0
+                            } else {
+                                to == "mentor" && dimension == "trust" && *value == 1
+                            };
                     }
-                    Row::Knowledge { id, subject, text, confidence, sources, origin: ValueOrigin::KnownAsObserved, .. }
-                        if id == fact_id => {
-                            assert_eq!(subject.as_deref(), Some(player));
-                            assert!(confidence.is_none());
-                            assert_eq!(text, expected);
-                            let observed_scope = if expected == NEW { engine.scope() } else { original_scope };
-                            assert_eq!(sources.len(), 1);
-                            assert!(source_is(&sources[0], observed_scope));
-                            known = true;
-                        }
-                    Row::Knowledge { origin: ValueOrigin::RecordedStatement, .. } => statement = true,
-                    Row::Knowledge { origin: ValueOrigin::SubjectiveBelief, .. } => belief = true,
-                    Row::Knowledge { origin: ValueOrigin::RecordedDiscovery, .. } => discovery = true,
-                    Row::ScopedMessage { original_scope: scope, message_kind, event_ids, .. } => {
-                        assert!(!event_ids.is_empty() && event_ids.windows(2).all(|pair| pair[0] < pair[1]));
+                    Row::Knowledge {
+                        id,
+                        subject,
+                        text,
+                        confidence,
+                        sources,
+                        origin: ValueOrigin::KnownAsObserved,
+                        ..
+                    } if id == fact_id => {
+                        assert_eq!(subject.as_deref(), Some(player));
+                        assert!(confidence.is_none());
+                        assert_eq!(text, expected);
+                        let observed_scope = if expected == NEW {
+                            engine.scope()
+                        } else {
+                            original_scope
+                        };
+                        assert_eq!(sources.len(), 1);
+                        assert!(source_is(&sources[0], observed_scope));
+                        known = true;
+                    }
+                    Row::Knowledge {
+                        origin: ValueOrigin::RecordedStatement,
+                        ..
+                    } => statement = true,
+                    Row::Knowledge {
+                        origin: ValueOrigin::SubjectiveBelief,
+                        ..
+                    } => belief = true,
+                    Row::Knowledge {
+                        origin: ValueOrigin::RecordedDiscovery,
+                        ..
+                    } => discovery = true,
+                    Row::ScopedMessage {
+                        original_scope: scope,
+                        message_kind,
+                        event_ids,
+                        ..
+                    } => {
+                        assert!(
+                            !event_ids.is_empty()
+                                && event_ids.windows(2).all(|pair| pair[0] < pair[1])
+                        );
                         if scope == original_scope {
                             input |= message_kind == "original_input";
                             narration |= message_kind == "narration";
@@ -173,14 +269,21 @@ fn corpus_case(id: &str, engine: &Engine, original_scope: &Scope, fact_id: &str,
                         assert!(engine.domain_version() == 2 && *revision <= engine.revision());
                         marker = true;
                     }
-                    Row::Promise { status, .. } => { statuses.insert(status.clone()); }
+                    Row::Promise { status, .. } => {
+                        statuses.insert(status.clone());
+                    }
                     _ => {}
                 }
             }
             let raw = serde_json::to_vec(&page).expect("unmodified native page encoding");
             assert!(raw.len() <= inspection_query::MAX_PAGE_BYTES);
             let text = std::str::from_utf8(&raw).expect("native JSON UTF8");
-            for canary in &forbidden { assert!(!text.contains(canary), "private synthetic value reached a Player page"); }
+            for canary in &forbidden {
+                assert!(
+                    !text.contains(canary),
+                    "private synthetic value reached a Player page"
+                );
+            }
             let next = page.next_cursor.clone();
             pages.push(json!({"query":&query,"page":&page}));
             if let Some(next) = next {
@@ -201,13 +304,25 @@ fn corpus_case(id: &str, engine: &Engine, original_scope: &Scope, fact_id: &str,
     if authored {
         assert_eq!(statuses, BTreeSet::from(["open".to_owned()]));
     } else {
-        assert_eq!(statuses, BTreeSet::from(["open".to_owned(), "overdue".to_owned(), "fulfilled".to_owned()]));
+        assert_eq!(
+            statuses,
+            BTreeSet::from([
+                "open".to_owned(),
+                "overdue".to_owned(),
+                "fulfilled".to_owned()
+            ])
+        );
     }
     assert!(paginated_views.contains("\"profiles\"") && paginated_views.contains("\"history\""));
     // Do not dump raw canonical/private author payloads even if conservation fails.
     assert!(engine.canonical_bytes() == before);
     assert!(engine.canonical_records() == records.as_slice());
-    assert!(engine.accepted_history_basis().expect("history remains valid") == basis);
+    assert!(
+        engine
+            .accepted_history_basis()
+            .expect("history remains valid")
+            == basis
+    );
     json!({"id":id,"domain_version":engine.domain_version(),"player":engine.seed().player,"scope":engine.scope(),
         "head":engine.revision(),"story_time":engine.state().story_time,
         "forbidden":forbidden,"pages":pages})
@@ -215,9 +330,11 @@ fn corpus_case(id: &str, engine: &Engine, original_scope: &Scope, fact_id: &str,
 
 fn authored_histories() -> Result<(Engine, Engine, String), Box<dyn std::error::Error>> {
     let mut input: InitialStoryInputV1 = serde_json::from_str(include_str!(
-        "../../../fixtures/initial_world/ashglass-input.json"))?;
+        "../../../fixtures/initial_world/ashglass-input.json"
+    ))?;
     let mut accepted: InitialWorldProposalV1 = serde_json::from_str(include_str!(
-        "../../../fixtures/initial_world/ashglass-proposal.json"))?;
+        "../../../fixtures/initial_world/ashglass-proposal.json"
+    ))?;
     input.cast[1].name = NPC_NAME.into();
     accepted.characters[1].name = NPC_NAME.into();
     accepted.characters[0].location = 0;
@@ -233,62 +350,126 @@ fn authored_histories() -> Result<(Engine, Engine, String), Box<dyn std::error::
     accepted.beliefs[0].text = NPC_BELIEF.into();
     accepted.routes.push(InitialRouteV1 { from: 1, to: 0 });
     accepted.possessions.push(InitialPossessionV1 {
-        name: "Survey cord".into(), description: "A short marked survey cord.".into(),
-        owner: 0, return_to: None,
+        name: "Survey cord".into(),
+        description: "A short marked survey cord.".into(),
+        owner: 0,
+        return_to: None,
     });
-    story_authoring::validate_proposal(&input, &accepted).expect("valid authored synthetic proposal");
+    story_authoring::validate_proposal(&input, &accepted)
+        .expect("valid authored synthetic proposal");
     let profile = locallore::play::PlayProfile {
-        id: "query2-authored-synthetic-v1".into(), model_sha256: "a".repeat(64),
-        runtime_revision: "b".repeat(40), template_sha256: "c".repeat(64),
-        worker_sha256: "d".repeat(64), profile_manifest_sha256: "e".repeat(64),
-        context_tokens: 4096, director_tokens: 350, narrator_tokens: 350,
-        deadline_ms: 5000, repair_limit: 1,
+        id: "query2-authored-synthetic-v1".into(),
+        model_sha256: "a".repeat(64),
+        runtime_revision: "b".repeat(40),
+        template_sha256: "c".repeat(64),
+        worker_sha256: "d".repeat(64),
+        profile_manifest_sha256: "e".repeat(64),
+        context_tokens: 4096,
+        director_tokens: 350,
+        narrator_tokens: 350,
+        deadline_ms: 5000,
+        repair_limit: 1,
     };
     let response = serde_json::to_string(&accepted)?;
     let origin = InitialWorldOriginV1 {
         version: 1,
         generation: InitialGenerationV1 {
-            input: input.clone(), proposal: accepted.clone(), model_profile: profile.id.clone(),
+            input: input.clone(),
+            proposal: accepted.clone(),
+            model_profile: profile.id.clone(),
             model_configuration: InitialModelConfigurationV1::from(&profile),
             provider: InitialProviderKindV1::Scripted,
             prompt_version: story_authoring::PROMPT_VERSION.into(),
             schema_version: story_authoring::SCHEMA_VERSION.into(),
-            response_sha256: locallore::inspection::sha256(response.as_bytes()), response,
+            response_sha256: locallore::inspection::sha256(response.as_bytes()),
+            response,
         },
-        reviewed: input, accepted, title: "Synthetic materialized Query2 survey".into(),
+        reviewed: input,
+        accepted,
+        title: "Synthetic materialized Query2 survey".into(),
     };
-    let seed = story_authoring::materialize(&origin,
-        Scope { story: "authored-query2-b37".into(), branch: "main".into() })
-        .expect("actual typed authored materialization");
+    let seed = story_authoring::materialize(
+        &origin,
+        Scope {
+            story: "authored-query2-b37".into(),
+            branch: "main".into(),
+        },
+    )
+    .expect("actual typed authored materialization");
     story_authoring::validate_origin(&seed).expect("exact authored origin");
     assert!(seed.player.starts_with("a-") && seed.player != "player");
-    let prefix = seed.id.strip_prefix("world-").expect("materialized world namespace");
+    let prefix = seed
+        .id
+        .strip_prefix("world-")
+        .expect("materialized world namespace");
     let fact_id = format!("f-{prefix}-world-0");
     let mentor = format!("a-{prefix}-1");
     let other = format!("l-{prefix}-1");
     let local = seed.actors[&seed.player].location.clone();
     let mut root = Engine::new(seed)?;
     assert_eq!(root.domain_version(), 1);
-    actions(&mut root, "authored-outward", vec![Command::Move { to: other }]);
-    actions(&mut root, "authored-return", vec![Command::Move { to: local }]);
-    let statement = commit(&mut root, "authored-spoken", Intent::Dialogue {
-        text: "I will return the survey notes before the bell.".into(), audience: [mentor.clone()].into(),
-    });
-    actions(&mut root, "authored-belief", vec![Command::Believe { claim_event: statement.events()[0].sequence() }]);
-    actions(&mut root, "authored-observe", vec![Command::Discover { fact: fact_id.clone() }]);
-    actions(&mut root, "authored-promise", vec![Command::Promise {
-        id: "survey-report".into(), to: mentor, terms: "Bring the report before the next bell.".into(),
-        deadline: 20, return_item: None,
-    }]);
-    actions(&mut root, "authored-clock", vec![Command::Wait { ticks: 1 }]);
+    actions(
+        &mut root,
+        "authored-outward",
+        vec![Command::Move { to: other }],
+    );
+    actions(
+        &mut root,
+        "authored-return",
+        vec![Command::Move { to: local }],
+    );
+    let statement = commit(
+        &mut root,
+        "authored-spoken",
+        Intent::Dialogue {
+            text: "I will return the survey notes before the bell.".into(),
+            audience: [mentor.clone()].into(),
+        },
+    );
+    actions(
+        &mut root,
+        "authored-belief",
+        vec![Command::Believe {
+            claim_event: statement.events()[0].sequence(),
+        }],
+    );
+    actions(
+        &mut root,
+        "authored-observe",
+        vec![Command::Discover {
+            fact: fact_id.clone(),
+        }],
+    );
+    actions(
+        &mut root,
+        "authored-promise",
+        vec![Command::Promise {
+            id: "survey-report".into(),
+            to: mentor,
+            terms: "Bring the report before the next bell.".into(),
+            deadline: 20,
+            return_item: None,
+        }],
+    );
+    actions(
+        &mut root,
+        "authored-clock",
+        vec![Command::Wait { ticks: 1 }],
+    );
     assert_eq!(root.domain_version(), 1);
     assert_eq!(observed(&root, &fact_id), OLD);
     let correction = AuthorCorrectionInputV1 {
-        version: 1, parent: root.scope().clone(), expected_parent_revision: root.revision(),
-        fork_revision: root.revision(), child_branch: "authored-corrected".into(),
+        version: 1,
+        parent: root.scope().clone(),
+        expected_parent_revision: root.revision(),
+        fork_revision: root.revision(),
+        child_branch: "authored-corrected".into(),
         operation: AuthorCorrectionOperationV1::ReplaceFactProposition {
-            fact: fact_id.clone(), expected_proposition: OLD.into(), replacement: NEW.into(),
-        }, reason: AUTHOR_REASON.into(),
+            fact: fact_id.clone(),
+            expected_proposition: OLD.into(),
+            replacement: NEW.into(),
+        },
+        reason: AUTHOR_REASON.into(),
     };
     let prepared = root.prepare_author_correction(&correction, &|| false)?;
     let child = root.apply_author_correction(&prepared, &|| false)?.engine;
@@ -300,30 +481,88 @@ fn authored_histories() -> Result<(Engine, Engine, String), Box<dyn std::error::
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut root = initial();
-    actions(&mut root, "learn-survey", vec![Command::Learn { ability: "measure".into() }]);
-    actions(&mut root, "use-survey", vec![Command::UseAbility { ability: "measure".into() }]);
-    actions(&mut root, "help-surveyor", vec![Command::Give { item: "tonic".into(), to: "mentor".into(), quantity: 1 }]);
-    let statement = commit(&mut root, "spoken-survey", Intent::Dialogue {
-        text: "The painted wheel might be jammed.".into(), audience: ["mentor".into()].into(),
-    });
+    actions(
+        &mut root,
+        "learn-survey",
+        vec![Command::Learn {
+            ability: "measure".into(),
+        }],
+    );
+    actions(
+        &mut root,
+        "use-survey",
+        vec![Command::UseAbility {
+            ability: "measure".into(),
+        }],
+    );
+    actions(
+        &mut root,
+        "help-surveyor",
+        vec![Command::Give {
+            item: "tonic".into(),
+            to: "mentor".into(),
+            quantity: 1,
+        }],
+    );
+    let statement = commit(
+        &mut root,
+        "spoken-survey",
+        Intent::Dialogue {
+            text: "The painted wheel might be jammed.".into(),
+            audience: ["mentor".into()].into(),
+        },
+    );
     let statement_id = statement.events()[0].sequence();
-    actions(&mut root, "uncertain-belief", vec![Command::Believe { claim_event: statement_id }]);
-    actions(&mut root, "observe-beacon", vec![Command::Discover { fact: FACT_ID.into() }]);
-    actions(&mut root, "return-caliper", vec![
-        Command::Promise { id: "return-caliper".into(), to: "mentor".into(),
-            terms: "Return the borrowed caliper before afternoon.".into(), deadline: 20, return_item: Some("caliper".into()) },
-        Command::Give { item: "caliper".into(), to: "mentor".into(), quantity: 1 },
-        Command::CompletePromise { id: "return-caliper".into() },
-    ]);
+    actions(
+        &mut root,
+        "uncertain-belief",
+        vec![Command::Believe {
+            claim_event: statement_id,
+        }],
+    );
+    actions(
+        &mut root,
+        "observe-beacon",
+        vec![Command::Discover {
+            fact: FACT_ID.into(),
+        }],
+    );
+    actions(
+        &mut root,
+        "return-caliper",
+        vec![
+            Command::Promise {
+                id: "return-caliper".into(),
+                to: "mentor".into(),
+                terms: "Return the borrowed caliper before afternoon.".into(),
+                deadline: 20,
+                return_item: Some("caliper".into()),
+            },
+            Command::Give {
+                item: "caliper".into(),
+                to: "mentor".into(),
+                quantity: 1,
+            },
+            Command::CompletePromise {
+                id: "return-caliper".into(),
+            },
+        ],
+    );
     actions(&mut root, "tide-clock", vec![Command::Wait { ticks: 3 }]);
     assert_eq!(root.domain_version(), 1);
     assert_eq!(observed(&root, FACT_ID), OLD);
     let input = AuthorCorrectionInputV1 {
-        version: 1, parent: root.scope().clone(), expected_parent_revision: root.revision(),
-        fork_revision: root.revision(), child_branch: "corrected-beacon".into(),
+        version: 1,
+        parent: root.scope().clone(),
+        expected_parent_revision: root.revision(),
+        fork_revision: root.revision(),
+        child_branch: "corrected-beacon".into(),
         operation: AuthorCorrectionOperationV1::ReplaceFactProposition {
-            fact: FACT_ID.into(), expected_proposition: OLD.into(), replacement: NEW.into(),
-        }, reason: AUTHOR_REASON.into(),
+            fact: FACT_ID.into(),
+            expected_proposition: OLD.into(),
+            replacement: NEW.into(),
+        },
+        reason: AUTHOR_REASON.into(),
     };
     let prepared = root.prepare_author_correction(&input, &|| false)?;
     let corrected = root.apply_author_correction(&prepared, &|| false)?.engine;
@@ -331,7 +570,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(observed(&corrected, FACT_ID), OLD);
     assert_eq!(corrected.effective_fact(FACT_ID)?.proposition, NEW);
     let mut rediscovered = corrected.clone();
-    actions(&mut rediscovered, "observe-corrected-beacon", vec![Command::Discover { fact: FACT_ID.into() }]);
+    actions(
+        &mut rediscovered,
+        "observe-corrected-beacon",
+        vec![Command::Discover {
+            fact: FACT_ID.into(),
+        }],
+    );
     assert_eq!(rediscovered.domain_version(), 2);
     assert_eq!(observed(&rediscovered, FACT_ID), NEW);
     let (authored, authored_corrected, authored_fact) = authored_histories()?;
@@ -343,7 +588,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         corpus_case("authored_corrected", &authored_corrected, authored.scope(), &authored_fact, OLD),
     ]});
     let bytes = serde_json::to_vec(&payload)?;
-    assert!(bytes.len() + 1 <= 128 * 1024, "compact corpus stdout budget exceeded");
+    assert!(
+        bytes.len() + 1 <= 128 * 1024,
+        "compact corpus stdout budget exceeded"
+    );
     let mut stdout = io::stdout().lock();
     stdout.write_all(&bytes)?;
     stdout.write_all(b"\n")?;

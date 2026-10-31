@@ -16,7 +16,7 @@ BOOT_CLAIM_FILE = 'owned-record-ui-boot-claim-v1.json'
 APP = 'org.locallore.app.archiveverify'
 TEST = APP + '.test'
 MODEL_MATERIAL = False
-GUEST_ROOT = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-10-30-record-ui-v1/avd-v1')
+GUEST_ROOT = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-10-31-record-ui-v1/avd-v1')
 INSTRUMENTATIONS = (
     ('record_native_pages', 'org.locallore.app.StoryRecordInstrumentedTest', 'playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen'),
     ('record_native_knowledge', 'org.locallore.app.StoryRecordInstrumentedTest', 'actualClaimsBeliefsAndKnownTruthKeepDistinctOriginsAndObserverGrants'),

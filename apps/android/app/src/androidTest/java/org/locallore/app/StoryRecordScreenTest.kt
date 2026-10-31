@@ -14,6 +14,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.locallore.app.ui.LocalLoreScreen
 import org.locallore.app.ui.StoryRecordDialog
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -114,7 +115,7 @@ class StoryRecordScreenTest {
             assertTrue(model.storyRecord.value.entries.isNotEmpty())
             assertFirstEntryPresentation(model.storyRecord.value)
             section(model, StoryRecordSection.KNOWLEDGE)
-            assertTrue(model.storyRecord.value.entries.all { it.origin == StoryRecordOrigin.CANONICAL_TRUTH })
+            assertTrue(model.storyRecord.value.entries.all { it.origin == StoryRecordOrigin.KNOWN_AS_OBSERVED })
             assertFirstEntryPresentation(model.storyRecord.value)
             search(model, "SECRET-TIDE-731") // A seeded fact the player actually knows.
             assertEquals(1, model.storyRecord.value.total)
@@ -142,8 +143,14 @@ class StoryRecordScreenTest {
             loaded(model) { it.context?.revision == 1L }
             assertEquals(100L, model.storyRecord.value.storyTime)
             section(model, StoryRecordSection.HISTORY)
+            val originalScope = JSONObject(accepted).getJSONArray("receipts").getJSONObject(0)
+                .getJSONObject("request").getJSONObject("scope")
+            val reference = StoryRecordScopedEvent(StoryRecordScope(originalScope.getString("story"),
+                originalScope.getString("branch")), 1)
             assertTrue(model.storyRecord.value.entries.any {
-                it.origin == StoryRecordOrigin.RECORDED_MESSAGE && "Event #1" in it.sources
+                it.origin == StoryRecordOrigin.RECORDED_MESSAGE && it.scopedEventSources == listOf(reference) &&
+                    it.eventSources.isEmpty() && it.sources == listOf(
+                        "Event #1 · ${reference.originalScope.story} / ${reference.originalScope.branch}")
             })
             assertFirstEntryPresentation(model.storyRecord.value)
             compose.onNodeWithTag("story-record-close").performClick()

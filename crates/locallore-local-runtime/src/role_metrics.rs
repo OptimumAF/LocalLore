@@ -80,6 +80,7 @@ struct State {
 struct Inner {
     state: Mutex<State>,
     incomplete: AtomicBool,
+    author_unavailable: AtomicBool,
 }
 /// A new recorder is required per turn. Accidental reuse across turn identities drops metadata.
 /// Contention/poison/capacity loss is best effort and never changes the provider's result.
@@ -98,10 +99,15 @@ impl RoleMetricsLog {
                 records: Vec::with_capacity(MAX_ROLE_METRICS),
             }),
             incomplete: AtomicBool::new(false),
+            author_unavailable: AtomicBool::new(false),
         }))
     }
     pub(crate) fn lost(&self) {
         self.0.incomplete.store(true, Ordering::Relaxed);
+    }
+    pub(crate) fn author_unavailable(&self) {
+        self.0.author_unavailable.store(true, Ordering::Relaxed);
+        self.lost();
     }
     pub(crate) fn bind(&self, turn: &str) {
         let Ok(mut state) = self.0.state.try_lock() else {
@@ -132,6 +138,15 @@ impl RoleMetricsLog {
         state.records.push(record);
     }
     pub fn snapshot(&self) -> RoleMetricsSnapshot {
+        if self.0.author_unavailable.load(Ordering::Relaxed) {
+            return RoleMetricsSnapshot {
+                version: 2,
+                available: false,
+                incomplete: true,
+                turn_sha256: None,
+                records: vec![],
+            };
+        }
         match self.0.state.try_lock() {
             Ok(state) => RoleMetricsSnapshot {
                 version: 2,

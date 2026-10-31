@@ -129,6 +129,28 @@ pub enum Status {
 pub enum Role {
     Director,
     Narrator,
+    Author,
+}
+#[derive(Clone, Copy)]
+pub(crate) enum AuthorAccess {
+    Disabled,
+    #[cfg(all(test, feature = "development-worker"))]
+    Fixture,
+}
+#[derive(Clone, Copy)]
+pub(crate) struct ReplyBounds {
+    output_tokens: u16,
+    text_bytes: usize,
+}
+const PLAY_REPLY_BOUNDS: ReplyBounds = ReplyBounds {
+    output_tokens: 350,
+    text_bytes: 16_384,
+};
+#[cfg(feature = "development-worker")]
+enum DevelopmentFixtureCase {
+    Completed,
+    #[cfg(test)]
+    BlockedGenerationObserved,
 }
 #[derive(Clone, Debug)]
 pub struct Generation {
@@ -341,6 +363,7 @@ pub struct LocalRuntime {
     status: Status,
     deadline: Duration,
     last_metrics: Option<Metrics>,
+    author_access: AuthorAccess,
 }
 impl LocalRuntime {
     pub fn spawn_packaged(resource_dir: &Path, model: &Path) -> Result<Self, Error> {
@@ -397,6 +420,12 @@ impl LocalRuntime {
     /// No caller path, executable, mode, arguments or model artifact is accepted.
     #[cfg(feature = "development-worker")]
     pub fn development_protocol_fixture() -> Result<(Self, std::path::PathBuf), OwnedStartFailure> {
+        Self::development_protocol_fixture_case(DevelopmentFixtureCase::Completed)
+    }
+    #[cfg(feature = "development-worker")]
+    fn development_protocol_fixture_case(
+        case: DevelopmentFixtureCase,
+    ) -> Result<(Self, std::path::PathBuf), OwnedStartFailure> {
         let current = std::env::current_exe()
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
         let parent = current
@@ -428,7 +457,11 @@ impl LocalRuntime {
         ));
         std::fs::create_dir(&directory)
             .map_err(|_| OwnedStartFailure::BeforeChild(Error::WorkerUnavailable))?;
-        let model = directory.join("valid");
+        let model = directory.join(match case {
+            DevelopmentFixtureCase::Completed => "valid",
+            #[cfg(test)]
+            DevelopmentFixtureCase::BlockedGenerationObserved => "blocked-generation-observed",
+        });
         let file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -564,6 +597,7 @@ impl LocalRuntime {
                 status: Status::Unloaded,
                 deadline: Duration::from_secs(60),
                 last_metrics: None,
+                author_access: AuthorAccess::Disabled,
             },
         );
         #[cfg(all(test, windows, feature = "development-worker"))]
@@ -705,6 +739,15 @@ impl LocalRuntime {
         generation: Option<&Generation>,
         cancel: impl Fn() -> bool,
     ) -> Result<GenerationResult, Error> {
+        self.call_bounded(op, generation, PLAY_REPLY_BOUNDS, cancel)
+    }
+    fn call_bounded(
+        &mut self,
+        op: &str,
+        generation: Option<&Generation>,
+        bounds: ReplyBounds,
+        cancel: impl Fn() -> bool,
+    ) -> Result<GenerationResult, Error> {
         self.last_metrics = None;
         if self.status == Status::Failed {
             return Err(Error::WorkerUnavailable);
@@ -740,7 +783,7 @@ impl LocalRuntime {
             }
             match self.replies.recv_timeout(Duration::from_millis(10)) {
                 Ok(Ok(frame)) => {
-                    let reply = match parse_reply(&frame, id) {
+                    let reply = match parse_reply(&frame, id, bounds) {
                         Ok(r) => r,
                         Err(e) => return self.fail(e),
                     };
@@ -815,21 +858,57 @@ impl LocalRuntime {
         generation: Generation,
         cancel: impl Fn() -> bool,
     ) -> Result<GenerationResult, Error> {
+        let bounds = if matches!(generation.role, Role::Author) {
+            ReplyBounds {
+                output_tokens: generation.max_tokens,
+                text_bytes: 8192,
+            }
+        } else {
+            PLAY_REPLY_BOUNDS
+        };
+        self.generate_bounded(generation, bounds, cancel)
+    }
+    pub(crate) fn generate_bounded(
+        &mut self,
+        generation: Generation,
+        bounds: ReplyBounds,
+        cancel: impl Fn() -> bool,
+    ) -> Result<GenerationResult, Error> {
         self.last_metrics = None;
         if self.status != Status::Loaded {
             return Err(Error::WorkerUnavailable);
         }
+        let author = matches!(generation.role, Role::Author);
+        if author && matches!(self.author_access, AuthorAccess::Disabled) {
+            return Err(Error::WorkerUnavailable);
+        }
+        if author
+            && (bounds.output_tokens == 0
+                || bounds.output_tokens > 1024
+                || bounds.output_tokens != generation.max_tokens
+                || bounds.text_bytes == 0
+                || bounds.text_bytes > 8192
+                || generation.prompt.len() > 16_384
+                || generation.schema.is_none())
+        {
+            return Err(Error::InvalidRequest);
+        }
         if generation.prompt.is_empty()
             || generation.prompt.contains('\0')
             || generation.max_tokens == 0
-            || generation.max_tokens > 350
+            || generation.max_tokens > if author { 1024 } else { 350 }
         {
             return Err(Error::InvalidRequest);
         }
         if generation.schema.as_ref().is_some_and(|s| !s.is_object()) {
             return Err(Error::InvalidRequest);
         }
-        self.call("generate", Some(&generation), cancel)
+        self.call_bounded(
+            "generate",
+            Some(&generation),
+            if author { bounds } else { PLAY_REPLY_BOUNDS },
+            cancel,
+        )
     }
     pub fn unload(&mut self) -> Result<(), Error> {
         self.call("unload", None, || false)?;
@@ -896,12 +975,12 @@ impl Drop for LocalRuntime {
         }
     }
 }
-fn parse_reply(frame: &[u8], id: u64) -> Result<Reply, Error> {
+fn parse_reply(frame: &[u8], id: u64, bounds: ReplyBounds) -> Result<Reply, Error> {
     let reply: Reply = serde_json::from_slice(frame).map_err(|_| Error::Protocol)?;
     if reply.version != 1
         || reply.id != id
         || !["completed", "error"].contains(&reply.status.as_str())
-        || reply.text.len() > 16_384
+        || reply.text.len() > bounds.text_bytes
         || reply.text.contains("<think>")
         || reply.text.contains("</think>")
     {
@@ -917,13 +996,134 @@ fn parse_reply(frame: &[u8], id: u64) -> Result<Reply, Error> {
         .iter()
         .any(|n| !n.is_finite() || *n < 0.0)
         || m.input_tokens > 4096
-        || m.output_tokens > 350
+        || m.output_tokens > u32::from(bounds.output_tokens)
     {
         return Err(Error::Protocol);
     }
     Ok(reply)
 }
 
+#[cfg(all(test, feature = "engine-adapter", feature = "development-worker"))]
+mod author_reply_review;
+#[cfg(all(test, feature = "engine-adapter", feature = "development-worker"))]
+mod public_generation_review {
+    use super::*;
+
+    // Independent regression after the public-wrapper source finding/fix; this
+    // is not part of the frozen16 FIRST or its RED. No model or packaged worker.
+    // This path deliberately has no `author_` so that filter remains unchanged.
+    #[test]
+    fn public_generation_limits_keep_one_fixture_owner() {
+        let (provider, shared, _retained_directory) =
+            match adapter::author_fixture(None, adapter::AuthorFixtureCase::Completed) {
+                Ok(value) => value,
+                Err(OwnedStartFailure::BeforeChild(_)) => {
+                    panic!("SETUP_UNRUN public generation fixture unavailable")
+                }
+                Err(OwnedStartFailure::AfterChild { mut owner, .. }) => {
+                    let cleanup = owner.terminate_and_reap();
+                    assert!(
+                        cleanup.is_ok(),
+                        "SETUP_UNRUN partial fixture cleanup unresolved"
+                    );
+                    panic!("SETUP_UNRUN public generation partial start");
+                }
+            };
+        drop(provider); // No adapter admission: exercise the public native API itself.
+        let mut owner = shared.lock().unwrap_or_else(|p| p.into_inner());
+        let initial = owner.status();
+        let loaded = if initial == Status::Unloaded {
+            owner.load(|| false).map(|_| ())
+        } else {
+            Ok(())
+        };
+        if loaded.is_err() {
+            let cleanup = owner.terminate_and_reap();
+            let terminal = owner.child.try_wait().is_ok_and(|value| value.is_some());
+            assert!(
+                cleanup.is_ok() && terminal && owner.threads.is_empty(),
+                "SETUP_UNRUN public generation load cleanup unresolved"
+            );
+            panic!("SETUP_UNRUN public generation fixture load failed");
+        }
+        let generation = |role: Role, max_tokens: u16| Generation {
+            role,
+            prompt: "Fixed synthetic public generation.".into(),
+            schema: Some(if matches!(role, Role::Author) {
+                locallore::story_authoring::proposal_schema()
+            } else {
+                json!({"type":"object"})
+            }),
+            max_tokens,
+        };
+        let before = owner.next_id;
+        let mut invalid = Vec::new();
+        for (role, tokens) in [
+            (Role::Author, 0),
+            (Role::Author, 1025),
+            (Role::Director, 351),
+            (Role::Narrator, 351),
+        ] {
+            invalid.push(owner.generate(generation(role, tokens), || false).err());
+        }
+        let mismatch = owner
+            .generate_bounded(
+                generation(Role::Author, 64),
+                ReplyBounds {
+                    output_tokens: 63,
+                    text_bytes: 8192,
+                },
+                || false,
+            )
+            .err();
+        let after_invalid = owner.next_id;
+        let mut completed = Vec::new();
+        // Request64 detects a wrapper accidentally keeping token ceiling350;
+        // request1024 exercises the Author ceiling. Public Play remains350.
+        for (role, tokens) in [
+            (Role::Author, 64),
+            (Role::Author, 1024),
+            (Role::Director, 64),
+            (Role::Narrator, 350),
+        ] {
+            completed.push(
+                owner
+                    .generate(generation(role, tokens), || false)
+                    .map(|value| value.text.is_empty()),
+            );
+        }
+        let after = owner.next_id;
+        let cleanup = owner.terminate_and_reap();
+        let terminal = owner.child.try_wait().is_ok_and(|value| value.is_some());
+        let pipes_joined = owner.writer.is_none() && owner.threads.is_empty();
+        drop(owner);
+        drop(shared); // All fixture bytes remain retained; no directory deletion.
+
+        assert_eq!(initial, Status::Unloaded);
+        assert_eq!(cleanup, Ok(()));
+        assert!(
+            terminal && pipes_joined,
+            "positive exact owner cleanup before assertions"
+        );
+        assert_eq!(before, 1, "one explicit synthetic load");
+        assert!(invalid
+            .iter()
+            .all(|value| *value == Some(Error::InvalidRequest)));
+        assert_eq!(mismatch, Some(Error::InvalidRequest));
+        assert_eq!(after_invalid, before, "invalid requests sent no frame");
+        assert!(
+            completed.iter().all(|value| *value == Ok(true)),
+            "public typed requests complete"
+        );
+        assert_eq!(
+            after,
+            before + 4,
+            "four public calls on the same native owner"
+        );
+        // The fixed fixture returns empty text. Exact8192/16384 reply payload
+        // edges are independently covered by the frozen parser tests, not here.
+    }
+}
 #[cfg(all(test, feature = "development-worker"))]
 mod owned_cleanup_tests;
 #[cfg(all(test, feature = "development-worker"))]
@@ -1302,7 +1502,7 @@ mod tests {
     #[test]
     fn reply_identity_bounds_and_channels() {
         let base = json!({"version":1,"id":1,"status":"completed","error":null,"text":"ok","metrics":{"load_ms":0,"prefill_ms":0,"decode_ms":0,"total_ms":0,"input_tokens":1,"output_tokens":1,"model_loads":1,"contexts_created":1,"abort_callbacks":0}});
-        assert!(parse_reply(&serde_json::to_vec(&base).unwrap(), 1).is_ok());
+        assert!(parse_reply(&serde_json::to_vec(&base).unwrap(), 1, PLAY_REPLY_BOUNDS).is_ok());
         for (key, value) in [
             ("id", json!(2)),
             ("version", json!(2)),
@@ -1313,12 +1513,16 @@ mod tests {
         ] {
             let mut changed = base.clone();
             changed[key] = value;
-            assert!(parse_reply(&serde_json::to_vec(&changed).unwrap(), 1).is_err());
+            assert!(
+                parse_reply(&serde_json::to_vec(&changed).unwrap(), 1, PLAY_REPLY_BOUNDS).is_err()
+            );
         }
         for key in ["input_tokens", "output_tokens"] {
             let mut changed = base.clone();
             changed["metrics"][key] = json!(10000);
-            assert!(parse_reply(&serde_json::to_vec(&changed).unwrap(), 1).is_err());
+            assert!(
+                parse_reply(&serde_json::to_vec(&changed).unwrap(), 1, PLAY_REPLY_BOUNDS).is_err()
+            );
         }
     }
 }

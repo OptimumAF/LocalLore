@@ -295,11 +295,16 @@ fn durable_both_native_selectors_prepare_without_append_commit_once_and_reopen_w
         let commands = &receipt.proposal().commands;
         assert_eq!(commands, &[Command::Wait { ticks: 1 }]);
         let mut mechanical = before.clone();
-<<<<<<< HEAD
-=======
-        let mechanical_request = mechanical.request(&request.turn, Intent::Actions(vec![Command::Wait { ticks: 1 }]));
-        let approved = mechanical.preview(&mechanical_request, &Engine::proposal(&mechanical_request).unwrap()).unwrap();
->>>>>>> a793780a (Use versioned staging and typed mechanical test controls)
+        let mechanical_request = mechanical.request(
+            &request.turn,
+            Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+        );
+        let approved = mechanical
+            .preview(
+                &mechanical_request,
+                &Engine::proposal(&mechanical_request).unwrap(),
+            )
+            .unwrap();
         mechanical.commit_prepared(&approved).unwrap();
         assert_eq!(after.state(), mechanical.state());
         let actual = seen.requests();

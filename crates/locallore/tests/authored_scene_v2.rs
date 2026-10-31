@@ -247,10 +247,11 @@ struct Script {
 }
 impl Script {
     fn new(source: &Engine, request: &Request, commands: Vec<Command>, text: &str) -> Self {
-<<<<<<< HEAD
-        let ids: Vec<_> = source
-            .preview(request, &proposal(request, commands.clone()))
-            .unwrap()
+        let staged = source
+            .stage_play_v25(request, &proposal(request, commands.clone()), &|| false)
+            .unwrap();
+        let ids: Vec<_> = staged
+            .approved()
             .events()
             .iter()
             .map(|event| event.sequence())
@@ -265,12 +266,6 @@ impl Script {
             .collect(),
             ..Self::default()
         }
-=======
-        let staged = source.stage_play_v25(request, &proposal(request, commands.clone()), &|| false).unwrap();
-        let ids: Vec<_> = staged.approved().events().iter().map(|event| event.sequence()).collect();
-        Self { replies: [json!({"commands":commands}), json!({"text":text,"event_ids":ids,"speaker":"narrator"})]
-            .into_iter().map(|value| serde_json::to_vec(&value).unwrap()).collect(), ..Self::default() }
->>>>>>> a793780a (Use versioned staging and typed mechanical test controls)
     }
 }
 impl InferenceProvider for Script {
@@ -426,19 +421,17 @@ fn actual_authored_memory_and_literal_narration_use_typed_label_renderer_and_exa
         assert!(!receipt.play().unwrap().fallback);
         assert_eq!(receipt.narration(), text);
         assert_eq!(after.revision(), world.engine.revision() + 1);
-<<<<<<< HEAD
-        let approved = world
-            .engine
+        let mut mechanical = world.engine.clone();
+        let mechanical_request = mechanical.request(
+            &request.turn,
+            Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+        );
+        let approved = mechanical
             .preview(
-                &request,
-                &proposal(&request, vec![Command::Wait { ticks: 1 }]),
+                &mechanical_request,
+                &Engine::proposal(&mechanical_request).unwrap(),
             )
             .unwrap();
-=======
->>>>>>> a793780a (Use versioned staging and typed mechanical test controls)
-        let mut mechanical = world.engine.clone();
-        let mechanical_request = mechanical.request(&request.turn, Intent::Actions(vec![Command::Wait { ticks: 1 }]));
-        let approved = mechanical.preview(&mechanical_request, &Engine::proposal(&mechanical_request).unwrap()).unwrap();
         mechanical.commit_prepared(&approved).unwrap();
         assert_eq!(
             after.state(),

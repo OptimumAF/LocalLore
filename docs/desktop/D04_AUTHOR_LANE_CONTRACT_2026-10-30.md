@@ -80,6 +80,8 @@ New runtime/model/native execution needs its own concrete authorization.
 These names describe constructible crate-private seams for A, not a new public
 wire API. Keep existing public `Generation` fields and constructors compatible;
 adding the typed `Role::Author` cannot itself grant production access.
+`AuthorAccess` and `ReplyBounds` live at crate root so default-feature runtime
+builds do not depend on the optional adapter. `Lane`/`CompiledCall` stay in adapter.
 
 ```rust
 enum Lane { Play, InitialWorld }
@@ -252,6 +254,10 @@ Play roles, public constructors disable Author, generation/reply checks remain
 350/16384 and Play sequencing stays unchanged. The new enum value and fixed
 fixture-only construction cannot enable production access. Mechanical updates to
 existing parser calls supply legacy Play bounds without changing assertions.
+The compile tuple-to-struct extraction may mechanically replace old adapter-test
+`.0.full` with `.identity.full` and tuple destructuring with the same named fields;
+preserve every existing fixture, asserted value and predicate. No compatibility
+wrapper or second identity implementation is needed.
 Root must execute a valid compiled old-behavior baseline before the producer
 admits Author or changes Author reply validation. Missing fixture binaries,
 registration, types or compilation are setup, never behavioral failures.

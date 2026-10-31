@@ -1728,12 +1728,19 @@ export async function domain2ForkNativeJourneys({
                 /* Failed cleanup remains unavailable, never a success proof. */
             }
         }
-        const report = stateReport(false,
+        const report = stateReport(
+            false,
             error instanceof Error && error.message === "HarnessAssertion"
-                ? "HarnessAssertion" : category(error));
-        report.failure = { phase: failedPhase,
-            error: error instanceof Error && error.message === "HarnessAssertion"
-                ? "HarnessAssertion" : category(error) };
+                ? "HarnessAssertion"
+                : category(error),
+        );
+        report.failure = {
+            phase: failedPhase,
+            error:
+                error instanceof Error && error.message === "HarnessAssertion"
+                    ? "HarnessAssertion"
+                    : category(error),
+        };
         await finish(report);
     }
 }

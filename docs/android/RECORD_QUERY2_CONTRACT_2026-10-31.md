@@ -27,7 +27,7 @@ and explicit Query1 interpretation remain intact.
 ## Display shapes
 
 Add StoryRecordOrigin.KNOWN_AS_OBSERVED with native wire known_as_observed,
-label "Known as observed". In Query2 Knowledge it requires subject player,
+label "Known as observed". In Query2 Knowledge it requires the bound native player subject,
 null confidence and native typed sources. CanonicalTruth is legacy Query1-only
 in this fixed player adapter; V2 never promotes an observation to world truth.
 Statements, subjective beliefs and discoveries retain their distinct origins.
@@ -60,7 +60,7 @@ inspection_query::query with version2/player/limit8, following actual cursors.
 Assert canonical state/records unchanged around queries. Use real accepted
 author correction to assert Domain2, never a hand-set domain flag.
 
-Corpus schema: {"version":1,"cases":[{"id":...,"domain_version":1|2,
+Corpus schema: {"version":1,"cases":[{"id":...,"domain_version":1|2,"player":<seed.player>,
 "scope":{"story":...,"branch":...},"head":...,"story_time":...,
 "forbidden":[synthetic private canaries],"pages":[{"query":<actual Query>,
 "page":<actual Page>}]}]}. Required cases root, corrected, rediscovered;
@@ -92,3 +92,25 @@ coverage; migrate obsolete default fixtures without weakening assertions.
 Run relevant native query suites and archive-profile offline Android/JVM/lint/
 product+pair gates. No emulator/phone/ADB/model/app grant is used. Host, JVM and
 packaging evidence does not qualify a device, model, real SDK drain or release.
+
+## Native player identity refinement before adoption
+
+Query2 preserves actual actor IDs, including opaque authored-world IDs. Never
+infer the player from a returned row or assume a literal ID. DurableGateway
+captures its existing coherent PlayerSnapshotBinding with session/scope/head,
+requires the same valid binding before/after the read, then explicitly passes
+that observer to StoryRecordWire.decode(data, query, player). Native query
+observer stays fixed kind player, with no ID field. Missing/changed binding
+refuses. Existing two-argument decoder calls retain their literal fixture/legacy
+default; production Gateway always supplies the validated third argument.
+No SavedSnapshot/ShellState observer field or public actor selector is needed.
+
+Compare profiles.actor, relationship.from, item.owner, observed-fact/player-belief
+subjects, promise-party membership and event witnesses to that bound ID. Visible
+statement speakers remain their own native subjects; do not globally substitute
+the player for every actor. Add actual authored corpus cases authored and
+authored_corrected with nonliteral player IDs and actual Domain1/Domain2;
+preserve the original literal-player cases. All five views are captured.
+JVM FIRST tests use actual DurableGateway binding for these payloads, rather
+than deriving an actor from page data. Root owns the necessary gateway edit;
+native schema/backend/privileges, limits and storage budget remain unchanged.

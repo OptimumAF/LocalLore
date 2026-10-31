@@ -1,5 +1,11 @@
 # Author R2: approved, blocked before admission
 
+Follow-up: the installed Windows PowerShell process query succeeds, but source
+review found a file-writing API incompatibility in that host before invocation.
+The [separate proposed R3 amendment](D04_AUTHOR_CODE_R3_ADMISSION_2026-10-31.md)
+preserves the original refusal and requires its own reviewed admission decision.
+The observations below describe the original R2 refusal.
+
 Refs #25 D04.02, #9 and draft PR301. The owner directly replied **approved** to
 the pending one-corrected-baseline question on October 31, 2026. This permits
 one corrected code baseline and remaining code checks only after a valid result;

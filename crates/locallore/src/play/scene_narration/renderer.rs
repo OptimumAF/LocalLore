@@ -113,11 +113,17 @@ fn validate_generated_for_player_inner(
         )
     };
     let has_first_person = if original_words {
-        super::super::prose_words(text).iter().any(|word| {
-            // Retain original atomic Unicode continuations, while ordinary
-            // English contractions still expose their pronoun prefix.
-            first_person(word.split(['\'', '’']).next().unwrap_or(word))
+        use unicode_general_category::{get_general_category, GeneralCategory};
+        text.split(|character: char| {
+            !character.is_alphanumeric()
+                && !matches!(
+                    get_general_category(character),
+                    GeneralCategory::NonspacingMark
+                        | GeneralCategory::SpacingMark
+                        | GeneralCategory::EnclosingMark
+                )
         })
+        .any(|word| first_person(&word.to_lowercase()))
     } else {
         lower
             .split(|character: char| !character.is_alphanumeric())

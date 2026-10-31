@@ -185,7 +185,7 @@ export async function sceneNativeJourneys({
         );
         check(
             play.prompt_version === expectedPrompt &&
-                play.policy === "grounded-prose-v2.4-scene-frame-v1" &&
+                play.policy === "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1" &&
                 (play.profile as Record<string, unknown>).id ===
                     "scene-native-fixture-v1" &&
                 frame.version === 1 &&

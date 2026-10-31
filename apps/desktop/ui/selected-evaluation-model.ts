@@ -523,6 +523,9 @@ function versioned(v: unknown, fields: string[], prepared = false): Obj {
         requireWire(values.length === 2);
         selectedConstruction(values[0], "left", version === 3);
         selectedConstruction(values[1], "right", version === 3);
+        requireWire(
+            object(values[0]).narration_policy === object(values[1]).narration_policy,
+        );
     }
     if (version === 3) requireWire(o.lane === "scripted_selected_case");
     return o;
@@ -746,6 +749,11 @@ export function checkedSelectedDiagnostics(
             selectedHash(o.binding) === summary.binding &&
             o.lane === summary.lane,
     );
+    if (summary.version !== 1)
+        requireWire(
+            object((o.constructions as unknown[])[0]).narration_policy ===
+                summary.constructions[0].narration_policy,
+        );
     bool(o.completed);
     const seen = new Set<string>();
     array(
@@ -795,6 +803,11 @@ export function checkedSelectedDiagnostics(
             ]);
             requireWire(id(r.turn) === summary.selection.turn);
             const arm = selectedArm(r.arm);
+            if (o.version !== 1) {
+                const declared = object((o.constructions as unknown[])[arm === "left" ? 0 : 1]),
+                    actual = object(r.construction);
+                requireWire(Object.keys(declared).every((key) => actual[key] === declared[key]));
+            }
             requireWire(!seen.has(arm));
             seen.add(arm);
             one(r.phase, [

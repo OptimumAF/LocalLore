@@ -148,6 +148,7 @@ internal object StoryRecordWire {
                 require(validStoryRecordTurn(row.text("turn", 64)))
                 val eventIds = (0 until ids.length()).map { ids.integer(it).also { id -> require(id <= query.context.revision) } }
                 require(eventIds.isNotEmpty() && eventIds.toSet().size == eventIds.size)
+                if (query.version == 2) require(eventIds.zipWithNext().all { (before, after) -> before < after })
                 val original = if (query.version == 2) readScope(row.getJSONObject("original_scope"), query) else null
                 val scoped = original?.let { scope -> eventIds.map { StoryRecordScopedEvent(scope, it) } } ?: emptyList()
                 StoryRecordEntry(key, if (kind == "original_input") "Recorded player input" else "Recorded narration",

@@ -156,6 +156,7 @@ export class Domain2ForkTrace {
     readonly rows: TraceRow[] = [];
     delivery: Delivery | null = null;
     hostReads = 0;
+    closeAttempts = 0;
     forkCalls = 0;
     armBoundaryDelivery(kind: "hold" | "error") {
         if (this.delivery) throw Error("D08ForkDeliveryAlreadyArmed");
@@ -206,13 +207,15 @@ export class Domain2ForkTrace {
             host = true;
         } else if (!FORK_CALLS.has(command) && !NATIVE_READS.has(command))
             return Promise.reject(Error("D08ForkForbiddenNativeCall"));
+        const close = host && op === "close";
         if (
             this.rows.length >= 256 ||
-            (host && this.hostReads >= 64) ||
+            (host && (close ? this.closeAttempts >= 4 : this.hostReads >= 64)) ||
             (FORK_CALLS.has(command) && this.forkCalls >= 128)
         )
             return Promise.reject(Error("D08ForkTraceBudget"));
-        if (host) this.hostReads++;
+        if (close) this.closeAttempts++;
+        else if (host) this.hostReads++;
         if (FORK_CALLS.has(command)) this.forkCalls++;
         const query = object(binding.query),
             parent = scoped(binding.parent),
@@ -339,6 +342,10 @@ export async function domain2ForkNativeJourneys({
         assertions = 0,
         phase = "setup",
         disposed = false;
+    let disposalStats: { sessions: number | null; workers: number | null } = {
+        sessions: null,
+        workers: null,
+    };
     const deadline = performance.now() + 150000;
     const check = (value: unknown, name: string) => {
         phase = name;
@@ -1134,6 +1141,13 @@ export async function domain2ForkNativeJourneys({
         observations,
         fontMeasurements: fonts,
         calls: trace.rows,
+        dispatchCounts: {
+            hostReads: trace.hostReads,
+            closeAttempts: trace.closeAttempts,
+            forkCalls: trace.forkCalls,
+            rows: trace.rows.length,
+        },
+        disposalStats,
         roles,
         outcomes,
         captureReceipts: receipts,
@@ -1157,6 +1171,7 @@ export async function domain2ForkNativeJourneys({
         check(
             trace.rows.length <= 256 &&
                 trace.hostReads <= 64 &&
+                trace.closeAttempts <= 4 &&
                 trace.forkCalls <= 128,
             "bounded-product-dispatch-trace",
         );
@@ -1695,6 +1710,10 @@ export async function domain2ForkNativeJourneys({
             "post-dispose-original-and-child-fingerprints-unchanged",
         );
         const stats = object(await invoke("harness_stats"));
+        disposalStats = {
+            sessions: integer(stats.sessions),
+            workers: integer(stats.workers),
+        };
         check(
             stats.sessions === 0 && stats.workers === 0,
             "actual-owned-sessions-and-workers-zero",

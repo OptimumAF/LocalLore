@@ -22,6 +22,30 @@ though it does not delete images. A private read-only preview is not that
 pinned plan. Do not invoke planning or execution on the production registry
 outside the applicable authorized operation.
 
+For proposal preparation, `preview_retirement` and the fixed-registry
+`benchmarks/receipt_avd_retirement_preview.py` CLI instead produce an unlocked
+read-only snapshot. They recheck the ledger, complete file roster, preserved
+records/evidence and closure bindings around strict image hashing. They do not
+initialize or lock the registry, pin a plan, reserve capacity, delete images,
+or start a process. An observed admission lock or changed input refuses.
+The CLI writes only its explicit fresh output file, whose existing normal D:
+parent must be outside the registry and every tracked guest root:
+
+```powershell
+python -I -S -B benchmarks/receipt_avd_retirement_preview.py --root D:\tracked\closed-guest --evidence-manifest D:\preserved\guest-manifest.json --output D:\proposal\preview-v1.json
+```
+
+These are placeholder paths. The exact outer snapshot envelope cannot execute
+as a retirement plan. The snapshot is neither concurrent exclusion, permission,
+an admission reservation nor a future ownership guarantee. A later approved
+operation must freshly check and pin the exact plan under the unchanged shared
+guard. Existing pinned plans are left unchanged. Partial report publication is
+retained on failure; the CLI never overwrites or creates parent directories.
+Keep reports private: they contain local paths and file fingerprints. Credential
+evidence may be hashed by existing strict checks; this does not authorize copying
+or publishing keys. See the [frozen contract](RETIREMENT_PREVIEW_CONTRACT_2026-10-31.md)
+and [executed verification](RETIREMENT_PREVIEW_VERIFICATION_2026-10-31.md).
+
 The executor requires an already pinned unchanged plan and its exact file
 digest. It does not generate, adopt or replace a plan. Production `execute`
 and the CLI select only the fixed shared registry. `_execute` is an internal

@@ -1,8 +1,10 @@
 # Author packet A: proposed Windows PowerShell admission amendment
 
-Refs #25 D04.02, #9 and draft PR301. **Source preparation only.** No R3
-decision, Stage, admission, START or test child is authorized by this document.
-The corrected baseline remains unused and Author behavior remains unimplemented.
+Refs #25 D04.02, #9 and draft PR301. **Owner subsequently approved R3 and the
+corrected baseline is valid behavioral RED.** See the [actual verification](D04_AUTHOR_LANE_VERIFICATION_2026-10-31.md).
+Author behavior and GREEN remain pending. The preapproval plan and measured
+checkpoint below are retained as historical evidence; this document itself
+grants no execution authority.
 
 ## Evidence and minimal correction
 
@@ -87,14 +89,14 @@ neither execution permission nor acceptance of the runtime behavior.
 Root's1,328-byte local preapproval review records actual metadata1,245,010B after
 its own cost, group53,444,747B and joint735,766,031B before that cost,
 target12,287,065,614B,37 retained runtime fixture roots/0B and matching protected
-inputs/products. The original533-byte refusal remains charged. Actual R3 owner,
-Stage, admission, START and test child remain absent.
+inputs/products. The original533-byte refusal remains charged. At that preapproval
+checkpoint, actual R3 owner, Stage, admission, START and test child were absent.
 
 An in-memory Stage projection is4,251B; its placeholder owner hash is used only
 for sizing and was never saved as an actual Stage. Add1,024B owner decision,
 4,096B admission,1,024B START and the full106,496B child reserve to obtain
 1,361,901B. That exceeds the current1,310,720B cap by51,181B and fits the proposed
-1,376,256B cap by14,355B. Existing authority therefore cannot admit this packet.
+1,376,256B cap by14,355B. The authority at that checkpoint could not admit it.
 Fresh actual admission must measure again after a real owner decision; the
 forecast is not permission. The192MiB target forecast and all other caps remain
 unchanged.

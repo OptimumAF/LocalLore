@@ -67,7 +67,12 @@ fn individually_known_mixed_arms_and_descriptor_tuple_drift_never_form_a_family(
                 assert!(!prepared_valid(&mixed, usage));
             }
         }
-        for field in ["prompt_version", "narration_policy", "literal_packing_version", "compiler_version"] {
+        for field in [
+            "prompt_version",
+            "narration_policy",
+            "literal_packing_version",
+            "compiler_version",
+        ] {
             let mut drift = current.clone();
             drift["constructions"][0][field] = json!("unsupported");
             for usage in [PreparedUse::Fresh, PreparedUse::Recorded] {
@@ -119,7 +124,10 @@ const RUN: &str = "11111111-1111-1111-1111-111111111111";
 fn index_fixture(prepared: Value) -> (EvaluationManager, PathBuf, Vec<u8>) {
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let nonce = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     let root = std::env::temp_dir().join(format!("selected-policy-index-{time}-{nonce}"));
     fs::create_dir(&root).unwrap();
     let manager = EvaluationManager::new(root.join("evaluations"));
@@ -127,13 +135,20 @@ fn index_fixture(prepared: Value) -> (EvaluationManager, PathBuf, Vec<u8>) {
     fs::create_dir_all(&dir).unwrap();
     let index = Index {
         version: prepared["version"].as_u64().unwrap() as u16,
-        run_id: RUN.into(), created: 1,
+        run_id: RUN.into(),
+        created: 1,
         client_id: "22222222-2222-2222-2222-222222222222".into(),
-        lane: "scripted_baseline".into(), source_binding: "d".repeat(64), prepared,
+        lane: "scripted_baseline".into(),
+        source_binding: "d".repeat(64),
+        prepared,
     };
     let bytes = serde_json::to_vec(&index).unwrap();
     let path = dir.join("native.json");
-    let mut file = OpenOptions::new().write(true).create_new(true).open(&path).unwrap();
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .unwrap();
     file.write_all(&bytes).unwrap();
     file.sync_all().unwrap();
     (manager, path, bytes)
@@ -170,7 +185,9 @@ fn recorded_family_acceptance_does_not_bypass_native_index_source_and_lane_joins
             }
             let bytes = serde_json::to_vec(&index).unwrap();
             fs::write(&path, &bytes).unwrap();
-            assert!(matches!(manager.selected_index(RUN), Err(error) if error == "EvaluationIntegrity"));
+            assert!(
+                matches!(manager.selected_index(RUN), Err(error) if error == "EvaluationIntegrity")
+            );
             assert_eq!(fs::read(&path).unwrap(), bytes);
             assert!(manager.state().unwrap().job.is_none());
             assert!(manager.worker.lock().unwrap().is_none());

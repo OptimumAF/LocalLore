@@ -2144,7 +2144,7 @@ impl EvaluationManager {
 }
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 #[path = "selected/prepared_policy_review_tests.rs"]
 mod prepared_policy_review_tests;
+#[cfg(test)]
+mod tests;

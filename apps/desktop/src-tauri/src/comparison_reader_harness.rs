@@ -882,7 +882,10 @@ mod scene_proof_tests {
             None,
         )
         .unwrap();
-        assert_eq!(report.arms, locallore_eval::memory_comparison_v4::current_arm_descriptors());
+        assert_eq!(
+            report.arms,
+            locallore_eval::memory_comparison_v4::current_arm_descriptors()
+        );
         let before = inventory_stats_for_mode(&source, false, false).unwrap();
         let proof = scene_proof(&source, 1).unwrap();
         assert_eq!(proof["rows"], 12);
@@ -896,6 +899,9 @@ mod scene_proof_tests {
         let summary = comparison::scene_v4::desktop_api::summary(&reader, true).unwrap();
         assert_eq!(summary["report"], serde_json::to_value(&report).unwrap());
         drop(reader);
-        assert_eq!(inventory_stats_for_mode(&source, false, false).unwrap(), before);
+        assert_eq!(
+            inventory_stats_for_mode(&source, false, false).unwrap(),
+            before
+        );
     }
 }

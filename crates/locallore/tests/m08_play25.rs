@@ -169,7 +169,7 @@ fn current_default_discovery_uses_actual_staged_value_and_never_optional_context
     assert_narrator_private(narrator, &[A]);
     let record = receipt.play().unwrap();
     assert_eq!(record.prompt_version, "locallore-play-v2.5");
-    assert_eq!(record.policy, "grounded-prose-v2.2");
+    assert_eq!(record.policy, "grounded-prose-v2.5-whole-evidence-words-v1");
     assert_eq!(
         record.context_policy,
         Some(ContextPolicy::StateRelevantMemoryV1)

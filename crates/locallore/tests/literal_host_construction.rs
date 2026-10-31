@@ -103,7 +103,7 @@ fn literal_record(v: &Value) {
     assert_eq!(v["data"]["phase"], "committed", "{v}");
     let p = &v["data"]["receipt"]["play"];
     assert_eq!(p["prompt_version"], play::LITERAL_PLAY_PROMPT_VERSION_V1);
-    assert_eq!(p["policy"], "grounded-prose-v2.2");
+    assert_eq!(p["policy"], "grounded-prose-v2.5-whole-evidence-words-v1");
     assert!(p["context"].is_null());
     assert!(p["context_policy"].is_null());
 }

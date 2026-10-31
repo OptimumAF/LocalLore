@@ -187,7 +187,7 @@ fn assert_record(receipt: &Receipt) {
         "locallore-play-v2.6-literal-director-v1"
     );
     assert_eq!(p.prompt_version, play::LITERAL_PLAY_PROMPT_VERSION_V1);
-    assert_eq!(p.policy, "grounded-prose-v2.2");
+    assert_eq!(p.policy, "grounded-prose-v2.5-whole-evidence-words-v1");
     assert_eq!(p.version, play::PLAY_VERSION);
     assert!(p.context.is_none());
     assert!(p.context_policy.is_none());

@@ -29,7 +29,7 @@ use std::{
 
 const MEMORY: &str = "locallore-play-v2.9-scene-frame-v1";
 const LITERAL: &str = "locallore-play-v2.10-literal-director-v1-scene-frame-v1";
-const POLICY: &str = "grounded-prose-v2.4-scene-frame-v1";
+const POLICY: &str = "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1";
 const PROSE: &str = "You pause as a tide tick passes.";
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Temp {
@@ -698,9 +698,9 @@ fn existing_default_and_explicit_literal_records_keep_old_versions_and_omit_scen
             assert_eq!(
                 receipt.play().unwrap().policy,
                 if presented {
-                    "grounded-prose-v2.3-story-presentation-v1"
+                    "grounded-prose-v2.6-story-presentation-whole-evidence-words-v1"
                 } else {
-                    "grounded-prose-v2.2"
+                    "grounded-prose-v2.5-whole-evidence-words-v1"
                 }
             );
             assert!(serde_json::to_value(receipt.play().unwrap())

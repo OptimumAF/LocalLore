@@ -46,6 +46,15 @@ ordinary owner reopen. Imported fixture preparation is not app authoring or
 OS-death evidence. Native stdout generation is bounded256KiB; output/hash/schema
 contract coordinated with independent Android/native writers before execution.
 
+The native archive asset is binary-bound (`-text` for that exact Git path), so
+checkout/transfer must preserve its actual SHA256. The companion is exact native
+metadata stdout/stderr capture, not a Kotlin reconstruction. Every fixture role
+requires meaningful canonical location, three visible Nia relationship dimensions,
+and the original scoped survey-notes promise, as well as knowledge/history.
+Existing player relationship eligibility includes seeded outgoing edges to opaque
+targets; this packet hides private names/sheets/beliefs but does not claim that
+unknown-character existence or opaque IDs are absent from that existing view.
+
 ## Fixed ordered instrumentation roster
 
 - `record_native_pages`: `org.locallore.app.StoryRecordInstrumentedTest#playerPaginationAndGiftHistoryAreReadOnlyAndSurviveStrictReopen`

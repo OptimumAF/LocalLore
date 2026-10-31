@@ -2281,9 +2281,9 @@ mod clock_tests {
 
     #[test]
     fn actual_pending_role_cancel_retains_checkpoint_and_no_canonical_commit() {
-        // Run serially with the existing local-lane Pending fixture: its existing
-        // polled signal observes an actual production provider poll, not a timer.
-        PENDING_POLLED.store(false, Ordering::Release);
+        // Only this exact provider's poll may release this execution's watcher.
+        let pending = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let provider_pending = pending.clone();
         let dir = directory("pending-cancel").join("run");
         let target = dir.clone();
         let cancel = Cancellation::default();
@@ -2295,12 +2295,12 @@ mod clock_tests {
                 super::ComparisonKind::ContinuousRollout,
                 &other,
                 1,
-                LaneFactory::TestFault(TestFault::Pending),
+                LaneFactory::TestFault(TestFault::Pending(provider_pending)),
                 None,
             )
         });
         let began = Instant::now();
-        while !PENDING_POLLED.load(Ordering::Acquire) {
+        while !pending.load(Ordering::Acquire) {
             assert!(
                 began.elapsed() < Duration::from_secs(10),
                 "actual provider did not become pending"

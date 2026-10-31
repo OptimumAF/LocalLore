@@ -183,19 +183,72 @@ fn one_malformed_repair_and_unfaithful_fallback_keep_honest_quality_status() {
         .contains("SECRET-TIDE-731"));
 }
 #[test]
+fn independent_pending_providers_cannot_signal_or_cancel_each_other() {
+    let corpus = corpus().unwrap();
+    let story = &corpus.stories[0];
+    let step = &story.steps[0];
+    let left_seen = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let right_seen = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let mut left = LaneFactory::TestFault(TestFault::Pending(left_seen.clone())).provider(
+        step,
+        Arc::new(Recording::default()),
+        ForbiddenByRole::default(),
+    );
+    let mut right = LaneFactory::TestFault(TestFault::Pending(right_seen.clone())).provider(
+        step,
+        Arc::new(Recording::default()),
+        ForbiddenByRole::default(),
+    );
+    let request = GenerationRequest {
+        version: 1,
+        scope: story.seed.scope.clone(),
+        turn: step.id.clone(),
+        revision: 0,
+        model_profile: "eval-scripted-fake-v1".into(),
+        schema: "fixture".into(),
+        budget: locallore::inference::Budget::default(),
+        input: Input::Structured {
+            role: "director".into(),
+            prompt: "SYNTHETIC-PENDING-ISOLATION".into(),
+            schema: json!({"type":"object"}),
+        },
+    };
+    let left_cancel = Cancellation::default();
+    let right_cancel = Cancellation::default();
+    assert!(left.poll(&request, &left_cancel).is_pending());
+    assert!(left_seen.load(Ordering::Acquire));
+    assert!(!right_seen.load(Ordering::Acquire));
+    left_cancel.cancel();
+    assert!(right.poll(&request, &right_cancel).is_pending());
+    assert!(right_seen.load(Ordering::Acquire));
+    assert!(!right_cancel.is_cancelled());
+    assert!(matches!(
+        left.poll(&request, &left_cancel),
+        Poll::Ready(Err(Error::Cancelled))
+    ));
+    assert!(right.poll(&request, &right_cancel).is_pending());
+    right_cancel.cancel();
+    assert!(matches!(
+        right.poll(&request, &right_cancel),
+        Poll::Ready(Err(Error::Cancelled))
+    ));
+}
+
+#[test]
 fn active_cancellation_abandons_private_attempt_then_resume_starts_fresh() {
     let temp = crate::tests::Temp::new();
     let path = temp.0.join("cancel");
     let cancel = Cancellation::default();
     let token = cancel.clone();
-    PENDING_POLLED.store(false, Ordering::Release);
+    let pending = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let observed = pending.clone();
     let stop = std::thread::spawn(move || {
         let started = Instant::now();
-        while !PENDING_POLLED.load(Ordering::Acquire) && started.elapsed() < Duration::from_secs(5)
+        while !observed.load(Ordering::Acquire) && started.elapsed() < Duration::from_secs(5)
         {
             std::thread::sleep(Duration::from_millis(5));
         }
-        let polled = PENDING_POLLED.load(Ordering::Acquire);
+        let polled = observed.load(Ordering::Acquire);
         token.cancel();
         polled
     });
@@ -205,7 +258,7 @@ fn active_cancellation_abandons_private_attempt_then_resume_starts_fresh() {
         Some("gift-agency"),
         &cancel,
         6,
-        LaneFactory::TestFault(TestFault::Pending),
+        LaneFactory::TestFault(TestFault::Pending(pending)),
     )
     .unwrap();
     assert!(stop.join().unwrap());

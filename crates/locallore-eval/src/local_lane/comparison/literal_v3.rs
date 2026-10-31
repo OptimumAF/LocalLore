@@ -1333,7 +1333,8 @@ mod lifecycle_tests {
     #[test]
     fn pending_actual_director_cancels_without_canonical_commit_and_cold_read_keeps_the_failed_turn(
     ) {
-        PENDING_POLLED.store(false, Ordering::Release);
+        let pending = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let observed = pending.clone();
         let path = std::env::temp_dir().join(format!(
             "locallore-literal-pending-{}-{}",
             std::process::id(),
@@ -1346,7 +1347,7 @@ mod lifecycle_tests {
         let stop = cancel.clone();
         let watcher = std::thread::spawn(move || {
             let began = Instant::now();
-            while !PENDING_POLLED.load(Ordering::Acquire) {
+            while !observed.load(Ordering::Acquire) {
                 if began.elapsed() > Duration::from_secs(15) {
                     stop.cancel();
                     panic!("actual fixed pending provider never polled");
@@ -1361,7 +1362,7 @@ mod lifecycle_tests {
             ComparisonKind::ContinuousRollout,
             &cancel,
             1,
-            LaneFactory::TestFault(TestFault::Pending),
+            LaneFactory::TestFault(TestFault::Pending(pending)),
             None,
         );
         watcher.join().unwrap();

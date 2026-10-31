@@ -190,3 +190,61 @@ max-eight-capture run with fresh admission, complete reservation and individual
 inspection of every original image. Code fixes do not repair the first failed
 run or establish the missing original diagnostic copies. Keep the app closed
 while that separate decision is pending.
+
+## Proposed corrected attempt: same limits, not yet authorized
+
+Prepare source-only `v2-runner.mjs` and `v2-admit.ps1` in the SAME retained
+`d08-fork-native-20261030-v1` group. They must refuse without a new explicit
+owner authority; the spent `call_0b5d76e04e7d4eaab6968a2237b24591` is rejected.
+Do not execute the old coordinator again, clear its STOP, change the first
+attempt, create a replacement root or reuse the first admission.
+
+The proposed action is one corrected seven-success/max-eight-capture native
+journey, with reviewed preparation, fresh admission, diagnostic preservation,
+individual inspection of every original app-owned image and normal restoration
+only after known closure/ownership/storage. No automatic retry follows.
+
+All limits stay: original8,259,980,576B target baseline plus4GiB;692MiB joint;
+32MiB entire existing group including failed packet and all records;20MiB new
+packet;8MiB app writer;512KiB combined group metadata; existing576KiB physical
+and decoded old code records;8MiB all new fixtures. Reserve the full32MiB group,
+old576KiB records and8MiB fixtures:723,632,415B remains below725,614,592B.
+Admission must additionally reserve the full20MiB new packet AND all remaining
+512KiB metadata within the same32MiB group. Retain everything; no deduplication
+or deletion creates capacity.
+
+The target forecast includes an ordinary42,143,744B copy of the restored normal
+executable, the full128MiB diagnostic-copy bound and256MiB cached build allowance:
+11,827,744,489+42,143,744+134,217,728+268,435,456=12,272,541,417B, below the
+original-baseline ceiling12,554,947,872B by282,406,455B. The existing exact normal
+frontend copy is reused and verified. Fresh measurements can refuse; these
+forecasts are not OS quotas or guarantees against excess child output.
+
+Both source files remain local and counted; no app/native admission, canonical
+budget record or second packet is created during preparation. A future admitted
+V2 scope must bind the unchanged original failure/attempt/proof hashes, current
+normal products, corrected source/permission/code-verification hashes, clean
+owned Git head, no owned app/profile processes, full historical costs and new
+owner reply. Keep separate V2 admission/attempt/STOP records; unknown closure,
+storage or ownership stops later work. No model/device/SDK/OS qualifier, desktop
+control, cleanup, release, cap increase or retrospective first-run PASS follows.
+
+The source pair is prepared at32,556B (under32KiB). Independent runner/preparer
+source reviews find no remaining must-fix after adding0–30s admission freshness
+before marker/spawn, refusal of ambiguous owned-process identity, and physical-D
+file/ancestor checks. `node --check v2-runner.mjs` passes; PowerShell7.6.5's
+non-executing parser reports0 errors for `v2-admit.ps1`. Neither script executes.
+Static record SHA256s: runner
+`3995b51201b318381514ae1caa0cc5d05e4728e5f31cd5a2369100a2cf96a071`;
+preparer `551957f28c47203b09f6c4370ccbd2f8a49de42565189a417519c12b0e50401d`.
+These are source/syntax results, not live admission or physical-copy evidence.
+
+Read-only proposal measurement at00:13:19Z October31 (October30 local) finds
+0 owned/0 unclassifiable named processes, unchanged original STOP/attempt and
+normal hashes. Before its own small record: group11,414,077B, metadata372,187B,
+joint693,735,361B, unchanged target11,827,744,489B/fixtures671,744B/old records
+549,989B physical and570,664B decoded. Existing-group forecast including the
+entire remaining512KiB metadata and20MiB packet is32,537,698B, below32MiB by
+1,016,734B. Full joint/target forecasts above still fit. Historical cohort
+totals retain their earlier verified frozen values; actual admission must
+remeasure them afresh. No future authority, admission, attempt or packet exists.

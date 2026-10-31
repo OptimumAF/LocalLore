@@ -94,7 +94,11 @@ try {
         "ActualFinalFailureStatements",
     );
     const tail = journey.slice(tailStart, tailEnd);
-    assert.match(tail, /^\s*const report = stateReport\(\s*false\s*,/, "ActualFailedReportFirstArgument");
+    assert.match(
+        tail,
+        /^\s*const report = stateReport\(\s*false\s*,/,
+        "ActualFailedReportFirstArgument",
+    );
     sources.failureTail = hash(tail);
     failure = vm.compileFunction(
         stripTypeScriptTypes(tail, { mode: "strip" }) + "\nreturn report;",

@@ -25,7 +25,7 @@ const CONSTRUCTIONS: [ComparisonArmV4; 2] = [
     ComparisonArmV4::RelevantMemorySceneV1,
 ];
 fn descriptor(arm: ComparisonArmV4) -> ArmDescriptorV4 {
-    v4::arm_descriptors()[usize::from(arm == ComparisonArmV4::RelevantMemorySceneV1)].clone()
+    v4::current_arm_descriptors()[usize::from(arm == ComparisonArmV4::RelevantMemorySceneV1)].clone()
 }
 fn host_construction(arm: ComparisonArmV4) -> HostPlayConstructionV1 {
     match arm {
@@ -109,15 +109,14 @@ impl Manifest {
             (ComparisonKind::PairedSnapshots, Some(hash)) if hex(hash) => {}
             _ => return Err("ReferenceBinding".into()),
         }
-        for arm in &self.binding.arms {
-            arm.validate()?;
-        }
-        let current = Self::new_with_lane(
+        v4::validate_arm_family(&self.binding.arms)?;
+        let mut current = Self::new_with_lane(
             self.kind,
             self.profile.clone(),
             self.binding.native,
             self.reference_sha256.clone(),
         )?;
+        current.binding.arms = self.binding.arms.clone();
         if self.version != 4
             || self.key()? != current.key()?
             || !hex(&self.source_sha256)
@@ -261,9 +260,23 @@ fn finite_privacy(
     }
 }
 fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
+    let expected = descriptor(o.construction);
+    make_row4_bound(o, &expected, false)
+}
+
+fn make_row4_bound(
+    o: Observation4<'_>,
+    expected: &ArmDescriptorV4,
+    recorded_capture: bool,
+) -> Result<TurnReportV4> {
     use crate::memory_comparison_v4::PrivacyEvidenceStatusV4 as Privacy;
-    use crate::scene_capture_v1::{check_committed_scene_capture_v1, SceneCaptureInputV1};
-    use locallore::play::scene_narration::SCENE_NARRATION_POLICY_V1;
+    use crate::scene_capture_v1::{
+        check_committed_scene_capture_v1, check_recorded_scene_capture_v1, SceneCaptureInputV1,
+    };
+    expected.validate()?;
+    if expected.arm != o.construction {
+        return Err("ArmDescriptorBinding".into());
+    }
     let Observation4 {
         dir,
         step,
@@ -299,7 +312,7 @@ fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
     let record = receipt.and_then(Receipt::play);
     let construction_matches = record.map_or(guard_ok, |p| {
         p.version == locallore::play::PLAY_VERSION
-            && p.policy == SCENE_NARRATION_POLICY_V1
+            && p.policy == expected.narration_policy
             && p.profile == *profile
             && p.prompt_version == descriptor(construction).prompt_version
             && p.scene
@@ -333,7 +346,7 @@ fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
             .as_u64()
             .and_then(|n| u32::try_from(n).ok())
         {
-            match check_committed_scene_capture_v1(SceneCaptureInputV1 {
+            let input = SceneCaptureInputV1 {
                 before,
                 after,
                 request: &request,
@@ -342,7 +355,13 @@ fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
                 attempt,
                 details_reply: capture,
                 recordings: &recording.captures,
-            }) {
+            };
+            let checked = if recorded_capture {
+                check_recorded_scene_capture_v1(input, &expected.narration_policy)
+            } else {
+                check_committed_scene_capture_v1(input)
+            };
+            match checked {
                 Ok(value) => (Some(value), None),
                 Err(error) => (None, Some(format!("scene_capture:{error:?}"))),
             }
@@ -431,7 +450,7 @@ fn make_row4(o: Observation4<'_>) -> Result<TurnReportV4> {
         turn: step.id().into(),
         scene: step.scene(),
         arm: arm.into(),
-        construction: descriptor(construction),
+        construction: expected.clone(),
         phase: phase.into(),
         error,
         expected: serde_json::to_string(step.expected()).map_err(|_| "Encoding")?,
@@ -687,7 +706,7 @@ fn load_turn4(
         },
     )?;
     let corpus = suite()?;
-    let actual = make_row4(Observation4 {
+    let actual = make_row4_bound(Observation4 {
         dir,
         step: &corpus.steps()[index],
         arm: ARM_NAMES[arm],
@@ -706,7 +725,7 @@ fn load_turn4(
         commit_elapsed_ms: stored.row.commit_elapsed_ms,
         profile: &manifest.profile,
         recovered: stored.row.recovered_without_checkpoint,
-    })?;
+    }, &manifest.binding.arms[arm], true)?;
     if actual != stored.row {
         return Err("CheckpointEvidenceMismatch".into());
     }
@@ -1277,7 +1296,7 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV4> {
                 && row.construction_evidence_status == Status::ValidatedCommittedSceneNarratorV1
         })
         .count();
-    Ok(ComparisonReportV4 { version:4, arms:v4::arm_descriptors(), kind:manifest.kind, lane:lane.into(),
+    Ok(ComparisonReportV4 { version:4, arms:manifest.binding.arms.clone(), kind:manifest.kind, lane:lane.into(),
         source_matches:manifest.source_matches()?,completed:completed_scenes==4,completed_scenes,turns:rows,
         human_reviewed:0,human_rubric:"not_reviewed".into(),quality_accepted:false,physical_setups:native_loads.len(),physical_setup_ms:native_preparation_ms,native_load:if native_loads.is_empty() {None} else {Some(json!(native_loads))},
         left_charged_ms:ledgers[0].charged_ms,right_charged_ms:ledgers[1].charged_ms,left_reserved_roles:ledgers[0].charged_roles,right_reserved_roles:ledgers[1].charged_roles,

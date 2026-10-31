@@ -60,7 +60,7 @@ pub fn arm_descriptors() -> [ArmDescriptorV3; 2] {
         ArmDescriptorV3 {
             arm: ComparisonArmV3::LiteralPlayerV1,
             prompt_version: play::LITERAL_PLAY_PROMPT_VERSION_V1.into(),
-            narration_policy: play::NARRATION_POLICY.into(),
+            narration_policy: crate::memory_comparison_v2::LEGACY_NARRATION_POLICY.into(),
             director_schema_id: "locallore-director-literal-v1".into(),
             context_policy: None,
             compiler_version: None,
@@ -74,7 +74,7 @@ pub fn arm_descriptors() -> [ArmDescriptorV3; 2] {
         ArmDescriptorV3 {
             arm: ComparisonArmV3::RelevantMemoryV1,
             prompt_version: play::PROMPT_VERSION.into(),
-            narration_policy: play::NARRATION_POLICY.into(),
+            narration_policy: crate::memory_comparison_v2::LEGACY_NARRATION_POLICY.into(),
             director_schema_id: "locallore-director-v2".into(),
             context_policy: Some(ContextPolicy::StateRelevantMemoryV1),
             compiler_version: Some(2),
@@ -93,11 +93,28 @@ impl ArmDescriptorV3 {
             ComparisonArmV3::LiteralPlayerV1 => &arm_descriptors()[0],
             ComparisonArmV3::RelevantMemoryV1 => &arm_descriptors()[1],
         };
-        if self != expected {
+        let current = &current_arm_descriptors()[usize::from(self.arm == ComparisonArmV3::RelevantMemoryV1)];
+        if self != expected && self != current {
             return Err("ArmDescriptorBinding".into());
         }
         Ok(())
     }
+}
+
+/// Current writers opt into the strict policy without repointing old tuples.
+pub fn current_arm_descriptors() -> [ArmDescriptorV3; 2] {
+    let mut arms = arm_descriptors();
+    for arm in &mut arms {
+        arm.narration_policy = play::NARRATION_POLICY.into();
+    }
+    arms
+}
+
+pub fn validate_arm_family(arms: &[ArmDescriptorV3; 2]) -> Result<()> {
+    if arms != &arm_descriptors() && arms != &current_arm_descriptors() {
+        return Err("ArmDescriptorBinding".into());
+    }
+    Ok(())
 }
 
 /// Private owned evidence; no serde or conversion to execution authority.
@@ -121,6 +138,44 @@ impl CapturedLiteralContext {
         captures: &[Capture],
         profile: &PlayProfile,
         forwarded_budget_version: u16,
+    ) -> Result<Self> {
+        Self::from_capture_policy(
+            before, request, attempt, reply, captures, profile, forwarded_budget_version,
+            play::NARRATION_POLICY,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn from_recorded_host_capture(
+        before: &Engine,
+        request: &Request,
+        attempt: u32,
+        reply: &Value,
+        captures: &[Capture],
+        profile: &PlayProfile,
+        forwarded_budget_version: u16,
+        descriptor: &ArmDescriptorV3,
+    ) -> Result<Self> {
+        descriptor.validate()?;
+        if descriptor.arm != ComparisonArmV3::LiteralPlayerV1 {
+            return Err("ArmDescriptorBinding".into());
+        }
+        Self::from_capture_policy(
+            before, request, attempt, reply, captures, profile, forwarded_budget_version,
+            &descriptor.narration_policy,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn from_capture_policy(
+        before: &Engine,
+        request: &Request,
+        attempt: u32,
+        reply: &Value,
+        captures: &[Capture],
+        profile: &PlayProfile,
+        forwarded_budget_version: u16,
+        expected_policy: &str,
     ) -> Result<Self> {
         if forwarded_budget_version != 1 {
             return Err("CaptureBudgetVersion".into());
@@ -274,7 +329,7 @@ impl CapturedLiteralContext {
                 serde_json::from_value(candidate["play"].clone()).map_err(|_| "CaptureVersion")?;
             if record.version != play::PLAY_VERSION
                 || record.prompt_version != play::LITERAL_PLAY_PROMPT_VERSION_V1
-                || record.policy != play::NARRATION_POLICY
+                || record.policy != expected_policy
                 || record.profile != *profile
                 || record.context.is_some()
                 || record.context_policy.is_some()
@@ -317,7 +372,7 @@ pub fn current_binding(native: bool) -> Result<CurrentBindingV3> {
     let previous = crate::memory_comparison_v2::current_binding(native)?;
     Ok(CurrentBindingV3 {
         protocol_version: VERSION,
-        arms: arm_descriptors(),
+        arms: current_arm_descriptors(),
         source_sha256: previous.source_sha256,
         suite_sha256: previous.suite_sha256,
         forwarded_budget_version: 1,

@@ -97,6 +97,12 @@ impl RunManifest {
             Some(1) => {}
             Some(_) => return Err("ComparisonBinding".into()),
         }
+        if !matches!(self.binding.narration_policy.as_str(),
+            v2::LEGACY_NARRATION_POLICY | NARRATION_POLICY)
+        {
+            return Err("ComparisonBinding".into());
+        }
+        current.binding.narration_policy = self.binding.narration_policy.clone();
         if self.version != 2
             || self.stable_key() != current.stable_key()
             || !hex(&self.source_sha256)
@@ -433,6 +439,10 @@ struct Observation<'a> {
     forwarded_budget_version: Option<u16>,
 }
 fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
+    make_row_for_policy(observation, NARRATION_POLICY)
+}
+
+fn make_row_for_policy(observation: Observation<'_>, narration_policy: &str) -> Result<TurnReportV2> {
     let Observation {
         step,
         arm,
@@ -470,7 +480,7 @@ fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
     if let Some(receipt) = receipt {
         policy_matches = receipt.play().is_some_and(|p| {
             p.prompt_version == PROMPT_VERSION
-                && p.policy == NARRATION_POLICY
+                && p.policy == narration_policy
                 && p.context_policy == Some(policy)
                 && p.profile == *profile
                 && p.context
@@ -945,7 +955,7 @@ fn load_turn(
         recording,
         capture,
     } = evidence;
-    let actual = make_row(Observation {
+    let actual = make_row_for_policy(Observation {
         step,
         arm,
         policy,
@@ -964,7 +974,7 @@ fn load_turn(
         profile,
         recovered: stored.row.recovered_without_checkpoint,
         forwarded_budget_version: manifest.binding.forwarded_budget_version,
-    })?;
+    }, &manifest.binding.narration_policy)?;
     if actual != stored.row {
         return Err("CheckpointEvidenceMismatch".into());
     }
@@ -1687,7 +1697,7 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV2> {
         suite_sha256: manifest.binding.suite_sha256,
         source_sha256: manifest.source_sha256,
         reference_sha256: manifest.reference_sha256,
-        limitations:vec!["Synthetic 24-attempt finite-intent suite, not general prose comprehension.".into(),"Both selectors feed Director; narrator deliberately receives only Core-grounded outcomes/observations, no optional history.".into(),"Diagnostic capture/checkpoint overhead is included in observed desktop turn cost; this is not a phone measurement.".into(),"Hashes detect drift and bind retained data; they do not authenticate adversarially rewritten evaluation evidence.".into(),"No human enjoyment/distinctiveness/repetition review has been performed.".into()],
+        limitations:vec![format!("Recorded narrator policy: {}. Historical source is read-only and cannot authorize resume.", manifest.binding.narration_policy), "Synthetic 24-attempt finite-intent suite, not general prose comprehension.".into(),"Both selectors feed Director; narrator deliberately receives only Core-grounded outcomes/observations, no optional history.".into(),"Diagnostic capture/checkpoint overhead is included in observed desktop turn cost; this is not a phone measurement.".into(),"Hashes detect drift and bind retained data; they do not authenticate adversarially rewritten evaluation evidence.".into(),"No human enjoyment/distinctiveness/repetition review has been performed.".into()],
     })
 }
 fn reference_digest(

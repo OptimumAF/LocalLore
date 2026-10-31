@@ -15,7 +15,7 @@ use locallore_eval::{
         LaneFactory,
     },
     memory_comparison::frozen_suite,
-    memory_comparison_v3::arm_descriptors,
+    memory_comparison_v3::current_arm_descriptors,
 };
 use locallore_storage::Store;
 use serde_json::{json, Value};
@@ -135,7 +135,7 @@ fn actual_v3_summary_is_versioned_read_only_and_not_a_v2_report() {
     assert_eq!(summary["report"]["version"], 3);
     assert_eq!(
         summary["report"]["arms"],
-        serde_json::to_value(arm_descriptors()).unwrap()
+        serde_json::to_value(current_arm_descriptors()).unwrap()
     );
     assert_eq!(summary["report"]["human_reviewed"], 0);
     assert_eq!(summary["report"]["quality_accepted"], false);

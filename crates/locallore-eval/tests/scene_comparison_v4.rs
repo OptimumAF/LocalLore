@@ -227,7 +227,7 @@ fn full_checks(dir: &Path, paired: bool) {
     assert_eq!(report["turns"].as_array().unwrap().len(), 48);
     assert_eq!(
         report["arms"],
-        serde_json::to_value(wire::arm_descriptors()).unwrap()
+        serde_json::to_value(wire::current_arm_descriptors()).unwrap()
     );
     assert_eq!(report["source_matches"], true);
     assert_eq!(
@@ -478,7 +478,7 @@ fn current_binding_keeps_original_suite_and_resource_limits() {
     assert_eq!(value["protocol_version"], 4);
     assert_eq!(
         value["arms"],
-        serde_json::to_value(wire::arm_descriptors()).unwrap()
+        serde_json::to_value(wire::current_arm_descriptors()).unwrap()
     );
     assert_eq!(
         value["suite_sha256"],

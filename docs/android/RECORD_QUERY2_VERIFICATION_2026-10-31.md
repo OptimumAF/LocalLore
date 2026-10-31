@@ -49,8 +49,9 @@ Output including newline is **95,156 bytes**, SHA256
 The committed JVM resource is exactly that output. A Clippy-only bound-expression
 fix produces byte-identical output; the 128 KiB bound is unchanged.
 
-All 15 independent FIRST tests compiled and failed assertions on the original
-consumer. Production first passed14; the remaining test exposed descending
+All 15 independent FIRST tests compiled and failed on the original consumer:
+13 assertion failures and two rejected valid gateway reads (`StoryRecordFailure`),
+with zero XML errors/skips. Production first passed14; the remaining test exposed descending
 scoped-message IDs being accepted. The Query2-only fix passes all15 with the
 FIRST file unchanged, SHA256
 `b396f92bdf17f8068a5c0b0724fb278e7a5711c0b02b1253419506f81c694c9a`.
@@ -92,7 +93,7 @@ java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapp
 | Cohort | Source prefix | Result | Owner elapsed ms |
 | --- | --- | --- | ---: |
 | native-corpus-v1 | 815f9515 | exit0; 40 real pages | 12,799 |
-| jvm-first-v1 | 397dc90f | 15 assertion failures/15, zero errors/skips | 180,891 |
+| jvm-first-v1 | 397dc90f | 15 failures/15: 13 assertions, two valid-read rejections; zero errors/skips | 180,891 |
 | jvm-first-v2 | 11e019c8 | 14 pass, one ordering failure | 37,496 |
 | jvm-first-v3 | 2fae38ce | 15 pass | 24,059 |
 | android-v1 | 2fae38ce | 370 pass, 10 fixture failures | 17,147 |

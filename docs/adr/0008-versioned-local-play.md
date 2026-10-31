@@ -116,3 +116,32 @@ metadata/source/protocol before consent and execution grants. Prompt, provider
 schema, dependencies, receipt fields and canonical storage schema are unchanged.
 See [verification and limitations](../runtime/NARRATOR_EVIDENCE_WORDS_2026-10-30.md).
 Refs #9 (M05.03), #14 (M10.04), #29 (D07.04 supporting compatibility).
+
+## 2026-10-31: explicitly selected authored scene V2
+
+Trusted native construction may select MemoryAuthoredSceneV2 or
+PlayerLiteralAuthoredSceneV2 for a validated authored seed. This adds prompt
+versions2.11/2.12, grounded-prose policy2.8 and a scene-frame version2 hash in
+the existing record shape. V1 recipes, defaults, frame bytes, authored-seed
+refusal and historical policies retain their interpretation. Wire metadata
+cannot select a history bypass or mint a staged capability.
+
+The engine constructs a transient candidate, binds its complete history basis,
+and revalidates the approved plan, observation evidence, frame, context and
+presentation before atomic commit. Restore reconstructs that exact recipe;
+recorded retry does not invoke inference. The new frame may add only a typed
+current-location label supported by the candidate player's original seed-fact
+observation. It does not grant a discovery or exempt hidden identifiers.
+
+Only complete eligible label spans extend visible names. English first-person
+tokens are segmented on original alphanumeric/Unicode Mark characters before
+folding; punctuation still separates pronouns. V1 retains its original guard.
+The exact unicode-general-category1.1.0 dependency supplies Unicode16.0
+categories, has no runtime dependencies, and is included in all three locked
+graphs and the desktop notice catalog. This finite lexical safeguard does not
+prove semantic entailment or normalize every language.
+
+See [implementation, evidence and limits](../runtime/AUTHORED_SCENE_V2_2026-10-30.md).
+This is an explicit Core/Host slice; Android/default selection and real-model,
+physical-device and release gates remain separate. Refs #9 (M05.03),
+#14 (M10.04 supporting reliability).

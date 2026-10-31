@@ -589,7 +589,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ]});
     let bytes = serde_json::to_vec(&payload)?;
     assert!(
-        bytes.len() + 1 <= 128 * 1024,
+        bytes.len() < 128 * 1024,
         "compact corpus stdout budget exceeded"
     );
     let mut stdout = io::stdout().lock();

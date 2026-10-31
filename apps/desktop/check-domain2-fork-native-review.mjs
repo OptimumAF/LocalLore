@@ -1,5 +1,5 @@
 // Independent SOURCE FIRST 7c8f3417; author UNRUN. Actual launcher JS in VM;
-// Fork-only owner-approved envelope amendment; one app attempt pending fresh admission.
+// Fork-only prospective envelope amendment; owner decision pending, no execution admitted.
 // memory-only filesystem/Git/child observations. Native/TS checks are disclosed
 // source controls, not Rust execution, IPC, rendering or resource admission.
 import assert from "node:assert/strict";
@@ -137,7 +137,7 @@ function record(mode = "domain2-fork", patch = {}) {
         external_evidence_bytes: 500 * MiB,
         d05_external_evidence_bytes: 20 * MiB,
         cumulative_limit_bytes:
-            (mode === "paging" ? 640 : mode === "domain2-fork" ? 692 : 660) *
+            (mode === "paging" ? 640 : mode === "domain2-fork" ? 708 : 660) *
             MiB,
         ...patch,
     };
@@ -248,7 +248,7 @@ test("launcher", "actual-fork-plan-closed-fields-no-resource-admission", () => {
         budgetPrefix: "d08-domain2-fork-budget-v1-",
         artifacts: 20 * MiB,
         expectedEvidence: 20 * MiB,
-        pagingEvidence: 32 * MiB,
+        pagingEvidence: 48 * MiB,
         reportMode: "domain2_fork_v1",
         labels,
     });
@@ -257,9 +257,9 @@ test("launcher", "actual-fork-plan-closed-fields-no-resource-admission", () => {
         sourceGrowth: 128 * MiB,
         artifacts: 20 * MiB,
         entries: 2000000,
-        cumulativeEvidence: 692 * MiB,
+        cumulativeEvidence: 708 * MiB,
         expectedEvidence: 20 * MiB,
-        pagingEvidence: 32 * MiB,
+        pagingEvidence: 48 * MiB,
     });
 });
 test("launcher", "legacy-paging-and-browser-v3-plans-unchanged", () => {
@@ -399,7 +399,7 @@ test("launcher", "actual-record-refusals-never-mkdir-or-child", async () => {
         { kind: "d05_v2_inspector_paging_budget_v1" },
         { source_revision: "b".repeat(40) },
         { target_path_sha256: "0".repeat(64) },
-        { cumulative_limit_bytes: 692 * MiB + 1 },
+        { cumulative_limit_bytes: 708 * MiB + 1 },
         { original_target_bytes: 1001 },
         { extra: 1 },
     ];
@@ -427,16 +427,16 @@ test("launcher", "actual-record-refusals-never-mkdir-or-child", async () => {
 });
 test(
     "launcher",
-    "actual-thirtytwo-group-and-twenty-packet-reservation",
+    "actual-group-and-twenty-packet-reservation",
     async () => {
-        await sandbox("domain2-fork", { base: 12 * MiB }).ready;
-        const h = sandbox("domain2-fork", { base: 12 * MiB + 1 });
+        await sandbox("domain2-fork", { base: 28 * MiB }).ready;
+        const h = sandbox("domain2-fork", { base: 28 * MiB + 1 });
         await assert.rejects(h.ready);
         assert.deepEqual(h.mkdirs, []);
         const exact = sandbox("domain2-fork", {
             base: 0,
             patch: {
-                external_evidence_bytes: 672 * MiB,
+                external_evidence_bytes: 688 * MiB,
                 d05_external_evidence_bytes: 0,
             },
         });
@@ -444,7 +444,7 @@ test(
         const over = sandbox("domain2-fork", {
             base: 1,
             patch: {
-                external_evidence_bytes: 672 * MiB,
+                external_evidence_bytes: 688 * MiB,
                 d05_external_evidence_bytes: 0,
             },
         });
@@ -457,10 +457,10 @@ test(
     "actual-sticky-storage-target-and-metadata-ceilings",
     async () => {
         for (const fault of ["target", "packet", "inventory"]) {
-            const h = sandbox("domain2-fork", { base: 12 * MiB }),
+            const h = sandbox("domain2-fork", { base: 28 * MiB }),
                 a = await h.ready;
             h.control.packet = 19 * MiB;
-            assert.equal((await a.measureStorage()).pagingEvidence, 31 * MiB);
+            assert.equal((await a.measureStorage()).pagingEvidence, 47 * MiB);
             if (fault === "target") h.control.target = 1000 + 4 * 1024 ** 3 + 1;
             if (fault === "packet") h.control.packet++;
             if (fault === "inventory") h.control.broken = true;
@@ -629,7 +629,7 @@ const report = {
         Object.entries(source).map(([k, v]) => [k, hash(v)]),
     ),
     limits: [
-        "Author UNRUN; fork-only envelope owner-approved; one app attempt pending fresh admission",
+        "Author UNRUN; fork-only envelope prospective; owner decision pending, no execution admitted",
         "Actual launcher JS uses memory-only FS/Git/children/clock; no child/runtime/storage qualification",
         "Native flags/labels/writer and TS routing are source controls; Rust and future independent journey FIRST remain separate",
         "No model/provider/SDK/OS/browser/nativeIPC/rendering/focus/permissions or whole task acceptance",

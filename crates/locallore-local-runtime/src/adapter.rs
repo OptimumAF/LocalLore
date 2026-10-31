@@ -563,10 +563,7 @@ impl InferenceProvider for RuntimeProvider {
             }
         }
         if self.active.is_none() {
-            if self.completed.is_none()
-                && call.lane == Lane::Play
-                && identity.role != "director"
-            {
+            if self.completed.is_none() && call.lane == Lane::Play && identity.role != "director" {
                 self.metrics = None;
                 return Poll::Ready(Err(Error::RetryMismatch));
             }

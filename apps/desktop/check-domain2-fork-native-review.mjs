@@ -425,33 +425,29 @@ test("launcher", "actual-record-refusals-never-mkdir-or-child", async () => {
         assert.deepEqual(h.mkdirs, []);
     }
 });
-test(
-    "launcher",
-    "actual-group-and-twenty-packet-reservation",
-    async () => {
-        await sandbox("domain2-fork", { base: 28 * MiB }).ready;
-        const h = sandbox("domain2-fork", { base: 28 * MiB + 1 });
-        await assert.rejects(h.ready);
-        assert.deepEqual(h.mkdirs, []);
-        const exact = sandbox("domain2-fork", {
-            base: 0,
-            patch: {
-                external_evidence_bytes: 688 * MiB,
-                d05_external_evidence_bytes: 0,
-            },
-        });
-        await exact.ready;
-        const over = sandbox("domain2-fork", {
-            base: 1,
-            patch: {
-                external_evidence_bytes: 688 * MiB,
-                d05_external_evidence_bytes: 0,
-            },
-        });
-        await assert.rejects(over.ready);
-        assert.deepEqual(over.mkdirs, []);
-    },
-);
+test("launcher", "actual-group-and-twenty-packet-reservation", async () => {
+    await sandbox("domain2-fork", { base: 28 * MiB }).ready;
+    const h = sandbox("domain2-fork", { base: 28 * MiB + 1 });
+    await assert.rejects(h.ready);
+    assert.deepEqual(h.mkdirs, []);
+    const exact = sandbox("domain2-fork", {
+        base: 0,
+        patch: {
+            external_evidence_bytes: 688 * MiB,
+            d05_external_evidence_bytes: 0,
+        },
+    });
+    await exact.ready;
+    const over = sandbox("domain2-fork", {
+        base: 1,
+        patch: {
+            external_evidence_bytes: 688 * MiB,
+            d05_external_evidence_bytes: 0,
+        },
+    });
+    await assert.rejects(over.ready);
+    assert.deepEqual(over.mkdirs, []);
+});
 test(
     "launcher",
     "actual-sticky-storage-target-and-metadata-ceilings",

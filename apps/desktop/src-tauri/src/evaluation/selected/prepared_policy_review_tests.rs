@@ -67,7 +67,7 @@ fn individually_known_mixed_arms_and_descriptor_tuple_drift_never_form_a_family(
                 assert!(!prepared_valid(&mixed, usage));
             }
         }
-        for field in ["prompt_version", "narration_policy", "packing_version", "compiler_version"] {
+        for field in ["prompt_version", "narration_policy", "literal_packing_version", "compiler_version"] {
             let mut drift = current.clone();
             drift["constructions"][0][field] = json!("unsupported");
             for usage in [PreparedUse::Fresh, PreparedUse::Recorded] {

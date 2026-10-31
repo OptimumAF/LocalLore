@@ -1,7 +1,10 @@
 # Author packet A: proposed corrected code baseline
 
-Refs #25 D04.02 and draft PR301. **Source preparation only; corrected execution
-requires a new owner decision.** The [original capture failure](D04_AUTHOR_CODE_CAPTURE_FAILURE_2026-10-31.md)
+Refs #25 D04.02 and draft PR301. **Owner approved R2; admission then refused
+before any test child because the Windows process query failed.** See the
+[pre-admission refusal](D04_AUTHOR_CODE_R2_PREFLIGHT_REFUSAL_2026-10-31.md).
+The proposed plan below is retained; execution remains on hold. The
+[original capture failure](D04_AUTHOR_CODE_CAPTURE_FAILURE_2026-10-31.md)
 remains invalid, unknown historically and fully retained. The prior approval
 explicitly excluded automatic retry.
 

@@ -85,16 +85,42 @@ pub(crate) fn validate_generated_for_player(
     player: &str,
     text: &str,
 ) -> Result<(), NarrationValidationFailureV1> {
+    validate_generated_for_player_inner(approved, player, text, false)
+}
+
+/// V2 segments original words before folding. Folding a name such as İpek can
+/// introduce a combining mark; that must not manufacture an English pronoun.
+/// Keep V1's original check for exact historical validation.
+pub(crate) fn validate_generated_for_player_v2(
+    approved: &crate::contracts::Receipt,
+    player: &str,
+    text: &str,
+) -> Result<(), NarrationValidationFailureV1> {
+    validate_generated_for_player_inner(approved, player, text, true)
+}
+
+fn validate_generated_for_player_inner(
+    approved: &crate::contracts::Receipt,
+    player: &str,
+    text: &str,
+    original_words: bool,
+) -> Result<(), NarrationValidationFailureV1> {
     let lower = text.to_lowercase();
-    if lower
-        .split(|character: char| !character.is_alphanumeric())
-        .any(|word| {
-            matches!(
-                word,
-                "i" | "me" | "my" | "mine" | "we" | "us" | "our" | "ours"
-            )
-        })
-    {
+    let first_person = |word: &str| {
+        matches!(
+            word,
+            "i" | "me" | "my" | "mine" | "we" | "us" | "our" | "ours"
+        )
+    };
+    let has_first_person = if original_words {
+        text.split(|character: char| !character.is_alphanumeric())
+            .any(|word| first_person(&word.to_lowercase()))
+    } else {
+        lower
+            .split(|character: char| !character.is_alphanumeric())
+            .any(first_person)
+    };
+    if has_first_person {
         return Err(NarrationValidationFailureV1::scene(
             NarrationRejectionReasonV1::SceneFirstPerson,
         ));

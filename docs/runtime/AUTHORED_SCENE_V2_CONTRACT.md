@@ -107,6 +107,11 @@ No old caller passes an extra label. Root also exposes crate-private
 with the existing scene first-person/unapproved-movement checks unchanged.
 The rendered prompt/schema constructor is crate-private
 `RenderedSceneNarratorV1::from_parts(String, serde_json::Value) -> Self`.
+V2 calls the explicit `validate_generated_for_player_v2` variant: its English
+pronoun tokens are segmented before case folding so `İpek` does not become a
+spurious `i`. The existing V1 variant retains its exact historical behavior;
+both retain the same movement checks. English contractions still expose their
+original pronoun token. This is not complete Unicode linguistic normalization.
 
 New Host native selectors: `MemoryAuthoredSceneV2(PlayContextPolicy)` and
 `PlayerLiteralAuthoredSceneV2`. Existing defaults/wire/Android selection are

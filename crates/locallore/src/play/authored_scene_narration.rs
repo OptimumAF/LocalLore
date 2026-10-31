@@ -160,7 +160,7 @@ pub(crate) fn validate_record_detailed(
             .map(|label| label.name()),
     )?;
     if !record.fallback {
-        super::scene_narration::renderer::validate_generated_for_player(
+        super::scene_narration::renderer::validate_generated_for_player_v2(
             bound.approved(),
             bound.scene_frame().player(),
             &record.narration.text,

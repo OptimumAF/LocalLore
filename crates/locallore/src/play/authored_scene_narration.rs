@@ -1,6 +1,8 @@
 //! Explicit authored-world scene narration. Typed labels are observer-scoped
 //! source data; neither rendered text nor record metadata grants authority.
-use super::{NarrationValidationFailureV1, PlayContextPolicy, PlayProfile, PlayRecord, PLAY_VERSION};
+use super::{
+    NarrationValidationFailureV1, PlayContextPolicy, PlayProfile, PlayRecord, PLAY_VERSION,
+};
 use crate::{
     contracts::{Error, MAX_RECEIPT_BYTES},
     engine::{
@@ -15,8 +17,7 @@ use sha2::{Digest, Sha256};
 pub const AUTHORED_SCENE_PROMPT_VERSION_V2: &str = "locallore-play-v2.11-authored-scene-frame-v2";
 pub const LITERAL_AUTHORED_SCENE_PROMPT_VERSION_V2: &str =
     "locallore-play-v2.12-literal-director-v1-authored-scene-frame-v2";
-pub const AUTHORED_SCENE_NARRATION_POLICY_V2: &str =
-    "grounded-prose-v2.8-authored-scene-frame-v2";
+pub const AUTHORED_SCENE_NARRATION_POLICY_V2: &str = "grounded-prose-v2.8-authored-scene-frame-v2";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuthoredSceneRecipeV2 {
@@ -98,15 +99,15 @@ pub fn render_authored_scene_narrator_v2(
          Return only JSON text, event_ids and speaker narrator, with the exact accepted \
          event IDs. Post-turn authored scene frame: {frame} Approved evidence: {evidence}"
     );
-    let prompt = super::story_presentation::narrator_prompt_for_presentation(
-        bound.presentation(),
-        base,
-    )?;
+    let prompt =
+        super::story_presentation::narrator_prompt_for_presentation(bound.presentation(), base)?;
     super::scene_narration::check(cancel)?;
     check_json_budget(&prompt, super::MAX_ROLE_INPUT_BYTES)?;
     let schema = super::narration_schema(bound.approved().events());
     super::scene_narration::check(cancel)?;
-    Ok(super::scene_narration::RenderedSceneNarratorV1::from_parts(prompt, schema))
+    Ok(super::scene_narration::RenderedSceneNarratorV1::from_parts(
+        prompt, schema,
+    ))
 }
 
 pub(crate) fn validate_record(
@@ -153,7 +154,10 @@ pub(crate) fn validate_record_detailed(
         bound.approved(),
         bound.narrator_evidence(),
         record,
-        bound.scene_frame().location_label().map(|label| label.name()),
+        bound
+            .scene_frame()
+            .location_label()
+            .map(|label| label.name()),
     )?;
     if !record.fallback {
         super::scene_narration::renderer::validate_generated_for_player(

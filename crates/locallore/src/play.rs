@@ -14,10 +14,10 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     time::{Duration, Instant},
 };
+pub mod authored_scene_narration;
 pub(crate) mod director_budget;
 mod director_construction;
 mod literal_director;
-pub mod authored_scene_narration;
 pub mod scene_narration;
 mod story_presentation;
 pub use director_budget::{
@@ -828,7 +828,12 @@ fn validate_staged_record_contents_with_location_label(
     label: Option<&str>,
 ) -> Result<(), Error> {
     validate_staged_record_contents_inner(
-        engine, approved, evidence, record, ProseMode::WholeEvidenceWordsV1, label,
+        engine,
+        approved,
+        evidence,
+        record,
+        ProseMode::WholeEvidenceWordsV1,
+        label,
     )
 }
 
@@ -866,7 +871,12 @@ fn validate_staged_record_contents_inner(
     }
     crate::engine::check_json_budget(evidence, MAX_RECEIPT_BYTES)?;
     validate_record_contents_with_location_label(
-        engine, approved, record, Some(evidence), mode, location_label,
+        engine,
+        approved,
+        record,
+        Some(evidence),
+        mode,
+        location_label,
     )
 }
 
@@ -916,7 +926,14 @@ fn validate_record_contents_with_location_label(
             return Err(Error::Narration);
         }
     } else {
-        validate_prose(engine, approved, &record.narration.text, evidence, mode, location_label)?;
+        validate_prose(
+            engine,
+            approved,
+            &record.narration.text,
+            evidence,
+            mode,
+            location_label,
+        )?;
     }
     engine.validate_story_narration(&record.narration.text)
 }
@@ -1790,11 +1807,20 @@ pub fn execute_traced_with_authored_scene_recipe_v2(
                 }
                 None => (None, None),
             };
-            DirectorInput::Memory(MemoryInput { proof, source_fallback_reason, policy })
+            DirectorInput::Memory(MemoryInput {
+                proof,
+                source_fallback_reason,
+                policy,
+            })
         }
     };
     execute_with_presentation_input(
-        engine, request, provider, cancel, profile, sink,
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
         PresentationExecutionInput {
             director,
             literal_presentation: false,
@@ -1870,7 +1896,9 @@ impl NarrationPreparation {
                 return scene_narration::validate_record_detailed(engine, bound, record, cancel)
             }
             Self::AuthoredScene(bound) => {
-                return authored_scene_narration::validate_record_detailed(engine, bound, record, cancel)
+                return authored_scene_narration::validate_record_detailed(
+                    engine, bound, record, cancel,
+                )
             }
         };
         if presentation && literal {
@@ -1920,7 +1948,9 @@ impl NarrationPreparation {
     ) -> Result<Receipt, Error> {
         match self {
             Self::Scene(bound) => engine.commit_scene_play_v1(bound, record, cancel),
-            Self::AuthoredScene(bound) => engine.commit_authored_scene_play_v2(bound, record, cancel),
+            Self::AuthoredScene(bound) => {
+                engine.commit_authored_scene_play_v2(bound, record, cancel)
+            }
             Self::Legacy(staged) => {
                 if presentation && literal {
                     engine.commit_staged_literal_presentation_play_v1(staged, record, cancel)
@@ -2174,8 +2204,10 @@ fn execute_with_presentation_input(
                         .map(NarrationPreparation::Scene)
                 }
                 Some(SelectedSceneRecipe::AuthoredV2(recipe)) => {
-                    let preparation = engine.stage_authored_scene_play_v2(request, &proposal, poll)?;
-                    engine.bind_authored_scene_play_v2(preparation, recipe, poll)
+                    let preparation =
+                        engine.stage_authored_scene_play_v2(request, &proposal, poll)?;
+                    engine
+                        .bind_authored_scene_play_v2(preparation, recipe, poll)
                         .map(NarrationPreparation::AuthoredScene)
                 }
                 None => engine

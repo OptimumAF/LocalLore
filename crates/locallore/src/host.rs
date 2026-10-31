@@ -2569,15 +2569,11 @@ impl Host {
             let snapshot = match construction {
                 HostPlayConstructionV1::Memory(_)
                 | HostPlayConstructionV1::MemorySceneV1(_)
-                | HostPlayConstructionV1::MemoryAuthoredSceneV2(_) => {
-                    self.generation_snapshot(
-                        session,
-                        scope,
-                        work.request.expected_revision,
-                        &|| work.cancel.is_cancelled(),
-                    )
-                    .map(|s| (s.engine, Some(s.coverage)))
-                }
+                | HostPlayConstructionV1::MemoryAuthoredSceneV2(_) => self
+                    .generation_snapshot(session, scope, work.request.expected_revision, &|| {
+                        work.cancel.is_cancelled()
+                    })
+                    .map(|s| (s.engine, Some(s.coverage))),
                 HostPlayConstructionV1::PlayerLiteralV1
                 | HostPlayConstructionV1::PlayerLiteralPresentationV1
                 | HostPlayConstructionV1::PlayerLiteralSceneV1

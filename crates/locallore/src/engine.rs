@@ -4,12 +4,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 #[path = "author_correction.rs"]
 pub mod author_correction;
+#[path = "engine/staged_authored_scene_play.rs"]
+pub mod staged_authored_scene_play;
 #[path = "engine/staged_play.rs"]
 pub mod staged_play;
 #[path = "engine/staged_scene_play.rs"]
 pub mod staged_scene_play;
-#[path = "engine/staged_authored_scene_play.rs"]
-pub mod staged_authored_scene_play;
 use author_correction::{CanonicalRecord, KnowledgeProjectionV2};
 
 #[derive(Clone, Debug)]
@@ -505,10 +505,11 @@ impl Engine {
         record: &crate::play::PlayRecord,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
-        if matches!(record.prompt_version.as_str(),
+        if matches!(
+            record.prompt_version.as_str(),
             crate::play::authored_scene_narration::AUTHORED_SCENE_PROMPT_VERSION_V2
-                | crate::play::authored_scene_narration::LITERAL_AUTHORED_SCENE_PROMPT_VERSION_V2)
-        {
+                | crate::play::authored_scene_narration::LITERAL_AUTHORED_SCENE_PROMPT_VERSION_V2
+        ) {
             if let Some(receipt) = self.recorded(request)? {
                 return Ok(receipt);
             }
@@ -516,7 +517,8 @@ impl Engine {
                 == crate::play::authored_scene_narration::AUTHORED_SCENE_PROMPT_VERSION_V2
             {
                 crate::play::authored_scene_narration::AuthoredSceneRecipeV2::Memory(
-                    record.context_policy.ok_or(Error::Narration)?)
+                    record.context_policy.ok_or(Error::Narration)?,
+                )
             } else {
                 crate::play::authored_scene_narration::AuthoredSceneRecipeV2::LiteralV1
             };

@@ -142,7 +142,11 @@ fn location_label(
     }
     let (index, typed) = selected.ok_or(Error::CorruptHistory)?;
     let fact_id = format!("f-{prefix}-location-{index}");
-    let original = source.seed().facts.get(&fact_id).ok_or(Error::CorruptHistory)?;
+    let original = source
+        .seed()
+        .facts
+        .get(&fact_id)
+        .ok_or(Error::CorruptHistory)?;
     let observed = candidate.observed_facts(
         &source.seed().player,
         candidate.scope(),

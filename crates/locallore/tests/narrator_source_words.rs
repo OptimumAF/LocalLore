@@ -1103,15 +1103,42 @@ fn hidden_name_overlap(hidden: &str, text: &str) -> Receipt {
     let before = source.state().actors.clone();
     let request = request(&source, false);
     let mut provider = RecordingProvider::new(gift(), text);
-    let receipt = execute(Family::Ordinary, &mut source, &request, &mut provider, &Cancellation::default()).unwrap();
+    let receipt = execute(
+        Family::Ordinary,
+        &mut source,
+        &request,
+        &mut provider,
+        &Cancellation::default(),
+    )
+    .unwrap();
     assert_eq!(receipt.play().unwrap().policy, STRICT);
     assert_eq!(source.state().items["potion"].owner, "mira");
     assert_eq!(source.state().actors, before);
     assert_eq!(provider.requests.len(), 2);
     let history = vec![serde_json::to_string(&receipt).unwrap()];
-    assert_eq!(Engine::restore(source.seed().clone(), &history).unwrap().canonical_bytes(), source.canonical_bytes());
-    assert_eq!(Engine::replay(source.seed().clone(), std::slice::from_ref(&receipt)).unwrap().canonical_bytes(), source.canonical_bytes());
-    assert_eq!(execute(Family::Ordinary, &mut source, &request, &mut provider, &Cancellation::default()).unwrap(), receipt);
+    assert_eq!(
+        Engine::restore(source.seed().clone(), &history)
+            .unwrap()
+            .canonical_bytes(),
+        source.canonical_bytes()
+    );
+    assert_eq!(
+        Engine::replay(source.seed().clone(), std::slice::from_ref(&receipt))
+            .unwrap()
+            .canonical_bytes(),
+        source.canonical_bytes()
+    );
+    assert_eq!(
+        execute(
+            Family::Ordinary,
+            &mut source,
+            &request,
+            &mut provider,
+            &Cancellation::default()
+        )
+        .unwrap(),
+        receipt
+    );
     assert_eq!(provider.requests.len(), 2);
     receipt
 }
@@ -1132,7 +1159,10 @@ fn lowercase_visible_name_cannot_mask_a_hidden_suffix_name_inside_unicode_contin
         "You pass the potion to sera vale—shadow with care.",
     ] {
         let receipt = hidden_name_overlap("Vale", text);
-        assert!(receipt.play().unwrap().fallback, "partial visible-name span: {text:?}");
+        assert!(
+            receipt.play().unwrap().fallback,
+            "partial visible-name span: {text:?}"
+        );
         assert_eq!(receipt.narration(), engine::render(receipt.events()));
     }
 }
@@ -1150,7 +1180,10 @@ fn lowercase_visible_name_cannot_mask_a_hidden_prefix_name_after_unicode_continu
         "You pass the potion to other—sera vale with care.",
     ] {
         let receipt = hidden_name_overlap("Sera", text);
-        assert!(receipt.play().unwrap().fallback, "partial visible-name span: {text:?}");
+        assert!(
+            receipt.play().unwrap().fallback,
+            "partial visible-name span: {text:?}"
+        );
         assert_eq!(receipt.narration(), engine::render(receipt.events()));
     }
 }

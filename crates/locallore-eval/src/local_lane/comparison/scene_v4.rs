@@ -305,15 +305,7 @@ fn make_row4_bound(
     } else {
         turn_execution::assess_outcome
     };
-    let assessment = assess(
-        before,
-        after,
-        step,
-        phase,
-        error.as_deref(),
-        receipt,
-        roles,
-    )?;
+    let assessment = assess(before, after, step, phase, error.as_deref(), receipt, roles)?;
     let guard_ok = assessment.guard && assessment.expected_ok && roles == 0 && !recovered;
     let record = receipt.and_then(Receipt::play);
     let construction_matches = record.map_or(guard_ok, |p| {

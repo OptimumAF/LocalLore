@@ -475,15 +475,7 @@ fn make_row_for_policy(
     } else {
         turn_execution::assess_outcome
     };
-    let outcome = assess(
-        before,
-        after,
-        step,
-        phase,
-        error.as_deref(),
-        receipt,
-        roles,
-    )?;
+    let outcome = assess(before, after, step, phase, error.as_deref(), receipt, roles)?;
     let guard = outcome.guard;
     let expected_ok = outcome.expected_ok;
     let mut policy_matches = guard && roles == 0;

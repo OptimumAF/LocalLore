@@ -237,15 +237,7 @@ fn make_row3_bound(
     } else {
         turn_execution::assess_outcome
     };
-    let assessed = assess(
-        before,
-        after,
-        step,
-        phase,
-        error.as_deref(),
-        receipt,
-        roles,
-    )?;
+    let assessed = assess(before, after, step, phase, error.as_deref(), receipt, roles)?;
     let guard = assessed.guard;
     let expected_ok = assessed.expected_ok;
     let record = receipt.and_then(Receipt::play);

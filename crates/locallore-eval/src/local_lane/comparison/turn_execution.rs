@@ -209,7 +209,10 @@ fn assess_outcome_inner(
             let replay = before
                 .restore_continuation(&[serialized])
                 .map_err(|_| "ReceiptReplay")?;
-            if replay.recorded(&request).map_err(|_| "ReceiptReplay")?.as_ref()
+            if replay
+                .recorded(&request)
+                .map_err(|_| "ReceiptReplay")?
+                .as_ref()
                 != Some(receipt)
             {
                 return Err("ReceiptReplay".into());

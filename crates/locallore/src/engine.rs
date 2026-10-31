@@ -8,6 +8,8 @@ pub mod author_correction;
 pub mod staged_play;
 #[path = "engine/staged_scene_play.rs"]
 pub mod staged_scene_play;
+#[path = "engine/staged_authored_scene_play.rs"]
+pub mod staged_authored_scene_play;
 use author_correction::{CanonicalRecord, KnowledgeProjectionV2};
 
 #[derive(Clone, Debug)]
@@ -503,6 +505,27 @@ impl Engine {
         record: &crate::play::PlayRecord,
         recorded_history: bool,
     ) -> Result<Receipt, Error> {
+        if matches!(record.prompt_version.as_str(),
+            crate::play::authored_scene_narration::AUTHORED_SCENE_PROMPT_VERSION_V2
+                | crate::play::authored_scene_narration::LITERAL_AUTHORED_SCENE_PROMPT_VERSION_V2)
+        {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let recipe = if record.prompt_version
+                == crate::play::authored_scene_narration::AUTHORED_SCENE_PROMPT_VERSION_V2
+            {
+                crate::play::authored_scene_narration::AuthoredSceneRecipeV2::Memory(
+                    record.context_policy.ok_or(Error::Narration)?)
+            } else {
+                crate::play::authored_scene_narration::AuthoredSceneRecipeV2::LiteralV1
+            };
+            let preparation = self.stage_authored_scene_play_v2(request, proposal, &|| false)?;
+            let bound = self.bind_authored_scene_play_v2(preparation, recipe, &|| false)?;
+            // V2 has one exact policy family for both fresh work and recorded
+            // replay. History does not grant a downgrade or caller-made frame.
+            return self.commit_authored_scene_play_v2(bound, record, &|| false);
+        }
         if matches!(
             record.prompt_version.as_str(),
             crate::play::scene_narration::SCENE_PROMPT_VERSION_V1

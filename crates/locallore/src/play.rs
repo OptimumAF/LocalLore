@@ -17,6 +17,7 @@ use std::{
 pub(crate) mod director_budget;
 mod director_construction;
 mod literal_director;
+pub mod authored_scene_narration;
 pub mod scene_narration;
 mod story_presentation;
 pub use director_budget::{
@@ -816,6 +817,29 @@ fn validate_staged_record_contents(
     record: &PlayRecord,
     mode: ProseMode,
 ) -> Result<(), Error> {
+    validate_staged_record_contents_inner(engine, approved, evidence, record, mode, None)
+}
+
+fn validate_staged_record_contents_with_location_label(
+    engine: &Engine,
+    approved: &Receipt,
+    evidence: &NarratorEvidenceV22,
+    record: &PlayRecord,
+    label: Option<&str>,
+) -> Result<(), Error> {
+    validate_staged_record_contents_inner(
+        engine, approved, evidence, record, ProseMode::WholeEvidenceWordsV1, label,
+    )
+}
+
+fn validate_staged_record_contents_inner(
+    engine: &Engine,
+    approved: &Receipt,
+    evidence: &NarratorEvidenceV22,
+    record: &PlayRecord,
+    mode: ProseMode,
+    location_label: Option<&str>,
+) -> Result<(), Error> {
     // Evidence is opaque Core output. Even trusted internal callers must keep
     // its event catalogue/observation attribution bound to this approved turn.
     if evidence
@@ -841,7 +865,9 @@ fn validate_staged_record_contents(
         return Err(Error::Narration);
     }
     crate::engine::check_json_budget(evidence, MAX_RECEIPT_BYTES)?;
-    validate_record_contents(engine, approved, record, Some(evidence), mode)
+    validate_record_contents_with_location_label(
+        engine, approved, record, Some(evidence), mode, location_label,
+    )
 }
 
 fn validate_record_contents(
@@ -850,6 +876,17 @@ fn validate_record_contents(
     record: &PlayRecord,
     evidence: Option<&NarratorEvidenceV22>,
     mode: ProseMode,
+) -> Result<(), Error> {
+    validate_record_contents_with_location_label(engine, approved, record, evidence, mode, None)
+}
+
+fn validate_record_contents_with_location_label(
+    engine: &Engine,
+    approved: &Receipt,
+    record: &PlayRecord,
+    evidence: Option<&NarratorEvidenceV22>,
+    mode: ProseMode,
+    location_label: Option<&str>,
 ) -> Result<(), Error> {
     if record.repairs > record.profile.repair_limit
         || record.stages.len() > 8
@@ -879,7 +916,7 @@ fn validate_record_contents(
             return Err(Error::Narration);
         }
     } else {
-        validate_prose(engine, approved, &record.narration.text, evidence, mode)?;
+        validate_prose(engine, approved, &record.narration.text, evidence, mode, location_label)?;
     }
     engine.validate_story_narration(&record.narration.text)
 }
@@ -1037,6 +1074,7 @@ fn validate_prose(
     text: &str,
     evidence: Option<&NarratorEvidenceV22>,
     mode: ProseMode,
+    location_label: Option<&str>,
 ) -> Result<(), Error> {
     if text.trim().is_empty()
         || text.len() > 4096
@@ -1186,13 +1224,19 @@ fn validate_prose(
         .iter()
         .flat_map(|e| e.witnesses().iter().map(String::as_str))
         .collect();
-    let visible_labels: BTreeSet<_> = engine
+    let mut visible_labels: BTreeSet<_> = engine
         .state()
         .actors
         .iter()
         .filter(|(id, _)| visible.contains(id.as_str()))
         .flat_map(|(id, actor)| [id.to_lowercase(), actor.name.to_lowercase()])
         .collect();
+    // The extra source is an eligible typed current-location label from an
+    // opaque V2 binding. It extends complete-label spans only, never the word
+    // evidence catalogue, identity resolution, observations or hidden IDs.
+    if let Some(label) = location_label {
+        visible_labels.insert(label.to_lowercase());
+    }
     let label_spans = narrator_visible_label_spans(&lower, &visible_labels, mode);
     let covered_label = |start, end| {
         label_spans
@@ -1712,32 +1756,104 @@ pub fn execute_traced_with_scene_recipe_v1(
         PresentationExecutionInput {
             director,
             literal_presentation: false,
-            scene_recipe: Some(input.recipe),
+            scene_recipe: Some(SelectedSceneRecipe::V1(input.recipe)),
         },
     )
+}
+
+/// Authored-world scene construction is an explicit native choice. Existing
+/// defaults and V1 recipes retain their original seed and history boundaries.
+pub fn execute_traced_with_authored_scene_recipe_v2(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    input: authored_scene_narration::AuthoredScenePlayConstructionInput<'_>,
+) -> Result<Receipt, Error> {
+    if let Some(receipt) = engine.recorded(request)? {
+        return Ok(receipt);
+    }
+    let director = match input.recipe {
+        authored_scene_narration::AuthoredSceneRecipeV2::LiteralV1 => {
+            if input.coverage.is_some() {
+                return Err(Error::Rule);
+            }
+            DirectorInput::LiteralV1
+        }
+        authored_scene_narration::AuthoredSceneRecipeV2::Memory(policy) => {
+            let (proof, source_fallback_reason) = match input.coverage {
+                Some(crate::memory_coverage::CoverageRead::Verified(proof)) => (Some(proof), None),
+                Some(crate::memory_coverage::CoverageRead::RawFallback(reason)) => {
+                    (None, Some((*reason).into()))
+                }
+                None => (None, None),
+            };
+            DirectorInput::Memory(MemoryInput { proof, source_fallback_reason, policy })
+        }
+    };
+    execute_with_presentation_input(
+        engine, request, provider, cancel, profile, sink,
+        PresentationExecutionInput {
+            director,
+            literal_presentation: false,
+            scene_recipe: Some(SelectedSceneRecipe::AuthoredV2(input.recipe)),
+        },
+    )
+}
+
+#[derive(Clone, Copy)]
+enum SelectedSceneRecipe {
+    V1(scene_narration::SceneRecipeV1),
+    AuthoredV2(authored_scene_narration::AuthoredSceneRecipeV2),
+}
+impl SelectedSceneRecipe {
+    fn prompt_version(self) -> &'static str {
+        match self {
+            Self::V1(recipe) => recipe.prompt_version(),
+            Self::AuthoredV2(recipe) => recipe.prompt_version(),
+        }
+    }
+    fn policy(self) -> &'static str {
+        match self {
+            Self::V1(_) => scene_narration::SCENE_NARRATION_POLICY_V2,
+            Self::AuthoredV2(_) => authored_scene_narration::AUTHORED_SCENE_NARRATION_POLICY_V2,
+        }
+    }
+    fn check_seed(self, engine: &Engine) -> Result<(), Error> {
+        match self {
+            Self::V1(recipe) => scene_narration::check_seed(engine, recipe),
+            Self::AuthoredV2(recipe) => authored_scene_narration::check_seed(engine, recipe),
+        }
+    }
 }
 
 enum NarrationPreparation {
     Legacy(crate::engine::staged_play::StagedPlayV25),
     Scene(crate::engine::staged_scene_play::BoundScenePlayV1),
+    AuthoredScene(crate::engine::staged_authored_scene_play::BoundAuthoredScenePlayV2),
 }
 impl NarrationPreparation {
     fn approved(&self) -> &Receipt {
         match self {
             Self::Legacy(s) => s.approved(),
             Self::Scene(s) => s.approved(),
+            Self::AuthoredScene(s) => s.approved(),
         }
     }
     fn narrator_evidence(&self) -> &NarratorEvidenceV22 {
         match self {
             Self::Legacy(s) => s.narrator_evidence(),
             Self::Scene(s) => s.narrator_evidence(),
+            Self::AuthoredScene(s) => s.narrator_evidence(),
         }
     }
     fn scene(&self) -> Option<scene_narration::SceneNarrationRecordV1> {
         match self {
             Self::Legacy(_) => None,
             Self::Scene(s) => Some(s.provenance().clone()),
+            Self::AuthoredScene(s) => Some(s.provenance().clone()),
         }
     }
     fn validate_detailed(
@@ -1752,6 +1868,9 @@ impl NarrationPreparation {
             Self::Legacy(staged) => staged,
             Self::Scene(bound) => {
                 return scene_narration::validate_record_detailed(engine, bound, record, cancel)
+            }
+            Self::AuthoredScene(bound) => {
+                return authored_scene_narration::validate_record_detailed(engine, bound, record, cancel)
             }
         };
         if presentation && literal {
@@ -1801,6 +1920,7 @@ impl NarrationPreparation {
     ) -> Result<Receipt, Error> {
         match self {
             Self::Scene(bound) => engine.commit_scene_play_v1(bound, record, cancel),
+            Self::AuthoredScene(bound) => engine.commit_authored_scene_play_v2(bound, record, cancel),
             Self::Legacy(staged) => {
                 if presentation && literal {
                     engine.commit_staged_literal_presentation_play_v1(staged, record, cancel)
@@ -1842,7 +1962,7 @@ fn execute_with_context_input(
 struct PresentationExecutionInput<'a> {
     director: DirectorInput<'a>,
     literal_presentation: bool,
-    scene_recipe: Option<scene_narration::SceneRecipeV1>,
+    scene_recipe: Option<SelectedSceneRecipe>,
 }
 
 fn execute_with_presentation_input(
@@ -1895,7 +2015,7 @@ fn execute_with_presentation_input(
         }
         if let Some(recipe) = scene_recipe {
             scene_narration::check(&|| cancel.is_cancelled())?;
-            scene_narration::check_seed(engine, recipe)?;
+            recipe.check_seed(engine)?;
         }
         story_presentation::binding(engine)?;
         profile.validate()?;
@@ -2047,11 +2167,16 @@ fn execute_with_presentation_input(
         || {
             let poll = &|| cancel.is_cancelled();
             match scene_recipe {
-                Some(recipe) => {
+                Some(SelectedSceneRecipe::V1(recipe)) => {
                     let preparation = engine.stage_scene_play_v1(request, &proposal, poll)?;
                     engine
                         .bind_scene_play_v1(preparation, recipe, poll)
                         .map(NarrationPreparation::Scene)
+                }
+                Some(SelectedSceneRecipe::AuthoredV2(recipe)) => {
+                    let preparation = engine.stage_authored_scene_play_v2(request, &proposal, poll)?;
+                    engine.bind_authored_scene_play_v2(preparation, recipe, poll)
+                        .map(NarrationPreparation::AuthoredScene)
                 }
                 None => engine
                     .stage_play_v25(request, &proposal, poll)
@@ -2074,6 +2199,11 @@ fn execute_with_presentation_input(
     let (bytes, narrator_elapsed_ms) = trace.generate(Stage::Narration, provider, cancel, || {
     if let NarrationPreparation::Scene(bound) = &staged {
         let rendered = scene_narration::render_scene_narrator_v1(bound, profile, &|| cancel.is_cancelled())?;
+        return Ok(role_request(request, profile, "narrator", rendered.prompt().into(), rendered.schema().clone(),
+            remaining(started, overhead, profile.deadline_ms)?));
+    }
+    if let NarrationPreparation::AuthoredScene(bound) = &staged {
+        let rendered = authored_scene_narration::render_authored_scene_narrator_v2(bound, profile, &|| cancel.is_cancelled())?;
         return Ok(role_request(request, profile, "narrator", rendered.prompt().into(), rendered.schema().clone(),
             remaining(started, overhead, profile.deadline_ms)?));
     }
@@ -2102,8 +2232,8 @@ fn execute_with_presentation_input(
     });
     let mut record = PlayRecord {
         version: PLAY_VERSION,
-        policy: if scene_recipe.is_some() {
-            scene_narration::SCENE_NARRATION_POLICY_V2
+        policy: if let Some(recipe) = scene_recipe {
+            recipe.policy()
         } else if presentation {
             PRESENTATION_NARRATION_POLICY
         } else if literal {

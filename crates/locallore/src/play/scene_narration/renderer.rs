@@ -16,6 +16,10 @@ pub struct RenderedSceneNarratorV1 {
 }
 
 impl RenderedSceneNarratorV1 {
+    pub(crate) fn from_parts(prompt: String, schema: Value) -> Self {
+        Self { prompt, schema }
+    }
+
     pub fn prompt(&self) -> &str {
         &self.prompt
     }
@@ -73,6 +77,14 @@ pub(super) fn validate_generated_detailed(
     bound: &BoundScenePlayV1,
     text: &str,
 ) -> Result<(), NarrationValidationFailureV1> {
+    validate_generated_for_player(bound.approved(), bound.scene_frame().player(), text)
+}
+
+pub(crate) fn validate_generated_for_player(
+    approved: &crate::contracts::Receipt,
+    player: &str,
+    text: &str,
+) -> Result<(), NarrationValidationFailureV1> {
     let lower = text.to_lowercase();
     if lower
         .split(|character: char| !character.is_alphanumeric())
@@ -87,9 +99,9 @@ pub(super) fn validate_generated_detailed(
             NarrationRejectionReasonV1::SceneFirstPerson,
         ));
     }
-    let accepted_player_move = bound.approved().events().iter().any(|event| {
+    let accepted_player_move = approved.events().iter().any(|event| {
         matches!(event.outcome(), Effect::Moved { actor, .. }
-            if actor.as_str() == bound.scene_frame().player())
+            if actor.as_str() == player)
     });
     if !accepted_player_move
         && [

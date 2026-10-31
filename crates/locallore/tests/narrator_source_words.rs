@@ -619,20 +619,31 @@ fn an_approved_secret_prefix_does_not_grant_a_different_secret_lexeme() {
 
 fn legacy_cases() -> Vec<Value> {
     let raw = include_bytes!("../../../fixtures/narrator_source_words_legacy_v1.json");
-    assert_eq!(format!("{:x}", Sha256::digest(raw)),
-        "58b56d456220ef07b16721f31d0b2fddc125bc67e54fcfd366a9ff685e354b07");
+    assert_eq!(
+        format!("{:x}", Sha256::digest(raw)),
+        "58b56d456220ef07b16721f31d0b2fddc125bc67e54fcfd366a9ff685e354b07"
+    );
     let value: Value = serde_json::from_slice(raw).unwrap();
     assert_eq!(value["version"], 1);
     let cases = value["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 18);
     for family in FAMILIES {
-        assert_eq!(cases.iter().filter(|case| case["family"] == format!("{family:?}")).count(), 2);
+        assert_eq!(
+            cases
+                .iter()
+                .filter(|case| case["family"] == format!("{family:?}"))
+                .count(),
+            2
+        );
     }
     cases.clone()
 }
 
 fn legacy_family(case: &Value) -> Family {
-    FAMILIES.into_iter().find(|family| case["family"] == format!("{family:?}")).unwrap()
+    FAMILIES
+        .into_iter()
+        .find(|family| case["family"] == format!("{family:?}"))
+        .unwrap()
 }
 
 fn restore_legacy(case: &Value) -> Engine {
@@ -648,8 +659,14 @@ fn restore_legacy(case: &Value) -> Engine {
     assert_eq!(serde_json::to_string(receipt).unwrap(), history[0]);
     assert_eq!(receipt.narration(), case["narration"].as_str().unwrap());
     assert!(!receipt.play().unwrap().fallback);
-    assert_eq!(receipt.play().unwrap().policy, legacy_family(case).old_policy());
-    assert_eq!(receipt.play().unwrap().prompt_version, legacy_family(case).prompt());
+    assert_eq!(
+        receipt.play().unwrap().policy,
+        legacy_family(case).old_policy()
+    );
+    assert_eq!(
+        receipt.play().unwrap().prompt_version,
+        legacy_family(case).prompt()
+    );
     restored
 }
 
@@ -660,7 +677,10 @@ fn genuine_old_receipts_keep_their_original_bytes_policies_prose_and_canonical_p
         let replayed = Engine::replay(restored.seed().clone(), restored.receipts()).unwrap();
         assert_eq!(replayed.canonical_bytes(), restored.canonical_bytes());
         assert_eq!(replayed.receipts(), restored.receipts());
-        assert_eq!(serde_json::to_string(&replayed.receipts()[0]).unwrap(), case["receipt_json"].as_str().unwrap());
+        assert_eq!(
+            serde_json::to_string(&replayed.receipts()[0]).unwrap(),
+            case["receipt_json"].as_str().unwrap()
+        );
     }
 }
 
@@ -677,14 +697,35 @@ fn exact_legacy_retries_keep_old_acceptance_without_inference_or_policy_upgrade(
         let mut restored = restore_legacy(&case);
         let receipt = restored.receipts()[0].clone();
         let before = restored.canonical_bytes();
-        assert_eq!(play::execute(&mut restored, receipt.request(), &mut NoInference,
-            &Cancellation::default(), &profile()).unwrap(), receipt);
+        assert_eq!(
+            play::execute(
+                &mut restored,
+                receipt.request(),
+                &mut NoInference,
+                &Cancellation::default(),
+                &profile()
+            )
+            .unwrap(),
+            receipt
+        );
         let mut matching_mode_trap = RecordingProvider::default();
-        assert_eq!(execute(legacy_family(&case), &mut restored, receipt.request(), &mut matching_mode_trap,
-            &Cancellation::default()).unwrap(), receipt);
+        assert_eq!(
+            execute(
+                legacy_family(&case),
+                &mut restored,
+                receipt.request(),
+                &mut matching_mode_trap,
+                &Cancellation::default()
+            )
+            .unwrap(),
+            receipt
+        );
         assert!(matching_mode_trap.requests.is_empty());
         assert_eq!(restored.canonical_bytes(), before);
-        assert_eq!(serde_json::to_string(&restored.receipts()[0]).unwrap(), case["receipt_json"].as_str().unwrap());
+        assert_eq!(
+            serde_json::to_string(&restored.receipts()[0]).unwrap(),
+            case["receipt_json"].as_str().unwrap()
+        );
     }
 }
 
@@ -697,32 +738,52 @@ fn genuine_legacy_acceptance_is_not_fresh_commit_authority_even_through_prepared
         let family = legacy_family(&case);
         let mut fresh = Engine::new(restored.seed().clone()).unwrap();
         let before = fresh.canonical_bytes();
-        assert!(fresh.commit_play(receipt.request(), receipt.proposal(), record).is_err(), "{family:?}");
+        assert!(
+            fresh
+                .commit_play(receipt.request(), receipt.proposal(), record)
+                .is_err(),
+            "{family:?}"
+        );
         assert_eq!(fresh.canonical_bytes(), before);
         assert!(fresh.receipts().is_empty());
         assert!(fresh.commit_prepared(receipt).is_err(), "{family:?}");
         assert_eq!(fresh.canonical_bytes(), before);
         assert!(fresh.receipts().is_empty());
         let result = if family.scene() {
-            let preparation = fresh.stage_scene_play_v1(receipt.request(), receipt.proposal(), &|| false).unwrap();
+            let preparation = fresh
+                .stage_scene_play_v1(receipt.request(), receipt.proposal(), &|| false)
+                .unwrap();
             let recipe = if matches!(family, Family::SceneLiteral | Family::PresentedSceneLiteral) {
                 SceneRecipeV1::LiteralV1
             } else {
                 SceneRecipeV1::Memory(PlayContextPolicy::StateRelevantMemoryV1)
             };
-            let bound = fresh.bind_scene_play_v1(preparation, recipe, &|| false).unwrap();
+            let bound = fresh
+                .bind_scene_play_v1(preparation, recipe, &|| false)
+                .unwrap();
             fresh.commit_scene_play_v1(bound, record, &|| false)
         } else {
-            let stage = fresh.stage_play_v25(receipt.request(), receipt.proposal(), &|| false).unwrap();
+            let stage = fresh
+                .stage_play_v25(receipt.request(), receipt.proposal(), &|| false)
+                .unwrap();
             match family {
-                Family::Ordinary | Family::Memory => fresh.commit_staged_play_v25(stage, record, &|| false),
+                Family::Ordinary | Family::Memory => {
+                    fresh.commit_staged_play_v25(stage, record, &|| false)
+                }
                 Family::Literal => fresh.commit_staged_literal_play_v1(stage, record, &|| false),
-                Family::Presentation => fresh.commit_staged_presentation_play_v1(stage, record, &|| false),
-                Family::LiteralPresentation => fresh.commit_staged_literal_presentation_play_v1(stage, record, &|| false),
+                Family::Presentation => {
+                    fresh.commit_staged_presentation_play_v1(stage, record, &|| false)
+                }
+                Family::LiteralPresentation => {
+                    fresh.commit_staged_literal_presentation_play_v1(stage, record, &|| false)
+                }
                 _ => unreachable!(),
             }
         };
-        assert!(result.is_err(), "Old record accepted by a fresh staged commit: {family:?}");
+        assert!(
+            result.is_err(),
+            "Old record accepted by a fresh staged commit: {family:?}"
+        );
         assert_eq!(fresh.canonical_bytes(), before);
         assert!(fresh.receipts().is_empty());
     }
@@ -731,17 +792,34 @@ fn genuine_legacy_acceptance_is_not_fresh_commit_authority_even_through_prepared
 #[test]
 fn new_policy_history_cannot_retain_a_tampered_prefix_as_if_it_were_genuine_legacy() {
     for family in FAMILIES {
-        let (source, receipt) = resolved(family, "Mira", None, "You pass the potion to Mira with care.");
+        let (source, receipt) = resolved(
+            family,
+            "Mira",
+            None,
+            "You pass the potion to Mira with care.",
+        );
         assert_eq!(receipt.play().unwrap().policy, family.strict_policy());
         let mut value = serde_json::to_value(&receipt).unwrap();
         let forged = "You pass the potion to Mir with care.";
         value["narration"] = json!(forged);
         value["play"]["narration"]["text"] = json!(forged);
-        assert!(Engine::restore(source.seed().clone(), &[serde_json::to_string(&value).unwrap()]).is_err(), "{family:?}");
+        assert!(
+            Engine::restore(
+                source.seed().clone(),
+                &[serde_json::to_string(&value).unwrap()]
+            )
+            .is_err(),
+            "{family:?}"
+        );
         let typed: play::PlayRecord = serde_json::from_value(value["play"].clone()).unwrap();
         let mut fresh = Engine::new(source.seed().clone()).unwrap();
         let before = fresh.canonical_bytes();
-        assert!(fresh.commit_play(receipt.request(), receipt.proposal(), &typed).is_err(), "{family:?}");
+        assert!(
+            fresh
+                .commit_play(receipt.request(), receipt.proposal(), &typed)
+                .is_err(),
+            "{family:?}"
+        );
         assert_eq!(fresh.canonical_bytes(), before);
         assert!(fresh.receipts().is_empty());
     }

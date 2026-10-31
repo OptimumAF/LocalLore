@@ -1,12 +1,19 @@
 # Optional shared-engine adapter
 
-Packet A seam extraction (2026-10-30): the private compiled-call, reply-bound and
-default-disabled Author gates are present for independent baseline verification.
-Author requests still fail compilation; even the fixed test-only Author fixture
-cannot send an Author frame yet. Reply validation remains at the legacy Play
-ceilings350 tokens/16384 bytes. No Author inference, worker adoption or new
-production capability is qualified by this extraction. The new independent cases
-have not been compiled or run by the production author.
+Packet A implementation (2026-10-31): the adapter compiles the shared
+initial-world Author request with its exact schema, draft identity and bounded
+budgets. Author is a separate singleton lane: exact polls share one operation and
+terminal result, while changed identities or Play borrowing are refused. Only the
+two fixed test-only protocol fixtures can enable Author in both provider and native
+owner. All production constructors remain disabled; no worker, model, profile,
+packaged identity or UI capability is adopted here. This behavior change is not
+compiled or run by its production author; qualification belongs to separate checks.
+
+Author replies obey the admitted request's1–1024 token and1–8192 UTF-8 byte
+limits. Play and non-generation replies retain350/16384, even for a smaller Play
+request. The existing effective60s deadline, cancellation/drain and exact cleanup
+owner remain. Author role metrics are explicitly unavailable in the unchanged
+version2 snapshot, never relabeled Narrator; internal earlier records are retained.
 
 Refs #25 D04.02/.04 and #9 shared M05. Claim comments6356602412/6356602624.
 The `engine-adapter` feature depends on the existing portable `locallore` crate;
@@ -51,7 +58,7 @@ InvalidRequest map to engine Cancelled/Timeout/Rule; other runtime failures map
 to Provider while their fixed category remains in `last_failure()`. `metrics()`
 retains only bounded aggregate native metrics, no prompts or generated trace.
 
-Verification in this adapter packet used model-free processes only. Commands:
+Earlier Play-adapter verification used model-free processes only. Historical commands:
 
 ```powershell
 $env:CARGO_PROFILE_DEV_DEBUG='0'

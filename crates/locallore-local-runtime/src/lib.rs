@@ -870,24 +870,37 @@ impl LocalRuntime {
         if self.status != Status::Loaded {
             return Err(Error::WorkerUnavailable);
         }
-        if matches!(generation.role, Role::Author) {
-            return Err(match self.author_access {
-                AuthorAccess::Disabled => Error::WorkerUnavailable,
-                #[cfg(all(test, feature = "development-worker"))]
-                AuthorAccess::Fixture => Error::InvalidRequest,
-            });
+        let author = matches!(generation.role, Role::Author);
+        if author && matches!(self.author_access, AuthorAccess::Disabled) {
+            return Err(Error::WorkerUnavailable);
+        }
+        if author
+            && (bounds.output_tokens == 0
+                || bounds.output_tokens > 1024
+                || bounds.output_tokens != generation.max_tokens
+                || bounds.text_bytes == 0
+                || bounds.text_bytes > 8192
+                || generation.prompt.len() > 16_384
+                || generation.schema.is_none())
+        {
+            return Err(Error::InvalidRequest);
         }
         if generation.prompt.is_empty()
             || generation.prompt.contains('\0')
             || generation.max_tokens == 0
-            || generation.max_tokens > 350
+            || generation.max_tokens > if author { 1024 } else { 350 }
         {
             return Err(Error::InvalidRequest);
         }
         if generation.schema.as_ref().is_some_and(|s| !s.is_object()) {
             return Err(Error::InvalidRequest);
         }
-        self.call_bounded("generate", Some(&generation), bounds, cancel)
+        self.call_bounded(
+            "generate",
+            Some(&generation),
+            if author { bounds } else { PLAY_REPLY_BOUNDS },
+            cancel,
+        )
     }
     pub fn unload(&mut self) -> Result<(), Error> {
         self.call("unload", None, || false)?;
@@ -954,12 +967,12 @@ impl Drop for LocalRuntime {
         }
     }
 }
-fn parse_reply(frame: &[u8], id: u64, _bounds: ReplyBounds) -> Result<Reply, Error> {
+fn parse_reply(frame: &[u8], id: u64, bounds: ReplyBounds) -> Result<Reply, Error> {
     let reply: Reply = serde_json::from_slice(frame).map_err(|_| Error::Protocol)?;
     if reply.version != 1
         || reply.id != id
         || !["completed", "error"].contains(&reply.status.as_str())
-        || reply.text.len() > 16_384
+        || reply.text.len() > bounds.text_bytes
         || reply.text.contains("<think>")
         || reply.text.contains("</think>")
     {
@@ -975,7 +988,7 @@ fn parse_reply(frame: &[u8], id: u64, _bounds: ReplyBounds) -> Result<Reply, Err
         .iter()
         .any(|n| !n.is_finite() || *n < 0.0)
         || m.input_tokens > 4096
-        || m.output_tokens > 350
+        || m.output_tokens > u32::from(bounds.output_tokens)
     {
         return Err(Error::Protocol);
     }

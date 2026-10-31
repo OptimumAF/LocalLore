@@ -103,19 +103,44 @@ fn compile(request: &GenerationRequest) -> Result<CompiledCall, Error> {
     let native_role = match role.as_str() {
         "director" => Role::Director,
         "narrator" => Role::Narrator,
+        "author" => Role::Author,
         _ => return Err(Error::Rule),
     };
+    let lane = if role == "author" {
+        Lane::InitialWorld
+    } else {
+        Lane::Play
+    };
+    let author = lane == Lane::InitialWorld;
     if request.version != 1
         || request.model_profile != PROFILE
         || prompt.is_empty()
         || prompt.contains('\0')
         || !schema.is_object()
         || request.budget.max_output_tokens == 0
-        || request.budget.max_output_tokens > 350
+        || request.budget.max_output_tokens > if author { 1024 } else { 350 }
         || request.budget.max_output_bytes == 0
-        || request.budget.max_output_bytes > 16_384
+        || request.budget.max_output_bytes > if author { 8192 } else { 16_384 }
         || request.budget.deadline_ms == 0
         || request.budget.deadline_ms > 120_000
+    {
+        return Err(Error::Rule);
+    }
+    if author
+        && (request.schema != locallore::story_authoring::SCHEMA_VERSION
+            || schema != &locallore::story_authoring::proposal_schema()
+            || request.revision != 0
+            || request.scope.branch != "draft"
+            || request.turn.is_empty()
+            || request.turn.len() > 32
+            || !request
+                .turn
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+            || request.scope.story != format!("author-draft-{}", request.turn)
+            || prompt.len() > 16_384
+            || request.budget.max_pending_polls == 0
+            || request.budget.max_pending_polls > 24_000)
     {
         return Err(Error::Rule);
     }
@@ -142,8 +167,15 @@ fn compile(request: &GenerationRequest) -> Result<CompiledCall, Error> {
             schema: Some(schema.clone()),
             max_tokens: request.budget.max_output_tokens as u16,
         },
-        lane: Lane::Play,
-        reply: PLAY_REPLY_BOUNDS,
+        lane,
+        reply: if author {
+            ReplyBounds {
+                output_tokens: request.budget.max_output_tokens as u16,
+                text_bytes: request.budget.max_output_bytes,
+            }
+        } else {
+            PLAY_REPLY_BOUNDS
+        },
     })
 }
 
@@ -273,6 +305,7 @@ pub struct RuntimeProvider {
     log: Option<RoleMetricsLog>,
     sample_resources: bool,
     author_access: AuthorAccess,
+    lane: Option<Lane>,
 }
 impl RuntimeProvider {
     pub fn new(runtime: SharedRuntime) -> Self {
@@ -287,6 +320,7 @@ impl RuntimeProvider {
             log: None,
             sample_resources: false,
             author_access: AuthorAccess::Disabled,
+            lane: None,
         }
     }
     /// Optional passive per-turn recorder; all log loss is independent of inference results.
@@ -364,14 +398,20 @@ impl RuntimeProvider {
             identity,
             generation,
             reply,
-            ..
+            lane,
         } = call;
         self.metrics = None;
         self.failure = None;
-        let observation = self
-            .log
-            .as_ref()
-            .and_then(|log| Observation::new(log, &identity, self.directors_started));
+        let observation = if lane == Lane::InitialWorld {
+            if let Some(log) = &self.log {
+                log.author_unavailable();
+            }
+            None
+        } else {
+            self.log
+                .as_ref()
+                .and_then(|log| Observation::new(log, &identity, self.directors_started))
+        };
         let runtime = self.runtime.clone();
         let sample_resources = self.sample_resources;
         let local = Cancellation::default();
@@ -503,11 +543,6 @@ impl InferenceProvider for RuntimeProvider {
                 return Poll::Ready(Err(error));
             }
         };
-        if call.lane == Lane::InitialWorld && matches!(self.author_access, AuthorAccess::Disabled) {
-            self.metrics = None;
-            self.failure = Some(RuntimeError::WorkerUnavailable);
-            return Poll::Ready(Err(Error::Provider));
-        }
         let identity = &call.identity;
         if let Some(job) = &mut self.active {
             if &job.identity != identity {
@@ -528,7 +563,10 @@ impl InferenceProvider for RuntimeProvider {
             }
         }
         if self.active.is_none() {
-            if self.completed.is_none() && identity.role != "director" {
+            if self.completed.is_none()
+                && call.lane == Lane::Play
+                && identity.role != "director"
+            {
                 self.metrics = None;
                 return Poll::Ready(Err(Error::RetryMismatch));
             }
@@ -536,7 +574,9 @@ impl InferenceProvider for RuntimeProvider {
                 if identity == previous {
                     return Poll::Ready(result.clone());
                 }
-                if result.is_err()
+                if self.lane == Some(Lane::InitialWorld)
+                    || call.lane == Lane::InitialWorld
+                    || result.is_err()
                     || !(identity.follows(previous)
                         || (self.directors_started < 2 && identity.repairs(previous)))
                 {
@@ -544,10 +584,26 @@ impl InferenceProvider for RuntimeProvider {
                     return Poll::Ready(Err(Error::RetryMismatch));
                 }
             }
+            if self.lane.is_some_and(|lane| lane != call.lane) {
+                self.metrics = None;
+                return Poll::Ready(Err(Error::RetryMismatch));
+            }
+            if call.lane == Lane::InitialWorld
+                && matches!(self.author_access, AuthorAccess::Disabled)
+            {
+                self.metrics = None;
+                self.failure = Some(RuntimeError::WorkerUnavailable);
+                return Poll::Ready(Err(Error::Provider));
+            }
             if identity.role == "director" {
                 self.directors_started += 1;
             }
+            let failed_author = (call.lane == Lane::InitialWorld).then(|| call.identity.clone());
+            self.lane = Some(call.lane);
             if let Err(error) = self.start(call, request, cancel.clone()) {
+                if let Some(identity) = failed_author {
+                    self.completed = Some((identity, Err(error.clone())));
+                }
                 return Poll::Ready(Err(error));
             }
         }

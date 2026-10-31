@@ -210,7 +210,8 @@ export class Domain2ForkTrace {
         const close = host && op === "close";
         if (
             this.rows.length >= 256 ||
-            (host && (close ? this.closeAttempts >= 4 : this.hostReads >= 64)) ||
+            (host &&
+                (close ? this.closeAttempts >= 4 : this.hostReads >= 64)) ||
             (FORK_CALLS.has(command) && this.forkCalls >= 128)
         )
             return Promise.reject(Error("D08ForkTraceBudget"));

@@ -369,12 +369,10 @@ const cases = [
             assert.equal(c.get().sessions.length, 4);
             assert.equal(active.size, 4);
             assert.equal(c.get().visibleError, null);
-            const admitted = c
-                .get()
-                .sessions.map((s) => ({
-                    id: s.id,
-                    scope: structuredClone(s.scope),
-                }));
+            const admitted = c.get().sessions.map((s) => ({
+                id: s.id,
+                scope: structuredClone(s.scope),
+            }));
             while (trace.hostReads < 64)
                 await gateway.call({ op: "workspace" });
             assert.equal(trace.hostReads, 64);

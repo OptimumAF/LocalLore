@@ -38,7 +38,7 @@ function pagingLauncherPlan(mode) {
             budgetPrefix: "d08-domain2-fork-budget-v1-",
             artifacts: 20971520,
             expectedEvidence: 20971520,
-            pagingEvidence: 50331648,
+            pagingEvidence: 67108864,
             reportMode: "domain2_fork_v1",
             labels: Object.freeze(
                 [
@@ -119,7 +119,7 @@ const limits = Object.freeze({
     entries: 2000000,
     cumulativeEvidence:
         mode === "domain2-fork"
-            ? 742391808
+            ? 759169024
             : mode === "paging"
               ? 671088640
               : 692060160,

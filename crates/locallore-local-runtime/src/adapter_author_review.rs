@@ -21,7 +21,7 @@ fn author_request() -> GenerationRequest {
             name: "Finch".into(), description: "An orchard keeper.".into(),
         }],
         profile: author::InitialRuleProfileV1::NarrativeV1,
-        presentation: author::StoryPresentationV1::default(),
+        presentation: locallore::story_presentation::StoryPresentationV1::default(),
     };
     author::generation_request(&input, PROFILE, "review_author_01").expect("shared request setup")
 }

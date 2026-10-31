@@ -150,9 +150,7 @@ async fn host_call(
     let lease = workspace.lease.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _permit = permit;
-        generation_admission::dispatch(&lease, epoch, preparing, || {
-            Ok(host.call(input.as_bytes()))
-        })
+        generation_admission::dispatch(&lease, epoch, preparing, || Ok(host.call(input.as_bytes())))
     })
     .await
     .map_err(|_| "Transport".to_owned())?

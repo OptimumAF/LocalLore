@@ -137,7 +137,7 @@ function record(mode = "domain2-fork", patch = {}) {
         external_evidence_bytes: 500 * MiB,
         d05_external_evidence_bytes: 20 * MiB,
         cumulative_limit_bytes:
-            (mode === "paging" ? 640 : mode === "domain2-fork" ? 708 : 660) *
+            (mode === "paging" ? 640 : mode === "domain2-fork" ? 724 : 660) *
             MiB,
         ...patch,
     };
@@ -248,7 +248,7 @@ test("launcher", "actual-fork-plan-closed-fields-no-resource-admission", () => {
         budgetPrefix: "d08-domain2-fork-budget-v1-",
         artifacts: 20 * MiB,
         expectedEvidence: 20 * MiB,
-        pagingEvidence: 48 * MiB,
+        pagingEvidence: 64 * MiB,
         reportMode: "domain2_fork_v1",
         labels,
     });
@@ -257,9 +257,9 @@ test("launcher", "actual-fork-plan-closed-fields-no-resource-admission", () => {
         sourceGrowth: 128 * MiB,
         artifacts: 20 * MiB,
         entries: 2000000,
-        cumulativeEvidence: 708 * MiB,
+        cumulativeEvidence: 724 * MiB,
         expectedEvidence: 20 * MiB,
-        pagingEvidence: 48 * MiB,
+        pagingEvidence: 64 * MiB,
     });
 });
 test("launcher", "legacy-paging-and-browser-v3-plans-unchanged", () => {
@@ -399,7 +399,7 @@ test("launcher", "actual-record-refusals-never-mkdir-or-child", async () => {
         { kind: "d05_v2_inspector_paging_budget_v1" },
         { source_revision: "b".repeat(40) },
         { target_path_sha256: "0".repeat(64) },
-        { cumulative_limit_bytes: 708 * MiB + 1 },
+        { cumulative_limit_bytes: 724 * MiB + 1 },
         { original_target_bytes: 1001 },
         { extra: 1 },
     ];
@@ -426,14 +426,14 @@ test("launcher", "actual-record-refusals-never-mkdir-or-child", async () => {
     }
 });
 test("launcher", "actual-group-and-twenty-packet-reservation", async () => {
-    await sandbox("domain2-fork", { base: 28 * MiB }).ready;
-    const h = sandbox("domain2-fork", { base: 28 * MiB + 1 });
+    await sandbox("domain2-fork", { base: 44 * MiB }).ready;
+    const h = sandbox("domain2-fork", { base: 44 * MiB + 1 });
     await assert.rejects(h.ready);
     assert.deepEqual(h.mkdirs, []);
     const exact = sandbox("domain2-fork", {
         base: 0,
         patch: {
-            external_evidence_bytes: 688 * MiB,
+            external_evidence_bytes: 704 * MiB,
             d05_external_evidence_bytes: 0,
         },
     });
@@ -441,7 +441,7 @@ test("launcher", "actual-group-and-twenty-packet-reservation", async () => {
     const over = sandbox("domain2-fork", {
         base: 1,
         patch: {
-            external_evidence_bytes: 688 * MiB,
+            external_evidence_bytes: 704 * MiB,
             d05_external_evidence_bytes: 0,
         },
     });
@@ -453,10 +453,10 @@ test(
     "actual-sticky-storage-target-and-metadata-ceilings",
     async () => {
         for (const fault of ["target", "packet", "inventory"]) {
-            const h = sandbox("domain2-fork", { base: 28 * MiB }),
+            const h = sandbox("domain2-fork", { base: 44 * MiB }),
                 a = await h.ready;
             h.control.packet = 19 * MiB;
-            assert.equal((await a.measureStorage()).pagingEvidence, 47 * MiB);
+            assert.equal((await a.measureStorage()).pagingEvidence, 63 * MiB);
             if (fault === "target") h.control.target = 1000 + 4 * 1024 ** 3 + 1;
             if (fault === "packet") h.control.packet++;
             if (fault === "inventory") h.control.broken = true;

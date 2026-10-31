@@ -8,6 +8,7 @@
 #include "nlohmann/json.hpp"
 #include "schema_order.h"
 #include "worker_launch.h"
+#include "worker_generation.h"
 #include <atomic>
 #include <chrono>
 #include <iostream>
@@ -89,13 +90,15 @@ static int worker(const std::string & model_path) {
             if (op == "unload") { model.reset(); publish(response(nullptr),id); continue; }
             if (op == "status") { publish(response(nullptr),id); continue; }
             if (op != "load" && op != "generate") throw failure("invalid_request");
+            GenerationLimits limits{};
             if (op == "generate") {
                 if (!model) throw failure("model_load_failed");
-                auto g = req["generation"];
-                if (!g.is_object() || g.size()!=4 || !g.contains("role") || !g["role"].is_string() || (g["role"]!="director" && g["role"]!="narrator") || !g.contains("prompt") || !g["prompt"].is_string() || g["prompt"].get<std::string>().empty() || g["prompt"].get<std::string>().find('\0')!=std::string::npos || !g.contains("schema") || (!g["schema"].is_null() && !g["schema"].is_object()) || !g.contains("max_tokens") || !g["max_tokens"].is_number_unsigned() || g["max_tokens"]<1 || g["max_tokens"]>350) throw failure("invalid_request");
+                const auto admitted = locallore_generation_limits(req["generation"]);
+                if (!admitted) throw failure("invalid_request");
+                limits = *admitted;
             }
             cancelled.store(false); deadline=clock_type::now()+std::chrono::seconds(60);
-            if (!locallore_launch_work(work,busy,[&,req,id,op] {
+            if (!locallore_launch_work(work,busy,[&,req,id,op,limits] {
                 json result;
                 try {
                     if (op=="load") {
@@ -109,7 +112,7 @@ static int worker(const std::string & model_path) {
                         ++model_loads;
                         result=response(nullptr); result["metrics"]["load_ms"]=elapsed(started);
                         result["metrics"]["total_ms"]=elapsed(started);
-                    } else result=generate(model.get(),req["generation"]);
+                    } else result=generate(model.get(),req["generation"],limits);
                 } catch (const failure & e) { result=response(e.what()); }
                   catch (...) { result=response("runtime_failed"); }
                 // Publish only after per-call RAII contexts/samplers have been destroyed.

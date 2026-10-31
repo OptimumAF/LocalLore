@@ -1,6 +1,7 @@
-# D04 Author worker admission: proposed B1 contract
+# D04 Author worker admission: B1 source contract
 
-**Source proposal for independent review; no B implementation or checks yet.**
+**Root freezes this reviewed B1 interface for source implementation; no B code
+or execution result is claimed.** B2 adoption remains a separate proposal.
 Refs #25 D04.02/.04, shared #9 and #21. Documentation claim:
 [#25 comment 6545862215](https://github.com/OptimumAF/LocalLore/issues/25#issuecomment-6545862215).
 Base: accepted PR301 merge `3cea6a53caed58794075070e5a9adb7cf70eb45d`.
@@ -10,7 +11,7 @@ This document grants no worker, model, application or device execution authority
 
 [Packet A](D04_AUTHOR_LANE_CONTRACT_2026-10-30.md) implements bounded Author
 requests in the existing Rust provider/runtime. Both production gates remain
-Disabled. Only the two fixed test fixtures can enable them. Public generation
+Disabled. Only the test-only helper's two fixed cases can enable them. Public generation
 selects Author's requested tokens and 8192-byte default; compiled Author calls
 carry their exact token/byte bounds. Play reply parsing remains 350/16384.
 The shared Host still owns generation, proposal validation, review, creation,
@@ -99,6 +100,9 @@ deadline, cancellation, cleanup and worker ownership unchanged.
 The default `locallore-llama-worker` target selects LegacyPlayV1. A separately
 named `locallore-llama-worker-initial-world-v1` target may select the experimental
 constant through a fixed PRIVATE compile definition and is EXCLUDE_FROM_ALL.
+The fixed definition is `LOCALLORE_INITIAL_WORLD_EXPERIMENTAL_V1=1` on that
+target only. Capture the computed limits by value in the operation closure;
+neither a reference to a loop-local optional nor a global last-role value is safe.
 No CLI argument, environment variable, JSON role alone, editable profile or
 caller-supplied expected hash selects this compiled mode. Default staging keeps
 its accepted fixed worker identity. Recompilation does not prove identical
@@ -188,6 +192,11 @@ Keep those settings unless separately changed and qualified. No new worker or
 manifest digest is invented here. The new profile is unconsumed source metadata
 until actual artifact identity and B2 adoption are reviewed; `profile-v1.json`,
 `PROFILE` and the current global manifest getter remain unchanged in B1.
+The new manifest uses `qualification: "source_only_unqualified"` and a closed
+`role_limits` object with exactly director/narrator/author, each containing
+`max_output_tokens` and `visible_text_bytes` with the values above. This replaces
+both old global output scalars; all other current parameter values remain
+unchanged apart from version, id and qualification. Its wire protocol remains1.
 
 B2 must resolve the new profile ID explicitly. A's compiler currently requires
 PROFILE; a new manifest alone cannot enable it. Prefer an immutable owner-selected

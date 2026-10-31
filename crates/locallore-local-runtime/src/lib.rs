@@ -1005,6 +1005,91 @@ fn parse_reply(frame: &[u8], id: u64, bounds: ReplyBounds) -> Result<Reply, Erro
 
 #[cfg(all(test, feature = "engine-adapter", feature = "development-worker"))]
 mod author_reply_review;
+#[cfg(all(test, feature = "engine-adapter", feature = "development-worker"))]
+mod public_generation_review {
+    use super::*;
+
+    // Independent regression after the public-wrapper source finding/fix; this
+    // is not part of the frozen16 FIRST or its RED. No model or packaged worker.
+    // This path deliberately has no `author_` so that filter remains unchanged.
+    #[test]
+    fn public_generation_limits_keep_one_fixture_owner() {
+        let (provider, shared, _retained_directory) = match adapter::author_fixture(
+            None,
+            adapter::AuthorFixtureCase::Completed,
+        ) {
+            Ok(value) => value,
+            Err(OwnedStartFailure::BeforeChild(_)) => {
+                panic!("SETUP_UNRUN public generation fixture unavailable")
+            }
+            Err(OwnedStartFailure::AfterChild { mut owner, .. }) => {
+                let cleanup = owner.terminate_and_reap();
+                assert!(cleanup.is_ok(), "SETUP_UNRUN partial fixture cleanup unresolved");
+                panic!("SETUP_UNRUN public generation partial start");
+            }
+        };
+        drop(provider); // No adapter admission: exercise the public native API itself.
+        let mut owner = shared.lock().unwrap_or_else(|p| p.into_inner());
+        let initial = owner.status();
+        let loaded = if initial == Status::Unloaded {
+            owner.load(|| false).map(|_| ())
+        } else {
+            Ok(())
+        };
+        if loaded.is_err() {
+            let cleanup = owner.terminate_and_reap();
+            let terminal = owner.child.try_wait().is_ok_and(|value| value.is_some());
+            assert!(cleanup.is_ok() && terminal && owner.threads.is_empty(),
+                "SETUP_UNRUN public generation load cleanup unresolved");
+            panic!("SETUP_UNRUN public generation fixture load failed");
+        }
+        let generation = |role: Role, max_tokens: u16| Generation {
+            role,
+            prompt: "Fixed synthetic public generation.".into(),
+            schema: Some(if matches!(role, Role::Author) {
+                locallore::story_authoring::proposal_schema()
+            } else {
+                json!({"type":"object"})
+            }),
+            max_tokens,
+        };
+        let before = owner.next_id;
+        let mut invalid = Vec::new();
+        for (role, tokens) in [(Role::Author, 0), (Role::Author, 1025),
+            (Role::Director, 351), (Role::Narrator, 351)] {
+            invalid.push(owner.generate(generation(role, tokens), || false).err());
+        }
+        let mismatch = owner.generate_bounded(generation(Role::Author, 64),
+            ReplyBounds { output_tokens: 63, text_bytes: 8192 }, || false).err();
+        let after_invalid = owner.next_id;
+        let mut completed = Vec::new();
+        // Request64 detects a wrapper accidentally keeping token ceiling350;
+        // request1024 exercises the Author ceiling. Public Play remains350.
+        for (role, tokens) in [(Role::Author, 64), (Role::Author, 1024),
+            (Role::Director, 64), (Role::Narrator, 350)] {
+            completed.push(owner.generate(generation(role, tokens), || false)
+                .map(|value| value.text.is_empty()));
+        }
+        let after = owner.next_id;
+        let cleanup = owner.terminate_and_reap();
+        let terminal = owner.child.try_wait().is_ok_and(|value| value.is_some());
+        let pipes_joined = owner.writer.is_none() && owner.threads.is_empty();
+        drop(owner);
+        drop(shared); // All fixture bytes remain retained; no directory deletion.
+
+        assert_eq!(initial, Status::Unloaded);
+        assert_eq!(cleanup, Ok(()));
+        assert!(terminal && pipes_joined, "positive exact owner cleanup before assertions");
+        assert_eq!(before, 1, "one explicit synthetic load");
+        assert!(invalid.iter().all(|value| *value == Some(Error::InvalidRequest)));
+        assert_eq!(mismatch, Some(Error::InvalidRequest));
+        assert_eq!(after_invalid, before, "invalid requests sent no frame");
+        assert!(completed.iter().all(|value| *value == Ok(true)), "public typed requests complete");
+        assert_eq!(after, before + 4, "four public calls on the same native owner");
+        // The fixed fixture returns empty text. Exact8192/16384 reply payload
+        // edges are independently covered by the frozen parser tests, not here.
+    }
+}
 #[cfg(all(test, feature = "development-worker"))]
 mod owned_cleanup_tests;
 #[cfg(all(test, feature = "development-worker"))]

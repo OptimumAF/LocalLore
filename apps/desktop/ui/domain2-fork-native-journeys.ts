@@ -342,7 +342,7 @@ export async function domain2ForkNativeJourneys({
     const deadline = performance.now() + 150000;
     const check = (value: unknown, name: string) => {
         phase = name;
-        if (!value) throw Error(name);
+        if (!value) throw Error("HarnessAssertion");
         assertions++;
         if (!names.has(name)) {
             names.add(name);
@@ -862,6 +862,30 @@ export async function domain2ForkNativeJourneys({
         check(candidates.length === 1, "one-exact-existing-session-control");
         if (c.selected()?.id !== session!.id)
             click(candidates[0], "actual-session-switch");
+        await until(() => {
+            const state = c.get(),
+                selected = c.selected(),
+                play = state.play ?? state.playV2,
+                context = timelineContext(c);
+            return !!(
+                !state.starting &&
+                selected?.id === session!.id &&
+                structural(selected.scope) === structural(scope) &&
+                selected.revision === head &&
+                play &&
+                structural(play.scope) === structural(scope) &&
+                play.revision === head &&
+                (domain === 2
+                    ? state.playV2?.domain_version === 2 && !state.play
+                    : !!state.play && !state.playV2) &&
+                context &&
+                context.session === session!.id &&
+                structural(context.scope) === structural(scope) &&
+                context.revision === head &&
+                context.persistent &&
+                f.matchesContext(context)
+            );
+        }, "actual-existing-session-scope-head-domain-ready");
         await idle();
         owner(scope, head, domain);
         await ready();
@@ -1704,8 +1728,12 @@ export async function domain2ForkNativeJourneys({
                 /* Failed cleanup remains unavailable, never a success proof. */
             }
         }
-        const report = stateReport(false, category(error));
-        report.failure = { phase: failedPhase, error: category(error) };
+        const report = stateReport(false,
+            error instanceof Error && error.message === "HarnessAssertion"
+                ? "HarnessAssertion" : category(error));
+        report.failure = { phase: failedPhase,
+            error: error instanceof Error && error.message === "HarnessAssertion"
+                ? "HarnessAssertion" : category(error) };
         await finish(report);
     }
 }

@@ -959,8 +959,21 @@ fn narration_reclaims_transferred_item(approved: &Receipt, player: &str, lower: 
 
 /// Complete visible labels only. Ranges are in the lowercased text's byte
 /// coordinates; they are never used to slice the original Unicode prose.
-fn narrator_visible_label_spans(lower: &str, labels: &BTreeSet<String>) -> Vec<(usize, usize)> {
-    let boundary = |c: char| !c.is_alphanumeric() && !matches!(c, '_' | '-' | '\'' | '’');
+fn narrator_visible_label_spans(
+    lower: &str,
+    labels: &BTreeSet<String>,
+    mode: ProseMode,
+) -> Vec<(usize, usize)> {
+    let boundary = move |c: char| {
+        if mode == ProseMode::WholeEvidenceWordsV1 {
+            // Match the original-word rule used by evidence checks. A combining
+            // mark or non-ASCII continuation must not create a partial label
+            // span that masks a hidden display name, even in lowercase prose.
+            prose_word_boundary(c) || matches!(c, '‘' | '“' | '”')
+        } else {
+            !c.is_alphanumeric() && !matches!(c, '_' | '-' | '\'' | '’')
+        }
+    };
     labels
         .iter()
         .filter(|label| !label.is_empty())
@@ -1180,7 +1193,7 @@ fn validate_prose(
         .filter(|(id, _)| visible.contains(id.as_str()))
         .flat_map(|(id, actor)| [id.to_lowercase(), actor.name.to_lowercase()])
         .collect();
-    let label_spans = narrator_visible_label_spans(&lower, &visible_labels);
+    let label_spans = narrator_visible_label_spans(&lower, &visible_labels, mode);
     let covered_label = |start, end| {
         label_spans
             .iter()

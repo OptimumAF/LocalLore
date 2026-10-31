@@ -144,6 +144,41 @@ class Query2StoryRecordScreenTest {
             assertEquals(entries.size, entries.map { it.key }.toSet().size)
             result[view] = entries
         }
+        // This fixture uses materialize's actor/location indices, not IDs inferred from rows:
+        // player=0, Nia=1, North Pier=0. The metadata player is checked against the native snapshot.
+        val namespace = checkNotNull(Regex("a-([0-9a-f]{20})-0").matchEntire(input.player)).groupValues[1]
+        val nia = "a-$namespace-1"
+        val seeded = listOf("Seed \u00B7 world-$namespace")
+        val profiles = result.getValue(StoryRecordSection.PROGRESSION)
+        assertTrue(profiles.isNotEmpty())
+        val location = profiles.single { it.title == "location" }
+        assertEquals(StoryRecordOrigin.CANONICAL_FIELD, location.origin)
+        assertEquals("l-$namespace-0", location.text)
+        assertEquals(seeded, location.sources)
+        assertTrue(location.scopedEventSources.isEmpty() && location.eventSources.isEmpty())
+
+        val relationships = result.getValue(StoryRecordSection.RELATIONSHIPS)
+        assertTrue(relationships.isNotEmpty())
+        val outgoingNia = relationships.filter { it.title.startsWith("$nia \u00B7 ") }
+        assertEquals(setOf("$nia \u00B7 trust", "$nia \u00B7 respect", "$nia \u00B7 obligation"), outgoingNia.map { it.title }.toSet())
+        assertEquals(3, outgoingNia.size)
+        for (edge in outgoingNia) {
+            assertEquals(StoryRecordOrigin.CANONICAL_FIELD, edge.origin)
+            assertEquals("0", edge.text)
+            assertEquals(seeded, edge.sources)
+            assertTrue(edge.scopedEventSources.isEmpty() && edge.eventSources.isEmpty())
+        }
+
+        val promises = result.getValue(StoryRecordSection.PROMISES)
+        assertTrue(promises.isNotEmpty())
+        val survey = promises.single { it.title == "Promise \u00B7 survey-notes" }
+        assertEquals(StoryRecordOrigin.DERIVED_COMPARISON, survey.origin)
+        assertEquals("From \u00B7 ${input.player}\nTo \u00B7 $nia\nStatus \u00B7 Open\nDue at story time \u00B7 10\n" +
+            "Bring the survey notes before the bell.", survey.text)
+        val promiseSource = StoryRecordScopedEvent(input.drill().originalScope, 3)
+        assertEquals(listOf(promiseSource), survey.scopedEventSources)
+        assertEquals(listOf("Event #3 \u00B7 ${promiseSource.originalScope.story} / ${promiseSource.originalScope.branch}"), survey.sources)
+        assertTrue(survey.eventSources.isEmpty())
         val known = result.getValue(StoryRecordSection.KNOWLEDGE)
         assertTrue(known.none { it.origin == StoryRecordOrigin.CANONICAL_TRUTH })
         assertEquals(1, known.count { it.origin == StoryRecordOrigin.KNOWN_AS_OBSERVED &&

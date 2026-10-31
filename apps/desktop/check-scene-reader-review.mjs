@@ -326,6 +326,49 @@ function test(name, work) {
         });
     }
 }
+function groundingSnapshot4(policy) {
+    const value = snapshot();
+    for (const descriptor of value.report.arms)
+        descriptor.narration_policy = policy;
+    for (const row of value.report.turns)
+        row.construction.narration_policy = policy;
+    return value;
+}
+const currentGrounding4 = "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1";
+for (const policy of ["grounded-prose-v2.4-scene-frame-v1", currentGrounding4])
+    test(`B34 protocol4 preserves the complete ${policy} family`, () => {
+        const value = groundingSnapshot4(policy);
+        assert.deepEqual(plain(decode(value)), value);
+        for (const [index, descriptor] of value.report.arms.entries())
+            assert.deepEqual(m.checkedReaderSceneConstruction(descriptor, index === 0 ? "left" : "right"), descriptor);
+        assert.equal(value.execution_available, false);
+    });
+for (const changed of [0, 1])
+    test(`B34 protocol4 refuses mixed family arm ${changed} even when rows agree`, () => {
+        const value = snapshot();
+        value.report.arms[changed].narration_policy = currentGrounding4;
+        value.report.turns[changed].construction.narration_policy = currentGrounding4;
+        assert.throws(() => decode(value), /ComparisonReaderWire/);
+    });
+test("B34 protocol4 refuses a valid row from the other declared family", () => {
+    const value = groundingSnapshot4(currentGrounding4);
+    value.report.turns[0].construction.narration_policy = "grounded-prose-v2.4-scene-frame-v1";
+    assert.throws(() => decode(value), /ComparisonReaderWire/);
+});
+test("B34 current protocol4 tuples still refuse prompt/schema/frame/policy drift", () => {
+    for (const [field, drift] of [
+        ["prompt_version", "locallore-play-v2.9-scene-frame-v1"],
+        ["director_schema_id", "locallore-director-v2"],
+        ["narrator_schema_id", "invented-narrator"],
+        ["scene_frame_version", 2],
+        ["narration_policy", "grounded-prose-v2.5-whole-evidence-words-v1"],
+    ]) {
+        const value = groundingSnapshot4(currentGrounding4);
+        value.report.arms[0][field] = drift;
+        value.report.turns[0].construction[field] = drift;
+        assert.throws(() => decode(value), /ComparisonReaderWire/);
+    }
+});
 function rejects(name, mutate) {
     test(name, () => {
         const v = snapshot();

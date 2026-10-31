@@ -1,5 +1,5 @@
 // Adapted from the accepted experiment and pinned llama.cpp MIT API examples. See NOTICE.
-static json generate(llama_model * model, const json & req) {
+static json generate(llama_model * model, const json & req, GenerationLimits limits) {
     const auto operation_start=clock_type::now();
     checkpoint();
     const auto vocab = llama_model_get_vocab(model);
@@ -31,7 +31,7 @@ static json generate(llama_model * model, const json & req) {
         tokens.insert(tokens.end(), next.begin(), next.end());
         first = false;
     }
-    const int max_tokens = req["max_tokens"].get<int>();
+    const int max_tokens = limits.output_tokens;
     if (tokens.empty() || tokens.size() + max_tokens > 4096) throw failure("context_limit");
     auto cp = llama_context_default_params();
     cp.n_ctx = 4096;
@@ -99,12 +99,12 @@ static json generate(llama_model * model, const json & req) {
         common_sampler_accept(sampler.get(), token, true);
         if (llama_vocab_is_eog(vocab, token)) break;
         generated.append(common_token_to_piece(vocab, token, true), token);
-        if (generated.size() > 16384) throw failure("output_limit");
+        if (generated.size() > limits.text_bytes) throw failure("output_limit");
         decode(&token, 1, static_cast<int>(tokens.size()) + output_tokens);
     }
     const auto & final = chat.finish(generated);
     // Do not retain or expose reasoning, tool calls, or partly parsed role output.
-    if (!final.reasoning_content.empty() || !final.tool_calls.empty() || final.content.size() > 16384 ||
+    if (!final.reasoning_content.empty() || !final.tool_calls.empty() || final.content.size() > limits.text_bytes ||
         final.content.find("<think>") != std::string::npos || final.content.find("</think>") != std::string::npos)
         throw failure("unexpected_output");
     result["text"] = final.content;

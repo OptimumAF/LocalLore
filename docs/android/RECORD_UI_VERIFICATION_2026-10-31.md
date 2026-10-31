@@ -54,6 +54,8 @@ The committed test-only assets are exact binary stdout/metadata stderr, verified
 against native metadata and Git blob. Exact-path `-text` prevents Git newline
 conversion. Refined output is byte-identical to the first successful run.
 Source/roundtrip SQLite files in both fresh D: scratch directories are retained.
+A separate file-only packaging check confirms both assets occur exactly once
+with those native bytes in the test APK and are absent from product.
 
 The canonical synthetic archive necessarily contains its private seed/reason
 canaries; real player Query2/UI assertions exclude their names/sheets/beliefs/
@@ -117,6 +119,10 @@ capture/cleanup; no unexpected meter error or unknown worker outcome. First
 setup failures are not product RED. Initial Clippy changed only the equivalent
 `len()+1 <= limit` expression; format touched only the new example. Early reader
 filename/checkpoint/shell-preparation failures also remain separately retained.
+The first generated native executable was rebuilt in place for the stronger
+checks. Its source, raw output and control records remain; its old executable
+bytes were not separately retained, and no current rehash of that binary is
+claimed. The current v2 executable is explicitly retained before recovery.
 
 The unmodified public gate has a separate inner900-second owner, actual222,905ms,
 and fresh source/tool pins before/after. Both Rust JNI ABIs actually compile
@@ -148,8 +154,9 @@ Private originals are under
 recovery targets the matching `D:/Dev/Recovery/LocalLore` root. Ticket
 handoff records actual recovery seals/readback. Four source worktrees, all failed
 captures, both SQLite scratch pairs and targets remain. Selected recovery is
-capped256MiB raw, excludes build targets/caches/models/keys/guest images, and
-includes the actual native SQLite pairs. Other owned temporary test outputs are
+capped256MiB raw, excludes bulk build targets/caches/models/keys/guest images,
+and explicitly includes the current v2 fixture executable and actual native
+SQLite pairs. Other owned temporary test outputs are
 retained in place, not claimed as completely backed up.
 
 Host forecast1.5–4GiB, cap8GiB/stop7GiB, owned TEMP512MiB/stop384MiB remain.

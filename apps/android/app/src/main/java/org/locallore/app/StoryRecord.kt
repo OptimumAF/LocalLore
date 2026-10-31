@@ -19,6 +19,8 @@ enum class StoryRecordOrigin(val wire: String, val label: String) {
     RECORDED_OBSERVATION("recorded_observation", "Recorded observation"),
     RECORDED_MESSAGE("recorded_message", "Recorded message"),
     DERIVED_COMPARISON("derived_comparison", "Derived comparison"),
+    KNOWN_AS_OBSERVED("known_as_observed", "Known as observed"),
+    AUTHOR_CORRECTION("author_correction", "History correction"),
 }
 
 data class StoryRecordContext(val story: SavedStory, val revision: Long)
@@ -27,7 +29,7 @@ data class StoryRecordQuery(
     val section: StoryRecordSection = StoryRecordSection.PROGRESSION,
     val search: String = "",
     val cursor: String? = null,
-    val version: Int = if (section == StoryRecordSection.PROMISES) 2 else 1,
+    val version: Int = 2,
 )
 data class StoryRecordEntry(
     val key: String,

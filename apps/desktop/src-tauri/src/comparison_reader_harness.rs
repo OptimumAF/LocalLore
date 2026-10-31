@@ -110,7 +110,7 @@ fn scene_proof(path: &Path, scenes: usize) -> Result<Value, String> {
         ComparisonKind::ContinuousRollout
     };
     if report.version != 4
-        || report.arms != v4::arm_descriptors()
+        || report.arms != v4::current_arm_descriptors()
         || report.kind != expected_kind
         || report.lane != "scripted_scene_literal_relevant_comparison"
         || report.physical_setups != 0

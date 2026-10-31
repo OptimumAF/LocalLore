@@ -9,7 +9,7 @@ use locallore::{
 };
 use locallore_eval::{
     local_lane::comparison::literal_v3, memory_comparison::frozen_suite,
-    memory_comparison_v3::arm_descriptors,
+    memory_comparison_v3::current_arm_descriptors as arm_descriptors,
 };
 use locallore_storage::Store;
 use std::sync::{atomic::AtomicUsize, mpsc};

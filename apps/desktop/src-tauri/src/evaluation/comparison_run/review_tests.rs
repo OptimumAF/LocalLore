@@ -226,7 +226,7 @@ fn paired_one_then_three_keeps_actual_reference_and_completed_resume_read_only()
     assert_eq!(actual["turns"].as_array().unwrap().len(), 48);
     assert_eq!(
         actual["arms"],
-        serde_json::to_value(locallore_eval::memory_comparison_v3::arm_descriptors()).unwrap()
+        serde_json::to_value(locallore_eval::memory_comparison_v3::current_arm_descriptors()).unwrap()
     );
     let before = inventory(&leaf);
     f.manager

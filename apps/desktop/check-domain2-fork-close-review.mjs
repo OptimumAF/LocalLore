@@ -103,7 +103,7 @@ const cases = [
     ["close-pending-settlement-digest-error-and-no-failed-attempt-refund", async () => {
         const p = port(); await reads(p); let release;
         const held = new Promise((resolve) => { release = resolve; });
-        const pending = p.host("close", () => held); await Promise.resolve();
+        const pending = p.host("close", () => held); void pending.catch(() => {}); await Promise.resolve();
         const row = p.trace.rows.at(-1); assert.equal(row.command, "close"); assert.equal(row.nativeSettled, false); assert.equal(row.settled, false);
         release({ closed: true }); await pending; assert.match(row.replySha256, digest);
         await assert.rejects(p.host("close", async () => { throw Error("Forbidden"); }), /Forbidden/);

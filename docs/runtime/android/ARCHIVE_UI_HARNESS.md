@@ -5,7 +5,9 @@ M10.02 and supporting M09.03/M09.05/M09.06/M10.03. It exercises the existing
 archive-verification APK pair through the same bounded owner, storage admission
 and binary client mechanisms as the model profiles. The
 [dated verification](../../android/ARCHIVE_UI_HARNESS_VERIFICATION_2026-10-30.md)
-records actual host/build results. Android execution remains pending.
+records B25's actual host/build results; Android execution was unrun in that
+packet. The separate [B32 target report](../../android/ARCHIVE_UI_RUNTIME_VERIFICATION_2026-10-30.md)
+records the later ten-method pass and known owned shutdown.
 
 ## Fixed boundary
 
@@ -70,6 +72,11 @@ the build before their native operation. Lightweight per-client ownership,
 source, identity and deadline guards remain active.
 
 ## Target execution requires separate admission
+
+The separately authorized B32 run now passes all ten fixed methods on one
+API35/x86_64 guest with known owned shutdown. See the
+[actual target verification and remaining limits](../../android/ARCHIVE_UI_RUNTIME_VERIFICATION_2026-10-30.md).
+That guest's one-run grant is spent; this guide grants no further boot.
 
 No guest is authorized by this guide or by creating a build manifest. Read the
 current designated storage-controlled checkout and

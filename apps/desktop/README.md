@@ -75,9 +75,11 @@ Diagnostic copies survive verified normal restoration. The harness now waits for
 matching session/story/revision state; six focused source regressions and the
 documented compatibility checks pass. Both earlier native grants are spent.
 The owner separately approves [one bounded V3 attempt](../../docs/desktop/D08_DOMAIN2_FORK_NATIVE_V3_2026-10-30.md),
-with the same retained group48MiB/joint708MiB/metadata768KiB. Its corrected source
-checks pass; fresh admission and the native journey remain pending. No native
-PASS or full D08 acceptance follows from these code checks.
+with the same retained group48MiB/joint708MiB/metadata768KiB. V3 captures all seven
+planned native images, but fails the final in-app resource cleanup check. Normal
+restoration and physical diagnostic copies are verified. The separate bounded
+close-trace correction has passing focused cases; all three native grants are
+spent. There is no post-fix native PASS or full D08 acceptance.
 
 The fixed synthetic fork harness exercises these controls through the actual
 frontend controller/native IPC and captures only the hidden application-owned

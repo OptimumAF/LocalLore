@@ -342,19 +342,27 @@ fn observed_author_cancel_and_drop_both_join_and_reap_without_replacement() {
 
 #[test]
 fn author_timeout_is_cached_and_changed_request_cannot_reset_deadline() {
-    let mut fixture = Fixture::new(None, AuthorFixtureCase::BlockedGenerationObserved);
+    let mut fixture = Fixture::new(None, AuthorFixtureCase::Completed);
     let mut request = author_request();
     request.budget.deadline_ms = 500;
+    struct DelayReset;
+    impl Drop for DelayReset {
+        fn drop(&mut self) { crate::AFTER_REPLY_DELAY.with(|delay| delay.set(None)); }
+    }
+    let delay_reset = DelayReset;
+    // Existing hook delays an already validated terminal reply. Unlike a child
+    // that never acknowledges cancellation, this exercises Timeout, not Cleanup.
+    crate::AFTER_REPLY_DELAY.with(|delay| delay.set(Some(Duration::from_millis(650))));
     let first = fixture.provider.as_mut().unwrap().poll(&request, &Cancellation::default());
-    let observed = first.is_pending() && generation_observed(&fixture.directory);
     let result = ready(fixture.provider.as_mut().unwrap(), &request, &Cancellation::default());
     let failure = fixture.provider.as_ref().unwrap().last_failure();
     let cached = fixture.provider.as_mut().unwrap().poll(&request, &Cancellation::default());
     let mut changed = request.clone(); changed.budget.deadline_ms = 1000;
     let reset = fixture.provider.as_mut().unwrap().poll(&changed, &Cancellation::default());
     let cleanup = fixture.finish();
+    drop(delay_reset); // Old compile refusal must not leak an unconsumed test delay.
     cleaned(&cleanup);
-    assert!(first.is_pending() && observed);
+    assert!(first.is_pending());
     assert_eq!(result, Some(Err(Error::Timeout)));
     assert_eq!(failure, Some(RuntimeError::Timeout));
     assert_eq!(cached, Poll::Ready(Err(Error::Timeout)));

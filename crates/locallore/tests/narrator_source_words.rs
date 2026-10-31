@@ -10,6 +10,7 @@ use locallore::{
         scene_narration::{ScenePlayConstructionInput, SceneRecipeV1},
         PlayContextPolicy, PlayProfile,
     },
+    story_authoring::*,
     story_presentation::{StoryPresentationV1, StoryTone},
 };
 use serde_json::{json, Value};
@@ -822,6 +823,128 @@ fn new_policy_history_cannot_retain_a_tampered_prefix_as_if_it_were_genuine_lega
         );
         assert_eq!(fresh.canonical_bytes(), before);
         assert!(fresh.receipts().is_empty());
+    }
+}
+
+fn original_world(family: Family) -> Engine {
+    assert!(matches!(family, Family::Ordinary | Family::Memory | Family::Presentation));
+    let presentation = if family.presented() {
+        StoryPresentationV1 { version: 1, tone: StoryTone::Warm, excluded_phrases: Vec::new() }
+    } else {
+        StoryPresentationV1::default()
+    };
+    let input = InitialStoryInputV1 {
+        version: 1,
+        premise: "A surveyor reaches a quiet orchard.".into(),
+        player_name: "Rae".into(),
+        player_description: "A careful surveyor.".into(),
+        cast: vec![InitialCastHintV1 { name: "Mira".into(), description: "An orchard keeper.".into() }],
+        profile: InitialRuleProfileV1::NarrativeV1,
+        presentation,
+    };
+    let proposal = InitialWorldProposalV1 {
+        version: 1,
+        locations: vec![InitialLocationV1 { name: "Orchard".into(), description: "Copper markers hang beneath the trees.".into() }],
+        player_location: 0,
+        characters: vec![InitialCharacterV1 { name: "Mira".into(), description: "A keeper waits by the gate.".into(), location: 0, known_by: vec![0, 1] }],
+        routes: Vec::new(),
+        facts: Vec::new(),
+        beliefs: Vec::new(),
+        possessions: vec![InitialPossessionV1 { name: "Potion".into(), description: "A small sealed bottle.".into(), owner: 0, return_to: None }],
+    };
+    let response = serde_json::to_string(&proposal).unwrap();
+    let origin = InitialWorldOriginV1 {
+        version: 1,
+        generation: InitialGenerationV1 {
+            input: input.clone(),
+            proposal: proposal.clone(),
+            model_profile: profile().id.clone(),
+            model_configuration: InitialModelConfigurationV1::from(&profile()),
+            provider: InitialProviderKindV1::Scripted,
+            prompt_version: locallore::story_authoring::PROMPT_VERSION.into(),
+            schema_version: locallore::story_authoring::SCHEMA_VERSION.into(),
+            response_sha256: format!("{:x}", Sha256::digest(response.as_bytes())),
+            response,
+        },
+        reviewed: input,
+        accepted: proposal,
+        title: "The Orchard Survey".into(),
+    };
+    let seed = materialize(&origin, Scope { story: "source-words-original".into(), branch: "main".into() }).unwrap();
+    assert_eq!(validate_origin(&seed), Ok(()));
+    assert!(seed.initial_world.is_some());
+    let engine = Engine::new(seed).unwrap();
+    assert_eq!(engine.domain_version(), 2);
+    engine
+}
+
+fn original_gift_request(source: &Engine) -> (Request, Command, String, String) {
+    let item = source.state().items.iter().find(|(_, value)| value.owner == source.seed().player).unwrap().0.clone();
+    let recipient = source.state().actors.iter().find(|(id, actor)| *id != &source.seed().player && actor.name == "Mira").unwrap().0.clone();
+    let request = source.request("original-world-source-word", Intent::FreeText {
+        kind: PlayInputKind::Action,
+        text: format!("I give {item} to {recipient}."),
+    });
+    let command = Command::Give { item: item.clone(), to: recipient.clone(), quantity: 1 };
+    (request, command, item, recipient)
+}
+
+#[test]
+fn materialized_domain2_ordinary_memory_and_presentation_preserve_strict_generation_and_replay() {
+    for family in [Family::Ordinary, Family::Memory, Family::Presentation] {
+        for (text, expected_fallback) in [
+            ("You pass the item to Mir with care.", true),
+            ("You pass the item to Pot with care.", true),
+            ("You pass the item to Mira with care.", false),
+        ] {
+            let mut source = original_world(family);
+            let actors = source.state().actors.clone();
+            let (request, command, item, recipient) = original_gift_request(&source);
+            let mut provider = RecordingProvider::new(command.clone(), text);
+            let receipt = execute(family, &mut source, &request, &mut provider, &Cancellation::default()).unwrap();
+            assert_eq!(receipt.play().unwrap().policy, family.strict_policy());
+            assert_eq!(receipt.play().unwrap().fallback, expected_fallback);
+            if expected_fallback { assert_eq!(receipt.narration(), engine::render(receipt.events())); }
+            else { assert_eq!(receipt.narration(), text); }
+            assert_eq!(receipt.proposal().commands, vec![command]);
+            assert_eq!(source.state().items[&item].owner, recipient);
+            assert_eq!(source.state().actors, actors);
+            assert_eq!(provider.requests.len(), 2);
+            // Domain2 persists actual canonical envelopes, not fabricated v1 receipts.
+            let records = source.canonical_records();
+            assert_eq!(records.len(), 1);
+            let history: Vec<_> = records.iter().map(|record| serde_json::to_string(record).unwrap()).collect();
+            assert_eq!(Engine::restore(source.seed().clone(), &history).unwrap().canonical_bytes(), source.canonical_bytes());
+            assert_eq!(Engine::replay_records(source.seed().clone(), records).unwrap().canonical_bytes(), source.canonical_bytes());
+            assert_eq!(execute(family, &mut source, &request, &mut provider, &Cancellation::default()).unwrap(), receipt);
+            assert_eq!(provider.requests.len(), 2);
+        }
+    }
+}
+
+#[test]
+fn materialized_domain2_cancellation_preserves_origin_ownership_and_empty_history() {
+    for family in [Family::Ordinary, Family::Memory, Family::Presentation] {
+        let mut source = original_world(family);
+        let before = source.canonical_bytes();
+        let seed = source.seed().clone();
+        let (request, command, item, _) = original_gift_request(&source);
+        let mut provider = RecordingProvider::new(command, "You pass the item to Mira with care.");
+        provider.cancel_narrator = true;
+        assert_eq!(execute(family, &mut source, &request, &mut provider, &Cancellation::default()), Err(Error::Cancelled));
+        assert_eq!(provider.requests.len(), 2);
+        assert_eq!(source.canonical_bytes(), before);
+        assert_eq!(source.seed(), &seed);
+        assert_eq!(source.state().items[&item].owner, source.seed().player);
+        assert!(source.canonical_records().is_empty());
+        assert!(source.receipts().is_empty());
+    }
+}
+
+#[test]
+fn double_ascii_curly_and_mixed_possessives_do_not_become_an_evidence_word() {
+    for name in ["Potion's's", "Potion’s’s", "Potion's’s", "Potion’s's"] {
+        fallback(Family::Ordinary, None, &format!("You pass the potion to {name} with care."));
     }
 }
 

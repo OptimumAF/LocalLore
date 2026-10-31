@@ -300,7 +300,12 @@ fn make_row4_bound(
     } = o;
     let request = step.request(before);
     let roles = recording.map_or(0, |r| r.roles);
-    let assessment = turn_execution::assess_outcome(
+    let assess = if recorded_capture {
+        turn_execution::assess_recorded_outcome
+    } else {
+        turn_execution::assess_outcome
+    };
+    let assessment = assess(
         before,
         after,
         step,

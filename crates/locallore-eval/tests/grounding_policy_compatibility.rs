@@ -119,6 +119,14 @@ fn genuine_old_receipts_restore_exactly_but_cannot_qualify_a_fresh_scene_capture
         );
         let expected: Vec<u8> = serde_json::from_value(case["canonical_after"].clone()).unwrap();
         assert_eq!(after.canonical_bytes(), expected);
+        let continued = before
+            .restore_continuation(std::slice::from_ref(&receipt_json))
+            .unwrap();
+        assert_eq!(continued.canonical_bytes(), expected);
+        assert_eq!(continued.receipts(), after.receipts());
+        let mut fresh = before.clone();
+        assert!(fresh.commit_prepared(&after.receipts()[0]).is_err());
+        assert_eq!(fresh.canonical_bytes(), before.canonical_bytes());
         let family = case["family"].as_str().unwrap();
         if !family.contains("Scene") {
             continue;

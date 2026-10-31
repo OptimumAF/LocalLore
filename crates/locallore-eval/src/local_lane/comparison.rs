@@ -440,12 +440,13 @@ struct Observation<'a> {
     forwarded_budget_version: Option<u16>,
 }
 fn make_row(observation: Observation<'_>) -> Result<TurnReportV2> {
-    make_row_for_policy(observation, NARRATION_POLICY)
+    make_row_for_policy(observation, NARRATION_POLICY, false)
 }
 
 fn make_row_for_policy(
     observation: Observation<'_>,
     narration_policy: &str,
+    recorded_history: bool,
 ) -> Result<TurnReportV2> {
     let Observation {
         step,
@@ -469,7 +470,12 @@ fn make_row_for_policy(
     } = observation;
     let request = step.request(before);
     let roles = recording.map_or(0, |r| r.roles);
-    let outcome = turn_execution::assess_outcome(
+    let assess = if recorded_history {
+        turn_execution::assess_recorded_outcome
+    } else {
+        turn_execution::assess_outcome
+    };
+    let outcome = assess(
         before,
         after,
         step,
@@ -981,6 +987,7 @@ fn load_turn(
             forwarded_budget_version: manifest.binding.forwarded_budget_version,
         },
         &manifest.binding.narration_policy,
+        true,
     )?;
     if actual != stored.row {
         return Err("CheckpointEvidenceMismatch".into());

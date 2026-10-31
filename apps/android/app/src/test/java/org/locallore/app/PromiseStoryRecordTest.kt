@@ -352,4 +352,251 @@ class PromiseStoryRecordTest {
             Dispatchers.resetMain()
         }
     }
+
+    private fun inheritedReference() = StoryRecordScopedEvent(StoryRecordScope("quay", "ancestor"), 3)
+
+    private fun promiseWithReference(reference: StoryRecordScopedEvent) = promise().put("sources",
+        JSONArray().put(JSONObject().put("kind", "scoped_event").put("value", JSONObject()
+            .put("original_scope", JSONObject().put("story", reference.originalScope.story)
+                .put("branch", reference.originalScope.branch)).put("sequence", reference.sequence))))
+
+    private fun eventRow(reference: StoryRecordScopedEvent) = JSONObject()
+        .put("kind", "event").put("key", "event:${reference.originalScope.branch}:${reference.sequence}")
+        .put("origin", "recorded_observation").put("event", JSONObject()
+            .put("sequence", reference.sequence)
+            .put("scope", JSONObject().put("story", reference.originalScope.story).put("branch", reference.originalScope.branch))
+            .put("turn", "original-promise").put("story_time", 90L)
+            .put("participants", JSONArray().put("player").put("mira"))
+            .put("witnesses", JSONArray().put("player").put("mira"))
+            .put("consequence", JSONObject().put("effect", "promised").put("id", "return-key")
+                .put("commitment", JSONObject().put("from", "player").put("to", "mira")
+                    .put("terms", "Return the borrowed brass key.").put("deadline", 120L)
+                    .put("source", JSONObject().put("kind", "seed").put("value", "quay-seed"))
+                    .put("return_item", JSONObject.NULL).put("completed_by", JSONObject.NULL))))
+
+    private fun eventPage(q: StoryRecordQuery, row: JSONObject): StoryRecordPage =
+        StoryRecordWire.decode(page(q, listOf(row)).put("version", 2), q)
+
+    @Test fun inheritedPromiseEvidenceOpensExactOriginalEventThroughTheCurrentPlayerQuery() = runTest {
+        val reference = inheritedReference()
+        val reads = mutableListOf<StoryRecordQuery>()
+        val controller = StoryRecordController({ q ->
+            reads += q
+            when {
+                q.section == promises() -> StoryRecordWire.decode(page(q, listOf(promiseWithReference(reference))), q)
+                q.section == StoryRecordSection.HISTORY && q.version == 2 -> eventPage(q, eventRow(reference))
+                else -> StoryRecordPage(q, 100, 0, emptyList(), null)
+            }
+        }, this)
+        controller.open(context); advanceUntilIdle()
+        controller.select(promises()); advanceUntilIdle()
+        val source = controller.state.value.entries.single()
+        assertEquals(listOf(reference), source.scopedEventSources)
+        assertTrue(source.eventSources.isEmpty())
+        controller.openScopedEvent(reference); advanceUntilIdle()
+        val lookup = reads.last()
+        assertEquals(context, lookup.context)
+        assertEquals(StoryRecordSection.HISTORY, lookup.section)
+        assertEquals(2, lookup.version)
+        assertNull(lookup.cursor)
+        assertEquals("\"event\":{\"sequence\":3,\"scope\":{\"story\":\"quay\",\"branch\":\"ancestor\"}", lookup.search)
+        val command = StoryRecordWire.command("same-session", lookup).getJSONObject("query")
+        assertEquals("main", command.getJSONObject("scope").getString("branch"))
+        assertEquals(4L, command.getLong("expected_head"))
+        assertEquals("player", command.getJSONObject("observer").getString("kind"))
+        val detail = checkNotNull(controller.state.value.eventDetail)
+        assertFalse(detail.loading)
+        assertNull(detail.problem)
+        assertEquals(reference, detail.scopedReference)
+        val event = checkNotNull(detail.entry)
+        assertEquals("player promised mira: Return the borrowed brass key.", event.text)
+        assertEquals(StoryRecordEvent(3, "original-promise", 90, reference.originalScope), event.event)
+        assertEquals(listOf(reference), event.scopedEventSources)
+        assertTrue(event.eventSources.isEmpty())
+        controller.dispose()
+    }
+
+    @Test fun scopedLookupRejectsWrongScopeSameSequenceOtherBranchClockAndUnwitnessedRows() = runTest {
+        val reference = inheritedReference()
+        val changes: List<(JSONObject) -> Unit> = listOf(
+            { it.getJSONObject("event").getJSONObject("scope").put("story", "another-story") },
+            { it.getJSONObject("event").getJSONObject("scope").put("branch", "other-ancestor") },
+            { it.getJSONObject("event").put("sequence", 2) },
+            { it.getJSONObject("event").put("story_time", 101L) },
+            { it.getJSONObject("event").put("witnesses", JSONArray().put("mira")) },
+            { it.getJSONObject("event").put("turn", "invalid/turn") },
+            { it.getJSONObject("event").getJSONObject("scope").remove("branch") },
+        )
+        for (change in changes) {
+            val controller = StoryRecordController({ q ->
+                when {
+                    q.section == promises() -> StoryRecordWire.decode(page(q, listOf(promiseWithReference(reference))), q)
+                    q.section == StoryRecordSection.HISTORY && q.version == 2 -> eventPage(q, eventRow(reference).also(change))
+                    else -> StoryRecordPage(q, 100, 0, emptyList(), null)
+                }
+            }, this)
+            controller.open(context); advanceUntilIdle()
+            controller.select(promises()); advanceUntilIdle()
+            controller.openScopedEvent(reference); advanceUntilIdle()
+            val detail = checkNotNull(controller.state.value.eventDetail)
+            assertEquals(StoryRecordProblem.INVALID_RESPONSE, detail.problem)
+            assertEquals(reference, detail.scopedReference)
+            assertNull(detail.entry)
+            assertFalse(detail.loading)
+            controller.dispose()
+        }
+    }
+
+    @Test fun onlyAnExactScopedReferenceInTheCurrentEntryCanDispatchAnEvidenceRead() = runTest {
+        val reference = inheritedReference()
+        val reads = mutableListOf<StoryRecordQuery>()
+        val controller = StoryRecordController({ q ->
+            reads += q
+            if (q.section == promises()) StoryRecordWire.decode(page(q, listOf(promiseWithReference(reference))), q)
+            else StoryRecordPage(q, 100, 0, emptyList(), null)
+        }, this)
+        controller.open(context); advanceUntilIdle()
+        controller.select(promises()); advanceUntilIdle()
+        val before = reads.toList()
+        for (unknown in listOf(
+            reference.copy(sequence = 2), reference.copy(sequence = 0), reference.copy(sequence = 5),
+            reference.copy(originalScope = reference.originalScope.copy(branch = "another")),
+            reference.copy(originalScope = reference.originalScope.copy(story = "other")),
+            reference.copy(originalScope = reference.originalScope.copy(branch = "bad/branch")),
+        )) controller.openScopedEvent(unknown)
+        controller.openEvent(3) // A scoped source never grants a flat current-branch event ID.
+        advanceUntilIdle()
+        assertEquals(before, reads)
+        assertNull(controller.state.value.eventDetail)
+        controller.select(StoryRecordSection.PROGRESSION); advanceUntilIdle()
+        val withoutEntry = reads.toList()
+        controller.openScopedEvent(reference); advanceUntilIdle()
+        assertEquals(withoutEntry, reads)
+        assertNull(controller.state.value.eventDetail)
+        controller.dispose()
+    }
+
+    @Test fun scopedRetryKeepsOriginalReferenceAndTheSameCurrentContextAfterUnavailableEvidence() = runTest {
+        val reference = inheritedReference()
+        val attempts = mutableListOf<StoryRecordQuery>()
+        val controller = StoryRecordController({ q ->
+            when {
+                q.section == promises() -> StoryRecordWire.decode(page(q, listOf(promiseWithReference(reference))), q)
+                q.section == StoryRecordSection.HISTORY && q.version == 2 -> {
+                    attempts += q
+                    if (attempts.size == 1) StoryRecordWire.decode(page(q, emptyList()).put("version", 2), q)
+                    else eventPage(q, eventRow(reference))
+                }
+                else -> StoryRecordPage(q, 100, 0, emptyList(), null)
+            }
+        }, this)
+        controller.open(context); advanceUntilIdle()
+        controller.select(promises()); advanceUntilIdle()
+        controller.openScopedEvent(reference); advanceUntilIdle()
+        assertEquals(StoryRecordProblem.EVENT_UNAVAILABLE, controller.state.value.eventDetail?.problem)
+        assertEquals(reference, controller.state.value.eventDetail?.scopedReference)
+        controller.retryEvent(); advanceUntilIdle()
+        assertEquals(2, attempts.size)
+        assertEquals(attempts[0], attempts[1])
+        assertEquals(context, attempts[1].context)
+        assertEquals(2, attempts[1].version)
+        assertNull(controller.state.value.eventDetail?.problem)
+        assertEquals(reference.originalScope, controller.state.value.eventDetail?.entry?.event?.originalScope)
+        controller.dispose()
+    }
+
+    @Test fun nonCooperativeLateScopedEvidenceCannotReopenBackDismissedDisposedOrChangedViews() = runTest {
+        val reference = inheritedReference()
+        for (action in listOf("back", "dismiss", "dispose", "section")) {
+            val late = CompletableDeferred<Unit>()
+            var lookups = 0
+            val controller = StoryRecordController({ q ->
+                when {
+                    q.section == promises() -> StoryRecordWire.decode(page(q, listOf(promiseWithReference(reference))), q)
+                    q.section == StoryRecordSection.HISTORY && q.version == 2 -> {
+                        lookups++
+                        withContext(NonCancellable) { late.await() }
+                        eventPage(q, eventRow(reference))
+                    }
+                    else -> StoryRecordPage(q, 100, 0, emptyList(), null)
+                }
+            }, this)
+            controller.open(context); advanceUntilIdle()
+            controller.select(promises()); advanceUntilIdle()
+            controller.openScopedEvent(reference); runCurrent()
+            assertTrue(checkNotNull(controller.state.value.eventDetail).loading)
+            when (action) {
+                "back" -> controller.back()
+                "dismiss" -> controller.dismiss()
+                "dispose" -> controller.dispose()
+                "section" -> controller.select(StoryRecordSection.KNOWLEDGE)
+            }
+            runCurrent()
+            val revoked = controller.state.value
+            assertNull(revoked.eventDetail)
+            late.complete(Unit); advanceUntilIdle()
+            assertEquals(action, revoked, controller.state.value)
+            assertEquals(1, lookups)
+            controller.dispose()
+        }
+    }
+
+    @Test fun aRetainedScopedViewModelCallbackCannotOpenEvidenceAfterTheSelectedBranchAndHeadChange() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        val reference = inheritedReference()
+        val other = story.copy(branch = "fork", revision = 7)
+        val reads = mutableListOf<StoryRecordQuery>()
+        var saved = SavedSnapshot(4, "You", emptyList(), "synthetic-private-workspace", 1,
+            listOf(story, other), story)
+        val gateway = object : DemoGateway {
+            override val durable = true
+            override val storyRecords = true
+            override suspend fun initialize() = saved
+            override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult =
+                error("Evidence lookup must not generate")
+            override suspend fun resumeSaved(story: SavedStory): SavedSnapshot {
+                saved = saved.copy(revision = story.revision, selected = story)
+                return saved
+            }
+            override suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage {
+                reads += query
+                return when {
+                    query.section == promises() -> StoryRecordWire.decode(page(query, listOf(promiseWithReference(reference))), query)
+                    query.section == StoryRecordSection.HISTORY && query.version == 2 -> eventPage(query, eventRow(reference))
+                    else -> StoryRecordPage(query, 100, 0, emptyList(), null)
+                }
+            }
+        }
+        try {
+            val model = ShellViewModel(gateway)
+            store.put("scoped-promise-model", model)
+            advanceUntilIdle()
+            model.openStoryRecord(); advanceUntilIdle()
+            model.recordSection(promises()); advanceUntilIdle()
+            val oldContext = checkNotNull(model.storyRecord.value.context)
+            val retained = { model.openScopedRecordEvent(reference, oldContext) }
+            model.resume(other); advanceUntilIdle()
+            model.openStoryRecord(); advanceUntilIdle()
+            model.recordSection(promises()); advanceUntilIdle()
+            val currentContext = checkNotNull(model.storyRecord.value.context)
+            assertNotEquals(oldContext, currentContext)
+            assertEquals(listOf(reference), model.storyRecord.value.entries.single().scopedEventSources)
+            val before = reads.toList()
+            retained()
+            model.openScopedRecordEvent(reference, null)
+            advanceUntilIdle()
+            assertEquals(before, reads)
+            assertNull(model.storyRecord.value.eventDetail)
+            model.openScopedRecordEvent(reference, currentContext); advanceUntilIdle()
+            assertEquals(currentContext, reads.last().context)
+            assertEquals(reference, model.storyRecord.value.eventDetail?.scopedReference)
+            assertNull(model.storyRecord.value.eventDetail?.problem)
+            assertEquals(7L, model.state.value.revision)
+            assertEquals("You", model.state.value.potionOwner)
+        } finally {
+            store.clear()
+            Dispatchers.resetMain()
+        }
+    }
 }

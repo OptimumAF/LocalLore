@@ -5,15 +5,18 @@
 use super::*;
 
 fn prepared(version: u64, legacy: bool) -> Value {
+    let arms = ["left", "right"].map(|arm| {
+        json!({
+            "arm": arm, "scope": {"story": "fixture-story", "branch": arm},
+            "before_head": 7, "prefix_sha256": "b".repeat(64),
+            "input_semantic_sha256": "c".repeat(64)
+        })
+    });
     let mut value = json!({
         "version": version, "kind": "selected_prepared", "binding": "a".repeat(64),
         "lane": "scripted_selected_case",
         "selection": {"turn": "turn-5", "clicked_arm": "left", "index": 4},
-        "arms": ["left", "right"].map(|arm| json!({
-            "arm": arm, "scope": {"story": "fixture-story", "branch": arm},
-            "before_head": 7, "prefix_sha256": "b".repeat(64),
-            "input_semantic_sha256": "c".repeat(64)
-        }))
+        "arms": arms
     });
     if version == 2 {
         value["source_protocol_version"] = json!(3);

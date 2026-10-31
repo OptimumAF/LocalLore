@@ -39,18 +39,28 @@ fn physical_d(path: &Path) -> bool {
 
 fn create_scratch(path: &Path) -> io::Result<()> {
     assert!(path.is_absolute() && physical_d(path));
-    assert!(!path.components().any(|component| matches!(component, Component::ParentDir | Component::CurDir)));
+    assert!(!path
+        .components()
+        .any(|component| matches!(component, Component::ParentDir | Component::CurDir)));
     assert!(!path.try_exists()?, "scratch must be create-only");
     let parent = path.parent().expect("scratch parent");
     for ancestor in parent.ancestors() {
         let metadata = fs::symlink_metadata(ancestor)?;
         assert!(metadata.is_dir() && !metadata.file_type().is_symlink());
-        #[cfg(windows)] {
+        #[cfg(windows)]
+        {
             use std::os::windows::fs::MetadataExt;
-            assert_eq!(metadata.file_attributes() & 0x400, 0, "scratch ancestors must be ordinary");
+            assert_eq!(
+                metadata.file_attributes() & 0x400,
+                0,
+                "scratch ancestors must be ordinary"
+            );
         }
     }
-    assert!(physical_d(&parent.canonicalize()?), "scratch parent must resolve physically to D");
+    assert!(
+        physical_d(&parent.canonicalize()?),
+        "scratch parent must resolve physically to D"
+    );
     fs::create_dir(path)?;
     Ok(())
 }
@@ -62,7 +72,8 @@ fn seed() -> Seed {
         "cast":[{"name":"Nia","description":"A bell keeper."},
             {"name":NPC_NAME,"description":"A distant keeper."}],
         "profile":"narrative_v1","presentation":{"version":1,"tone":"plain","excluded_phrases":[]}
-    })).expect("typed synthetic author input");
+    }))
+    .expect("typed synthetic author input");
     let accepted: InitialWorldProposalV1 = serde_json::from_value(json!({
         "version":1,"locations":[
             {"name":"North Pier","description":"A stone pier supports a survey bell."},
@@ -75,30 +86,48 @@ fn seed() -> Seed {
             {"text":HIDDEN_FACT,"known_by":[2],"discoverable_at":1}],
         "beliefs":[{"believer":2,"text":NPC_BELIEF,"confidence":"believed"}],
         "possessions":[]
-    })).expect("typed synthetic world proposal");
+    }))
+    .expect("typed synthetic world proposal");
     story_authoring::validate_proposal(&input, &accepted).expect("valid original authored world");
     let profile = PlayProfile {
-        id: "record-ui-archive-synthetic-v1".into(), model_sha256: "a".repeat(64),
-        runtime_revision: "b".repeat(40), template_sha256: "c".repeat(64),
-        worker_sha256: "d".repeat(64), profile_manifest_sha256: "e".repeat(64),
-        context_tokens: 4096, director_tokens: 350, narrator_tokens: 350,
-        deadline_ms: 5000, repair_limit: 1,
+        id: "record-ui-archive-synthetic-v1".into(),
+        model_sha256: "a".repeat(64),
+        runtime_revision: "b".repeat(40),
+        template_sha256: "c".repeat(64),
+        worker_sha256: "d".repeat(64),
+        profile_manifest_sha256: "e".repeat(64),
+        context_tokens: 4096,
+        director_tokens: 350,
+        narrator_tokens: 350,
+        deadline_ms: 5000,
+        repair_limit: 1,
     };
     let response = serde_json::to_string(&accepted).expect("synthetic origin encoding");
     let origin = InitialWorldOriginV1 {
         version: 1,
         generation: InitialGenerationV1 {
-            input: input.clone(), proposal: accepted.clone(), model_profile: profile.id.clone(),
+            input: input.clone(),
+            proposal: accepted.clone(),
+            model_profile: profile.id.clone(),
             model_configuration: InitialModelConfigurationV1::from(&profile),
             provider: InitialProviderKindV1::Scripted,
             prompt_version: story_authoring::PROMPT_VERSION.into(),
             schema_version: story_authoring::SCHEMA_VERSION.into(),
-            response_sha256: sha256(response.as_bytes()), response,
+            response_sha256: sha256(response.as_bytes()),
+            response,
         },
-        reviewed: input, accepted: accepted.clone(), title: "Record UI corrected opaque fixture".into(),
+        reviewed: input,
+        accepted: accepted.clone(),
+        title: "Record UI corrected opaque fixture".into(),
     };
-    let seed = story_authoring::materialize(&origin,
-        Scope { story: STORY.into(), branch: "main".into() }).expect("actual authored materialization");
+    let seed = story_authoring::materialize(
+        &origin,
+        Scope {
+            story: STORY.into(),
+            branch: "main".into(),
+        },
+    )
+    .expect("actual authored materialization");
     story_authoring::validate_origin(&seed).expect("exact authored seed origin");
     assert!(seed.player.starts_with("a-") && seed.player != "player");
     seed
@@ -108,9 +137,15 @@ fn apply(store: &mut Store, scope: &Scope, turn: &str, intent: Intent) -> Receip
     let engine = store.resume(scope).expect("actual Store source").engine;
     let request = engine.request(turn, intent);
     let proposal = Engine::proposal(&request).expect("existing mechanical proposal");
-    let receipt = engine.preview(&request, &proposal).expect("valid mechanical action");
-    store.begin_turn(&request).expect("actual durable turn begin");
-    store.commit_prepared(&receipt).expect("actual durable commit")
+    let receipt = engine
+        .preview(&request, &proposal)
+        .expect("valid mechanical action");
+    store
+        .begin_turn(&request)
+        .expect("actual durable turn begin");
+    store
+        .commit_prepared(&receipt)
+        .expect("actual durable commit")
 }
 
 fn branch_metadata(engine: &Engine) -> Value {
@@ -120,10 +155,16 @@ fn branch_metadata(engine: &Engine) -> Value {
 fn inspect(engine: &Engine, fact: &str, expected: &str, drill_scope: &Scope, drill_sequence: u64) {
     let before = engine.canonical_bytes();
     let records = engine.canonical_records().to_vec();
-    let basis = engine.accepted_history_basis().expect("accepted history basis");
+    let basis = engine
+        .accepted_history_basis()
+        .expect("accepted history basis");
     let player = &engine.seed().player;
-    let mentor = engine.seed().actors.iter().find_map(|(id, actor)|
-        (actor.name == "Nia").then_some(id)).expect("actual materialized Nia");
+    let mentor = engine
+        .seed()
+        .actors
+        .iter()
+        .find_map(|(id, actor)| (actor.name == "Nia").then_some(id))
+        .expect("actual materialized Nia");
     let location = &engine.state().actors[player].location;
     let mut profile_location = false;
     let mut relationship_dimensions = BTreeSet::new();
@@ -132,41 +173,95 @@ fn inspect(engine: &Engine, fact: &str, expected: &str, drill_scope: &Scope, dri
     let mut witnessed_drill = false;
     let mut inherited_discovery = false;
     let mut marker = false;
-    for view in [View::Profiles, View::Relationships, View::Knowledge, View::History, View::Promises] {
+    for view in [
+        View::Profiles,
+        View::Relationships,
+        View::Knowledge,
+        View::History,
+        View::Promises,
+    ] {
         let mut request = Query {
-            version: 2, scope: engine.scope().clone(), expected_head: engine.revision(),
-            at_revision: None, observer: Observer::Player, view, cursor: None, limit: 8, search: String::new(),
+            version: 2,
+            scope: engine.scope().clone(),
+            expected_head: engine.revision(),
+            at_revision: None,
+            observer: Observer::Player,
+            view,
+            cursor: None,
+            limit: 8,
+            search: String::new(),
         };
         let mut seen = BTreeSet::new();
         let mut complete = false;
         for _ in 0..16 {
-            let page = inspection_query::query(engine, &request, false).expect("actual current Player Query2");
+            let page = inspection_query::query(engine, &request, false)
+                .expect("actual current Player Query2");
             let encoded = serde_json::to_string(&page).expect("native page encoding");
             for private in [NPC_NAME, NPC_SHEET, NPC_BELIEF, HIDDEN_FACT, AUTHOR_REASON] {
-                assert!(!encoded.contains(private), "private synthetic value reached Player inspection");
+                assert!(
+                    !encoded.contains(private),
+                    "private synthetic value reached Player inspection"
+                );
             }
-            if expected == OLD { assert!(!encoded.contains(NEW), "unseen correction reached Player inspection"); }
+            if expected == OLD {
+                assert!(
+                    !encoded.contains(NEW),
+                    "unseen correction reached Player inspection"
+                );
+            }
             for row in &page.rows {
                 match row {
-                    Row::Field { actor, field, value, source, origin: ValueOrigin::CanonicalField, .. }
-                        if field == "location" => {
+                    Row::Field {
+                        actor,
+                        field,
+                        value,
+                        source,
+                        origin: ValueOrigin::CanonicalField,
+                        ..
+                    } if field == "location" => {
                         assert_eq!(view, View::Profiles);
                         assert_eq!(actor, player);
                         assert!(matches!(value, FieldValue::Text(actual) if actual == location));
                         assert!(matches!(source, Source::Seed(id) if id == &engine.seed().id));
-                        assert!(!profile_location, "one current-player location row required");
+                        assert!(
+                            !profile_location,
+                            "one current-player location row required"
+                        );
                         profile_location = true;
                     }
-                    Row::Relationship { from, to, dimension, value, source,
-                        origin: ValueOrigin::CanonicalField, .. } if from == player && to == mentor => {
+                    Row::Relationship {
+                        from,
+                        to,
+                        dimension,
+                        value,
+                        source,
+                        origin: ValueOrigin::CanonicalField,
+                        ..
+                    } if from == player && to == mentor => {
                         assert_eq!(view, View::Relationships);
-                        assert!(matches!(dimension.as_str(), "respect" | "trust" | "obligation"));
+                        assert!(matches!(
+                            dimension.as_str(),
+                            "respect" | "trust" | "obligation"
+                        ));
                         assert_eq!(*value, 0);
                         assert!(matches!(source, Source::Seed(id) if id == &engine.seed().id));
-                        assert!(relationship_dimensions.insert(dimension.clone()), "unique Nia dimension");
+                        assert!(
+                            relationship_dimensions.insert(dimension.clone()),
+                            "unique Nia dimension"
+                        );
                     }
-                    Row::Promise { id, from, to, terms, deadline, status, return_item, sources,
-                        origin: ValueOrigin::DerivedComparison, .. } if id == "survey-notes" => {
+                    Row::Promise {
+                        id,
+                        from,
+                        to,
+                        terms,
+                        deadline,
+                        status,
+                        return_item,
+                        sources,
+                        origin: ValueOrigin::DerivedComparison,
+                        ..
+                    } if id == "survey-notes" => {
                         assert_eq!(view, View::Promises);
                         assert_eq!(from, player);
                         assert_eq!(to, mentor);
@@ -174,12 +269,21 @@ fn inspect(engine: &Engine, fact: &str, expected: &str, drill_scope: &Scope, dri
                         assert_eq!(*deadline, 10);
                         assert_eq!(status, "open");
                         assert!(return_item.is_none());
-                        assert!(matches!(sources.as_slice(), [Source::ScopedEvent { original_scope, sequence: 3 }]
-                            if original_scope == drill_scope));
+                        assert!(
+                            matches!(sources.as_slice(), [Source::ScopedEvent { original_scope, sequence: 3 }]
+                            if original_scope == drill_scope)
+                        );
                         assert!(!promise, "one exact survey promise required");
                         promise = true;
                     }
-                    Row::Knowledge { id, subject, text, sources, origin: ValueOrigin::KnownAsObserved, .. } if id == fact => {
+                    Row::Knowledge {
+                        id,
+                        subject,
+                        text,
+                        sources,
+                        origin: ValueOrigin::KnownAsObserved,
+                        ..
+                    } if id == fact => {
                         assert_eq!(subject.as_deref(), Some(engine.seed().player.as_str()));
                         assert_eq!(text, expected);
                         let (observed_scope, observed_sequence) = if expected == OLD {
@@ -187,19 +291,33 @@ fn inspect(engine: &Engine, fact: &str, expected: &str, drill_scope: &Scope, dri
                         } else {
                             (engine.scope(), engine.revision())
                         };
-                        assert!(matches!(sources.as_slice(), [Source::ScopedEvent { original_scope, sequence }]
-                            if original_scope == observed_scope && *sequence == observed_sequence));
+                        assert!(
+                            matches!(sources.as_slice(), [Source::ScopedEvent { original_scope, sequence }]
+                            if original_scope == observed_scope && *sequence == observed_sequence)
+                        );
                         known = true;
                     }
-                    Row::Knowledge { id, text, sources, origin: ValueOrigin::RecordedDiscovery, .. } if id == fact && text == OLD => {
-                        assert!(matches!(sources.as_slice(), [Source::ScopedEvent { original_scope, sequence }]
-                            if original_scope == drill_scope && *sequence == drill_sequence));
+                    Row::Knowledge {
+                        id,
+                        text,
+                        sources,
+                        origin: ValueOrigin::RecordedDiscovery,
+                        ..
+                    } if id == fact && text == OLD => {
+                        assert!(
+                            matches!(sources.as_slice(), [Source::ScopedEvent { original_scope, sequence }]
+                            if original_scope == drill_scope && *sequence == drill_sequence)
+                        );
                         inherited_discovery = true;
                     }
-                    Row::Event { event, .. } if event.scope == *drill_scope && event.sequence == drill_sequence => {
+                    Row::Event { event, .. }
+                        if event.scope == *drill_scope && event.sequence == drill_sequence =>
+                    {
                         assert!(event.witnesses.contains(&engine.seed().player));
-                        assert!(matches!(&event.consequence, Effect::Discovered { actor, fact: actual }
-                            if actor == &engine.seed().player && actual == fact));
+                        assert!(
+                            matches!(&event.consequence, Effect::Discovered { actor, fact: actual }
+                            if actor == &engine.seed().player && actual == fact)
+                        );
                         witnessed_drill = true;
                     }
                     Row::AuthorCorrection { .. } => marker = true,
@@ -209,21 +327,35 @@ fn inspect(engine: &Engine, fact: &str, expected: &str, drill_scope: &Scope, dri
             if let Some(cursor) = page.next_cursor {
                 assert!(seen.insert(cursor.clone()), "native cursors must advance");
                 request.cursor = Some(cursor);
-            } else { complete = true; break; }
+            } else {
+                complete = true;
+                break;
+            }
         }
         assert!(complete, "finite fixture inspection budget exhausted");
     }
     assert!(known && witnessed_drill && inherited_discovery);
-    assert!(profile_location && relationship_dimensions.len() == 3 && promise,
-        "all five Player views require meaningful native fixture rows");
+    assert!(
+        profile_location && relationship_dimensions.len() == 3 && promise,
+        "all five Player views require meaningful native fixture rows"
+    );
     assert_eq!(marker, engine.domain_version() == 2);
     assert!(engine.canonical_bytes() == before && engine.canonical_records() == records.as_slice());
-    assert!(engine.accepted_history_basis().expect("history remains valid") == basis);
+    assert!(
+        engine
+            .accepted_history_basis()
+            .expect("history remains valid")
+            == basis
+    );
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arguments: Vec<_> = std::env::args_os().collect();
-    assert_eq!(arguments.len(), 2, "one explicit fresh D scratch directory required");
+    assert_eq!(
+        arguments.len(),
+        2,
+        "one explicit fresh D scratch directory required"
+    );
     let scratch = PathBuf::from(&arguments[1]);
     create_scratch(&scratch)?;
     let source_path = scratch.join("source.sqlite3");
@@ -231,25 +363,57 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let seed = seed();
     let root_scope = seed.scope.clone();
     let player = seed.player.clone();
-    let prefix = seed.id.strip_prefix("world-").expect("materialized namespace");
+    let prefix = seed
+        .id
+        .strip_prefix("world-")
+        .expect("materialized namespace");
     let fact = format!("f-{prefix}-world-0");
     let mentor = format!("a-{prefix}-1");
-    let mut source = Store::open_application(&source_path).expect("create-only synthetic source Store");
-    source.create_story("Record UI corrected opaque fixture", seed).expect("actual authored story");
-    let observed = apply(&mut source, &root_scope, "observe-before",
-        Intent::Actions(vec![Command::Discover { fact: fact.clone() }]));
+    let mut source =
+        Store::open_application(&source_path).expect("create-only synthetic source Store");
+    source
+        .create_story("Record UI corrected opaque fixture", seed)
+        .expect("actual authored story");
+    let observed = apply(
+        &mut source,
+        &root_scope,
+        "observe-before",
+        Intent::Actions(vec![Command::Discover { fact: fact.clone() }]),
+    );
     let sequence = observed.events()[0].sequence();
     assert_eq!(sequence, 1);
-    apply(&mut source, &root_scope, "stated-survey", Intent::Dialogue {
-        text: "The survey record needs another look.".into(), audience: [mentor.clone()].into(),
-    });
-    let promised = apply(&mut source, &root_scope, "return-survey", Intent::Actions(vec![Command::Promise {
-        id: "survey-notes".into(), to: mentor, terms: PROMISE_TERMS.into(),
-        deadline: 10, return_item: None,
-    }]));
+    apply(
+        &mut source,
+        &root_scope,
+        "stated-survey",
+        Intent::Dialogue {
+            text: "The survey record needs another look.".into(),
+            audience: [mentor.clone()].into(),
+        },
+    );
+    let promised = apply(
+        &mut source,
+        &root_scope,
+        "return-survey",
+        Intent::Actions(vec![Command::Promise {
+            id: "survey-notes".into(),
+            to: mentor,
+            terms: PROMISE_TERMS.into(),
+            deadline: 10,
+            return_item: None,
+        }]),
+    );
     assert_eq!(promised.events()[0].sequence(), 3);
-    apply(&mut source, &root_scope, "wait-before", Intent::Actions(vec![Command::Wait { ticks: 1 }]));
-    let before = source.resume(&root_scope).expect("durable root replay").engine;
+    apply(
+        &mut source,
+        &root_scope,
+        "wait-before",
+        Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+    );
+    let before = source
+        .resume(&root_scope)
+        .expect("durable root replay")
+        .engine;
     assert_eq!(before.domain_version(), 1);
     assert_eq!(before.revision(), 4);
     drop(source);
@@ -261,16 +425,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let resumed = host.call(&serde_json::to_vec(&json!({"version":1,
         "command":{"op":"resume","scope":root_scope}}))?);
     assert_eq!(resumed["status"], "ok");
-    let session = resumed["data"]["session"].as_str().expect("actual native session");
+    let session = resumed["data"]["session"]
+        .as_str()
+        .expect("actual native session");
     let input = AuthorCorrectionInputV1 {
-        version: 1, parent: root_scope.clone(), expected_parent_revision: before.revision(),
-        fork_revision: before.revision(), child_branch: "corrected".into(),
+        version: 1,
+        parent: root_scope.clone(),
+        expected_parent_revision: before.revision(),
+        fork_revision: before.revision(),
+        child_branch: "corrected".into(),
         operation: AuthorCorrectionOperationV1::ReplaceFactProposition {
-            fact: fact.clone(), expected_proposition: OLD.into(), replacement: NEW.into(),
-        }, reason: AUTHOR_REASON.into(),
+            fact: fact.clone(),
+            expected_proposition: OLD.into(),
+            replacement: NEW.into(),
+        },
+        reason: AUTHOR_REASON.into(),
     };
-    let prepared = host.prepare_author_correction(session, &input, &|| false).expect("native author preparation");
-    let correction = host.apply_author_correction(&prepared, &|| false).expect("native atomic author correction");
+    let prepared = host
+        .prepare_author_correction(session, &input, &|| false)
+        .expect("native author preparation");
+    let correction = host
+        .apply_author_correction(&prepared, &|| false)
+        .expect("native atomic author correction");
     assert!(correction.created);
     assert_eq!(correction.author_revision, 5);
     host.close_all();
@@ -278,40 +454,74 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     drop(host);
 
     let mut source = Store::open_application(&source_path).expect("reopen actual corrected Store");
-    let corrected = source.resume(&correction.scope).expect("durable corrected history").engine;
+    let corrected = source
+        .resume(&correction.scope)
+        .expect("durable corrected history")
+        .engine;
     assert_eq!(corrected.domain_version(), 2);
     assert_eq!(corrected.revision(), 5);
     assert_eq!(corrected.effective_fact(&fact)?.proposition, NEW);
-    let fork = source.fork_branch(&ForkRequest {
-        parent: corrected.scope().clone(), child_branch: "rediscovered".into(),
-        expected_parent_revision: corrected.revision(), at_revision: corrected.revision(),
-    }, &|| false).expect("actual corrected-history fork");
-    apply(&mut source, &fork.scope, "observe-after", Intent::Actions(vec![Command::Discover { fact: fact.clone() }]));
-    let rediscovered = source.resume(&fork.scope).expect("durable rediscovered history").engine;
+    let fork = source
+        .fork_branch(
+            &ForkRequest {
+                parent: corrected.scope().clone(),
+                child_branch: "rediscovered".into(),
+                expected_parent_revision: corrected.revision(),
+                at_revision: corrected.revision(),
+            },
+            &|| false,
+        )
+        .expect("actual corrected-history fork");
+    apply(
+        &mut source,
+        &fork.scope,
+        "observe-after",
+        Intent::Actions(vec![Command::Discover { fact: fact.clone() }]),
+    );
+    let rediscovered = source
+        .resume(&fork.scope)
+        .expect("durable rediscovered history")
+        .engine;
     assert_eq!(rediscovered.domain_version(), 2);
     assert_eq!(rediscovered.revision(), 6);
     for (engine, expected) in [(&before, OLD), (&corrected, OLD), (&rediscovered, NEW)] {
         inspect(engine, &fact, expected, &root_scope, sequence);
         assert_eq!(engine.state().story_time, 1);
     }
-    let archive = source.export_archive(STORY, &|| false).expect("production Archive3 export");
+    let archive = source
+        .export_archive(STORY, &|| false)
+        .expect("production Archive3 export");
     assert_eq!(archive.preview().version, 3);
     assert_eq!(archive.preview().branch_heads.len(), 3);
     assert!(archive.bytes().len() <= 256 * 1024);
-    let validated = validate_archive(archive.bytes(), &|| false).expect("production archive validation");
+    let validated =
+        validate_archive(archive.bytes(), &|| false).expect("production archive validation");
     let mut target = Store::open_application(&target_path).expect("fresh roundtrip Store");
-    let imported = target.import_archive(validated, &|| false).expect("production archive import");
+    let imported = target
+        .import_archive(validated, &|| false)
+        .expect("production archive import");
     assert_eq!(imported.root, root_scope);
     assert_eq!(imported.branches, 3);
     for (engine, expected) in [(&before, OLD), (&corrected, OLD), (&rediscovered, NEW)] {
-        let actual = target.resume(engine.scope()).expect("actual imported scope").engine;
-        assert!(actual.seed() == engine.seed() && actual.canonical_records() == engine.canonical_records());
+        let actual = target
+            .resume(engine.scope())
+            .expect("actual imported scope")
+            .engine;
+        assert!(
+            actual.seed() == engine.seed()
+                && actual.canonical_records() == engine.canonical_records()
+        );
         assert!(actual.canonical_bytes() == engine.canonical_bytes());
         assert!(actual.accepted_history_basis()? == engine.accepted_history_basis()?);
         inspect(&actual, &fact, expected, &root_scope, sequence);
     }
-    let replay = target.export_archive(STORY, &|| false).expect("production re-export");
-    assert!(replay.bytes() == archive.bytes(), "canonical archive bytes must roundtrip unchanged");
+    let replay = target
+        .export_archive(STORY, &|| false)
+        .expect("production re-export");
+    assert!(
+        replay.bytes() == archive.bytes(),
+        "canonical archive bytes must roundtrip unchanged"
+    );
     let metadata = json!({"version":1,"archive":{"bytes":archive.bytes().len(),"sha256":sha256(archive.bytes())},
         "story":STORY,"root_branch":root_scope.branch,"player":player,"fact_id":fact,
         "old_observation":OLD,"new_observation":NEW,

@@ -40,6 +40,18 @@ internal fun latestTranscriptRequest(current: TranscriptSnapshot?): TranscriptSc
 internal fun transcriptRequestMatches(request: TranscriptScrollRequest, current: TranscriptSnapshot?): Boolean =
     current != null && request.snapshot == current && current.messages.lastOrNull()?.id == request.targetMessageId
 
+/** Recognize a bounded window advancing while retaining an exact, immutable tail. */
+private fun rollingTranscriptAppend(before: List<SceneMessage>, current: List<SceneMessage>): Boolean {
+    if (before.isEmpty() || current.size != before.size) return false
+    if (!before.zipWithNext().all { (left, right) -> left.id < right.id } ||
+        !current.zipWithNext().all { (left, right) -> left.id < right.id }) return false
+    val retainedStart = before.indexOfFirst { it.id == current.first().id }
+    if (retainedStart <= 0) return false
+    val retainedCount = before.size - retainedStart
+    return before.subList(retainedStart, before.size) == current.subList(0, retainedCount) &&
+        current.subList(retainedCount, current.size).all { it.id > before.last().id }
+}
+
 /** Only a read witness for the exact previous history can authorize append-follow. */
 internal fun updateTranscriptFollow(
     previous: TranscriptFollowState?,
@@ -54,8 +66,9 @@ internal fun updateTranscriptFollow(
         val read = readPosition != null && readPosition.snapshot == current && readPosition.atEnd
         return TranscriptFollowUpdate(TranscriptFollowState(current, previous?.unread == true && !read))
     }
-    val appended = current.messages.size > before.messages.size &&
-        current.messages.subList(0, before.messages.size) == before.messages
+    val appended = (current.messages.size > before.messages.size &&
+        current.messages.subList(0, before.messages.size) == before.messages) ||
+        rollingTranscriptAppend(before.messages, current.messages)
     if (!appended) return TranscriptFollowUpdate(TranscriptFollowState(current))
 
     val follow = readPosition != null && readPosition.snapshot == before && readPosition.atEnd

@@ -219,17 +219,17 @@ class Query2StoryRecordScreenTest {
             val owner = input.selectedOwner("before")
             val model = createModel(fixture, owner)
             content(); settled(model, input.branch("before"))
-            val before = owner.acceptedView()
+            val before = input.acceptedPresentation(owner)
             val calls = owner.transport.turnCalls.get()
             allSections(model, input, "before")
-            assertTrue(before == owner.acceptedView())
+            assertTrue(before == input.acceptedPresentation(owner))
             assertEquals(calls, owner.transport.turnCalls.get())
 
             timeline(model, input.branch("corrected"))
             input.assertBoundPlayer(owner)
-            val corrected = owner.acceptedView()
+            val corrected = input.acceptedPresentation(owner)
             val correctedPages = allSections(model, input, "corrected")
-            assertTrue(corrected == owner.acceptedView())
+            assertTrue(corrected == input.acceptedPresentation(owner))
             assertEquals(calls, owner.transport.turnCalls.get())
             val current = checkNotNull(model.state.value.selectedStory)
             val legacy = owner.transport.exchange(owner.recordCommand(StoryRecordQuery(
@@ -243,18 +243,18 @@ class Query2StoryRecordScreenTest {
             val reopenedOwner = input.selectedOwner("corrected")
             val reopened = createModel(fixture, reopenedOwner)
             settled(reopened, input.branch("corrected"))
-            assertTrue(corrected == reopenedOwner.acceptedView())
+            assertTrue(corrected == input.acceptedPresentation(reopenedOwner))
             val reopenedCalls = reopenedOwner.transport.turnCalls.get()
             assertEquals(correctedPages, allSections(reopened, input, "corrected"))
-            assertTrue(corrected == reopenedOwner.acceptedView())
+            assertTrue(corrected == input.acceptedPresentation(reopenedOwner))
 
             // The producer performed this real native rediscovery before exporting the archive.
             // UI selection/browsing performs no discovery, generation, correction or commit.
             timeline(reopened, input.branch("rediscovered"))
             input.assertBoundPlayer(reopenedOwner)
-            val rediscovered = reopenedOwner.acceptedView()
+            val rediscovered = input.acceptedPresentation(reopenedOwner)
             allSections(reopened, input, "rediscovered")
-            assertTrue(rediscovered == reopenedOwner.acceptedView())
+            assertTrue(rediscovered == input.acceptedPresentation(reopenedOwner))
             assertEquals(reopenedCalls, reopenedOwner.transport.turnCalls.get())
         }
     }
@@ -269,17 +269,17 @@ class Query2StoryRecordScreenTest {
             content(); settled(model, input.branch("corrected"))
             val original = input.drill()
             assertNotEquals(input.branch("corrected"), original.originalScope.branch)
-            val accepted = owner.acceptedView()
+            val accepted = input.acceptedPresentation(owner)
             val calls = owner.transport.turnCalls.get()
             open(model)
             eventPage(model, original) // A valid current-player ancestor grant exists first.
             val oldClick = checkNotNull(renderedClick.get())
             drill(model, original)
-            assertTrue(accepted == owner.acceptedView())
+            assertTrue(accepted == input.acceptedPresentation(owner))
             close()
 
             timeline(model, input.branch("rediscovered"))
-            val leafAccepted = owner.acceptedView()
+            val leafAccepted = input.acceptedPresentation(owner)
             open(model); eventPage(model, original)
             val currentLeaf = model.storyRecord.value
             compose.runOnIdle { oldClick(original) }
@@ -287,14 +287,14 @@ class Query2StoryRecordScreenTest {
             assertEquals(currentLeaf, model.storyRecord.value)
             assertNull(model.storyRecord.value.eventDetail)
             drill(model, original) // Current rendered callback can open the same inherited tuple.
-            assertTrue(leafAccepted == owner.acceptedView())
+            assertTrue(leafAccepted == input.acceptedPresentation(owner))
             close()
 
             shell("saved-library").performClick()
             compose.onNodeWithTag("saved-story-${other.story}").performClick()
             settled(model)
             assertEquals(other.story, model.state.value.selectedStory!!.story)
-            val otherAccepted = owner.acceptedView()
+            val otherAccepted = input.acceptedPresentation(owner)
             val otherReference = StoryRecordScopedEvent(StoryRecordScope(other.story, other.branch), original.sequence)
             open(model); eventPage(model, otherReference)
             val currentOther = model.storyRecord.value
@@ -303,7 +303,7 @@ class Query2StoryRecordScreenTest {
             assertEquals(currentOther, model.storyRecord.value)
             assertNull(model.storyRecord.value.eventDetail)
             drill(model, otherReference)
-            assertTrue(otherAccepted == owner.acceptedView())
+            assertTrue(otherAccepted == input.acceptedPresentation(owner))
             assertEquals(calls, owner.transport.turnCalls.get())
 
             val disposedClick = checkNotNull(renderedClick.get())
@@ -318,7 +318,7 @@ class Query2StoryRecordScreenTest {
             val finalOwner = fixture.owner()
             val library = finalOwner.gateway.initialize()
             finalOwner.gateway.resumeSaved(library.stories.single { it.story == other.story })
-            assertTrue(otherAccepted == finalOwner.acceptedView())
+            assertTrue(otherAccepted == input.acceptedPresentation(finalOwner))
             assertEquals(0, finalOwner.transport.turnCalls.get())
         }
     }

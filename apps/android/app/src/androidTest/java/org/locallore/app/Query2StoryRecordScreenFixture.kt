@@ -107,9 +107,16 @@ internal class Query2StoryRecordScreenFixture(private val fixture: RecordFixture
 
     suspend fun assertBoundPlayer(owner: RecordOwner, saved: SavedSnapshot? = null) {
         val current = saved ?: owner.gateway.snapshot()
-        val actual = owner.data(owner.scoped("play_snapshot").put("expected_revision", current.revision))
+        val actual = owner.data(owner.scoped("play_presentation_v2").put("expected_revision", current.revision))
         assertEquals(player, actual.getJSONObject("player").getString("observer"))
         assertNotEquals("player", actual.getJSONObject("player").getString("observer"))
+    }
+
+    /** Native player-visible conservation view for this Domain2 journey, including its control story. */
+    suspend fun acceptedPresentation(owner: RecordOwner): String {
+        val opened = owner.data(owner.scoped("open"))
+        return owner.data(owner.scoped("play_presentation_v2")
+            .put("expected_revision", opened.getLong("revision"))).toString()
     }
 
     /** Setup only: a separate real story with the same scalar event number is not a page grant. */

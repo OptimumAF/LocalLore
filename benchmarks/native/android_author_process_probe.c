@@ -13,6 +13,7 @@
 #include <string.h>
 #include <sys/statfs.h>
 #include <sys/syscall.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifndef __NR_pidfd_open
@@ -26,6 +27,8 @@ struct packet {
     bool boot_known, identity_arguments, uid_known, ticks_known, poll_known;
     int pid, expected_uid, observed_uid, poll_revents, native_errno;
     uint64_t start_ticks;
+    uint64_t observed_boottime_ns;
+    bool boottime_known;
     bool pidfd_opened, proc_opened;
     enum observed_bool pidfd_closed, proc_closed;
 };
@@ -303,16 +306,63 @@ static int emit(const struct packet *p, int result) {
     return write(STDOUT_FILENO, output, (size_t)size) == size ? result : 74;
 }
 
+
+/* CLOCK_BOOTTIME shares Android elapsedRealtimeNanos' suspend-inclusive clock.
+ * Sample only after snapshot has attempted all owned descriptor closures. */
+static void observe_boottime(struct packet *p) {
+    struct timespec now;
+    if (clock_gettime(CLOCK_BOOTTIME, &now) != 0) {
+        int saved = errno;
+        refuse(p, "io", saved);
+        return;
+    }
+    if (now.tv_sec < 0 || now.tv_nsec < 0 || now.tv_nsec >= 1000000000L ||
+        (uint64_t)now.tv_sec > ((uint64_t)INT64_MAX - (uint64_t)now.tv_nsec) / UINT64_C(1000000000)) {
+        refuse(p, "malformed", 0);
+        return;
+    }
+    uint64_t value = (uint64_t)now.tv_sec * UINT64_C(1000000000) + (uint64_t)now.tv_nsec;
+    if (value == 0) { refuse(p, "malformed", 0); return; }
+    p->observed_boottime_ns = value;
+    p->boottime_known = true;
+}
+
+static int emit_v2(const struct packet *p, int result) {
+    char boot[40] = "null", pid[16] = "null", expected[16] = "null", observed[16] = "null";
+    char ticks[32] = "null", revents[16] = "null", error[64] = "null", output[4096];
+    char boottime[32] = "null";
+    if (p->boottime_known) (void)snprintf(boottime, sizeof(boottime), "%" PRIu64, p->observed_boottime_ns);
+    if (p->boot_known) (void)snprintf(boot, sizeof(boot), "\"%s\"", p->boot);
+    if (p->identity_arguments) {
+        (void)snprintf(pid, sizeof(pid), "%d", p->pid);
+        (void)snprintf(expected, sizeof(expected), "%d", p->expected_uid);
+    }
+    if (p->uid_known) (void)snprintf(observed, sizeof(observed), "%d", p->observed_uid);
+    if (p->ticks_known) (void)snprintf(ticks, sizeof(ticks), "%" PRIu64, p->start_ticks);
+    if (p->poll_known) (void)snprintf(revents, sizeof(revents), "%d", p->poll_revents);
+    if (p->error != NULL) (void)snprintf(error, sizeof(error), "\"%s\"", p->error);
+    int size = snprintf(output, sizeof(output),
+        "{\"version\":2,\"protocol\":\"android-author-process-probe-v2\",\"mode\":\"%s\","
+        "\"boot_id\":%s,\"pid\":%s,\"expected_uid\":%s,\"observed_uid\":%s,\"start_ticks\":%s,"
+        "\"state\":\"%s\",\"pidfd_opened\":%s,\"poll_revents\":%s,\"pidfd_closed\":%s,"
+        "\"proc_opened\":%s,\"proc_closed\":%s,\"error\":%s,\"errno\":%d,\"observed_boottime_ns\":%s}\n",
+        p->mode, boot, pid, expected, observed, ticks, p->state, p->pidfd_opened ? "true" : "false",
+        revents, boolean(p->pidfd_closed), p->proc_opened ? "true" : "false", boolean(p->proc_closed), error, p->native_errno, boottime);
+    if (size <= 0 || (size_t)size >= sizeof(output)) return 74;
+    return write(STDOUT_FILENO, output, (size_t)size) == size ? result : 74;
+}
+
 int main(int argc, char **argv) {
     struct packet packet = { .mode = "boot", .state = "refused", .pidfd_closed = UNKNOWN, .proc_closed = UNKNOWN };
     bool boot = argc == 2 && strcmp(argv[1], "--boot") == 0;
+    bool v2 = argc >= 2 && strcmp(argv[1], "--snapshot-v2") == 0;
     if (!boot) {
         uint64_t pid = 0, uid = 0;
         packet.mode = "snapshot";
-        if (argc != 4 || strcmp(argv[1], "--snapshot") != 0 || !decimal(argv[2], INT_MAX, &pid) ||
+        if (argc != 4 || (strcmp(argv[1], "--snapshot") != 0 && !v2) || !decimal(argv[2], INT_MAX, &pid) ||
             !decimal(argv[3], INT_MAX, &uid) || uid < 10000) {
             refuse(&packet, "malformed", 0);
-            return emit(&packet, 64);
+            return v2 ? emit_v2(&packet, 64) : emit(&packet, 64);
         }
         packet.pid = (int)pid;
         packet.expected_uid = (int)uid;
@@ -322,5 +372,6 @@ int main(int argc, char **argv) {
         if (boot) packet.state = "boot";
         else snapshot(&packet);
     }
+    if (v2) { observe_boottime(&packet); return emit_v2(&packet, 0); }
     return emit(&packet, 0);
 }

@@ -301,6 +301,7 @@ class ShellViewModel internal constructor(
             databaseSchemaVersion = saved.databaseSchemaVersion,
             timelines = saved.timelines,
             inventory = saved.inventory?.let { Collections.unmodifiableList(ArrayList(it)) },
+            playerProfile = saved.playerProfile?.detachedCopy(),
             textProvider = saved.textProvider,
             recoveryRequired = false, checkingCancellation = false,
             notice = if (saved.selectionRestoreUnavailable)

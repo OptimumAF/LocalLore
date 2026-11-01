@@ -68,6 +68,8 @@ private val PlayDraftSaver = Saver<PlayDraft, Any>(
     restore = { restorePlayDraft(it) },
 )
 
+private enum class PlayerInspector { INVENTORY, PROFILE }
+
 /** A state-only sample surface. The coordinator owns every response and state change. */
 @Composable
 internal fun LocalLoreScreen(
@@ -137,15 +139,28 @@ internal fun LocalLoreScreen(
     val inventoryScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
     val inventoryEligible = inventoryScope != null && state.inventory != null && !state.recoveryRequired && !state.archiveActive &&
         !state.deletionActive && !state.forkActive && !state.creationActive
+    val profileEligible = inventoryScope != null && state.playerProfile != null && !state.recoveryRequired && !state.archiveActive &&
+        !state.deletionActive && !state.forkActive && !state.creationActive
     val currentInventoryScope by rememberUpdatedState(inventoryScope)
     val currentInventoryEligible by rememberUpdatedState(inventoryEligible)
-    var inventoryVisible by remember(state.persistent, inventoryScope) { mutableStateOf(false) }
-    SideEffect { if (!inventoryEligible) inventoryVisible = false }
+    val currentProfileEligible by rememberUpdatedState(profileEligible)
+    var inspector by remember(state.persistent, inventoryScope) { mutableStateOf<PlayerInspector?>(null) }
+    SideEffect {
+        if ((inspector == PlayerInspector.INVENTORY && !inventoryEligible) ||
+            (inspector == PlayerInspector.PROFILE && !profileEligible)) inspector = null
+    }
     LocalLoreTheme {
         overlay()
-        if (inventoryVisible && inventoryEligible) key(state.persistent, inventoryScope) {
+        if (inspector == PlayerInspector.INVENTORY && inventoryEligible) key(state.persistent, inventoryScope) {
             PlayerInventoryDialog(state.inventory) {
-                if (currentInventoryScope == inventoryScope) inventoryVisible = false
+                if (currentInventoryScope == inventoryScope && inspector == PlayerInspector.INVENTORY) inspector = null
+            }
+        }
+        if (inspector == PlayerInspector.PROFILE && profileEligible) key(state.persistent, inventoryScope) {
+            state.playerProfile?.let { profile ->
+                PlayerSelfProfileDialog(profile, state.rulesProfile, state.revision) {
+                    if (currentInventoryScope == inventoryScope && inspector == PlayerInspector.PROFILE) inspector = null
+                }
             }
         }
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { safePadding ->
@@ -326,7 +341,11 @@ internal fun LocalLoreScreen(
                             if (state.persistent) key(state.persistent, inventoryScope) {
                                 PlayerInventorySummary(state.inventory, inventoryEligible) {
                                     if (inventoryEligible && currentInventoryEligible && currentInventoryScope == inventoryScope)
-                                        inventoryVisible = true
+                                        inspector = PlayerInspector.INVENTORY
+                                }
+                                PlayerSelfProfileSummary(state.playerProfile, profileEligible) {
+                                    if (profileEligible && currentProfileEligible && currentInventoryScope == inventoryScope)
+                                        inspector = PlayerInspector.PROFILE
                                 }
                             } else Text(
                                 "Healing potion · ${state.potionOwner}",

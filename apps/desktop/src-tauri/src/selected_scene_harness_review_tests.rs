@@ -209,7 +209,9 @@ fn all_flag_combinations_are_pure_and_only_exact_scene_mode_is_admitted() {
 
 #[test]
 fn actual_initial_produces_public_scene4_sources_and_complete_external_freeze() {
-    let root = template();
+    // Read capabilities lock run.lock: never reopen the shared copy template.
+    let owned = retained();
+    let root = owned.as_path();
     let fixtures = root.join("comparison-fixtures");
     let original = bytes(root);
     let reply = selected_scene_prepare(&fixtures, "initial").unwrap();

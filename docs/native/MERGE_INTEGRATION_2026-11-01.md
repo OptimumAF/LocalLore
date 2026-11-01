@@ -61,6 +61,15 @@ diagnostic metadata neither prepares a fork nor supplies request/consent or
 native authority. Other sibling exclusions stay enforced. App and ForkPanel
 production code are unchanged by this correction.
 
+The selected-scene review tests now give the test that reopens a read capability
+its own complete fixture copy. The shared OnceLock template remains immutable
+after publication, so parallel byte snapshots do not race its run.lock read
+lease. All exact snapshots, refusal assertions and parallel execution remain.
+
+The LiteRT debug test lock adds only the same org.json version already pinned
+by the new ordinary JVM dependency. An offline selective Gradle update preserved
+every prior lock line; it does not upgrade a production dependency.
+
 ## Secret-scan triage
 
 The failing checks on PRs 294 and 305 flag lists of Android injected signing

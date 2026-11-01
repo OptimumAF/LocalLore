@@ -143,4 +143,3 @@ class PlayerPresentationUiProfileTests(unittest.TestCase):
             with self.assertRaises((build.BuildRefused, core.TargetRefused)): build.verify_current(old.admission())
             bad = admission(); bad['artifacts']['build']['sha256'] = 'f' * 64
             with self.assertRaises((build.BuildRefused, core.TargetRefused)): build.verify_current(bad)
-

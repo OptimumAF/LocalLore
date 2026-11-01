@@ -363,6 +363,48 @@ def _plan(root, manifest_path, entry):
             "preserve": [binding(preserved[key]) for key in sorted(preserved)]}
 
 
+def preview_retirement(root, evidence_manifest_path, registry=DEFAULT_REGISTRY):
+    """Read an unpinned retirement snapshot without creating a registry or lock.
+
+    This is not admission exclusion or permission to retire. The approved
+    operation must still pin/recheck its plan under the existing shared lock.
+    """
+    root = safe_path(root, exists=True, directory=True)
+    registry = safe_path(registry, exists=True, directory=True)
+    lock = registry / "admission.lock"
+    require(not os.path.lexists(lock), "registry_locked")
+    ledger_path = registry / "ledger-v1.json"
+    before = binding(ledger_path)
+    ledger = read_json(ledger_path)
+    _validate(ledger, registry)
+    require(binding(ledger_path) == before, "preview_ledger_changed")
+    entry = _entry(ledger, root)
+    plan = _plan(root, evidence_manifest_path, entry)
+
+    # Hashing large images can take time. Recheck the roster and all retained
+    # evidence; this does not hold image writers or promise a stable future.
+    current = _files(root)
+    expected = {item["path"] for item in plan["remove"] + plan["preserve"]}
+    require({str(path) for path in current.values()} == expected,
+            "preview_guest_tree_changed")
+    for item in plan["remove"]:
+        require(Path(item["path"]).stat().st_size == item["bytes"], "binding_changed")
+    for item in plan["preserve"] + [plan["closure"], plan["evidence_manifest"]]:
+        check_binding(item)
+    preserved = {name: path for name, path in current.items() if name not in DISPOSABLE}
+    require(_evidence(root, evidence_manifest_path, preserved, entry["closure"]) ==
+            plan["evidence_manifest"], "binding_changed")
+    _closed(read_json(entry["closure"]["path"]), entry["proposal_sha256"])
+    require(not os.path.lexists(lock), "registry_locked")
+    require(binding(ledger_path) == before, "preview_ledger_changed")
+    return {"version": 1, "scope": "receipt-avd-retirement-preview-v1",
+            "ledger_binding": before, "plan": plan,
+            "remove_bytes": sum(item["bytes"] for item in plan["remove"]),
+            "preserve_bytes": sum(item["bytes"] for item in plan["preserve"]),
+            "snapshot_only": True, "pins_plan": False, "deletes_images": False,
+            "registry_written": False}
+
+
 def plan_retirement(root, evidence_manifest_path, registry=DEFAULT_REGISTRY):
     """Dry-run only. Review and separately authorize an exact host file operation."""
     root = safe_path(root, exists=True, directory=True)
@@ -385,22 +427,31 @@ def record_retired(root, reviewed_plan, registry=DEFAULT_REGISTRY):
     root, registry = safe_path(root, exists=True, directory=True), safe_path(registry)
     with _locked(registry) as ledger:
         entry = _entry(ledger, root)
-        require(entry["state"] == "closed", "guest_not_closed")
-        require(reviewed_plan == entry["retirement"], "retirement_plan_changed")
-        _verify_retirement_result(entry)
-        tombstone = _tombstone_path(registry, root)
-        receipt = {"version": 1, "root": str(root), "retirement": reviewed_plan}
-        if tombstone.exists():
-            # A crash after receipt publication may leave a closed ledger entry.
-            require(read_json(tombstone) == receipt, "retirement_tombstone_changed")
-        else:
-            with tombstone.open("xb") as stream:
-                stream.write(encoded(receipt))
-                stream.flush()
-                os.fsync(stream.fileno())
-        entry.update(state="retired", retirement_receipt=binding(tombstone))
-        _verify_retired(entry)
-        _atomic_write(registry / "ledger-v1.json", ledger)
+        _record_retired_locked(root, reviewed_plan, registry, ledger, entry)
+
+
+def _record_retired_locked(root, reviewed_plan, registry, ledger, entry):
+    """Finalize under the caller's existing admission lock; same public semantics.
+
+    Only the exact-file executor and record_retired use this internal boundary.
+    The executor must not release admission exclusion between deletion and here.
+    """
+    require(entry["state"] == "closed", "guest_not_closed")
+    require(reviewed_plan == entry["retirement"], "retirement_plan_changed")
+    _verify_retirement_result(entry)
+    tombstone = _tombstone_path(registry, root)
+    receipt = {"version": 1, "root": str(root), "retirement": reviewed_plan}
+    if tombstone.exists():
+        # A crash after receipt publication may leave a closed ledger entry.
+        require(read_json(tombstone) == receipt, "retirement_tombstone_changed")
+    else:
+        with tombstone.open("xb") as stream:
+            stream.write(encoded(receipt))
+            stream.flush()
+            os.fsync(stream.fileno())
+    entry.update(state="retired", retirement_receipt=binding(tombstone))
+    _verify_retired(entry)
+    _atomic_write(registry / "ledger-v1.json", ledger)
 
 
 def _tombstone_path(registry, root):

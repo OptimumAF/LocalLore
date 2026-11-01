@@ -90,3 +90,79 @@ model input, repair/deadline/cancel/stale races, exact durable retry/restart,
 v1/v2 restore and tamper rejection, no-inference replay and actual native scene
 evidence. Real local worker lifecycle measurements alone do not satisfy the
 scene or enjoyment gates. This ADR does not close physical-phone qualification.
+
+
+## 2026-10-30: complete evidence words and immutable history
+
+Fresh narration advances to `grounded-prose-v2.5-whole-evidence-words-v1`,
+presentation to `grounded-prose-v2.6-story-presentation-whole-evidence-words-v1`,
+and scene narration to `grounded-prose-v2.7-scene-frame-whole-evidence-words-v1`.
+Complete words are segmented before Unicode case folding; sensitive phrases and
+complete visible-name spans use consistent boundaries. This finite English-first
+guard does not prove semantic entailment or authorize canonical effects.
+
+Recognized 2.1–2.4 records retain their original policies and interpretation only
+through private validated history reconstruction and exact recorded retry.
+Fresh generation and commits, including staged commits, require the current
+policy. Preserve the
+old public scene V1 constant; use a separate current V2 constant. Never retag old
+receipts, normalize their stored prose or add an arbitrary legacy commit mode.
+
+Eval's old descriptor APIs remain immutable. Explicit current APIs serve new
+writers; readers retain exact whole old/current descriptor families and reject
+mixed or drifted tuples. Tauri's private Fresh/Recorded index validation preserves
+historical inspectability, while Resume still compares full freshly prepared
+metadata/source/protocol before consent and execution grants. Prompt, provider
+schema, dependencies, receipt fields and canonical storage schema are unchanged.
+See [verification and limitations](../runtime/NARRATOR_EVIDENCE_WORDS_2026-10-30.md).
+Refs #9 (M05.03), #14 (M10.04), #29 (D07.04 supporting compatibility).
+
+## 2026-10-31: explicitly selected authored scene V2
+
+Trusted native construction may select MemoryAuthoredSceneV2 or
+PlayerLiteralAuthoredSceneV2 for a validated authored seed. This adds prompt
+versions2.11/2.12, grounded-prose policy2.8 and a scene-frame version2 hash in
+the existing record shape. V1 recipes, defaults, frame bytes, authored-seed
+refusal and historical policies retain their interpretation. Wire metadata
+cannot select a history bypass or mint a staged capability.
+
+The engine constructs a transient candidate, binds its complete history basis,
+and revalidates the approved plan, observation evidence, frame, context and
+presentation before atomic commit. Restore reconstructs that exact recipe;
+recorded retry does not invoke inference. The new frame may add only a typed
+current-location label supported by the candidate player's original seed-fact
+observation. It does not grant a discovery or exempt hidden identifiers.
+
+Only complete eligible label spans extend visible names. English first-person
+tokens are segmented on original alphanumeric/Unicode Mark characters before
+folding; punctuation still separates pronouns. V1 retains its original guard.
+The exact unicode-general-category1.1.0 dependency supplies Unicode16.0
+categories, has no runtime dependencies, and is included in all three locked
+graphs and the desktop notice catalog. This finite lexical safeguard does not
+prove semantic entailment or normalize every language.
+
+See [implementation, evidence and limits](../runtime/AUTHORED_SCENE_V2_2026-10-30.md).
+This is an explicit Core/Host slice; Android/default selection and real-model,
+physical-device and release gates remain separate. Refs #9 (M05.03),
+#14 (M10.04 supporting reliability).
+
+## 2026-10-31: Android native per-story scene adoption
+
+The native-only MemoryStorySceneV1(policy) constructor resolves each validated
+seed independently: absent initial_world selects the existing MemorySceneV1;
+present initial_world selects MemoryAuthoredSceneV2. Domain version alone does
+not distinguish authored stories: materialized authored seeds initially use
+Domain1 and accepted corrections can produce Domain2.
+
+The same pure seed rule labels the selected trace and resolves again on the
+coherent generation snapshot before provider construction. Existing exact-seed
+and accepted-prefix fences reconcile these reads. Never cache the first story's
+choice in global provider configuration or accept a model/profile/UI selector.
+All fixed recipes, Host defaults and concrete seed guards remain unchanged.
+
+Android's existing external Bridge explicitly selects this constructor. JNI,
+Kotlin owners, request envelope, profile/role bounds and ordinary fake-open
+construction remain unchanged. No new prompt, frame, policy or canonical schema
+is introduced; saved records retain their concrete provenance. See the
+[closed host/packaging checks and limitations](../native/ANDROID_STORY_SCENE_V1_VERIFICATION_2026-10-31.md).
+Refs #9 (M05.03), #14 (M10.02 supporting ownership).

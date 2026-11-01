@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import struct
 import sys
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -116,9 +117,26 @@ def worker(output, digest):
     physical_d(output, directory=True)
     need(Path(request["output"]) == output, "output_binding")
     verify_inputs(request)
+    request_pin = env.binding(output / "request-v1.json")
+    need(request_pin["sha256"] == digest, "request_changed")
+    started_path = output / "started-v1.json"
+    until = time.monotonic() + 5
+    # Wait only for absence. A present malformed/foreign receipt is never retried.
+    while not os.path.lexists(started_path):
+        need(time.monotonic() < until, "started_deadline")
+        time.sleep(.01)
+    started_pin = env.binding(started_path)
+    started = env.read_bound_json(started_path, started_pin["sha256"])
+    need(type(started) is dict and set(started) == {"worker", "request"} and
+         started["worker"] == env.process_identity(os.getpid()) and
+         started["request"] == request_pin, "started_receipt")
+    env.check_binding(request_pin)
+    env.check_binding(started_pin)
     need(not os.path.lexists(output / "android-author-process-probe-v1"), "create_only_binary")
     capture.run_command(output, "compile", request["command"], ROOT, variables())
     verify_inputs(request)
+    env.check_binding(request_pin)
+    env.check_binding(started_pin)
     elf_image(output / "android-author-process-probe-v1")
     return 0
 
@@ -137,21 +155,28 @@ def build(ndk, output):
                    builder=env.binding(Path(__file__).resolve()), tools=tools, command=command(llvm, output),
                    environment={key: str(TEMP) for key in ("TEMP", "TMP", "TMPDIR")})
     env.create_json(output / "request-v1.json", request)
+    request_pin = env.binding(output / "request-v1.json")
     started_pin = None
 
     def started(child):
         nonlocal started_pin
-        env.create_json(output / "started-v1.json", dict(worker=env.process_identity(child.pid)))
+        env.check_binding(request_pin)
+        pending = output / "started.pending-v1.json"
+        env.create_json(pending, dict(worker=env.process_identity(child.pid), request=request_pin))
+        pending.rename(output / "started-v1.json")  # Create-only atomic publication on this Windows host.
         started_pin = env.binding(output / "started-v1.json")
         return True
 
     owner = env.supervise([sys.executable, "-I", "-S", "-B", str(Path(__file__).resolve()), "_worker",
-                            str(output), env.digest(output / "request-v1.json")], GO, output, 300, started)
+                            str(output), request_pin["sha256"]], GO, output, 300, started)
     env.create_json(output / "owner-result-v1.json", owner)
     binary = compiled = image = None
     passed = False
     try:
         verify_inputs(request)
+        env.check_binding(request_pin)
+        need(started_pin is not None, "owner")
+        env.check_binding(started_pin)
         need(owner["status"] == "child_exited" and type(owner["worker_returncode"]) is int and
              owner["worker_returncode"] == 0 and owner["cleanup_complete"] is True and
              owner["output_capture_complete"] is True and owner["stderr_bytes"] == 0 and
@@ -172,7 +197,7 @@ def build(ndk, output):
                 binary = env.binding(path)
     result = dict(version=1, scope=SCOPE, ndk_revision=NDK, target=TARGET, source=request["source"],
                   builder=request["builder"], tools=tools, command=request["command"], environment=request["environment"],
-                  request=env.binding(output / "request-v1.json"), started=started_pin,
+                  request=request_pin, started=started_pin,
                   owner=env.binding(output / "owner-result-v1.json"), compile=compiled, binary=binary, elf=image,
                   passed=passed, feature_acceptance=False)
     env.create_json(output / "result-v1.json", result)

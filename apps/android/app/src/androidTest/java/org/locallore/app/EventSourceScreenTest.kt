@@ -46,13 +46,18 @@ class EventSourceScreenTest {
         recordTag("story-record-section-history").performClick()
         loaded(model) { it.section == StoryRecordSection.HISTORY }
     }
-    private fun detail(model: ShellViewModel, sequence: Long) {
+    private fun scopedSearch(reference: StoryRecordScopedEvent) =
+        "\"event\":{\"sequence\":${reference.sequence},\"scope\":{\"story\":\"${reference.originalScope.story}\",\"branch\":\"${reference.originalScope.branch}\"}"
+    private fun detail(model: ShellViewModel, reference: StoryRecordScopedEvent) {
+        val sequence = reference.sequence
         loaded(model) { it.eventDetail?.let { detail -> detail.reference == sequence && !detail.loading } == true }
         val detail = model.storyRecord.value.eventDetail!!
         assertNull(detail.problem)
         val entry = checkNotNull(detail.entry)
         val event = checkNotNull(entry.event)
         assertEquals(sequence, event.sequence)
+        assertEquals(reference, detail.scopedReference)
+        assertEquals(reference.originalScope, event.originalScope)
         compose.onNodeWithTag("story-event-detail").assertIsDisplayed()
         compose.onNodeWithTag("story-record-content").assertDoesNotExist()
         compose.onNodeWithText("Frozen accepted head \u00B7 ${model.storyRecord.value.context!!.revision}").performScrollTo().assertIsDisplayed()
@@ -77,18 +82,19 @@ class EventSourceScreenTest {
             val accepted = owner.acceptedView()
             val turnCalls = owner.transport.turnCalls.get()
             val model = eventModel(fixture, owner)
-            val renderedEventClick = AtomicReference<((Long) -> Unit)?>(null)
+            val renderedEventClick = AtomicReference<((StoryRecordScopedEvent) -> Unit)?>(null)
             compose.setContent {
                 val state by model.state.collectAsState()
                 val records by model.storyRecord.collectAsState()
                 val renderedRecordContext = records.context
-                val openEvent: (Long) -> Unit = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) }
+                val openEvent: (StoryRecordScopedEvent) -> Unit = { reference -> model.openScopedRecordEvent(reference, renderedRecordContext) }
                 SideEffect { renderedEventClick.set(openEvent) }
                 LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::reset,
                     onResume = model::resume, onRecover = model::recover, onStoryRecord = model::openStoryRecord) {
                     StoryRecordDialog(records, model::closeStoryRecord, model::recordSection, model::recordSearch,
                         model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
-                        onEvent = openEvent,
+                        onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) },
+                        onScopedEvent = openEvent,
                         onEventBack = model::backToStoryRecord,
                         onEventRetry = model::retryRecordEvent)
                 }
@@ -105,29 +111,30 @@ class EventSourceScreenTest {
             val page = model.storyRecord.value
             assertEquals("recorded", page.search)
             assertTrue(page.entries.isNotEmpty())
-            val index = page.entries.indexOfFirst { it.eventSources.isNotEmpty() }
+            val index = page.entries.indexOfFirst { it.scopedEventSources.isNotEmpty() }
             assertTrue(index >= 0)
-            val source = page.entries[index].eventSources.first()
+            val source = page.entries[index].scopedEventSources.first()
             val oldRenderedClick = checkNotNull(renderedEventClick.get())
-            assertTrue(source in 1..saved.revision)
-            assertTrue(page.entries.all { 999L !in it.eventSources })
-            compose.onNodeWithText("Open event #999").assertDoesNotExist()
-            recordTag("story-record-source-$index-0").assertTextEquals("Open event #$source").performClick()
+            assertTrue(source.sequence in 1..saved.revision)
+            assertTrue(page.entries.all { it.eventSources.isEmpty() && it.scopedEventSources.none { reference -> reference.sequence == 999L } })
+            compose.onAllNodes(hasText("Open event #999", substring = true)).assertCountEquals(0)
+            recordTag("story-record-scoped-source-$index-0").assertTextEquals(
+                "Open event #${source.sequence} · ${source.originalScope.story} / ${source.originalScope.branch}").performClick()
             detail(model, source)
             val canonicalDetail = owner.gateway.readStoryRecord(StoryRecordQuery(
-                StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY, "\"sequence\":$source,"))
+                StoryRecordContext(checkNotNull(saved.selected), saved.revision), StoryRecordSection.HISTORY, scopedSearch(source)))
             assertEquals(canonicalDetail.entries.single(), model.storyRecord.value.eventDetail!!.entry)
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             loaded(model) { it.eventDetail == null }
             assertEquals("Platform Back changed page, search, cursor or entries", page, model.storyRecord.value)
             recordTag("story-record-search").assert(hasText("recorded"))
             compose.onNodeWithTag("story-record-section-history").assertIsSelected()
-            recordTag("story-record-source-$index-0").performClick()
+            recordTag("story-record-scoped-source-$index-0").performClick()
             detail(model, source)
             compose.onNodeWithTag("story-event-back").performClick()
             loaded(model) { it.eventDetail == null }
             assertEquals("Explicit Back changed the searched page", page, model.storyRecord.value)
-            recordTag("story-record-source-$index-0").performClick()
+            recordTag("story-record-scoped-source-$index-0").performClick()
             detail(model, source)
             compose.onNodeWithTag("story-record-close").performClick()
             compose.onNodeWithTag("story-record-dialog").assertDoesNotExist()
@@ -145,9 +152,12 @@ class EventSourceScreenTest {
             loaded(model)
             history(model)
             recordTag("story-record-empty").assertIsDisplayed()
-            compose.onNodeWithTag("story-record-source-$index-0").assertDoesNotExist()
+            compose.onNodeWithTag("story-record-scoped-source-$index-0").assertDoesNotExist()
             val empty = model.storyRecord.value
-            compose.runOnIdle { model.openRecordEvent(source); model.retryRecordEvent() }
+            compose.runOnIdle {
+                model.openRecordEvent(source.sequence) // A scalar remains inert.
+                model.openScopedRecordEvent(source, page.context); model.retryRecordEvent()
+            }
             compose.waitForIdle()
             assertEquals("Old-story source callback attached to the new story", empty, model.storyRecord.value)
             assertTrue(other == owner.acceptedView())
@@ -155,25 +165,29 @@ class EventSourceScreenTest {
 
             // Give the second story its own same-numbered event and a current page grant.
             // An old render must still carry its original context, not read a live delegate.
-            repeat(source.toInt()) {
+            repeat(source.sequence.toInt()) {
                 owner.commitIntent(JSONObject().put("kind", "actions").put("value", JSONArray()
                     .put(JSONObject().put("op", "wait").put("ticks", 1))))
             }
             compose.runOnIdle { model.recover() }
-            compose.waitUntil(8_000) { !model.state.value.busy && model.state.value.revision == source }
+            compose.waitUntil(8_000) { !model.state.value.busy && model.state.value.revision == source.sequence }
             val otherAccepted = owner.acceptedView()
             val finalTurnCalls = owner.transport.turnCalls.get()
             shellTag("story-record-open").performClick(); loaded(model); history(model)
-            search(model, "\"sequence\":$source,")
-            assertEquals(listOf(source), model.storyRecord.value.entries.single().eventSources)
+            val selected = checkNotNull(model.state.value.selectedStory)
+            val expectedCurrent = StoryRecordScopedEvent(StoryRecordScope(selected.story, selected.branch), source.sequence)
+            search(model, scopedSearch(expectedCurrent))
+            val currentReference = model.storyRecord.value.entries.single().scopedEventSources.single()
+            assertEquals(expectedCurrent, currentReference)
+            assertTrue(model.storyRecord.value.entries.single().eventSources.isEmpty())
             val currentPage = model.storyRecord.value
-            compose.runOnIdle { oldRenderedClick(source) }
+            compose.runOnIdle { oldRenderedClick(currentReference) }
             compose.waitForIdle()
             assertNull("Retained rendered callback borrowed a same-numbered event from another story",
                 model.storyRecord.value.eventDetail)
             assertEquals(currentPage, model.storyRecord.value)
-            compose.runOnIdle { checkNotNull(renderedEventClick.get())(source) }
-            detail(model, source)
+            compose.runOnIdle { checkNotNull(renderedEventClick.get())(currentReference) }
+            detail(model, currentReference)
             assertTrue(otherAccepted == owner.acceptedView())
             assertEquals(finalTurnCalls, owner.transport.turnCalls.get())
             compose.onNodeWithTag("story-record-close").performClick()
@@ -186,11 +200,13 @@ class EventSourceScreenTest {
             shellTag("story-record-open").performClick()
             loaded(model) { it.context?.story?.story == checkNotNull(saved.selected).story }
             history(model)
-            search(model, "\"sequence\":1,")
+            val original = checkNotNull(saved.selected)
+            search(model, scopedSearch(StoryRecordScopedEvent(StoryRecordScope(original.story, original.branch), 1)))
             assertEquals(1, model.storyRecord.value.total)
             assertEquals(StoryRecordOrigin.RECORDED_OBSERVATION, model.storyRecord.value.entries.single().origin)
-            recordTag("story-record-source-0-0").performClick()
-            detail(model, 1)
+            val originalReference = model.storyRecord.value.entries.single().scopedEventSources.single()
+            recordTag("story-record-scoped-source-0-0").performClick()
+            detail(model, originalReference)
             assertTrue(model.storyRecord.value.eventDetail!!.entry!!.text.contains("mira"))
             compose.onNodeWithTag("story-record-close").performClick()
             assertTrue("Resuming and browsing changed old-story canon", accepted == owner.acceptedView())

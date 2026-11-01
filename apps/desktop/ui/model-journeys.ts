@@ -328,11 +328,12 @@ export async function modelJourneys({
             | undefined;
         check(
             currentPlay?.prompt_version === "locallore-play-v2.5" &&
-                currentPlay.policy === "grounded-prose-v2.2" &&
+                currentPlay.policy ===
+                    "grounded-prose-v2.5-whole-evidence-words-v1" &&
                 currentPlay.context?.version === 2 &&
                 currentPlay.context.compiler_version === 2 &&
                 currentPlay.context_policy === "state_relevant_memory_v1",
-            "real-current-play25-narrator22-context2-compiler2-relevant-provenance",
+            "real-current-play25-whole-evidence-words-context2-compiler2-relevant-provenance",
         );
         check(
             c.get().play!.receipts.length === 1,

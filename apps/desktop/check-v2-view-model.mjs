@@ -444,6 +444,117 @@ const wrongPromiseOrigin = clone(
 );
 wrongPromiseOrigin.origin = "canonical_field";
 rejects(() => page(envelope([wrongPromiseOrigin], qPromise), qPromise));
+
+// Query2 displays Rust u64 deadlines as decimal strings. Legacy safe integers
+// remain readable without rounding; all other numeric fields keep their rules.
+const promiseRow = (deadline) => ({
+    ...clone(rowFamilies.find(([view]) => view === "promises")[1]),
+    deadline,
+});
+const promisedEvent = (deadline) => ({
+    ...event(),
+    event: {
+        ...event().event,
+        consequence: {
+            effect: "promised",
+            id: "return-key",
+            commitment: {
+                from: "player",
+                to: "oren",
+                terms: "Return key",
+                deadline,
+                source: { kind: "event", value: 1 },
+                return_item: "brass-key",
+                completed_by: null,
+            },
+        },
+    },
+});
+const promiseChange = (deadline, side) => ({
+    kind: "change",
+    key: "promise-change",
+    before_revision: 1,
+    after_revision: 3,
+    before: side === "before" ? promiseRow(deadline) : null,
+    after: side === "after" ? promiseRow(deadline) : null,
+    origin: "derived_comparison",
+});
+const deadlineSlots = [
+    ["promises", promiseRow, (row) => row.deadline],
+    [
+        "history",
+        promisedEvent,
+        (row) => row.event.consequence.commitment.deadline,
+    ],
+    [
+        "turn_diff",
+        (value) => promiseChange(value, "before"),
+        (row) => row.before.deadline,
+    ],
+    [
+        "turn_diff",
+        (value) => promiseChange(value, "after"),
+        (row) => row.after.deadline,
+    ],
+];
+for (const [view, makeRow, displayed] of deadlineSlots) {
+    const q = { ...query(), view };
+    for (const deadline of [
+        "0",
+        "120",
+        "9007199254740991",
+        "9007199254740992",
+        "9223372036854775807",
+        "9223372036854775808",
+        "18446744073709551615",
+        0,
+        120,
+        Number.MAX_SAFE_INTEGER,
+    ]) {
+        const row = makeRow(deadline);
+        const decoded = accepts(() => page(envelope([row], q), q));
+        assert.equal(displayed(decoded.rows[0]), deadline);
+        assert.deepEqual(decoded.rows[0], row);
+        checks++;
+    }
+    for (const deadline of [
+        "",
+        "00",
+        "01",
+        "-1",
+        "+1",
+        "1.0",
+        "1e3",
+        " 1",
+        "1 ",
+        "1\n",
+        "1\r\n",
+        "1\u2028",
+        "1\u2029",
+        "18446744073709551616",
+        "99999999999999999999",
+        "100000000000000000000",
+        "١",
+        "１",
+        true,
+        false,
+        null,
+        1.25,
+        -1,
+        Number.MAX_SAFE_INTEGER + 1,
+        Infinity,
+        NaN,
+    ])
+        rejects(() => page(envelope([makeRow(deadline)], q), q));
+}
+// The decimal-string exception belongs only to the two deadline display slots.
+const numericEvent = event();
+numericEvent.event.story_time = "18446744073709551615";
+rejects(() => page(envelope([numericEvent]), query()));
+const qDiffDeadline = { ...query(), view: "turn_diff" };
+const nestedEvent = promiseChange("18446744073709551615", "after");
+nestedEvent.after = promisedEvent("18446744073709551615");
+rejects(() => page(envelope([nestedEvent], qDiffDeadline), qDiffDeadline));
 console.log(
     JSON.stringify({
         suite: "synthetic-v2-wire-decoder",

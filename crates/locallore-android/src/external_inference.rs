@@ -2,9 +2,9 @@
 //! SDK-neutral external inference for a production workspace owner. No model, JNI reference or thread.
 use locallore::{
     contracts::{Error, Scope, VERSION},
-    host::Host,
+    host::{Host, HostPlayConstructionV1},
     inference::{Cancellation, GenerationRequest, InferenceProvider, Input},
-    play::PlayProfile,
+    play::{PlayContextPolicy, PlayProfile},
 };
 use serde_json::{json, Value};
 use std::{
@@ -54,7 +54,7 @@ impl Bridge {
         });
         let provider_bridge = bridge.clone();
         let provider_profile = profile.clone();
-        host.configure_local_provider(
+        host.configure_local_provider_with_construction(
             profile,
             Arc::new(move || {
                 Box::new(BridgeProvider {
@@ -64,6 +64,7 @@ impl Bridge {
                     ticket: None,
                 })
             }),
+            HostPlayConstructionV1::MemoryStorySceneV1(PlayContextPolicy::StateRelevantMemoryV1),
         )
         .map_err(|_| "Profile")?;
         Ok(bridge)

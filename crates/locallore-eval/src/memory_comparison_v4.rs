@@ -83,11 +83,27 @@ pub fn arm_descriptors() -> [ArmDescriptorV4; 2] {
 impl ArmDescriptorV4 {
     pub fn validate(&self) -> Result<()> {
         let index = usize::from(self.arm == ComparisonArmV4::RelevantMemorySceneV1);
-        if *self != arm_descriptors()[index] {
+        if *self != arm_descriptors()[index] && *self != current_arm_descriptors()[index] {
             return Err("ArmDescriptorBinding".into());
         }
         Ok(())
     }
+}
+
+/// Current writers opt into the strict policy; original descriptor bytes stay fixed.
+pub fn current_arm_descriptors() -> [ArmDescriptorV4; 2] {
+    let mut arms = arm_descriptors();
+    for arm in &mut arms {
+        arm.narration_policy = scene_narration::SCENE_NARRATION_POLICY_V2.into();
+    }
+    arms
+}
+
+pub fn validate_arm_family(arms: &[ArmDescriptorV4; 2]) -> Result<()> {
+    if arms != &arm_descriptors() && arms != &current_arm_descriptors() {
+        return Err("ArmDescriptorBinding".into());
+    }
+    Ok(())
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -109,7 +125,7 @@ pub fn current_binding(native: bool) -> Result<CurrentBindingV4> {
     let existing = crate::memory_comparison_v2::current_binding(native)?;
     Ok(CurrentBindingV4 {
         protocol_version: VERSION,
-        arms: arm_descriptors(),
+        arms: current_arm_descriptors(),
         source_sha256: existing.source_sha256,
         suite_sha256: existing.suite_sha256,
         forwarded_budget_version: 1,

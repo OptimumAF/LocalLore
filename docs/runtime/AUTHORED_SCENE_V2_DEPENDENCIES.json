@@ -1,0 +1,50 @@
+{
+  "build_script_scope": "Generate category table from bundled source into Cargo OUT_DIR; no network/device/model calls",
+  "cached_files": {
+    "Cargo.toml.orig": {
+      "bytes": 555,
+      "sha256": "1a6929e005e17736774751c6e93e937ad4c784c49f5bbff7869cb2aa2bdd29ab"
+    },
+    "LICENSE": {
+      "bytes": 11357,
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+    },
+    "build.rs": {
+      "bytes": 5861,
+      "sha256": "a877183b60fdc9846063f7ed5a1dc23f8ef26e1ff4994bc4cfc7418ddb4ec48e"
+    },
+    "src/lib.rs": {
+      "bytes": 3030,
+      "sha256": "453b676d79102ac764a4a5115d80702203a4641fed9d2572fe30c82a64d265cc"
+    }
+  },
+  "compatibility_execution_evidence": "See the separately source-bound verification report; metadata is not device execution",
+  "declared_rust_version": null,
+  "manifest_edition": "2018",
+  "no_runtime_dependencies": true,
+  "no_std_runtime": true,
+  "official_tag": "1.1.0",
+  "package": {
+    "checksum": "0b993bddc193ae5bd0d623b49ec06ac3e9312875fdae725a975c51db1cc1677f",
+    "license": "Apache-2.0",
+    "name": "unicode-general-category",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "version": "1.1.0"
+  },
+  "policy_scope": "V2 English first-person word boundaries only; V1 interpretation retained",
+  "project_toolchain": "1.93.1",
+  "source_urls": {
+    "Cargo.toml": "https://github.com/yeslogic/unicode-general-category/blob/1.1.0/Cargo.toml",
+    "LICENSE": "https://github.com/yeslogic/unicode-general-category/blob/1.1.0/LICENSE",
+    "README.md": "https://github.com/yeslogic/unicode-general-category/blob/1.1.0/README.md",
+    "build.rs": "https://github.com/yeslogic/unicode-general-category/blob/1.1.0/build.rs",
+    "src/lib.rs": "https://github.com/yeslogic/unicode-general-category/blob/1.1.0/src/lib.rs"
+  },
+  "unicode_data_version": "16.0.0",
+  "vcs": {
+    "git": {
+      "sha1": "cb2d8a62f035c33d6971b99322aae65f3cea7c88"
+    },
+    "path_in_vcs": ""
+  }
+}

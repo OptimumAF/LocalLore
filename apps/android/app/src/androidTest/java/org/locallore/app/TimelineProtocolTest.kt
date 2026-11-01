@@ -80,22 +80,22 @@ class TimelineProtocolTest {
                 }
                 "open" -> ok(JSONObject().put("scope", scope(selected)).put("revision", head()))
                 "close" -> ok(JSONObject())
-                "play_snapshot" -> {
+                "play_presentation_v2" -> {
                     assertEquals(head(), command.getLong("expected_revision"))
                     val receipts = JSONArray().put(JSONObject().put("request", JSONObject()
                         .put("scope", scope("main", receiptStory)).put("turn", "ancestor-original")
                         .put("intent", JSONObject().put("kind", "dialogue")
-                            .put("value", JSONObject().put("text", "I may be mistaken."))))
+                            .put("value", JSONObject().put("text", "I may be mistaken.").put("audience", JSONArray().put("mira")))))
                         .put("narration", "Mira heard your statement."))
                     if (selected == "child") receipts.put(JSONObject().put("request", JSONObject()
                         .put("scope", scope("child")).put("turn", "child-original")
                         .put("intent", JSONObject().put("kind", "dialogue")
-                            .put("value", JSONObject().put("text", "These are only my words."))))
+                            .put("value", JSONObject().put("text", "These are only my words.").put("audience", JSONArray().put("mira")))))
                         .put("narration", "Your words were recorded."))
-                    ok(JSONObject().put("scope", scope(selected)).put("revision", head()).put("rules", "fantasy_v1")
+                    ok(presentationFixture(JSONObject().put("scope", scope(selected)).put("revision", head()).put("rules", "fantasy_v1")
                         .put("inventory", JSONObject().put("potion", JSONObject()))
                         .put("player", JSONObject().put("scope", scope(selected)).put("revision", head()).put("observer", "player"))
-                        .put("receipts", receipts))
+                        .put("receipts", receipts)))
                 }
                 else -> error("Unexpected protocol operation")
             }
@@ -153,7 +153,7 @@ class TimelineProtocolTest {
             assertEquals(listOf("I may be mistaken.", "Mira heard your statement.",
                 "These are only my words.", "Your words were recorded."), child.messages.map { it.text })
             assertEquals("You", child.potionOwner)
-            assertTrue(transport.calls.all { it in setOf("workspace", "resume", "open", "play_snapshot", "branches", "capabilities", "close") })
+            assertTrue(transport.calls.all { it in setOf("workspace", "resume", "open", "play_presentation_v2", "branches", "capabilities", "close") })
             assertEquals(2, transport.calls.count { it == "branches" })
         } finally { gateway.close() }
         assertTrue(transport.closed)

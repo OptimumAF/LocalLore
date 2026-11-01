@@ -43,6 +43,7 @@ const sourceFiles = [
     "ui/App.tsx",
     "ui/controller.ts",
     "ui/v2-play-controller.ts",
+    "ui/fork-controller.ts",
     "ui/TurnDebugger.tsx",
     "ui/trace-model.ts",
     "check-main-live-narration-diagnostic-review.mjs",
@@ -396,6 +397,10 @@ await test(
     "actual App mounts thin metadata only and preserves excluded sibling controls",
     async (f) => {
         await f.ready();
+        const before = f.host.calls.length,
+            nativeBefore = f.host.nativeCalls.length,
+            fork = f.props.fork,
+            forkState = fork.get();
         const tree = f.render(),
             all = nodes(tree);
         const debuggerNodes = all.filter(
@@ -403,12 +408,51 @@ await test(
         );
         assert.equal(debuggerNodes.length, 1);
         assert.equal(debuggerNodes[0].props.controller, f.c);
+        const timelineNodes = all.filter(
+            (n) => n.type?.name === "TimelinePanel",
+        );
+        assert.equal(timelineNodes.length, 1);
+        assert(f.props.timeline);
+        assert.equal(timelineNodes[0].props.timeline, f.props.timeline);
+        const selected = f.c.selected(),
+            state = f.c.get();
+        assert.deepEqual(plain(state.playV2.scope), plain(selected.scope));
+        assert.equal(state.playV2.revision, selected.revision);
+        assert.deepEqual(plain(timelineNodes[0].props.context), {
+            session: selected.id,
+            scope: plain(selected.scope),
+            revision: state.playV2.revision,
+            view: state.view,
+            observer: state.observer,
+            persistent: state.workspace?.persistent === true,
+        });
+        assert(f.props.timeline.matchesContext(timelineNodes[0].props.context));
+        const forkNodes = all.filter((n) => n.type?.name === "ForkPanel");
+        assert.equal(forkNodes.length, 1);
+        const forkContext = forkNodes[0].props.context;
+        assert.deepEqual(Object.keys(forkNodes[0].props).sort(), [
+            "context",
+            "fork",
+            "gameplay",
+        ]);
+        assert.equal(forkNodes[0].props.fork, fork);
+        assert.equal(forkNodes[0].props.gameplay, f.c);
+        assert.deepEqual(
+            plain(forkContext),
+            plain(timelineNodes[0].props.context),
+        );
+        assert(fork.matchesContext(forkContext));
+        for (const key of ["request", "result", "operation", "boundaryCatalog"])
+            assert.equal(
+                forkState[key],
+                null,
+                `NoImplicitForkAuthority:${key}`,
+            );
+        assert.equal(forkState.consent, false);
         for (const name of [
             "CapturePanel",
             "QueryInspector",
             "InspectionPanel",
-            "TimelinePanel",
-            "ForkPanel",
             "MemoryMaintenancePanel",
         ])
             assert.equal(
@@ -423,9 +467,58 @@ await test(
             assert(button);
             assert.equal(button.props.disabled, true);
         }
-        const before = f.host.calls.length;
         f.render();
         assert.equal(f.host.calls.length, before, "RenderNeverReadsDiagnostic");
+        assert.equal(
+            f.host.nativeCalls.length,
+            nativeBefore,
+            "RenderNeverDispatchesFork",
+        );
+        assert.equal(fork.get(), forkState, "RenderNeverChangesForkAuthority");
+        await f.c.readTraceNarrationValidation();
+        const metadata = diag(f).reply;
+        assert(metadata);
+        assert.equal(metadata.generation_grant, false);
+        // Metadata is neither a completed-boundary catalog nor a consented
+        // request. Use the actual public ForkController admission methods.
+        fork.prepareFromCatalog(
+            baseRevision,
+            "diagnostic-child",
+            forkContext,
+            metadata,
+        );
+        await fork.confirmExact(metadata, forkContext);
+        assert.equal(
+            fork.get(),
+            forkState,
+            "DiagnosticNeverChangesForkAuthority",
+        );
+        const afterForkNodes = nodes(f.render()).filter(
+            (n) => n.type?.name === "ForkPanel",
+        );
+        assert.equal(afterForkNodes.length, 1);
+        assert.equal(afterForkNodes[0].props.fork, fork);
+        assert.equal(afterForkNodes[0].props.gameplay, f.c);
+        assert.deepEqual(
+            plain(afterForkNodes[0].props.context),
+            plain(forkContext),
+        );
+        assert(fork.matchesContext(afterForkNodes[0].props.context));
+        assert.equal(
+            fork.get(),
+            forkState,
+            "DiagnosticRenderNeverChangesForkAuthority",
+        );
+        assert.deepEqual(
+            f.host.calls.slice(before).map((q) => q.op),
+            ["trace_narration_validation_read_v1"],
+            "MetadataDoesNotDispatchSiblingOperations",
+        );
+        assert.deepEqual(
+            f.host.nativeCalls.slice(nativeBefore).map((q) => q.command),
+            ["host_call"],
+            "MetadataDoesNotDispatchNativeForkOperations",
+        );
     },
     { domain: 2 },
 );

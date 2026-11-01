@@ -63,12 +63,15 @@ impl SelectedManifest2 {
         Ok(matches!(self.lane()?, SelectedLane::ApprovedNative))
     }
     fn execution_manifest(&self) -> Result<Manifest> {
-        Manifest::new_with_lane(
+        v3::validate_arm_family(&self.arms)?;
+        let mut manifest = Manifest::new_with_lane(
             self.source_kind,
             self.profile.clone(),
             self.native()?,
             self.source_reference_sha256.clone(),
-        )
+        )?;
+        manifest.binding.arms = self.arms.clone();
+        Ok(manifest)
     }
     fn validate(&self) -> Result<()> {
         let corpus = suite()?;
@@ -89,7 +92,6 @@ impl SelectedManifest2 {
         if self.version != 2
             || self.source_protocol_version != 3
             || self.run_type != "selected_case"
-            || self.arms != v3::arm_descriptors()
             || !matches!(self.lane.as_str(), LANE | NATIVE_LANE)
             || !shared::client_valid(&self.client_id)
             || !hex(&self.binding)
@@ -206,7 +208,7 @@ fn manifest_for(
         version: 2,
         run_type: "selected_case".into(),
         source_protocol_version: 3,
-        arms: v3::arm_descriptors(),
+        arms: v3::current_arm_descriptors(),
         client_id,
         binding: String::new(),
         source_binding: value["binding"].as_str().ok_or("Source")?.into(),

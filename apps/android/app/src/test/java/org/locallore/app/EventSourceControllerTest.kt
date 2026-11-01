@@ -14,25 +14,38 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventSourceControllerTest {
     private val context = StoryRecordContext(SavedStory("story-a", "root", "Synthetic", 12), 12)
-    private fun field(refs: List<Long> = listOf(2)) = StoryRecordEntry("field", "Trust", "1",
-        StoryRecordOrigin.CANONICAL_FIELD, listOf("Event #2"), refs)
-    private fun listPage(q: StoryRecordQuery, entry: StoryRecordEntry = field()) = StoryRecordPage(q, 1000, 1, listOf(entry), null)
-    private fun detail(q: StoryRecordQuery, id: Long = 2) = StoryRecordPage(q, 1000, 1,
-        listOf(StoryRecordEntry("event-$id", "Event #$id", "A recorded statement was made.",
-            StoryRecordOrigin.RECORDED_OBSERVATION, listOf("Event #$id"), listOf(id), StoryRecordEvent(id, "turn-id", 100))), null)
-    private fun isDetail(q: StoryRecordQuery) = q.search.startsWith("\"sequence\":")
+    private fun reference(context: StoryRecordContext = this.context, id: Long = 2) =
+        StoryRecordScopedEvent(StoryRecordScope(context.story.story, context.story.branch), id)
+    private fun label(ref: StoryRecordScopedEvent) = "Event #${ref.sequence} · ${ref.originalScope.story} / ${ref.originalScope.branch}"
+    private fun search(ref: StoryRecordScopedEvent) = "\"event\":{\"sequence\":${ref.sequence},\"scope\":{\"story\":\"${ref.originalScope.story}\",\"branch\":\"${ref.originalScope.branch}\"}"
+    private fun field(refs: List<StoryRecordScopedEvent> = listOf(reference())) = StoryRecordEntry("field", "Trust", "1",
+        StoryRecordOrigin.CANONICAL_FIELD, refs.map(::label).ifEmpty { listOf(label(reference())) }, scopedEventSources = refs)
+    private fun listPage(q: StoryRecordQuery, entry: StoryRecordEntry = field(listOf(reference(q.context)))) = StoryRecordPage(q, 1000, 1, listOf(entry), null)
+    private fun detail(q: StoryRecordQuery, id: Long = 2): StoryRecordPage {
+        val ref = reference(q.context, id)
+        return StoryRecordPage(q, 1000, 1,
+            listOf(StoryRecordEntry("event-$id", "Event #$id", "A recorded statement was made.",
+                StoryRecordOrigin.RECORDED_OBSERVATION, listOf(label(ref)),
+                event = StoryRecordEvent(id, "turn-id", 100, ref.originalScope), scopedEventSources = listOf(ref))), null)
+    }
+    private fun isDetail(q: StoryRecordQuery) = q.search.startsWith("\"event\":{\"sequence\":")
 
     @Test fun onlyTypedCurrentPageReferencesAuthorizeAnEventRead() = runTest {
         val calls = mutableListOf<StoryRecordQuery>()
         val controller = StoryRecordController({ q -> calls += q; if (isDetail(q)) detail(q) else listPage(q) }, this)
         controller.openEvent(2); controller.open(context); advanceUntilIdle()
         for (id in listOf(-1L, 0L, 1L, 3L, 13L)) controller.openEvent(id)
+        controller.openEvent(2) // A bare ID is inert even when the scoped tuple is on the page.
+        for (ref in listOf(reference(id = -1), reference(id = 0), reference(id = 1), reference(id = 3), reference(id = 13),
+            reference().copy(originalScope = StoryRecordScope("other-story", "root")),
+            reference().copy(originalScope = StoryRecordScope("story-a", "other-branch")))) controller.openScopedEvent(ref)
         advanceUntilIdle(); assertEquals(1, calls.size)
-        controller.openEvent(2); advanceUntilIdle()
+        controller.openScopedEvent(reference()); advanceUntilIdle()
         assertEquals(2, calls.size)
-        assertEquals(StoryRecordQuery(context, StoryRecordSection.HISTORY, "\"sequence\":2,"), calls.last())
+        assertEquals(StoryRecordQuery(context, StoryRecordSection.HISTORY, search(reference())), calls.last())
         assertEquals(2L, controller.state.value.eventDetail!!.entry!!.event!!.sequence)
         controller.dismiss(); controller.openEvent(2); controller.retryEvent(); advanceUntilIdle()
+        controller.openScopedEvent(reference()); advanceUntilIdle()
         assertEquals(2, calls.size)
     }
 
@@ -42,6 +55,7 @@ class EventSourceControllerTest {
             val controller = StoryRecordController({ q -> calls++; listPage(q, field(emptyList()).copy(sources = listOf(label))) }, this)
             controller.open(context); advanceUntilIdle()
             controller.openEvent(2); advanceUntilIdle()
+            controller.openScopedEvent(reference()); advanceUntilIdle()
             assertEquals(1, calls)
             assertNull(controller.state.value.eventDetail)
         }
@@ -58,7 +72,7 @@ class EventSourceControllerTest {
         controller.search("recorded"); advanceUntilIdle()
         controller.next(); advanceUntilIdle()
         val page = controller.state.value
-        controller.openEvent(2); advanceUntilIdle()
+        controller.openScopedEvent(reference()); advanceUntilIdle()
         val readCount = calls
         controller.back(); advanceUntilIdle()
         assertEquals(page, controller.state.value)
@@ -69,28 +83,29 @@ class EventSourceControllerTest {
         val controller = StoryRecordController({ q ->
             if (isDetail(q)) StoryRecordPage(q, 1000, 0, emptyList(), null) else listPage(q)
         }, this)
-        controller.open(context); advanceUntilIdle(); controller.openEvent(2); advanceUntilIdle()
+        controller.open(context); advanceUntilIdle(); controller.openScopedEvent(reference()); advanceUntilIdle()
         assertEquals(StoryRecordProblem.EVENT_UNAVAILABLE, controller.state.value.eventDetail!!.problem)
         assertNull(controller.state.value.eventDetail!!.entry)
         controller.back(); assertEquals(1, controller.state.value.entries.size)
     }
 
     @Test fun malformedEventResponsesCannotBecomeVisibleDetails() = runTest {
+        val originalScope = reference().originalScope
         val changes: List<(StoryRecordPage) -> StoryRecordPage> = listOf(
             { it.copy(query = it.query.copy(context = context.copy(revision = 11))) },
             { it.copy(total = 2) }, { it.copy(entries = it.entries + it.entries) },
             { it.copy(nextCursor = "unexpected") }, { it.copy(storyTime = 1001) },
             { it.copy(entries = listOf(field())) },
-            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(3, "wrong-event", 100)))) },
-            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "", 100)))) },
-            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "   ", 100)))) },
-            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "bad\nturn", 100)))) },
-            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "x".repeat(65), 100)))) },
-            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "turn-id", 1001)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(3, "wrong-event", 100, originalScope)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "", 100, originalScope)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "   ", 100, originalScope)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "bad\nturn", 100, originalScope)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "x".repeat(65), 100, originalScope)))) },
+            { it.copy(entries = listOf(it.entries.single().copy(event = StoryRecordEvent(2, "turn-id", 1001, originalScope)))) },
         )
         for (change in changes) {
             val controller = StoryRecordController({ q -> if (isDetail(q)) change(detail(q)) else listPage(q) }, this)
-            controller.open(context); advanceUntilIdle(); controller.openEvent(2); advanceUntilIdle()
+            controller.open(context); advanceUntilIdle(); controller.openScopedEvent(reference()); advanceUntilIdle()
             assertEquals(StoryRecordProblem.INVALID_RESPONSE, controller.state.value.eventDetail!!.problem)
             assertNull(controller.state.value.eventDetail!!.entry)
         }
@@ -98,7 +113,7 @@ class EventSourceControllerTest {
 
     @Test fun futureDuplicateAndUnboundedTypedReferencesInvalidateThePage() = runTest {
         for (refs in listOf(listOf(0L), listOf(13L), listOf(2L, 2L), List(65) { 1L })) {
-            val controller = StoryRecordController({ q -> listPage(q, field(refs)) }, this)
+            val controller = StoryRecordController({ q -> listPage(q, field(refs.map { reference(id = it) })) }, this)
             controller.open(context); advanceUntilIdle()
             assertEquals(StoryRecordProblem.INVALID_RESPONSE, controller.state.value.problem)
             assertTrue(controller.state.value.entries.isEmpty())
@@ -117,7 +132,7 @@ class EventSourceControllerTest {
             }, this)
             controller.open(context); advanceUntilIdle()
             val original = controller.state.value
-            controller.openEvent(2); runCurrent(); controller.back()
+            controller.openScopedEvent(reference()); runCurrent(); controller.back()
             end.complete(Unit); advanceUntilIdle()
             assertEquals(original, controller.state.value)
         }
@@ -130,7 +145,7 @@ class EventSourceControllerTest {
                 if (isDetail(q)) { withContext(NonCancellable) { end.await() }; detail(q) }
                 else listPage(q).copy(total = 2, nextCursor = if (q.cursor == null) "next" else null)
             }, this)
-            controller.open(context); advanceUntilIdle(); controller.openEvent(2); runCurrent()
+            controller.open(context); advanceUntilIdle(); controller.openScopedEvent(reference()); runCurrent()
             when (transition) {
                 0 -> controller.select(StoryRecordSection.KNOWLEDGE)
                 1 -> controller.search("new search")
@@ -157,10 +172,10 @@ class EventSourceControllerTest {
                 release.await(); detail(q)
             }
         }, this)
-        controller.open(context); advanceUntilIdle(); controller.openEvent(2); advanceUntilIdle()
+        controller.open(context); advanceUntilIdle(); controller.openScopedEvent(reference()); advanceUntilIdle()
         assertFalse(controller.state.value.toString().contains("PRIVATE"))
         controller.retryEvent(); runCurrent()
-        controller.retryEvent(); controller.openEvent(2); runCurrent()
+        controller.retryEvent(); controller.openScopedEvent(reference()); runCurrent()
         assertEquals(2, reads)
         assertTrue(controller.state.value.eventDetail!!.loading)
         assertNull(controller.state.value.eventDetail!!.problem)
@@ -169,18 +184,20 @@ class EventSourceControllerTest {
     }
 
     @Test fun detailAndPageCollectionsAreFrozenBeforePublication() = runTest {
-        val refs = mutableListOf(2L)
-        val sources = mutableListOf("Event #2")
+        val refs = mutableListOf(reference())
+        val sources = mutableListOf(label(reference()))
         val controller = StoryRecordController({ q ->
-            if (isDetail(q)) detail(q).let { it.copy(entries = listOf(it.entries.single().copy(eventSources = refs, sources = sources))) }
+            if (isDetail(q)) detail(q).let { it.copy(entries = listOf(it.entries.single().copy(scopedEventSources = refs, sources = sources))) }
             else listPage(q, field(refs))
         }, this)
-        controller.open(context); advanceUntilIdle(); controller.openEvent(2); advanceUntilIdle()
+        controller.open(context); advanceUntilIdle(); controller.openScopedEvent(reference()); advanceUntilIdle()
         refs.clear(); sources.clear()
-        assertEquals(listOf(2L), controller.state.value.entries.single().eventSources)
-        assertEquals(listOf(2L), controller.state.value.eventDetail!!.entry!!.eventSources)
-        assertEquals(listOf("Event #2"), controller.state.value.eventDetail!!.entry!!.sources)
-        controller.dispose(); controller.open(context); controller.openEvent(2); controller.retryEvent(); controller.back()
+        assertEquals(listOf(reference()), controller.state.value.entries.single().scopedEventSources)
+        assertEquals(listOf(reference()), controller.state.value.eventDetail!!.entry!!.scopedEventSources)
+        assertTrue(controller.state.value.entries.single().eventSources.isEmpty())
+        assertTrue(controller.state.value.eventDetail!!.entry!!.eventSources.isEmpty())
+        assertEquals(listOf(label(reference())), controller.state.value.eventDetail!!.entry!!.sources)
+        controller.dispose(); controller.open(context); controller.openScopedEvent(reference()); controller.openEvent(2); controller.retryEvent(); controller.back()
         advanceUntilIdle(); assertEquals(StoryRecordState(), controller.state.value)
     }
 

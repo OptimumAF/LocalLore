@@ -145,7 +145,7 @@ fn original_source() -> &'static PathBuf {
                     assert_eq!(turn.row.phase, "committed");
                     assert!(turn.row.passed);
                 }
-                assert_eq!(turn.row.construction, v3::arm_descriptors()[arm]);
+                assert_eq!(turn.row.construction, v3::current_arm_descriptors()[arm]);
                 let checkpoint: StoredTurn3 =
                     decode(&checkpoint_path(&d, index), 256 * 1024).unwrap();
                 assert!(encode(&checkpoint).unwrap() == encode(&turn).unwrap());
@@ -350,7 +350,7 @@ fn selected_move_preserves_actual_divergent_per_arm_prefix_request_and_v3_constr
     assert!(report["source_reference_sha256"].is_null());
     assert_eq!(
         report["arms"],
-        serde_json::to_value(v3::arm_descriptors()).unwrap()
+        serde_json::to_value(v3::current_arm_descriptors()).unwrap()
     );
     assert_eq!(
         report["selection"],
@@ -381,7 +381,7 @@ fn selected_move_preserves_actual_divergent_per_arm_prefix_request_and_v3_constr
             rows[arm].input_semantic_sha256
         );
         let row: TurnReportV3 = serde_json::from_value(report["rows"][arm].clone()).unwrap();
-        assert_eq!(row.construction, v3::arm_descriptors()[arm]);
+        assert_eq!(row.construction, v3::current_arm_descriptors()[arm]);
         assert_eq!(row.turn, step.id());
         assert_eq!(row.arm, ARM_NAMES[arm]);
         assert_eq!(row.phase, "committed");

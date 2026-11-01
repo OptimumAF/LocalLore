@@ -9,6 +9,7 @@ machine settings, or modify environment variables.
 ```powershell
 python scripts/check.py host --offline
 python scripts/check.py android --offline --clean
+python scripts/check.py android --archive-verification --offline
 ```
 
 `host` runs Rust 1.93.1 workspace formatting, warning-free Clippy over all targets,
@@ -36,7 +37,24 @@ in [Android experiment instructions](../runtime/android/README.md). Its known
 SDK lint metadata limitation does not weaken the production Android check gate.
 
 `android` runs debug app and instrumentation APK assembly, JVM tests, lint and the
-coordinator-owned debug APK packaging/manifest audit (`scripts/audit_apk.py`).
+coordinator-owned product APK audit (`scripts/audit_apk.py`), followed by the
+instrumentation pair audit (`scripts/audit_instrumentation_apk.py`). The existing
+build and product-audit command prefix is retained; pair verification is now the
+third command, and its failure stops the gate.
+An actual fresh offline archive-profile execution, including 332 passing JVM
+cases, lint and both public audits, is recorded in the
+[2026-10-30 public Android gate report](../android/PUBLIC_ANDROID_GATE_VERIFICATION_2026-10-30.md).
+The [updated system-theme archive report](../android/SYSTEM_THEME_ARCHIVE_VERIFICATION_2026-10-30.md)
+records a later fresh run of the same gate with 337 passing JVM cases and the
+current theme resources; device execution remains separate.
+The [transcript-navigation archive report](../android/TRANSCRIPT_ARCHIVE_VERIFICATION_2026-10-30.md)
+records the subsequent fresh run with 345 passing JVM cases, both public audits
+and four compiled, unrun transcript journeys.
+The [guarded archive UI harness](../runtime/android/ARCHIVE_UI_HARNESS.md) adds
+a fixed model-free ten-method controller with current-source build admission.
+Its [verification report](../android/ARCHIVE_UI_HARNESS_VERIFICATION_2026-10-30.md)
+records 2,567 Python cases, a fresh 345-case Android JVM/build gate and genuine
+build-manifest replay; all ten Android UI methods remain unrun.
 It does not install APKs or run device tests. `--clean` cleans Android outputs
 before these checks and is rejected for `host`. Android checks require Java 17,
 SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865 and the Rust 1.93.1
@@ -44,6 +62,49 @@ SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865 and the Rust 1.93.1
 existing JDK; otherwise `java` must be on `PATH`.
 The APK audit requires `ANDROID_HOME` or `ANDROID_SDK_ROOT` pointing to the SDK
 with Build Tools 35.0.0, even when standalone Gradle uses `local.properties`.
+
+`android --archive-verification` selects the existing isolated archive profile
+with `-PlocalLoreArchiveVerification=true`. It builds the app/test APKs, runs
+JVM tests/lint, audits the product APK under
+`apps/android/app/build-archive-verification/outputs/apk/debug/`, and checks its
+instrumentation pair under `outputs/apk/androidTest/debug/`. The ordinary
+command still selects `build/` and `org.locallore.app`. The archive option is
+rejected for `host` before any checks start. It does not install APKs or execute
+instrumented tests.
+
+To audit an already built archive-profile product APK without rebuilding:
+
+```powershell
+python scripts/audit_apk.py apps/android/app/build-archive-verification/outputs/apk/debug/app-debug.apk --archive-verification
+```
+
+This selects only `org.locallore.app.archiveverify`, including its exact scoped
+signature permission and backup-resource namespace. Mixing the archive option
+with any model/input verification option is refused before reading the APK or
+starting AAPT. Omitting the option retains the ordinary package contract; an
+archive APK is not accepted as an ordinary APK. These entry points reuse the
+same ZIP, SDK, manifest, backup-rule and receipt-service policies. They accept
+no arbitrary package name.
+
+To verify an already built archive-profile app/test pair without rebuilding:
+
+```powershell
+python scripts/audit_instrumentation_apk.py apps/android/app/build-archive-verification/outputs/apk/debug/app-debug.apk apps/android/app/build-archive-verification/outputs/apk/androidTest/debug/app-debug-androidTest.apk --archive-verification
+```
+
+Omit the archive option for the ordinary `build/` pair. This command verifies
+distinct, stable APK bytes; exact packages/SDKs and runner target; the existing
+test permission/activity/provider inventory; no shared/aliased or overridden
+test-application identity; and one matching verified signer. It reuses the
+phone auditor's closed test-manifest policy rather than defining a second
+provider policy. Product ZIP validation also runs; full product backup checks
+remain in the preceding product audit.
+
+Signature verification uses the installed SDK's `lib/apksigner.jar` through the
+existing selected Java executable (`JAVA_HOME` or `java` on PATH). Only
+`verify --verbose --print-certs` runs; no private key is read, generated or used
+to sign an APK. Matching certificates establish pairing, not a trusted release
+publisher. No device or instrumented test is run by this artifact check.
 
 The audit checks the current debug contract: min26/target36, only the app-owned
 signature receiver permission, exactly the two supported ABI/library sets,

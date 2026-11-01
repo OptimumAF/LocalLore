@@ -15,6 +15,8 @@ import struct
 
 PROTOCOL = 'isolated-adb-lease-v2'
 PORT = 15937
+PHONE_PROTOCOL = 'owned-phone-discovery-service-v1'
+PHONE_PORT = 5037
 SDK_VERSION = '37.0.1-15733141'
 ADB_SHA256 = 'b4a6b455702684652cccf7b46258b29e653538904359a58fd4931cf3ef286b3f'
 TOOL_NAMES = {'adb.exe','AdbWinApi.dll','AdbWinUsbApi.dll','libwinpthread-1.dll','source.properties','NOTICE.txt'}
@@ -100,13 +102,24 @@ def _sources(value):
           len({p.parent for p in parsed}) == 1 and parsed[0].parent.name == 'benchmarks','source')
 
 
+def port_for_protocol(protocol):
+    """Select one fixed profile; public metadata is not execution authority."""
+    _need(type(protocol) is str and protocol in (PROTOCOL,PHONE_PROTOCOL))
+    return PHONE_PORT if protocol == PHONE_PROTOCOL else PORT
+
+
+def _port(port):
+    _need(type(port) is int and port in (PORT,PHONE_PORT),'tuple')
+    return port
+
+
 def validate_admission(value):
     try:
         _obj(value,ADMISSION_KEYS)
-        _int(value['version'],1,1); _need(value['protocol'] == PROTOCOL)
+        _int(value['version'],1,1); port = port_for_protocol(value['protocol'])
         _need(type(value['run_id']) is str and re.fullmatch('[0-9a-f]{32}',value['run_id']) is not None)
-        _path(value['root'],project=True); _int(value['port'],PORT,PORT)
-        _int(value['seconds'],30,1700,'budget')
+        _path(value['root'],project=True); _int(value['port'],port,port)
+        _int(value['seconds'],30,120 if value['protocol'] == PHONE_PROTOCOL else 1700,'budget')
         _binding(value['adb']); _need(value['adb']['sha256'] == ADB_SHA256,'tool')
         _need(PureWindowsPath(value['adb']['path']).name == 'adb.exe','tool')
         tools = value['tools']; _need(type(tools) is list and len(tools) == len(TOOL_NAMES),'tool')
@@ -140,7 +153,7 @@ def server_command(admission):
     value = validate_admission(admission)
     # ADB accepts only its literal local-host spelling here. This selects the
     # native IPv4 loopback branch; a numeric hostname hits its unsupported path.
-    return [value['adb']['path'],'-L','tcp:localhost:%d' % PORT,'server','nodaemon']
+    return [value['adb']['path'],'-L','tcp:localhost:%d' % value['port'],'server','nodaemon']
 
 
 def child_environment(admission, inherited):
@@ -150,6 +163,8 @@ def child_environment(admission, inherited):
     aliases = {'ADBHOST','ADBPORT','ADBSERVERPORT','ANDROIDADBPORT','TEMP','TMP','TMPDIR'}
     result = {k:v for k,v in inherited.items() if not k.upper().startswith(('ADB_','ANDROID_')) and k.upper() not in aliases}
     result.update(FIXED_ENV)
+    if value['protocol'] == PHONE_PROTOCOL:
+        result['ADB_USB'] = '1'
     result['ANDROID_ADB_LOG_PATH'] = str(PureWindowsPath(value['root'])/'adb.log')
     return result
 
@@ -157,9 +172,9 @@ def child_environment(admission, inherited):
 def validate_running(value, admission, admission_binding):
     admitted = validate_admission(admission); _binding(admission_binding,project=True)
     _obj(value,RUNNING_KEYS)
-    _int(value['version'],1,1); _need(value['protocol'] == PROTOCOL)
+    _int(value['version'],1,1); _need(value['protocol'] == admitted['protocol'])
     _need(_same(value['admission'],admission_binding) and value['run_id'] == admitted['run_id'] and
-          type(value['port']) is int and value['port'] == PORT)
+          type(value['port']) is int and value['port'] == admitted['port'])
     for key in ('owner','worker','server'):
         _process(value[key])
     _need(len({value[k]['pid'] for k in ('owner','worker','server')}) == 3,'identity')
@@ -170,28 +185,33 @@ def validate_running(value, admission, admission_binding):
     _need(value['deadline_epoch']-value['started_epoch'] == admitted['seconds'],'clock')
     _need(_same(value['sources'],admitted['sources']) and _same(value['adb'],admitted['adb']),'source')
     for key,name in (('version_proof','proof-version-v1.json'),('devices_proof','proof-devices-v1.json')):
-        _binding(value[key],project=True)
-        _need(PureWindowsPath(value[key]['path']) == PureWindowsPath(admitted['root'])/name,'binding')
+        if admitted['protocol'] == PHONE_PROTOCOL:
+            _need(value[key] is None,'capability')
+        else:
+            _binding(value[key],project=True)
+            _need(PureWindowsPath(value[key]['path']) == PureWindowsPath(admitted['root'])/name,'binding')
     return copy.deepcopy(value)
 
 
-def check_stop(value, admission_sha256):
+def check_stop(value, admission_sha256, protocol=PROTOCOL):
+    port_for_protocol(protocol)
     _need(type(admission_sha256) is str and re.fullmatch('[0-9a-f]{64}',admission_sha256) is not None,'stop')
     _obj(value,('version','protocol','admission_sha256','action'),'stop')
     _int(value['version'],1,1,'stop')
-    _need(value['protocol'] == PROTOCOL and value['admission_sha256'] == admission_sha256 and value['action'] == 'stop','stop')
+    _need(value['protocol'] == protocol and value['admission_sha256'] == admission_sha256 and value['action'] == 'stop','stop')
 
 
 def validate_observation(value, server, client, endpoint, *, require_empty=False,
-                         after_request=False, completed_ports=()):
+                         after_request=False, completed_ports=(), port=PORT):
     from benchmarks.windows_tcp_observation import decode_table
+    port = _port(port)
     _need(type(require_empty) is bool and type(after_request) is bool,'observation')
     _need(type(completed_ports) is tuple and len(completed_ports) <= 2,'tuple')
-    for port in completed_ports:
-        _int(port,1,65535,'tuple'); _need(port not in (5037,PORT),'tuple')
+    for completed in completed_ports:
+        _int(completed,1,65535,'tuple'); _need(completed not in (PHONE_PORT,PORT),'tuple')
     _need(len(set(completed_ports)) == len(completed_ports),'tuple')
     _obj(value,('version','port','rows','families'),'observation')
-    _int(value['version'],1,1); _int(value['port'],PORT,PORT)
+    _int(value['version'],1,1); _int(value['port'],port,port)
     _need(_same(value['families'],[2,23]),'observation')
     rows = value['rows']; _need(type(rows) is list and len(rows) <= 64,'observation')
     decoded,ordinals = [],set()
@@ -216,21 +236,21 @@ def validate_observation(value, server, client, endpoint, *, require_empty=False
         _process(client); _need(client['pid'] != server['pid'],'identity')
         _obj(endpoint,('local_address','local_port','peer_address','peer_port'),'tuple')
         _need(endpoint['local_address'] == endpoint['peer_address'] == '127.0.0.1','tuple')
-        _int(endpoint['peer_port'],PORT,PORT,'tuple'); _int(endpoint['local_port'],1,65535,'tuple')
-        _need(endpoint['local_port'] not in (PORT,5037,*completed_ports),'tuple')
+        _int(endpoint['peer_port'],port,port,'tuple'); _int(endpoint['local_port'],1,65535,'tuple')
+        _need(endpoint['local_port'] not in (PORT,PHONE_PORT,*completed_ports),'tuple')
     else:
         _need(not after_request,'tuple')
     candidates,servers,clients,historical = [],[],[],set()
     for row in decoded:
         _need(row['family'] == 2 and row['local_address'] == '127.0.0.1' and
               row['local_scope_id'] == row['remote_scope_id'] == 0,'observation')
-        if row['local_port'] == PORT and row['remote_address'] == '0.0.0.0' and row['remote_port'] == 0:
+        if row['local_port'] == port and row['remote_address'] == '0.0.0.0' and row['remote_port'] == 0:
             candidates.append(row); _need(row['pid'] == server['pid'],'identity')
-        elif endpoint is not None and row['local_port'] == PORT and row['remote_address'] == '127.0.0.1' and row['remote_port'] == endpoint['local_port']:
+        elif endpoint is not None and row['local_port'] == port and row['remote_address'] == '127.0.0.1' and row['remote_port'] == endpoint['local_port']:
             servers.append(row); _need(row['pid'] in ((0,server['pid']) if after_request else (server['pid'],)),'identity')
-        elif endpoint is not None and row['local_port'] == endpoint['local_port'] and row['remote_address'] == '127.0.0.1' and row['remote_port'] == PORT:
+        elif endpoint is not None and row['local_port'] == endpoint['local_port'] and row['remote_address'] == '127.0.0.1' and row['remote_port'] == port:
             clients.append(row); _need(row['pid'] in ((0,client['pid']) if after_request else (client['pid'],)),'identity')
-        elif row['local_port'] == PORT and row['remote_address'] == '127.0.0.1' and row['remote_port'] in completed_ports:
+        elif row['local_port'] == port and row['remote_address'] == '127.0.0.1' and row['remote_port'] in completed_ports:
             _need(row['pid'] in (0,server['pid']),'identity')
             _need(row['remote_port'] not in historical,'tuple'); historical.add(row['remote_port'])
         else:
@@ -350,7 +370,7 @@ def _tables(value, observation):
 def validate_proof(binding, admission, admission_binding, worker, server, kind, *, completed_ports=()):
     """Replay one closed owned-lease exchange; never query its former socket."""
     admitted = validate_admission(admission); _binding(admission_binding,project=True)
-    _need(kind in ('version','devices'),'schema'); _binding(binding,project=True)
+    _need(admitted['protocol'] == PROTOCOL and kind in ('version','devices'),'schema'); _binding(binding,project=True)
     _need(type(completed_ports) is tuple,'tuple')
     _need(PureWindowsPath(binding['path']) == PureWindowsPath(admitted['root'])/('proof-%s-v1.json'%kind),'binding')
     value = _json_bound(binding); _obj(value,PROOF_KEYS)
@@ -399,7 +419,7 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     _need(PureWindowsPath(binding['path']) == root/'worker-result-v1.json','binding')
     _need(PureWindowsPath(request_binding['path']) == root/'request-v1.json','binding')
     value = _json_bound(binding); _obj(value,WORKER_KEYS)
-    _int(value['version'],1,1); _need(value['protocol'] == PROTOCOL)
+    _int(value['version'],1,1); _need(value['protocol'] == admitted['protocol'])
     _need(_same(value['admission'],admission_binding) and _same(value['request'],request_binding),'binding')
     _process(expected_worker); _need(_same(value['worker'],expected_worker),'identity')
     server = value['server']; _process(server)
@@ -415,7 +435,7 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     capture = _json_bound(value['server_capture'])
     _obj(capture,('version','protocol','server','status','returncode','stdout','stderr','stdout_bytes','stderr_bytes',
                   'capture_complete','pipes_closed'),'binding')
-    _int(capture['version'],1,1); _need(capture['protocol'] == PROTOCOL)
+    _int(capture['version'],1,1); _need(capture['protocol'] == admitted['protocol'])
     _need(_same(capture['server'],server) and capture['status'] == 'terminated' and
           type(capture['returncode']) is int and capture['returncode'] == value['server_returncode'] and
           capture['capture_complete'] is True and capture['pipes_closed'] is True,'identity')
@@ -431,7 +451,7 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     _need(PureWindowsPath(value['preflight']['path']) == root/'preflight-v1.json','binding')
     pre = _json_bound(value['preflight'])
     _obj(pre,('observation','tables','created_mask','close_attempted_mask','closed_mask','exclusive_bind_succeeded'))
-    validate_observation(pre['observation'],None,None,None,require_empty=True); _tables(pre['tables'],pre['observation'])
+    validate_observation(pre['observation'],None,None,None,require_empty=True,port=admitted['port']); _tables(pre['tables'],pre['observation'])
     for key in ('created_mask','close_attempted_mask','closed_mask'):
         _int(pre[key],1,1)
     _need(pre['exclusive_bind_succeeded'] is True,'observation')
@@ -441,11 +461,11 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     for index,entry in enumerate(readiness):
         _obj(entry,('observation','tables'))
         if index < len(readiness)-1:
-            validate_observation(entry['observation'],None,None,None,require_empty=True)
+            validate_observation(entry['observation'],None,None,None,require_empty=True,port=admitted['port'])
         else:
-            validate_observation(entry['observation'],server,None,None)
+            validate_observation(entry['observation'],server,None,None,port=admitted['port'])
         _tables(entry['tables'],entry['observation'])
-    _need(type(value['proofs']) is list and len(value['proofs']) == 2,'capability')
+    _need(type(value['proofs']) is list and len(value['proofs']) == (0 if admitted['protocol'] == PHONE_PROTOCOL else 2),'capability')
     history = ()
     for kind,pin in zip(('version','devices'),value['proofs']):
         proof = validate_proof(pin,admitted,admission_binding,expected_worker,server,kind,completed_ports=history)
@@ -456,7 +476,7 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
     running = validate_running(_json_bound(value['running']),admitted,admission_binding)
     request = _json_bound(request_binding)
     _obj(request,('version','protocol','admission','validated_admission','owner','sources','python','worker_script','owner_seconds'))
-    _int(request['version'],1,1); _need(request['protocol'] == PROTOCOL)
+    _int(request['version'],1,1); _need(request['protocol'] == admitted['protocol'])
     _process(request['owner'])
     script = next(pin for pin in admitted['sources'] if PureWindowsPath(pin['path']).name == 'isolated_adb_owner.py')
     _need(_same(request['admission'],admission_binding) and _same(request['validated_admission'],admitted) and
@@ -464,6 +484,8 @@ def validate_worker_result(binding, admission, admission_binding, request_bindin
           _same(request['worker_script'],script),'source')
     _int(request['owner_seconds'],admitted['seconds']+30,admitted['seconds']+30,'budget')
     _need(_same(running['worker'],expected_worker) and _same(running['server'],server) and
-          _same(running['owner'],request['owner']) and
-          _same(running['version_proof'],value['proofs'][0]) and _same(running['devices_proof'],value['proofs'][1]),'identity')
+          _same(running['owner'],request['owner']),'identity')
+    if admitted['protocol'] == PROTOCOL:
+        _need(_same(running['version_proof'],value['proofs'][0]) and
+              _same(running['devices_proof'],value['proofs'][1]),'identity')
     return copy.deepcopy(value)

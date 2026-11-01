@@ -190,7 +190,8 @@ class AuthKeyGuard:
         return not self.handles and not self.failed_close
 
 
-def _observe(api,endpoint=None):
+def _observe(api,endpoint=None,port=lease.PORT):
+    port=lease._port(port)
     native._check_abi();rows=[];tables=[]
     for family in (2,23):
         table=api.capture(family)
@@ -199,23 +200,24 @@ def _observe(api,endpoint=None):
         tables.append(dict(family=family,table_class=5,allocated_bytes=table.allocated_bytes,
             returned_bytes=len(table.raw),count=len(decoded),raw_sha256=hashlib.sha256(table.raw).hexdigest(),abi_checked=True))
         for ordinal,row in enumerate(decoded):
-            selected=row.local_port==lease.PORT or endpoint is not None and family==2 and row.local_address=="127.0.0.1" \
-                and row.local_port==endpoint["local_port"] and row.remote_address=="127.0.0.1" and row.remote_port==lease.PORT
+            selected=row.local_port==port or endpoint is not None and family==2 and row.local_address=="127.0.0.1" \
+                and row.local_port==endpoint["local_port"] and row.remote_address=="127.0.0.1" and row.remote_port==port
             if selected:
                 _need(len(rows)<64,"port")
                 value=asdict(row);value.update(ordinal=ordinal,raw_hex=table.raw[4+ordinal*stride:4+(ordinal+1)*stride].hex())
                 rows.append(value)
-    return dict(version=1,port=lease.PORT,rows=rows,families=[2,23]),tables
+    return dict(version=1,port=port,rows=rows,families=[2,23]),tables
 
 
-def _exclusive_preflight(api):
-    observation,tables=_observe(api)
-    lease.validate_observation(observation,None,None,None,require_empty=True,after_request=False,completed_ports=())
+def _exclusive_preflight(api,port=lease.PORT):
+    port=lease._port(port)
+    observation,tables=_observe(api,port=port)
+    lease.validate_observation(observation,None,None,None,require_empty=True,after_request=False,completed_ports=(),port=port)
     sockets=[];created=attempted=closed=0;bound=False
     try:
         item=socket.socket(socket.AF_INET,socket.SOCK_STREAM);sockets.append((item,1));created=1
         item.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
-        item.bind(("127.0.0.1",lease.PORT))
+        item.bind(("127.0.0.1",port))
         bound=True
     except (OSError,ValueError):pass
     finally:
@@ -357,12 +359,13 @@ class WorkerRuntime:
             server_alive=True,socket=copy.deepcopy(value))
 
 
-def _endpoint(item):
+def _endpoint(item,port=lease.PORT):
+    port=lease._port(port)
     local=item.getsockname();peer=item.getpeername()
     value=dict(local_address=local[0],local_port=local[1],peer_address=peer[0],peer_port=peer[1])
     _need(value["local_address"]==value["peer_address"]=="127.0.0.1" and
         type(value["local_port"]) is int and 0<value["local_port"]<65536 and
-        value["local_port"] not in (5037,lease.PORT) and value["peer_port"]==lease.PORT,"proof")
+        value["local_port"] not in (5037,lease.PORT) and value["peer_port"]==port,"proof")
     return value
 
 
@@ -386,7 +389,7 @@ def _exchange(runtime,kind):
         elapsed_ms=0,socket_closed=False,client_handle_closed=False)
     item=None;handle=None;failure=None;received=bytearray()
     try:
-        _need(kind in ("version","devices"),"proof");runtime.guard();_clock(until)
+        _need(runtime.admission["protocol"]==lease.PROTOCOL and kind in ("version","devices"),"proof");runtime.guard();_clock(until)
         handle,proof["client"]=runtime.processes.add(os.getpid(),runtime.worker)
         item=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         item.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1);item.bind(("127.0.0.1",0))
@@ -442,12 +445,12 @@ def _ready(runtime):
     try:
         while True:
             _clock(until);runtime.guard()
-            observation,tables=_observe(runtime.api)
+            observation,tables=_observe(runtime.api,port=runtime.admission["port"])
             records.append(dict(observation=observation,tables=tables))
             _need(len(records)<=200,"readiness")
             if observation["rows"]:
                 lease.validate_observation(observation,runtime.server,None,None,after_request=False,
-                    completed_ports=tuple(runtime.completed_ports))
+                    completed_ports=tuple(runtime.completed_ports),port=runtime.admission["port"])
                 runtime.guard();_clock(until)
                 return records,None
             time.sleep(min(.1,_clock(until)))
@@ -484,8 +487,9 @@ def _cleanup(runtime):
 
 def _validate_request(value,pin):
     _need(type(value) is dict and set(value)==REQUEST_KEYS and type(value["version"]) is int and value["version"]==1
-        and value["protocol"]==lease.PROTOCOL,"receipt")
+        and type(value["protocol"]) is str,"receipt")
     admission=lease.validate_admission(value["validated_admission"])
+    _need(value["protocol"]==admission["protocol"],"receipt")
     actual,loaded=_load_admission(value["admission"]["path"],value["admission"]["sha256"])
     _need(_same(actual,value["admission"]) and _same(loaded,admission),"admission")
     root=env.safe_path(admission["root"],directory=True)
@@ -505,31 +509,32 @@ def _run_worker(request,request_pin,root):
     try:
         runtime.open_identity();runtime.wait_receipt()
         runtime.auth.open(runtime.admission["auth_key"]);runtime.guard()
-        preflight=_exclusive_preflight(runtime.api)
+        preflight=_exclusive_preflight(runtime.api,port=runtime.admission["port"])
         env.create_json(root/"preflight-v1.json",preflight);preflight_pin=_binding(root/"preflight-v1.json")
         _need(preflight["created_mask"]==preflight["close_attempted_mask"]==preflight["closed_mask"]==1
             and preflight["exclusive_bind_succeeded"] is True,"port")
         runtime.start_server();readiness,failure=_ready(runtime)
         env.create_json(root/"readiness-v1.json",readiness);readiness_pin=_binding(root/"readiness-v1.json")
         _need(failure is None,failure or "readiness")
-        for kind in ("version","devices"):
+        for kind in (() if runtime.admission["protocol"]==lease.PHONE_PROTOCOL else ("version","devices")):
             proof,failure=_exchange(runtime,kind)
             path=root/("proof-"+kind+"-v1.json");env.create_json(path,proof);proof_pin=_binding(path);proofs.append(proof_pin)
             _need(failure is None,failure or "proof")
             verified=lease.validate_proof(proof_pin,runtime.admission,runtime.binding,runtime.worker,runtime.server,kind,
                 completed_ports=tuple(runtime.completed_ports))
             runtime.completed_ports.append(verified["endpoint"]["local_port"])
-        running=dict(version=1,protocol=lease.PROTOCOL,admission=copy.deepcopy(runtime.binding),run_id=runtime.admission["run_id"],
-            port=lease.PORT,owner=copy.deepcopy(request["owner"]),worker=copy.deepcopy(runtime.worker),server=copy.deepcopy(runtime.server),
+        running=dict(version=1,protocol=runtime.admission["protocol"],admission=copy.deepcopy(runtime.binding),run_id=runtime.admission["run_id"],
+            port=runtime.admission["port"],owner=copy.deepcopy(request["owner"]),worker=copy.deepcopy(runtime.worker),server=copy.deepcopy(runtime.server),
             started_epoch=runtime.started_epoch,deadline_epoch=runtime.started_epoch+runtime.admission["seconds"],
-            sources=copy.deepcopy(runtime.admission["sources"]),adb=copy.deepcopy(runtime.admission["adb"]),version_proof=proofs[0],devices_proof=proofs[1])
+            sources=copy.deepcopy(runtime.admission["sources"]),adb=copy.deepcopy(runtime.admission["adb"]),
+            version_proof=proofs[0] if proofs else None,devices_proof=proofs[1] if proofs else None)
         lease.validate_running(running,runtime.admission,runtime.binding);runtime.guard()
         env.create_json(root/"running-v1.json",running);running_pin=_binding(root/"running-v1.json")
         while time.monotonic()<runtime.until:
             runtime.guard()
             stop=root/"stop-v1.json"
             if os.path.lexists(stop):
-                lease.check_stop(_read_json(_binding(stop)),runtime.binding["sha256"])
+                lease.check_stop(_read_json(_binding(stop)),runtime.binding["sha256"],protocol=runtime.admission["protocol"])
                 requested=True;reason="stop_requested";break
             time.sleep(min(.1,_clock(runtime.until)))
         else:reason="expired"
@@ -547,7 +552,7 @@ def _run_worker(request,request_pin,root):
                 stdout=_binding(root/"server-output-v1/owner-stdout-v1.bin")
                 stderr=_binding(root/"server-output-v1/owner-stderr-v1.bin")
                 _need(stdout["bytes"]==sizes[0] and stderr["bytes"]==sizes[1],"capture")
-                captured=dict(version=1,protocol=lease.PROTOCOL,server=copy.deepcopy(runtime.server),
+                captured=dict(version=1,protocol=runtime.admission["protocol"],server=copy.deepcopy(runtime.server),
                     status="terminated" if cleanup["server_terminate_attempted"] else "exited",returncode=code,
                     stdout=stdout,stderr=stderr,stdout_bytes=sizes[0],stderr_bytes=sizes[1],
                     capture_complete=cleanup["server_output_capture_complete"],pipes_closed=cleanup["server_pipes_closed"])
@@ -571,7 +576,7 @@ def _run_worker(request,request_pin,root):
         if runtime.processes is not None:cleanup["process_handles_closed"]=runtime.processes.close()
         if reason in ("stop_requested","expired") and not all(cleanup.values()):reason="cleanup"
         if runtime.auth.failed_close or runtime.processes is not None and runtime.processes.failed_close:reason="cleanup"
-        value=dict(version=1,protocol=lease.PROTOCOL,admission=copy.deepcopy(request["admission"]),request=copy.deepcopy(request_pin),
+        value=dict(version=1,protocol=runtime.admission["protocol"],admission=copy.deepcopy(request["admission"]),request=copy.deepcopy(request_pin),
             worker=copy.deepcopy(runtime.worker),server=copy.deepcopy(runtime.server),auth=copy.deepcopy(runtime.auth.descriptor),
             preflight=preflight_pin,readiness=readiness_pin,proofs=proofs,running=running_pin,stop_requested=requested,
             reason=reason,elapsed_ms=round((time.monotonic()-began)*1000),server_returncode=code,server_capture=server_capture_pin,
@@ -614,7 +619,7 @@ def _parent(admission_pin,admission):
     caller=env.process_identity(os.getpid());script=_binding(Path(__file__))
     _need(caller["executable"]==admission["python"]["executable"]["path"],"identity")
     out.mkdir()
-    request=dict(version=1,protocol=lease.PROTOCOL,admission=copy.deepcopy(admission_pin),validated_admission=copy.deepcopy(admission),
+    request=dict(version=1,protocol=admission["protocol"],admission=copy.deepcopy(admission_pin),validated_admission=copy.deepcopy(admission),
         owner=copy.deepcopy(caller),sources=copy.deepcopy(admission["sources"]),python=copy.deepcopy(admission["python"]),
         worker_script=script,owner_seconds=admission["seconds"]+30)
     env.create_json(out/"request-v1.json",request);request_pin=_binding(out/"request-v1.json")
@@ -656,7 +661,7 @@ def _parent(admission_pin,admission):
         if worker_pin is None and os.path.lexists(out/"worker-result-v1.json"):
             try:worker_pin=_binding(out/"worker-result-v1.json")
             except (OSError,ValueError):pass
-    result=dict(version=1,protocol=lease.PROTOCOL,admission=copy.deepcopy(admission_pin),request=request_pin,
+    result=dict(version=1,protocol=admission["protocol"],admission=copy.deepcopy(admission_pin),request=request_pin,
         started=started_pin,worker_result=worker_pin,owner=owner_pin,after=after_pin,qualified_lease=qualified,reason=reason,feature_acceptance=False)
     env.create_json(out/"result-v1.json",result)
     print(json.dumps(dict(qualified_lease=qualified,reason=reason,feature_acceptance=False)),flush=True)

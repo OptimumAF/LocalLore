@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 #[path = "author_correction.rs"]
 pub mod author_correction;
+#[path = "engine/staged_authored_scene_play.rs"]
+pub mod staged_authored_scene_play;
 #[path = "engine/staged_play.rs"]
 pub mod staged_play;
 #[path = "engine/staged_scene_play.rs"]
@@ -505,6 +507,29 @@ impl Engine {
     ) -> Result<Receipt, Error> {
         if matches!(
             record.prompt_version.as_str(),
+            crate::play::authored_scene_narration::AUTHORED_SCENE_PROMPT_VERSION_V2
+                | crate::play::authored_scene_narration::LITERAL_AUTHORED_SCENE_PROMPT_VERSION_V2
+        ) {
+            if let Some(receipt) = self.recorded(request)? {
+                return Ok(receipt);
+            }
+            let recipe = if record.prompt_version
+                == crate::play::authored_scene_narration::AUTHORED_SCENE_PROMPT_VERSION_V2
+            {
+                crate::play::authored_scene_narration::AuthoredSceneRecipeV2::Memory(
+                    record.context_policy.ok_or(Error::Narration)?,
+                )
+            } else {
+                crate::play::authored_scene_narration::AuthoredSceneRecipeV2::LiteralV1
+            };
+            let preparation = self.stage_authored_scene_play_v2(request, proposal, &|| false)?;
+            let bound = self.bind_authored_scene_play_v2(preparation, recipe, &|| false)?;
+            // V2 has one exact policy family for both fresh work and recorded
+            // replay. History does not grant a downgrade or caller-made frame.
+            return self.commit_authored_scene_play_v2(bound, record, &|| false);
+        }
+        if matches!(
+            record.prompt_version.as_str(),
             crate::play::scene_narration::SCENE_PROMPT_VERSION_V1
                 | crate::play::scene_narration::LITERAL_SCENE_PROMPT_VERSION_V1
         ) {
@@ -521,7 +546,7 @@ impl Engine {
                 };
             let preparation = self.stage_scene_play_v1(request, proposal, &|| false)?;
             let bound = self.bind_scene_play_v1(preparation, recipe, &|| false)?;
-            return self.commit_scene_play_v1(bound, record, &|| false);
+            return self.commit_scene_play_history_v1(bound, record, &|| false, recorded_history);
         }
         if record.prompt_version == crate::play::LITERAL_PRESENTATION_PROMPT_VERSION_V1 {
             if let Some(receipt) = self.recorded(request)? {

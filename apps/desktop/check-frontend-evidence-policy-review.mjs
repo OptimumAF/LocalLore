@@ -1920,15 +1920,18 @@ test("source", "original-normal-bundle-exclusion-assertions-preserved", () => {
     const markers = [...loop[1].matchAll(/"([^"\\]*)"/g)].map(
         (entry) => entry[1],
     );
-    // D08 adds only these three development exclusions. The original ordered
+    // D08 adds only these six development exclusions. The original ordered
     // 67-marker roster and the actual exclusion predicate remain mandatory.
     const browserAdditions = [
         "timelineBrowser",
         "d08-browser-catalog",
         "D08BrowserDeadline:",
+        "domain2Fork",
+        "d08-fork-catalog",
+        "domain2-oracle",
     ];
-    assert.equal(markers.length, 70);
-    assert.equal(new Set(markers).size, 70);
+    assert.equal(markers.length, 73);
+    assert.equal(new Set(markers).size, 73);
     for (const marker of browserAdditions)
         assert.equal(markers.filter((value) => value === marker).length, 1);
     const originalMarkers = markers.filter(

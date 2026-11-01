@@ -85,7 +85,10 @@ fn execute(
         .collect();
     assert_eq!(roles, vec!["director", "narrator"]);
     assert!(provider.replies.is_empty());
-    assert_eq!(receipt.play().unwrap().policy, "grounded-prose-v2.2");
+    assert_eq!(
+        receipt.play().unwrap().policy,
+        "grounded-prose-v2.5-whole-evidence-words-v1"
+    );
     assert_eq!(
         receipt.play().unwrap().prompt_version,
         "locallore-play-v2.5"

@@ -274,7 +274,7 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
     require(package in ("org.locallore.app", "org.locallore.app.capacity", "org.locallore.app.capacityrelief", "org.locallore.app.capacityv3",
                         "org.locallore.app.capacityreliefv3", "org.locallore.app.capacityfaultsv3",
                         "org.locallore.app.capacityv4", "org.locallore.app.capacityreliefv4", "org.locallore.app.capacityfaultsv4",
-                        "org.locallore.app.externalverify", "org.locallore.app.litertverify",
+                        "org.locallore.app.externalverify", "org.locallore.app.litertverify", "org.locallore.app.archiveverify",
                         "org.locallore.app.modelverify", "org.locallore.app.modelpickerverify",
                         "org.locallore.app.modelvolumeverify", "org.locallore.app.phoneverify", "org.locallore.app.cancelack",
                         "org.locallore.app.draftverify", "org.locallore.app.draftprocessverify"),
@@ -643,6 +643,7 @@ def aapt2_path():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
+    parser.add_argument("--archive-verification", action="store_true", help="Audit only the isolated archive verification debug profile")
     parser.add_argument("--litert-verification", action="store_true", help="Audit only the explicit pinned LiteRT debug candidate")
     parser.add_argument("--model-provisioning", action="store_true", help="Audit the separate local model setup candidate")
     parser.add_argument("--model-picker-fixture", action="store_true", help="Audit only the explicit synthetic picker fixture profile")
@@ -652,6 +653,10 @@ def main(argv=None):
     parser.add_argument("--input-process-verification", action="store_true", help="Audit only the isolated scripted process-restoration debug profile")
     args = parser.parse_args(argv)
     try:
+        require(not args.archive_verification or not any((args.litert_verification, args.model_provisioning,
+                args.model_picker_fixture, args.model_volume_verification, args.model_receipt_verification,
+                args.input_draft_verification, args.input_process_verification)),
+                "Archive verification is a separate profile")
         require(not (args.input_draft_verification and args.input_process_verification), "Input verification profiles are separate")
         require(not (args.input_draft_verification or args.input_process_verification) or not any((args.litert_verification,
                 args.model_provisioning, args.model_picker_fixture, args.model_volume_verification,
@@ -672,7 +677,8 @@ def main(argv=None):
         def dump(*arguments):
             return subprocess.run([aapt, "dump", *arguments], check=True, capture_output=True,
                                   text=True, encoding="utf-8", shell=False).stdout
-        package = ("org.locallore.app.draftprocessverify" if args.input_process_verification else
+        package = ("org.locallore.app.archiveverify" if args.archive_verification else
+                                     "org.locallore.app.draftprocessverify" if args.input_process_verification else
                                      "org.locallore.app.draftverify" if args.input_draft_verification else
                                      "org.locallore.app.modelvolumeverify" if args.model_volume_verification else
                                      "org.locallore.app.modelpickerverify" if args.model_picker_fixture else

@@ -45,11 +45,11 @@ internal object OriginalPlayerTransportCases {
                     ok(JSONObject().put("session","reused-session").put("scope",sharedScope).put("revision",0))
                 }
                 "open" -> ok(JSONObject().put("session","reused-session").put("scope",sharedScope).put("revision",0))
-                "play_snapshot" -> {
+                "play_presentation_v2" -> {
                     val ordinal=synchronized(lock) { (++views).also { postView[job]=it } }
                     val observer=observers.getOrElse(ordinal-1) { observers.last() }
-                    ok(JSONObject().put("scope",sharedScope).put("revision",0).put("rules","narrative_v1").put("inventory",JSONObject())
-                        .put("receipts",JSONArray()).put("player",JSONObject().put("scope",sharedScope).put("revision",0).put("observer",observer)))
+                    ok(presentationFixture(JSONObject().put("scope",sharedScope).put("revision",0).put("rules","narrative_v1").put("inventory",JSONObject())
+                        .put("receipts",JSONArray()).put("player",JSONObject().put("scope",sharedScope).put("revision",0).put("observer",observer))))
                 }
                 "capabilities" -> ok(JSONObject().put("free_text",false))
                 "close" -> ok(JSONObject().put("closed",true))

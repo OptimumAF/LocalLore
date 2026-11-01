@@ -6352,6 +6352,29 @@
       "version": "1.20.1"
     },
     {
+      "checksum": "0b993bddc193ae5bd0d623b49ec06ac3e9312875fdae725a975c51db1cc1677f",
+      "license": "Apache-2.0",
+      "name": "unicode-general-category",
+      "notices": [
+        {
+          "bytes": 11357,
+          "origin": "crate",
+          "output": "NOTICES/rust/unicode-general-category-1.1.0/LICENSE",
+          "path": "LICENSE",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+        }
+      ],
+      "repository": "https://github.com/yeslogic/unicode-general-category",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "vcs": {
+        "git": {
+          "sha1": "cb2d8a62f035c33d6971b99322aae65f3cea7c88"
+        },
+        "path_in_vcs": ""
+      },
+      "version": "1.1.0"
+    },
+    {
       "checksum": "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563",
       "license": "(MIT OR Apache-2.0) AND Unicode-3.0",
       "name": "unicode-ident",
@@ -7593,7 +7616,7 @@
       "version": "1.0.23"
     }
   ],
-  "registry_count": 250,
+  "registry_count": 251,
   "remaining_gaps": [
     "Independent review of this exact catalog, texts, source provenance and package rules remains pending.",
     "This is a conservative selected-dependency/component notice inventory, not a complete per-symbol linker attribution or legal/distribution approval.",
@@ -7605,7 +7628,7 @@
   "runtime_profile_sha256": "77ca04648f1d1a232b2f950d71d5e489494145e314a56a0d9a9fdb1cb1eb9d80",
   "schema": "locallore-desktop-license-catalog-v1",
   "scope": "windows-x64-normal-developer-folder-component-notices-v1",
-  "selected_graph_sha256": "17b566ecb41d62de80a664673166065a15975fa4f701317c51c73a133b974551",
+  "selected_graph_sha256": "4bfe994c87c0c04b8046ad1a0b82db4ed235f37d1e19bf952f585263e96bb0b1",
   "source_archives_byte_cap": 262144,
   "source_archives_each_byte_cap": 131072,
   "target": "x86_64-pc-windows-msvc",

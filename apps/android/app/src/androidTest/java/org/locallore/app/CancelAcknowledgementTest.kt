@@ -97,15 +97,15 @@ class CancelAcknowledgementTest {
             val story = stories.getValue(storyId)
             return when (op) {
                 "open" -> ok(JSONObject().put("scope", scope(storyId)).put("revision", story.revision))
-                "play_snapshot" -> {
+                "play_presentation_v2" -> {
                     assertEquals(story.revision, command.getLong("expected_revision"))
                     val receipts = JSONArray().also { rows ->
                         if (storyId == source.story) committedReceipt?.let { rows.put(copy(it)) }
                     }
-                    ok(JSONObject().put("scope", scope(storyId)).put("revision", story.revision)
+                    ok(presentationFixture(JSONObject().put("scope", scope(storyId)).put("revision", story.revision)
                         .put("rules", "fantasy_v1").put("inventory", JSONObject().put("potion", JSONObject()))
                         .put("player", JSONObject().put("scope", scope(storyId)).put("revision", story.revision)
-                            .put("observer", "player")).put("receipts", receipts))
+                            .put("observer", "player")).put("receipts", receipts)))
                 }
                 "submit" -> {
                     check(originalRequest == null)
@@ -199,7 +199,7 @@ class CancelAcknowledgementTest {
             assertSameJson(firstCancel, retry)
             assertSameJson(original, checkNotNull(protocol.originalRequest))
             assertEquals(protocol.source, recovered.selected)
-            assertEquals(listOf("cancel", "open", "play_snapshot", "workspace", "branches", "capabilities"),
+            assertEquals(listOf("cancel", "open", "play_presentation_v2", "workspace", "branches", "capabilities"),
                 protocol.calls.drop(retryStart).map { it.getString("op") })
             assertEquals(1, protocol.count("submit"))
             assertEquals(1, protocol.count("prepare"))

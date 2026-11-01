@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 pub const VERSION: u16 = 2;
+/// Immutable narrator policy of the original protocol2/3 captures.
+pub const LEGACY_NARRATION_POLICY: &str = "grounded-prose-v2.2";
 pub use crate::capture_envelope::MAX_PRIVATE_CAPTURE;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

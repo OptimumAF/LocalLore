@@ -23,7 +23,7 @@ import org.junit.runner.RunWith
 class SavedSelectionFallbackNativeTest {
     private companion object {
         const val PARENT_TEXT = "SYNTHETIC saved-selection parent: caf\u00e9 and snow \u96ea.\nThese are only my words."
-        val READS = setOf("workspace", "branches", "resume", "open", "play_snapshot", "capabilities", "model_status", "close")
+        val READS = setOf("workspace", "branches", "resume", "open", "play_snapshot", "play_presentation_v2", "capabilities", "model_status", "close")
     }
 
     private class Owner(context: Context, hint: PlayDraftScope?) {
@@ -156,11 +156,11 @@ class SavedSelectionFallbackNativeTest {
             assertTrue(owner.calls.indexOf("branches") in 0 until owner.calls.indexOf("resume"))
         }
         owner.view(fallback)
-        val readsBefore = owner.calls.count { it == "play_snapshot" }
+        val readsBefore = owner.calls.count { it == "play_presentation_v2" }
         val again = owner.gateway.snapshot()
         assertFalse(again.selectionRestoreUnavailable)
         assertEquals(world.a, again.selected)
-        assertTrue(owner.calls.count { it == "play_snapshot" } > readsBefore)
+        assertTrue(owner.calls.count { it == "play_presentation_v2" } > readsBefore)
         val parent = owner.gateway.resumeSaved(world.parent)
         assertFalse(parent.selectionRestoreUnavailable)
         assertEquals(world.parent, parent.selected)

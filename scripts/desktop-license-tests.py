@@ -250,8 +250,8 @@ class LicenseTests(unittest.TestCase):
     def test_actual_public_catalog_is_exact_and_all_resource_hashes_match(self):
         with patch.object(package, 'ROOT', REAL_ROOT), patch.object(package, 'WORKER_SHA', REAL_WORKER):
             c, _ = package.license_catalog()
-            self.assertEqual(len(c['packages']), 256)
-            self.assertEqual((c['registry_count'], c['local_count']), (250, 6))
+            self.assertEqual(len(c['packages']), 257)
+            self.assertEqual((c['registry_count'], c['local_count']), (251, 6))
             self.assertEqual(len(c['mpl_sources']), 5)
             self.assertEqual(sum(p['bytes'] for p in c['mpl_sources']), 150290)
             self.assertIn('licenses/desktop', package.SOURCE_PATHS)

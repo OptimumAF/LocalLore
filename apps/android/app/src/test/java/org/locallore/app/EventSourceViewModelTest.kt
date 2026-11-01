@@ -30,6 +30,9 @@ class EventSourceViewModelTest {
     private fun createModel(gateway: EventGateway) = ShellViewModel(gateway).also {
         store.put("event-model-${models++}", it)
     }
+    private fun openScoped(model: ShellViewModel, sequence: Long, expected: StoryRecordContext? = model.storyRecord.value.context) {
+        model.openScopedRecordEvent(reference(expected?.story ?: FirstStory, sequence), expected)
+    }
 
     @Test fun typedCurrentPageEventsOpenBackAndRetryWithoutGameplayOrSnapshotCalls() = runTest(dispatcher) {
         val gateway = EventGateway()
@@ -49,6 +52,8 @@ class EventSourceViewModelTest {
         val snapshots = gateway.snapshots
         val reads = gateway.reads.size
         model.openRecordEvent(1); model.openRecordEvent(9)
+        model.openRecordEvent(2) // Bare IDs cannot borrow a scoped page grant.
+        openScoped(model, 1); openScoped(model, 9)
         advanceUntilIdle()
         assertEquals(reads, gateway.reads.size)
 
@@ -57,13 +62,13 @@ class EventSourceViewModelTest {
             if (attempts++ == 0) throw StoryRecordFailure(StoryRecordProblem.EVENT_UNAVAILABLE)
             eventPage(query, reference)
         }
-        model.openRecordEvent(2); advanceUntilIdle()
+        openScoped(model, 2); advanceUntilIdle()
         assertEquals(StoryRecordProblem.EVENT_UNAVAILABLE, model.storyRecord.value.eventDetail!!.problem)
         val failedQuery = gateway.reads.last()
         model.retryRecordEvent(); advanceUntilIdle()
         assertEquals(failedQuery, gateway.reads.last())
         assertEquals(StoryRecordQuery(StoryRecordContext(FirstStory, 8), StoryRecordSection.HISTORY,
-            "\"sequence\":2,"), failedQuery)
+            scopedSearch(reference(FirstStory, 2))), failedQuery)
         assertEquals(2L, model.storyRecord.value.eventDetail!!.entry!!.event!!.sequence)
         assertEquals(StoryRecordSection.RELATIONSHIPS, model.storyRecord.value.section)
         assertEquals("visible", model.storyRecord.value.search)
@@ -89,7 +94,7 @@ class EventSourceViewModelTest {
             val model = createModel(gateway)
             advanceUntilIdle()
             model.openStoryRecord(); advanceUntilIdle()
-            model.openRecordEvent(2); runCurrent()
+            openScoped(model, 2); runCurrent()
             assertTrue(operation, model.storyRecord.value.eventDetail!!.loading)
             when (operation) {
                 "submit" -> model.submit(DemoAction.TRY_ABILITY)
@@ -126,9 +131,11 @@ class EventSourceViewModelTest {
         val model = createModel(gateway)
         advanceUntilIdle()
         model.openStoryRecord(); advanceUntilIdle()
-        model.openRecordEvent(2); runCurrent()
+        val capturedContext = checkNotNull(model.storyRecord.value.context)
+        val capturedReference = model.storyRecord.value.entries.single().scopedEventSources.single()
+        openScoped(model, 2); runCurrent()
         val retained = listOf<() -> Unit>(
-            { model.openRecordEvent(2) }, model::retryRecordEvent, model::backToStoryRecord,
+            { model.openScopedRecordEvent(capturedReference, capturedContext) }, { model.openRecordEvent(2) }, model::retryRecordEvent, model::backToStoryRecord,
             model::openStoryRecord, model::retryStoryRecord, model::nextRecordPage, model::firstRecordPage,
             { model.recordSection(StoryRecordSection.KNOWLEDGE) }, { model.recordSearch("old") },
             model::closeStoryRecord, model::openDiagnostics,
@@ -148,63 +155,65 @@ class EventSourceViewModelTest {
 
     @Test fun numericEventCollisionCannotBorrowThePreviousStorysPageAuthorization() = runTest(dispatcher) {
         val gateway = EventGateway().apply {
-            references = { query -> if (query.context.story.story == FirstStory.story) listOf(2) else emptyList() }
+            references = { query -> if (query.context.story.story == FirstStory.story) listOf(reference(query.context.story, 2)) else emptyList() }
         }
         val model = createModel(gateway)
         advanceUntilIdle()
         model.openStoryRecord(); advanceUntilIdle()
-        model.openRecordEvent(2); advanceUntilIdle()
+        openScoped(model, 2); advanceUntilIdle()
         val oldContext = model.storyRecord.value.context
         model.resume(SecondStory); advanceUntilIdle()
         val beforeOpen = gateway.reads.size
-        model.openRecordEvent(2); advanceUntilIdle()
+        openScoped(model, 2); advanceUntilIdle()
         assertEquals(beforeOpen, gateway.reads.size)
         model.openStoryRecord(); advanceUntilIdle()
         assertEquals(SecondStory, model.storyRecord.value.context!!.story)
         assertEquals(listOf("Event #2"), model.storyRecord.value.entries.single().sources)
         assertTrue(model.storyRecord.value.entries.single().eventSources.isEmpty())
+        assertTrue(model.storyRecord.value.entries.single().scopedEventSources.isEmpty())
         val emptyGrant = gateway.reads.size
-        model.openRecordEvent(2); advanceUntilIdle()
+        openScoped(model, 2); advanceUntilIdle()
         assertEquals(emptyGrant, gateway.reads.size)
         assertNull(model.storyRecord.value.eventDetail)
 
-        gateway.references = { listOf(2) }
+        gateway.references = { query -> listOf(reference(query.context.story, 2)) }
         model.retryStoryRecord(); advanceUntilIdle()
         val currentGrant = gateway.reads.size
-        model.openRecordEvent(2, oldContext); advanceUntilIdle()
+        val currentReference = model.storyRecord.value.entries.single().scopedEventSources.single()
+        model.openScopedRecordEvent(currentReference, oldContext); advanceUntilIdle()
         assertEquals(currentGrant, gateway.reads.size)
         assertNull(model.storyRecord.value.eventDetail)
-        model.openRecordEvent(2); advanceUntilIdle()
+        openScoped(model, 2); advanceUntilIdle()
         assertEquals(StoryRecordContext(SecondStory, 12), gateway.reads.last().context)
         assertEquals("Visible event in ${SecondStory.story}", model.storyRecord.value.eventDetail!!.entry!!.text)
     }
 
     @Test fun anAcceptedTurnRevokesOldSourcesUntilAFreshCurrentHeadPageArrives() = runTest(dispatcher) {
         val gateway = EventGateway().apply {
-            references = { query -> if (query.context.revision == 8L) listOf(2) else listOf(3) }
+            references = { query -> listOf(reference(query.context.story, if (query.context.revision == 8L) 2 else 3)) }
             response = { DemoResult.Accepted(9, "Mira", "Synthetic accepted gift") }
         }
         val model = createModel(gateway)
         advanceUntilIdle()
         model.openStoryRecord(); advanceUntilIdle()
-        model.openRecordEvent(2); advanceUntilIdle()
+        openScoped(model, 2); advanceUntilIdle()
         model.submit(DemoAction.GIVE_POTION); advanceUntilIdle()
         assertEquals(9L, model.state.value.revision)
         val beforeRefresh = gateway.reads.size
-        model.openRecordEvent(2); advanceUntilIdle()
+        openScoped(model, 2); advanceUntilIdle()
         assertEquals(beforeRefresh, gateway.reads.size)
 
         val pageReady = CompletableDeferred<Unit>()
         gateway.pageWait = { pageReady.await() }
         model.openStoryRecord(); runCurrent()
-        model.openRecordEvent(2); model.openRecordEvent(3); runCurrent()
+        openScoped(model, 2); openScoped(model, 3); runCurrent()
         assertTrue(model.storyRecord.value.loading)
         assertEquals(beforeRefresh + 1, gateway.reads.size)
         pageReady.complete(Unit); advanceUntilIdle()
         val currentPageReads = gateway.reads.size
-        model.openRecordEvent(2); advanceUntilIdle()
+        openScoped(model, 2); advanceUntilIdle()
         assertEquals(currentPageReads, gateway.reads.size)
-        model.openRecordEvent(3); advanceUntilIdle()
+        openScoped(model, 3); advanceUntilIdle()
         assertEquals(9L, gateway.reads.last().context.revision)
         assertEquals(3L, model.storyRecord.value.eventDetail!!.entry!!.event!!.sequence)
     }
@@ -216,10 +225,10 @@ class EventSourceViewModelTest {
         val canonical = mutableListOf<String>()
         val reads = mutableListOf<StoryRecordQuery>()
         var snapshots = 0
-        var references: (StoryRecordQuery) -> List<Long> = { listOf(2) }
+        var references: (StoryRecordQuery) -> List<StoryRecordScopedEvent> = { query -> listOf(reference(query.context.story, 2)) }
         var pageWait: suspend () -> Unit = {}
         var response: suspend () -> DemoResult = { DemoResult.Rejected("Ability") }
-        var eventReader: suspend (StoryRecordQuery, Long) -> StoryRecordPage = { query, reference -> eventPage(query, reference) }
+        var eventReader: suspend (StoryRecordQuery, StoryRecordScopedEvent) -> StoryRecordPage = { query, reference -> eventPage(query, reference) }
 
         override suspend fun initialize(): SavedSnapshot { canonical += "initialize"; return saved }
         override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult {
@@ -235,16 +244,16 @@ class EventSourceViewModelTest {
         override suspend fun snapshot(): SavedSnapshot { snapshots++; return saved }
         override suspend fun readStoryRecord(query: StoryRecordQuery): StoryRecordPage {
             reads += query
-            if (query.search.startsWith("\"sequence\":")) {
-                val reference = query.search.removePrefix("\"sequence\":").removeSuffix(",").toLong()
+            if (query.search.startsWith("\"event\":{\"sequence\":")) {
+                val reference = references(query).single { scopedSearch(it) == query.search }
                 return eventReader(query, reference)
             }
             pageWait()
             val refs = references(query)
-            val labels = if (refs.isEmpty()) listOf("Event #2") else refs.map { "Event #$it" }
+            val labels = if (refs.isEmpty()) listOf("Event #2") else refs.map { sourceLabel(it) }
             return StoryRecordPage(query, 100, 1,
                 listOf(StoryRecordEntry("visible-field", "Directed trust", "1", StoryRecordOrigin.CANONICAL_FIELD,
-                    labels, refs)), null)
+                    labels, scopedEventSources = refs)), null)
         }
         override suspend fun resumeSaved(story: SavedStory): SavedSnapshot {
             canonical += "resume"; saved = snapshot(story); return saved
@@ -262,9 +271,13 @@ class EventSourceViewModelTest {
         val SecondStory = SavedStory("event-story-b", "main", "Synthetic Garden", 12)
         fun snapshot(story: SavedStory) = SavedSnapshot(story.revision, "You", emptyList(),
             "synthetic-private-workspace", 1, listOf(FirstStory, SecondStory), story)
-        fun eventPage(query: StoryRecordQuery, reference: Long) = StoryRecordPage(query, 100, 1,
-            listOf(StoryRecordEntry("event-$reference", "Event #$reference",
+        fun reference(story: SavedStory, sequence: Long) = StoryRecordScopedEvent(StoryRecordScope(story.story, story.branch), sequence)
+        fun sourceLabel(reference: StoryRecordScopedEvent) = "Event #${reference.sequence} · ${reference.originalScope.story} / ${reference.originalScope.branch}"
+        fun scopedSearch(reference: StoryRecordScopedEvent) = "\"event\":{\"sequence\":${reference.sequence},\"scope\":{\"story\":\"${reference.originalScope.story}\",\"branch\":\"${reference.originalScope.branch}\"}"
+        fun eventPage(query: StoryRecordQuery, reference: StoryRecordScopedEvent) = StoryRecordPage(query, 100, 1,
+            listOf(StoryRecordEntry("event-${reference.sequence}", "Event #${reference.sequence}",
                 "Visible event in ${query.context.story.story}", StoryRecordOrigin.RECORDED_OBSERVATION,
-                listOf("Event #$reference"), listOf(reference), StoryRecordEvent(reference, "synthetic-turn", 20))), null)
+                listOf(sourceLabel(reference)), event = StoryRecordEvent(reference.sequence, "synthetic-turn", 20, reference.originalScope),
+                scopedEventSources = listOf(reference))), null)
     }
 }

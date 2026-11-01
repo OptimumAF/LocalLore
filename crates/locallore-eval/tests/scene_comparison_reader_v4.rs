@@ -136,7 +136,7 @@ fn actual_scene_report_snapshot_is_bound_read_only_and_lossless() {
     assert_eq!(summary["report"], actual_report);
     assert_eq!(
         summary["report"]["arms"],
-        serde_json::to_value(memory_comparison_v4::arm_descriptors()).unwrap()
+        serde_json::to_value(memory_comparison_v4::current_arm_descriptors()).unwrap()
     );
     assert_eq!(summary["read_only"], true);
     assert_eq!(summary["execution_available"], false);

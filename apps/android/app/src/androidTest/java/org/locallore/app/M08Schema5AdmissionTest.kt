@@ -49,14 +49,14 @@ class M08Schema5AdmissionTest {
                     JSONObject().put("session", "synthetic-five-session").put("scope", scope()).put("revision", head)
                 }
                 "open" -> JSONObject().put("scope", scope()).put("revision", head)
-                "play_snapshot" -> {
+                "play_presentation_v2" -> {
                     assertEquals(head, command.getLong("expected_revision"))
-                    JSONObject().put("scope", scope()).put("revision", head).put("rules", "fantasy_v1")
+                    presentationFixture(JSONObject().put("scope", scope()).put("revision", head).put("rules", "fantasy_v1")
                         .put("inventory", JSONObject().put("potion", JSONObject()))
                         .put("player", JSONObject().put("scope", scope()).put("revision", head).put("observer", "player"))
                         .put("receipts", JSONArray().also {
                             if (committed) it.put(turn("committed").getJSONObject("receipt"))
-                        })
+                        }))
                 }
                 "branches" -> JSONObject().put("version", 2).put("story_id", "schema-five-story")
                     .put("title", "Synthetic schema five").put("root_branch", "main")
@@ -108,7 +108,7 @@ class M08Schema5AdmissionTest {
             assertEquals("You", initial.potionOwner)
             assertEquals(TextProvider.UNAVAILABLE, initial.textProvider)
             assertTrue(initial.messages.isEmpty())
-            assertEquals(listOf("workspace", "resume", "open", "play_snapshot", "workspace", "branches", "capabilities"),
+            assertEquals(listOf("workspace", "resume", "open", "play_presentation_v2", "workspace", "branches", "capabilities"),
                 protocol.operations())
             assertEquals(initial, gateway.snapshot())
             assertNoWrites(protocol)

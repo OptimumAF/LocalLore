@@ -21,11 +21,38 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [buffered restart qualification](docs/native/BUFFERED_RESTART_RUN_2026-10-29.md)
+completes one newly approved API 35/x86_64 run using PR #270's frozen build:
+verified local model transfer/import, real AUTHOR creation, idempotent retry,
+and passive restart without inference in a later process. The prior PID was
+already absent before the host stop command, so this run does not prove that
+command caused a live process to die. All 66
+controller calls and the requested owned guest/private-service closure pass.
+Earlier spent/refused runs retain their outcomes; phone/ARM64 performance,
+broad reliability and full milestone acceptance remain separate.
+
+The [held-AUTHOR process-death protocol](docs/native/LIVE_AUTHOR_DEATH_PROTOCOL_V1.md)
+adds a separate SDK6 harness that retains a real native workspace while the
+host observes alive, force-stop and death. Its [host and offline-build checks](docs/native/LIVE_AUTHOR_DEATH_VERIFICATION_2026-10-29.md)
+pass; Android live-death execution remains unrun.
+
+The [authored scene V2 slice](docs/runtime/AUTHORED_SCENE_V2_2026-10-30.md)
+adds explicit Core/Host narration using typed location names the player has
+observed. The configured Android external owner now selects the
+[native story recipe](docs/native/ANDROID_STORY_SCENE_V1_VERIFICATION_2026-10-31.md)
+per validated story; ordinary scripted construction retains its behavior.
+Fake-provider and build checks do not qualify a real model or physical device.
+
+The [complete evidence-word narration guard](docs/runtime/NARRATOR_EVIDENCE_WORDS_2026-10-30.md)
+adds versioned fresh validation while preserving genuine recorded histories.
+Its host, desktop consumer and Android packaging checks remain separate from
+phone, real-model and release qualification.
+
 The [owned-target model run](docs/native/OWNED_TARGET_VERIFICATION_2026-10-29.md)
 now verifies one real local-model import/AUTHOR/internal-reopen case on an
 explicitly approved emulator. The [external restart follow-up](docs/native/ORIGINAL_AUTHOR_RESTART_VERIFICATION_2026-10-29.md)
 adds actual host process-death/PLAYER retry checks and a compiled passive Android
-method. Android external process death remains unrun; physical-device and broad
+method. That earlier cohort leaves Android external process death unrun; physical-device and broad
 story-quality gates remain separate.
 
 The [same-boot restart controller](docs/native/ORIGINAL_AUTHOR_RESTART_CONTROLLER_VERIFICATION_2026-10-29.md)

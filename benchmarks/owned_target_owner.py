@@ -732,6 +732,10 @@ class _InitialServerView:
     def __init__(self, runtime, binding):
         self.runtime = runtime
         self.admission = copy.deepcopy(runtime.admission["server"])
+        # This adapter selects only the fixed pre-guest isolated exchanges.
+        # Preserve minimal legacy views, but never retag an explicit phone profile.
+        _need(self.admission.get("protocol", server_contract.PROTOCOL) == server_contract.PROTOCOL, "admission")
+        self.admission["protocol"] = server_contract.PROTOCOL
         self.binding = copy.deepcopy(binding)
         self.completed_ports = []
         self.clients_closed = True
@@ -1495,7 +1499,8 @@ def _parent(admission_binding, admission, *, _contract=None, _verification=None)
     return 0 if qualified else 1
 
 
-def _main_profile(argv=None, *, _contract=None, _verification=None, _runtime_type=_TargetRuntime):
+def _main_profile(argv=None, *, _contract=None, _verification=None, _runtime_type=_TargetRuntime,
+                  _admission_check=None):
     selected = contract if _contract is None else _contract
     args = sys.argv[1:] if argv is None else argv
     try:
@@ -1509,6 +1514,8 @@ def _main_profile(argv=None, *, _contract=None, _verification=None, _runtime_typ
         _need(path.suffix == ".json", "admission")
         binding, value = file_guard._read_bound(path, args[3], 2 * 1024 * 1024, "admission")
         admitted = selected.validate_admission(value)
+        if _admission_check is not None:
+            _admission_check(admitted)
         return _parent(binding, admitted) if _contract is None else _parent(binding, admitted, _contract=selected, _verification=_verification)
     except BaseException as error:
         print(json.dumps(dict(qualified_target=False, reason=_reason(error), feature_acceptance=False)), flush=True)

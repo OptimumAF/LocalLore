@@ -66,11 +66,16 @@ integration audit setup have retained corrections. On Windows the Popen audit ev
 command string; Root's first guard wrongly treated it as an argv list and
 refused before dispatch. The corrected private runner checks the original argv
 and the exact Windows framing. No production boundary or old result was relaxed.
+Private source checks also needed the recorded README delta and an exact
+retirement-file path instead of a modified-file list position. Those pre-dispatch
+setup failures remain, without product changes.
 
 A final diff check finds excess blank lines at the build guard's EOF. Removing
 two newline bytes preserves its exact parsed AST; the tested raw source remains
 in the writer commits. Final source bindings are refreshed, rather than claiming
 raw-byte identity across that formatting correction. No assertion changes.
+Fresh final-code replay passes creation in10.088s and verification in10.273s,
+with the same manifest,23 stable bindings and absent future paths.
 
 ## Resource failures remain failures
 

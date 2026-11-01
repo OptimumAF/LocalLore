@@ -3,6 +3,7 @@ package org.locallore.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import java.util.Collections
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -299,6 +300,7 @@ class ShellViewModel internal constructor(
             rulesProfile = saved.rulesProfile,
             databaseSchemaVersion = saved.databaseSchemaVersion,
             timelines = saved.timelines,
+            inventory = saved.inventory?.let { Collections.unmodifiableList(ArrayList(it)) },
             textProvider = saved.textProvider,
             recoveryRequired = false, checkingCancellation = false,
             notice = if (saved.selectionRestoreUnavailable)

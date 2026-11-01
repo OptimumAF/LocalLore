@@ -197,7 +197,7 @@ class NativeCancelControlsTest {
     }
     private fun originalVisible(f: Fixture) {
         tag("revision").assertTextEquals("Accepted revision · 1")
-        tag("potion-owner").assertTextEquals("Healing potion · You")
+        compose.assertPlayerPotionQuantity(1)
         compose.runOnIdle { assertEquals(f.originalMessages, f.model.state.value.messages) }
     }
     private fun blockedControls() {
@@ -332,7 +332,7 @@ class NativeCancelControlsTest {
         compose.runOnIdle { replies.cancel.release.complete(Unit) }
         idle(this)
         tag("revision").assertTextEquals("Accepted revision · 2")
-        tag("potion-owner").assertTextEquals("Healing potion · Not in your inventory")
+        compose.assertPlayerPotionQuantity(null)
         tag("notice").assertTextEquals("Cancellation checked. Showing the accepted saved history.")
         val accepted = compose.runOnIdle { model.state.value }
         assertEquals(originalMessages, accepted.messages.take(2))

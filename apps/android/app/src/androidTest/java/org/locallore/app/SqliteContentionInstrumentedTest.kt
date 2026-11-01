@@ -333,7 +333,7 @@ class SqliteContentionInstrumentedTest {
             repeat(3) { attempt ->
                 tag("notice").assertTextEquals(BUSY_NOTICE)
                 tag("revision").assertTextEquals("Accepted revision \u00B7 0")
-                tag("potion-owner").assertTextEquals("Healing potion \u00B7 You")
+                compose.assertPausedPlayerPotionQuantity(1) { model.state.value }
                 tag("give-potion").assertIsNotEnabled(); tag("try-ability").assertIsNotEnabled()
                 tag("mode-menu").assertIsNotEnabled(); tag("recover-save").assertIsEnabled()
                 compose.runOnIdle {
@@ -348,7 +348,7 @@ class SqliteContentionInstrumentedTest {
             f.writer.release()
             tag("recover-save").performClick(); idle(model)
             tag("revision").assertTextEquals("Accepted revision \u00B7 1")
-            tag("potion-owner").assertTextEquals("Healing potion \u00B7 Not in your inventory")
+            compose.assertPlayerPotionQuantity(null)
             compose.runOnIdle {
                 assertFalse(model.state.value.recoveryRequired); assertEquals(2, model.state.value.messages.size)
             }

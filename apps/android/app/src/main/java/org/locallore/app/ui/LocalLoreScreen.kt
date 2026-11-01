@@ -134,8 +134,20 @@ internal fun LocalLoreScreen(
         transcript, 4 + (if (onText != null) 1 else 0) + (if (onStoryRecord != null) 1 else 0),
     )
     val sceneHeading = storyHeading(state)
+    val inventoryScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
+    val inventoryEligible = inventoryScope != null && !state.recoveryRequired && !state.archiveActive &&
+        !state.deletionActive && !state.forkActive && !state.creationActive
+    val currentInventoryScope by rememberUpdatedState(inventoryScope)
+    val currentInventoryEligible by rememberUpdatedState(inventoryEligible)
+    var inventoryVisible by remember(state.persistent, inventoryScope) { mutableStateOf(false) }
+    SideEffect { if (!inventoryEligible) inventoryVisible = false }
     LocalLoreTheme {
         overlay()
+        if (inventoryVisible && inventoryEligible) key(state.persistent, inventoryScope) {
+            PlayerInventoryDialog(state.inventory) {
+                if (currentInventoryScope == inventoryScope) inventoryVisible = false
+            }
+        }
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { safePadding ->
             Box(
                 modifier = Modifier.fillMaxSize().padding(safePadding)
@@ -311,7 +323,12 @@ internal fun LocalLoreScreen(
                     }
                     if (!state.persistent || state.selectedStory != null) item(key = "state") {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
+                            if (state.persistent) key(state.persistent, inventoryScope) {
+                                PlayerInventorySummary(state.inventory, inventoryEligible) {
+                                    if (inventoryEligible && currentInventoryEligible && currentInventoryScope == inventoryScope)
+                                        inventoryVisible = true
+                                }
+                            } else Text(
                                 "Healing potion · ${state.potionOwner}",
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.testTag("potion-owner"),

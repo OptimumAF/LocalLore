@@ -199,7 +199,7 @@ class NativeTextRecoveryTest {
     }
     private fun originalVisible(f: Fixture) {
         tag("revision").assertTextEquals("Accepted revision · 1")
-        tag("potion-owner").assertTextEquals("Healing potion · You")
+        compose.assertPlayerPotionQuantity(1)
         compose.runOnIdle { assertEquals(f.originalMessages, f.model.state.value.messages) }
     }
     private fun blockedControls() {
@@ -308,7 +308,7 @@ class NativeTextRecoveryTest {
         idle(this)
         val saved = accepted(this, ACTION)
         tag("revision").assertTextEquals("Accepted revision · 2")
-        tag("potion-owner").assertTextEquals("Healing potion · Not in your inventory")
+        compose.assertPlayerPotionQuantity(null)
         assertFalse(saved.getJSONObject("inventory").has("potion"))
         assertEquals(1, replies.count("commit"))
         reopenEquals(this, saved)
@@ -331,7 +331,7 @@ class NativeTextRecoveryTest {
         val after = saved.getJSONObject("player")
         for (key in listOf("self_state", "facts", "beliefs")) assertTrue(sameJson(before.get(key), after.get(key)))
         assertFalse(after.getJSONObject("self_state").getJSONObject("abilities").has("blink"))
-        tag("potion-owner").assertTextEquals("Healing potion · You")
+        compose.assertPlayerPotionQuantity(1)
         reopenEquals(this, saved)
     }
 
@@ -391,7 +391,7 @@ class NativeTextRecoveryTest {
         assertTrue(sameJson(committed, saved))
         assertTrue(sameJson(replies.nativeCommits.single().getJSONObject("receipt"), saved.getJSONArray("receipts").getJSONObject(1)))
         tag("notice").assertTextEquals("Saved progress recovered.")
-        tag("potion-owner").assertTextEquals("Healing potion · Not in your inventory")
+        compose.assertPlayerPotionQuantity(null)
         assertEquals(1, replies.count("commit"))
         assertEquals(2, replies.count("turn_status"))
         assertEquals(0, replies.count("cancel"))

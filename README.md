@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [cached Player state view](docs/android/PLAYER_SELF_PROFILE_2026-11-01.md)
+retains the native self profile and renders a scoped read-only overview.
+The full offline build passes 454 JVM cases and APK audits; three new UI
+journeys compile but remain unrun. Existing progression provenance stays
+in Story Record; no gameplay rules or native schema were added.
+
 The [inventory APK verification](docs/android/PLAYER_INVENTORY_APKS_2026-11-01.md)
 builds both Rust Android targets and the ordinary app/test pair from the inventory
 change. All439 JVM cases, lint and public APK audits pass; eleven concrete JUnit

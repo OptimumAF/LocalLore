@@ -8,7 +8,6 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
@@ -37,7 +36,6 @@ import org.locallore.app.ShellState
 import org.locallore.app.TextProvider
 
 /** Injected Android insets and real screen layout only; no real-IME, JNI or story acceptance proof. */
-@RequiresApi(30)
 @SdkSuppress(minSdkVersion = 30)
 class ChatImeInsetsTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()

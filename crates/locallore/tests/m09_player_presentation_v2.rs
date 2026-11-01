@@ -574,8 +574,14 @@ fn accepted_uint64_action_fields_use_exact_decimal_presentation_strings_only() {
     let basis = engine.accepted_history_basis().unwrap();
     let original_promise = json!(promised.request().intent);
     let original_belief = json!(believed.request().intent);
-    assert_eq!(original_promise["value"][0]["deadline"].as_u64(), Some(u64::MAX));
-    assert_eq!(original_belief["value"][0]["claim_event"].as_u64(), Some(claim));
+    assert_eq!(
+        original_promise["value"][0]["deadline"].as_u64(),
+        Some(u64::MAX)
+    );
+    assert_eq!(
+        original_belief["value"][0]["claim_event"].as_u64(),
+        Some(claim)
+    );
 
     let (host, source) = host(vec![engine.clone()], false);
     let session = session(&host, &engine);
@@ -584,8 +590,14 @@ fn accepted_uint64_action_fields_use_exact_decimal_presentation_strings_only() {
     let turns = reply["data"]["turns"].as_array().unwrap();
     assert_eq!(turns.len(), 3);
     let claim_decimal = claim.to_string();
-    assert_eq!(turns[0]["intent"]["value"][0]["deadline"].as_str(), Some("18446744073709551615"));
-    assert_eq!(turns[2]["intent"]["value"][0]["claim_event"].as_str(), Some(claim_decimal.as_str()));
+    assert_eq!(
+        turns[0]["intent"]["value"][0]["deadline"].as_str(),
+        Some("18446744073709551615")
+    );
+    assert_eq!(
+        turns[2]["intent"]["value"][0]["claim_event"].as_str(),
+        Some(claim_decimal.as_str())
+    );
     for (index, receipt) in [&promised, &stated, &believed].into_iter().enumerate() {
         let mut expected = json!(receipt.request().intent);
         if index == 0 {
@@ -594,9 +606,19 @@ fn accepted_uint64_action_fields_use_exact_decimal_presentation_strings_only() {
             expected["value"][0]["claim_event"] = json!(claim.to_string());
         }
         assert_eq!(turns[index]["intent"], expected);
-        assert_eq!(turns[index]["original_scope"], json!(receipt.request().scope));
+        assert_eq!(
+            turns[index]["original_scope"],
+            json!(receipt.request().scope)
+        );
         assert_eq!(turns[index]["turn"], receipt.request().turn);
-        assert_eq!(turns[index]["event_ids"], json!(receipt.events().iter().map(AcceptedEvent::sequence).collect::<Vec<_>>()));
+        assert_eq!(
+            turns[index]["event_ids"],
+            json!(receipt
+                .events()
+                .iter()
+                .map(AcceptedEvent::sequence)
+                .collect::<Vec<_>>())
+        );
         assert_eq!(turns[index]["narration"], receipt.narration());
     }
     let source = source.lock().unwrap();

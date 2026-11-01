@@ -247,7 +247,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return_item: None,
         }]),
     );
-    assert_eq!(json!(promise.request().intent)["value"][0]["deadline"].as_u64(), Some(u64::MAX));
+    assert_eq!(
+        json!(promise.request().intent)["value"][0]["deadline"].as_u64(),
+        Some(u64::MAX)
+    );
     let stated = append(
         &mut store,
         &u64_scope,

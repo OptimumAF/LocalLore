@@ -93,8 +93,10 @@ pub(crate) fn project(engine: &Engine) -> Result<Value, Error> {
             return Err(Error::CorruptHistory);
         }
         let intent = intent_wire(&receipt.request().intent)?;
-        turns.push(json!({"original_scope":receipt.request().scope,"turn":receipt.request().turn,
-            "event_ids":event_ids,"intent":intent,"narration":receipt.narration()}));
+        turns.push(
+            json!({"original_scope":receipt.request().scope,"turn":receipt.request().turn,
+            "event_ids":event_ids,"intent":intent,"narration":receipt.narration()}),
+        );
     }
     let state = engine.state();
     let self_state = state.actors.get(player).ok_or(Error::UnknownReference)?;

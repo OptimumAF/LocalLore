@@ -61,8 +61,8 @@ the expected identity, so production correctly observed equality. Commit78558dab
 deep-copies that fixture value. Assertions and all23 test-method ASTs remain;
 only activation13 is rerun. This does not claim a product identity bug was fixed.
 
-Independent build-reader CRLF handling and Root's integration audit setup also
-have retained corrections. On Windows the Popen audit event carries a framed
+An unexecuted private source formatter's stale-index SyntaxError and Root's
+integration audit setup have retained corrections. On Windows the Popen audit event carries a framed
 command string; Root's first guard wrongly treated it as an argv list and
 refused before dispatch. The corrected private runner checks the original argv
 and the exact Windows framing. No production boundary or old result was relaxed.

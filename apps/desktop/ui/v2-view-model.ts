@@ -77,7 +77,7 @@ type CommitmentV2 = {
     from: string;
     to: string;
     terms: string;
-    deadline: number;
+    deadline: string | number;
     source: EvidenceV2;
     return_item: string | null;
     completed_by: number | null;
@@ -188,7 +188,7 @@ export type RowV2 =
           from: string;
           to: string;
           terms: string;
-          deadline: number;
+          deadline: string | number;
           status: "open" | "overdue" | "fulfilled";
           return_item: string | null;
           sources: SourceV2[];
@@ -287,6 +287,14 @@ function integer(
             value <= max,
     );
     return value;
+}
+function deadline(value: unknown): void {
+    if (typeof value === "string") {
+        requireWire(/^(?:0|[1-9][0-9]{0,19})(?![\s\S])/.test(value));
+        requireWire(value.length < 20 || value <= "18446744073709551615");
+    } else {
+        integer(value);
+    }
 }
 function bool(value: unknown): void {
     requireWire(typeof value === "boolean");
@@ -611,7 +619,7 @@ function effect(value: unknown, b: Binding): void {
             id(c.from);
             id(c.to);
             text(c.terms);
-            integer(c.deadline);
+            deadline(c.deadline);
             evidence(c.source, b);
             nullable(c.return_item, id);
             nullable(c.completed_by, (v) => integer(v, 1, b.revision));
@@ -800,7 +808,7 @@ function row(value: unknown, b: Binding, nested = false): string {
             id(r.from);
             id(r.to);
             text(r.terms);
-            integer(r.deadline);
+            deadline(r.deadline);
             oneOf(r.status, ["open", "overdue", "fulfilled"]);
             nullable(r.return_item, id);
             sources(r.sources, b);

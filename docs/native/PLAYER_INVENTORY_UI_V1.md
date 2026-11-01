@@ -47,9 +47,9 @@ No model material is permitted. No gameplay or process-death command is added.
 The closed command grammar is `Nboot + 35`: three properties, one user query,
 two absence queries, six staging/hash/install commands, six installed checks
 before, eleven instrumentation commands, and six installed checks after. One
-successful boot observation therefore yields36 complete clients. Extra boot
-observations do not authorize another method attempt. Per-method90 seconds,
-controller1200, caller1230, owner1700, parent1730 and outer1800 limits remain.
+successful boot observation therefore yields 36 complete clients. Extra boot
+observations do not authorize another method attempt. Per-method 90 seconds,
+controller 1200, caller 1230, owner 1700, parent 1730 and outer 1800 limits remain.
 These overlapping limits do not promise all phases can consume their maxima.
 An uncertain result aborts; there is no fresh guest or method retry.
 

@@ -1,4 +1,4 @@
-# SDK12 inventory/chat host verification â€” 2026-11-01
+# SDK12 inventory/chat host verification - 2026-11-01
 
 Refs #14 (M10.02), #13 (M09.06), and #307 (supporting M09.04).
 Implementation is in review; complete milestone criteria remain unchecked.
@@ -23,7 +23,7 @@ separate D: branches/worktrees; Root owns integration and the final report.
 
 The independently frozen product is PR #330 at
 `ba548cbf6982c58d8a221aea2ed3606232d013d9`, built at
-`b8dbbcbb1b3ea67552d7449f94286187a31166ad`. Its separately recorded439 JVM
+`b8dbbcbb1b3ea67552d7449f94286187a31166ad`. Its separately recorded 439 JVM
 cases/52 XML suites, two JNI cross-builds and packaging audits are prior B59
 evidence, not tests rerun by this host packet. The adapter rechecks exact sealed
 bytes and current inputs using `fixed-b59-byte-attestation-v1`; it does not
@@ -42,12 +42,13 @@ Each row is a separate recorded execution, not one combined suite.
 | `scripts.tests.test_inventory_ui_controller` |8 tests pass,0 failures/errors/skips |48.647s suite;61.147s worker including initial graph;61.950s owner |
 | SDK11 authority/build-boundary/retirement/import regression selection |16 tests pass,0 failures/errors/skips |2.454s suite;2.879s child wall |
 | Author's genuine B59 `create_manifest()` |Pass;310,257,433 bytes/2,798 files,5 allowed read-only Git calls |2.309s body;2.408s child wall |
-| Integrated `create_manifest()` â†’ create-only fixed manifest â†’ `verify_frozen_product()` |Pass; exact24-source closure unchanged before/after |4.790s body;4.938s child wall |
+| Integrated `create_manifest()` -> create-only fixed manifest -> `verify_frozen_product()` |Pass; exact24-source closure unchanged before/after |4.790s body;4.938s child wall |
 
-The new tests total41 methods across four separate passing cohorts; the16
+The new tests total 41 methods across four separate passing cohorts; the 16
 SDK11 regressions are a separate selection. Controller tests integrate at
 `28d46a8b` from `0f059885`; activation tests at `24e88e92` from `16406d3b`.
-No production or oracle correction was required by these Windows executions.
+All tested method bodies passed without correction; the platform-scope
+finding below was addressed separately.
 The source-only reviewer compiled both new coordinators without executing them;
 six new Python modules also passed Root's in-memory syntax/compile checks. These
 are source checks, not additional runtime tests or native ownership proof.
@@ -63,7 +64,7 @@ documentation delta, same-object Cargo aliases, missing/third/foreign aliases,
 generic hardlinks, late drift/expiry and import side effects. Only fixed fixture
 data and Git observation are substituted; favorable validator results are not.
 
-The controller emits one complete36-client/11-claim graph (3,433,770 bytes),
+The controller emits one complete 36-client/11-claim graph (3,433,770 bytes),
 then replays preserved mutations of it. Generic replay is explicitly required to
 stay valid before controller refusal for changed labels/deadlines, incomplete
 JUnit and excess staging output; these are consumer-rule tests rather than
@@ -73,7 +74,7 @@ drift. One separate partial graph stops after the first missing exit frame and
 never dispatches the next method. Raw framing, claims, closed proof replay and
 JUnit parsing are real production code; build/native observations, socket byte
 transport, sender and clock are explicit simulations. Worker audit traps record
-zero actual native/socket/subprocess calls. Source27 pins remain unchanged.
+zero actual native/socket/subprocess calls. Source 27 pins remain unchanged.
 
 The ten activation methods use tiny real bound/create-only files and real SDK12
 metadata/authorization grammar, with simulated process identities and owner/
@@ -86,13 +87,15 @@ paths are source-reviewed but not directly exercised by these ten tests.
 Independent review found two missing Windows guards on the new physical-D build
 and activation fixture classes. `46168c90` adds only `skipUnless(os.name ==
 'nt')` class decorators. An AST comparison proves all method bodies unchanged
-and the gate is true on the tested Windows host. Those24 passing bodies were
+and the gate is true on the tested Windows host. Those 24 passing bodies were
 not rerun for the decorator-only correction; this records platform scope rather
-than claiming Linux execution. The controller already declares Windows scope.
+than claiming Linux execution. The controller already declares Windows scope. Independent import/discovery
+under write/process/socket/native traps passes (292ms, 14+10 discovered, zero
+test bodies executed and zero forbidden calls).
 
 ## Fixed artifact output
 
-The integrated source-closure read returns24 bindings, including the baseline
+The integrated source-closure read returns 24 bindings, including the baseline
 JSON; complete second readback is equal. No admission or authorization is created.
 The create-only manifest is:
 `D:/Dev/Experiments/LocalLore/2026-11-01-inventory-ui-cohort-v1/inventory-ui-build-v1.json`
@@ -107,7 +110,7 @@ Its only artifact companions are:
 
 Both retain recorded certificate
 `17ed497138b20dc1657d54039802305cfe0e3b782c73feaad20359c954707564`.
-The fixed baseline is11,641 bytes/SHA256
+The fixed baseline is 11,641 bytes/SHA256
 `1e7da6ffd02639145d4aa32c6577ccd223ac2a942741f5934b4da826dd33e2be`.
 Current native release/deps pairs are admitted only at the two named Cargo
 locations, with exactly two links to the same object and matching bytes. Every
@@ -134,8 +137,8 @@ are retained under
 Synthetic outputs remain under the separate
 `2026-11-01-inventory-ui-host-fixtures-v1` root. Controls64MiB, fixtures128MiB,
 source worktrees256MiB and recovery128MiB are the declared packet budgets.
-Final retained synthetic fixtures total8,213,109 bytes: the controller/profile
-share5,715,743 bytes; build1,506,179; activation679,100; legacy312,087. This
+Final retained synthetic fixtures total 8,213,109 bytes: the controller/profile
+share 5,715,743 bytes; build 1,506,179; activation 679,100; legacy 312,087. This
 includes the one full graph, one partial graph and preserved mutation deltas.
 No older failed/frozen captures or generated folders were removed or rewritten.
 Final source/control recovery uses a create-only copy/ZIP protocol under
@@ -144,16 +147,19 @@ and independent readback are posted on the tickets after execution. This is not
 a full fixture-tree backup; original fixture outputs remain in place.
 
 Independent read-only source/oracle review found no remaining concrete blocker
-after the test-platform correction. The separate integration reader rehashed24
+after the test-platform correction. The separate integration reader rehashed 24
 source pins and joined the canonical manifest/three artifact roles to the real
-returned result (39 files/656,050 bytes,6ms); its build-author overlap is
-disclosed. It did not repeat the310MB product validation. Review is not owner
+returned result (39 files/656,050 bytes, 6ms); its build-author overlap is
+disclosed. It did not repeat the 310 MB product validation. Review is not owner
 approval. Held ordinary-file checks are
 cooperative producer guards; no hostile filesystem race or ancestor-reparse
 attack qualification is claimed. Recorded inner raw aapt/full tool-binary
 provenance limits remain. A previous source-helper setup refusal, the untouched
 B56 capacity failures and prior B59 reader corrections retain their own records;
-none is turned into a success by this packet.
+none is turned into a success by this packet. A documentation-only edit also
+hit the Windows default decoding error; its command record and intermediate
+commit remain, and explicit UTF-8 reads/ASCII punctuation correct the report.
+No test result or production source changed in that correction.
 
 All eleven new-pair Android methods remain UNRUN. No emulator/ADB/phone discovery,
 boot, model transfer, inference, deletion, shared-ledger mutation, system setting,

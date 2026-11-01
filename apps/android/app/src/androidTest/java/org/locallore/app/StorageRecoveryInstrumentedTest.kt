@@ -303,7 +303,7 @@ class StorageRecoveryInstrumentedTest {
                 val prepares = f.replies.count("prepare")
                 tag("recover-save").performClick(); idle(model)
                 tag("revision").assertTextEquals("Accepted revision · 1")
-                compose.assertPlayerPotionQuantity(null)
+                compose.assertPlayerPotionQuantity(null) { model.state.value }
                 compose.runOnIdle {
                     assertFalse(model.state.value.recoveryRequired)
                     assertEquals(2, model.state.value.messages.size)

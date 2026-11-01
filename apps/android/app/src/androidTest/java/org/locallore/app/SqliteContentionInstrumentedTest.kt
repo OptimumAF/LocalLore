@@ -348,7 +348,7 @@ class SqliteContentionInstrumentedTest {
             f.writer.release()
             tag("recover-save").performClick(); idle(model)
             tag("revision").assertTextEquals("Accepted revision \u00B7 1")
-            compose.assertPlayerPotionQuantity(null)
+            compose.assertPlayerPotionQuantity(null) { model.state.value }
             compose.runOnIdle {
                 assertFalse(model.state.value.recoveryRequired); assertEquals(2, model.state.value.messages.size)
             }

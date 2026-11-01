@@ -21,6 +21,7 @@ import org.locallore.app.SavedStory
 import org.locallore.app.SceneMessage
 import org.locallore.app.ShellState
 import org.locallore.app.TextProvider
+import org.locallore.app.assertPlayerPotionQuantity
 
 /** Real screen with inert accepted-state fixtures; no native, device or accessibility-service claim. */
 class PlayerInventoryScreenTest {
@@ -172,16 +173,24 @@ class PlayerInventoryScreenTest {
             PlayerInventoryItem("item_${index.toString().padStart(2, '0')}_" + "x".repeat(56), index * 2)
         }
         assertTrue(longRows.all { it.id.length == 64 })
-        val original = initial().copy(inventory = longRows, textProvider = TextProvider.UNAVAILABLE)
+        val allRows = longRows + PlayerInventoryItem("potion", 1)
+        val original = initial().copy(inventory = allRows, textProvider = TextProvider.UNAVAILABLE)
         val state = mutableStateOf(original)
         val calls = Calls()
         show(state, calls, fontScale = 2f)
         open()
-        for (item in longRows) {
+        // This potion genuinely exists but is uncomposed below the initial viewport.
+        compose.onNodeWithTag("player-inventory-item-potion").assertDoesNotExist()
+        for (item in allRows) {
             row(item.id, item.quantity)
             compose.onNodeWithTag("player-inventory-close").assertIsDisplayed().assertIsEnabled()
         }
         close()
+        // The source-bound absence oracle must refuse even though assertDoesNotExist
+        // on the initial lazy viewport alone would have falsely passed above.
+        assertThrows(AssertionError::class.java) {
+            compose.assertPlayerPotionQuantity(null) { state.value }
+        }
         tag("message-body-1").assertTextEquals(messages[0].text)
         tag("message-body-2").assertTextEquals(messages[1].text)
         compose.runOnIdle { assertEquals(original, state.value); assertSame(messages, state.value.messages); assertEquals(0, calls.count) }

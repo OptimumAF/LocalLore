@@ -77,7 +77,7 @@ class TimelineActivityTest {
             val childMessages = model.state.value.messages
             assertEquals(4, childMessages.size)
             assertFalse(childMessages.any { it.text.contains("PLATFORM_SIBLING_CANARY") })
-            compose.assertPlayerPotionQuantity(null)
+            compose.assertPlayerPotionQuantity(null) { model.state.value }
             clickInStory("give-potion")
             compose.waitUntil(15_000) { !model.state.value.busy }
             assertEquals(2L, model.state.value.revision); assertEquals(childMessages, model.state.value.messages)

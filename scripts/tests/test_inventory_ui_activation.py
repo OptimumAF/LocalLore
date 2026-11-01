@@ -173,6 +173,7 @@ class CoordinatorGraph:
         return runtime,code
 
 
+@unittest.skipUnless(os.name == 'nt', 'Physical D: byte-backed host fixtures')
 class InventoryActivationTests(unittest.TestCase):
     def setUp(self):
         self.stack=ExitStack();self.addCleanup(self.stack.close)

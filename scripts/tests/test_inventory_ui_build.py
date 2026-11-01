@@ -130,6 +130,7 @@ class Fixture:
         return dict(build=pin(Path(self.fixed['manifest'])),**copy.deepcopy(self.fixed['apks']))
 
 
+@unittest.skipUnless(os.name == 'nt', 'Physical D: byte-backed host fixtures')
 class InventoryBuildTests(unittest.TestCase):
     def setUp(self):
         self.f=Fixture()

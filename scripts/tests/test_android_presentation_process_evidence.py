@@ -475,6 +475,29 @@ class PresentationControllerEvidenceTests(unittest.TestCase):
         equal_saved["terminal_observations"][1]["commands_sequence"] = 22
         self.refused(equal_saved, records)  # Explicit Send changes GAME after the witness.
 
+    def test_created_before_initial_reads_can_be_zero_without_weakening_final_refresh_proof(self):
+        result, records, pins = result_graph()
+        created = json.loads(records["created"])
+        created["operations"].update(resume=0, play_presentation_v2=0)
+        records["created"] = encoded(created)
+        result["presentation_reads"][1].update(resume_before=0, presentation_before=0)
+        self.assertEqual(evidence.validate_result(frame(result), pins, records), result)
+        # The same zero counters can be observed at the identical initial sequence.
+        equal = copy.deepcopy(result)
+        equal["presentation_reads"][1]["before_sequence"] = created["sequence"]
+        self.assertEqual(evidence.validate_result(frame(equal), pins, records), equal)
+        legacy = copy.deepcopy(created)
+        legacy["operations"]["play_snapshot"] = 1
+        self.refused(result, dict(records, created=encoded(legacy)))
+        for operation in ("resume", "play_presentation_v2"):
+            for invalid in (0, 2):
+                final = json.loads(records["commands"])
+                final["operations"][operation] = invalid
+                self.refused(result, dict(records, commands=encoded(final)))
+            regressed = copy.deepcopy(created)
+            regressed["operations"][operation] = 1
+            self.refused(result, dict(records, created=encoded(regressed)))
+
 
 if __name__ == "__main__":
     unittest.main()

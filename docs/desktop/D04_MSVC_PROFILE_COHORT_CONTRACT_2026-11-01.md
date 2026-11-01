@@ -158,6 +158,104 @@ and no SDK/data-file I/O, model, process launch or runtime source evaluation.
 Freeze private callback signatures/envelope and independent source before the
 producer; the callbacks are development-only and never app IPC capabilities.
 
+### Independently frozen private FIRST interface
+
+The NEW `native/llama-worker/library_metadata_cohort_first.mjs` exports only
+`async runFixedProfileCohortSelfchecksV1(api)`; there is no top-level run or I/O.
+Its52 IDs are exactly the five ranges above. Missing callbacks/codebook throw
+the bounded setup marker `UNRUN_SETUP: fixed cohort API unavailable`; that is
+not a behavioral RED. Individual case failures return only their fixed IDs.
+The private `api` has exactly these five functions and a data-only `codebook`:
+
+- `fixtureRoster()` returns a FRESH JSON clone of the original pinned snapshot,
+  not already validated rows and never an SDK adapter. `validateFixedRoster(v)`
+  synchronously validates the closed original cohort and returns32 ordered pins
+  `{slot,alias,path,bytes,sha256,baseline}`. Slot is1-based. Baseline contains the
+  retained success fields `objects,imports,directiveUniqueCount,
+  directiveArraySha256,defaultLibraries`, or `error`; add `site,context` only
+  where separately bound diagnostic evidence exists. Include `slot` in baseline
+  for pairing. Validate original metadata/error/search records too, not just
+  aggregate bytes. Saved paths permit their actual slash/case spelling while
+  resolving to exactly the frozen fixed paths; no replacement input is accepted.
+- `inspectPair(job,buffer,baseline)` is synchronous and returns exactly
+  `{row:{slot,strict,profile},stopped,critical}`. It uses the real accepted job;
+  only unknown-error adversaries receive a fake job. Arrays follow the frozen
+  dictionaries above. Strict stop/mismatch forbids profile; profile ordinary
+  refusal can continue. Unknown errors are never converted to a known refusal.
+  `critical` is null or exactly `BaselineMismatch`, `UnknownInspection`,
+  `JobStopped`, or `CohortOrder`. Per-job order begins at slot1; wrong/duplicate
+  slot and repeated Buffer identity stop without another accepted inspection.
+  The caller does not append an unadmitted wrong-slot result to its prefix.
+  A private per-job poison latch prevents any inspection after a
+  critical result, even when the accepted job's own stopped flag isfalse.
+  An unclassifiable attempted mode has null output, never invented counters.
+- `async readPinnedInput(pin,ioState,adapter)` returns `{buffer,identity}`.
+  State has exactly `ready,stopped,pending,reservedInputs,reservedBytes,
+  reservedReadBytes,actualReadBytes,opened`; initial counts0, opened[], ready
+  false until the exact FIRST result admits binding. FIRST synthetic states
+  may set ready=true and use near-limit conservative counters. The private
+  state counters must be nonnegative safe integers, reservation reads twice
+  reserved bytes, and actual reads no greater than reservations; malformed
+  state is refused before any adapter callback. The private
+  poison/pending latches cannot be reset by assigning public state fields.
+  Before ANY adapter call, gate/concurrency/reservations are checked. Reserve
+  once before identify/open, reject prospective overages without charging them,
+  retain accepted reservations on later failure, and stop on every critical
+  failure. A pending call must observe a concurrent poison before returning.
+  No callback on a later unopened input may occur after poison.
+  `adapter.identify(pin)` returns `{path,root,leaf,bytes}`; these are canonical
+  ordinary path/root and leaf identity strings plus exact size. `open(pin,'r')`
+  returns ONLY a read-only handle with `stat()->{leaf,bytes}`,
+  `read(buffer,offset,length,position)->{bytesRead}`, and `close()` (all async).
+  The production binding owns ordinary/reparse/canonical validation; tests
+  supply stable opaque identity strings. Compare initial leaf/size to handle,
+  stat between/after scans and identify again before returning. Preserve the
+  held Buffer across a second independent scratch-buffer scan. Save a successful
+  `{pin,identity}` in opened for final identity-only rechecks. Finally closes
+  exactly once after open, including failure; close failure is critical.
+  The read callback never receives a write flag. Thrown errors have bounded
+  fixed categories, without exception payloads. FIRST does not depend on new
+  private error names for this path.
+- `encodeReport(report)` synchronously validates and returns a JSON STRING plus
+  exactly one final LF; no writes. Exact top-level keys are `version,kind,
+  profileId,purpose,qualified,linkQualification,closureComplete,captureComplete,
+  status,selfchecks,proofs,job,io,rows,strictRefusals,profileParsed,critical`.
+  Version1/kind`msvc_profile_cohort_v1`, accepted profile ID/purpose, three false
+  flags; status is `complete` or `stopped`. Selfchecks is the exact six-key52/52
+  FIRST summary. Proofs has ONLY `reader,helper,first,supervisor,roster,
+  descriptor,codebook`, each
+  lowercase SHA256; helper/descriptor/codebook match their frozen identities.
+  Job is the exact unchanged six-key job snapshot. I/O has ONLY
+  `reservedInputs,reservedBytes,reservedReadBytes,actualReadBytes`. Its counts
+  stay within the accepted32/512MiB/1GiB ceilings; reservation reads equal twice
+  reserved bytes; actual reads never exceed accepted reservations. Rows are an
+  ordered1-based prefix, no extras. Count encoded strict refusals/profile parses
+  exactly. Only a stopped final row may have a null mode; strict=null also
+  requires profile=null and UnknownInspection. Preserve actual partial attempts
+  (an unknown attempted mode can have no encoded array), never infer success.
+  Complete requires the exact full32/64/359493030/718986060/live-job constraints
+  already frozen,19 matching strict refusals and null critical. Stopped requires
+  a fixed critical code, never completion; the code is one of the four pairing
+  codes above or `InputFailure`, `IdentityFailure`, `SourceFailure`,
+  `ReportFailure`. It may have a live job after baseline
+  mismatch. Non-null encoded modes cannot exceed actual job attempts; known
+  baseline mismatch with null profile has only its strict attempt. The private
+  collector checks row/buffer/identity order and actual snapshots before calling
+  this serializer; synthetic valid report fixtures qualify only the schema.
+  A read failure before pairing may have accepted I/O reservations but no new
+  job entry/attempt/row; do not equate these distinct partial counters.
+  Byte-overflow adversaries also violate closed schema/value/count bounds:
+  valid bounded forms are already smaller than the byte ceilings. FIRST labels
+  these overlapping controls and adds no arbitrary padding capability.
+
+Codebook has ONLY `kinds,sites,contexts,sha256,helperSha256,descriptorSha256`;
+it and its arrays are frozen. Kinds are the six full `LibraryInputs...` messages
+in the fixed ID order above; contexts are the eight ordered names above.
+`sha256` covers JSON of `{kinds,sites,contexts}` in that key insertion order.
+Descriptor digest covers JSON of the accepted frozen descriptor; metadata
+digests cover JSON of the actual accepted metadata object in its existing order.
+No signature here changes resource ceilings, baseline semantics or admission.
+
 One fixed supervisor must retain all physical-D/Node-environment/source/owner/
 Stage/START/old-proof/global-stop/unknown/stream/deadline/storage controls and
 confirm child closure before its verdict. No arbitrary command/path/env selector,

@@ -448,6 +448,33 @@ class PresentationControllerEvidenceTests(unittest.TestCase):
                 with self.assertRaises(evidence.PresentationEvidenceRefused):
                     evidence.validate_result(candidate, pins, records)
 
+    def test_equal_sequence_read_forks_and_pre_send_terminal_aliases_cannot_qualify(self):
+        result, records, pins = result_graph()
+        # Equal endpoints are possible only when the actual counter snapshots agree.
+        created = json.loads(records["created"])
+        commands = json.loads(records["commands"])
+        created["sequence"] = 2
+        commands["sequence"] = 8
+        commands["operations"].update(resume=3, play_presentation_v2=3)
+        equal_records = dict(records, created=encoded(created), commands=encoded(commands))
+        self.assertEqual(evidence.validate_result(frame(result), pins, equal_records), result)
+        before = copy.deepcopy(result)
+        before["presentation_reads"][1]["resume_before"] = 2
+        self.refused(before, equal_records)  # Same sequence, different counter value.
+        after = copy.deepcopy(result)
+        after["presentation_reads"][1]["presentation_after"] = 2
+        self.refused(after, equal_records)
+        regressed = copy.deepcopy(result)
+        regressed["presentation_reads"][1]["resume_before"] = 0
+        self.refused(regressed, records)  # Later witness cannot precede created counters.
+        equal_command = copy.deepcopy(result)
+        equal_command["presentation_reads"][0]["after_sequence"] = 20
+        self.refused(equal_command, records)
+        equal_saved = copy.deepcopy(result)
+        equal_saved["presentation_reads"][0]["after_sequence"] = 21
+        equal_saved["terminal_observations"][1]["commands_sequence"] = 22
+        self.refused(equal_saved, records)  # Explicit Send changes GAME after the witness.
+
 
 if __name__ == "__main__":
     unittest.main()

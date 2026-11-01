@@ -145,6 +145,72 @@ test('B07', () => rejects(archive([['//', Buffer.from('a'.repeat(4097) + '\0')]]
 test('B08', () => inspect(archive([['//', Buffer.from('a'.repeat(4096) + '\0')]])).objects === 0);
 test('A13', () => inspect(changed(archive([['x/', coff()]]), b => b.write('0000000020', 56, 10, 'ascii'))).objects === 1);
 
+// Additive source-only diagnostic cases; the original85 predicates above stay intact.
+function refusal(bytes, message, site, fields = {}) {
+  const keys = ['memberIndex', 'memberOffset', 'sectionIndex', 'sections', 'directiveBytes', 'tokenCount', 'actual', 'limit'];
+  let previous = null;
+  for (let repeat = 0; repeat < 2; ++repeat) {
+    let error;
+    try { inspect(bytes); return false; } catch (caught) { error = caught; }
+    if (!(error instanceof Error) || error.message !== message || error.site !== site ||
+        !/^[a-z][a-z0-9_]{0,63}$/.test(error.site) || !error.context ||
+        !same(Object.keys(error.context).sort(), [...keys].sort())) return false;
+    if (Object.values(error.context).some(value => value !== null &&
+        (!Number.isSafeInteger(value) || value < 0))) return false;
+    for (const [key, value] of Object.entries(fields)) if (error.context[key] !== value) return false;
+    if (previous && !same(previous, error.context)) return false;
+    previous = error.context;
+  }
+  return true;
+}
+test('Z01', () => refusal(null, 'LibraryInputsType', 'input_type', {
+  memberIndex: null, sections: null, tokenCount: null, actual: null, limit: null }));
+test('Z02', () => refusal(Buffer.alloc(19), 'LibraryInputsFormat', 'coff_header_range', {
+  memberIndex: null, sectionIndex: null, sections: 0, directiveBytes: 0, tokenCount: 0 }));
+test('Z03', () => refusal(changed(coff(), b => b.writeUInt16LE(0x14c)), 'LibraryInputsFormat', 'coff_machine'));
+test('Z04', () => refusal(changed(directive('/X:y', true), b => b[12] ^= 1), 'LibraryInputsFormat', 'bigobj_class_id'));
+test('Z05', () => refusal(changed(imported(), b => b.writeUInt16LE(3, 18)), 'LibraryInputsFormat', 'import_type'));
+test('Z06', () => refusal(changed(imported(), b => b.writeUInt32LE(1, 12)), 'LibraryInputsFormat', 'import_data_size'));
+test('Z07', () => refusal(changed(imported(), b => b[b.length - 1] = 120), 'LibraryInputsFormat', 'import_name_end'));
+test('Z08', () => refusal(changed(archive([['x/', coff()]]), b => b[66] = 0), 'LibraryInputsFormat', 'archive_header_end', {
+  memberIndex: 0, memberOffset: 8, sectionIndex: null }));
+test('Z09', () => refusal(archive([['//', Buffer.from('long.obj\0')], ['/1', coff()]]),
+  'LibraryInputsFormat', 'archive_longname_reference', { memberIndex: 1 }));
+test('Z10', () => refusal(archive([['//', Buffer.from('long.obj/\n')], ['/0', coff()]]),
+  'LibraryInputsFormat', 'archive_longname_end', { memberIndex: 0, memberOffset: 8 }));
+test('Z11', () => refusal(changed(directive('/X:y', false, true), b => b.write('/5', 20, 2, 'ascii')),
+  'LibraryInputsFormat', 'section_alias_offset', { sectionIndex: 0 }));
+test('Z12', () => refusal(archive([['x/', changed(directive('/X:y'), b => b.writeUInt32LE(0xfffffff0, 40))]]),
+  'LibraryInputsFormat', 'coff_raw_range', { memberIndex: 0, memberOffset: 8, sectionIndex: 0, sections: 1 }));
+test('Z13', () => refusal(changed(coff([], true), b => b.writeUInt32LE(65537, 44)),
+  'LibraryInputsSize', 'coff_sections_member', { sections: 65537, sectionIndex: null, actual: 65537, limit: 65536 }));
+test('Z14', () => {
+  const large = coff(Array.from({ length: 22000 }, () => section('', '.text', 0x40)));
+  return refusal(archive([['a/', large], ['b/', large], ['c/', large]]), 'LibraryInputsSize', 'coff_sections_total', {
+    memberIndex: 2, sectionIndex: null, sections: 66000, actual: 66000, limit: 65536 });
+});
+test('Z15', () => refusal(directive(' '.repeat(1048577)), 'LibraryInputsSize', 'directive_bytes_section', {
+  sectionIndex: 0, directiveBytes: 1048577, actual: 1048577, limit: 1048576 }));
+test('Z16', () => refusal(archive([['a/', directive(' '.repeat(524288))], ['b/', directive(' '.repeat(524289))]]),
+  'LibraryInputsSize', 'directive_bytes_total', { memberIndex: 1, directiveBytes: 1048577, actual: 1048577, limit: 1048576 }));
+test('Z17', () => refusal(directive('/X:y '.repeat(65537)), 'LibraryInputsSize', 'directive_tokens_section', {
+  sectionIndex: 0, tokenCount: 0, actual: 65537, limit: 65536 }));
+test('Z18', () => refusal(archive([['a/', directive('/X:y '.repeat(32768))], ['b/', directive('/X:y '.repeat(32769))]]),
+  'LibraryInputsSize', 'directive_tokens_total', { memberIndex: 1, tokenCount: 65537, actual: 65537, limit: 65536 }));
+test('Z19', () => refusal(changed(archive([['x/', coff()]]), b => b.write('268435456 ', 56, 10, 'ascii')),
+  'LibraryInputsSize', 'archive_member_bytes', { memberIndex: 0, memberOffset: 8, actual: 268435456, limit: 268435456 }));
+test('Z20', () => refusal(archive([['//', Buffer.from('a\0'.repeat(65537))]]), 'LibraryInputsSize', 'archive_longname_entries', {
+  memberIndex: 0, actual: 65536, limit: 65536 }));
+test('Z21', () => refusal(archive([['//', Buffer.from('a'.repeat(4097) + '\0')]]), 'LibraryInputsFormat', 'archive_longname_end'));
+test('Z22', () => refusal(directive('/DEFAULTLIB:C:\\synthetic.lib'), 'LibraryInputsUnsafe', 'defaultlib_name'));
+test('Z23', () => refusal(directive('/DEFAULTLIB:"unterminated'), 'LibraryInputsDirective', 'directive_token'));
+test('Z24', () => refusal(directive('/X:\u00e9'), 'LibraryInputsFormat', 'directive_encoding'));
+test('Z25', () => refusal(changed(directive('/X:y'), b => b.fill(0, 20, 28)), 'LibraryInputsFormat', 'section_name_empty'));
+test('Z26', () => refusal(changed(archive([['x/', coff()]]), b => b.write('99999999  ', 56, 10, 'ascii')),
+  'LibraryInputsFormat', 'archive_body_range'));
+test('Z27', () => refusal(Buffer.alloc(19), 'LibraryInputsFormat', 'coff_header_range', { sections: 0, tokenCount: 0 })
+  && same(inspect(coff()), empty));
+
 // Fixed summary and finite IDs only; no parsed directive or exception is printed.
 console.log(JSON.stringify({ version: 1, kind: 'library_inputs_synthetic_v1', executed,
   passed, failed: executed - passed, failed_case_ids: failed }));

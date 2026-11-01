@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [current chat APK verification](docs/android/CURRENT_CHAT_APKS_2026-11-01.md)
+builds both Rust Android ABIs and the ordinary app/test packages. The 428 JVM
+tests, lint and package audits pass; all eight new UI methods are defined in the
+test APK. Android execution remains unrun, and the frozen SDK10 proposal retains
+its separate source and APK bindings.
+
 The [quick-action scope fix](docs/android/QUICK_ACTION_SCOPE_2026-11-01.md)
 binds rendered buttons to their story and branch before starting work. Four
 stale-target regression failures are preserved; all 428 JVM tests, Android-test

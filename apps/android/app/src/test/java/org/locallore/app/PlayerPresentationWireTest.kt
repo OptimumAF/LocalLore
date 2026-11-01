@@ -34,6 +34,24 @@ class PlayerPresentationWireTest {
         try { read(value) } catch (bad: WorkspaceFailure) { failure = bad }
         assertEquals("Malformed", failure?.category)
     }
+    private fun assertSameJson(expected: Any, actual: Any) {
+        when (expected) {
+            is JSONObject -> {
+                assertTrue(actual is JSONObject)
+                val objectValue = actual as JSONObject
+                val keys = expected.keys().asSequence().toSet()
+                assertEquals(keys, objectValue.keys().asSequence().toSet())
+                for (key in keys) assertSameJson(expected.get(key), objectValue.get(key))
+            }
+            is JSONArray -> {
+                assertTrue(actual is JSONArray)
+                val arrayValue = actual as JSONArray
+                assertEquals(expected.length(), arrayValue.length())
+                for (index in 0 until expected.length()) assertSameJson(expected.get(index), arrayValue.get(index))
+            }
+            else -> assertEquals(expected, actual)
+        }
+    }
 
     @Test fun commandContainsOnlyTheFixedOperationAndBoundSessionScopeHead() {
         val command = PlayerPresentationWire.command("session", selected, 4096)
@@ -82,7 +100,7 @@ class PlayerPresentationWireTest {
             val value = frame()
             value.getJSONArray("turns").put(0, turn(0, intent("actions", JSONArray().put(obj(command)))))
             val displayed = JSONArray(read(value).messages.first().text).getJSONObject(0)
-            assertTrue(displayed.similar(obj(command)))
+            assertSameJson(obj(command), displayed)
         }
     }
 

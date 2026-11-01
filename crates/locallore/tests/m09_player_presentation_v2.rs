@@ -365,8 +365,9 @@ fn equal_head_author_replacement_is_stale_and_legacy_domain_refusal_is_unchanged
 fn oversized_twenty_complete_turns_refuse_without_clipping_or_adaptive_window() {
     let mut engine = engine();
     let mut projected_turn_bytes = 0;
+    let mut largest_receipt_bytes = 0;
     for i in 0..20 {
-        let commands = (0..8).map(|_| Command::Say { text: "r".repeat(1700), audience: ["mira".into()].into() }).collect();
+        let commands = (0..8).map(|_| Command::Say { text: "r".repeat(1550), audience: ["mira".into()].into() }).collect();
         let request = engine.request(&format!("large-{i}"), Intent::Actions(commands));
         let request_bytes = serde_json::to_vec(&request).unwrap().len();
         assert!(request_bytes <= MAX_PROPOSAL_BYTES, "fixture request {i}: {request_bytes}");
@@ -375,12 +376,17 @@ fn oversized_twenty_complete_turns_refuse_without_clipping_or_adaptive_window() 
         assert!(proposal_bytes <= MAX_PROPOSAL_BYTES, "fixture proposal {i}: {proposal_bytes}");
         engine.preflight(&request).unwrap_or_else(|error| panic!("fixture preflight {i}, request {request_bytes}, proposal {proposal_bytes}: {error:?}"));
         let receipt = engine.preview(&request, &proposal).unwrap_or_else(|error| panic!("fixture preview {i}, request {request_bytes}, proposal {proposal_bytes}: {error:?}"));
+        let receipt_bytes = serde_json::to_vec(&receipt).unwrap().len();
+        assert!(receipt_bytes <= MAX_RECEIPT_BYTES, "fixture receipt {i}: {receipt_bytes}");
+        largest_receipt_bytes = largest_receipt_bytes.max(receipt_bytes);
         engine.commit_prepared(&receipt).unwrap();
+        assert!(serde_json::to_vec(engine.state()).unwrap().len() <= 262_144);
         projected_turn_bytes += serde_json::to_vec(&json!({"original_scope":receipt.request().scope,
             "turn":receipt.request().turn,"event_ids":receipt.events().iter().map(AcceptedEvent::sequence).collect::<Vec<_>>(),
             "intent":receipt.request().intent,"narration":receipt.narration()})).unwrap().len();
     }
     assert!(projected_turn_bytes > MAX_OUTPUT, "fixture must reach the real Host cap");
+    println!("Accepted overflow fixture: 20 turns; largest receipt {largest_receipt_bytes}; mechanical projection {}; presentation turns {projected_turn_bytes}", serde_json::to_vec(engine.state()).unwrap().len());
     let (host, source) = host(vec![engine.clone()], false);
     let session = session(&host, &engine);
     let reply = presentation(&host, &session, &engine);

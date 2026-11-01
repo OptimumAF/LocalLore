@@ -208,7 +208,11 @@ class PlayerPresentationWireTest {
     }
 
     @Test fun utf8ByteBudgetRejectsOversizeAndMalformedUnicodeWithoutRepair() {
-        refuses(frame().also { it.getJSONArray("turns").getJSONObject(0).put("narration", "\u00e9".repeat(32768)) })
+        // Raw JNI size and reserialized-object size are distinct boundaries.
+        refuses(frame().also { it.getJSONArray("turns").getJSONObject(0).put("narration", "\u00e9".repeat(32769)) })
+        refuses(frame(5).also { value ->
+            for (i in 0 until 5) value.getJSONArray("turns").getJSONObject(i).put("narration", "n".repeat(60000))
+        })
         refuses(frame().also { it.getJSONArray("turns").getJSONObject(0).put("narration", "\ud800") })
         refuses(frame().also { it.getJSONArray("turns").getJSONObject(0).put("intent",
             intent("free_text", JSONObject().put("kind", "action").put("text", "\u00e9".repeat(1025)))) })

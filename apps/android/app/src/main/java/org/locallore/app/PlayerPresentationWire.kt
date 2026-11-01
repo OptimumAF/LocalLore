@@ -21,6 +21,9 @@ internal object PlayerPresentationWire {
     private val identifier = Regex("[A-Za-z0-9_-]{1,64}")
     private val unsignedDecimal = Regex("0|[1-9][0-9]{0,19}")
     private const val MAX_BYTES = 65536
+    // JNI already bounds the original raw reply. Android slash escaping can
+    // enlarge the same admitted object; this is an allocation bound only.
+    private const val MAX_REENCODED_BYTES = 262144
 
     fun command(session: String, scope: PlayDraftScope, revision: Long): JSONObject {
         require(localUtf8(session).size in 1..128 && revision >= 0)
@@ -31,7 +34,7 @@ internal object PlayerPresentationWire {
     }
 
     fun decode(data: JSONObject, expectedScope: PlayDraftScope, expectedRevision: Long): PlayerPresentation = try {
-        require(expectedRevision >= 0 && localUtf8(data.toString()).size <= MAX_BYTES)
+        require(expectedRevision >= 0 && localUtf8(data.toString()).size <= MAX_REENCODED_BYTES)
         data.fields("version", "domain_version", "scope", "revision", "rules", "player", "inventory", "turns", "window")
         require(data.integer("version") == 2L)
         val domain = data.integer("domain_version").also { require(it in 1..2) }.toInt()

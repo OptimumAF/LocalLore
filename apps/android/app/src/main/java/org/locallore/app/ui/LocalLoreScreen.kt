@@ -135,7 +135,7 @@ internal fun LocalLoreScreen(
     )
     val sceneHeading = storyHeading(state)
     val inventoryScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
-    val inventoryEligible = inventoryScope != null && !state.recoveryRequired && !state.archiveActive &&
+    val inventoryEligible = inventoryScope != null && state.inventory != null && !state.recoveryRequired && !state.archiveActive &&
         !state.deletionActive && !state.forkActive && !state.creationActive
     val currentInventoryScope by rememberUpdatedState(inventoryScope)
     val currentInventoryEligible by rememberUpdatedState(inventoryEligible)

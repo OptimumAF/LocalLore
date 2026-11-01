@@ -92,11 +92,9 @@ class PlayerInventoryScreenTest {
         compose.onNodeWithTag("player-inventory-unavailable").assertDoesNotExist()
         close()
         select(state, original.copy(inventory = null))
-        tag("player-inventory-open").assertTextEquals("Inventory unavailable")
-        open()
-        compose.onNodeWithTag("player-inventory-unavailable").assertTextEquals("Inventory is unavailable for this view.")
+        tag("player-inventory-open").assertTextEquals("Inventory unavailable").assertIsNotEnabled()
+        compose.onNodeWithTag("player-inventory-dialog").assertDoesNotExist()
         compose.onNodeWithTag("player-inventory-empty").assertDoesNotExist()
-        close()
 
         // Even misleading saved inventory metadata cannot change the nonpersistent demo row.
         select(state, original.copy(persistent = false, selectedStory = null, potionOwner = "You"))
@@ -131,7 +129,8 @@ class PlayerInventoryScreenTest {
         open(); row("new-item", 12); close()
         select(state, refreshed)
         open()
-        for (blocked in listOf(refreshed.copy(archiveActive = true), refreshed.copy(recoveryRequired = true))) {
+        for (blocked in listOf(refreshed.copy(archiveActive = true), refreshed.copy(recoveryRequired = true),
+            refreshed.copy(inventory = null))) {
             select(state, blocked)
             compose.onNodeWithTag("player-inventory-dialog").assertDoesNotExist()
             tag("player-inventory-open").assertIsNotEnabled()

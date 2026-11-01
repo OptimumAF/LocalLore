@@ -6,18 +6,24 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /** Owner-thread UI adapter. Reads cannot prepare, commit, or cancel gameplay. */
 internal class StoryRecordController(private val reader: StoryRecordReader, private val scope: CoroutineScope) {
     private val mutable = MutableStateFlow(StoryRecordState())
+    private val publishedFrames = MutableStateFlow(StoryRecordFrame(mutable.value))
     val state = mutable.asStateFlow()
-    val frames = state.map(::StoryRecordFrame)
+    val frames = publishedFrames.asStateFlow()
     private var generation = 0L
     private var pending: Job? = null
     private var disposed = false
     private var pageBoundary: Pair<StoryRecordQuery, Pair<Int, Long>>? = null
+
+    private fun publish(value: StoryRecordState) {
+        mutable.value = value
+        // A slow UI collector must receive the latest exact state even when its values repeat.
+        publishedFrames.value = StoryRecordFrame(mutable.value)
+    }
 
     fun open(context: StoryRecordContext) {
         if (!disposed) load(StoryRecordQuery(context))
@@ -78,7 +84,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
             version = if (reference == null) 1 else 2)
         val ticket = ++generation
         pending?.cancel()
-        mutable.value = current.copy(eventDetail = StoryRecordEventDetail(sequence, scopedReference = reference))
+        publish(current.copy(eventDetail = StoryRecordEventDetail(sequence, scopedReference = reference)))
         pending = scope.launch {
             try {
                 val page = reader.readStoryRecord(query)
@@ -91,14 +97,14 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 validateEntry(entry, query, page.storyTime)
                 check(entry.origin == StoryRecordOrigin.RECORDED_OBSERVATION && entry.event?.sequence == sequence)
                 check(entry.event?.originalScope == reference?.originalScope)
-                mutable.value = mutable.value.copy(eventDetail = StoryRecordEventDetail(sequence, loading = false,
-                    entry = freeze(entry), scopedReference = reference))
+                publish(mutable.value.copy(eventDetail = StoryRecordEventDetail(sequence, loading = false,
+                    entry = freeze(entry), scopedReference = reference)))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
-                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(
+                if (!disposed && ticket == generation) publish(mutable.value.copy(
                     eventDetail = StoryRecordEventDetail(sequence, loading = false,
                         problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE,
-                        scopedReference = reference))
+                        scopedReference = reference)))
             }
         }
     }
@@ -107,7 +113,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         generation++
         pending?.cancel()
         pending = null
-        mutable.value = mutable.value.copy(eventDetail = null)
+        publish(mutable.value.copy(eventDetail = null))
     }
     private fun load(query: StoryRecordQuery) {
         val identity = query.copy(cursor = null)
@@ -115,10 +121,10 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         val boundary = pageBoundary?.second
         val ticket = ++generation
         pending?.cancel()
-        mutable.value = StoryRecordState(visible = true, loading = true, context = query.context,
-            section = query.section, search = query.search, cursor = query.cursor)
+        publish(StoryRecordState(visible = true, loading = true, context = query.context,
+            section = query.section, search = query.search, cursor = query.cursor))
         if (!validStoryRecordSearch(query.search)) {
-            mutable.value = mutable.value.copy(loading = false, problem = StoryRecordProblem.BAD_SEARCH)
+            publish(mutable.value.copy(loading = false, problem = StoryRecordProblem.BAD_SEARCH))
             return
         }
         pending = scope.launch {
@@ -135,13 +141,13 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 check(page.nextCursor == null || (page.nextCursor != query.cursor && page.entries.isNotEmpty() &&
                     page.nextCursor.toByteArray(Charsets.UTF_8).size in 1..128))
                 pageBoundary = identity to (page.total to page.storyTime)
-                mutable.value = mutable.value.copy(loading = false, storyTime = page.storyTime, total = page.total,
+                publish(mutable.value.copy(loading = false, storyTime = page.storyTime, total = page.total,
                     entries = page.entries.map(::freeze),
-                    nextCursor = page.nextCursor, limitations = page.limitations.toList())
+                    nextCursor = page.nextCursor, limitations = page.limitations.toList()))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
-                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(loading = false,
-                    problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE)
+                if (!disposed && ticket == generation) publish(mutable.value.copy(loading = false,
+                    problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE))
             }
         }
     }
@@ -150,7 +156,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         pending?.cancel()
         pending = null
         pageBoundary = null
-        mutable.value = StoryRecordState()
+        publish(StoryRecordState())
     }
     fun dispose() { disposed = true; dismiss() }
 

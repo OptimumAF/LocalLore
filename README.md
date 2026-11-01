@@ -21,11 +21,21 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [buffered restart qualification](docs/native/BUFFERED_RESTART_RUN_2026-10-29.md)
+completes one newly approved API 35/x86_64 run using PR #270's frozen build:
+verified local model transfer/import, real AUTHOR creation, idempotent retry,
+and passive restart without inference in a later process. The prior PID was
+already absent before the host stop command, so this run does not prove that
+command caused a live process to die. All 66
+controller calls and the requested owned guest/private-service closure pass.
+Earlier spent/refused runs retain their outcomes; phone/ARM64 performance,
+broad reliability and full milestone acceptance remain separate.
+
 The [owned-target model run](docs/native/OWNED_TARGET_VERIFICATION_2026-10-29.md)
 now verifies one real local-model import/AUTHOR/internal-reopen case on an
 explicitly approved emulator. The [external restart follow-up](docs/native/ORIGINAL_AUTHOR_RESTART_VERIFICATION_2026-10-29.md)
 adds actual host process-death/PLAYER retry checks and a compiled passive Android
-method. Android external process death remains unrun; physical-device and broad
+method. That earlier cohort leaves Android external process death unrun; physical-device and broad
 story-quality gates remain separate.
 
 The [same-boot restart controller](docs/native/ORIGINAL_AUTHOR_RESTART_CONTROLLER_VERIFICATION_2026-10-29.md)

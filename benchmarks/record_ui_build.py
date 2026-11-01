@@ -27,14 +27,50 @@ PUBLIC_FILES = {
 BUILD = ROOT / "apps/android/app/build-archive-verification"
 APK_PATHS = {"product_apk": BUILD / "outputs/apk/debug/app-debug.apk",
              "test_apk": BUILD / "outputs/apk/androidTest/debug/app-debug-androidTest.apk"}
-EXPECTED_JVM = 380
-EXPECTED_REPORTS = 43
+EXPECTED_JVM = 408
+EXPECTED_REPORTS = 46
 CRITICAL_TASKS = (
     "buildRustAndroid", "compileDebugKotlin", "compileDebugAndroidTestKotlin",
     "testDebugUnitTest", "lintAnalyzeDebug", "lintReportDebug", "lintDebug",
     "assembleDebug", "assembleDebugAndroidTest",
 )
 QUERY2_POLICY_METHODS = ('allFiveDefaultsUseQuery2WhileExplicitLegacyPlayerQueriesRemainVersion1', 'everyCapturedNativePageDecodesWithoutSkippingRowsFlatteningScopeOrLeakingForbiddenText', 'nativeUnseenCorrectionPreservesKnownObservationUntilAnActualRediscovery', 'exactPrivateCorrectionMarkerHasNoEventOrNavigationAuthority', 'scopedMessagesRetainOriginalScopeAndOrderedIdsWhileLegacyMessagesStayExplicitV1', 'progressionRelationshipsAndObservedKnowledgeAcceptOnlyVersionedTypedSourcesAndPlayerSubjects', 'versionedCursorAndPageFramesRefuseCrossVersionTypesAndFrozenContextDrift', 'progressionSourceDrillUsesExactAncestorTupleAndCurrentLensAndRejectsWrongReturnedBranch', 'nonCooperativeQuery2RepliesCannotReviveDismissedDisposedOrReplacedContexts', 'controllerRefusesStalePageIdentityAndClearsPrivateFailuresWithoutDispatchingEvidence', 'actualGatewayDecodesEveryOpaqueAuthoredNativePageUsingItsSnapshotBoundPlayer', 'actualGatewayBindsOpaqueProfileItemsBeliefsPromisesAndEventWitnessesWithoutRewritingSpeakers', 'explicitQuery1GatewayUsesOpaqueSnapshotIdentityAndRefusesAValidLiteralPlayerForgery', 'missingOrFailedSnapshotBindingRefusesBeforeAnyInspectionBytesAreRequested', 'inFlightReadRejectsObserverChangeReusedAttachmentHeadAdvanceAndClosure')
+PRESENTATION_POLICY_METHODS = {
+    'PlayerPresentationGatewayAdversarialTest': (
+        'genuineCapturedMainCorrectedRediscoveredEmptyAndMixedPublishWithoutLegacyContext',
+        'mixedAcceptedIntentTextAndNarrationAreLosslessAndWindowIdsDoNotRestartAtOne',
+        'genuineAncestorInputsRemainScopedAndCapturedPrivateAuthorNpcValuesStayAbsent',
+        'privateUnknownAndMistypedFieldsCannotBecomeDisplayOrAValidSnapshot',
+        'inconsistentWindowsAndGloballyDuplicateFutureOrReorderedEventsAreRejected',
+        'malformedOriginalIntentShapeAndForeignScopeCannotBorrowValidNarration',
+        'aCoherentLeaseCannotRetargetItsAlreadyBoundOpaqueObserver',
+        'lateCapturedSnapshotCannotReattachAfterARealResumeToAnotherCapturedBranch',
+        'closureDuringNonCooperativePresentationReadPreventsPublication',
+        'equalScopeHeadAndReusedRecordedSessionDoNotAuthorizeAnOldAttachmentRead',
+        'catalogHeadAdvanceCannotBeCombinedWithAnOlderValidPresentation',
+        'nativeAdmittedSlashTextSurvivesAndroidJsonReserializationWithoutAnExtraProseBudget',
+        'nativeAcceptedUnsignedDeadlineAndClaimKeepExactNumericDisplayWithoutMutatingThePresentationDto',
+    ),
+    'PlayerPresentationTimelineAdversarialTest': (
+        'exactCurrentTimelineObjectsNavigateAllGenuineHeadsWithoutMutatingAcceptedTurns',
+        'equalButDistinctAndPreviouslyRenderedTimelineObjectsCannotDispatchAResume',
+        'aRetainedTimelineFromAnotherCapturedStoryHasNoCurrentSelectionAuthority',
+        'busyAndDisposedViewsFenceNonCooperativeLateNativePresentationReplies',
+        'malformedNewHeadRetainsOldPresentationAndRequiresExplicitValidRecovery',
+    ),
+    'PlayerPresentationWireTest': (
+        'commandContainsOnlyTheFixedOperationAndBoundSessionScopeHead',
+        'bothDomainsKeepOpaqueObserverAndOriginalInputNarrationPairs',
+        'allElevenExistingActionShapesAreDisplayedFromOriginalTypedArrays',
+        'u64PresentationStringsRenderExactNumericDigitsWithoutChangingTheNativeFrame',
+        'noncanonicalOverflowAndNumericU64DtoFieldsRefuseInsteadOfCoercing',
+        'fixedWholeTurnWindowRetainsAbsoluteMessageIdentitiesAndFreezesMessages',
+        'malformedCurrentBindingsPrivateExtrasAndScalarCoercionsRefuseWhole',
+        'missingOrMixedTurnProvenanceAndInvalidEventNumbersRefuseWhole',
+        'partialWindowUnknownIntentsCommandsAndExtraTypedFieldsRefuseWhole',
+        'utf8ByteBudgetRejectsOversizeAndMalformedUnicodeWithoutRepair',
+    ),
+}
 MAX_FILE = 128 * 1024 ** 2
 
 

@@ -220,6 +220,11 @@ def _reports(reports, lint):
     observed_policy = evidence.test_roster(ROOT / "apps/android/app/src/test/java/org/locallore/app/Query2StoryRecordTest.kt")
     _need(tuple(observed_policy) == QUERY2_POLICY_METHODS and
           {name for klass, name in cases if klass == "org.locallore.app.Query2StoryRecordTest"} == set(QUERY2_POLICY_METHODS), "report")
+    for class_name, methods in PRESENTATION_POLICY_METHODS.items():
+        source = ROOT / "apps/android/app/src/test/java/org/locallore/app" / (class_name + ".kt")
+        observed = evidence.test_roster(source)
+        _need(tuple(observed) == methods and
+              {name for klass, name in cases if klass == "org.locallore.app." + class_name} == set(methods), "report")
     _need(Path(lint["path"]) == BUILD / "reports/lint-results-debug.xml", "report")
     _need(not any(issue.get("severity") in ("Error", "Fatal") for issue in _xml(lint)), "lint")
 

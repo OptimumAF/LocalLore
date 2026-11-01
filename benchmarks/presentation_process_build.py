@@ -135,6 +135,10 @@ def _reports(reader):
         suite = ET.fromstring(reader.raw(path))
         cases = suite.findall('testcase')
         _need(suite.tag == 'testsuite' and int(suite.attrib['tests']) == len(cases), 'jvm')
+        # Header counts and the direct roster cannot hide a nested outcome or
+        # another suite/case. Gradle's report has one suite and direct cases.
+        _need(list(suite.iter('testsuite')) == [suite] and list(suite.iter('testcase')) == cases and
+              not any(list(suite.iter(key)) for key in ('failure', 'error', 'skipped')), 'jvm')
         _need(all(int(suite.attrib.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped')), 'jvm')
         for case in cases:
             _need(not any(case.findall(key) for key in ('failure', 'error', 'skipped')), 'jvm')

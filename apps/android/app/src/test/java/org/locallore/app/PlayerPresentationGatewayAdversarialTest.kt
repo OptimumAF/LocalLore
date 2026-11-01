@@ -64,12 +64,15 @@ internal class PresentationCaptureTransport(val corpus: PresentationCaptureCorpu
     var mutateNext: ((JSONObject) -> Unit)? = null
     var beforePresentation: (suspend () -> Unit)? = null
     var mutateNextBranches: ((JSONObject) -> Unit)? = null
+    var mutateNextWorkspace: ((JSONObject) -> Unit)? = null
     fun gateway() = DurableGateway(this, autoCreateIfEmpty = false,
         initialScopeHint = PlayDraftScope(selected.story, selected.branch))
     override suspend fun exchange(command: JSONObject): JSONObject {
         commands += JSONObject(command.toString())
         return when (command.getString("op")) {
-            "workspace" -> selected.envelope("workspace")
+            "workspace" -> selected.envelope("workspace").also { reply ->
+                mutateNextWorkspace?.also { mutateNextWorkspace = null }?.invoke(reply.getJSONObject("data"))
+            }
             "branches" -> selected.envelope("branches").also { reply ->
                 mutateNextBranches?.also { mutateNextBranches = null }?.invoke(reply.getJSONObject("data"))
             }
@@ -308,14 +311,25 @@ class PlayerPresentationGatewayAdversarialTest {
         val gateway = transport.gateway()
         try {
             initializeCaptured(gateway)
-            transport.mutateNextBranches = { data ->
+            val advanceBranch: (JSONObject) -> Unit = { data ->
                 val rows = data.getJSONArray("branches")
                 val selected = (0 until rows.length()).map(rows::getJSONObject).single {
                     it.getJSONObject("scope").getString("branch") == corpus.case("main").branch
                 }
                 selected.put("revision", selected.getLong("revision") + 1)
             }
+            transport.mutateNextBranches = advanceBranch
+            refused(setOf("Malformed")) { gateway.snapshot() }
+            transport.mutateNextWorkspace = { data ->
+                val rows = data.getJSONArray("stories")
+                val selected = (0 until rows.length()).map(rows::getJSONObject).single {
+                    it.getJSONObject("scope").getString("story") == corpus.case("main").story
+                }
+                selected.put("revision", selected.getLong("revision") + 1)
+            }
+            transport.mutateNextBranches = advanceBranch
             refused(setOf("Stale")) { gateway.snapshot() }
+            assertCapturedPresentation(gateway.snapshot().messages, corpus.case("main"))
         } finally { gateway.close() }
     }
 

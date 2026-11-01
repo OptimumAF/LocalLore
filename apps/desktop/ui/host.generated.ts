@@ -223,6 +223,12 @@ export type HostCommand =
           session: string;
       }
     | {
+          expected_revision: number;
+          op: "play_presentation_v2";
+          scope: Scope;
+          session: string;
+      }
+    | {
           op: "free_text";
           request: Request;
           session: string;

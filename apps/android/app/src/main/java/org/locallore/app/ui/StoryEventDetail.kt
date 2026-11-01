@@ -55,6 +55,11 @@ internal fun StoryEventDetail(
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
+            detail.scopedReference?.let { source ->
+                Text("Original event · ${source.originalScope.story} / ${source.originalScope.branch}",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("story-event-original-scope"))
+            }
             Text("Player-visible lens · read only", style = MaterialTheme.typography.bodyMedium)
             HorizontalDivider()
             val entry = detail.entry

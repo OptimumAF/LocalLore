@@ -1,7 +1,7 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app
 
-/** Native play_snapshot is the fixed player lens; the UI never supplies an actor observer. */
+/** Native player presentation fixes the player lens; the UI never supplies an actor observer. */
 internal data class PlayerSnapshotBinding(val session: String,val scope: PlayDraftScope,val observer: String)
 private val playerBindingId=Regex("[A-Za-z0-9_-]{1,64}")
 internal fun bindPlayerSnapshot(session: String,scope: PlayDraftScope,rawObserver: Any?,previous: PlayerSnapshotBinding?): PlayerSnapshotBinding {

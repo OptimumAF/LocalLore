@@ -169,6 +169,7 @@ open class MainActivity : ComponentActivity() {
                 StoryRecordDialog(record, model::closeStoryRecord, model::recordSection, model::recordSearch,
                     model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
                     onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) },
+                    onScopedEvent = { reference -> model.openScopedRecordEvent(reference, renderedRecordContext) },
                     onEventBack = model::backToStoryRecord,
                     onEventRetry = model::retryRecordEvent)
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {

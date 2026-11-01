@@ -151,7 +151,7 @@ class InitialNavigationGatewayTest {
     }
 
     @Test fun failuresAfterAttachCannotConsumeTheHintOrPublishDefaultDuringRecovery(): Unit = runBlocking {
-        for ((op, ordinal) in listOf("open" to 1, "play_snapshot" to 1, "workspace" to 2,
+        for ((op, ordinal) in listOf("open" to 1, "play_presentation_v2" to 1, "workspace" to 2,
             "branches" to 2, "capabilities" to 1)) {
             val port = CatalogPort().also { it.failOnce(op, ordinal, "Full") }
             val gateway = reader(port, childB)
@@ -169,7 +169,7 @@ class InitialNavigationGatewayTest {
     }
 
     @Test fun reconcileAfterAnAttachedFailureMustStillResolveTheOriginalUnconsumedHint(): Unit = runBlocking {
-        val port = CatalogPort().also { it.failOnce("play_snapshot", 1, "Busy") }
+        val port = CatalogPort().also { it.failOnce("play_presentation_v2", 1, "Busy") }
         val gateway = reader(port, childB)
         try {
             expectFailure { gateway.initialize() }
@@ -183,7 +183,7 @@ class InitialNavigationGatewayTest {
     }
 
     @Test fun fallbackNoticeSurvivesAttachedFailureAndAppearsOnlyOnFirstCoherentSnapshot(): Unit = runBlocking {
-        val port = CatalogPort().also { it.failOnce("play_snapshot", 1, "Full") }
+        val port = CatalogPort().also { it.failOnce("play_presentation_v2", 1, "Full") }
         val gateway = reader(port, PlayDraftScope("absent-story", "main"))
         try {
             expectFailure { gateway.initialize() }
@@ -234,7 +234,7 @@ class InitialNavigationGatewayTest {
     }
 
     private fun assertNoGameplay(port: CatalogPort) {
-        assertTrue(port.ops.all { it in setOf("workspace", "branches", "resume", "open", "play_snapshot",
+        assertTrue(port.ops.all { it in setOf("workspace", "branches", "resume", "open", "play_presentation_v2",
             "capabilities", "close") })
     }
 
@@ -305,19 +305,19 @@ class InitialNavigationGatewayTest {
                     ok(JSONObject().put("session", "session-${resumed.size}")
                         .put("scope", scope(chosen.story, chosen.branch)).put("revision", head(chosen)))
                 }
-                "open", "play_snapshot" -> {
+                "open", "play_presentation_v2" -> {
                     val s = checkNotNull(selected)
                     assertEquals(s.story, command.getJSONObject("scope").getString("story"))
                     assertEquals(s.branch, command.getJSONObject("scope").getString("branch"))
                     val data = JSONObject().put("scope", scope(s.story, s.branch)).put("revision", head(s))
-                    if (op == "play_snapshot") {
+                    if (op == "play_presentation_v2") {
                         assertEquals(head(s), command.getLong("expected_revision"))
                         data.put("player", JSONObject().put("scope", scope(s.story, s.branch))
                             .put("revision", head(s)).put("observer", "player"))
                             .put("inventory", JSONObject().put("potion", JSONObject()))
                             .put("rules", "fantasy_v1").put("receipts", JSONArray())
                     }
-                    ok(data)
+                    ok(if (op == "play_presentation_v2") presentationFixture(data) else data)
                 }
                 "capabilities" -> ok(JSONObject().put("free_text", false))
                 "close" -> { selected = null; ok(JSONObject()) }

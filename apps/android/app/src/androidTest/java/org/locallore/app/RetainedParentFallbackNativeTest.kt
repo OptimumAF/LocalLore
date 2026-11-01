@@ -30,7 +30,7 @@ class RetainedParentFallbackNativeTest {
         const val TAIL = "SYNTHETIC unreachable-parent tail: Mira, this belongs only to the parent after the child fork."
         const val DRAFT = "SYNTHETIC retired-parent unsent draft: Mira, lanterns \uD83C\uDF0A and snow \u96ea.\n" +
             "Never send or restore this after retirement."
-        val READS = setOf("workspace", "branches", "resume", "open", "play_snapshot", "capabilities", "model_status", "close")
+        val READS = setOf("workspace", "branches", "resume", "open", "play_snapshot", "play_presentation_v2", "capabilities", "model_status", "close")
     }
 
     private class Owner(context: Context, hint: PlayDraftScope?) {
@@ -237,11 +237,11 @@ class RetainedParentFallbackNativeTest {
             assertEquals("workspace", reader.commands.first().getString("op"))
             assertTrue(reader.commands.indexOfFirst { it.getString("op") == "branches" } in
                 0 until reader.commands.indexOfFirst { it.getString("op") == "resume" })
-            val before = reader.commands.count { it.getString("op") == "play_snapshot" }
+            val before = reader.commands.count { it.getString("op") == "play_presentation_v2" }
             val again = reader.gateway.snapshot()
             assertEquals(world.other, again.selected)
             assertFalse(again.selectionRestoreUnavailable)
-            assertTrue(reader.commands.count { it.getString("op") == "play_snapshot" } > before)
+            assertTrue(reader.commands.count { it.getString("op") == "play_presentation_v2" } > before)
             val originalCatalog = catalog(reader, world, 2)
             val refused = reader.reply(JSONObject().put("op", "resume").put("scope", scope(world.parent)))
             assertEquals("rejected", refused.getString("status"))

@@ -69,3 +69,17 @@ no durable saves.
 Direct mutation by a suspending worker leaves a committed-result delivery race.
 A callback/thread framework adds unnecessary ownership; Kotlin gameplay rules
 would create competing authority. This slice uses none of those alternatives.
+
+## 2026-10-31: player-record Query2 adapter
+
+The read-only Android inspector now consumes existing native Query2 in all five
+sections, preserving explicit Query1 compatibility for the original four.
+Native play-snapshot binding supplies the actual actor identity; Kotlin does
+not assume a literal ID or reconstruct identity from record rows. The gateway
+fences attachment, binding, session, scope and head around inspection IO.
+Knowledge observations, beliefs and truth remain separate. Exact correction
+markers carry no private payload or event navigation. Typed provenance retains
+original scope and opens through the current player lens, without privileged
+ancestor access. No engine/schema or inference boundary changes are introduced.
+See [contract](../android/RECORD_QUERY2_CONTRACT_2026-10-31.md) and
+[host verification and device limits](../android/RECORD_QUERY2_VERIFICATION_2026-10-31.md).

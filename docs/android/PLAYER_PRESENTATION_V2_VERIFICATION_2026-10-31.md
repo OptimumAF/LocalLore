@@ -62,7 +62,8 @@ source in the build proof. The implementation stacks on open/unmerged PR305
 Private controls/captures are under
 `D:/Dev/Experiments/LocalLore/2026-10-31-player-presentation-v2`.
 Every project command uses a physical D: working directory and process-local D:
-temporary/cache outputs. Installed Java21/SDK and Rust1.93.1 remain in place.
+temporary/cache outputs. Installed Java21, Android NDK29.0.14206865 and
+Rust1.93.1 remain in place. Compile/target SDK36 and minimum SDK26 are unchanged.
 Source/tool pins, actual worker identity, finite Windows Job ownership, output
 capture and cleanup accompany the qualified cohorts.
 

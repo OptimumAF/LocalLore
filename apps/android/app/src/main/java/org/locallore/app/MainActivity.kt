@@ -8,9 +8,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,6 +20,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.lang.ref.WeakReference
 import org.locallore.app.ui.LocalLoreScreen
+import org.locallore.app.ui.LocalLoreTheme
 import org.locallore.app.ui.DiagnosticsDialog
 import org.locallore.app.ui.ArchiveDialog
 import org.locallore.app.ui.StoryDeletionDialog
@@ -106,11 +108,13 @@ open class MainActivity : ComponentActivity() {
             ViewModelProvider(this, factory)[ShellViewModel::class.java]
         } catch (_: WorkspaceConstructionUnavailable) {
             setContent {
-                MaterialTheme {
-                    Column(Modifier.padding(24.dp)) {
-                        Text("Local session unavailable")
-                        Text("Close the app completely before starting another local session. Saved stories remain on this device.")
-                        Button(onClick = { finish() }) { Text("Close") }
+                LocalLoreTheme {
+                    Surface(Modifier.fillMaxSize()) {
+                        Column(Modifier.padding(24.dp)) {
+                            Text("Local session unavailable")
+                            Text("Close the app completely before starting another local session. Saved stories remain on this device.")
+                            Button(onClick = { finish() }) { Text("Close") }
+                        }
                     }
                 }
             }

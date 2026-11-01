@@ -24,7 +24,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -37,7 +36,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -59,11 +57,9 @@ import org.locallore.app.SavedStory
 import org.locallore.app.SavedTimeline
 import org.locallore.app.TextProvider
 import org.locallore.app.validPlayInput
+import org.locallore.app.TranscriptScope
+import org.locallore.app.captureTranscript
 
-private val Paper = Color(0xFFF8F5EC)
-private val Ink = Color(0xFF202D2A)
-private val Teal = Color(0xFF18584E)
-private val MutedInk = Color(0xFF4D5C56)
 private val PlayDraftSaver = Saver<PlayDraft, Any>(
     save = { savePlayDraft(it) },
     restore = { restorePlayDraft(it) },
@@ -116,27 +112,29 @@ internal fun LocalLoreScreen(
     val currentEditorBlocked by rememberUpdatedState(editorBlocked)
     val currentDraftInteractionAllowed by rememberUpdatedState(draftInteractionAllowed)
     val playInput = if (draftPending) PlayInput(PlayInputKind.ACTION, "") else resolvedDraft.input
-    MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Teal,
-            onPrimary = Color.White,
-            surface = Paper,
-            background = Paper,
-            onSurface = Ink,
-            onBackground = Ink,
-            onSurfaceVariant = MutedInk,
-            outline = MutedInk,
-        ),
-    ) {
+    val transcriptScope = when {
+        !state.persistent -> TranscriptScope.Demo
+        renderedStory != null -> TranscriptScope.Saved(renderedStory.story, renderedStory.branch)
+        else -> null
+    }
+    // Capture every composition, including a caller replacing elements in the same list.
+    val transcript = captureTranscript(transcriptScope, state.messages)
+    // Notice, actions, diagnostics and demo controls follow the transcript, plus options.
+    val transcriptNavigation = rememberTranscriptNavigation(
+        transcript, 4 + (if (onText != null) 1 else 0) + (if (onStoryRecord != null) 1 else 0),
+    )
+    LocalLoreTheme {
         overlay()
-        Scaffold(containerColor = Paper) { safePadding ->
+        Scaffold(containerColor = MaterialTheme.colorScheme.background) { safePadding ->
             Box(
                 modifier = Modifier.fillMaxSize().padding(safePadding),
                 contentAlignment = Alignment.TopCenter,
             ) {
+                Column(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {
                 // A single scroll surface keeps actions reachable in landscape and at large fonts.
                 LazyColumn(
-                    modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()
+                    state = transcriptNavigation.listState,
+                    modifier = Modifier.weight(1f).fillMaxWidth()
                         .testTag("story-list").semantics { testTagsAsResourceId = exposeTestTags },
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -167,27 +165,27 @@ internal fun LocalLoreScreen(
                                     TextProvider.UNAVAILABLE -> "Local Rust engine · text inference unavailable"
                                 },
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MutedInk,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.testTag("inference-provider"),
                             )
                             Text(
                                 if (state.persistent) "Local saved progress · database schema ${state.databaseSchemaVersion ?: "opening"}"
                                     else "In-memory session · no saved progress",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MutedInk,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             state.storageLocation?.let { location ->
-                                Text(location, style = MaterialTheme.typography.labelSmall, color = MutedInk,
+                                Text(location, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.testTag("storage-location"))
                             }
                             state.selectedStory?.let { story ->
                                 Text("Rules · ${state.rulesProfile ?: "unknown"} · ${story.story} / ${story.branch} · head ${state.revision}",
-                                    style = MaterialTheme.typography.labelSmall, color = MutedInk,
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.testTag("workspace-detail"))
                             }
                             if (state.uncommittedDrafts > 0) Text(
                                 "${state.uncommittedDrafts} uncommitted response(s). They are retained outside accepted history.",
-                                style = MaterialTheme.typography.bodySmall, color = MutedInk)
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (state.persistent && state.stories.isNotEmpty()) {
                                 var libraryExpanded by remember { mutableStateOf(false) }
                                 Box {
@@ -267,7 +265,7 @@ internal fun LocalLoreScreen(
                     }
                     if (!state.persistent || state.selectedStory != null) item(key = "scene") {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            HorizontalDivider(color = MutedInk.copy(alpha = 0.3f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                             Text(
                                 "Lantern Quay",
                                 style = MaterialTheme.typography.headlineMedium,
@@ -292,7 +290,7 @@ internal fun LocalLoreScreen(
                             Text(
                                 "Accepted revision · ${state.revision}",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MutedInk,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.testTag("revision"),
                             )
                         }
@@ -305,7 +303,7 @@ internal fun LocalLoreScreen(
                             Text(
                                 if (message.isPlayer) "You" else "Narrator",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MutedInk,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
                                 message.text,
@@ -442,6 +440,14 @@ internal fun LocalLoreScreen(
                         DemoResponses(state.mode, state.busy || state.archiveActive || state.deletionActive || state.forkActive || state.creationActive || state.recoveryRequired || (state.persistent && state.selectedStory == null), onMode)
                     }
                 }
+                if (transcriptNavigation.showLatest) {
+                    TextButton(
+                        onClick = transcriptNavigation.latest,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .testTag("transcript-latest"),
+                    ) { Text("Latest") }
+                }
+                }
             }
         }
     }
@@ -451,7 +457,7 @@ internal fun LocalLoreScreen(
 private fun DemoResponses(mode: DemoMode, busy: Boolean, onMode: (DemoMode) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        HorizontalDivider(color = MutedInk.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
         Box {
             TextButton(
                 onClick = { expanded = true },

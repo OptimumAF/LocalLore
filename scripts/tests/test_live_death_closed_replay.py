@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from benchmarks import android_process_verification_v6 as reader
+from benchmarks import android_process_live_death_verification as reader
 from benchmarks import owned_live_death_contract as c
 from benchmarks import owned_target_contract as legacy
 from benchmarks import receipt_avd_environment as env

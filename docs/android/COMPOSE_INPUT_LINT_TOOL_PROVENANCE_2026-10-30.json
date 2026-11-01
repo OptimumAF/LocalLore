@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "verified_on": "2026-10-30",
+  "scope": "Five exact pre-existing Android lint-tool artifacts absent from the offline cache; no app dependency or version changes",
+  "executed_source": "84e9bfcea0c678959f52a4c1a8243e1ec8ae8639",
+  "selected_artifact_payload_bytes": 13116731,
+  "artifacts": [
+    {
+      "coordinate": "com.google.errorprone:error_prone_annotations:2.28.0",
+      "bytes": 19370,
+      "sha256": "f3fc8a3a0a4020706a373b00e7f57c2512dd26d1f83d28c7d38768f8682b231e",
+      "origin": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.28.0/error_prone_annotations-2.28.0.jar"
+    },
+    {
+      "coordinate": "commons-codec:commons-codec:1.10",
+      "bytes": 284184,
+      "sha256": "4241dfa94e711d435f29a4604a3e2de5c4aa3c165e23bd066be6fc1fc4309569",
+      "origin": "https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.jar"
+    },
+    {
+      "coordinate": "org.codehaus.groovy:groovy:3.0.22",
+      "bytes": 8053888,
+      "sha256": "c92c92c4b9b183f9981ba7399f36592e5e3ad6f4cdac7101b5a22cc17998d13f",
+      "origin": "https://repo.maven.apache.org/maven2/org/codehaus/groovy/groovy/3.0.22/groovy-3.0.22.jar"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-reflect:2.1.0",
+      "bytes": 3069241,
+      "sha256": "b5f608edfa98a8cfa2372cc12d18ada974be1c56c1093eff06cc061f4fc088b2",
+      "origin": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.1.0/kotlin-reflect-2.1.0.jar"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.1.0",
+      "bytes": 1690048,
+      "sha256": "d6f91b7b0f306cca299fec74fb7c34e4874d6f5ec5b925a0b4de21901e119c3f",
+      "origin": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.1.0/kotlin-stdlib-2.1.0.jar"
+    }
+  ],
+  "official_pom_provenance": [
+    {
+      "coordinate": "org.codehaus.groovy:groovy:3.0.22",
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/groovy/groovy/3.0.22/groovy-3.0.22.pom",
+      "bytes": 23680,
+      "sha256": "51b731e5cff121efd6d320f4a801cd616869c5bed4e9c0e353b29060b1d2355f",
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-reflect:2.1.0",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.1.0/kotlin-reflect-2.1.0.pom",
+      "bytes": 1374,
+      "sha256": "9cd84b3d4f717c96235e4ba3b7276895ccffd55de411c7ce0b3f7bab562efe42",
+      "licenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.1.0",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.1.0/kotlin-stdlib-2.1.0.pom",
+      "bytes": 2320,
+      "sha256": "134e48c17796c1c1027ecbe6c9f1c75c792f535987ab89e1e1dda43f8c366f5e",
+      "licenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "parent": null
+    },
+    {
+      "coordinate": "com.google.errorprone:error_prone_annotations:2.28.0",
+      "url": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.28.0/error_prone_annotations-2.28.0.pom",
+      "bytes": 4252,
+      "sha256": "0ce909f13a568148476e5ee200f380f98c75ba08971aaf15db295eb77598ef3a",
+      "licenses": [
+        {
+          "name": "Apache 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "parent": [
+        "com.google.errorprone",
+        "error_prone_parent",
+        "2.28.0"
+      ]
+    },
+    {
+      "coordinate": "commons-codec:commons-codec:1.10",
+      "url": "https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom",
+      "bytes": 11609,
+      "sha256": "bdb8db7012d112a6e3ea8fdb7c510b300d99eff0819d27dddba9c43397ea4cfb",
+      "licenses": [],
+      "parent": [
+        "org.apache.commons",
+        "commons-parent",
+        "35"
+      ]
+    },
+    {
+      "coordinate": "org.apache.commons:commons-parent:35",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/35/commons-parent-35.pom",
+      "bytes": 57772,
+      "sha256": "7098a1ab8336ecd4c9dc21cbbcac869f82c66f64b8ac4f7988d41b4fcb44e49a",
+      "licenses": [],
+      "parent": [
+        "org.apache",
+        "apache",
+        "15"
+      ]
+    },
+    {
+      "coordinate": "org.apache:apache:15",
+      "url": "https://repo.maven.apache.org/maven2/org/apache/apache/15/apache-15.pom",
+      "bytes": 15236,
+      "sha256": "36c2f2f979ac67b450c0cb480e4e9baf6b40f3a681f22ba9692287d1139ad494",
+      "licenses": [
+        {
+          "name": "Apache License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "parent": null
+    }
+  ],
+  "license": "Apache-2.0; Commons Codec inherits through commons-parent35 and apache15",
+  "compatibility_sources": [
+    "https://developer.android.com/build/releases/agp-8-10-0-release-notes",
+    "https://docs.gradle.org/8.11.1/userguide/compatibility.html",
+    "https://kotlinlang.org/docs/gradle-configure-project.html"
+  ],
+  "limitations": [
+    "Payload size is not a measured HTTP wire-byte count",
+    "Build tools are not installed gameplay runtime dependencies",
+    "No phone, emulator, model or real inference operation"
+  ]
+}

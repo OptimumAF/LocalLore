@@ -30,7 +30,7 @@ CLAIM_KINDS = ('import', 'author_live', 'restart')
 ARTIFACT_KEYS = frozenset(restart.ARTIFACT_KEYS)
 SOURCE_NAMES = frozenset(restart.SOURCE_NAMES | {
     'owned_live_death_contract.py', 'owned_live_death_owner.py',
-    'android_process_client_v6.py', 'android_process_verification_v6.py',
+    'android_process_live_death_client.py', 'android_process_live_death_verification.py',
     'android_live_death_witness.py', 'original_author_live_death_controller.py',
 })
 PROCESS_PROBE = '/data/local/tmp/locallore-author-process-probe-v1'

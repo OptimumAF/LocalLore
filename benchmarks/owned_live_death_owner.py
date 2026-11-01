@@ -11,7 +11,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(ROOT))
 from benchmarks import owned_target_owner as mechanisms
 from benchmarks import owned_live_death_contract as contract
-from benchmarks import android_process_verification_v6 as verification
+from benchmarks import android_process_live_death_verification as verification
 
 OwnerRefused = mechanisms.OwnerRefused
 

@@ -150,7 +150,7 @@ class CheckRunnerTests(unittest.TestCase):
 
     def test_android_uses_java_argv_and_disables_sdk_provisioning(self):
         with patch.object(check, "java_executable", return_value="JDK with ' spaces/bin/java"):
-            command, audit = check.android_commands(check.ROOT, True, True)
+            command, audit, pair = check.android_commands(check.ROOT, True, True)
         self.assertEqual(command.argv[:2], ("JDK with ' spaces/bin/java", "-classpath"))
         self.assertEqual(command.argv[3:5], ("org.gradle.wrapper.GradleWrapperMain", "clean"))
         self.assertIn("--offline", command.argv)
@@ -158,6 +158,10 @@ class CheckRunnerTests(unittest.TestCase):
         self.assertNotIn("connectedDebugAndroidTest", " ".join(command.argv))
         self.assertEqual(audit.argv, (sys.executable, str(check.ROOT / "scripts/audit_apk.py"),
                                      str(check.ROOT / "apps/android/app/build/outputs/apk/debug/app-debug.apk")))
+        self.assertEqual(pair.argv, (sys.executable, str(check.ROOT / "scripts/audit_instrumentation_apk.py"),
+                                    str(check.ROOT / "apps/android/app/build/outputs/apk/debug/app-debug.apk"),
+                                    str(check.ROOT / "apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")))
+        self.assertEqual(pair.cwd, check.ROOT)
 
     def test_java_home_with_spaces_remains_one_executable(self):
         with tempfile.TemporaryDirectory(prefix="JDK with ' spaces ") as temporary:

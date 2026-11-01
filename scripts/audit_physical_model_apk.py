@@ -227,6 +227,65 @@ def one(header, name, expected):
     require(attr(header, name) == [expected], "Wrong manifest " + name)
 
 
+def audit_test_manifest(test_badging, test_tree, app):
+    """Shared closed test-APK boundary; no package discovery or tool execution."""
+    require(type(app) is str and app in ("org.locallore.app", "org.locallore.app.archiveverify", APP),
+            "Unreviewed instrumentation app package")
+    test_package = app + ".test"
+    test_badging, test_tree = (base.aapt_text(value) for value in (test_badging, test_tree))
+    require(re.findall(r"^package: name='([^']+)'", test_badging, re.M) == [test_package], "Wrong test package")
+    base.audit_sdk(test_badging)
+    # Build Tools35 badging omits instrumentation; the actual xmltree below is
+    # always authoritative. If a tool does emit a badging row, it must agree.
+    instrumentation = [line for line in test_badging.split("\n") if line.lstrip().startswith("instrumentation")]
+    require(instrumentation in ([], ["instrumentation: name='" + RUNNER + "' targetPackage='" + app + "'"]),
+            "Conflicting/duplicate badging instrumentation")
+    uses = re.findall(r"^uses-permission[^:]*: name='([^']+)'", test_badging, re.M)
+    require(len(uses) == len(set(uses)) and set(uses) <= {"android.permission.REORDER_TASKS"}, "Unexpected test permission")
+    require(not blocks(test_tree, "permission") and not blocks(test_tree, "uses-permission-sdk-23"), "Unexpected test permission declaration")
+    require(not blocks(test_tree, "service") and not blocks(test_tree, "receiver"),
+            "Unexpected test executable component")
+    test_activities = set()
+    for header, _ in blocks(test_tree, "activity"):
+        names = attr(header, "name")
+        require(len(names) == 1 and names[0] not in test_activities and names[0] in {
+            "androidx.test.core.app.InstrumentationActivityInvoker$BootstrapActivity",
+            "androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity",
+            "androidx.test.core.app.InstrumentationActivityInvoker$EmptyFloatingActivity"}, "Unexpected test activity")
+        test_activities.add(names[0])
+        require(not any(attr(header, key) for key in ("process", "permission", "taskAffinity")), "Test activity owner override")
+    instrumentations = blocks(test_tree, "instrumentation")
+    require(len(instrumentations) == 1, "Wrong instrumentation count")
+    one(instrumentations[0][0], "name", RUNNER)
+    one(instrumentations[0][0], "targetPackage", app)
+    require(not attr(instrumentations[0][0], "targetProcesses"), "Unexpected target process override")
+    expected = {"ChooserArchiveProvider$Control": ("chooser.control", ":chooser_test_provider"),
+                "ChooserArchiveProvider": ("chooser", ":chooser_test_provider"),
+                "ArchiveDocumentProvider": ("archives", ":archive_test_provider"),
+                "TestDiagnosticProvider": ("diagnostics", ":diagnostic_test_provider")}
+    providers = blocks(test_tree, "provider")
+    require(len(providers) == len(expected), "Wrong base test provider inventory")
+    seen = set()
+    for header, body in providers:
+        names = attr(header, "name")
+        require(len(names) == 1 and names[0].startswith("org.locallore.app."), "Wrong test provider")
+        name = names[0][len("org.locallore.app."):]
+        require(name in expected and name not in seen, "Unexpected/duplicate test provider")
+        seen.add(name)
+        authority, process = expected[name]
+        one(header, "authorities", test_package + "." + authority)
+        one(header, "process", process)
+        one(header, "exported", "true")
+        require(not attr(header, "readPermission") and not attr(header, "writePermission"), "Provider permission override")
+        if name == "ChooserArchiveProvider":
+            one(header, "permission", "android.permission.MANAGE_DOCUMENTS")
+            one(header, "grantUriPermissions", "true")
+        else:
+            require(not attr(header, "permission") and not attr(header, "grantUriPermissions") and not re.search(r"^\s*E:", body, re.M),
+                    "Unexpected provider grants/children")
+    return uses
+
+
 def audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction_tree, app_resources, *, physical_fixture=False):
     app_badging, app_tree, test_badging, test_tree, extraction_tree, app_resources = (
         base.aapt_text(value) for value in (app_badging, app_tree, test_badging, test_tree, extraction_tree, app_resources))
@@ -278,56 +337,7 @@ def audit_manifests(app_badging, app_tree, test_badging, test_tree, extraction_t
     for header, _ in blocks(app_tree, "activity"):
         require(attr(header, "name")[0].startswith("org.locallore.app."), "Unexpected third-party activity")
         require(not any(attr(header, n) for n in ("process", "permission", "taskAffinity")), "Activity owner override")
-    require(re.findall(r"^package: name='([^']+)'", test_badging, re.M) == [TEST], "Wrong test package")
-    base.audit_sdk(test_badging)
-    # Build Tools35 badging omits instrumentation; the actual xmltree below is
-    # always authoritative. If a tool does emit a badging row, it must agree.
-    instrumentation = [line for line in test_badging.split("\n") if line.lstrip().startswith("instrumentation")]
-    require(instrumentation in ([], ["instrumentation: name='" + RUNNER + "' targetPackage='" + APP + "'"]),
-            "Conflicting/duplicate badging instrumentation")
-    uses = re.findall(r"^uses-permission[^:]*: name='([^']+)'", test_badging, re.M)
-    require(len(uses) == len(set(uses)) and set(uses) <= {"android.permission.REORDER_TASKS"}, "Unexpected test permission")
-    require(not blocks(test_tree, "permission") and not blocks(test_tree, "uses-permission-sdk-23"), "Unexpected test permission declaration")
-    require(not blocks(test_tree, "service") and not blocks(test_tree, "receiver"),
-            "Unexpected test executable component")
-    test_activities = set()
-    for header, _ in blocks(test_tree, "activity"):
-        names = attr(header, "name")
-        require(len(names) == 1 and names[0] not in test_activities and names[0] in {
-            "androidx.test.core.app.InstrumentationActivityInvoker$BootstrapActivity",
-            "androidx.test.core.app.InstrumentationActivityInvoker$EmptyActivity",
-            "androidx.test.core.app.InstrumentationActivityInvoker$EmptyFloatingActivity"}, "Unexpected test activity")
-        test_activities.add(names[0])
-        require(not any(attr(header, key) for key in ("process", "permission", "taskAffinity")), "Test activity owner override")
-    instrumentations = blocks(test_tree, "instrumentation")
-    require(len(instrumentations) == 1, "Wrong instrumentation count")
-    one(instrumentations[0][0], "name", RUNNER)
-    one(instrumentations[0][0], "targetPackage", APP)
-    require(not attr(instrumentations[0][0], "targetProcesses"), "Unexpected target process override")
-    expected = {"ChooserArchiveProvider$Control": ("chooser.control", ":chooser_test_provider"),
-                "ChooserArchiveProvider": ("chooser", ":chooser_test_provider"),
-                "ArchiveDocumentProvider": ("archives", ":archive_test_provider"),
-                "TestDiagnosticProvider": ("diagnostics", ":diagnostic_test_provider")}
-    providers = blocks(test_tree, "provider")
-    require(len(providers) == len(expected), "Wrong base test provider inventory")
-    seen = set()
-    for header, body in providers:
-        names = attr(header, "name")
-        require(len(names) == 1 and names[0].startswith("org.locallore.app."), "Wrong test provider")
-        name = names[0][len("org.locallore.app."):]
-        require(name in expected and name not in seen, "Unexpected/duplicate test provider")
-        seen.add(name)
-        authority, process = expected[name]
-        one(header, "authorities", TEST + "." + authority)
-        one(header, "process", process)
-        one(header, "exported", "true")
-        require(not attr(header, "readPermission") and not attr(header, "writePermission"), "Provider permission override")
-        if name == "ChooserArchiveProvider":
-            one(header, "permission", "android.permission.MANAGE_DOCUMENTS")
-            one(header, "grantUriPermissions", "true")
-        else:
-            require(not attr(header, "permission") and not attr(header, "grantUriPermissions") and not re.search(r"^\s*E:", body, re.M),
-                    "Unexpected provider grants/children")
+    audit_test_manifest(test_badging, test_tree, APP)
     return {"permissions": permissions, "launcher": launcher, "test_methods": len(TEST_METHODS)}
 
 
@@ -342,12 +352,15 @@ def tool(command):
     return result.stdout.decode("utf-8", errors="strict")
 
 
-def certificate(apk, aapt):
+def certificate(apk, aapt, *, java=None):
     sdk_tools = aapt.parent
     jar = sdk_tools / "lib" / "apksigner.jar"
-    java_root = os.environ.get("JAVA_HOME")
-    require(java_root is not None, "Set JAVA_HOME to the selected offline JDK")
-    java = Path(java_root) / "bin" / ("java.exe" if os.name == "nt" else "java")
+    if java is None:
+        java_root = os.environ.get("JAVA_HOME")
+        require(java_root is not None, "Set JAVA_HOME to the selected offline JDK")
+        java = Path(java_root) / "bin" / ("java.exe" if os.name == "nt" else "java")
+    else:
+        java = Path(java)
     require(jar.is_file() and java.is_file(), "Missing existing signing audit tools")
     output = tool([java, "-jar", jar, "verify", "--verbose", "--print-certs", apk])
     require(re.findall(r"^Number of signers: (\d+)\r?$", output, re.M) == ["1"], "Wrong signer count")

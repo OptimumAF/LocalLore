@@ -50,7 +50,7 @@ class OwnedLiveDeathContractTests(unittest.TestCase):
         self.assertEqual(len(live.SOURCE_NAMES), 30)
         self.assertEqual(live.SOURCE_NAMES - restart.SOURCE_NAMES, {
             'owned_live_death_contract.py', 'owned_live_death_owner.py',
-            'android_process_client_v6.py', 'android_process_verification_v6.py',
+            'android_process_live_death_client.py', 'android_process_live_death_verification.py',
             'android_live_death_witness.py', 'original_author_live_death_controller.py',
         })
         for removed in ('owned_live_death_contract.py', 'android_live_death_witness.py',

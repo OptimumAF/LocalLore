@@ -21,7 +21,7 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(ROOT))
 
 from benchmarks import android_live_death_witness as witness
-from benchmarks import android_process_verification_v6 as reader
+from benchmarks import android_process_live_death_verification as reader
 from benchmarks import owned_live_death_contract as c6
 from benchmarks import owned_live_death_owner as owner
 from benchmarks import owned_target_owner as held
@@ -31,7 +31,7 @@ from benchmarks import original_author_restart_controller as original
 from benchmarks import original_author_model_proof as author
 from benchmarks import original_author_diagnostic as diagnostic
 from benchmarks import original_author_restart_proof as restart
-from benchmarks.android_process_client_v6 import OwnedLiveDeathSdkCapture
+from benchmarks.android_process_live_death_client import OwnedLiveDeathSdkCapture
 from benchmarks import windows_tcp_control as output_control
 
 SECONDS = 1200

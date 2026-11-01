@@ -54,7 +54,7 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
             notice="Review all changes before creating. Nothing is saved yet."))
     }
     fun generate(expected: OriginalStoryUiState) {
-        if(!editable(expected) || !validOriginalInput(expected.input)) return
+        if(!editable(expected) || !OriginalStoryWire.valid(expected.input)) return
         val ticket=++generation; val input=expected.input.frozen()
         update(expected.copy(busy=true,review=null,editorEpoch=Any(),notice=if(expected.provider=="local") "Generating a draft locally…" else "Generating a synthetic scripted draft…"))
         run(ticket) {
@@ -76,7 +76,8 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
     }
     fun review(expected: OriginalStoryUiState) {
         val proposal=expected.proposal ?: return; val job=expected.job ?: return
-        if(!editable(expected) || !validStoryTitle(expected.title) || !validOriginalDraft(expected.input,proposal)) return
+        if(!editable(expected) || !validStoryTitle(expected.title) || !validOriginalDraft(expected.input,proposal) ||
+            !OriginalStoryWire.valid(expected.input,proposal)) return
         val ticket=++generation; val input=expected.input.frozen(); val captured=proposal.frozen(); val title=expected.title
         update(expected.copy(busy=true,review=null,editorEpoch=Any(),notice="Reviewing the starting world…"))
         run(ticket) {

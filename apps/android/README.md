@@ -5,6 +5,12 @@ It uses **fake inference**, original Lantern Quay fixtures and the shared SQLite
 workspace for durable accepted history. Kotlin implements no gameplay rules.
 No real model, account or network dependency during play is present.
 
+The story screen and unavailable-session message follow Android's light/dark
+theme. Light mode retains the paper/ink palette; dark mode uses a pale-ink
+palette on dark green surfaces. This changes presentation only. The
+[system-theme verification report](../../docs/android/SYSTEM_THEME_VERIFICATION_2026-10-30.md)
+records host checks and the Android visual/accessibility checks still pending.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,
@@ -45,6 +51,21 @@ Connected tests install the app/test APK. Use authorized targets only. Set
 ANDROID_SERIAL to select one, then repeat for the second. Omit transport IDs
 from public reports. This packet executes on two x86_64 API-35 emulators;
 ARM64 runtime and physical-device qualification remain separate gates.
+
+For local JVM checks that compile Kotlin/Compose without rebuilding unchanged
+Rust libraries, use:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest -x :app:buildRustAndroid --offline --no-daemon
+```
+
+This excludes the native build and does not build or qualify an APK/JNI artifact.
+Tests use pinned `org.json:json:20260814` because Android's local JVM JSON classes
+are throwing stubs. It is a test-only dependency, absent from app runtime
+configurations. Provision dependencies before offline execution. Its
+[upstream license, compatibility and artifact hashes](../../docs/android/JVM_JSON_TEST_DEPENDENCY_2026-10-30.json)
+are recorded separately from the older selected dependency inventory. These JVM
+checks do not replace device, touch, accessibility or real-model verification.
 
 The timeline catalog journey uses an isolated debug identity so existing saves
 remain in their installed app. From `apps/android`, build with:
@@ -230,6 +251,16 @@ injects malformed, rejected, delayed and failing generation. **New story** creat
 a new independent saved story and retains earlier stories in **Saved stories**.
 Cancel reconciles against accepted history: a commit that already won remains
 visible. Simulated delay is not a performance measurement.
+
+Transcript navigation is scoped to the current story and timeline. New replies
+follow when you had reached the previous transcript end; reading earlier history
+keeps your position. **Latest** returns to the newest message and is also available
+while browsing loaded history. Seeing only the start of a long reply does not
+count as reaching its end. Changing stories/timelines or replacing history cancels
+stale navigation; navigation never sends a turn. The list retains Compose's scoped
+saved scroll state; actual recreation and keyboard behavior need device testing.
+See [implementation and host verification](../../docs/android/TRANSCRIPT_NAVIGATION_VERIFICATION_2026-10-30.md)
+for the tested policy and the four compiled, unrun screen journeys.
 
 Accepted state survives Activity recreation and native/process owner recreation.
 Startup resumes a default saved story; use **Saved stories** to select another.

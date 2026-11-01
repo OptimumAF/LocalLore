@@ -308,6 +308,13 @@ frozen in author commit `fa451c7d5167840ecfb6236ed00fbdda6b917936` before any
 collector producer. Root integrated its unchanged bytes at8b61c0f6. Source
 review/whitespace passed; all52 remain UNRUN. The historical112+94 suite bytes
 and their spent results are unchanged.
+Subsequent PRE-EXECUTION source review strengthened S06's impossible-prefix
+controls at author686c23c8/integration35f535aa, then I11/I16's returned-read/
+first-close-cause controls at author487b1733/integrationc73f784d. Every original
+assertion and all52 group IDs remain. Current FIRST is26834B, SHA256
+`7ca31f680b484546d31ac4a50ead5b0b6e26a917d1027983b40e0ecec1eadfec`.
+The initial24202B/a66 source and25015B/5ea amendment remain in their original
+Git commits; no behavioral RED or pass is claimed. All52 remain UNRUN.
 
 One fixed supervisor must retain all physical-D/Node-environment/source/owner/
 Stage/START/old-proof/global-stop/unknown/stream/deadline/storage controls and
@@ -338,6 +345,25 @@ leaving6824B for its exact envelope, summary/digest, source refs and inventory;
 prove the complete concrete envelope fits before admission. The process record
 must not duplicate the full parsed report. These are reviewed static bounds,
 not an actual inventory, executed check or new limit/run approval.
+
+### Selected input I/O versus guard reads
+
+The unchanged descriptor's jobFileReadBytes/actualReadBytes ceiling counts
+binary bytes returned by the32 selected inputs' two scans, as the historical
+binaryReadBytes counter did. Source/proof/tool/normal-image hashing and directory
+metadata checks are separate fixed guard work. There is no claim that all
+filesystem reads fit1GiB. This is an explicit statement of the existing counter
+scope, not a higher selected-input ceiling or permission for another input.
+Each selected read is still checked/charged before further work; planned and
+known returned bytes are distinct and never refunded.
+
+Node.exe is93915464B and the unlaunched normal executable42246144B by file
+metadata. Three child plus two supervisor hash passes over those files alone
+forecast680808040B of guard reads, in addition to fixed source/proof/ledger
+reads. The selected-input forecast remains718986060B. These are logical byte
+forecasts, not measured physical disk traffic, OS-cache behavior or latency.
+The concrete [admission proposal](D04_MSVC_PROFILE_COHORT_ADMISSION_2026-11-01.md)
+owns exact final sources, retention and any future owner decision.
 
 Current metadata1656006B/cap1703936B leaves47930B; all other caps and output
 remain unchanged. Preliminary source/capture estimates do not fit that remainder.

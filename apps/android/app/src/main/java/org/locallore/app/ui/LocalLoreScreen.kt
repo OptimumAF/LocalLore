@@ -280,18 +280,25 @@ internal fun LocalLoreScreen(
                         Text("No saved stories. Choose New story to begin.", modifier = Modifier.testTag("empty-library"))
                     }
                     if (sceneHeading != null) item(key = "scene") {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.testTag("story-heading"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                            Text(
+                                if (state.persistent) "Saved story" else "Demo scene",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("story-heading-kind"),
+                            )
                             Text(
                                 sceneHeading.title,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontFamily = FontFamily.Serif,
-                                modifier = Modifier.semantics { heading() },
+                                modifier = Modifier.testTag("story-heading-title").semantics { heading() },
                             )
                             Text(
                                 sceneHeading.introduction,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontFamily = FontFamily.Serif,
+                                modifier = Modifier.testTag("story-heading-introduction"),
                             )
                         }
                     }

@@ -221,35 +221,11 @@ internal class DurableGateway(
         check(playerScopeMatches(opened.getJSONObject("scope"),owner))
         val playerRevision=opened.getLong("revision")
         synchronized(playerMetadataLock) { requirePlayerOwner(owner); revision=playerRevision }
-        val view = call(playerCommand("play_snapshot",owner).put("expected_revision", playerRevision))
+        val view = call(PlayerPresentationWire.command(owner.session, owner.scope, playerRevision))
         currentPlayerScope()
-        check(playerScopeMatches(view.getJSONObject("scope"),owner))
-        check(view.getLong("revision") == playerRevision)
-        val player = view.getJSONObject("player")
-        check(player.getLong("revision") == playerRevision)
-        check(playerScopeMatches(player.getJSONObject("scope"),owner))
-        val nativeObserver=player.get("observer")
+        val presentation = PlayerPresentationWire.decode(view, owner.scope, playerRevision)
+        val nativeObserver = presentation.observer
         synchronized(playerMetadataLock) { requirePlayerOwner(owner); bindPlayerSnapshot(owner.session,owner.scope,nativeObserver,playerBinding) }
-        val receipts = view.getJSONArray("receipts")
-        val messages = mutableListOf<SceneMessage>()
-        for (i in 0 until receipts.length()) {
-            val receipt = receipts.getJSONObject(i)
-            val request = receipt.getJSONObject("request")
-            // Inherited accepted receipts keep their original ancestor scope. Rust's
-            // player snapshot owns lineage/fork filtering; never rewrite those requests.
-            val originalScope = request.getJSONObject("scope")
-            check(originalScope.getString("story") == owner.scope.story)
-            check(timelineId.matches(originalScope.getString("branch")))
-            val intent = request.getJSONObject("intent")
-            val playerText = when (intent.getString("kind")) {
-                "actions" -> intent.getJSONArray("value").toString()
-                "dialogue" -> intent.getJSONObject("value").getString("text")
-                "free_text" -> intent.getJSONObject("value").getString("text")
-                else -> "Recorded intention"
-            }
-            messages += SceneMessage(i * 2L + 1, playerText, true)
-            messages += SceneMessage(i * 2L + 2, receipt.getString("narration"), false)
-        }
         val workspace = workspace()
         // Host-v1's workspace contract and the SQLite implementation have separate versions.
         val databaseSchema = workspace.getInt("database_schema_version")
@@ -262,10 +238,10 @@ internal class DurableGateway(
         // coherent snapshot rather than attaching a different head's catalog metadata.
         if (current.revision != playerRevision) throw WorkspaceFailure("Stale")
         textProvider = readTextProvider()
-        val saved = SavedSnapshot(playerRevision, if (view.getJSONObject("inventory").has("potion")) "You" else "Not in your inventory",
-            messages.takeLast(40), workspace.getString("location"), 1, stories,
+        val saved = SavedSnapshot(playerRevision, if (presentation.hasPotion) "You" else "Not in your inventory",
+            presentation.messages, workspace.getString("location"), 1, stories,
             SavedStory(current.story, current.branch, root.title, current.revision), current.uncommittedDrafts,
-            view.getString("rules"), textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines)
+            presentation.rules, textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines)
         synchronized(playerMetadataLock) {
             requirePlayerOwner(owner)
             if(revision!=playerRevision)throw WorkspaceFailure("Stale")

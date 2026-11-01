@@ -12,6 +12,8 @@ pub mod inspection_query;
 pub mod intent_guard;
 pub mod memory_coverage;
 pub mod play;
+#[cfg(feature = "host")]
+mod player_presentation_v2;
 pub mod scope;
 pub mod story_authoring;
 pub mod story_presentation;

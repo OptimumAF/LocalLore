@@ -273,6 +273,11 @@ pub enum HostCommand {
         scope: Scope,
         expected_revision: u64,
     },
+    PlayPresentationV2 {
+        session: String,
+        scope: Scope,
+        expected_revision: u64,
+    },
     FreeText {
         session: String,
         request: Request,
@@ -1917,6 +1922,28 @@ impl Host {
                         Ok(context) => ok(json!({"context":context})),
                         Err(e) => reject(e),
                     }
+                }
+            }
+            HostCommand::PlayPresentationV2 {
+                session,
+                scope,
+                expected_revision,
+            } => {
+                if state.persistence.is_some() {
+                    if let Err(error) = refresh_session(state, &session, &scope) {
+                        return error;
+                    }
+                }
+                let selected = match get_session(state, &session, &scope) {
+                    Ok(selected) => selected,
+                    Err(error) => return error,
+                };
+                if expected_revision != selected.engine.revision() {
+                    return reject("Stale");
+                }
+                match crate::player_presentation_v2::project(&selected.engine) {
+                    Ok(view) => ok(view),
+                    Err(error) => reject(error),
                 }
             }
             HostCommand::PlaySnapshotV2 {

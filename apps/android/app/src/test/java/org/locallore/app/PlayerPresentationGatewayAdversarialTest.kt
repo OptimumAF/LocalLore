@@ -41,8 +41,8 @@ internal class PresentationCaptureCorpus {
     }
     init {
         check(document.getInt("version") == 1)
-        check(cases.map { it.id }.toSet() == setOf("main", "corrected", "rediscovered", "empty", "mixed", "slashes"))
-        check(cases.size == 6)
+        check(cases.map { it.id }.toSet() == setOf("main", "corrected", "rediscovered", "empty", "mixed", "slashes", "u64"))
+        check(cases.size == 7)
         for (case in cases) {
             check(case.envelope("reply").getString("status") == "ok")
             check(case.envelope("reply").getJSONObject("data").getInt("version") == 2)
@@ -120,7 +120,7 @@ internal fun assertCapturedPresentation(messages: List<SceneMessage>, case: Pres
         assertEquals(row.getBoolean("player"), actual.isPlayer)
         val turn = case.turns.getJSONObject(index / 2)
         if (actual.isPlayer && turn.getJSONObject("intent").getString("kind") == "actions") {
-            assertEquals(canonicalPresentationJson(turn.getJSONObject("intent").getJSONArray("value")),
+            assertEquals(canonicalPresentationJson(JSONArray(row.getString("text"))),
                 canonicalPresentationJson(JSONArray(actual.text)))
         } else {
             assertEquals(row.getString("text"), actual.text)
@@ -344,6 +344,37 @@ class PlayerPresentationGatewayAdversarialTest {
         val decoded = PlayerPresentationWire.decode(escaped,
             PlayDraftScope(case.story, case.branch), case.revision)
         assertCapturedPresentation(decoded.messages, case)
+        corpus.assertUnchanged()
+    }
+
+    @Test fun nativeAcceptedUnsignedDeadlineAndClaimKeepExactNumericDisplayWithoutMutatingThePresentationDto() {
+        val corpus = PresentationCaptureCorpus(); val case = corpus.case("u64")
+        val data = case.envelope("reply").getJSONObject("data")
+        val untouched = data.toString()
+        val maximum = "18446744073709551615"
+        val commands = (0 until case.turns.length()).flatMap { turnIndex ->
+            val intent = case.turns.getJSONObject(turnIndex).getJSONObject("intent")
+            assertEquals("actions", intent.getString("kind"))
+            val actions = intent.getJSONArray("value")
+            (0 until actions.length()).map(actions::getJSONObject)
+        }
+        assertEquals(maximum, commands.single { it.getString("op") == "promise" }.get("deadline"))
+        assertEquals("2", commands.single { it.getString("op") == "believe" }.get("claim_event"))
+        val expected = case.value.getJSONArray("expected_messages")
+        val originalInputs = (0 until expected.length()).map(expected::getJSONObject)
+            .filter { it.getBoolean("player") }.map { it.getString("text") }
+        assertTrue(originalInputs.any { it.contains("\"deadline\":" + maximum) })
+        assertTrue(originalInputs.any { it.contains("\"claim_event\":2") })
+
+        val decoded = PlayerPresentationWire.decode(data, PlayDraftScope(case.story, case.branch), case.revision)
+        assertCapturedPresentation(decoded.messages, case)
+        val displayed = decoded.messages.filter { it.isPlayer }.map { it.text }
+        assertTrue(displayed.any { it.contains("\"deadline\":" + maximum) })
+        assertTrue(displayed.any { it.contains("\"claim_event\":2") })
+        assertFalse(displayed.any { it.contains("1.8446744073709552E19", ignoreCase = true) })
+        assertFalse(displayed.any { it.contains("\"deadline\":-1") })
+        assertFalse(displayed.any { it.contains("\"deadline\":9223372036854775807") })
+        assertEquals(untouched, data.toString())
         corpus.assertUnchanged()
     }
 }

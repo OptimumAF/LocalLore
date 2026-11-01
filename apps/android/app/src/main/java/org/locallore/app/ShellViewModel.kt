@@ -394,6 +394,13 @@ class ShellViewModel internal constructor(
         gateway.respond(action, before.revision, before.mode)
     }
 
+    /** A retained quick action cannot attach to a different rendered story or timeline. */
+    fun submit(action: DemoAction, expectedStory: SavedStory?) {
+        val selected = mutable.value.selectedStory
+        if (expectedStory?.story != selected?.story || expectedStory?.branch != selected?.branch) return
+        submit(action)
+    }
+
     /** A retained UI callback cannot retarget its text after selecting another timeline. */
     fun submitText(input: PlayInput, expectedStory: SavedStory?) {
         val selected = mutable.value.selectedStory

@@ -133,7 +133,8 @@ open class MainActivity : ComponentActivity() {
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
             val renderedRecordContext = record.context
-            LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::startNewStory,
+            val renderedActionStory = state.selectedStory
+            LocalLoreScreen(state, { action -> model.submit(action, renderedActionStory) }, model::setMode, model::cancel, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
                 onText = model::submitText,

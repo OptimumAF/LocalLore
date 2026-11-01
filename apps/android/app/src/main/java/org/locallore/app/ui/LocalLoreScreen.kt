@@ -100,6 +100,13 @@ internal fun LocalLoreScreen(
     // not validate its inputs, and null -> selected would discard the pending payload.
     var playDraft by rememberSaveable(stateSaver = PlayDraftSaver) { mutableStateOf(PlayDraft()) }
     val renderedStory = state.selectedStory
+    val actionScope = renderedStory?.let { PlayDraftScope(it.story, it.branch) }
+    val renderedActionPersistent = state.persistent
+    val actionBlocked = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
+        state.creationActive || state.recoveryRequired || (state.persistent && renderedStory == null)
+    val currentActionScope by rememberUpdatedState(actionScope)
+    val currentActionPersistent by rememberUpdatedState(renderedActionPersistent)
+    val currentActionBlocked by rememberUpdatedState(actionBlocked)
     val draftScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
     val draftPending = state.persistent && renderedStory == null && (state.busy || state.recoveryRequired)
     val observedDraft = playDraft
@@ -421,18 +428,28 @@ internal fun LocalLoreScreen(
                                     ) { Text("Cancel response") }
                                 }
                             }
-                            Button(
-                                onClick = { onAction(DemoAction.GIVE_POTION) },
-                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                    .testTag("give-potion"),
-                            ) { Text("Give potion to Mira") }
-                            OutlinedButton(
-                                onClick = { onAction(DemoAction.TRY_ABILITY) },
-                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                    .testTag("try-ability"),
-                            ) { Text("Try unlearned ability") }
+                            // Recreate button controllers on a logical scope change. Retained
+                            // semantics actions still check current scope and action availability.
+                            key(renderedActionPersistent, actionScope) {
+                                Button(
+                                    onClick = {
+                                        if (!currentActionBlocked && currentActionPersistent == renderedActionPersistent &&
+                                            currentActionScope == actionScope) onAction(DemoAction.GIVE_POTION)
+                                    },
+                                    enabled = !actionBlocked,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .testTag("give-potion"),
+                                ) { Text("Give potion to Mira") }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (!currentActionBlocked && currentActionPersistent == renderedActionPersistent &&
+                                            currentActionScope == actionScope) onAction(DemoAction.TRY_ABILITY)
+                                    },
+                                    enabled = !actionBlocked,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .testTag("try-ability"),
+                                ) { Text("Try unlearned ability") }
+                            }
                         }
                     }
                     if (onStoryRecord != null) item(key = "story-record") {

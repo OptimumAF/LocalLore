@@ -70,6 +70,13 @@ add_executable(locallore-llama-worker main.cpp)
 target_compile_features(locallore-llama-worker PRIVATE cxx_std_17)
 target_link_libraries(locallore-llama-worker PRIVATE llama-common llama vendor::nlohmann)
 
+# Unqualified experimental worker only. Never stage it or qualify both main.cpp
+# targets in one binary directory: their compiler journals share a basename.
+add_executable(locallore-llama-worker-initial-world-v1 EXCLUDE_FROM_ALL main.cpp)
+target_compile_features(locallore-llama-worker-initial-world-v1 PRIVATE cxx_std_17)
+target_compile_definitions(locallore-llama-worker-initial-world-v1 PRIVATE LOCALLORE_INITIAL_WORLD_EXPERIMENTAL_V1=1)
+target_link_libraries(locallore-llama-worker-initial-world-v1 PRIVATE llama-common llama vendor::nlohmann)
+
 # Explicit development target only; never linked into or packaged with the application worker.
 add_executable(locallore-schema-order-test EXCLUDE_FROM_ALL schema_order_test.cpp)
 target_compile_features(locallore-schema-order-test PRIVATE cxx_std_17)
@@ -244,7 +251,7 @@ endif()
   string(CONFIGURE "${WORKER_LAUNCHER_TEMPLATE}" WORKER_LAUNCHER @ONLY)
   set(WORKER_LAUNCHER_PATH "${CMAKE_CURRENT_BINARY_DIR}/worker-compiler-launcher.cmake")
   file(WRITE "${WORKER_LAUNCHER_PATH}" "${WORKER_LAUNCHER}")
-  foreach(TARGET locallore-llama-worker locallore-schema-order-test locallore-worker-launch-test locallore-worker-generation-test)
+  foreach(TARGET locallore-llama-worker locallore-llama-worker-initial-world-v1 locallore-schema-order-test locallore-worker-launch-test locallore-worker-generation-test)
     set_property(TARGET ${TARGET} PROPERTY CXX_COMPILER_LAUNCHER "${CMAKE_COMMAND};-P;${WORKER_LAUNCHER_PATH};--")
   endforeach()
 endif()

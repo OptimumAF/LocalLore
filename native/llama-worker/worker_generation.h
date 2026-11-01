@@ -17,6 +17,17 @@ inline std::optional<GenerationLimits> locallore_generation_limits(
     GenerationAdmission admission = GenerationAdmission::LegacyPlayV1) {
     if (admission != GenerationAdmission::LegacyPlayV1 &&
         admission != GenerationAdmission::InitialWorldExperimentalV1) return std::nullopt;
-    if (!g.is_object() || g.size()!=4 || !g.contains("role") || !g["role"].is_string() || (g["role"]!="director" && g["role"]!="narrator") || !g.contains("prompt") || !g["prompt"].is_string() || g["prompt"].get<std::string>().empty() || g["prompt"].get<std::string>().find('\0')!=std::string::npos || !g.contains("schema") || (!g["schema"].is_null() && !g["schema"].is_object()) || !g.contains("max_tokens") || !g["max_tokens"].is_number_unsigned() || g["max_tokens"]<1 || g["max_tokens"]>350) return std::nullopt;
+    if (!g.is_object() || g.size()!=4 || !g.contains("role") || !g["role"].is_string() ||
+        !g.contains("prompt") || !g["prompt"].is_string() ||
+        g["prompt"].get<std::string>().empty() || g["prompt"].get<std::string>().find('\0')!=std::string::npos ||
+        !g.contains("schema") || (!g["schema"].is_null() && !g["schema"].is_object()) ||
+        !g.contains("max_tokens") || !g["max_tokens"].is_number_unsigned() || g["max_tokens"]<1) return std::nullopt;
+    if (g["role"]=="author") {
+        if (admission != GenerationAdmission::InitialWorldExperimentalV1 ||
+            !g["schema"].is_object() || g["prompt"].get<std::string>().size()>16384 ||
+            g["max_tokens"]>1024) return std::nullopt;
+        return GenerationLimits{g["max_tokens"].get<std::uint16_t>(), 8192};
+    }
+    if ((g["role"]!="director" && g["role"]!="narrator") || g["max_tokens"]>350) return std::nullopt;
     return GenerationLimits{g["max_tokens"].get<std::uint16_t>(), 16384};
 }

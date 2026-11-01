@@ -1,8 +1,10 @@
-"""Local MSVC clean-path worker comparison; no models, downloads or staging.
+"""Local MSVC clean-path legacy worker comparison; no models, downloads or staging.
 
 Run in the already provisioned x64 MSVC development environment. Outputs must be
 new task-owned directories. The upstream checkout is only read, locally cloned
 twice, and never configured in place. All evidence remains local by default.
+The experimental worker and generation test are copied source inputs only;
+the three built targets and compiler-journal assertions remain legacy-only.
 """
 import argparse
 import hashlib
@@ -18,6 +20,8 @@ UPSTREAM = "620d2225cc436ab0b001e3200e590e3b286ef9ab"
 FILES = (
     "CMakeLists.txt", "main.cpp", "generate.inc", "schema_order.h",
     "schema_order_test.cpp", "worker_launch.h", "worker_launch_test.cpp",
+    "worker_generation.h", "worker_generation_test.cpp",
+    "profile-initial-world-experimental-v2.json",
     "test_protocol.py", "test_reproducible.py",
 )
 VIRTUAL = "X:/locallore"

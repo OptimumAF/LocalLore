@@ -25,6 +25,11 @@
 #endif
 using json = nlohmann::json;
 using clock_type = std::chrono::steady_clock;
+#if defined(LOCALLORE_INITIAL_WORLD_EXPERIMENTAL_V1) && LOCALLORE_INITIAL_WORLD_EXPERIMENTAL_V1 == 1
+static constexpr GenerationAdmission generation_admission = GenerationAdmission::InitialWorldExperimentalV1;
+#else
+static constexpr GenerationAdmission generation_admission = GenerationAdmission::LegacyPlayV1;
+#endif
 struct failure : std::runtime_error { using std::runtime_error::runtime_error; };
 static std::atomic<bool> cancelled{false};
 static std::atomic<bool> busy{false};
@@ -93,7 +98,7 @@ static int worker(const std::string & model_path) {
             GenerationLimits limits{};
             if (op == "generate") {
                 if (!model) throw failure("model_load_failed");
-                const auto admitted = locallore_generation_limits(req["generation"]);
+                const auto admitted = locallore_generation_limits(req["generation"],generation_admission);
                 if (!admitted) throw failure("invalid_request");
                 limits = *admitted;
             }

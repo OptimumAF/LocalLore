@@ -82,11 +82,13 @@ internal fun StoryEventDetail(
                         modifier = Modifier.testTag("story-event-problem")
                             .semantics { liveRegion = LiveRegionMode.Polite },
                     )
-                    if (onRetry != null) key(actionKey) { OutlinedButton(
-                        onClick = onRetry,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .testTag("story-event-retry"),
-                    ) { Text("Try event again") } }
+                    if (onRetry != null) key(actionKey) {
+                        OutlinedButton(
+                            onClick = onRetry,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("story-event-retry"),
+                        ) { Text("Try event again") }
+                    }
                 }
                 else -> {
                     if (entry.title != "Event #${detail.reference}") Text(

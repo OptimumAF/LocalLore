@@ -97,11 +97,13 @@ fun StoryRecordDialog(
                         actionKey = actionKey,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
-                    key(actionKey) { OutlinedButton(
-                        onClick = onEventBack,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .testTag("story-event-back"),
-                    ) { Text("Back to records") } }
+                    key(actionKey) {
+                        OutlinedButton(
+                            onClick = onEventBack,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("story-event-back"),
+                        ) { Text("Back to records") }
+                    }
                 } else Column(
                     modifier = Modifier.weight(1f).fillMaxWidth()
                         .verticalScroll(recordScrollState).testTag("story-record-content"),
@@ -130,20 +132,22 @@ fun StoryRecordDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    key(actionKey) { StoryRecordSection.entries.chunked(2).forEach { sections ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            sections.forEach { section ->
-                                FilterChip(
-                                    selected = state.section == section,
-                                    onClick = { onSection(section) },
-                                    enabled = state.context != null,
-                                    label = { Text(section.label) },
-                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                                        .testTag("story-record-section-${section.wire}"),
-                                )
+                    key(actionKey) {
+                        StoryRecordSection.entries.chunked(2).forEach { sections ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                sections.forEach { section ->
+                                    FilterChip(
+                                        selected = state.section == section,
+                                        onClick = { onSection(section) },
+                                        enabled = state.context != null,
+                                        label = { Text(section.label) },
+                                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                            .testTag("story-record-section-${section.wire}"),
+                                    )
+                                }
                             }
                         }
-                    } }
+                    }
                     OutlinedTextField(
                         value = searchDraft,
                         onValueChange = { searchDraft = it },
@@ -152,12 +156,14 @@ fun StoryRecordDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("story-record-search"),
                     )
-                    key(actionKey) { Button(
-                        onClick = { onSearch(searchDraft) },
-                        enabled = canQuery,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .testTag("story-record-search-submit"),
-                    ) { Text("Search") } }
+                    key(actionKey) {
+                        Button(
+                            onClick = { onSearch(searchDraft) },
+                            enabled = canQuery,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("story-record-search-submit"),
+                        ) { Text("Search") }
+                    }
                     HorizontalDivider()
                     when {
                         state.loading -> {
@@ -181,12 +187,14 @@ fun StoryRecordDialog(
                                 modifier = Modifier.testTag("story-record-problem")
                                     .semantics { liveRegion = LiveRegionMode.Polite },
                             )
-                            key(actionKey) { OutlinedButton(
-                                onClick = onRetry,
-                                enabled = canQuery,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                    .testTag("story-record-retry"),
-                            ) { Text("Try again") } }
+                            key(actionKey) {
+                                OutlinedButton(
+                                    onClick = onRetry,
+                                    enabled = canQuery,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .testTag("story-record-retry"),
+                                ) { Text("Try again") }
+                            }
                         }
                         state.context != null -> {
                             Text(
@@ -226,27 +234,31 @@ fun StoryRecordDialog(
                             Text(limitation, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    key(actionKey) { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = onFirst,
-                            enabled = canQuery && state.cursor != null,
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                                .testTag("story-record-first"),
-                        ) { Text("First page") }
-                        OutlinedButton(
-                            onClick = onNext,
-                            enabled = canQuery && state.problem == null && state.nextCursor != null,
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                                .testTag("story-record-next"),
-                        ) { Text("Next page") }
-                    } }
+                    key(actionKey) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = onFirst,
+                                enabled = canQuery && state.cursor != null,
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                    .testTag("story-record-first"),
+                            ) { Text("First page") }
+                            OutlinedButton(
+                                onClick = onNext,
+                                enabled = canQuery && state.problem == null && state.nextCursor != null,
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                    .testTag("story-record-next"),
+                            ) { Text("Next page") }
+                        }
+                    }
                 }
                 // Dismissal remains reachable even when enlarged text fills a small window.
-                key(actionKey) { TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .testTag("story-record-close"),
-                ) { Text("Close") } }
+                key(actionKey) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .testTag("story-record-close"),
+                    ) { Text("Close") }
+                }
             }
         }
     }

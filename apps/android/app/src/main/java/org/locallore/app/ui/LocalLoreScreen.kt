@@ -302,6 +302,7 @@ internal fun LocalLoreScreen(
                         ) {
                             Text(
                                 if (message.isPlayer) "You" else "Narrator",
+                                modifier = if (exposeTestTags) Modifier.testTag("message-role-${message.id}") else Modifier,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

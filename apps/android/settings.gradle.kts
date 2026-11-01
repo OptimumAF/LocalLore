@@ -24,3 +24,7 @@ include(":app")
 val processVerification = providers.gradleProperty("localLoreInputProcessVerification").orNull
 require(processVerification == null || processVerification == "true")
 if (processVerification == "true") include(":draft-process-controller")
+val presentationProcessVerification = providers.gradleProperty("localLorePresentationProcessVerification").orNull
+require(presentationProcessVerification == null || presentationProcessVerification == "true")
+require(presentationProcessVerification != "true" || processVerification != "true")
+if (presentationProcessVerification == "true") include(":presentation-process-controller")

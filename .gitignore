@@ -72,3 +72,6 @@ apps/android/app/build-input-process/
 apps/android/draft-process-controller/build/
 apps/android/.gradle-physical-model/
 apps/android/app/build-physical-model/
+apps/android/.gradle-presentation-process/
+apps/android/app/build-presentation-process/
+apps/android/presentation-process-controller/build/

@@ -125,12 +125,14 @@ def _boot_value(raw):
 
 
 def _uid(raw, package):
+    _need(package in (contract.APP, contract.TEST, contract.CONTROLLER))
     values = {}
     lines = raw.decode("ascii").splitlines()
     _need(len(lines) <= 3)
     for line in lines:
         match = re.fullmatch(r"package:([^\s]+) uid:([1-9][0-9]*)", line)
-        _need(match is not None and match[1] in (contract.APP, contract.TEST, contract.CONTROLLER) and match[1] not in values)
+        _need(match is not None and match[1] in (contract.APP, contract.TEST, contract.CONTROLLER) and
+              package in match[1] and match[1] not in values)
         value = int(match[2])
         _need(10000 <= value <= 99999)
         values[match[1]] = value

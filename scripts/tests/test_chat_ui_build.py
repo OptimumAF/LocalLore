@@ -76,11 +76,12 @@ class ChatUiBuildTests(unittest.TestCase):
         with self.assertRaises(build.BuildRefused):build.create_manifest()
 
     def test_all_xml_descendant_failure_error_skip_outcomes_refuse_zero_headers(self):
+        path=Path(self.graph.reports[0]['original']['path'])
+        baseline=path.read_bytes()
         for tag in ('failure','error','skipped'):
             # Each invalid XML is an independently retained file as well as the
             # current coherent copied report used by the real full validator.
-            path=Path(self.graph.reports[0]['original']['path'])
-            root=ET.fromstring(path.read_bytes())
+            root=ET.fromstring(baseline)
             wrapper=ET.SubElement(root,'unexpected-wrapper')
             ET.SubElement(wrapper,tag)
             raw=ET.tostring(root)
@@ -171,12 +172,43 @@ class ChatUiBuildTests(unittest.TestCase):
     def test_only_fixed_cargo_release_aliases_admit_stable_read_only_hardlinks(self):
         import os
         release=Path(self.graph.evidence['nativeJoins'][0]['release']['path'])
-        os.link(release,self.graph.base/'cargo-deps-alias.so')
         self.assertEqual(2,release.stat().st_nlink)
+        with self.assertRaises(build.BuildRefused):build._Reader().bound(pin(release))
         self.assertEqual(2,len(build.create_manifest()['native_chains']))
         generated=Path(self.graph.evidence['nativeJoins'][0]['generated']['path'])
         os.link(generated,self.graph.base/'unapproved-generated-alias.so')
         with self.assertRaises(build.BuildRefused):build.create_manifest()
+
+    def test_third_cargo_alias_refuses_even_when_the_fixed_two_names_still_match(self):
+        import os
+        release=Path(self.graph.evidence['nativeJoins'][0]['release']['path'])
+        os.link(release,self.graph.base/'third-retained-cargo-alias.so')
+        self.assertEqual(3,release.stat().st_nlink)
+        with self.assertRaises(build.BuildRefused):build.create_manifest()
+
+    def test_foreign_two_link_alias_with_equal_bytes_is_not_cargo_object_identity(self):
+        import os
+        release=Path(self.graph.evidence['nativeJoins'][0]['release']['path'])
+        alias=release.parent/'deps/liblocallore_android.so'
+        alias.rename(self.graph.base/'retained-original-deps-alias.so')
+        alias.write_bytes(release.read_bytes())
+        os.link(alias,self.graph.base/'foreign-equal-bytes-alias.so')
+        self.assertEqual(2,alias.stat().st_nlink)
+        self.assertNotEqual(release.stat().st_ino,alias.stat().st_ino)
+        with self.assertRaises(build.BuildRefused):build.create_manifest()
+
+    def test_cargo_alias_disappearance_after_initial_read_refuses_final_check(self):
+        release=Path(self.graph.evidence['nativeJoins'][0]['release']['path'])
+        reader=build._Reader();reader.cargo_release(pin(release))
+        (release.parent/'deps/liblocallore_android.so').rename(self.graph.base/'retained-late-alias.so')
+        with self.assertRaises((build.BuildRefused,OSError)):reader.final()
+
+    def test_source_apk_and_control_hardlinks_keep_generic_single_link_rule(self):
+        import os
+        paths=(self.graph.root/'README.md',self.graph.apks['product_apk'],self.graph.capture/'build-start-v1.json')
+        for i,path in enumerate(paths):
+            binding=pin(path);os.link(path,self.graph.base/('retained-generic-alias-%d'%i))
+            with self.subTest(path=path.name),self.assertRaises(build.BuildRefused):build._Reader().bound(binding)
 
     def test_resealed_bad_terminal_and_unavailable_outcomes_never_become_pass(self):
         self.graph.terminal['exit']=True

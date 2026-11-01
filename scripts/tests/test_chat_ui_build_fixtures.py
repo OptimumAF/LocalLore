@@ -3,9 +3,11 @@
 Synthetic DEX/ELF are inert packaging fixtures; no Android tools or Git are run.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
+import ast
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 import struct
 import tempfile
@@ -44,7 +46,16 @@ class BuildGraph:
         self.write(self.root/'README.md', b'Tested synthetic product\n')
         for name in ('scripts/audit_physical_model_apk.py','scripts/audit_apk.py',
                      'benchmarks/android_instrumentation_evidence.py'):
-            self.write(self.root/name, (build.ROOT/name).read_bytes())
+            raw=(build.ROOT/name).read_bytes()
+            if name.startswith('scripts/'):
+                # Preserve the exact reused parser AST while omitting unrelated
+                # CLI/tool code from synthetic fixtures. The genuine replay
+                # independently binds the complete real product sources.
+                text=raw.decode();tree=ast.parse(text)
+                names=('Dex','dex_classes') if name.endswith('audit_physical_model_apk.py') else ('require','elf_alignments')
+                raw=('\n\n'.join(ast.get_source_segment(text,n) for n in tree.body
+                    if isinstance(n,(ast.ClassDef,ast.FunctionDef)) and n.name in names)+'\n').encode()
+            self.write(self.root/name, raw)
             self.source_names.append(name)
         groups = {}
         for _, klass, method in build.SELECTORS:
@@ -99,6 +110,9 @@ class BuildGraph:
                 'stripped':stage_root/f'intermediates/stripped_native_libs/debug/stripDebugDebugSymbols/out/lib/{abi}/liblocallore_android.so'}
             for stage,path in stages.items():
                 self.write(path, stripped if stage=='stripped' else stripped+b'UNSTRIPPED FIXTURE')
+            alias=stages['release'].parent/'deps/liblocallore_android.so'
+            alias.parent.mkdir(parents=True,exist_ok=True)
+            os.link(stages['release'],alias)
             native.append(dict(abi=abi, **{k:pin(p) for k,p in stages.items()},
                 apkEntry=f'lib/{abi}/liblocallore_android.so',apkBytes=len(stripped),
                 apkSHA256=hashlib.sha256(stripped).hexdigest(),stripStageHasDifferentBytes=True))

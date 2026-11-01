@@ -135,7 +135,7 @@ def _relative(name):
     return path
 
 
-def _ordinary(path):
+def _ordinary(path, *, cargo=False):
     path = Path(path)
     _need(path.is_absolute() and path.drive.upper() == 'D:' and path.resolve(strict=True) == path, 'path')
     for part in (path, *path.parents):
@@ -143,14 +143,28 @@ def _ordinary(path):
         _need(not stat.S_ISLNK(info.st_mode) and not getattr(info, 'st_file_attributes', 0) & 1024 and
               (part == path or stat.S_ISDIR(info.st_mode)), 'path')
     info = path.lstat()
-    # Cargo's two fixed release artifacts also have a deps/ alias. Read-only
-    # observation of those exact names is safe only with unchanged held identity,
-    # link count and full hash. Every other role remains single-link.
-    releases = {Path(_SPEC['root']) / ('apps/android/app/build/rust-target/'+target+
-        '/release/liblocallore_android.so') for target in ('x86_64-linux-android','aarch64-linux-android')}
-    _need(stat.S_ISREG(info.st_mode) and info.st_nlink >= 1 and
-          (info.st_nlink == 1 or path in releases), 'file')
+    _need(stat.S_ISREG(info.st_mode), 'file')
+    if cargo:
+        _need(any(path in pair for pair in _cargo_pairs()) and info.st_nlink == 2, 'cargo_alias')
+    else:
+        _need(info.st_nlink == 1, 'file')
     return info
+
+
+def _cargo_pairs():
+    return tuple((Path(_SPEC['root']) / ('apps/android/app/build/rust-target/'+target+
+        '/release/liblocallore_android.so'), Path(_SPEC['root']) / ('apps/android/app/build/rust-target/'+target+
+        '/release/deps/liblocallore_android.so')) for target in ('x86_64-linux-android','aarch64-linux-android'))
+
+
+def _cargo_pair(path):
+    pairs = [pair for pair in _cargo_pairs() if path in pair]
+    _need(len(pairs) == 1, 'cargo_alias')
+    pair = pairs[0]
+    left, right = (_ordinary(name, cargo=True) for name in pair)
+    _need((left.st_dev, left.st_ino, left.st_size, left.st_mtime_ns) ==
+          (right.st_dev, right.st_ino, right.st_size, right.st_mtime_ns), 'cargo_alias')
+    return pair
 
 
 def _stamp(info):
@@ -163,9 +177,12 @@ class _Reader:
         self.checked = {}
 
     def raw(self, path, cap=64*1024**2):
+        return self._raw(path, cap, cargo=False)
+
+    def _raw(self, path, cap, *, cargo):
         _need(time.monotonic() < self.deadline, 'deadline')
         path = Path(path)
-        before = _ordinary(path)
+        before = _ordinary(path, cargo=cargo)
         _need(0 <= before.st_size <= cap, 'size')
         with path.open('rb') as stream:
             held = os.fstat(stream.fileno())
@@ -179,11 +196,12 @@ class _Reader:
                     break
                 raw.extend(block)
             _need(_stamp(held) == _stamp(os.fstat(stream.fileno())), 'changed')
-        _need(len(raw) == before.st_size and _stamp(before) == _stamp(_ordinary(path)), 'changed')
+        _need(len(raw) == before.st_size and _stamp(before) == _stamp(_ordinary(path, cargo=cargo)), 'changed')
         pin = dict(path=str(path), bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
         if path in self.checked:
-            _need(_same(pin, self.checked[path][0]) and _stamp(before) == self.checked[path][1], 'changed')
-        self.checked[path] = (pin, _stamp(before))
+            _need(_same(pin, self.checked[path][0]) and _stamp(before) == self.checked[path][1] and
+                  cargo is self.checked[path][2], 'changed')
+        self.checked[path] = (pin, _stamp(before), cargo)
         return bytes(raw)
 
     def pin(self, path):
@@ -196,9 +214,26 @@ class _Reader:
         _need(_same(value, self.checked[Path(value['path'])][0]), 'binding')
         return raw
 
+    def cargo_release(self, value):
+        """Only _native uses this exact two-name Cargo output role; not generic IO."""
+        _binding(value)
+        path = Path(value['path'])
+        pair = _cargo_pair(path)
+        _need(path == pair[0], 'cargo_alias')
+        raw = self._raw(path, 32*1024**2, cargo=True)
+        alias = self._raw(pair[1], 32*1024**2, cargo=True)
+        _need(raw == alias and _same(value, self.checked[path][0]), 'cargo_alias')
+        _cargo_pair(path)
+        return raw
+
     def final(self):
         for path in list(self.checked):
-            self.raw(path)
+            cargo = self.checked[path][2]
+            if cargo:
+                _cargo_pair(path)
+            self._raw(path, 64*1024**2, cargo=cargo)
+            if cargo:
+                _cargo_pair(path)
 
 
 def _binding(value):
@@ -492,6 +527,7 @@ def _native(reader, evidence, product, parser):
     rows = evidence['nativeJoins']
     _need(type(rows) is list and [r['abi'] for r in rows] == ['x86_64', 'arm64-v8a'], 'native')
     root = _root()/'apps/android/app/build'
+    result = []
     with zipfile.ZipFile(io.BytesIO(reader.bound(_SPEC['apks']['product_apk']))) as archive:
         entries = archive.infolist()
         names = [e.filename for e in entries]
@@ -527,14 +563,20 @@ def _native(reader, evidence, product, parser):
             raw = {}
             for stage, path in paths.items():
                 _need(Path(row[stage]['path']) == path, 'native')
-                raw[stage] = reader.bound(row[stage])
+                raw[stage] = reader.cargo_release(row[stage]) if stage == 'release' else reader.bound(row[stage])
             _need(raw['release'] == raw['generated'] == raw['merged'] and
                   row['apkEntry'] == f'lib/{abi}/liblocallore_android.so' and
                   type(row['apkBytes']) is int and row['apkBytes'] == len(raw['stripped']) and
                   row['apkSHA256'] == hashlib.sha256(raw['stripped']).hexdigest() and
                   archive.read(row['apkEntry']) == raw['stripped'] and
                   row['stripStageHasDifferentBytes'] is (raw['release'] != raw['stripped']), 'native')
-    return copy.deepcopy(rows)
+            observed = copy.deepcopy(row)
+            alias = paths['release'].parent/'deps/liblocallore_android.so'
+            observed['current_cargo_alias'] = dict(scope='current-read-only-cargo-output-observation',
+                release=copy.deepcopy(row['release']), deps=copy.deepcopy(reader.checked[alias][0]),
+                links_per_name=2, historical_b55_alias_observation=False)
+            result.append(observed)
+    return result
 
 
 def _create_manifest():

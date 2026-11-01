@@ -65,7 +65,7 @@ class Graph:
         self.observer=SimpleNamespace(guard=Mock(),close=Mock(return_value=True))
         self.capture=SimpleNamespace(start=Mock(),guard=Mock(),close=Mock(return_value=True))
         self.terminal=dict(status='child_exited',worker_returncode=0,cleanup_complete=True,output_capture_complete=True)
-        self.running=fixture.running(self.a);self.running['admission']=self.admission_pin;self.running['owner']=self.owner
+        self.running=fixture.running(self.a);self.running['admission']=self.admission_pin;self.running['owner']=copy.deepcopy(self.owner)
         self.running_pin=self.put(self.owned/'running-v1.json',self.running,touch=True)
         self.put(self.control/'worker-request-v1.json',self.request,touch=True)
         self.public_request=self.put(root/'public-request.json',dict(owner=self.owner))

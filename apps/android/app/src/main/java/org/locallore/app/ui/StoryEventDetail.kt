@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -35,6 +36,7 @@ internal fun StoryEventDetail(
     context: StoryRecordContext?,
     onRetry: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    actionKey: Any? = null,
 ) {
     Column(modifier = modifier.testTag("story-event-detail")) {
         Column(
@@ -80,11 +82,11 @@ internal fun StoryEventDetail(
                         modifier = Modifier.testTag("story-event-problem")
                             .semantics { liveRegion = LiveRegionMode.Polite },
                     )
-                    if (onRetry != null) OutlinedButton(
+                    if (onRetry != null) key(actionKey) { OutlinedButton(
                         onClick = onRetry,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                             .testTag("story-event-retry"),
-                    ) { Text("Try event again") }
+                    ) { Text("Try event again") } }
                 }
                 else -> {
                     if (entry.title != "Event #${detail.reference}") Text(

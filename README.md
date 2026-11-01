@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [saved-story heading fix](docs/android/SAVED_STORY_HEADING_2026-11-01.md)
+uses the selected saved title and a neutral introduction instead of describing
+Lantern Quay in every saved world. Five regression methods went from three
+assertion failures to passing; all 420 JVM tests, Android-test compilation and
+lint pass. The two new Compose journeys remain unrun on Android.
+
 The [chat status announcement fix](docs/android/CHAT_STATUS_ANNOUNCEMENT_2026-11-01.md)
 keeps a compact Polite status outside the scrolling transcript. Host regressions,
 Android-test compilation and lint pass; the new Compose journeys and actual

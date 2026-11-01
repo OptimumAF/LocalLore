@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.locallore.app.DemoAction
 import org.locallore.app.DemoMode
@@ -134,6 +135,17 @@ internal fun LocalLoreScreen(
                 contentAlignment = Alignment.TopCenter,
             ) {
                 Column(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {
+                chatAnnouncement(state)?.let { announcement ->
+                    Text(
+                        announcement,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
+                            .testTag("chat-announcement").semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
                 // A single scroll surface keeps actions reachable in landscape and at large fonts.
                 LazyColumn(
                     state = transcriptNavigation.listState,
@@ -325,9 +337,7 @@ internal fun LocalLoreScreen(
                             Text(
                                 state.notice.orEmpty(),
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.testTag("notice").semantics {
-                                    liveRegion = LiveRegionMode.Polite
-                                },
+                                modifier = Modifier.testTag("notice"),
                             )
                         }
                     }
@@ -392,15 +402,9 @@ internal fun LocalLoreScreen(
                                             strokeWidth = 2.dp,
                                         )
                                         Text(
-                                            when {
-                                                state.preparingResponse -> "Preparing local response…"
-                                                state.checkingCancellation -> "Checking cancellation…"
-                                                else -> "Opening saved progress…"
-                                            },
+                                            chatBusyStatus(state),
                                             style = MaterialTheme.typography.bodyMedium,
-                                            modifier = Modifier.testTag("busy-status").semantics {
-                                                liveRegion = LiveRegionMode.Polite
-                                            },
+                                            modifier = Modifier.testTag("busy-status"),
                                         )
                                     }
                                     if (state.preparingResponse) OutlinedButton(

@@ -1,5 +1,9 @@
 # First-refusal member facts: reviewed admission proposal
 
+Historical frozen proposal. The separately approved single packet is now spent;
+see the [actual result](D04_WORKER_MEMBER_FACTS_VERIFICATION_2026-11-01.md).
+The preparation statements and forecasts below retain their original scope.
+
 Refs #25 D04.01/.02/.04, #31 D09.03 supporting, #21.
 **Prepared and source-reviewed; not run. No new owner decision, Stage or child
 exists. This document requests no permission by itself.**

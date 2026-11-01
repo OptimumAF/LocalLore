@@ -1,5 +1,8 @@
 # Worker library inputs: next facts and policy decision
 
+Historical proposal: the finite numeric-facts packet subsequently completed.
+See its [actual result and unchanged qualification limits](D04_WORKER_MEMBER_FACTS_VERIFICATION_2026-11-01.md).
+
 Refs #25 D04.01/.02/.04, supporting #31 D09.03 and #21.
 **Source-only proposal; no new inspection, selfcheck or run authority exists.**
 The [actual diagnostic record](D04_WORKER_LIBRARY_DIAGNOSTIC_VERIFICATION_2026-11-01.md)

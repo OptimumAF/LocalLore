@@ -268,6 +268,10 @@ stale navigation; navigation never sends a turn. The list retains Compose's scop
 saved scroll state; actual recreation and keyboard behavior need device testing.
 See [implementation and host verification](../../docs/android/TRANSCRIPT_NAVIGATION_VERIFICATION_2026-10-30.md)
 for the tested policy and the four compiled, unrun screen journeys.
+The [rolling-window follow fix](../../docs/android/TRANSCRIPT_ROLLOVER_2026-11-01.md)
+also recognizes exact retained-message overlap as the 40-message window advances.
+Its JVM regressions pass; the two additional rendered journeys are compiled but
+remain unrun on a device.
 
 Accepted state survives Activity recreation and native/process owner recreation.
 Startup resumes a default saved story; use **Saved stories** to select another.

@@ -41,8 +41,8 @@ internal class PresentationCaptureCorpus {
     }
     init {
         check(document.getInt("version") == 1)
-        check(cases.map { it.id }.toSet() == setOf("main", "corrected", "rediscovered", "empty", "mixed"))
-        check(cases.size == 5)
+        check(cases.map { it.id }.toSet() == setOf("main", "corrected", "rediscovered", "empty", "mixed", "slashes"))
+        check(cases.size == 6)
         for (case in cases) {
             check(case.envelope("reply").getString("status") == "ok")
             check(case.envelope("reply").getJSONObject("data").getInt("version") == 2)
@@ -317,5 +317,33 @@ class PlayerPresentationGatewayAdversarialTest {
             }
             refused(setOf("Stale")) { gateway.snapshot() }
         } finally { gateway.close() }
+    }
+
+    @Test fun nativeAdmittedSlashTextSurvivesAndroidJsonReserializationWithoutAnExtraProseBudget() {
+        val corpus = PresentationCaptureCorpus(); val case = corpus.case("slashes")
+        val reply = case.envelope("reply")
+        // JNI bounds the original native envelope. API 35 JSONStringer additionally
+        // escapes every slash when rendering the same decoded fields and values.
+        val rawBytes = case.value.getLong("raw_reply_utf8_bytes")
+        assertTrue(rawBytes in 1..65_536L)
+        assertEquals(20, case.turns.length())
+        val escaped = object : JSONObject(reply.getJSONObject("data").toString()) {
+            override fun toString(): String {
+                val source = super.toString()
+                return buildString {
+                    var backslashes = 0
+                    for (character in source) {
+                        if (character == '/' && backslashes % 2 == 0) append('\\')
+                        append(character)
+                        backslashes = if (character == '\\') backslashes + 1 else 0
+                    }
+                }
+            }
+        }
+        assertTrue(escaped.toString().toByteArray(Charsets.UTF_8).size > 65_536)
+        val decoded = PlayerPresentationWire.decode(escaped,
+            PlayDraftScope(case.story, case.branch), case.revision)
+        assertCapturedPresentation(decoded.messages, case)
+        corpus.assertUnchanged()
     }
 }

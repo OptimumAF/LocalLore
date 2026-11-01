@@ -320,7 +320,7 @@ fn stale_foreign_closed_and_exact_request_shape_never_return_a_presentation() {
     rejected(&presentation(&host, "unknown", &engine), "Closed");
     rejected(&presentation(&host, &session, &child), "Scope");
     let valid = json!({"op":"play_presentation_v2","session":session,"scope":engine.scope(),"expected_revision":engine.revision()});
-    for extra in ["observer", "cursor", "limit", "story_lab"] {
+    for extra in ["observer", "cursor", "limit", "story_lab", "grant", "version"] {
         let mut bad = valid.clone(); bad[extra] = json!("unexpected");
         rejected(&call(&host, bad), "Malformed");
     }
@@ -347,7 +347,11 @@ fn equal_head_author_replacement_is_stale_and_legacy_domain_refusal_is_unchanged
     let selected = session(&host, &child);
     check(&presentation(&host, &selected, &child), &child, root.receipts());
     let legacy = |session: &str, e: &Engine| call(&host, json!({"op":"play_snapshot","session":session,"scope":e.scope(),"expected_revision":e.revision()}));
-    assert_eq!(legacy(&main, &root)["status"], "ok");
+    let legacy_main = legacy(&main, &root);
+    assert_eq!(legacy_main["status"], "ok");
+    keys(&legacy_main["data"], &["scope", "revision", "rules", "player", "inventory", "receipts"]);
+    assert_eq!(legacy_main["data"]["receipts"], json!(root.receipts()));
+    assert_eq!(legacy_main["data"]["player"], json!(root.character_context(&root.seed().player, root.scope(), root.revision()).unwrap()));
     rejected(&legacy(&selected, &child), "Version");
     let thin = call(&host, json!({"op":"play_snapshot_v2","session":selected,"scope":child.scope(),"expected_revision":child.revision()}));
     assert_eq!(thin["status"], "ok");
@@ -360,10 +364,23 @@ fn equal_head_author_replacement_is_stale_and_legacy_domain_refusal_is_unchanged
 #[test]
 fn oversized_twenty_complete_turns_refuse_without_clipping_or_adaptive_window() {
     let mut engine = engine();
+    let mut projected_turn_bytes = 0;
     for i in 0..20 {
         let commands = (0..8).map(|_| Command::Say { text: "r".repeat(1700), audience: ["mira".into()].into() }).collect();
-        append(&mut engine, &format!("large-{i}"), Intent::Actions(commands));
+        let request = engine.request(&format!("large-{i}"), Intent::Actions(commands));
+        let request_bytes = serde_json::to_vec(&request).unwrap().len();
+        assert!(request_bytes <= MAX_PROPOSAL_BYTES, "fixture request {i}: {request_bytes}");
+        let proposal = Engine::proposal(&request).unwrap();
+        let proposal_bytes = serde_json::to_vec(&proposal).unwrap().len();
+        assert!(proposal_bytes <= MAX_PROPOSAL_BYTES, "fixture proposal {i}: {proposal_bytes}");
+        engine.preflight(&request).unwrap_or_else(|error| panic!("fixture preflight {i}, request {request_bytes}, proposal {proposal_bytes}: {error:?}"));
+        let receipt = engine.preview(&request, &proposal).unwrap_or_else(|error| panic!("fixture preview {i}, request {request_bytes}, proposal {proposal_bytes}: {error:?}"));
+        engine.commit_prepared(&receipt).unwrap();
+        projected_turn_bytes += serde_json::to_vec(&json!({"original_scope":receipt.request().scope,
+            "turn":receipt.request().turn,"event_ids":receipt.events().iter().map(AcceptedEvent::sequence).collect::<Vec<_>>(),
+            "intent":receipt.request().intent,"narration":receipt.narration()})).unwrap().len();
     }
+    assert!(projected_turn_bytes > MAX_OUTPUT, "fixture must reach the real Host cap");
     let (host, source) = host(vec![engine.clone()], false);
     let session = session(&host, &engine);
     let reply = presentation(&host, &session, &engine);

@@ -53,6 +53,42 @@ QUERY_METHODS = (
     'missingOrFailedSnapshotBindingRefusesBeforeAnyInspectionBytesAreRequested',
     'inFlightReadRejectsObserverChangeReusedAttachmentHeadAdvanceAndClosure',
 )
+PRESENTATION_METHODS = {
+    'PlayerPresentationGatewayAdversarialTest': (
+        'genuineCapturedMainCorrectedRediscoveredEmptyAndMixedPublishWithoutLegacyContext',
+        'mixedAcceptedIntentTextAndNarrationAreLosslessAndWindowIdsDoNotRestartAtOne',
+        'genuineAncestorInputsRemainScopedAndCapturedPrivateAuthorNpcValuesStayAbsent',
+        'privateUnknownAndMistypedFieldsCannotBecomeDisplayOrAValidSnapshot',
+        'inconsistentWindowsAndGloballyDuplicateFutureOrReorderedEventsAreRejected',
+        'malformedOriginalIntentShapeAndForeignScopeCannotBorrowValidNarration',
+        'aCoherentLeaseCannotRetargetItsAlreadyBoundOpaqueObserver',
+        'lateCapturedSnapshotCannotReattachAfterARealResumeToAnotherCapturedBranch',
+        'closureDuringNonCooperativePresentationReadPreventsPublication',
+        'equalScopeHeadAndReusedRecordedSessionDoNotAuthorizeAnOldAttachmentRead',
+        'catalogHeadAdvanceCannotBeCombinedWithAnOlderValidPresentation',
+        'nativeAdmittedSlashTextSurvivesAndroidJsonReserializationWithoutAnExtraProseBudget',
+        'nativeAcceptedUnsignedDeadlineAndClaimKeepExactNumericDisplayWithoutMutatingThePresentationDto',
+    ),
+    'PlayerPresentationTimelineAdversarialTest': (
+        'exactCurrentTimelineObjectsNavigateAllGenuineHeadsWithoutMutatingAcceptedTurns',
+        'equalButDistinctAndPreviouslyRenderedTimelineObjectsCannotDispatchAResume',
+        'aRetainedTimelineFromAnotherCapturedStoryHasNoCurrentSelectionAuthority',
+        'busyAndDisposedViewsFenceNonCooperativeLateNativePresentationReplies',
+        'malformedNewHeadRetainsOldPresentationAndRequiresExplicitValidRecovery',
+    ),
+    'PlayerPresentationWireTest': (
+        'commandContainsOnlyTheFixedOperationAndBoundSessionScopeHead',
+        'bothDomainsKeepOpaqueObserverAndOriginalInputNarrationPairs',
+        'allElevenExistingActionShapesAreDisplayedFromOriginalTypedArrays',
+        'u64PresentationStringsRenderExactNumericDigitsWithoutChangingTheNativeFrame',
+        'noncanonicalOverflowAndNumericU64DtoFieldsRefuseInsteadOfCoercing',
+        'fixedWholeTurnWindowRetainsAbsoluteMessageIdentitiesAndFreezesMessages',
+        'malformedCurrentBindingsPrivateExtrasAndScalarCoercionsRefuseWhole',
+        'missingOrMixedTurnProvenanceAndInvalidEventNumbersRefuseWhole',
+        'partialWindowUnknownIntentsCommandsAndExtraTypedFieldsRefuseWhole',
+        'utf8ByteBudgetRejectsOversizeAndMalformedUnicodeWithoutRepair',
+    ),
+}
 encoded = previous_builds.encoded
 pin = previous_builds.pin
 
@@ -104,7 +140,8 @@ class BuildGraph(previous_builds.BuildGraph):
 
     Scoped substitutions below affect OLD TEST-FIXTURE generators, never a
     production verdict. The eight frozen transcript cases remain; the exact
-    fifteen Query2 methods/source and two suites extend 345/41 to 380/43.
+    fifteen Query2 methods/source and two suites extend 345/41 to 380/43;
+    three exact presentation policy suites add 28 cases to reach 408/46.
     """
     def __init__(self):
         import sys
@@ -117,6 +154,13 @@ class BuildGraph(previous_builds.BuildGraph):
         self.report('TEST-org.locallore.app.Query2StoryRecordTest.xml',
                     [('org.locallore.app.Query2StoryRecordTest', name) for name in QUERY_METHODS])
         self.report('TEST-synthetic.RecordSupplement.xml', [('synthetic.RecordSupplement', 'case%d' % n) for n in range(20)])
+        for class_name, methods in PRESENTATION_METHODS.items():
+            path = self.root / ('apps/android/app/src/test/java/org/locallore/app/' + class_name + '.kt')
+            self.write(path, 'package org.locallore.app\nclass ' + class_name + ' {\n' +
+                       ''.join('@Test fun ' + name + '() {}\n' for name in methods) + '}\n')
+            self.source_paths.append(path)
+            self.report('TEST-org.locallore.app.' + class_name + '.xml',
+                        [('org.locallore.app.' + class_name, name) for name in methods])
         self.source_map = self.current_sources()
         self.write(self.public / 'sources-before-v1.json', encoded(self.source_map))
         self.write(self.public / 'sources-after-v1.json', encoded(self.source_map))

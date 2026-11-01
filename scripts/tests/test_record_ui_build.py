@@ -23,7 +23,7 @@ class RecordUiBuildTests(unittest.TestCase):
         self.context = self.graph.inputs(build)
         self.context.__enter__(); self.addCleanup(self.context.__exit__, None, None, None)
 
-    def test_complete_380_case_43_report_graph_accepts_real_dex_without_any_tool_execution(self):
+    def test_complete_408_case_46_report_graph_accepts_real_dex_without_any_tool_execution(self):
         with patch('subprocess.Popen', side_effect=AssertionError('tool execution')):
             actual = build.make_manifest(self.graph.public)
             self.assertEqual(actual, self.graph.manifest)
@@ -33,10 +33,55 @@ class RecordUiBuildTests(unittest.TestCase):
             self.assertEqual(written, f.pin(output))
             with self.assertRaises(FileExistsError): build.write_manifest(self.graph.public, output)
         self.assertEqual(actual['scope'], 'record-ui-build-v1')
-        self.assertEqual(len(actual['jvm_reports']), 43)
-        self.assertEqual(sum(len(ET.fromstring(Path(row['path']).read_bytes())) for row in actual['jvm_reports']), 380)
+        self.assertEqual(len(actual['jvm_reports']), 46)
+        self.assertEqual(sum(len(ET.fromstring(Path(row['path']).read_bytes())) for row in actual['jvm_reports']), 408)
         self.assertEqual(actual['roster'], [list(row) for row in f.INSTRUMENTATIONS])
         self.assertEqual(tuple(build.QUERY2_POLICY_METHODS), f.QUERY_METHODS)
+        self.assertEqual(build.PRESENTATION_POLICY_METHODS, f.PRESENTATION_METHODS)
+
+    def test_each_presentation_roster_is_required_even_when_global_report_and_case_counts_match(self):
+        filler = next(path for path in self.graph.reports if path.name == 'TEST-synthetic.RecordSupplement.xml')
+        filler_original = filler.read_bytes()
+        for class_name, methods in f.PRESENTATION_METHODS.items():
+            path = next(path for path in self.graph.reports if path.name == 'TEST-org.locallore.app.' + class_name + '.xml')
+            original = path.read_bytes()
+            for fault in ('renamed', 'omitted-with-unrelated-replacement'):
+                tree = ET.fromstring(original)
+                replacement = ET.fromstring(filler_original)
+                if fault == 'renamed':
+                    tree[0].set('name', 'notTheFrozenPresentationCase')
+                else:
+                    tree.remove(tree[0]); tree.set('tests', str(len(tree)))
+                    ET.SubElement(replacement, 'testcase', classname='synthetic.RecordSupplement', name='unrelatedReplacement')
+                    replacement.set('tests', str(len(replacement)))
+                path.write_bytes(ET.tostring(tree)); filler.write_bytes(ET.tostring(replacement))
+                self.graph.publish()
+                with self.subTest(class_name=class_name, fault=fault):
+                    self.assertEqual(len(self.graph.manifest['jvm_reports']), 46)
+                    self.assertEqual(sum(len(ET.fromstring(p.read_bytes())) for p in self.graph.reports), 408)
+                    with self.assertRaises(build.BuildRefused): build.verify_current(self.graph.admission())
+                path.write_bytes(original); filler.write_bytes(filler_original)
+
+    def test_presentation_source_rosters_nested_outcomes_and_duplicate_cases_cannot_be_rebound_as_success(self):
+        for class_name, methods in f.PRESENTATION_METHODS.items():
+            source = next(path for path in self.graph.source_paths if path.name == class_name + '.kt')
+            path = next(path for path in self.graph.reports if path.name == 'TEST-org.locallore.app.' + class_name + '.xml')
+            source_original = source.read_bytes(); original = path.read_bytes()
+            for fault in ('source-rename', 'failure', 'error', 'skipped', 'duplicate'):
+                tree = ET.fromstring(original)
+                if fault == 'source-rename':
+                    source.write_bytes(source_original.replace(methods[0].encode(), b'notTheFrozenPresentationSourceCase'))
+                elif fault == 'duplicate': tree[1].attrib.update(tree[0].attrib)
+                else: ET.SubElement(ET.SubElement(tree[0], 'wrapper'), fault)
+                path.write_bytes(ET.tostring(tree))
+                self.graph.source_map = self.graph.current_sources()
+                self.graph.write(self.graph.public / 'sources-before-v1.json', f.encoded(self.graph.source_map))
+                self.graph.write(self.graph.public / 'sources-after-v1.json', f.encoded(self.graph.source_map))
+                self.graph.request['sources'] = f.pin(self.graph.public / 'sources-before-v1.json')
+                self.graph.publish()
+                with self.subTest(class_name=class_name, fault=fault), self.assertRaises(build.BuildRefused):
+                    build.verify_current(self.graph.admission())
+                source.write_bytes(source_original); path.write_bytes(original)
 
     def test_selector_must_be_a_public_concrete_nonstatic_junit_definition_and_absent_product(self):
         original = copy.deepcopy(self.graph.definitions)

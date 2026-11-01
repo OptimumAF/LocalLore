@@ -38,7 +38,10 @@ pub(crate) fn project(engine: &Engine) -> Result<Value, Error> {
         .filter_map(|record| record.receipt())
         .filter(|receipt| {
             whole_visible(
-                receipt.events().iter().map(|event| (event.scope(), event.sequence())),
+                receipt
+                    .events()
+                    .iter()
+                    .map(|event| (event.scope(), event.sequence())),
                 &eligible,
             )
         })
@@ -50,10 +53,17 @@ pub(crate) fn project(engine: &Engine) -> Result<Value, Error> {
     let start = total.saturating_sub(DISPLAY_TURNS);
     let mut turns = Vec::with_capacity(total - start);
     for receipt in &visible[start..] {
-        if !matches!(receipt.request().intent, Intent::Actions(_) | Intent::Dialogue { .. } | Intent::FreeText { .. }) {
+        if !matches!(
+            receipt.request().intent,
+            Intent::Actions(_) | Intent::Dialogue { .. } | Intent::FreeText { .. }
+        ) {
             return Err(Error::CorruptHistory);
         }
-        let event_ids = receipt.events().iter().map(AcceptedEvent::sequence).collect::<Vec<_>>();
+        let event_ids = receipt
+            .events()
+            .iter()
+            .map(AcceptedEvent::sequence)
+            .collect::<Vec<_>>();
         if event_ids.first().is_none_or(|id| *id == 0)
             || event_ids.last().is_some_and(|id| *id > engine.revision())
             || event_ids.windows(2).any(|pair| pair[0] >= pair[1])
@@ -65,13 +75,19 @@ pub(crate) fn project(engine: &Engine) -> Result<Value, Error> {
     }
     let state = engine.state();
     let self_state = state.actors.get(player).ok_or(Error::UnknownReference)?;
-    let inventory = state.items.iter().filter(|(_, item)| &item.owner == player).collect::<BTreeMap<_, _>>();
+    let inventory = state
+        .items
+        .iter()
+        .filter(|(_, item)| &item.owner == player)
+        .collect::<BTreeMap<_, _>>();
     // Complete pairs and strings are preserved. Host/JNI retain their existing
     // independent reply caps and honestly reject an oversized fixed window.
-    Ok(json!({"version":2,"domain_version":engine.domain_version(),"scope":engine.scope(),
+    Ok(
+        json!({"version":2,"domain_version":engine.domain_version(),"scope":engine.scope(),
         "revision":engine.revision(),"rules":engine.seed().profile,
         "player":{"observer":player,"self_state":self_state},"inventory":inventory,
-        "turns":turns,"window":{"total":total,"start":start,"end":total}}))
+        "turns":turns,"window":{"total":total,"start":start,"end":total}}),
+    )
 }
 
 #[cfg(test)]
@@ -80,8 +96,14 @@ mod tests {
 
     #[test]
     fn whole_turn_requires_every_event_and_original_scope() {
-        let main = Scope { story: "story".into(), branch: "main".into() };
-        let foreign = Scope { story: "other".into(), branch: "main".into() };
+        let main = Scope {
+            story: "story".into(),
+            branch: "main".into(),
+        };
+        let foreign = Scope {
+            story: "other".into(),
+            branch: "main".into(),
+        };
         let eligible = [(main.clone(), 1), (main.clone(), 2)].into();
         assert!(whole_visible([(&main, 1), (&main, 2)], &eligible));
         assert!(!whole_visible([(&main, 1), (&main, 3)], &eligible));
@@ -90,7 +112,10 @@ mod tests {
 
     #[test]
     fn empty_or_entirely_hidden_event_set_never_discloses_a_turn() {
-        let scope = Scope { story: "story".into(), branch: "main".into() };
+        let scope = Scope {
+            story: "story".into(),
+            branch: "main".into(),
+        };
         let eligible = BTreeSet::new();
         assert!(!whole_visible([], &eligible));
         assert!(!whole_visible([(&scope, 1)], &eligible));

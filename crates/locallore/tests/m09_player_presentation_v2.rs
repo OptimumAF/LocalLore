@@ -40,11 +40,7 @@ fn append(engine: &mut Engine, turn: &str, intent: Intent) -> Receipt {
 
 struct Script(VecDeque<Vec<u8>>);
 impl InferenceProvider for Script {
-    fn poll(
-        &mut self,
-        _: &GenerationRequest,
-        _: &Cancellation,
-    ) -> Poll<Result<Vec<u8>, Error>> {
+    fn poll(&mut self, _: &GenerationRequest, _: &Cancellation) -> Poll<Result<Vec<u8>, Error>> {
         Poll::Ready(self.0.pop_front().ok_or(Error::Provider))
     }
 }
@@ -151,7 +147,14 @@ impl Persistence for ReadOnly {
         self.refuse()
     }
     fn validate_scope(&mut self, scope: &Scope) -> Result<(), String> {
-        if self.0.lock().unwrap().engines.iter().any(|e| e.scope() == scope) {
+        if self
+            .0
+            .lock()
+            .unwrap()
+            .engines
+            .iter()
+            .any(|e| e.scope() == scope)
+        {
             Ok(())
         } else {
             Err("NotFound".into())
@@ -200,12 +203,20 @@ fn session(host: &Host, engine: &Engine) -> String {
     reply["data"]["session"].as_str().unwrap().into()
 }
 fn presentation(host: &Host, session: &str, engine: &Engine) -> Value {
-    call(host, json!({"op":"play_presentation_v2","session":session,
-        "scope":engine.scope(),"expected_revision":engine.revision()}))
+    call(
+        host,
+        json!({"op":"play_presentation_v2","session":session,
+        "scope":engine.scope(),"expected_revision":engine.revision()}),
+    )
 }
 fn keys(value: &Value, expected: &[&str]) {
     assert_eq!(
-        value.as_object().unwrap().keys().map(String::as_str).collect::<BTreeSet<_>>(),
+        value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>(),
         expected.iter().copied().collect::<BTreeSet<_>>()
     );
 }
@@ -218,7 +229,20 @@ fn check(reply: &Value, engine: &Engine, all_receipts: &[Receipt]) {
     assert_eq!(reply["status"], "ok", "{reply}");
     keys(reply, &["version", "status", "data"]);
     let data = &reply["data"];
-    keys(data, &["version", "domain_version", "scope", "revision", "rules", "player", "inventory", "turns", "window"]);
+    keys(
+        data,
+        &[
+            "version",
+            "domain_version",
+            "scope",
+            "revision",
+            "rules",
+            "player",
+            "inventory",
+            "turns",
+            "window",
+        ],
+    );
     assert_eq!(data["version"], 2);
     assert_eq!(data["domain_version"], engine.domain_version());
     assert_eq!(data["scope"], json!(engine.scope()));
@@ -226,24 +250,57 @@ fn check(reply: &Value, engine: &Engine, all_receipts: &[Receipt]) {
     assert_eq!(data["rules"], json!(engine.seed().profile));
     keys(&data["player"], &["observer", "self_state"]);
     assert_eq!(data["player"]["observer"], engine.seed().player);
-    assert_eq!(data["player"]["self_state"], json!(engine.state().actors[&engine.seed().player]));
-    let inventory = engine.state().items.iter().filter(|(_, item)| item.owner == engine.seed().player).collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(
+        data["player"]["self_state"],
+        json!(engine.state().actors[&engine.seed().player])
+    );
+    let inventory = engine
+        .state()
+        .items
+        .iter()
+        .filter(|(_, item)| item.owner == engine.seed().player)
+        .collect::<std::collections::BTreeMap<_, _>>();
     assert_eq!(data["inventory"], json!(inventory));
     let start = all_receipts.len().saturating_sub(20);
-    assert_eq!(data["window"], json!({"total":all_receipts.len(),"start":start,"end":all_receipts.len()}));
+    assert_eq!(
+        data["window"],
+        json!({"total":all_receipts.len(),"start":start,"end":all_receipts.len()})
+    );
     let rows = data["turns"].as_array().unwrap();
     assert_eq!(rows.len(), all_receipts.len() - start);
     for (row, accepted) in rows.iter().zip(&all_receipts[start..]) {
-        keys(row, &["original_scope", "turn", "event_ids", "intent", "narration"]);
+        keys(
+            row,
+            &["original_scope", "turn", "event_ids", "intent", "narration"],
+        );
         assert_eq!(row["original_scope"], json!(accepted.request().scope));
         assert_eq!(row["turn"], accepted.request().turn);
-        assert_eq!(row["event_ids"], json!(accepted.events().iter().map(AcceptedEvent::sequence).collect::<Vec<_>>()));
+        assert_eq!(
+            row["event_ids"],
+            json!(accepted
+                .events()
+                .iter()
+                .map(AcceptedEvent::sequence)
+                .collect::<Vec<_>>())
+        );
         assert_eq!(row["intent"], json!(accepted.request().intent));
         assert_eq!(row["narration"], accepted.narration());
     }
     let encoded = serde_json::to_string(reply).unwrap();
-    for private in [OLD, NEW, REASON, NPC, "observed_overrides", "truth_overrides", "proposal", "model_sha256"] {
-        assert!(!encoded.contains(private), "private field/value leaked: {private}");
+    for private in [
+        OLD,
+        NEW,
+        REASON,
+        NPC,
+        "observed_overrides",
+        "truth_overrides",
+        "proposal",
+        "model_sha256",
+    ] {
+        assert!(
+            !encoded.contains(private),
+            "private field/value leaked: {private}"
+        );
     }
 }
 
@@ -271,13 +328,21 @@ fn twenty_turn_window_preserves_whole_pairs_and_absolute_original_identities() {
     let mut engine = engine();
     let mut receipts = Vec::new();
     for i in 0..25 {
-        receipts.push(append(&mut engine, &format!("wait-{i}"), Intent::Actions(vec![Command::Wait { ticks: 1 }])));
+        receipts.push(append(
+            &mut engine,
+            &format!("wait-{i}"),
+            Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+        ));
     }
     let (host, source) = host(vec![engine.clone()], false);
     let session = session(&host, &engine);
     let first = presentation(&host, &session, &engine);
     check(&first, &engine, &receipts);
-    receipts.push(append(&mut engine, "wait-25", Intent::Actions(vec![Command::Wait { ticks: 1 }])));
+    receipts.push(append(
+        &mut engine,
+        "wait-25",
+        Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+    ));
     source.lock().unwrap().engines[0] = engine.clone();
     let second = presentation(&host, &session, &engine);
     check(&second, &engine, &receipts);
@@ -287,17 +352,40 @@ fn twenty_turn_window_preserves_whole_pairs_and_absolute_original_identities() {
 #[test]
 fn fork_keeps_original_ancestor_scope_and_excludes_unselected_parent_suffix() {
     let mut parent = engine();
-    let inherited = append(&mut parent, "ancestor-wait", Intent::Actions(vec![Command::Wait { ticks: 1 }]));
-    append(&mut parent, "parent-only", Intent::Dialogue { text: "PRIVATE_UNSELECTED_PARENT_SUFFIX".into(), audience: ["mira".into()].into() });
+    let inherited = append(
+        &mut parent,
+        "ancestor-wait",
+        Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+    );
+    append(
+        &mut parent,
+        "parent-only",
+        Intent::Dialogue {
+            text: "PRIVATE_UNSELECTED_PARENT_SUFFIX".into(),
+            audience: ["mira".into()].into(),
+        },
+    );
     let mut child = parent.fork("presentation-child", 1).unwrap();
-    let own = append(&mut child, "child-wait", Intent::Actions(vec![Command::Wait { ticks: 1 }]));
+    let own = append(
+        &mut child,
+        "child-wait",
+        Intent::Actions(vec![Command::Wait { ticks: 1 }]),
+    );
     let (host, _) = host(vec![parent, child.clone()], false);
     let session = session(&host, &child);
     let reply = presentation(&host, &session, &child);
     check(&reply, &child, &[inherited, own]);
-    assert_eq!(reply["data"]["turns"][0]["original_scope"]["branch"], "main");
-    assert_eq!(reply["data"]["turns"][1]["original_scope"]["branch"], "presentation-child");
-    assert!(!reply.to_string().contains("PRIVATE_UNSELECTED_PARENT_SUFFIX"));
+    assert_eq!(
+        reply["data"]["turns"][0]["original_scope"]["branch"],
+        "main"
+    );
+    assert_eq!(
+        reply["data"]["turns"][1]["original_scope"]["branch"],
+        "presentation-child"
+    );
+    assert!(!reply
+        .to_string()
+        .contains("PRIVATE_UNSELECTED_PARENT_SUFFIX"));
 }
 
 #[test]
@@ -316,19 +404,33 @@ fn stale_foreign_closed_and_exact_request_shape_never_return_a_presentation() {
     let child = corrected(&engine, NEW);
     let (host, source) = host(vec![engine.clone(), child.clone()], false);
     let session = session(&host, &engine);
-    check(&presentation(&host, &session, &engine), &engine, engine.receipts());
+    check(
+        &presentation(&host, &session, &engine),
+        &engine,
+        engine.receipts(),
+    );
     rejected(&presentation(&host, "unknown", &engine), "Closed");
     rejected(&presentation(&host, &session, &child), "Scope");
     let valid = json!({"op":"play_presentation_v2","session":session,"scope":engine.scope(),"expected_revision":engine.revision()});
-    for extra in ["observer", "cursor", "limit", "story_lab", "grant", "version"] {
-        let mut bad = valid.clone(); bad[extra] = json!("unexpected");
+    for extra in [
+        "observer",
+        "cursor",
+        "limit",
+        "story_lab",
+        "grant",
+        "version",
+    ] {
+        let mut bad = valid.clone();
+        bad[extra] = json!("unexpected");
         rejected(&call(&host, bad), "Malformed");
     }
     for bad_revision in [json!(-1), json!(1.5), json!(true), json!("3")] {
-        let mut bad = valid.clone(); bad["expected_revision"] = bad_revision;
+        let mut bad = valid.clone();
+        bad["expected_revision"] = bad_revision;
         rejected(&call(&host, bad), "Malformed");
     }
-    let mut bad = valid.clone();bad["expected_revision"] = json!(0);
+    let mut bad = valid.clone();
+    bad["expected_revision"] = json!(0);
     rejected(&call(&host, bad), "Stale");
     source.lock().unwrap().engines.remove(0);
     rejected(&presentation(&host, &session, &engine), "NotFound");
@@ -345,15 +447,42 @@ fn equal_head_author_replacement_is_stale_and_legacy_domain_refusal_is_unchanged
     let (host, source) = host(vec![root.clone(), child.clone()], false);
     let main = session(&host, &root);
     let selected = session(&host, &child);
-    check(&presentation(&host, &selected, &child), &child, root.receipts());
-    let legacy = |session: &str, e: &Engine| call(&host, json!({"op":"play_snapshot","session":session,"scope":e.scope(),"expected_revision":e.revision()}));
+    check(
+        &presentation(&host, &selected, &child),
+        &child,
+        root.receipts(),
+    );
+    let legacy = |session: &str, e: &Engine| {
+        call(
+            &host,
+            json!({"op":"play_snapshot","session":session,"scope":e.scope(),"expected_revision":e.revision()}),
+        )
+    };
     let legacy_main = legacy(&main, &root);
     assert_eq!(legacy_main["status"], "ok");
-    keys(&legacy_main["data"], &["scope", "revision", "rules", "player", "inventory", "receipts"]);
+    keys(
+        &legacy_main["data"],
+        &[
+            "scope",
+            "revision",
+            "rules",
+            "player",
+            "inventory",
+            "receipts",
+        ],
+    );
     assert_eq!(legacy_main["data"]["receipts"], json!(root.receipts()));
-    assert_eq!(legacy_main["data"]["player"], json!(root.character_context(&root.seed().player, root.scope(), root.revision()).unwrap()));
+    assert_eq!(
+        legacy_main["data"]["player"],
+        json!(root
+            .character_context(&root.seed().player, root.scope(), root.revision())
+            .unwrap())
+    );
     rejected(&legacy(&selected, &child), "Version");
-    let thin = call(&host, json!({"op":"play_snapshot_v2","session":selected,"scope":child.scope(),"expected_revision":child.revision()}));
+    let thin = call(
+        &host,
+        json!({"op":"play_snapshot_v2","session":selected,"scope":child.scope(),"expected_revision":child.revision()}),
+    );
     assert_eq!(thin["status"], "ok");
     assert!(thin["data"].get("turns").is_none());
     source.lock().unwrap().engines[1] = replacement;
@@ -367,17 +496,31 @@ fn oversized_twenty_complete_turns_refuse_without_clipping_or_adaptive_window() 
     let mut projected_turn_bytes = 0;
     let mut largest_receipt_bytes = 0;
     for i in 0..20 {
-        let commands = (0..8).map(|_| Command::Say { text: "r".repeat(1550), audience: ["mira".into()].into() }).collect();
+        let commands = (0..8)
+            .map(|_| Command::Say {
+                text: "r".repeat(1550),
+                audience: ["mira".into()].into(),
+            })
+            .collect();
         let request = engine.request(&format!("large-{i}"), Intent::Actions(commands));
         let request_bytes = serde_json::to_vec(&request).unwrap().len();
-        assert!(request_bytes <= MAX_PROPOSAL_BYTES, "fixture request {i}: {request_bytes}");
+        assert!(
+            request_bytes <= MAX_PROPOSAL_BYTES,
+            "fixture request {i}: {request_bytes}"
+        );
         let proposal = Engine::proposal(&request).unwrap();
         let proposal_bytes = serde_json::to_vec(&proposal).unwrap().len();
-        assert!(proposal_bytes <= MAX_PROPOSAL_BYTES, "fixture proposal {i}: {proposal_bytes}");
+        assert!(
+            proposal_bytes <= MAX_PROPOSAL_BYTES,
+            "fixture proposal {i}: {proposal_bytes}"
+        );
         engine.preflight(&request).unwrap_or_else(|error| panic!("fixture preflight {i}, request {request_bytes}, proposal {proposal_bytes}: {error:?}"));
         let receipt = engine.preview(&request, &proposal).unwrap_or_else(|error| panic!("fixture preview {i}, request {request_bytes}, proposal {proposal_bytes}: {error:?}"));
         let receipt_bytes = serde_json::to_vec(&receipt).unwrap().len();
-        assert!(receipt_bytes <= MAX_RECEIPT_BYTES, "fixture receipt {i}: {receipt_bytes}");
+        assert!(
+            receipt_bytes <= MAX_RECEIPT_BYTES,
+            "fixture receipt {i}: {receipt_bytes}"
+        );
         largest_receipt_bytes = largest_receipt_bytes.max(receipt_bytes);
         engine.commit_prepared(&receipt).unwrap();
         assert!(serde_json::to_vec(engine.state()).unwrap().len() <= 262_144);
@@ -385,7 +528,10 @@ fn oversized_twenty_complete_turns_refuse_without_clipping_or_adaptive_window() 
             "turn":receipt.request().turn,"event_ids":receipt.events().iter().map(AcceptedEvent::sequence).collect::<Vec<_>>(),
             "intent":receipt.request().intent,"narration":receipt.narration()})).unwrap().len();
     }
-    assert!(projected_turn_bytes > MAX_OUTPUT, "fixture must reach the real Host cap");
+    assert!(
+        projected_turn_bytes > MAX_OUTPUT,
+        "fixture must reach the real Host cap"
+    );
     println!("Accepted overflow fixture: 20 turns; largest receipt {largest_receipt_bytes}; mechanical projection {}; presentation turns {projected_turn_bytes}", serde_json::to_vec(engine.state()).unwrap().len());
     let (host, source) = host(vec![engine.clone()], false);
     let session = session(&host, &engine);

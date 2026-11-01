@@ -1,1234 +1,1675 @@
 {
-    "$defs": {
-        "Command": {
-            "oneOf": [
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "item": { "type": "string" },
-                        "op": { "const": "give", "type": "string" },
-                        "quantity": {
-                            "format": "uint16",
-                            "maximum": 65535,
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "to": { "type": "string" }
-                    },
-                    "required": ["op", "item", "to", "quantity"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "item": { "type": "string" },
-                        "op": { "const": "consume", "type": "string" }
-                    },
-                    "required": ["op", "item"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "ability": { "type": "string" },
-                        "op": { "const": "use_ability", "type": "string" }
-                    },
-                    "required": ["op", "ability"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "ability": { "type": "string" },
-                        "op": { "const": "learn", "type": "string" }
-                    },
-                    "required": ["op", "ability"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "move", "type": "string" },
-                        "to": { "type": "string" }
-                    },
-                    "required": ["op", "to"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "audience": {
-                            "items": { "type": "string" },
-                            "type": "array",
-                            "uniqueItems": true
-                        },
-                        "op": { "const": "say", "type": "string" },
-                        "text": { "type": "string" }
-                    },
-                    "required": ["op", "text", "audience"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "claim_event": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": { "const": "believe", "type": "string" }
-                    },
-                    "required": ["op", "claim_event"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "fact": { "type": "string" },
-                        "op": { "const": "discover", "type": "string" }
-                    },
-                    "required": ["op", "fact"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "deadline": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "id": { "type": "string" },
-                        "op": { "const": "promise", "type": "string" },
-                        "return_item": { "type": ["string", "null"] },
-                        "terms": { "type": "string" },
-                        "to": { "type": "string" }
-                    },
-                    "required": ["op", "id", "to", "terms", "deadline"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "id": { "type": "string" },
-                        "op": { "const": "complete_promise", "type": "string" }
-                    },
-                    "required": ["op", "id"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "wait", "type": "string" },
-                        "ticks": {
-                            "format": "uint16",
-                            "maximum": 65535,
-                            "minimum": 0,
-                            "type": "integer"
-                        }
-                    },
-                    "required": ["op", "ticks"],
-                    "type": "object"
-                }
-            ]
-        },
-        "HostCommand": {
-            "oneOf": [
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": {
-                            "const": "authoring_capabilities",
-                            "type": "string"
-                        }
-                    },
-                    "required": ["op"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "input": { "$ref": "#/$defs/InitialStoryInputV1" },
-                        "op": { "const": "authoring_begin", "type": "string" }
-                    },
-                    "required": ["op", "input"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "job": { "type": "string" },
-                        "op": {
-                            "const": "authoring_generate",
-                            "type": "string"
-                        }
-                    },
-                    "required": ["op", "job"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "input": { "$ref": "#/$defs/InitialStoryInputV1" },
-                        "job": { "type": "string" },
-                        "op": { "const": "authoring_review", "type": "string" },
-                        "proposal": {
-                            "$ref": "#/$defs/InitialWorldProposalV1"
-                        },
-                        "title": { "type": "string" }
-                    },
-                    "required": ["op", "job", "input", "proposal", "title"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "creation_id": { "type": "string" },
-                        "job": { "type": "string" },
-                        "op": { "const": "authoring_create", "type": "string" },
-                        "review_sha256": { "type": "string" }
-                    },
-                    "required": ["op", "job", "review_sha256", "creation_id"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "job": { "type": "string" },
-                        "op": { "const": "authoring_cancel", "type": "string" }
-                    },
-                    "required": ["op", "job"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "job": { "type": "string" },
-                        "op": { "const": "authoring_status", "type": "string" }
-                    },
-                    "required": ["op", "job"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "capabilities", "type": "string" }
-                    },
-                    "required": ["op"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "workspace", "type": "string" }
-                    },
-                    "required": ["op"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "branches", "type": "string" },
-                        "story": { "type": "string" }
-                    },
-                    "required": ["op", "story"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "resume", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" }
-                    },
-                    "required": ["op", "scope"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "create", "type": "string" },
-                        "seed": { "type": "string" }
-                    },
-                    "required": ["op", "seed"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "story_templates", "type": "string" }
-                    },
-                    "required": ["op"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "story_template", "type": "string" },
-                        "template": { "type": "string" }
-                    },
-                    "required": ["op", "template"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "story_setup", "type": "string" },
-                        "player_name": {
-                            "default": null,
-                            "type": ["string", "null"]
-                        },
-                        "template": { "type": "string" }
-                    },
-                    "required": ["op", "template"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": {
-                            "const": "story_presentation",
-                            "type": "string"
-                        },
-                        "player_name": {
-                            "default": null,
-                            "type": ["string", "null"]
-                        },
-                        "presentation": {
-                            "anyOf": [
-                                { "$ref": "#/$defs/StoryPresentationV1" },
-                                { "type": "null" }
-                            ],
-                            "default": null
-                        },
-                        "template": { "type": "string" }
-                    },
-                    "required": ["op", "template"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "expected_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": {
-                            "const": "story_presentation_view",
-                            "type": "string"
-                        },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "expected_revision"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "creation_id": { "type": "string" },
-                        "op": { "const": "create_named", "type": "string" },
-                        "seed_sha256": { "type": "string" },
-                        "template": { "type": "string" },
-                        "title": { "type": "string" }
-                    },
-                    "required": [
-                        "op",
-                        "template",
-                        "seed_sha256",
-                        "title",
-                        "creation_id"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "creation_id": { "type": "string" },
-                        "op": {
-                            "const": "create_configured",
-                            "type": "string"
-                        },
-                        "player_name": { "type": "string" },
-                        "setup_sha256": { "type": "string" },
-                        "template": { "type": "string" },
-                        "template_sha256": { "type": "string" },
-                        "title": { "type": "string" }
-                    },
-                    "required": [
-                        "op",
-                        "template",
-                        "template_sha256",
-                        "setup_sha256",
-                        "player_name",
-                        "title",
-                        "creation_id"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "creation_id": { "type": "string" },
-                        "op": { "const": "create_presented", "type": "string" },
-                        "player_name": { "type": "string" },
-                        "presentation": {
-                            "$ref": "#/$defs/StoryPresentationV1"
-                        },
-                        "setup_sha256": { "type": "string" },
-                        "template": { "type": "string" },
-                        "template_sha256": { "type": "string" },
-                        "title": { "type": "string" }
-                    },
-                    "required": [
-                        "op",
-                        "template",
-                        "template_sha256",
-                        "setup_sha256",
-                        "player_name",
-                        "presentation",
-                        "title",
-                        "creation_id"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "open", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "close", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "mode": { "$ref": "#/$defs/Mode" },
-                        "op": { "const": "submit", "type": "string" },
-                        "request": { "$ref": "#/$defs/Request" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "request", "mode"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "prepare", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" },
-                        "turn": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "turn"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "commit", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" },
-                        "turn": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "turn"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "cancel", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" },
-                        "turn": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "turn"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "turn_status", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" },
-                        "turn": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "turn"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "expected_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "observer": { "type": "string" },
-                        "op": { "const": "inspect", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": [
-                        "op",
-                        "session",
-                        "scope",
-                        "observer",
-                        "expected_revision"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "inspection_query", "type": "string" },
-                        "query": { "$ref": "#/$defs/Query" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "query"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "enabled": { "type": "boolean" },
-                        "expected_head": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": { "const": "trace_configure", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": [
-                        "op",
-                        "session",
-                        "scope",
-                        "expected_head",
-                        "enabled"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "attempt": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": ["integer", "null"]
-                        },
-                        "base_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "expected_head": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "observer": { "$ref": "#/$defs/Observer" },
-                        "op": { "const": "trace_read", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" },
-                        "turn": { "type": ["string", "null"] }
-                    },
-                    "required": [
-                        "op",
-                        "session",
-                        "scope",
-                        "expected_head",
-                        "base_revision",
-                        "observer"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "attempt": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "base_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "expected_head": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": {
-                            "const": "trace_narration_validation_read_v1",
-                            "type": "string"
-                        },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" },
-                        "turn": { "type": "string" }
-                    },
-                    "required": [
-                        "op",
-                        "session",
-                        "scope",
-                        "expected_head",
-                        "base_revision",
-                        "turn",
-                        "attempt"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "expected_head": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": { "const": "trace_clear", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "expected_head"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "consent": { "type": "boolean" },
-                        "enabled": { "type": "boolean" },
-                        "expected_head": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": {
-                            "const": "trace_capture_configure",
-                            "type": "string"
-                        },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": [
-                        "op",
-                        "session",
-                        "scope",
-                        "expected_head",
-                        "enabled",
-                        "consent"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "attempt": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "base_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "expected_head": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": {
-                            "const": "trace_capture_read",
-                            "type": "string"
-                        },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" },
-                        "turn": { "type": "string" }
-                    },
-                    "required": [
-                        "op",
-                        "session",
-                        "scope",
-                        "expected_head",
-                        "base_revision",
-                        "turn",
-                        "attempt"
-                    ],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "description": "Narrowing private diagnostic access needs no current canonical head.",
-                    "properties": {
-                        "op": {
-                            "const": "trace_capture_revoke",
-                            "type": "string"
-                        },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "model_status", "type": "string" }
-                    },
-                    "required": ["op"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "expected_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": { "const": "play_snapshot", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "expected_revision"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "expected_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": { "const": "play_snapshot_v2", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "expected_revision"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "expected_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": {
-                            "const": "play_presentation_v2",
-                            "type": "string"
-                        },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "expected_revision"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "op": { "const": "free_text", "type": "string" },
-                        "request": { "$ref": "#/$defs/Request" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "request"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "expected_revision": {
-                            "format": "uint64",
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "op": { "const": "snapshot_export", "type": "string" },
-                        "scope": { "$ref": "#/$defs/Scope" },
-                        "session": { "type": "string" }
-                    },
-                    "required": ["op", "session", "scope", "expected_revision"],
-                    "type": "object"
-                }
-            ]
-        },
-        "InitialBeliefV1": {
-            "additionalProperties": false,
-            "properties": {
-                "believer": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "confidence": { "$ref": "#/$defs/InitialConfidenceV1" },
-                "text": { "type": "string" }
+  "$defs": {
+    "Command": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "item": {
+              "type": "string"
             },
-            "required": ["believer", "text", "confidence"],
-            "type": "object"
-        },
-        "InitialCastHintV1": {
-            "additionalProperties": false,
-            "properties": {
-                "description": { "type": "string" },
-                "name": { "type": "string" }
+            "op": {
+              "const": "give",
+              "type": "string"
             },
-            "required": ["name", "description"],
-            "type": "object"
-        },
-        "InitialCharacterV1": {
-            "additionalProperties": false,
-            "properties": {
-                "description": { "type": "string" },
-                "known_by": {
-                    "items": {
-                        "format": "uint16",
-                        "maximum": 65535,
-                        "minimum": 0,
-                        "type": "integer"
-                    },
-                    "type": "array"
-                },
-                "location": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "name": { "type": "string" }
+            "quantity": {
+              "format": "uint16",
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
             },
-            "required": ["name", "description", "location", "known_by"],
-            "type": "object"
+            "to": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "item", "to", "quantity"],
+          "type": "object"
         },
-        "InitialConfidenceV1": {
-            "enum": ["uncertain", "suspected", "believed"],
-            "type": "string"
-        },
-        "InitialFactV1": {
-            "additionalProperties": false,
-            "properties": {
-                "discoverable_at": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": ["integer", "null"]
-                },
-                "known_by": {
-                    "items": {
-                        "format": "uint16",
-                        "maximum": 65535,
-                        "minimum": 0,
-                        "type": "integer"
-                    },
-                    "type": "array"
-                },
-                "text": { "type": "string" }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "item": {
+              "type": "string"
             },
-            "required": ["text", "known_by"],
-            "type": "object"
+            "op": {
+              "const": "consume",
+              "type": "string"
+            }
+          },
+          "required": ["op", "item"],
+          "type": "object"
         },
-        "InitialLocationV1": {
-            "additionalProperties": false,
-            "properties": {
-                "description": { "type": "string" },
-                "name": { "type": "string" }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "ability": {
+              "type": "string"
             },
-            "required": ["name", "description"],
-            "type": "object"
+            "op": {
+              "const": "use_ability",
+              "type": "string"
+            }
+          },
+          "required": ["op", "ability"],
+          "type": "object"
         },
-        "InitialPossessionV1": {
-            "additionalProperties": false,
-            "properties": {
-                "description": { "type": "string" },
-                "name": { "type": "string" },
-                "owner": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "return_to": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": ["integer", "null"]
-                }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "ability": {
+              "type": "string"
             },
-            "required": ["name", "description", "owner"],
-            "type": "object"
+            "op": {
+              "const": "learn",
+              "type": "string"
+            }
+          },
+          "required": ["op", "ability"],
+          "type": "object"
         },
-        "InitialRouteV1": {
-            "additionalProperties": false,
-            "properties": {
-                "from": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "to": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "move",
+              "type": "string"
             },
-            "required": ["from", "to"],
-            "type": "object"
+            "to": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "to"],
+          "type": "object"
         },
-        "InitialRuleProfileV1": {
-            "enum": ["fantasy_v1", "narrative_v1"],
-            "type": "string"
-        },
-        "InitialStoryInputV1": {
-            "additionalProperties": false,
-            "properties": {
-                "cast": {
-                    "items": { "$ref": "#/$defs/InitialCastHintV1" },
-                    "type": "array"
-                },
-                "player_description": { "type": "string" },
-                "player_name": { "type": "string" },
-                "premise": { "type": "string" },
-                "presentation": { "$ref": "#/$defs/StoryPresentationV1" },
-                "profile": { "$ref": "#/$defs/InitialRuleProfileV1" },
-                "version": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "audience": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
             },
-            "required": [
-                "version",
-                "premise",
-                "player_name",
-                "player_description",
-                "cast",
-                "profile",
-                "presentation"
-            ],
-            "type": "object"
-        },
-        "InitialWorldProposalV1": {
-            "additionalProperties": false,
-            "properties": {
-                "beliefs": {
-                    "items": { "$ref": "#/$defs/InitialBeliefV1" },
-                    "type": "array"
-                },
-                "characters": {
-                    "items": { "$ref": "#/$defs/InitialCharacterV1" },
-                    "type": "array"
-                },
-                "facts": {
-                    "items": { "$ref": "#/$defs/InitialFactV1" },
-                    "type": "array"
-                },
-                "locations": {
-                    "items": { "$ref": "#/$defs/InitialLocationV1" },
-                    "type": "array"
-                },
-                "player_location": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "possessions": {
-                    "items": { "$ref": "#/$defs/InitialPossessionV1" },
-                    "type": "array"
-                },
-                "routes": {
-                    "items": { "$ref": "#/$defs/InitialRouteV1" },
-                    "type": "array"
-                },
-                "version": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                }
+            "op": {
+              "const": "say",
+              "type": "string"
             },
-            "required": [
-                "version",
-                "locations",
-                "player_location",
-                "characters",
-                "routes",
-                "facts",
-                "beliefs",
-                "possessions"
-            ],
-            "type": "object"
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "text", "audience"],
+          "type": "object"
         },
-        "Intent": {
-            "description": "This comes from explicit UI selection/clarification, never the model's interpretation alone.",
-            "oneOf": [
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "actions", "type": "string" },
-                        "value": {
-                            "items": { "$ref": "#/$defs/Command" },
-                            "type": "array"
-                        }
-                    },
-                    "required": ["kind", "value"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "dialogue", "type": "string" },
-                        "value": {
-                            "additionalProperties": false,
-                            "properties": {
-                                "audience": {
-                                    "items": { "type": "string" },
-                                    "type": "array",
-                                    "uniqueItems": true
-                                },
-                                "text": { "type": "string" }
-                            },
-                            "required": ["text", "audience"],
-                            "type": "object"
-                        }
-                    },
-                    "required": ["kind", "value"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "thought", "type": "string" },
-                        "value": { "type": "string" }
-                    },
-                    "required": ["kind", "value"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "ambiguous", "type": "string" },
-                        "value": { "type": "string" }
-                    },
-                    "required": ["kind", "value"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": {
-                            "const": "author_correction",
-                            "type": "string"
-                        },
-                        "value": { "type": "string" }
-                    },
-                    "required": ["kind", "value"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "description": "Explicit untrusted player input; the versioned play pipeline interprets it once.",
-                    "properties": {
-                        "kind": { "const": "free_text", "type": "string" },
-                        "value": {
-                            "additionalProperties": false,
-                            "properties": {
-                                "kind": { "$ref": "#/$defs/PlayInputKind" },
-                                "text": { "type": "string" }
-                            },
-                            "required": ["kind", "text"],
-                            "type": "object"
-                        }
-                    },
-                    "required": ["kind", "value"],
-                    "type": "object"
-                }
-            ]
-        },
-        "Mode": {
-            "enum": [
-                "accepted",
-                "delayed",
-                "malformed",
-                "rejected",
-                "failed",
-                "cancelled"
-            ],
-            "type": "string"
-        },
-        "Observer": {
-            "oneOf": [
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "player", "type": "string" }
-                    },
-                    "required": ["kind"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "id": { "type": "string" },
-                        "kind": { "const": "character", "type": "string" }
-                    },
-                    "required": ["kind", "id"],
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "omniscient", "type": "string" }
-                    },
-                    "required": ["kind"],
-                    "type": "object"
-                }
-            ]
-        },
-        "PlayInputKind": { "enum": ["action", "dialogue"], "type": "string" },
-        "Query": {
-            "additionalProperties": false,
-            "properties": {
-                "at_revision": {
-                    "format": "uint64",
-                    "minimum": 0,
-                    "type": ["integer", "null"]
-                },
-                "cursor": { "type": ["string", "null"] },
-                "expected_head": {
-                    "description": "Current authoritative head, even when inspecting a historical completed turn.",
-                    "format": "uint64",
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "limit": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "observer": { "$ref": "#/$defs/Observer" },
-                "scope": { "$ref": "#/$defs/Scope" },
-                "search": {
-                    "description": "Literal case-insensitive substring of eligible serialized rows; not SQL/FTS syntax.",
-                    "type": "string"
-                },
-                "version": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "view": { "$ref": "#/$defs/View" }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "claim_event": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
             },
-            "required": [
-                "version",
-                "scope",
-                "expected_head",
-                "observer",
-                "view",
-                "limit",
-                "search"
-            ],
-            "type": "object"
+            "op": {
+              "const": "believe",
+              "type": "string"
+            }
+          },
+          "required": ["op", "claim_event"],
+          "type": "object"
         },
-        "Request": {
-            "additionalProperties": false,
-            "properties": {
-                "expected_revision": {
-                    "format": "uint64",
-                    "minimum": 0,
-                    "type": "integer"
-                },
-                "intent": { "$ref": "#/$defs/Intent" },
-                "scope": { "$ref": "#/$defs/Scope" },
-                "turn": { "type": "string" },
-                "version": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fact": {
+              "type": "string"
             },
-            "required": [
-                "version",
-                "scope",
-                "turn",
-                "expected_revision",
-                "intent"
-            ],
-            "type": "object"
+            "op": {
+              "const": "discover",
+              "type": "string"
+            }
+          },
+          "required": ["op", "fact"],
+          "type": "object"
         },
-        "Scope": {
-            "additionalProperties": false,
-            "properties": {
-                "branch": { "type": "string" },
-                "story": { "type": "string" }
+        {
+          "additionalProperties": false,
+          "properties": {
+            "deadline": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
             },
-            "required": ["story", "branch"],
-            "type": "object"
-        },
-        "StoryPresentationV1": {
-            "additionalProperties": false,
-            "properties": {
-                "excluded_phrases": {
-                    "items": { "type": "string" },
-                    "type": "array"
-                },
-                "tone": { "$ref": "#/$defs/StoryTone" },
-                "version": {
-                    "format": "uint16",
-                    "maximum": 65535,
-                    "minimum": 0,
-                    "type": "integer"
-                }
+            "id": {
+              "type": "string"
             },
-            "required": ["version", "tone", "excluded_phrases"],
-            "type": "object"
+            "op": {
+              "const": "promise",
+              "type": "string"
+            },
+            "return_item": {
+              "type": ["string", "null"]
+            },
+            "terms": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "id", "to", "terms", "deadline"],
+          "type": "object"
         },
-        "StoryTone": { "enum": ["plain", "warm", "brisk"], "type": "string" },
-        "View": {
-            "enum": [
-                "profiles",
-                "history",
-                "relationships",
-                "knowledge",
-                "promises",
-                "provenance",
-                "turn_diff",
-                "summaries",
-                "retrieval_indexes"
-            ],
-            "type": "string"
+        {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "op": {
+              "const": "complete_promise",
+              "type": "string"
+            }
+          },
+          "required": ["op", "id"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "wait",
+              "type": "string"
+            },
+            "ticks": {
+              "format": "uint16",
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": ["op", "ticks"],
+          "type": "object"
         }
+      ]
     },
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": false,
-    "description": "One source of truth for the generated frontend JSON Schema. No arbitrary seed import.",
-    "properties": {
-        "command": { "$ref": "#/$defs/HostCommand" },
-        "version": { "const": 1 }
+    "HostCommand": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "authoring_capabilities",
+              "type": "string"
+            }
+          },
+          "required": ["op"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "input": {
+              "$ref": "#/$defs/InitialStoryInputV1"
+            },
+            "op": {
+              "const": "authoring_begin",
+              "type": "string"
+            }
+          },
+          "required": ["op", "input"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_generate",
+              "type": "string"
+            }
+          },
+          "required": ["op", "job"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "input": {
+              "$ref": "#/$defs/InitialStoryInputV1"
+            },
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_review",
+              "type": "string"
+            },
+            "proposal": {
+              "$ref": "#/$defs/InitialWorldProposalV1"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "job", "input", "proposal", "title"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "creation_id": {
+              "type": "string"
+            },
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_create",
+              "type": "string"
+            },
+            "review_sha256": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "job", "review_sha256", "creation_id"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_cancel",
+              "type": "string"
+            }
+          },
+          "required": ["op", "job"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "op": {
+              "const": "authoring_status",
+              "type": "string"
+            }
+          },
+          "required": ["op", "job"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "capabilities",
+              "type": "string"
+            }
+          },
+          "required": ["op"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "workspace",
+              "type": "string"
+            }
+          },
+          "required": ["op"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "branches",
+              "type": "string"
+            },
+            "story": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "story"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "resume",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            }
+          },
+          "required": ["op", "scope"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "create",
+              "type": "string"
+            },
+            "seed": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "seed"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "story_templates",
+              "type": "string"
+            }
+          },
+          "required": ["op"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "story_template",
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "template"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "story_setup",
+              "type": "string"
+            },
+            "player_name": {
+              "default": null,
+              "type": ["string", "null"]
+            },
+            "template": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "template"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "story_presentation",
+              "type": "string"
+            },
+            "player_name": {
+              "default": null,
+              "type": ["string", "null"]
+            },
+            "presentation": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StoryPresentationV1"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "template": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "template"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "story_presentation_view",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_revision"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "creation_id": {
+              "type": "string"
+            },
+            "op": {
+              "const": "create_named",
+              "type": "string"
+            },
+            "seed_sha256": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "template", "seed_sha256", "title", "creation_id"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "creation_id": {
+              "type": "string"
+            },
+            "op": {
+              "const": "create_configured",
+              "type": "string"
+            },
+            "player_name": {
+              "type": "string"
+            },
+            "setup_sha256": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            },
+            "template_sha256": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "template",
+            "template_sha256",
+            "setup_sha256",
+            "player_name",
+            "title",
+            "creation_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "creation_id": {
+              "type": "string"
+            },
+            "op": {
+              "const": "create_presented",
+              "type": "string"
+            },
+            "player_name": {
+              "type": "string"
+            },
+            "presentation": {
+              "$ref": "#/$defs/StoryPresentationV1"
+            },
+            "setup_sha256": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            },
+            "template_sha256": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "template",
+            "template_sha256",
+            "setup_sha256",
+            "player_name",
+            "presentation",
+            "title",
+            "creation_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "open",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "close",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "$ref": "#/$defs/Mode"
+            },
+            "op": {
+              "const": "submit",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/Request"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "request", "mode"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "prepare",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "turn"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "commit",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "turn"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "cancel",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "turn"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "turn_status",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "turn"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observer": {
+              "type": "string"
+            },
+            "op": {
+              "const": "inspect",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "observer",
+            "expected_revision"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "inspection_query",
+              "type": "string"
+            },
+            "query": {
+              "$ref": "#/$defs/Query"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "query"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_configure",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_head", "enabled"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "attempt": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            },
+            "base_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observer": {
+              "$ref": "#/$defs/Observer"
+            },
+            "op": {
+              "const": "trace_read",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head",
+            "base_revision",
+            "observer"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "attempt": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "base_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_narration_validation_read_v1",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head",
+            "base_revision",
+            "turn",
+            "attempt"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_clear",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_head"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "consent": {
+              "type": "boolean"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_capture_configure",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head",
+            "enabled",
+            "consent"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "attempt": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "base_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "expected_head": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "trace_capture_read",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            },
+            "turn": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "session",
+            "scope",
+            "expected_head",
+            "base_revision",
+            "turn",
+            "attempt"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Narrowing private diagnostic access needs no current canonical head.",
+          "properties": {
+            "op": {
+              "const": "trace_capture_revoke",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "model_status",
+              "type": "string"
+            }
+          },
+          "required": ["op"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "play_snapshot",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_revision"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "play_snapshot_v2",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_revision"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "play_presentation_v2",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_revision"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "free_text",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/Request"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "request"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expected_revision": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "op": {
+              "const": "snapshot_export",
+              "type": "string"
+            },
+            "scope": {
+              "$ref": "#/$defs/Scope"
+            },
+            "session": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "scope", "expected_revision"],
+          "type": "object"
+        }
+      ]
     },
-    "required": ["version", "command"],
-    "title": "Envelope",
-    "type": "object"
+    "InitialBeliefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "believer": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "confidence": {
+          "$ref": "#/$defs/InitialConfidenceV1"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": ["believer", "text", "confidence"],
+      "type": "object"
+    },
+    "InitialCastHintV1": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "description"],
+      "type": "object"
+    },
+    "InitialCharacterV1": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "known_by": {
+          "items": {
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "location": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "description", "location", "known_by"],
+      "type": "object"
+    },
+    "InitialConfidenceV1": {
+      "enum": ["uncertain", "suspected", "believed"],
+      "type": "string"
+    },
+    "InitialFactV1": {
+      "additionalProperties": false,
+      "properties": {
+        "discoverable_at": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "known_by": {
+          "items": {
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": ["text", "known_by"],
+      "type": "object"
+    },
+    "InitialLocationV1": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "description"],
+      "type": "object"
+    },
+    "InitialPossessionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "return_to": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["name", "description", "owner"],
+      "type": "object"
+    },
+    "InitialRouteV1": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "to": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["from", "to"],
+      "type": "object"
+    },
+    "InitialRuleProfileV1": {
+      "enum": ["fantasy_v1", "narrative_v1"],
+      "type": "string"
+    },
+    "InitialStoryInputV1": {
+      "additionalProperties": false,
+      "properties": {
+        "cast": {
+          "items": {
+            "$ref": "#/$defs/InitialCastHintV1"
+          },
+          "type": "array"
+        },
+        "player_description": {
+          "type": "string"
+        },
+        "player_name": {
+          "type": "string"
+        },
+        "premise": {
+          "type": "string"
+        },
+        "presentation": {
+          "$ref": "#/$defs/StoryPresentationV1"
+        },
+        "profile": {
+          "$ref": "#/$defs/InitialRuleProfileV1"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "premise",
+        "player_name",
+        "player_description",
+        "cast",
+        "profile",
+        "presentation"
+      ],
+      "type": "object"
+    },
+    "InitialWorldProposalV1": {
+      "additionalProperties": false,
+      "properties": {
+        "beliefs": {
+          "items": {
+            "$ref": "#/$defs/InitialBeliefV1"
+          },
+          "type": "array"
+        },
+        "characters": {
+          "items": {
+            "$ref": "#/$defs/InitialCharacterV1"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/InitialFactV1"
+          },
+          "type": "array"
+        },
+        "locations": {
+          "items": {
+            "$ref": "#/$defs/InitialLocationV1"
+          },
+          "type": "array"
+        },
+        "player_location": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "possessions": {
+          "items": {
+            "$ref": "#/$defs/InitialPossessionV1"
+          },
+          "type": "array"
+        },
+        "routes": {
+          "items": {
+            "$ref": "#/$defs/InitialRouteV1"
+          },
+          "type": "array"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "locations",
+        "player_location",
+        "characters",
+        "routes",
+        "facts",
+        "beliefs",
+        "possessions"
+      ],
+      "type": "object"
+    },
+    "Intent": {
+      "description": "This comes from explicit UI selection/clarification, never the model's interpretation alone.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "actions",
+              "type": "string"
+            },
+            "value": {
+              "items": {
+                "$ref": "#/$defs/Command"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["kind", "value"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "dialogue",
+              "type": "string"
+            },
+            "value": {
+              "additionalProperties": false,
+              "properties": {
+                "audience": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": ["text", "audience"],
+              "type": "object"
+            }
+          },
+          "required": ["kind", "value"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "thought",
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": ["kind", "value"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "ambiguous",
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": ["kind", "value"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "author_correction",
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": ["kind", "value"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Explicit untrusted player input; the versioned play pipeline interprets it once.",
+          "properties": {
+            "kind": {
+              "const": "free_text",
+              "type": "string"
+            },
+            "value": {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "$ref": "#/$defs/PlayInputKind"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": ["kind", "text"],
+              "type": "object"
+            }
+          },
+          "required": ["kind", "value"],
+          "type": "object"
+        }
+      ]
+    },
+    "Mode": {
+      "enum": [
+        "accepted",
+        "delayed",
+        "malformed",
+        "rejected",
+        "failed",
+        "cancelled"
+      ],
+      "type": "string"
+    },
+    "Observer": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "player",
+              "type": "string"
+            }
+          },
+          "required": ["kind"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "character",
+              "type": "string"
+            }
+          },
+          "required": ["kind", "id"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "omniscient",
+              "type": "string"
+            }
+          },
+          "required": ["kind"],
+          "type": "object"
+        }
+      ]
+    },
+    "PlayInputKind": {
+      "enum": ["action", "dialogue"],
+      "type": "string"
+    },
+    "Query": {
+      "additionalProperties": false,
+      "properties": {
+        "at_revision": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "cursor": {
+          "type": ["string", "null"]
+        },
+        "expected_head": {
+          "description": "Current authoritative head, even when inspecting a historical completed turn.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "observer": {
+          "$ref": "#/$defs/Observer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "search": {
+          "description": "Literal case-insensitive substring of eligible serialized rows; not SQL/FTS syntax.",
+          "type": "string"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "view": {
+          "$ref": "#/$defs/View"
+        }
+      },
+      "required": [
+        "version",
+        "scope",
+        "expected_head",
+        "observer",
+        "view",
+        "limit",
+        "search"
+      ],
+      "type": "object"
+    },
+    "Request": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "intent": {
+          "$ref": "#/$defs/Intent"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "turn": {
+          "type": "string"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["version", "scope", "turn", "expected_revision", "intent"],
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "story": {
+          "type": "string"
+        }
+      },
+      "required": ["story", "branch"],
+      "type": "object"
+    },
+    "StoryPresentationV1": {
+      "additionalProperties": false,
+      "properties": {
+        "excluded_phrases": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tone": {
+          "$ref": "#/$defs/StoryTone"
+        },
+        "version": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["version", "tone", "excluded_phrases"],
+      "type": "object"
+    },
+    "StoryTone": {
+      "enum": ["plain", "warm", "brisk"],
+      "type": "string"
+    },
+    "View": {
+      "enum": [
+        "profiles",
+        "history",
+        "relationships",
+        "knowledge",
+        "promises",
+        "provenance",
+        "turn_diff",
+        "summaries",
+        "retrieval_indexes"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One source of truth for the generated frontend JSON Schema. No arbitrary seed import.",
+  "properties": {
+    "command": {
+      "$ref": "#/$defs/HostCommand"
+    },
+    "version": {
+      "const": 1
+    }
+  },
+  "required": ["version", "command"],
+  "title": "Envelope",
+  "type": "object"
 }

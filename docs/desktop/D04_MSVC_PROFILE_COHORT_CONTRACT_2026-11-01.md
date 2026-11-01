@@ -1,0 +1,177 @@
+# Fixed32 metadata cohort: source-only contract
+
+Refs #25 D04.01/.02/.04, #31 D09.03 supporting and #21.
+Claims6563966151/6563993989; Root owns this document on
+`docs/msvc-profile-cohort-contract-v1` from accepted main
+`b7e903ebea40ba2ff67514f7fc62cbfd026734e9`.
+**SOURCE PREPARATION ONLY. No new code check or SDK-input run is authorized.**
+PR327's112/112 and94/94 code checks are complete and spent; their
+[verification](D04_MSVC_METADATA_PROFILE_VERIFICATION_2026-11-01.md) cannot
+authorize this new collector. All earlier refusals/failures and sources remain.
+
+## Smallest construction and frozen inputs
+
+Use ONE fixed Node reader under ONE fixed PowerShell supervisor. The reader
+uses the accepted `createLibraryMetadataJob` directly, once; there is no new
+public cohort factory, alternate PE/COFF parser, Node parent or DEFAULTLIB
+resolver. Private roster, pairing, held-input and report functions are shared
+with independently authored finite FIRST cases. No app/worker adopts a profile.
+
+The existing local packet is the physical D: chat-root child
+`author-integration-artifacts/d08-fork-native-20261030-v1`. The exact original
+`b2-library-closure-snapshot-v1.json`, SHA256
+`62eb0ab9ff6296b13d4a8cebd49a69ffe95444f75da6ac29971c4cf7729a6dbc`,
+owns the fixed17+15 roster in original order. Validate its exact bytes before
+parsing and its structure/order/aliases/path/bytes/digests before any input
+adapter call. No new directory search, link recipe, requested library, member
+whitelist, queued DEFAULTLIB or replacement path is permitted. Fixed archives
+are D: project outputs; existing C: SDK/tool inputs remain installed data.
+This does not authorize copying project data to C: or changing installed tools.
+
+Retained-record arithmetic only:32 entries total359493030B; two full scans
+718986060B; largest input92584312B. The original record has13 successful
+strict inspections and19 refusals (four fixed archives plus15 SDK inputs).
+These are forecasts from saved JSON, not new input identity/compatibility checks.
+
+Dependency: unchanged accepted16987B helper, SHA256
+`9972c0eb4d8cf936f252b090a8f0794b0d6b5328a2245b8720cdec32d5fafa53`,
+and its deeply frozen `msvc-library-metadata-v1` descriptor. Keep262144/input,
+65536/member,2097152/job sections;32 distinct Buffer entries,536870912 input
+bytes,1073741824 actual read bytes and exclusive268435456 input/member bytes.
+Both attempts charge declared sections through the existing job, before its
+member/input/table checks; never refund/reset, replace the job or skip a member.
+No claim is made that the eventual total section work fits.
+
+## Input gate and identity protocol
+
+Run all52 independent FIRST groups before constructing/binding the production
+SDK adapter or production I/O state. Only exact executed52/passed52/failed0,
+empty failure IDs and expected version/kind unlock that construction. A failed,
+missing, malformed or partial result exits without any real-input adapter call.
+Every input operation checks the ready/not-stopped gate before even identify,
+not just before open. Failure is sticky; it cannot be readmitted or retried.
+FIRST receives only closed private function references, a cloned retained
+roster and fake in-memory adapters; never the production adapter or its state.
+This is a cooperative test protocol, not an OS security sandbox.
+
+For each entry, reserve one input/count and2*expectedBytes before identify/open;
+check all prospective entry/input/read limits first. Planned reservations and
+actual read bytes are distinct. Failure does not refund earlier reservations.
+Use one validated read-only handle, one held Buffer, two complete hashing scans
+and positive short-read handling. The first scan fills the Buffer; the second
+hashes the handle independently without overwriting it. Before each read,
+check requested bytes against remaining actual-I/O budget. Commit only actual
+positive returned bytes, at most requested; zero, overread, unexpected EOF or
+concurrent/pending read misuse is critical. No reset/refund or extra full scan.
+Each scan uses bounded chunks, at most65536B.
+
+Compare canonical ordinary path/root identities before/after, leaf identity to
+held-handle identity, both scan digests to the original pin, exact size and
+handle identity between scans. Close in finally; a close failure is critical.
+The handle may close before the pair, so do not claim it is held during parsing
+or that this is an atomic filesystem snapshot. Retain the Buffer through both
+attempts and check its in-memory digest against the pin after the pair; never
+substitute or mutate bytes. Equal first/b bytes still have distinct Buffer
+objects and separately charged entries. Before a successful final report,
+recheck every opened input's saved path/root/leaf identities, without a third
+binary scan. Any change stops. A critical early stop permits no later input
+adapter call, including cleanup-time inspection of unopened roster slots.
+
+## Strict/profile pairing and completion
+
+Create exactly one job with the literal accepted profile ID. For each ordered
+slot, run literal `strict-v1`, inspect job.stopped immediately, then compare
+the baseline before attempting literal `msvc-library-metadata-v1` on the EXACT
+same Buffer. The13 old strict successes require exact objects/imports,
+directive-array digest and DEFAULTLIB set; the19 old refusals require their
+saved error messages. Where a separately hash-bound diagnostic supplies a site/
+context, require it too. Do not infer unavailable baseline fields.
+
+An expected ordinary strict refusal is retained, then profile may run. An
+ordinary profile refusal is retained and the next slot may continue only while
+the job is live. A job stop, unknown error/site, strict-baseline mismatch,
+wrong/duplicate/out-of-order slot, repeated Buffer identity, input/source/I/O/
+identity/report error stops the collector permanently. No profile attempt after
+strict stop/mismatch; record profile=null and current partial counters.
+No new Buffer, mode retry, job replacement or later input can repair a stop.
+
+Completion requires all32 ordered rows,64 attempts,inputCount32,
+inputBytes359493030,actualReadBytes718986060,stopped=false,sections≤2097152,
+all baseline matches and final identity/source/proof checks. Expected ordinary
+profile refusals can coexist with complete capture; report their count rather
+than claiming every profile parsed. Partial capture cannot claim64 attempts or
+unread slots. qualified/linkQualification/closureComplete are always false,
+including when all32 profile attempts parse. No ABI/link or B2 adoption follows.
+
+## Compact report and dictionaries
+
+One report on child stdout, at most16384 UTF-8 bytes including final LF.
+No raw directives, names, paths, excerpts or byte arrays. Parent writes only
+the validated fixed snapshot after known child closure; raw/base64 output is
+also retained. Process evidence stores summary/digest, not another full parsed
+report. Proposed capture ceilings stdout24576B/stderr1024B allow bounded failure
+evidence; malformed/oversized output fails without truncating into a success.
+
+Rows are exactly `{slot,strict,profile}`. Each parsed mode array is exactly
+`[0,objects,imports,directiveCount,libraryCount,sections,unknownMachineObjects,
+unusedRelocationPointers,terminalNulSections,metadataSHA256]`. Digest the entire
+canonical existing metadata object, including DEFAULTLIBs, with SHA256. No
+partial successful counts are invented after a refusal.
+Refused mode arrays are exactly `[1,kindId,siteId,...eightContextValues]`.
+Context order is memberIndex,memberOffset,sectionIndex,sections,directiveBytes,
+tokenCount,actual,limit. Values are null or nonnegative integers; the closed
+helper's largest conservative context bound is4297064447 (uint32 declared
+count plus accepted2097152 job sections). No numeric fallback for unknown data.
+
+Kind IDs0–5 mean Format,Unsafe,Directive,Size,Type,Profile under the fixed
+`LibraryInputs` prefix. Site IDs are zero-based lexical indices of the unique
+single-quoted lowercase identifiers matching `[a-z][a-z0-9_]{0,63}` in the
+exact hash-pinned helper source, sorted by JavaScript's ordinal string sort.
+The data-only source review finds88 literals (some are not error sites); no
+source is evaluated to create this dictionary. Unknown sites are critical.
+Bind helper/descriptor/codebook identities; codebook digest covers exact kind,
+site and context dictionaries. Never infer a site from an unknown integer.
+
+Each encoded row must be≤432B. The empty-rows envelope must be≤2048B; the
+full report must also independently pass its16384B check. Worst-case bound:
+32*432+31 separator commas+2048 envelope+1LF=15904B. Static sizing of maximal
+closed parsed/refused arrays gives121B/97B and a two-parsed row274B; those are
+data sizing observations, not executed producer tests. Larger values fail.
+
+Freeze the exact envelope/validator before FIRST: version/kind/profile/purpose,
+false qualification flags, captureComplete/status, exact selfcheck summary,
+proof digests, unchanged job snapshot, reserved/actual I/O counters, prefix rows,
+strict-refusal/profile-parsed counts and a null or fixed critical code. Complete
+and stopped states are distinct; every count must agree with the actual prefix.
+Startup/import failure may produce no report and stays UNRUN setup failure.
+
+## Independent FIRST and admission gate
+
+New portable FIRST source must precede producer edits. Its fixed groups are
+R01–10 roster/pins;G01–06 readiness/sticky stops;I01–16 identity/read/close/
+reservation cases;P01–12 strict/profile pairing/baseline/job behavior;S01–08
+dictionary/schema/encoding/completion bounds. It returns the exact six keys
+version,kind,executed,passed,failed,failed_case_ids; only the future fixed reader
+decides whether an exact52/52 result admits real inputs. No separate Node child
+is needed merely to rerun those checks. Test fixtures use fake handles/buffers
+and no SDK/data-file I/O, model, process launch or runtime source evaluation.
+Freeze private callback signatures/envelope and independent source before the
+producer; the callbacks are development-only and never app IPC capabilities.
+
+One fixed supervisor must retain all physical-D/Node-environment/source/owner/
+Stage/START/old-proof/global-stop/unknown/stream/deadline/storage controls and
+confirm child closure before its verdict. No arbitrary command/path/env selector,
+general debug service or runtime source-eval interface. Exact source, FIRST,
+supervisor, timeout/caps, actual owner, full reserves and independent source
+review must be concrete before asking for a new run. Startup/parse errors need
+bounded capture too. No auto retry, Node parent, native/app/model/device work,
+compiler/link/MT, setup/download, settings, desktop control or deletion.
+
+Current metadata1656006B/cap1703936B leaves47930B; all other caps and output
+remain unchanged. Preliminary source/capture estimates do not fit that remainder.
+Keep runnable preparation in memory until exact sizes/full forecasts and an
+applicable source-retention/run decision fit. Do not evade accounting through
+another output root, compression, deleting evidence or relabeling capture source.
+This contract grants no increase or SDK input read. Root will publish a concrete
+admission proposal only after source/review/complete reserve sizing. Full D04/
+D09, real-model quality, physical-phone and desktop acceptance remain open.

@@ -115,7 +115,7 @@ def _attrs(node, required, optional=()):
     return attrs
 
 
-def _badging(text):
+def _badging(text, expected_package=PACKAGE, instrumentation_name=INSTRUMENTATION):
     lines = _lines(text)
     feature_rows = ["  uses-feature: name='android.hardware.faketouch'",
                     "  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'"]
@@ -131,9 +131,9 @@ def _badging(text):
             require(not line or not line[0].isspace(), "badging_framing")
             index += 1
     package = [line for line in lines if line.startswith("package:")]
-    require(len(package) == 1 and re.match(r"package: name='" + re.escape(PACKAGE) + r"' ", package[0]),
+    require(len(package) == 1 and re.match(r"package: name='" + re.escape(expected_package) + r"' ", package[0]),
             "badging_package")
-    require(re.findall(r"\bname='([^']*)'", package[0]) == [PACKAGE], "badging_package")
+    require(re.findall(r"\bname='([^']*)'", package[0]) == [expected_package], "badging_package")
     for key, expected in (("minSdkVersion", "26"), ("targetSdkVersion", "36")):
         require([line for line in lines if line.startswith(key + ":")] == [f"{key}:'{expected}'"], "badging_sdk")
     require(lines.count("application-debuggable") == 1, "badging_debug")
@@ -143,8 +143,8 @@ def _badging(text):
     require(len(instrumentation) <= 1, "badging_instrumentation")
     if instrumentation:
         line = instrumentation[0]
-        require(re.findall(r"\bname='([^']*)'", line) == [INSTRUMENTATION] and
-                re.findall(r"\btargetPackage='([^']*)'", line) == [PACKAGE], "badging_instrumentation")
+        require(re.findall(r"\bname='([^']*)'", line) == [instrumentation_name] and
+                re.findall(r"\btargetPackage='([^']*)'", line) == [expected_package], "badging_instrumentation")
 
 
 def _archive(entries):
@@ -189,14 +189,19 @@ def _archive(entries):
     return len(entries)
 
 
-def audit(badging, xmltree, entries):
+def audit(badging, xmltree, entries, *, presentation_process_verification=False):
     """Pure audit of aapt2 text and ZIP metadata; does not read files or execute code."""
-    _badging(badging)
+    require(type(presentation_process_verification) is bool, "profile")
+    package = "org.locallore.app.presentationprocesscontroller" if presentation_process_verification else PACKAGE
+    product = "org.locallore.app.presentationprocessverify" if presentation_process_verification else PRODUCT
+    instrumentation_name = ("org.locallore.presentationprocessverify.PresentationProcessRestoreInstrumentation"
+                            if presentation_process_verification else INSTRUMENTATION)
+    _badging(badging, package, instrumentation_name)
     root = _tree(xmltree)
     attrs = _attrs(root, ("package",), ("android:versionCode", "android:versionName",
         "android:compileSdkVersion", "android:compileSdkVersionCodename",
         "platformBuildVersionCode", "platformBuildVersionName"))
-    require(_string(attrs["package"]) == PACKAGE, "manifest_package")
+    require(_string(attrs["package"]) == package, "manifest_package")
     children = root["children"]
     require(sorted(child["tag"] for child in children) ==
             ["application", "instrumentation", "queries", "uses-sdk"], "manifest_elements")
@@ -215,24 +220,25 @@ def audit(badging, xmltree, entries):
     if "android:hasCode" in application:
         require(_boolean(application["android:hasCode"]) is True, "application_flags")
     queries = nodes["queries"]
-    require(not queries["attrs"] and len(queries["children"]) == 2, "queries")
+    require(not queries["attrs"] and len(queries["children"]) == (1 if presentation_process_verification else 2), "queries")
     query_packages = set()
     for query in queries["children"]:
         require(query["tag"] == "package" and not query["children"], "queries")
         name = _string(_attrs(query, ("android:name",))["android:name"])
         require(name not in query_packages, "queries")
         query_packages.add(name)
-    require(query_packages == {PRODUCT, PRODUCT + ".test"}, "queries")
+    require(query_packages == ({product} if presentation_process_verification else {product, product + ".test"}), "queries")
     instrument = nodes["instrumentation"]
     ia = _attrs(instrument, ("android:name", "android:targetPackage", "android:functionalTest",
         "android:handleProfiling"), ("android:label",))
-    require(not instrument["children"] and _string(ia["android:name"]) == INSTRUMENTATION and
-            _string(ia["android:targetPackage"]) == PACKAGE and
+    require(not instrument["children"] and _string(ia["android:name"]) == instrumentation_name and
+            _string(ia["android:targetPackage"]) == package and
             _boolean(ia["android:functionalTest"]) is True and
             _boolean(ia["android:handleProfiling"]) is False, "instrumentation")
     count = _archive(entries)
-    return {"version": 1, "scope": "locallore_process_controller_apk_audit", "status": "passed",
-            "package": PACKAGE, "instrumentation": INSTRUMENTATION, "target": PACKAGE,
+    return {"version": 1, "scope": ("locallore_presentation_process_controller_apk_audit_v1" if presentation_process_verification
+                                     else "locallore_process_controller_apk_audit"), "status": "passed",
+            "package": package, "instrumentation": instrumentation_name, "target": package,
             "min_sdk": 26, "target_sdk": 36, "permissions": [], "components": 0, "zip_entries": count}
 
 
@@ -258,6 +264,8 @@ def _digest(source):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
+    parser.add_argument("--presentation-process-verification", action="store_true",
+                        help="Audit only the distinct one-case presentation process controller")
     args = parser.parse_args(argv)
     try:
         path = args.apk.absolute()
@@ -274,7 +282,8 @@ def main(argv=None):
             require(not result.stderr and len(result.stdout) <= MAX_DUMP_BYTES, "aapt_output")
             return result.stdout.decode("utf-8")
         result = audit(dump("badging", str(path)),
-                       dump("xmltree", str(path), "--file", "AndroidManifest.xml"), entries)
+                       dump("xmltree", str(path), "--file", "AndroidManifest.xml"), entries,
+                       presentation_process_verification=args.presentation_process_verification)
         require(_plain(path) == before, "apk_changed")
         with path.open("rb") as source:
             require(_digest(source) == digest, "apk_changed")

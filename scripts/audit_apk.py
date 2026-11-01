@@ -277,7 +277,8 @@ def audit_manifest(badging, tree, package="org.locallore.app"):
                         "org.locallore.app.externalverify", "org.locallore.app.litertverify", "org.locallore.app.archiveverify",
                         "org.locallore.app.modelverify", "org.locallore.app.modelpickerverify",
                         "org.locallore.app.modelvolumeverify", "org.locallore.app.phoneverify", "org.locallore.app.cancelack",
-                        "org.locallore.app.draftverify", "org.locallore.app.draftprocessverify"),
+                        "org.locallore.app.draftverify", "org.locallore.app.draftprocessverify",
+                        "org.locallore.app.presentationprocessverify"),
             "Unreviewed app package")
     permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     require(re.search(r"^package: name='" + re.escape(package) + r"' ", badging, re.M), "Wrong app package")
@@ -651,8 +652,14 @@ def main(argv=None):
     parser.add_argument("--model-receipt-verification", action="store_true", help="Audit only the explicit receipt setup debug profile")
     parser.add_argument("--input-draft-verification", action="store_true", help="Audit only the isolated scripted input-draft debug profile")
     parser.add_argument("--input-process-verification", action="store_true", help="Audit only the isolated scripted process-restoration debug profile")
+    parser.add_argument("--presentation-process-verification", action="store_true", help="Audit only the distinct v3 presentation process product")
     args = parser.parse_args(argv)
     try:
+        require(not args.presentation_process_verification or not any((args.archive_verification,
+                args.litert_verification, args.model_provisioning, args.model_picker_fixture,
+                args.model_volume_verification, args.model_receipt_verification,
+                args.input_draft_verification, args.input_process_verification)),
+                "Presentation process verification is a separate profile")
         require(not args.archive_verification or not any((args.litert_verification, args.model_provisioning,
                 args.model_picker_fixture, args.model_volume_verification, args.model_receipt_verification,
                 args.input_draft_verification, args.input_process_verification)),
@@ -678,6 +685,7 @@ def main(argv=None):
             return subprocess.run([aapt, "dump", *arguments], check=True, capture_output=True,
                                   text=True, encoding="utf-8", shell=False).stdout
         package = ("org.locallore.app.archiveverify" if args.archive_verification else
+                                     "org.locallore.app.presentationprocessverify" if args.presentation_process_verification else
                                      "org.locallore.app.draftprocessverify" if args.input_process_verification else
                                      "org.locallore.app.draftverify" if args.input_draft_verification else
                                      "org.locallore.app.modelvolumeverify" if args.model_volume_verification else

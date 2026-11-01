@@ -242,7 +242,7 @@ internal class DurableGateway(
             presentation.messages, workspace.getString("location"), 1, stories,
             SavedStory(current.story, current.branch, root.title, current.revision), current.uncommittedDrafts,
             presentation.rules, textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines,
-            inventory = presentation.inventory)
+            inventory = presentation.inventory, playerProfile = presentation.playerProfile)
         synchronized(playerMetadataLock) {
             requirePlayerOwner(owner)
             if(revision!=playerRevision)throw WorkspaceFailure("Stale")

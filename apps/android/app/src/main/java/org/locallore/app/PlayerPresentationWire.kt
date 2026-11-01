@@ -1,6 +1,7 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app
 
+import java.math.BigInteger
 import java.util.Collections
 import org.json.JSONArray
 import org.json.JSONObject
@@ -18,6 +19,7 @@ internal data class PlayerPresentation(
 
 internal object PlayerPresentationWire {
     private val identifier = Regex("[A-Za-z0-9_-]{1,64}")
+    private val unsignedDecimal = Regex("0|[1-9][0-9]{0,19}")
     private const val MAX_BYTES = 65536
 
     fun command(session: String, scope: PlayDraftScope, revision: Long): JSONObject {
@@ -99,10 +101,21 @@ internal object PlayerPresentationWire {
     private fun intent(value: JSONObject): String {
         value.fields("kind", "value")
         return when (value.text("kind")) {
-            "actions" -> value.getJSONArray("value").also { actions ->
+            "actions" -> value.getJSONArray("value").let { actions ->
                 require(actions.length() in 1..8)
                 for (i in 0 until actions.length()) action(actions.getJSONObject(i))
-            }.toString()
+                // The presentation DTO carries these u64s as lossless strings. Render the
+                // original numeric Action JSON from a copy; never mutate the native frame.
+                val rendered = JSONArray(actions.toString())
+                for (i in 0 until rendered.length()) {
+                    val command = rendered.getJSONObject(i)
+                    when (command.text("op")) {
+                        "promise" -> command.put("deadline", command.unsigned64("deadline"))
+                        "believe" -> command.put("claim_event", command.unsigned64("claim_event", positive = true))
+                    }
+                }
+                rendered.toString()
+            }
             "dialogue" -> value.getJSONObject("value").let {
                 it.fields("text", "audience"); strings(it.getJSONArray("audience"), ids = true)
                 it.text("text", 2048)
@@ -123,11 +136,11 @@ internal object PlayerPresentationWire {
             "use_ability", "learn" -> { value.fields("op", "ability"); value.id("ability") }
             "move" -> { value.fields("op", "to"); value.text("to") }
             "say" -> { value.fields("op", "text", "audience"); value.text("text", 2048); strings(value.getJSONArray("audience"), ids = true) }
-            "believe" -> { value.fields("op", "claim_event"); require(value.integer("claim_event") > 0) }
+            "believe" -> { value.fields("op", "claim_event"); value.unsigned64("claim_event", positive = true) }
             "discover" -> { value.fields("op", "fact"); value.id("fact") }
             "promise" -> {
                 value.fields("op", "id", "to", "terms", "deadline", "return_item")
-                value.id("id"); value.id("to"); value.text("terms", 2048); require(value.integer("deadline") >= 0)
+                value.id("id"); value.id("to"); value.text("terms", 2048); value.unsigned64("deadline")
                 if (!value.isNull("return_item")) value.id("return_item")
             }
             "complete_promise" -> { value.fields("op", "id"); value.id("id") }
@@ -156,6 +169,12 @@ internal object PlayerPresentationWire {
     private fun JSONObject.boolean(key: String) = get(key) as Boolean
     private fun JSONObject.integer(key: String) = integer(get(key))
     private fun JSONObject.unsigned16(key: String) = integer(key).also { require(it in 0..65535) }
+    private fun JSONObject.unsigned64(key: String, positive: Boolean = false): BigInteger {
+        val digits = text(key, 20)
+        require(unsignedDecimal.matches(digits) && (digits.length < 20 || digits <= "18446744073709551615"))
+        require(!positive || digits != "0")
+        return BigInteger(digits)
+    }
     private fun integer(value: Any): Long {
         require(value is Int || value is Long)
         return (value as Number).toLong()

@@ -1,6 +1,7 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app
 
+import java.math.BigInteger
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -49,6 +50,10 @@ class PlayerPresentationWireTest {
                 assertEquals(expected.length(), arrayValue.length())
                 for (index in 0 until expected.length()) assertSameJson(expected.get(index), arrayValue.get(index))
             }
+            is Number -> {
+                assertTrue(actual is Number)
+                assertEquals(expected.toString(), actual.toString())
+            }
             else -> assertEquals(expected, actual)
         }
     }
@@ -90,9 +95,9 @@ class PlayerPresentationWireTest {
             """{"op":"learn","ability":"blink"}""",
             """{"op":"move","to":"North pier"}""",
             """{"op":"say","text":"Hello","audience":["nia"]}""",
-            """{"op":"believe","claim_event":1}""",
+            """{"op":"believe","claim_event":"1"}""",
             """{"op":"discover","fact":"beacon"}""",
-            """{"op":"promise","id":"notes","to":"nia","terms":"Bring notes.","deadline":10,"return_item":null}""",
+            """{"op":"promise","id":"notes","to":"nia","terms":"Bring notes.","deadline":"10","return_item":null}""",
             """{"op":"complete_promise","id":"notes"}""",
             """{"op":"wait","ticks":1}""",
         )
@@ -100,8 +105,48 @@ class PlayerPresentationWireTest {
             val value = frame()
             value.getJSONArray("turns").put(0, turn(0, intent("actions", JSONArray().put(obj(command)))))
             val displayed = JSONArray(read(value).messages.first().text).getJSONObject(0)
-            assertSameJson(obj(command), displayed)
+            val originalNumeric = obj(command)
+            when (originalNumeric.getString("op")) {
+                "promise" -> originalNumeric.put("deadline", BigInteger(originalNumeric.getString("deadline")))
+                "believe" -> originalNumeric.put("claim_event", BigInteger(originalNumeric.getString("claim_event")))
+            }
+            assertSameJson(originalNumeric, displayed)
         }
+    }
+
+    @Test fun u64PresentationStringsRenderExactNumericDigitsWithoutChangingTheNativeFrame() {
+        for (digits in listOf("0", "9223372036854775808", "18446744073709551615")) {
+            for (op in listOf("promise", "believe")) {
+                if (op == "believe" && digits == "0") continue
+                val field = if (op == "promise") "deadline" else "claim_event"
+                val command = if (op == "promise") obj("""{"op":"promise","id":"notes","to":"nia","terms":"Bring notes.","deadline":"$digits","return_item":null}""")
+                    else obj("""{"op":"believe","claim_event":"$digits"}""")
+                val value = frame().also { it.getJSONArray("turns").put(0, turn(0, intent("actions", JSONArray().put(command)))) }
+                val before = value.toString()
+                val displayed = read(value).messages.first().text
+                // Inspect the numeric token directly: reparsing u64MAX with Android JSON
+                // could itself convert it to Double and hide the very precision loss tested.
+                assertTrue(Regex("\"$field\":$digits(?=[,}])").containsMatchIn(displayed))
+                assertFalse(displayed.contains("\"$field\":\"$digits\""))
+                assertFalse(displayed.contains("E+", ignoreCase = true))
+                assertEquals(before, value.toString())
+                assertEquals(digits, command.getString(field))
+            }
+        }
+    }
+
+    @Test fun noncanonicalOverflowAndNumericU64DtoFieldsRefuseInsteadOfCoercing() {
+        val invalid: List<Any> = listOf("", "00", "01", "+1", "-1", "1e3", "1.0", " 1", "1 ",
+            "18446744073709551616", "999999999999999999999", "\u0661", 1, 1L, 1.0, true, JSONObject.NULL)
+        for (raw in invalid) {
+            for (op in listOf("promise", "believe")) {
+                val command = if (op == "promise") obj("""{"op":"promise","id":"notes","to":"nia","terms":"Bring notes.","deadline":"1","return_item":null}""").put("deadline", raw)
+                    else JSONObject().put("op", "believe").put("claim_event", raw)
+                refuses(frame().also { it.getJSONArray("turns").put(0, turn(0, intent("actions", JSONArray().put(command)))) })
+            }
+        }
+        refuses(frame().also { it.getJSONArray("turns").put(0, turn(0,
+            intent("actions", JSONArray().put(obj("""{"op":"believe","claim_event":"0"}"""))))) })
     }
 
     @Test fun fixedWholeTurnWindowRetainsAbsoluteMessageIdentitiesAndFreezesMessages() {

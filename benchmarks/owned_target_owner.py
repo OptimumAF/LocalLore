@@ -732,6 +732,10 @@ class _InitialServerView:
     def __init__(self, runtime, binding):
         self.runtime = runtime
         self.admission = copy.deepcopy(runtime.admission["server"])
+        # This adapter selects only the fixed pre-guest isolated exchanges.
+        # Preserve minimal legacy views, but never retag an explicit phone profile.
+        _need(self.admission.get("protocol", server_contract.PROTOCOL) == server_contract.PROTOCOL, "admission")
+        self.admission["protocol"] = server_contract.PROTOCOL
         self.binding = copy.deepcopy(binding)
         self.completed_ports = []
         self.clients_closed = True

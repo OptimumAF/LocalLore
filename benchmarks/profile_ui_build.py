@@ -177,7 +177,11 @@ class _Reader:
             held=os.fstat(stream.fileno())
             common=lambda s:(s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_nlink,stat.S_IFMT(s.st_mode))
             _need(common(before)==common(held), 'identity')
-            for block in iter(lambda:stream.read(1024**2),b''):
+            remaining=pin['bytes']+1
+            while remaining:
+                block=stream.read(min(1024**2,remaining))
+                if not block:break
+                remaining-=len(block)
                 self.total+=len(block)
                 _need(time.monotonic()<self.until and self.total<=512*1024**2, 'budget')
                 h.update(block)
@@ -370,7 +374,7 @@ def _dex(reader,base,r):
     for row,selector in zip(value['rows'],ROSTER):
         _need([row['kind'],row['class'],row['method']]==selector and row['runtime_junit'] is True and
               row['public_concrete_instance_void_noargs'] is True and row['product_class_family_absent'] is True and
-              type(row['code_units']) is int and 0<row['code_units']<=65536, 'dex_method')
+              type(row['code_units']) is int and 0<row['code_units']<=8192, 'dex_method')
         expected=Path(_FIXED['root'])/'apps/android/app/src/androidTest/java'/Path(*selector[1].split('.')).with_suffix('.kt')
         _need(Path(row['source']['path'])==expected, 'dex_source');reader.read(row['source'])
 
@@ -437,5 +441,3 @@ def verify_current(admission):
     result=verify_frozen_product(value['artifacts'])
     contract.revalidate_inputs(value)
     return result
-
-

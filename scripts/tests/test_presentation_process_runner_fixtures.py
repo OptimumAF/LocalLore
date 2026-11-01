@@ -52,3 +52,22 @@ def instrument(value):
     return ['am', 'instrument', '-w', '-r', '-e', 'case', CASE, '-e', 'run_id',
             value['run_id'][:16], '-e', 'product_sha256',
             value['artifacts']['product_apk']['sha256'], COMPONENT]
+
+
+def running(value):
+    result = legacy.running(value)
+    result['protocol'] = PROTOCOL
+    return result
+
+
+def proof(session_value, *, after=False):
+    result = legacy.proof(session_value, after=after)
+    result['protocol'] = PROOF_PROTOCOL
+    result['session'] = legacy.pin(PureWindowsPath(session_value['root']) / 'sdk-session-v9.json')
+    return result
+
+
+def query_bundle(session_value):
+    result = legacy.query_bundle(session_value)
+    result['protocol'] = PROOF_PROTOCOL
+    return result

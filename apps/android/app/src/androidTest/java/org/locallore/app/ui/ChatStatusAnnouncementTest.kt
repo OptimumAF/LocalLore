@@ -65,6 +65,13 @@ class ChatStatusAnnouncementTest {
             compose.onNodeWithTag("story-list").getUnclippedBoundsInRoot().top.value
     }
 
+    private fun readOlderHistory() {
+        // This fixture has three prefix rows. Put message 10 at the top rather
+        // than merely finding a partially visible row near the shrinking bottom.
+        compose.onNodeWithTag("story-list").performScrollToIndex(3 + 9)
+        compose.onNodeWithTag("message-body-10").assertIsDisplayed()
+    }
+
     private fun assertChatAnnouncement(text: String) {
         compose.onNodeWithTag("chat-announcement", useUnmergedTree = true)
             .assertIsDisplayed().assertTextEquals(text)
@@ -94,7 +101,7 @@ class ChatStatusAnnouncementTest {
         val calls = Calls()
         show(state, calls)
         compose.onNodeWithTag("chat-announcement").assertDoesNotExist()
-        scrollTo("message-body-10").assertIsDisplayed()
+        readOlderHistory()
         val anchor = historyAnchor()
         val preparing = original.copy(busy = true, preparingResponse = true, notice = "SCRIPTED stale accepted notice")
         changeAtAnchor(state, preparing, "Preparing local response\u2026", anchor)
@@ -123,7 +130,7 @@ class ChatStatusAnnouncementTest {
         val draft = "Unsent caf\u00e9 \u6f22\u5b57 \ud83c\udf3f\nThese are my dialogue words."
         scrollTo("play-kind-dialogue").performClick()
         scrollTo("play-input").performTextReplacement(draft)
-        scrollTo("message-body-10").assertIsDisplayed()
+        readOlderHistory()
         val anchor = historyAnchor()
         changeAtAnchor(state, original.copy(busy = true, preparingResponse = true,
             notice = "SCRIPTED stale rejection"), "Preparing local response\u2026", anchor)

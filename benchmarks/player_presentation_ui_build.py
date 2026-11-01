@@ -115,7 +115,7 @@ def _load_verified_product():
     before = _pin(path)
     _need(before['sha256'] == FROZEN_VERIFIER_SHA256, 'verifier_source')
     shared = _shared_consumers()
-    specification = importlib.util.spec_from_file_location('_locallore_product_42ae_record_ui_build', path)
+    specification = importlib.util.spec_from_file_location('benchmarks._locallore_product_42ae_record_ui_build', path)
     _need(specification is not None and specification.loader is not None, 'verifier_source')
     module = importlib.util.module_from_spec(specification)
     with path.open('rb') as stream:

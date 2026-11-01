@@ -4,6 +4,8 @@ All source/build/v3-proof/claim/client/closed-result validators remain real.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import copy
+from contextlib import redirect_stdout
+import io
 import os
 from pathlib import Path
 import unittest
@@ -135,6 +137,26 @@ class PresentationProcessRunnerControllerTests(unittest.TestCase):
                 with self.subTest(mutation=mutation), self.assertRaises((contract.TargetRefused,
                         env.EnvironmentRefused, build.BuildRefused, owner.OwnerRefused, OSError)):
                     graph.verify(caller)
+
+    def test_parent_entry_and_worker_constructor_check_real_build_before_shared_launch_hooks(self):
+        graph = f.ControllerGraph()
+        value = env.read_json(graph.g.spec['manifest_path'])
+        value['scope'] = 'record-ui-build-v1'
+        graph.g.write(graph.g.spec['manifest_path'], env.encoded(value))
+        graph.a['artifacts']['build'] = env.binding(graph.g.spec['manifest_path'])
+        graph.rebind_admission()
+        with graph.inputs(), patch.object(native_owner, '_parent', side_effect=AssertionError('parent launch')) as parent:
+            with redirect_stdout(io.StringIO()):
+                code = owner.main(['--admission', graph.admission['path'],
+                                   '--admission-sha256', graph.admission['sha256']])
+            self.assertEqual(code, 1)
+            parent.assert_not_called()
+        request = dict(validated_admission=copy.deepcopy(graph.a))
+        with graph.inputs(), patch.object(native_owner._TargetRuntimeCore, '__init__',
+                side_effect=AssertionError('worker native constructor')) as worker:
+            with self.assertRaises(build.BuildRefused):
+                owner._PresentationProcessTargetRuntime(request, graph.admission, Path(graph.a['root']))
+            worker.assert_not_called()
 
 
 if __name__ == '__main__':

@@ -81,6 +81,9 @@ public final class PresentationProcessRestoreInstrumentation extends Instrumenta
     private volatile Stage stage=Stage.ARGUMENTS; private final AtomicBoolean finished=new AtomicBoolean();
     private volatile WorkspaceRead lastWorkspaceRead=WorkspaceRead.MISSING; private volatile int lastWorkspaceUtf16Length;
     private Fixture fixture;
+    // Accepted prose is sampled from the real UI. Only its digest/length survives in controller memory.
+    private String acceptedNarratorSha;
+    private int acceptedNarratorBytes;
     private final JSONArray observations=new JSONArray(),terminalObservations=new JSONArray(),presentationReads=new JSONArray();
     @Override public void onCreate(Bundle args){super.onCreate(args);arguments=args==null?new Bundle():new Bundle(args);start();}
     @Override public void onStart(){
@@ -144,6 +147,7 @@ public final class PresentationProcessRestoreInstrumentation extends Instrumenta
                     && sent.op("prepare") == 1 && sent.op("commit") == 1
                     && sent.op("cancel") == 0 && sent.op("other") == 0,
                     Reason.AUTOMATIC_OPERATION);
+            acceptedMessagePair(true);
             stage = Stage.SECOND_SAVE;
             Probe savedAgain = backgroundAndSave(first, fixture.b);
             stage = Stage.SECOND_KILL;
@@ -155,6 +159,7 @@ public final class PresentationProcessRestoreInstrumentation extends Instrumenta
             readyProduct();
             checked(workspace().same(fixture.b, 1), Reason.SCOPE);
             verifyDraft();
+            acceptedMessagePair(false);
             Probe secondUnsubmitted = latest(second);
             checked(creationAttempts(secondUnsubmitted) == 0, Reason.AUTOMATIC_OPERATION);
             noGameplay(secondUnsubmitted);
@@ -169,6 +174,7 @@ public final class PresentationProcessRestoreInstrumentation extends Instrumenta
             checked(select(fixture.b.story).same(fixture.b, 1), Reason.CANONICAL);
             noGameplay(awaitReadIncrease(second, beforeFinalReselect));
             verifyDraft();
+            acceptedMessagePair(false);
             guardInstallation();
             checked(deaths == 2, Reason.PROCESS);
             checked(observations.length()==3&&presentationReads.length()==2,Reason.PROCESS);
@@ -988,6 +994,36 @@ public final class PresentationProcessRestoreInstrumentation extends Instrumenta
             if(commands.sequence==after.sequence)need(readsEqual(commands,after),Reason.PROBE);
         }
         checked(true,Reason.PROBE);return after;
+    }
+
+    private String messageText(String id, int byteCap) throws Exception {
+        AccessibilityNodeInfo node = tag(id);
+        try {
+            need(productNode(node) && node.isVisibleToUser(), Reason.CANONICAL);
+            String value = nodeText(node);
+            need(value.length() <= byteCap && value.getBytes(StandardCharsets.UTF_8).length <= byteCap, Reason.CANONICAL);
+            return value;
+        } finally { node.recycle(); }
+    }
+
+    private void acceptedMessagePair(boolean remember) throws Exception {
+        checked(workspace().same(fixture.b, 1), Reason.SCOPE);
+        // A fresh story's first eligible turn has absolute presentation ordinals 1/2.
+        checked(messageText("message-role-1", 32).equals("You"), Reason.CANONICAL);
+        checked(messageText("message-body-1", 65536).equals(DIALOGUE), Reason.CANONICAL);
+        checked(messageText("message-role-2", 32).equals("Narrator"), Reason.CANONICAL);
+        String narration = messageText("message-body-2", 65536);
+        need(!narration.trim().isEmpty(), Reason.CANONICAL);
+        byte[] bytes = narration.getBytes(StandardCharsets.UTF_8);
+        String sha = digest(bytes);
+        if (remember) {
+            need(acceptedNarratorSha == null, Reason.CANONICAL);
+            acceptedNarratorSha = sha; acceptedNarratorBytes = bytes.length;
+        } else {
+            checked(acceptedNarratorSha != null && acceptedNarratorSha.equals(sha) && acceptedNarratorBytes == bytes.length, Reason.CANONICAL);
+        }
+        // Header and message samples are bounded observations, never an atomic native snapshot.
+        checked(workspace().same(fixture.b, 1), Reason.SCOPE);
     }
     private static JSONObject readsJson(Probe value)throws JSONException{return new JSONObject().put("resume",value.op("resume")).put("play_presentation_v2",value.op("play_presentation_v2")).put("play_snapshot",value.op("play_snapshot"));}
     private static boolean readsEqual(Probe a,Probe b){return a.op("resume")==b.op("resume")&&a.op("play_presentation_v2")==b.op("play_presentation_v2")&&a.op("play_snapshot")==b.op("play_snapshot");}

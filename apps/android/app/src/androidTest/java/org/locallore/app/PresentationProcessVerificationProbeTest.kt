@@ -2,14 +2,47 @@
 package org.locallore.app
 
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import org.junit.Rule
+import org.locallore.app.ui.LocalLoreScreen
 import java.io.File
 
 /** Probe routing only. A device/controller process-death result is a separate gate. */
 class PresentationProcessVerificationProbeTest {
+    @get:Rule val compose = createComposeRule()
+
+    @Test fun optInRoleTagsPreserveTheExactScriptedAcceptedPairWithoutDispatch() {
+        val exposed = mutableStateOf(true)
+        val player = "SCRIPTED accepted player.\nCafé and snow 雪."
+        val narrator = "SCRIPTED recorded narration.\nThe original observation remains unchanged."
+        val story = SavedStory("scripted-proof-tags", "main", "SCRIPTED", 1)
+        val state = ShellState(revision = 1, persistent = true, selectedStory = story, stories = listOf(story),
+            textProvider = TextProvider.SCRIPTED, messages = listOf(SceneMessage(1, player, true), SceneMessage(2, narrator, false)))
+        var calls = 0
+        compose.setContent {
+            LocalLoreScreen(state, { calls++ }, { calls++ }, { calls++ }, { calls++ },
+                exposeTestTags = exposed.value)
+        }
+        fun visible(name: String) = compose.onNodeWithTag("story-list").performScrollToNode(hasTestTag(name))
+            .let { compose.onNodeWithTag(name) }
+        visible("message-role-1").assertTextEquals("You")
+        visible("message-body-1").assertTextEquals(player)
+        visible("message-role-2").assertTextEquals("Narrator")
+        visible("message-body-2").assertTextEquals(narrator)
+        compose.runOnIdle { exposed.value = false; assertEquals(0, calls) }
+        visible("message-body-1").assertTextEquals(player)
+        compose.onNodeWithTag("message-role-1").assertDoesNotExist()
+        visible("message-body-2").assertTextEquals(narrator)
+        compose.onNodeWithTag("message-role-2").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, calls) }
+    }
+
     @Test fun explicitProfileCountsPresentationAttemptsWithoutReclassifyingLegacyOrUnknownOperations() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assumeTrue(BuildConfig.PRESENTATION_PROCESS_VERIFICATION && context.packageName == "org.locallore.app.presentationprocessverify")

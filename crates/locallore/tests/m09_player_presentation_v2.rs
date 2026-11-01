@@ -540,3 +540,67 @@ fn oversized_twenty_complete_turns_refuse_without_clipping_or_adaptive_window() 
     assert!(serde_json::to_vec(&reply).unwrap().len() <= MAX_OUTPUT);
     assert_eq!(source.lock().unwrap().writes, 0);
 }
+
+#[test]
+fn accepted_uint64_action_fields_use_exact_decimal_presentation_strings_only() {
+    let mut engine = engine();
+    let promised = append(
+        &mut engine,
+        "maximum-deadline",
+        Intent::Actions(vec![Command::Promise {
+            id: "survey-later".into(),
+            to: "mira".into(),
+            terms: "Compare the survey notes after the next tide.".into(),
+            deadline: u64::MAX,
+            return_item: None,
+        }]),
+    );
+    let stated = append(
+        &mut engine,
+        "statement-to-consider",
+        Intent::Dialogue {
+            text: "I heard the harbor bell.".into(),
+            audience: ["mira".into()].into(),
+        },
+    );
+    let claim = stated.events()[0].sequence();
+    assert!(claim > 0);
+    let believed = append(
+        &mut engine,
+        "consider-statement",
+        Intent::Actions(vec![Command::Believe { claim_event: claim }]),
+    );
+    let canonical = engine.canonical_bytes();
+    let basis = engine.accepted_history_basis().unwrap();
+    let original_promise = json!(promised.request().intent);
+    let original_belief = json!(believed.request().intent);
+    assert_eq!(original_promise["value"][0]["deadline"].as_u64(), Some(u64::MAX));
+    assert_eq!(original_belief["value"][0]["claim_event"].as_u64(), Some(claim));
+
+    let (host, source) = host(vec![engine.clone()], false);
+    let session = session(&host, &engine);
+    let reply = presentation(&host, &session, &engine);
+    assert_eq!(reply["status"], "ok", "{reply}");
+    let turns = reply["data"]["turns"].as_array().unwrap();
+    assert_eq!(turns.len(), 3);
+    let claim_decimal = claim.to_string();
+    assert_eq!(turns[0]["intent"]["value"][0]["deadline"].as_str(), Some("18446744073709551615"));
+    assert_eq!(turns[2]["intent"]["value"][0]["claim_event"].as_str(), Some(claim_decimal.as_str()));
+    for (index, receipt) in [&promised, &stated, &believed].into_iter().enumerate() {
+        let mut expected = json!(receipt.request().intent);
+        if index == 0 {
+            expected["value"][0]["deadline"] = json!(u64::MAX.to_string());
+        } else if index == 2 {
+            expected["value"][0]["claim_event"] = json!(claim.to_string());
+        }
+        assert_eq!(turns[index]["intent"], expected);
+        assert_eq!(turns[index]["original_scope"], json!(receipt.request().scope));
+        assert_eq!(turns[index]["turn"], receipt.request().turn);
+        assert_eq!(turns[index]["event_ids"], json!(receipt.events().iter().map(AcceptedEvent::sequence).collect::<Vec<_>>()));
+        assert_eq!(turns[index]["narration"], receipt.narration());
+    }
+    let source = source.lock().unwrap();
+    assert_eq!(source.engines[0].canonical_bytes(), canonical);
+    assert_eq!(source.engines[0].accepted_history_basis().unwrap(), basis);
+    assert_eq!(source.writes, 0);
+}

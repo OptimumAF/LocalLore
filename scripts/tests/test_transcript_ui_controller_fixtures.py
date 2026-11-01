@@ -165,7 +165,8 @@ class ControllerGraph:
             if self.fail == 'wrong_filter' and argv[-1] == contract.TEST:
                 return ('package:' + contract.APP + ' uid:10001\n').encode(), stderr
             raw = ''.join('package:'+package+' uid:'+str(10001+index)+'\n'
-                          for index,package in enumerate((contract.APP,contract.TEST)) if package in self.installed)
+                          for index,package in enumerate((contract.APP,contract.TEST))
+                          if package in self.installed and argv[-1] in package)
             return raw.encode(),stderr
         if argv[:3] == ['cmd','package','path']:
             package = argv[-1]

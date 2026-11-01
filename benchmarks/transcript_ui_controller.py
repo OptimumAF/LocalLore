@@ -124,7 +124,8 @@ def _uid(raw, package):
     _need(len(lines) <= 2)
     for line in lines:
         match = re.fullmatch(r"package:([^\s]+) uid:([1-9][0-9]*)", line)
-        _need(match is not None and match[1] in (contract.APP, contract.TEST) and match[1] not in values)
+        _need(match is not None and match[1] in (contract.APP, contract.TEST) and
+              match[1] not in values and package in match[1])
         value = int(match[2])
         _need(10000 <= value <= 2147483647)
         values[match[1]] = value
@@ -388,44 +389,49 @@ def verify_controller_result(result_binding, admission_binding, running_binding,
     rows = verification.require_current_clients(output, count, result["session"], admission)
     cursor = 0
 
-    def consume(pin, argv, *, source=None, stderr_empty=True):
+    def consume(pin, argv, label, *, source=None, stderr_empty=True, seconds=15, limit=131072):
         nonlocal cursor
         _need(cursor < len(rows))
         row = rows[cursor]
         cursor += 1
         _need(_same(pin, env.binding(output / "clients" / ("command-%04d.json" % cursor))))
         _need(row["index"] == cursor and _same(row["operation"], dict(argv=argv, stdin=source)) and
-              row["client_qualified"] is True and row["status"] == "completed" and
-              type(row["returncode"]) is int and row["returncode"] == 0)
+              row["client_qualified"] is True and row["status"] == "completed" and row["label"] == label and
+              type(row["returncode"]) is int and row["returncode"] == 0 and
+              type(row["effective_deadline_ms"]) is int and 0 < row["effective_deadline_ms"] <= seconds * 1000)
+        stdout, stderr = _raw(row["stdout"], limit), _raw(row["stderr"], limit)
+        _need(len(stdout) + len(stderr) <= limit)
         if stderr_empty:
-            _need(_raw(row["stderr"], MAX_BYTES) == b"")
-        return _raw(row["stdout"], MAX_BYTES)
+            _need(stderr == b"")
+        return stdout
 
     setup = _at(result["setup"], output / "setup-v1.json")
     _object(setup, ("version", "scope", "session", "boot", "properties", "user", "packages_absent", "staged", "installs"))
     _need(type(setup["version"]) is int and setup["version"] == 1 and setup["scope"] == SETUP_SCOPE and
           _same(setup["session"], result["session"]) and type(setup["boot"]) is list and 1 <= len(setup["boot"]) <= 61)
     for index, pin in enumerate(setup["boot"]):
-        value = _boot_value(consume(pin, ["getprop", "sys.boot_completed"]))
+        value = _boot_value(consume(pin, ["getprop", "sys.boot_completed"], "boot"))
         _need(value == "1" if index == len(setup["boot"]) - 1 else value in ("", "0"))
     _object(setup["properties"], ("api", "abi", "qemu"))
     for key, prop, wanted in (("api", "ro.build.version.sdk", "35"),
                               ("abi", "ro.product.cpu.abi", "x86_64"), ("qemu", "ro.kernel.qemu", "1")):
-        _need(_line(consume(setup["properties"][key], ["getprop", prop])) == wanted)
-    _need(_line(consume(setup["user"], ["am", "get-current-user"])) == "0")
+        _need(_line(consume(setup["properties"][key], ["getprop", prop], "property")) == wanted)
+    _need(_line(consume(setup["user"], ["am", "get-current-user"], "user")) == "0")
     for key in ("packages_absent", "staged", "installs"):
         _object(setup[key], ROLES)
     for role in ROLES:
         package = manifest["apks"][role]["package"]
         _need(_uid(consume(setup["packages_absent"][role],
-            ["cmd", "package", "list", "packages", "-U", "--user", "0", package]), package) is None)
+            ["cmd", "package", "list", "packages", "-U", "--user", "0", package], "package-absent"), package) is None)
     for role, path in zip(ROLES, STAGED):
         staged = setup["staged"][role]
         _object(staged, ("transfer", "sha256"))
         source = admission["artifacts"][role]
-        _need(consume(staged["transfer"], ["dd", "of=" + path, "bs=65536"], source=source, stderr_empty=False) == b"")
-        _need(_line(consume(staged["sha256"], ["sha256sum", path])) == source["sha256"] + "  " + path)
-        _need(_line(consume(setup["installs"][role], ["pm", "install", "-r", "-t", "--user", "0", path])) == "Success")
+        _need(consume(staged["transfer"], ["dd", "of=" + path, "bs=65536"], "apk-stage",
+                      source=source, stderr_empty=False, seconds=120) == b"")
+        _need(_line(consume(staged["sha256"], ["sha256sum", path], "staged-hash")) == source["sha256"] + "  " + path)
+        _need(_line(consume(setup["installs"][role], ["pm", "install", "-r", "-t", "--user", "0", path],
+                           "install", seconds=120)) == "Success")
 
     def installed(pin, name):
         value = _at(pin, output / name)
@@ -440,9 +446,9 @@ def verify_controller_result(result_binding, admission_binding, running_binding,
             _need(entry["package"] == package and type(entry["uid"]) is int)
             _object(entry["checks"], ("uid", "path", "sha256"))
             checks = entry["checks"]
-            _need(_uid(consume(checks["uid"], ["cmd", "package", "list", "packages", "-U", "--user", "0", package]), package) == entry["uid"])
-            _need(_apk_path(consume(checks["path"], ["cmd", "package", "path", "--user", "0", package])) == entry["path"])
-            _need(_line(consume(checks["sha256"], ["sha256sum", entry["path"]])) == manifest["apks"][role]["binding"]["sha256"] + "  " + entry["path"])
+            _need(_uid(consume(checks["uid"], ["cmd", "package", "list", "packages", "-U", "--user", "0", package], "package"), package) == entry["uid"])
+            _need(_apk_path(consume(checks["path"], ["cmd", "package", "path", "--user", "0", package], "package-path")) == entry["path"])
+            _need(_line(consume(checks["sha256"], ["sha256sum", entry["path"]], "package-hash")) == manifest["apks"][role]["binding"]["sha256"] + "  " + entry["path"])
         _need(len({p["uid"] for p in value["packages"].values()}) == 2)
         return value["packages"]
 
@@ -453,7 +459,7 @@ def verify_controller_result(result_binding, admission_binding, running_binding,
         kind, class_name, method = expected
         _need((row["kind"], row["class"], row["method"]) == expected)
         raw = consume(row["record"], ["am", "instrument", "-w", "-r", "-e", "class", class_name + "#" + method,
-                      contract.TEST + "/androidx.test.runner.AndroidJUnitRunner"])
+                      contract.TEST + "/androidx.test.runner.AndroidJUnitRunner"], kind, seconds=90, limit=MAX_BYTES)
         evidence = validate_instrumentation(raw, class_name, [method])
         _need(_same(_at(row["evidence"], output / ("method-%02d-v1.json" % index)), evidence))
     after = installed(result["installed_after"], "installed-after-v1.json")

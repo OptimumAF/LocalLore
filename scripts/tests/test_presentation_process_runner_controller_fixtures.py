@@ -10,6 +10,7 @@ import copy
 import json
 from pathlib import Path
 from types import SimpleNamespace
+import threading
 from unittest.mock import patch
 
 from benchmarks import presentation_process_build as build
@@ -34,6 +35,10 @@ class ControllerGraph(previous.ControllerGraph):
         metadata = SimpleNamespace(admission=lambda: f.admission(contract), running=f.running, core=core)
         factory = SimpleNamespace(BuildGraph=lambda: builds.BuildGraph(build), pin=builds.pin, encoded=builds.encoded)
         with contextlib.ExitStack() as stack:
+            # Inline only the SDK sender; real Git subprocess pipe-reader threads
+            # must keep the stdlib threading API and its actual implementation.
+            stack.enter_context(patch.object(previous.wire, 'threading',
+                SimpleNamespace(Thread=threading.Thread, Lock=threading.Lock)))
             for name, value in (('build', build), ('controller', controller), ('contract', contract),
                                 ('owner', owner), ('f', metadata), ('builds', factory)):
                 stack.enter_context(patch.object(previous, name, value))

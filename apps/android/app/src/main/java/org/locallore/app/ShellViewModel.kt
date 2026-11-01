@@ -33,6 +33,7 @@ class ShellViewModel internal constructor(
     val diagnostics = diagnosticController.state
     private val recordController = StoryRecordController(StoryRecordReader(gateway::readStoryRecord), viewModelScope)
     val storyRecord = recordController.state
+    internal val storyRecordFrames = recordController.frames
     val hasStoryRecords: Boolean get() = gateway.storyRecords
     private var disposed = false
     internal val creationController = creationGateway?.let { StoryCreationController(it, viewModelScope, ::creationClosed) }

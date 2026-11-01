@@ -127,12 +127,14 @@ open class MainActivity : ComponentActivity() {
             val deletion by model.deletion.collectAsStateWithLifecycle()
             val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
             val creation by model.creation.collectAsStateWithLifecycle()
-            val record by model.storyRecord.collectAsStateWithLifecycle()
+            val recordFrame by model.storyRecordFrames.collectAsStateWithLifecycle(
+                initialValue = StoryRecordFrame(model.storyRecord.value),
+            )
             val fork by model.fork.collectAsStateWithLifecycle()
             val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
-            val renderedRecordState = record
+            val renderedRecordState = recordFrame.state
             val renderedActionStory = state.selectedStory
             LocalLoreScreen(state, { action -> model.submit(action, renderedActionStory) }, model::setMode, model::cancel, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,

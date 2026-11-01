@@ -6,12 +6,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /** Owner-thread UI adapter. Reads cannot prepare, commit, or cancel gameplay. */
 internal class StoryRecordController(private val reader: StoryRecordReader, private val scope: CoroutineScope) {
     private val mutable = MutableStateFlow(StoryRecordState())
     val state = mutable.asStateFlow()
+    val frames = state.map(::StoryRecordFrame)
     private var generation = 0L
     private var pending: Job? = null
     private var disposed = false

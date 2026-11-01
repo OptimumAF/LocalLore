@@ -6,6 +6,8 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 #[path = "inspection_query_v2.rs"]
 mod v2;
+#[path = "inspection_query_wire.rs"]
+mod wire;
 
 pub const QUERY_VERSION: u16 = 1;
 pub const MAX_ROWS: u16 = 64;
@@ -260,7 +262,7 @@ impl Row {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Page {
     pub version: u16,
     pub scope: Scope,
@@ -276,6 +278,11 @@ pub struct Page {
     pub rows: Vec<Row>,
     pub next_cursor: Option<String>,
     pub unsupported: Vec<String>,
+}
+impl Serialize for Page {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        wire::serialize_page(self, serializer)
+    }
 }
 
 struct Lens {

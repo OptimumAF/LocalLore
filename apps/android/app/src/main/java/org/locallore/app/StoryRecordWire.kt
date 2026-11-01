@@ -122,7 +122,7 @@ internal object StoryRecordWire {
                 val from = row.text("from", 512)
                 val to = row.text("to", 512)
                 require(from == player || to == player)
-                val deadline = row.number("deadline").also { require(it >= 0) }
+                val deadline = deadline(row.get("deadline"), query.version)
                 val status = when (row.text("status")) {
                     "open" -> "Open"
                     "overdue" -> "Overdue"
@@ -170,7 +170,7 @@ internal object StoryRecordWire {
                 strings(event.getJSONArray("participants"))
                 val turn = event.text("turn", 64).also { require(validStoryRecordTurn(it)) }
                 val reference = originalScope?.let { StoryRecordScopedEvent(it, sequence) }
-                StoryRecordEntry(key, "Event #$sequence", effect(event.getJSONObject("consequence"), query.context.revision),
+                StoryRecordEntry(key, "Event #$sequence", effect(event.getJSONObject("consequence"), query.context.revision, query.version),
                     origin, listOf(reference?.let(::scopedEventLabel) ?: "Event #$sequence"),
                     if (reference == null) listOf(sequence) else emptyList(),
                     StoryRecordEvent(sequence, turn, event.number("story_time"), originalScope),
@@ -234,7 +234,7 @@ internal object StoryRecordWire {
         else -> error("Unknown field")
     }
 
-    private fun effect(e: JSONObject, head: Long): String = when (e.text("effect")) {
+    private fun effect(e: JSONObject, head: Long, version: Int): String = when (e.text("effect")) {
         "given" -> "${e.text("from")} gave ${e.unsigned16("quantity")} ${e.text("item")} to ${e.text("to")}."
         "consumed" -> "${e.text("actor")} consumed ${e.text("item")}.".also { require(e.has("healed")) } +
             (if (e.isNull("healed")) "" else " Healed: ${e.text("healed")}.")
@@ -249,7 +249,7 @@ internal object StoryRecordWire {
         "discovered" -> "${e.text("actor")} discovered ${e.text("fact")}."
         "promised" -> e.getJSONObject("commitment").let {
             e.text("id", 512)
-            require(it.number("deadline") >= 0)
+            deadline(it.get("deadline"), version)
             source(it.getJSONObject("source"), head)
             require(it.has("return_item") && it.has("completed_by"))
             if (!it.isNull("return_item")) it.text("return_item", 512)
@@ -261,6 +261,18 @@ internal object StoryRecordWire {
             require(e.number("from") >= 0 && e.number("to") > e.number("from"))
         }
         else -> error("Unknown consequence")
+    }
+
+    // Query2 presentation uses exact decimal text before Android parses JSON numbers.
+    // Frozen legacy Query2 fixtures remain compatible only for exact signed integers.
+    // Query1 deliberately retains its numeric-only wire contract.
+    private fun deadline(value: Any, version: Int): String {
+        if (version == 2 && value is String) {
+            require(Regex("0|[1-9][0-9]{0,19}").matches(value))
+            require(value.length < 20 || value <= "18446744073709551615")
+            return value
+        }
+        return integral(value).also { require(it >= 0) }.toString()
     }
 
     private fun source(source: JSONObject, head: Long): String = when (source.text("kind")) {

@@ -49,6 +49,23 @@ scopedEventSources are empty and event is null. It is not a witnessed event,
 fact or navigation capability. Extra fields/private reason/payload refuse.
 Keep existing widget layout and accessibility conventions.
 
+### Unsigned deadline representation (2026-11-01 integration correction)
+
+Query2 Page serialization renders Promise rows' `deadline` and witnessed
+`promised` events' `consequence.commitment.deadline` as canonical decimal
+strings in 0..18446744073709551615. Nested TurnDiff rows use the same display
+representation. Typed native rows, engine state, accepted requests/receipts and
+Query1 serialization retain numeric u64 values. This prevents Android's JSON
+number reader from rounding an admitted native deadline before display.
+
+The same typed Query2 row serializer supplies search text, cursor binding and
+page byte accounting. Field order remains stable for exact scoped-event lookup.
+Kotlin accepts canonical decimal strings in Query2 and exact nonnegative
+Int/Long values in older frozen Query2 fixtures. It refuses signs, whitespace,
+leading zeros, fractions, booleans, null, ambiguous floating-point numbers and
+over-u64 values. Query1 history remains numeric-only. This is presentation
+validation, not a change to promise legality or canonical history.
+
 ## Frozen native corpus
 
 Independent example crates/locallore/examples/android_record_query2_fixture.rs

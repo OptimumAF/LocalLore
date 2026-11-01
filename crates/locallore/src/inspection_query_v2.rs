@@ -571,7 +571,8 @@ pub(super) fn query(engine: &Engine, request: &Query, grant: bool) -> Result<Pag
     let search = request.search.to_lowercase();
     let mut matching = vec![];
     for row in output {
-        let encoded = serde_json::to_vec(&row).map_err(|_| QueryError::Integrity)?;
+        let encoded =
+            serde_json::to_vec(&wire::Query2Row(&row)).map_err(|_| QueryError::Integrity)?;
         if encoded.len() > MAX_PAGE_BYTES - 4096 {
             return Err(QueryError::TooLarge);
         }

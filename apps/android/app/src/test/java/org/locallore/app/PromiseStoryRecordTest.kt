@@ -172,7 +172,7 @@ class PromiseStoryRecordTest {
         for (value in listOf<Any>("pending", "OPEN", "completed", true, 1, JSONObject.NULL)) {
             invalid(page(q, listOf(promise().put("status", value))), q)
         }
-        for (value in listOf<Any>(-1, true, 1.0, "120", JSONObject.NULL)) {
+        for (value in listOf<Any>(-1, true, 1.0, "0120", JSONObject.NULL)) {
             invalid(page(q, listOf(promise().put("deadline", value))), q)
         }
     }

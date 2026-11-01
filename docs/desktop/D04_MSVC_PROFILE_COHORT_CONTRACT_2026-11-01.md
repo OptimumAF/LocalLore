@@ -254,6 +254,36 @@ The private `api` has exactly these five functions and a data-only `codebook`:
   valid bounded forms are already smaller than the byte ceilings. FIRST labels
   these overlapping controls and adds no arbitrary padding capability.
 
+### Exact stopped-prefix relations
+
+Let `n=rows.length` and `m` be the number of non-null encoded modes. The job
+snapshot MUST have `inputCount=n` and `inputBytes` equal to the original pinned
+input-byte sum for slots1 through n (zero for the empty prefix). A reserved but
+unread/unpaired entry is not a job input. Only the final represented row may
+have a null mode; every earlier row must have both modes. Retain the first
+critical cause; a later source/report failure cannot relabel an earlier partial
+pair into an ordinary full-prefix failure.
+
+- Stopped `InputFailure`, `IdentityFailure`, `SourceFailure`, `ReportFailure`
+  or `CohortOrder`: every represented row has both modes, job attempts are
+  exactly `2*n`, and `io.reservedInputs` is n or n+1 within the existing32 limit.
+  In particular empty rows require job inputCount/bytes/attempts all zero, even
+  if one next input was conservatively reserved before a read failure.
+- `BaselineMismatch`: n>=1, final strict is non-null and profile is null,
+  attempts=`2*n-1`, job.stopped=false, and io.reservedInputs=n.
+- `JobStopped`: n>=1, final strict is non-null. If final profile is null,
+  strict must be a known refusal; otherwise profile must be a known refusal.
+  Attempts=m (exactly `2*n-1` or `2*n`), job.stopped=true, io.reservedInputs=n.
+- `UnknownInspection`: n>=1, final profile is null and strict is null or known;
+  attempts=`m+1` records the one actually attempted but unencodable critical
+  mode, and io.reservedInputs=n. Never invent an encoded known error for it.
+
+Complete reports retain the existing full32/64 constraints. These are schema
+and prefix-accounting checks; per-slot real baseline verification remains the
+collector's separate duty, not a requirement that would invalidate the FIRST's
+schema-only synthetic complete-report fixture. P09's precharged job is only a
+pairing-boundary fixture; it is not presented as a valid cohort report.
+
 Codebook has ONLY `kinds,sites,contexts,sha256,helperSha256,descriptorSha256`;
 it and its arrays are frozen. Kinds are the six full `LibraryInputs...` messages
 in the fixed ID order above; contexts are the eight ordered names above.

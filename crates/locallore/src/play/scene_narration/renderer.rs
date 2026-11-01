@@ -16,6 +16,10 @@ pub struct RenderedSceneNarratorV1 {
 }
 
 impl RenderedSceneNarratorV1 {
+    pub(crate) fn from_parts(prompt: String, schema: Value) -> Self {
+        Self { prompt, schema }
+    }
+
     pub fn prompt(&self) -> &str {
         &self.prompt
     }
@@ -73,23 +77,66 @@ pub(super) fn validate_generated_detailed(
     bound: &BoundScenePlayV1,
     text: &str,
 ) -> Result<(), NarrationValidationFailureV1> {
+    validate_generated_for_player(bound.approved(), bound.scene_frame().player(), text)
+}
+
+pub(crate) fn validate_generated_for_player(
+    approved: &crate::contracts::Receipt,
+    player: &str,
+    text: &str,
+) -> Result<(), NarrationValidationFailureV1> {
+    validate_generated_for_player_inner(approved, player, text, false)
+}
+
+/// V2 segments original words before folding. Folding a name such as İpek can
+/// introduce a combining mark; that must not manufacture an English pronoun.
+/// Keep V1's original check for exact historical validation.
+pub(crate) fn validate_generated_for_player_v2(
+    approved: &crate::contracts::Receipt,
+    player: &str,
+    text: &str,
+) -> Result<(), NarrationValidationFailureV1> {
+    validate_generated_for_player_inner(approved, player, text, true)
+}
+
+fn validate_generated_for_player_inner(
+    approved: &crate::contracts::Receipt,
+    player: &str,
+    text: &str,
+    original_words: bool,
+) -> Result<(), NarrationValidationFailureV1> {
     let lower = text.to_lowercase();
-    if lower
-        .split(|character: char| !character.is_alphanumeric())
-        .any(|word| {
-            matches!(
-                word,
-                "i" | "me" | "my" | "mine" | "we" | "us" | "our" | "ours"
-            )
+    let first_person = |word: &str| {
+        matches!(
+            word,
+            "i" | "me" | "my" | "mine" | "we" | "us" | "our" | "ours"
+        )
+    };
+    let has_first_person = if original_words {
+        use unicode_general_category::{get_general_category, GeneralCategory};
+        text.split(|character: char| {
+            !character.is_alphanumeric()
+                && !matches!(
+                    get_general_category(character),
+                    GeneralCategory::NonspacingMark
+                        | GeneralCategory::SpacingMark
+                        | GeneralCategory::EnclosingMark
+                )
         })
-    {
+        .any(|word| first_person(&word.to_lowercase()))
+    } else {
+        lower
+            .split(|character: char| !character.is_alphanumeric())
+            .any(first_person)
+    };
+    if has_first_person {
         return Err(NarrationValidationFailureV1::scene(
             NarrationRejectionReasonV1::SceneFirstPerson,
         ));
     }
-    let accepted_player_move = bound.approved().events().iter().any(|event| {
+    let accepted_player_move = approved.events().iter().any(|event| {
         matches!(event.outcome(), Effect::Moved { actor, .. }
-            if actor.as_str() == bound.scene_frame().player())
+            if actor.as_str() == player)
     });
     if !accepted_player_move
         && [

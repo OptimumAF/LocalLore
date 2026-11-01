@@ -14,7 +14,7 @@ use locallore_eval::{
     },
     memory_comparison::frozen_suite,
     memory_comparison_v2::semantic_input,
-    memory_comparison_v3::arm_descriptors,
+    memory_comparison_v3::current_arm_descriptors,
 };
 use locallore_storage::{Store, TurnPhase};
 use serde_json::{json, Value};
@@ -215,7 +215,7 @@ fn check_inputs(source: &Path, target: &Path, report: &Value, index: usize) {
     assert_eq!(report["source_protocol_version"], 3);
     assert_eq!(
         report["arms"],
-        serde_json::to_value(arm_descriptors()).unwrap()
+        serde_json::to_value(current_arm_descriptors()).unwrap()
     );
     assert_eq!(report["completed"], true);
     assert_eq!(report["rows"].as_array().unwrap().len(), 2);
@@ -261,7 +261,7 @@ fn check_inputs(source: &Path, target: &Path, report: &Value, index: usize) {
         let row = actual_row(report, arm);
         assert_eq!(
             row["construction"],
-            serde_json::to_value(&arm_descriptors()[n]).unwrap()
+            serde_json::to_value(&current_arm_descriptors()[n]).unwrap()
         );
         assert_eq!(row["input_semantic_sha256"], input["input_semantic_sha256"]);
         assert!(row.get("policy").is_none());
@@ -317,7 +317,7 @@ fn paired_actual_prefixes_requests_descriptors_and_safe_prepared_metadata_are_bo
     assert_eq!(metadata["source_protocol_version"], 3);
     assert_eq!(
         metadata["constructions"],
-        serde_json::to_value(arm_descriptors()).unwrap()
+        serde_json::to_value(current_arm_descriptors()).unwrap()
     );
     assert_eq!(metadata["arms"].as_array().unwrap().len(), 2);
     assert_eq!(selected_v2::prepared_metadata(&plan).unwrap(), metadata);

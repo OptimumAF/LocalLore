@@ -111,7 +111,7 @@ fn generated(source: &Engine, request: &Request) -> Receipt {
     assert_eq!(roles, vec!["director", "narrator"]);
     let record = receipt.play().unwrap();
     assert_eq!(record.prompt_version, "locallore-play-v2.5");
-    assert_eq!(record.policy, "grounded-prose-v2.2");
+    assert_eq!(record.policy, "grounded-prose-v2.5-whole-evidence-words-v1");
     assert!(record.fallback);
     assert_eq!(record.context.as_ref().unwrap().version, 2);
     assert_eq!(record.context.as_ref().unwrap().compiler_version, 2);

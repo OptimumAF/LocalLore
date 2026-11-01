@@ -242,7 +242,7 @@ class StoryPresentationMainActivityTest {
             val play = receipt.getJSONObject("play")
             assertEquals(2, play.getInt("version"))
             assertEquals("locallore-play-v2.7-story-presentation-v1", play.getString("prompt_version"))
-            assertEquals("grounded-prose-v2.3-story-presentation-v1", play.getString("policy"))
+            assertEquals("grounded-prose-v2.6-story-presentation-whole-evidence-words-v1", play.getString("policy"))
             val binding = play.getJSONObject("story_presentation")
             assertEquals(setOf("version", "presentation_sha256"), binding.keys().asSequence().toSet())
             assertEquals(1, binding.getInt("version"))

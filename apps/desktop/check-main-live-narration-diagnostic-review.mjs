@@ -396,6 +396,7 @@ await test(
     "actual App mounts thin metadata only and preserves excluded sibling controls",
     async (f) => {
         await f.ready();
+        const before = f.host.calls.length;
         const tree = f.render(),
             all = nodes(tree);
         const debuggerNodes = all.filter(
@@ -403,11 +404,29 @@ await test(
         );
         assert.equal(debuggerNodes.length, 1);
         assert.equal(debuggerNodes[0].props.controller, f.c);
+        const timelineNodes = all.filter(
+            (n) => n.type?.name === "TimelinePanel",
+        );
+        assert.equal(timelineNodes.length, 1);
+        assert(f.props.timeline);
+        assert.equal(timelineNodes[0].props.timeline, f.props.timeline);
+        const selected = f.c.selected(),
+            state = f.c.get();
+        assert.deepEqual(plain(state.playV2.scope), plain(selected.scope));
+        assert.equal(state.playV2.revision, selected.revision);
+        assert.deepEqual(plain(timelineNodes[0].props.context), {
+            session: selected.id,
+            scope: plain(selected.scope),
+            revision: state.playV2.revision,
+            view: state.view,
+            observer: state.observer,
+            persistent: state.workspace?.persistent === true,
+        });
+        assert(f.props.timeline.matchesContext(timelineNodes[0].props.context));
         for (const name of [
             "CapturePanel",
             "QueryInspector",
             "InspectionPanel",
-            "TimelinePanel",
             "ForkPanel",
             "MemoryMaintenancePanel",
         ])
@@ -423,7 +442,6 @@ await test(
             assert(button);
             assert.equal(button.props.disabled, true);
         }
-        const before = f.host.calls.length;
         f.render();
         assert.equal(f.host.calls.length, before, "RenderNeverReadsDiagnostic");
     },

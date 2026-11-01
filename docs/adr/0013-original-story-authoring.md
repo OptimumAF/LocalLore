@@ -77,3 +77,24 @@ without sorting or narrowing accepted proposal/provenance values. Existing
 native cross-field checks remain authoritative. The isolated strict native
 compiler/mask result and its Android/model limits are recorded in the
 [portability report](../native/AUTHOR_SCHEMA_PORTABILITY_2026-10-27.md).
+
+## 2026-10-31: observed typed location labels for scene narration
+
+The authored origin remains provenance, not a general retrieval source. An
+explicit scene V2 constructor may project only the typed name of the actual
+candidate location when its original materialized fact exactly matches the
+player's stored observation. Compare against the seed fact, not effective
+hidden truth. An unseen correction does not rewrite remembered knowledge;
+after observing corrected free text without a typed mapping, omit the label.
+Move alone does not disclose it. Eligible ancestor observation references retain
+their original scope on a child branch.
+
+The added frame contains no description, remote location, NPC sheet, belief or
+hidden corrected value. Existing narrator evidence still carries propositions
+of discoveries actually accepted this turn, including descriptions and observed
+corrections. Never parse that prose into typed label authority. A remembered
+label is neither a fresh claim of world truth nor a new canonical event.
+
+The [Core/Host verification](../runtime/AUTHORED_SCENE_V2_2026-10-30.md) exercises
+these distinctions with original fake-provider fixtures and durable replay.
+It adds no model, Android selector, canonical-storage schema or release claim.

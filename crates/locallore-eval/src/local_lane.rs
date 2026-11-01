@@ -103,13 +103,13 @@ pub enum LaneFactory {
     TestFault(TestFault),
 }
 #[cfg(test)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum TestFault {
     WrongCommand,
     MalformedRepair,
     UnfaithfulNarrator,
     SecretNarrator,
-    Pending,
+    Pending(Arc<std::sync::atomic::AtomicBool>),
     UnsupportedProse,
 }
 impl LaneFactory {
@@ -192,7 +192,7 @@ impl LaneFactory {
         let inner: Box<dyn InferenceProvider + Send> = if let Self::TestFault(fault) = self {
             Box::new(FaultProvider {
                 inner,
-                fault: *fault,
+                fault: fault.clone(),
                 directors: 0,
             })
         } else {
@@ -227,8 +227,6 @@ impl Drop for DeadlineGuard {
         }
     }
 }
-#[cfg(test)]
-static PENDING_POLLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 struct PendingFixture;
 impl InferenceProvider for PendingFixture {
     fn poll(
@@ -259,8 +257,8 @@ impl InferenceProvider for FaultProvider {
         let Input::Structured { role, schema, .. } = &r.input else {
             return Poll::Ready(Err(Error::Provider));
         };
-        if matches!(self.fault, TestFault::Pending) {
-            PENDING_POLLED.store(true, Ordering::Release);
+        if let TestFault::Pending(observed) = &self.fault {
+            observed.store(true, Ordering::Release);
             return PendingFixture.poll(r, c);
         }
         if role == "director" {

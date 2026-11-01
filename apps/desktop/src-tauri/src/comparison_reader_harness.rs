@@ -110,7 +110,7 @@ fn scene_proof(path: &Path, scenes: usize) -> Result<Value, String> {
         ComparisonKind::ContinuousRollout
     };
     if report.version != 4
-        || report.arms != v4::arm_descriptors()
+        || report.arms != v4::current_arm_descriptors()
         || report.kind != expected_kind
         || report.lane != "scripted_scene_literal_relevant_comparison"
         || report.physical_setups != 0
@@ -853,4 +853,55 @@ pub async fn harness_comparison_reader_case(
             _ => Err("SyntheticCaseRequired".into()),
         }
     }).await.map_err(|_|"SyntheticFixtureInternal".to_owned())?
+}
+
+#[cfg(test)]
+mod scene_proof_tests {
+    use super::*;
+
+    #[test]
+    fn fresh_scripted_scene4_passes_real_scene_proof_and_releases_read_ownership() {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let nonce = NEXT.fetch_add(1, Ordering::Relaxed);
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        // The finite owner supplies D-managed TEMP. Retain even failed fixtures;
+        // this case never opens a Tauri window, model, SDK or historical corpus.
+        let root = std::env::temp_dir().join(format!("scene-proof-current-{time}-{nonce}"));
+        std::fs::create_dir(&root).unwrap();
+        let source = root.join("rollout");
+        let report = comparison::scene_v4::run_comparison(
+            &source,
+            false,
+            ComparisonKind::ContinuousRollout,
+            &Cancellation::default(),
+            1,
+            LaneFactory::ScriptedBaseline,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            report.arms,
+            locallore_eval::memory_comparison_v4::current_arm_descriptors()
+        );
+        let before = inventory_stats_for_mode(&source, false, false).unwrap();
+        let proof = scene_proof(&source, 1).unwrap();
+        assert_eq!(proof["rows"], 12);
+        assert_eq!(proof["source_matches"], true);
+        assert_eq!(proof["read_only"], true);
+        assert_eq!(proof["execution_available"], false);
+        assert_eq!(proof["models_executed"], false);
+        // Reacquisition exercises the real retained-reader lock after the
+        // proof returns; no fabricated report or capability replaces it.
+        let reader = comparison::scene_v4::desktop_api::open_read_only(&source).unwrap();
+        let summary = comparison::scene_v4::desktop_api::summary(&reader, true).unwrap();
+        assert_eq!(summary["report"], serde_json::to_value(&report).unwrap());
+        drop(reader);
+        assert_eq!(
+            inventory_stats_for_mode(&source, false, false).unwrap(),
+            before
+        );
+    }
 }

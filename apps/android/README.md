@@ -11,6 +11,13 @@ palette on dark green surfaces. This changes presentation only. The
 [system-theme verification report](../../docs/android/SYSTEM_THEME_VERIFICATION_2026-10-30.md)
 records host checks and the Android visual/accessibility checks still pending.
 
+The [native story-scene adoption](../../docs/native/ANDROID_STORY_SCENE_V1_VERIFICATION_2026-10-31.md)
+selects the existing starter or authored scene recipe from each validated Rust
+seed when the external local-inference owner is configured. Kotlin and model
+replies cannot choose that recipe. Ordinary scripted construction and legacy
+Host defaults retain their behavior. Host/fake-provider, JVM and APK checks
+do not establish device/model execution or narrative quality.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

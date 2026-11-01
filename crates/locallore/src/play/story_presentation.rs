@@ -7,7 +7,10 @@ use sha2::{Digest, Sha256};
 pub const PRESENTATION_PROMPT_VERSION: &str = "locallore-play-v2.7-story-presentation-v1";
 pub const LITERAL_PRESENTATION_PROMPT_VERSION_V1: &str =
     "locallore-play-v2.8-literal-director-v1-story-presentation-v1";
-pub const PRESENTATION_NARRATION_POLICY: &str = "grounded-prose-v2.3-story-presentation-v1";
+pub const PRESENTATION_NARRATION_POLICY: &str =
+    "grounded-prose-v2.6-story-presentation-whole-evidence-words-v1";
+pub(super) const RECORDED_PRESENTATION_NARRATION_POLICY: &str =
+    "grounded-prose-v2.3-story-presentation-v1";
 
 /// A claim to recheck against the actual seed, never a preference source.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

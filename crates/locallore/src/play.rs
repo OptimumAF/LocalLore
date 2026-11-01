@@ -14,6 +14,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     time::{Duration, Instant},
 };
+pub mod authored_scene_narration;
 pub(crate) mod director_budget;
 mod director_construction;
 mod literal_director;
@@ -202,13 +203,14 @@ fn remaining(clock: GameplayClock, overhead: Duration, deadline_ms: u64) -> Resu
 }
 
 pub const PLAY_VERSION: u16 = 2;
-pub const NARRATION_POLICY: &str = "grounded-prose-v2.2";
+pub const NARRATION_POLICY: &str = "grounded-prose-v2.5-whole-evidence-words-v1";
+const RECORDED_STAGED_NARRATION_POLICY: &str = "grounded-prose-v2.2";
 pub const PROMPT_VERSION: &str = "locallore-play-v2.5";
 /// Immutable construction mapping: Domain1/player, source/render/schema/packing
-/// v1, no compiler/coverage context, grounded-prose-v2.2 narration. A future
+/// v1, no compiler/coverage context, current versioned narration policy. A future
 /// construction change requires a new version, never repoint this identifier.
 pub const LITERAL_PLAY_PROMPT_VERSION_V1: &str = "locallore-play-v2.6-literal-director-v1";
-const LITERAL_NARRATION_POLICY_V1: &str = "grounded-prose-v2.2";
+const LITERAL_NARRATION_POLICY_V1: &str = NARRATION_POLICY;
 const LITERAL_DIRECTOR_SCHEMA_ID_V1: &str = "locallore-director-literal-v1";
 pub const RECORDED_PROMPT_VERSION: &str = "locallore-play-v2.1";
 const RECORDED_PROMPT_V2_2: &str = "locallore-play-v2.2";
@@ -559,7 +561,28 @@ pub(crate) fn validate_record(
     {
         return Err(Error::Narration);
     }
-    validate_record_contents(engine, approved, record, None)
+    validate_record_contents(engine, approved, record, None, ProseMode::Legacy)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ProseMode {
+    Legacy,
+    WholeEvidenceWordsV1,
+}
+
+pub(super) fn narration_policy_mode(
+    record: &PlayRecord,
+    recorded_history: bool,
+    current: &str,
+    legacy: &str,
+) -> Result<ProseMode, Error> {
+    if record.policy == current {
+        Ok(ProseMode::WholeEvidenceWordsV1)
+    } else if recorded_history && record.policy == legacy {
+        Ok(ProseMode::Legacy)
+    } else {
+        Err(Error::Narration)
+    }
 }
 
 /// Core calls this only after regenerating the actual staged candidate/evidence.
@@ -569,9 +592,9 @@ pub(crate) fn validate_record_v25(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
-    _recorded_history: bool,
+    recorded_history: bool,
 ) -> Result<(), Error> {
-    validate_record_v25_inner(engine, approved, evidence, record, false)
+    validate_record_v25_inner(engine, approved, evidence, record, false, recorded_history)
 }
 
 pub(crate) fn validate_record_presentation_v1(
@@ -579,9 +602,9 @@ pub(crate) fn validate_record_presentation_v1(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
-    _recorded_history: bool,
+    recorded_history: bool,
 ) -> Result<(), Error> {
-    validate_record_v25_inner(engine, approved, evidence, record, true)
+    validate_record_v25_inner(engine, approved, evidence, record, true, recorded_history)
 }
 
 fn validate_record_v25_inner(
@@ -590,6 +613,7 @@ fn validate_record_v25_inner(
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
     presentation: bool,
+    recorded_history: bool,
 ) -> Result<(), Error> {
     if record.scene.is_some() {
         return Err(Error::Narration);
@@ -597,12 +621,6 @@ fn validate_record_v25_inner(
     story_presentation::validate_binding(engine, record, presentation)?;
     record.profile.validate()?;
     if record.version != PLAY_VERSION
-        || record.policy
-            != if presentation {
-                PRESENTATION_NARRATION_POLICY
-            } else {
-                NARRATION_POLICY
-            }
         || record.prompt_version
             != if presentation {
                 PRESENTATION_PROMPT_VERSION
@@ -612,8 +630,22 @@ fn validate_record_v25_inner(
     {
         return Err(Error::Narration);
     }
+    let mode = narration_policy_mode(
+        record,
+        recorded_history,
+        if presentation {
+            PRESENTATION_NARRATION_POLICY
+        } else {
+            NARRATION_POLICY
+        },
+        if presentation {
+            story_presentation::RECORDED_PRESENTATION_NARRATION_POLICY
+        } else {
+            RECORDED_STAGED_NARRATION_POLICY
+        },
+    )?;
     validate_memory_context_record(engine, approved, record)?;
-    validate_staged_record_contents(engine, approved, evidence, record)
+    validate_staged_record_contents(engine, approved, evidence, record, mode)
 }
 
 fn validate_memory_context_record(
@@ -656,10 +688,18 @@ pub(crate) fn validate_record_literal_v1(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
-    _recorded_history: bool,
+    recorded_history: bool,
     cancel: &dyn Fn() -> bool,
 ) -> Result<(), Error> {
-    validate_record_literal_inner(engine, approved, evidence, record, cancel, false)
+    validate_record_literal_inner(
+        engine,
+        approved,
+        evidence,
+        record,
+        cancel,
+        false,
+        recorded_history,
+    )
 }
 
 pub(crate) fn validate_record_literal_presentation_v1(
@@ -667,10 +707,18 @@ pub(crate) fn validate_record_literal_presentation_v1(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
-    _recorded_history: bool,
+    recorded_history: bool,
     cancel: &dyn Fn() -> bool,
 ) -> Result<(), Error> {
-    validate_record_literal_inner(engine, approved, evidence, record, cancel, true)
+    validate_record_literal_inner(
+        engine,
+        approved,
+        evidence,
+        record,
+        cancel,
+        true,
+        recorded_history,
+    )
 }
 
 fn validate_record_literal_inner(
@@ -680,6 +728,7 @@ fn validate_record_literal_inner(
     record: &PlayRecord,
     cancel: &dyn Fn() -> bool,
     presentation: bool,
+    recorded_history: bool,
 ) -> Result<(), Error> {
     if record.scene.is_some() {
         return Err(Error::Narration);
@@ -696,17 +745,25 @@ fn validate_record_literal_inner(
             } else {
                 LITERAL_PLAY_PROMPT_VERSION_V1
             }
-        || record.policy
-            != if presentation {
-                PRESENTATION_NARRATION_POLICY
-            } else {
-                LITERAL_NARRATION_POLICY_V1
-            }
     {
         return Err(Error::Narration);
     }
+    let mode = narration_policy_mode(
+        record,
+        recorded_history,
+        if presentation {
+            PRESENTATION_NARRATION_POLICY
+        } else {
+            LITERAL_NARRATION_POLICY_V1
+        },
+        if presentation {
+            story_presentation::RECORDED_PRESENTATION_NARRATION_POLICY
+        } else {
+            RECORDED_STAGED_NARRATION_POLICY
+        },
+    )?;
     validate_literal_context_record(engine, approved, record, cancel)?;
-    validate_staged_record_contents(engine, approved, evidence, record)
+    validate_staged_record_contents(engine, approved, evidence, record, mode)
 }
 
 fn validate_literal_context_record(
@@ -758,6 +815,35 @@ fn validate_staged_record_contents(
     approved: &Receipt,
     evidence: &NarratorEvidenceV22,
     record: &PlayRecord,
+    mode: ProseMode,
+) -> Result<(), Error> {
+    validate_staged_record_contents_inner(engine, approved, evidence, record, mode, None)
+}
+
+fn validate_staged_record_contents_with_location_label(
+    engine: &Engine,
+    approved: &Receipt,
+    evidence: &NarratorEvidenceV22,
+    record: &PlayRecord,
+    label: Option<&str>,
+) -> Result<(), Error> {
+    validate_staged_record_contents_inner(
+        engine,
+        approved,
+        evidence,
+        record,
+        ProseMode::WholeEvidenceWordsV1,
+        label,
+    )
+}
+
+fn validate_staged_record_contents_inner(
+    engine: &Engine,
+    approved: &Receipt,
+    evidence: &NarratorEvidenceV22,
+    record: &PlayRecord,
+    mode: ProseMode,
+    location_label: Option<&str>,
 ) -> Result<(), Error> {
     // Evidence is opaque Core output. Even trusted internal callers must keep
     // its event catalogue/observation attribution bound to this approved turn.
@@ -784,7 +870,14 @@ fn validate_staged_record_contents(
         return Err(Error::Narration);
     }
     crate::engine::check_json_budget(evidence, MAX_RECEIPT_BYTES)?;
-    validate_record_contents(engine, approved, record, Some(evidence))
+    validate_record_contents_with_location_label(
+        engine,
+        approved,
+        record,
+        Some(evidence),
+        mode,
+        location_label,
+    )
 }
 
 fn validate_record_contents(
@@ -792,6 +885,18 @@ fn validate_record_contents(
     approved: &Receipt,
     record: &PlayRecord,
     evidence: Option<&NarratorEvidenceV22>,
+    mode: ProseMode,
+) -> Result<(), Error> {
+    validate_record_contents_with_location_label(engine, approved, record, evidence, mode, None)
+}
+
+fn validate_record_contents_with_location_label(
+    engine: &Engine,
+    approved: &Receipt,
+    record: &PlayRecord,
+    evidence: Option<&NarratorEvidenceV22>,
+    mode: ProseMode,
+    location_label: Option<&str>,
 ) -> Result<(), Error> {
     if record.repairs > record.profile.repair_limit
         || record.stages.len() > 8
@@ -821,7 +926,14 @@ fn validate_record_contents(
             return Err(Error::Narration);
         }
     } else {
-        validate_prose(engine, approved, &record.narration.text, evidence)?;
+        validate_prose(
+            engine,
+            approved,
+            &record.narration.text,
+            evidence,
+            mode,
+            location_label,
+        )?;
     }
     engine.validate_story_narration(&record.narration.text)
 }
@@ -899,11 +1011,87 @@ fn narration_reclaims_transferred_item(approved: &Receipt, player: &str, lower: 
     })
 }
 
+/// Complete visible labels only. Ranges are in the lowercased text's byte
+/// coordinates; they are never used to slice the original Unicode prose.
+fn narrator_visible_label_spans(
+    lower: &str,
+    labels: &BTreeSet<String>,
+    mode: ProseMode,
+) -> Vec<(usize, usize)> {
+    let boundary = move |c: char| {
+        if mode == ProseMode::WholeEvidenceWordsV1 {
+            // Match the original-word rule used by evidence checks. A combining
+            // mark or non-ASCII continuation must not create a partial label
+            // span that masks a hidden display name, even in lowercase prose.
+            prose_word_boundary(c) || matches!(c, '‘' | '“' | '”')
+        } else {
+            !c.is_alphanumeric() && !matches!(c, '_' | '-' | '\'' | '’')
+        }
+    };
+    labels
+        .iter()
+        .filter(|label| !label.is_empty())
+        .flat_map(|label| {
+            lower.match_indices(label).filter_map(move |(start, _)| {
+                let end = start + label.len();
+                let mut preceding = lower[..start].chars().rev();
+                let left = match preceding.next() {
+                    Some('\'' | '’') => preceding.next().is_none_or(boundary),
+                    character => character.is_none_or(boundary),
+                };
+                let suffix = &lower[end..];
+                let right = if let Some(tail) = suffix
+                    .strip_prefix('\'')
+                    .or_else(|| suffix.strip_prefix('’'))
+                {
+                    // Accept a closing quote or complete possessive, never a
+                    // fragment of an apostrophe-extended unknown name.
+                    tail.strip_prefix('s')
+                        .unwrap_or(tail)
+                        .chars()
+                        .next()
+                        .is_none_or(boundary)
+                } else {
+                    suffix.chars().next().is_none_or(boundary)
+                };
+                (left && right).then_some((start, end))
+            })
+        })
+        .collect()
+}
+
+// English-first lexical boundaries, deliberately conservative for non-ASCII
+// punctuation. All non-whitespace Unicode scalars remain in the original word,
+// including combining marks; folding must never create a new partial word.
+fn prose_word_boundary(character: char) -> bool {
+    character.is_whitespace()
+        || (character.is_ascii_punctuation() && !matches!(character, '_' | '-' | '\''))
+}
+
+fn prose_word(word: &str) -> &str {
+    let word = word.trim_matches(|character| {
+        prose_word_boundary(character) || matches!(character, '\'' | '‘' | '’' | '“' | '”')
+    });
+    word.strip_suffix("'s")
+        .or_else(|| word.strip_suffix("’s"))
+        .unwrap_or(word)
+}
+
+fn prose_words(text: &str) -> Vec<String> {
+    text.split(prose_word_boundary)
+        .map(prose_word)
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
 fn validate_prose(
     engine: &Engine,
     approved: &Receipt,
     text: &str,
     evidence: Option<&NarratorEvidenceV22>,
+    mode: ProseMode,
+    location_label: Option<&str>,
 ) -> Result<(), Error> {
     if text.trim().is_empty()
         || text.len() > 4096
@@ -928,13 +1116,26 @@ fn validate_prose(
     {
         return Err(Error::Narration);
     }
-    let mut source = crate::engine::render(approved.events()).to_lowercase();
+    let mut original_source = crate::engine::render(approved.events());
     if let Some(evidence) = evidence {
         for observation in evidence.observations() {
-            source.push('\n');
-            source.push_str(&observation.proposition().to_lowercase());
+            original_source.push('\n');
+            original_source.push_str(observation.proposition());
         }
     }
+    let source = original_source.to_lowercase();
+    // Segment before case folding: Unicode lowercasing can expand one scalar
+    // into a letter plus a combining mark, which must not create a new word.
+    let source_words = if mode == ProseMode::WholeEvidenceWordsV1 {
+        prose_words(&original_source)
+    } else {
+        Vec::new()
+    };
+    let output_words = if mode == ProseMode::WholeEvidenceWordsV1 {
+        prose_words(text)
+    } else {
+        Vec::new()
+    };
     for phrase in [
         "appears",
         "materializes",
@@ -952,20 +1153,36 @@ fn validate_prose(
         "everyone knows",
         "secret-",
     ] {
-        if (if phrase.contains(' ') {
-            lower.contains(phrase)
-        } else {
-            lower
-                .split(|c: char| !c.is_alphanumeric() && c != '-')
-                .any(|word| {
-                    if phrase.ends_with('-') {
+        let unsupported = if mode == ProseMode::WholeEvidenceWordsV1 {
+            if phrase.contains(' ') {
+                let words = prose_words(phrase);
+                output_words.windows(words.len()).any(|part| part == words)
+                    && !source_words.windows(words.len()).any(|part| part == words)
+            } else {
+                output_words.iter().any(|word| {
+                    (if phrase.ends_with('-') {
                         word.starts_with(phrase)
                     } else {
                         word == phrase
-                    }
+                    }) && !source_words.contains(word)
                 })
-        }) && !source.contains(phrase)
-        {
+            }
+        } else {
+            (if phrase.contains(' ') {
+                lower.contains(phrase)
+            } else {
+                lower
+                    .split(|c: char| !c.is_alphanumeric() && c != '-')
+                    .any(|word| {
+                        if phrase.ends_with('-') {
+                            word.starts_with(phrase)
+                        } else {
+                            word == phrase
+                        }
+                    })
+            }) && !source.contains(phrase)
+        };
+        if unsupported {
             return Err(Error::Narration);
         }
     }
@@ -1024,22 +1241,61 @@ fn validate_prose(
         .iter()
         .flat_map(|e| e.witnesses().iter().map(String::as_str))
         .collect();
-    let visible_labels: BTreeSet<_> = engine
+    let mut visible_labels: BTreeSet<_> = engine
         .state()
         .actors
         .iter()
         .filter(|(id, _)| visible.contains(id.as_str()))
         .flat_map(|(id, actor)| [id.to_lowercase(), actor.name.to_lowercase()])
         .collect();
+    // The extra source is an eligible typed current-location label from an
+    // opaque V2 binding. It extends complete-label spans only, never the word
+    // evidence catalogue, identity resolution, observations or hidden IDs.
+    if let Some(label) = location_label {
+        visible_labels.insert(label.to_lowercase());
+    }
+    let label_spans = narrator_visible_label_spans(&lower, &visible_labels, mode);
+    let covered_label = |start, end| {
+        label_spans
+            .iter()
+            .any(|&(label_start, label_end)| label_start <= start && end <= label_end)
+    };
     // This profile has no authority to introduce a new named character. Keep the
     // conservative check to capitalized in-sentence tokens; it is no NLP proof.
+    let mut sentence_start = 0;
     for sentence in text.split(['.', '!', '?', '\n']) {
-        for (index, token) in sentence.split_whitespace().enumerate() {
-            let token = token.trim_matches(|c: char| !c.is_alphabetic());
-            let token = token
-                .strip_suffix("'s")
-                .or_else(|| token.strip_suffix("’s"))
-                .unwrap_or(token);
+        let mut word_end = 0;
+        let words: Vec<_> = if mode == ProseMode::WholeEvidenceWordsV1 {
+            sentence
+                .split(prose_word_boundary)
+                .filter(|word| !word.is_empty())
+                .collect()
+        } else {
+            sentence.split_whitespace().collect()
+        };
+        for (index, word) in words.into_iter().enumerate() {
+            let word_start = word_end + sentence[word_end..].find(word).ok_or(Error::Narration)?;
+            word_end = word_start + word.len();
+            let token = if mode == ProseMode::WholeEvidenceWordsV1 {
+                prose_word(word)
+            } else {
+                let token = word.trim_matches(|c: char| !c.is_alphabetic());
+                token
+                    .strip_suffix("'s")
+                    .or_else(|| token.strip_suffix("’s"))
+                    .unwrap_or(token)
+            };
+            let token_start = sentence_start
+                + word_start
+                + if mode == ProseMode::WholeEvidenceWordsV1 {
+                    word.find(token).ok_or(Error::Narration)?
+                } else {
+                    word.len() - word.trim_start_matches(|c: char| !c.is_alphabetic()).len()
+                };
+            // Lowercasing may expand a Unicode scalar. Convert the original
+            // prefix/token lengths, rather than applying folded offsets to text.
+            let folded_start = text[..token_start].to_lowercase().len();
+            let folded_end = folded_start + token.to_lowercase().len();
             let opening_word = index == 0
                 && [
                     "you",
@@ -1059,27 +1315,52 @@ fn validate_prose(
                     "quietly",
                 ]
                 .contains(&token.to_lowercase().as_str());
-            if token.chars().next().is_some_and(char::is_uppercase)
-                && !opening_word
-                && !visible_labels.contains(&token.to_lowercase())
-                && !source.contains(&token.to_lowercase())
-            {
+            let capitalized = if mode == ProseMode::WholeEvidenceWordsV1 {
+                // A prefix such as o' must not hide an unsupported capitalized
+                // continuation. Ground the complete original atomic word.
+                token.chars().any(char::is_uppercase)
+            } else {
+                token.chars().next().is_some_and(char::is_uppercase)
+            };
+            // The English pronoun is inherently capitalized, not a named
+            // entity. Scene-specific first-person restrictions still run.
+            let grammatical_opening = opening_word
+                || (mode == ProseMode::WholeEvidenceWordsV1 && index == 0 && token == "I");
+            let evidence_word = if mode == ProseMode::WholeEvidenceWordsV1 {
+                source_words.contains(&token.to_lowercase())
+            } else {
+                source.contains(&token.to_lowercase())
+            };
+            let grounded = visible_labels.contains(&token.to_lowercase())
+                || evidence_word
+                || covered_label(folded_start, folded_end);
+            if capitalized && !grammatical_opening && !grounded {
                 return Err(Error::Narration);
             }
         }
+        // Each separator above is a single ASCII byte. Preserve the original
+        // word positions so a matched name cannot create an opening-word grant.
+        sentence_start += sentence.len() + 1;
     }
     for (id, actor) in &engine.state().actors {
-        let hidden_mentioned = [id.to_lowercase(), actor.name.to_lowercase()]
-            .iter()
-            .any(|label| {
-                !visible_labels.contains(label)
-                    && lower.match_indices(label).any(|(start, _)| {
-                        let end = start + label.len();
-                        let boundary = |c: char| !c.is_alphanumeric() && !matches!(c, '_' | '-');
-                        lower[..start].chars().next_back().is_none_or(boundary)
+        let hidden_mentioned = [
+            (id.to_lowercase(), false),
+            (actor.name.to_lowercase(), true),
+        ]
+        .iter()
+        .any(|(label, is_name)| {
+            !visible_labels.contains(label)
+                && lower.match_indices(label).any(|(start, _)| {
+                    let end = start + label.len();
+                    let boundary = |c: char| !c.is_alphanumeric() && !matches!(c, '_' | '-');
+                    lower[..start].chars().next_back().is_none_or(boundary)
                             && lower[end..].chars().next().is_none_or(boundary)
-                    })
-            });
+                            // A full known name may contain another actor's
+                            // display name. Exempt that occurrence only; hidden
+                            // IDs and the same name elsewhere remain guarded.
+                            && !(*is_name && covered_label(start, end))
+                })
+        });
         if !visible.contains(id.as_str()) && hidden_mentioned {
             return Err(Error::Knowledge);
         }
@@ -1492,32 +1773,113 @@ pub fn execute_traced_with_scene_recipe_v1(
         PresentationExecutionInput {
             director,
             literal_presentation: false,
-            scene_recipe: Some(input.recipe),
+            scene_recipe: Some(SelectedSceneRecipe::V1(input.recipe)),
         },
     )
+}
+
+/// Authored-world scene construction is an explicit native choice. Existing
+/// defaults and V1 recipes retain their original seed and history boundaries.
+pub fn execute_traced_with_authored_scene_recipe_v2(
+    engine: &mut Engine,
+    request: &Request,
+    provider: &mut (impl InferenceProvider + ?Sized),
+    cancel: &Cancellation,
+    profile: &PlayProfile,
+    sink: Option<&mut dyn TraceSink>,
+    input: authored_scene_narration::AuthoredScenePlayConstructionInput<'_>,
+) -> Result<Receipt, Error> {
+    if let Some(receipt) = engine.recorded(request)? {
+        return Ok(receipt);
+    }
+    let director = match input.recipe {
+        authored_scene_narration::AuthoredSceneRecipeV2::LiteralV1 => {
+            if input.coverage.is_some() {
+                return Err(Error::Rule);
+            }
+            DirectorInput::LiteralV1
+        }
+        authored_scene_narration::AuthoredSceneRecipeV2::Memory(policy) => {
+            let (proof, source_fallback_reason) = match input.coverage {
+                Some(crate::memory_coverage::CoverageRead::Verified(proof)) => (Some(proof), None),
+                Some(crate::memory_coverage::CoverageRead::RawFallback(reason)) => {
+                    (None, Some((*reason).into()))
+                }
+                None => (None, None),
+            };
+            DirectorInput::Memory(MemoryInput {
+                proof,
+                source_fallback_reason,
+                policy,
+            })
+        }
+    };
+    execute_with_presentation_input(
+        engine,
+        request,
+        provider,
+        cancel,
+        profile,
+        sink,
+        PresentationExecutionInput {
+            director,
+            literal_presentation: false,
+            scene_recipe: Some(SelectedSceneRecipe::AuthoredV2(input.recipe)),
+        },
+    )
+}
+
+#[derive(Clone, Copy)]
+enum SelectedSceneRecipe {
+    V1(scene_narration::SceneRecipeV1),
+    AuthoredV2(authored_scene_narration::AuthoredSceneRecipeV2),
+}
+impl SelectedSceneRecipe {
+    fn prompt_version(self) -> &'static str {
+        match self {
+            Self::V1(recipe) => recipe.prompt_version(),
+            Self::AuthoredV2(recipe) => recipe.prompt_version(),
+        }
+    }
+    fn policy(self) -> &'static str {
+        match self {
+            Self::V1(_) => scene_narration::SCENE_NARRATION_POLICY_V2,
+            Self::AuthoredV2(_) => authored_scene_narration::AUTHORED_SCENE_NARRATION_POLICY_V2,
+        }
+    }
+    fn check_seed(self, engine: &Engine) -> Result<(), Error> {
+        match self {
+            Self::V1(recipe) => scene_narration::check_seed(engine, recipe),
+            Self::AuthoredV2(recipe) => authored_scene_narration::check_seed(engine, recipe),
+        }
+    }
 }
 
 enum NarrationPreparation {
     Legacy(crate::engine::staged_play::StagedPlayV25),
     Scene(crate::engine::staged_scene_play::BoundScenePlayV1),
+    AuthoredScene(crate::engine::staged_authored_scene_play::BoundAuthoredScenePlayV2),
 }
 impl NarrationPreparation {
     fn approved(&self) -> &Receipt {
         match self {
             Self::Legacy(s) => s.approved(),
             Self::Scene(s) => s.approved(),
+            Self::AuthoredScene(s) => s.approved(),
         }
     }
     fn narrator_evidence(&self) -> &NarratorEvidenceV22 {
         match self {
             Self::Legacy(s) => s.narrator_evidence(),
             Self::Scene(s) => s.narrator_evidence(),
+            Self::AuthoredScene(s) => s.narrator_evidence(),
         }
     }
     fn scene(&self) -> Option<scene_narration::SceneNarrationRecordV1> {
         match self {
             Self::Legacy(_) => None,
             Self::Scene(s) => Some(s.provenance().clone()),
+            Self::AuthoredScene(s) => Some(s.provenance().clone()),
         }
     }
     fn validate_detailed(
@@ -1532,6 +1894,11 @@ impl NarrationPreparation {
             Self::Legacy(staged) => staged,
             Self::Scene(bound) => {
                 return scene_narration::validate_record_detailed(engine, bound, record, cancel)
+            }
+            Self::AuthoredScene(bound) => {
+                return authored_scene_narration::validate_record_detailed(
+                    engine, bound, record, cancel,
+                )
             }
         };
         if presentation && literal {
@@ -1581,6 +1948,9 @@ impl NarrationPreparation {
     ) -> Result<Receipt, Error> {
         match self {
             Self::Scene(bound) => engine.commit_scene_play_v1(bound, record, cancel),
+            Self::AuthoredScene(bound) => {
+                engine.commit_authored_scene_play_v2(bound, record, cancel)
+            }
             Self::Legacy(staged) => {
                 if presentation && literal {
                     engine.commit_staged_literal_presentation_play_v1(staged, record, cancel)
@@ -1622,7 +1992,7 @@ fn execute_with_context_input(
 struct PresentationExecutionInput<'a> {
     director: DirectorInput<'a>,
     literal_presentation: bool,
-    scene_recipe: Option<scene_narration::SceneRecipeV1>,
+    scene_recipe: Option<SelectedSceneRecipe>,
 }
 
 fn execute_with_presentation_input(
@@ -1675,7 +2045,7 @@ fn execute_with_presentation_input(
         }
         if let Some(recipe) = scene_recipe {
             scene_narration::check(&|| cancel.is_cancelled())?;
-            scene_narration::check_seed(engine, recipe)?;
+            recipe.check_seed(engine)?;
         }
         story_presentation::binding(engine)?;
         profile.validate()?;
@@ -1827,11 +2197,18 @@ fn execute_with_presentation_input(
         || {
             let poll = &|| cancel.is_cancelled();
             match scene_recipe {
-                Some(recipe) => {
+                Some(SelectedSceneRecipe::V1(recipe)) => {
                     let preparation = engine.stage_scene_play_v1(request, &proposal, poll)?;
                     engine
                         .bind_scene_play_v1(preparation, recipe, poll)
                         .map(NarrationPreparation::Scene)
+                }
+                Some(SelectedSceneRecipe::AuthoredV2(recipe)) => {
+                    let preparation =
+                        engine.stage_authored_scene_play_v2(request, &proposal, poll)?;
+                    engine
+                        .bind_authored_scene_play_v2(preparation, recipe, poll)
+                        .map(NarrationPreparation::AuthoredScene)
                 }
                 None => engine
                     .stage_play_v25(request, &proposal, poll)
@@ -1854,6 +2231,11 @@ fn execute_with_presentation_input(
     let (bytes, narrator_elapsed_ms) = trace.generate(Stage::Narration, provider, cancel, || {
     if let NarrationPreparation::Scene(bound) = &staged {
         let rendered = scene_narration::render_scene_narrator_v1(bound, profile, &|| cancel.is_cancelled())?;
+        return Ok(role_request(request, profile, "narrator", rendered.prompt().into(), rendered.schema().clone(),
+            remaining(started, overhead, profile.deadline_ms)?));
+    }
+    if let NarrationPreparation::AuthoredScene(bound) = &staged {
+        let rendered = authored_scene_narration::render_authored_scene_narrator_v2(bound, profile, &|| cancel.is_cancelled())?;
         return Ok(role_request(request, profile, "narrator", rendered.prompt().into(), rendered.schema().clone(),
             remaining(started, overhead, profile.deadline_ms)?));
     }
@@ -1882,8 +2264,8 @@ fn execute_with_presentation_input(
     });
     let mut record = PlayRecord {
         version: PLAY_VERSION,
-        policy: if scene_recipe.is_some() {
-            scene_narration::SCENE_NARRATION_POLICY_V1
+        policy: if let Some(recipe) = scene_recipe {
+            recipe.policy()
         } else if presentation {
             PRESENTATION_NARRATION_POLICY
         } else if literal {

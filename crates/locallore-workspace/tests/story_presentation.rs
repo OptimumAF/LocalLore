@@ -965,7 +965,10 @@ fn generated_provenance_and_staged_commits_bind_exact_presentation_without_legac
         record.prompt_version,
         "locallore-play-v2.7-story-presentation-v1"
     );
-    assert_eq!(record.policy, "grounded-prose-v2.3-story-presentation-v1");
+    assert_eq!(
+        record.policy,
+        "grounded-prose-v2.6-story-presentation-whole-evidence-words-v1"
+    );
     assert_eq!(
         wire["story_presentation"],
         json!({"version":1,"presentation_sha256":sha256(&serde_json::to_vec(&serde_json::from_value::<StoryPresentationV1>(options.clone()).unwrap()).unwrap())})
@@ -1125,7 +1128,10 @@ fn explicit_new_literal_entrypoint_preserves_immutable_old_construction_and_repl
         record.prompt_version,
         "locallore-play-v2.8-literal-director-v1-story-presentation-v1"
     );
-    assert_eq!(record.policy, "grounded-prose-v2.3-story-presentation-v1");
+    assert_eq!(
+        record.policy,
+        "grounded-prose-v2.6-story-presentation-whole-evidence-words-v1"
+    );
     assert!(serde_json::to_value(record).unwrap()["story_presentation"].is_object());
     let mut target = source.clone();
     let stage = target

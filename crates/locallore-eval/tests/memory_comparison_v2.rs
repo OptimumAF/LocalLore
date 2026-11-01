@@ -53,7 +53,7 @@ fn source_binding_requires_closed_current_tuple_and_actual_policies() {
     assert_eq!(b.prompt_version, "locallore-play-v2.5");
     assert_eq!(b.compiler_version, 2);
     assert_eq!(b.context_version, 2);
-    assert_eq!(b.narration_policy, "grounded-prose-v2.2");
+    assert_eq!(b.narration_policy, locallore::play::NARRATION_POLICY);
     assert_eq!(b.policies.len(), 2);
     assert_ne!(b.policies[0], b.policies[1]);
     assert_eq!(b.max_admissions, 32);

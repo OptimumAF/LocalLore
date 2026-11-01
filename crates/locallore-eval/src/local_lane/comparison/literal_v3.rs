@@ -21,7 +21,7 @@ const CONSTRUCTIONS: [ComparisonArmV3; 2] = [
     ComparisonArmV3::RelevantMemoryV1,
 ];
 fn descriptor(arm: ComparisonArmV3) -> ArmDescriptorV3 {
-    v3::arm_descriptors()[usize::from(arm == ComparisonArmV3::RelevantMemoryV1)].clone()
+    v3::current_arm_descriptors()[usize::from(arm == ComparisonArmV3::RelevantMemoryV1)].clone()
 }
 fn host_construction(arm: ComparisonArmV3) -> HostPlayConstructionV1 {
     match arm {
@@ -105,15 +105,14 @@ impl Manifest {
             (ComparisonKind::PairedSnapshots, Some(hash)) if hex(hash) => {}
             _ => return Err("ReferenceBinding".into()),
         }
-        for arm in &self.binding.arms {
-            arm.validate()?;
-        }
-        let current = Self::new_with_lane(
+        v3::validate_arm_family(&self.binding.arms)?;
+        let mut current = Self::new_with_lane(
             self.kind,
             self.profile.clone(),
             self.binding.native,
             self.reference_sha256.clone(),
         )?;
+        current.binding.arms = self.binding.arms.clone();
         if self.version != 3
             || self.key()? != current.key()?
             || !hex(&self.source_sha256)
@@ -199,6 +198,19 @@ impl Checked {
     }
 }
 fn make_row3(o: Observation3<'_>) -> Result<TurnReportV3> {
+    let expected = descriptor(o.construction);
+    make_row3_bound(o, &expected, false)
+}
+
+fn make_row3_bound(
+    o: Observation3<'_>,
+    expected: &ArmDescriptorV3,
+    recorded_capture: bool,
+) -> Result<TurnReportV3> {
+    expected.validate()?;
+    if expected.arm != o.construction {
+        return Err("ArmDescriptorBinding".into());
+    }
     let Observation3 {
         step,
         arm,
@@ -220,20 +232,17 @@ fn make_row3(o: Observation3<'_>) -> Result<TurnReportV3> {
     } = o;
     let request = step.request(before);
     let roles = recording.map_or(0, |r| r.roles);
-    let assessed = turn_execution::assess_outcome(
-        before,
-        after,
-        step,
-        phase,
-        error.as_deref(),
-        receipt,
-        roles,
-    )?;
+    let assess = if recorded_capture {
+        turn_execution::assess_recorded_outcome
+    } else {
+        turn_execution::assess_outcome
+    };
+    let assessed = assess(before, after, step, phase, error.as_deref(), receipt, roles)?;
     let guard = assessed.guard;
     let expected_ok = assessed.expected_ok;
     let record = receipt.and_then(Receipt::play);
     let construction_matches = if let Some(p) = record {
-        p.policy == NARRATION_POLICY
+        p.policy == expected.narration_policy
             && p.profile == *profile
             && match construction {
                 ComparisonArmV3::LiteralPlayerV1 => {
@@ -257,17 +266,31 @@ fn make_row3(o: Observation3<'_>) -> Result<TurnReportV3> {
             .as_u64()
             .and_then(|n| u32::try_from(n).ok())
             .and_then(|attempt| match construction {
-                ComparisonArmV3::LiteralPlayerV1 => CapturedLiteralContext::from_host_capture(
-                    before,
-                    &request,
-                    attempt,
-                    capture,
-                    &recording.captures,
-                    profile,
-                    1,
-                )
-                .ok()
-                .map(Checked::Literal),
+                ComparisonArmV3::LiteralPlayerV1 => {
+                    let checked = if recorded_capture {
+                        CapturedLiteralContext::from_recorded_host_capture(
+                            before,
+                            &request,
+                            attempt,
+                            capture,
+                            &recording.captures,
+                            profile,
+                            1,
+                            expected,
+                        )
+                    } else {
+                        CapturedLiteralContext::from_host_capture(
+                            before,
+                            &request,
+                            attempt,
+                            capture,
+                            &recording.captures,
+                            profile,
+                            1,
+                        )
+                    };
+                    checked.ok().map(Checked::Literal)
+                }
                 ComparisonArmV3::RelevantMemoryV1 => CapturedContext::from_host_capture(
                     before,
                     &request,
@@ -397,7 +420,7 @@ fn make_row3(o: Observation3<'_>) -> Result<TurnReportV3> {
         turn: step.id().into(),
         scene: step.scene(),
         arm: arm.into(),
-        construction: descriptor(construction),
+        construction: expected.clone(),
         phase: phase.into(),
         error,
         expected: serde_json::to_string(step.expected()).map_err(|_| "Encoding")?,
@@ -658,25 +681,29 @@ fn load_turn3(
         },
     )?;
     let corpus = suite()?;
-    let actual = make_row3(Observation3 {
-        step: &corpus.steps()[index],
-        arm: ARM_NAMES[arm],
-        construction: CONSTRUCTIONS[arm],
-        before: &evidence.before,
-        after: &evidence.after,
-        phase: &stored.row.phase,
-        error: stored.row.error.clone(),
-        receipt: evidence.receipt.as_ref(),
-        recording: evidence.recording.as_ref(),
-        capture: evidence.capture.as_ref(),
-        trace: stored.row.trace.clone(),
-        admission: stored.row.admission,
-        elapsed_ms: stored.row.elapsed_ms,
-        first_final_response_ms: stored.row.first_final_response_ms,
-        commit_elapsed_ms: stored.row.commit_elapsed_ms,
-        profile: &manifest.profile,
-        recovered: stored.row.recovered_without_checkpoint,
-    })?;
+    let actual = make_row3_bound(
+        Observation3 {
+            step: &corpus.steps()[index],
+            arm: ARM_NAMES[arm],
+            construction: CONSTRUCTIONS[arm],
+            before: &evidence.before,
+            after: &evidence.after,
+            phase: &stored.row.phase,
+            error: stored.row.error.clone(),
+            receipt: evidence.receipt.as_ref(),
+            recording: evidence.recording.as_ref(),
+            capture: evidence.capture.as_ref(),
+            trace: stored.row.trace.clone(),
+            admission: stored.row.admission,
+            elapsed_ms: stored.row.elapsed_ms,
+            first_final_response_ms: stored.row.first_final_response_ms,
+            commit_elapsed_ms: stored.row.commit_elapsed_ms,
+            profile: &manifest.profile,
+            recovered: stored.row.recovered_without_checkpoint,
+        },
+        &manifest.binding.arms[arm],
+        true,
+    )?;
     if actual != stored.row {
         return Err("CheckpointEvidenceMismatch".into());
     }
@@ -864,8 +891,10 @@ impl Session3 {
                 load: None,
             },
         )?;
-        self.execute_body(cancel, max_new_scenes, &factory)?;
-        drop(factory);
+        {
+            let owned_factory = factory;
+            self.execute_body(cancel, max_new_scenes, &owned_factory)?;
+        }
         self.finish()
     }
     fn execute_body(
@@ -1182,7 +1211,7 @@ pub fn inspect_comparison(dir: &Path) -> Result<ComparisonReportV3> {
     } else {
         "scripted_literal_relevant_comparison"
     };
-    Ok(ComparisonReportV3 { version:3, arms:v3::arm_descriptors(), kind:manifest.kind, lane:lane.into(),
+    Ok(ComparisonReportV3 { version:3, arms:manifest.binding.arms.clone(), kind:manifest.kind, lane:lane.into(),
         source_matches:manifest.source_matches()?,completed:completed_scenes==4,completed_scenes,turns:rows,
         human_reviewed:0,human_rubric:"not_reviewed".into(),quality_accepted:false,physical_setups:native_loads.len(),physical_setup_ms:native_preparation_ms,native_load:if native_loads.is_empty() {None} else {Some(json!(native_loads))},
         left_charged_ms:ledgers[0].charged_ms,right_charged_ms:ledgers[1].charged_ms,left_reserved_roles:ledgers[0].charged_roles,right_reserved_roles:ledgers[1].charged_roles,
@@ -1306,7 +1335,8 @@ mod lifecycle_tests {
     #[test]
     fn pending_actual_director_cancels_without_canonical_commit_and_cold_read_keeps_the_failed_turn(
     ) {
-        PENDING_POLLED.store(false, Ordering::Release);
+        let pending = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let observed = pending.clone();
         let path = std::env::temp_dir().join(format!(
             "locallore-literal-pending-{}-{}",
             std::process::id(),
@@ -1319,7 +1349,7 @@ mod lifecycle_tests {
         let stop = cancel.clone();
         let watcher = std::thread::spawn(move || {
             let began = Instant::now();
-            while !PENDING_POLLED.load(Ordering::Acquire) {
+            while !observed.load(Ordering::Acquire) {
                 if began.elapsed() > Duration::from_secs(15) {
                     stop.cancel();
                     panic!("actual fixed pending provider never polled");
@@ -1334,7 +1364,7 @@ mod lifecycle_tests {
             ComparisonKind::ContinuousRollout,
             &cancel,
             1,
-            LaneFactory::TestFault(TestFault::Pending),
+            LaneFactory::TestFault(TestFault::Pending(pending)),
             None,
         );
         watcher.join().unwrap();

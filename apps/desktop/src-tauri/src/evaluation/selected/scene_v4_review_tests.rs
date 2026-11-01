@@ -11,7 +11,7 @@ use locallore::{
 };
 use locallore_eval::{
     local_lane::comparison::scene_v4, memory_comparison::frozen_suite,
-    memory_comparison_v4::arm_descriptors,
+    memory_comparison_v4::current_arm_descriptors as arm_descriptors,
 };
 use locallore_storage::Store;
 use std::{

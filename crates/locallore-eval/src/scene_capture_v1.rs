@@ -110,6 +110,28 @@ fn hash<T: Serialize + ?Sized>(source: &T) -> Result<String> {
 pub fn check_committed_scene_capture_v1(
     input: SceneCaptureInputV1<'_>,
 ) -> Result<CheckedSceneCaptureV1> {
+    check_scene_capture(input, scene_narration::SCENE_NARRATION_POLICY_V2, false)
+}
+
+/// Closed historical inspection only. This cannot install an old-policy turn.
+pub(crate) fn check_recorded_scene_capture_v1(
+    input: SceneCaptureInputV1<'_>,
+    expected_policy: &str,
+) -> Result<CheckedSceneCaptureV1> {
+    if !matches!(
+        expected_policy,
+        scene_narration::SCENE_NARRATION_POLICY_V1 | scene_narration::SCENE_NARRATION_POLICY_V2
+    ) {
+        return Err(E::RecipeBinding);
+    }
+    check_scene_capture(input, expected_policy, true)
+}
+
+fn check_scene_capture(
+    input: SceneCaptureInputV1<'_>,
+    expected_policy: &str,
+    recorded: bool,
+) -> Result<CheckedSceneCaptureV1> {
     let SceneCaptureInputV1 {
         before,
         after,
@@ -171,7 +193,7 @@ pub fn check_committed_scene_capture_v1(
         }
     };
     if record.prompt_version != prompt_version
-        || record.policy != scene_narration::SCENE_NARRATION_POLICY_V1
+        || record.policy != expected_policy
         || record.profile != *expected_profile
         || record.scene.is_none()
     {
@@ -188,10 +210,23 @@ pub fn check_committed_scene_capture_v1(
     let candidate = value(&receipt)?;
     let rendered = scene_narration::render_scene_narrator_v1(&bound, expected_profile, &|| false)
         .map_err(|_| E::RecipeBinding)?;
-    let mut reconstructed = before.clone();
-    let installed = reconstructed
-        .commit_scene_play_v1(bound, record, &|| false)
-        .map_err(|_| E::RecipeBinding)?;
+    let (reconstructed, installed) = if recorded {
+        let serialized = serde_json::to_string(&receipt).map_err(|_| E::Malformed)?;
+        let restored = before
+            .restore_continuation(&[serialized])
+            .map_err(|_| E::RecipeBinding)?;
+        let installed = restored
+            .recorded(request)
+            .map_err(|_| E::RecipeBinding)?
+            .ok_or(E::RecipeBinding)?;
+        (restored, installed)
+    } else {
+        let mut reconstructed = before.clone();
+        let installed = reconstructed
+            .commit_scene_play_v1(bound, record, &|| false)
+            .map_err(|_| E::RecipeBinding)?;
+        (reconstructed, installed)
+    };
     if installed != receipt
         || reconstructed
             .accepted_history_basis()

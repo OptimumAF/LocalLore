@@ -94,3 +94,28 @@ requires retirement qualification, fresh guarded capacity/resources, exact
 artifact/source checks, unrelated-emulator/shared-service conservation, and
 the actual one-guest/ten-method result. All prior failures and every original
 guest/recovery record remain retained.
+
+## Actual frozen-product replay (2026-11-01)
+
+The unmocked artifacts-only replay now passes with launcher head
+`32d45ee188f7fe2ed1ba8cfd6d5baa352612b0f9` (the executable code is unchanged
+from the tested `0bd49202` commit). The original product head remains exactly
+`42ae8f6b7df7373696d35c9a294b6d0517c8886c`: all 2,369 product source files,
+408 unique JVM cases / 46 XML reports, ten packaged selectors, public pipeline,
+lint and original APK bindings pass the whole unchanged frozen validator.
+The 34-file SDK8 launcher closure, tool/helper/request bindings and actual
+direct-child join are conserved. Owned-job elapsed is 7,757 ms, child exit0;
+stdout107 bytes, stderr0. This is a file/Git/ZIP/XML readback, not another JVM
+test or Android build/run. It creates no target admission, reservation or guest.
+
+Private result SHA-256:
+`d308475b62acf8e4999733de70d2fab8cb717c44fd15768464933156003b75c9`.
+The first replay failed after 405 ms because the private audit hook treated the
+Windows `nul` stderr sink as an out-of-scope project write. A separate 426 ms
+staged diagnosis confirms artifact identity/shared consumers/verified-source
+loading passed before that sink refusal in the whole validator. Neither first
+record qualifies the product. Both failures remain retained. Only the distinct
+v2 private reader permits the exact normal OS sink without create/truncate/append;
+project-write/process/socket limits and all production/product code stay
+unchanged. No separate WindowsJob/native-resource attestation is claimed for
+these fixed direct-Python-child readers.

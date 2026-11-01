@@ -6,6 +6,16 @@
 const MAX_BYTES = 256 * 1024 * 1024;
 const MAX_ITEMS = 65536;
 const MAX_DIRECTIVES = 1024 * 1024;
+// Explicit metadata compatibility only. This never proves a selected link
+// closure, target ABI, compiler acceptance or worker execution.
+export const MSVC_LIBRARY_METADATA_PROFILE = Object.freeze({
+  id: 'msvc-library-metadata-v1', version: 1, purpose: 'build_input_metadata_only',
+  limits: Object.freeze({ inputBytesExclusive: MAX_BYTES, memberBytesExclusive: MAX_BYTES,
+    memberSections: MAX_ITEMS, inputSections: 262144, jobSections: 2097152,
+    jobInputs: 32, jobInputBytes: 536870912, jobFileReadBytes: 1073741824,
+    members: MAX_ITEMS, longnames: MAX_ITEMS, tokens: MAX_ITEMS,
+    directiveBytes: MAX_DIRECTIVES, nameBytes: 4096, libraryNameBytes: 255 })
+});
 const BIGOBJ_ID = Buffer.from('c7a1bad1eebaa94baf20faf66aa4dcb8', 'hex');
 const MAGIC = Buffer.from('!<arch>\n');
 function fail(site, category = 'Format', actual = null, limit = null) {
@@ -106,14 +116,22 @@ function object(b, state) {
     header = 56; symbolSize = 20;
     count = b.readUInt32LE(44); symbolOffset = b.readUInt32LE(48); symbols = b.readUInt32LE(52);
   } else {
-    if (b.readUInt16LE(0) !== 0x8664) fail('coff_machine');
+    const machine = b.readUInt16LE(0);
+    if (machine !== 0x8664) {
+      if (!state.compatibility || machine !== 0) fail('coff_machine');
+      ++state.deviations.unknownMachineObjects;
+    }
     if (b.readUInt16LE(16) !== 0) fail('coff_optional_header');
     if (b.readUInt16LE(18) & 0x2002) fail('coff_image_flags');
     count = b.readUInt16LE(2); symbolOffset = b.readUInt32LE(8); symbols = b.readUInt32LE(12);
   }
   state.sections += count;
-  if (state.sections > MAX_ITEMS) fail(count > MAX_ITEMS ? 'coff_sections_member' : 'coff_sections_total',
-    'Size', count > MAX_ITEMS ? count : state.sections, MAX_ITEMS);
+  // Charge declared work before table validation, even for a later refusal.
+  // The standalone strict path has no job meter and keeps its old ordering.
+  if (state.chargeSections) state.chargeSections(count);
+  const inputSections = state.compatibility ? MSVC_LIBRARY_METADATA_PROFILE.limits.inputSections : MAX_ITEMS;
+  if (count > MAX_ITEMS) fail('coff_sections_member', 'Size', count, MAX_ITEMS);
+  if (state.sections > inputSections) fail('coff_sections_total', 'Size', state.sections, inputSections);
   const tableEnd = header + count * 40;
   range(b, header, count * 40, 'coff_section_table_range');
   const intervals = [];
@@ -155,14 +173,26 @@ function object(b, state) {
     if (flags & 0x01000000) fail('coff_relocation_overflow'); // Still unsupported.
     if (pointer) area(pointer, size, 'coff_raw_range');
     else if (size && !(flags & 0x80)) fail('coff_raw_pointer'); // .bss has no file bytes.
-    if (relocCount) area(reloc, relocCount * 10, 'coff_relocation_range'); else if (reloc) fail('coff_relocation_pointer');
+    if (relocCount) area(reloc, relocCount * 10, 'coff_relocation_range');
+    else if (reloc) {
+      if (!state.compatibility || name === '.drectve' || reloc < tableEnd || reloc > b.length) fail('coff_relocation_pointer');
+      // Zero-width unused pointer: do not dereference or add a byte interval.
+      ++state.deviations.unusedRelocationPointers;
+    }
     if (lineCount) area(lines, lineCount * 6, 'coff_line_range'); else if (lines) fail('coff_line_pointer');
     if (name === '.drectve') {
       if (!(flags & 0x200) || reloc || lines || relocCount || lineCount || (size && !pointer)) fail('directive_section');
       state.directiveBytes += size;
       if (state.directiveBytes > MAX_DIRECTIVES) fail(size > MAX_DIRECTIVES ? 'directive_bytes_section' : 'directive_bytes_total',
         'Size', size > MAX_DIRECTIVES ? size : state.directiveBytes, MAX_DIRECTIVES);
-      for (const token of directiveTokens(b.subarray(pointer, pointer + size))) {
+      let bytes = b.subarray(pointer, pointer + size);
+      if (state.compatibility && bytes.length && bytes[bytes.length - 1] === 0) {
+        bytes = bytes.subarray(0, bytes.length - 1);
+        const bom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+        if (bytes.length <= (bom ? 3 : 0)) fail('directive_encoding');
+        ++state.deviations.terminalNulSections;
+      }
+      for (const token of directiveTokens(bytes)) {
         const colon = token.indexOf(':'), option = (colon < 0 ? token.slice(1) : token.slice(1, colon)).toLowerCase();
         if (option === 'libpath' || option === 'nodefaultlib') fail('directive_library_policy', 'Unsafe');
         if (option === 'defaultlib') {
@@ -223,11 +253,13 @@ function archive(b, state) {
     object(body, state); // Unknown members are never silently skipped.
   }
 }
-export function inspectLibraryInputs(buffer) {
+function inspectData(buffer, compatibility = false, chargeSections = null) {
   if (!Buffer.isBuffer(buffer)) fail('input_type', 'Type');
   if (buffer.length >= MAX_BYTES) fail('input_bytes', 'Size', buffer.length, MAX_BYTES);
   const state = { objects: 0, imports: 0, sections: 0, directiveBytes: 0, tokenCount: 0,
-    directives: new Set(), defaultLibraries: new Set(), memberIndex: null, memberOffset: null, sectionIndex: null };
+    directives: new Set(), defaultLibraries: new Set(), memberIndex: null, memberOffset: null, sectionIndex: null,
+    compatibility, chargeSections,
+    deviations: { unknownMachineObjects: 0, unusedRelocationPointers: 0, terminalNulSections: 0 } };
   try {
     if (buffer.length >= 8 && buffer.subarray(0, 8).equals(MAGIC)) archive(buffer, state);
     else object(buffer, state);
@@ -239,6 +271,52 @@ export function inspectLibraryInputs(buffer) {
     }
     throw error;
   }
-  return { objects: state.objects, imports: state.imports,
-    directives: [...state.directives].sort(), defaultLibraries: [...state.defaultLibraries].sort() };
+  return { metadata: { objects: state.objects, imports: state.imports,
+    directives: [...state.directives].sort(), defaultLibraries: [...state.defaultLibraries].sort() },
+    sections: state.sections, deviations: state.deviations };
+}
+export function inspectLibraryInputs(buffer) {
+  return inspectData(buffer).metadata;
+}
+
+// One closed, bounded cohort. Buffer identity is the entry identity; neither
+// equal bytes nor shared backing memory can collapse independent entries.
+export function createLibraryMetadataJob(profileId) {
+  const profile = MSVC_LIBRARY_METADATA_PROFILE;
+  if (profileId !== profile.id) fail('metadata_profile', 'Profile');
+  const entries = new WeakMap();
+  let inputCount = 0, inputBytes = 0, attempts = 0, sections = 0, stopped = false;
+  function stop(site, category = 'Profile', actual = null, limit = null) {
+    stopped = true;
+    fail(site, category, actual, limit);
+  }
+  function chargeSections(count) {
+    const candidate = sections + count;
+    if (candidate > profile.limits.jobSections) stop('metadata_job_sections', 'Size', candidate, profile.limits.jobSections);
+    sections = candidate;
+  }
+  return Object.freeze({
+    inspect(buffer, mode) {
+      if (stopped) fail('metadata_job_stopped', 'Profile');
+      if (mode !== 'strict-v1' && mode !== profile.id) stop('metadata_profile');
+      if (!Buffer.isBuffer(buffer)) fail('input_type', 'Type');
+      if (buffer.length >= MAX_BYTES) fail('input_bytes', 'Size', buffer.length, MAX_BYTES);
+      let modes = entries.get(buffer);
+      if (!modes) {
+        if (inputCount + 1 > profile.limits.jobInputs) stop('metadata_job_inputs', 'Size', inputCount + 1, profile.limits.jobInputs);
+        if (inputBytes + buffer.length > profile.limits.jobInputBytes) stop('metadata_job_bytes', 'Size', inputBytes + buffer.length, profile.limits.jobInputBytes);
+        modes = new Set(); entries.set(buffer, modes);
+        ++inputCount; inputBytes += buffer.length;
+      }
+      if (modes.has(mode)) stop('metadata_repeat_attempt');
+      modes.add(mode); ++attempts;
+      const result = inspectData(buffer, mode === profile.id, chargeSections);
+      return { profileId: mode, purpose: profile.purpose, qualified: false,
+        linkQualification: false, closureComplete: false, metadata: result.metadata,
+        sections: result.sections, deviations: result.deviations };
+    },
+    snapshot() {
+      return Object.freeze({ profileId: profile.id, inputCount, inputBytes, attempts, sections, stopped });
+    }
+  });
 }

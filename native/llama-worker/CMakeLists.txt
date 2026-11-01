@@ -70,6 +70,13 @@ add_executable(locallore-llama-worker main.cpp)
 target_compile_features(locallore-llama-worker PRIVATE cxx_std_17)
 target_link_libraries(locallore-llama-worker PRIVATE llama-common llama vendor::nlohmann)
 
+# Unqualified experimental worker only. Never stage it or qualify both main.cpp
+# targets in one binary directory: their compiler journals share a basename.
+add_executable(locallore-llama-worker-initial-world-v1 EXCLUDE_FROM_ALL main.cpp)
+target_compile_features(locallore-llama-worker-initial-world-v1 PRIVATE cxx_std_17)
+target_compile_definitions(locallore-llama-worker-initial-world-v1 PRIVATE LOCALLORE_INITIAL_WORLD_EXPERIMENTAL_V1=1)
+target_link_libraries(locallore-llama-worker-initial-world-v1 PRIVATE llama-common llama vendor::nlohmann)
+
 # Explicit development target only; never linked into or packaged with the application worker.
 add_executable(locallore-schema-order-test EXCLUDE_FROM_ALL schema_order_test.cpp)
 target_compile_features(locallore-schema-order-test PRIVATE cxx_std_17)
@@ -79,9 +86,13 @@ target_link_libraries(locallore-schema-order-test PRIVATE llama-common llama ven
 add_executable(locallore-worker-launch-test EXCLUDE_FROM_ALL worker_launch_test.cpp)
 target_compile_features(locallore-worker-launch-test PRIVATE cxx_std_17)
 
+add_executable(locallore-worker-generation-test EXCLUDE_FROM_ALL worker_generation_test.cpp)
+target_compile_features(locallore-worker-generation-test PRIVATE cxx_std_17)
+target_link_libraries(locallore-worker-generation-test PRIVATE vendor::nlohmann)
+
 if(MSVC AND CMAKE_BUILD_TYPE STREQUAL "Release")
   # MSVC 19.34 hashes the original translation-unit argument into lambda names,
-  # even with pathmap. Compile ONLY our three fixed files by basename from their
+  # even with pathmap. Compile ONLY our four fixed files by basename from their
   # source directory, with all compiler outputs confined to the binary directory.
   # CMake/Ninja still own object rules, inherited options and /showIncludes deps.
   file(SHA256 "${CMAKE_CXX_COMPILER}" WORKER_COMPILER_SHA256)
@@ -162,7 +173,7 @@ foreach(INDEX RANGE 5 ${LAST})
   string(REPLACE "\\" "/" NORMAL "${ARG}")
   string(TOLOWER "${NORMAL}" ARG_ID)
   set(IS_SOURCE FALSE)
-  foreach(NAME main.cpp schema_order_test.cpp worker_launch_test.cpp)
+  foreach(NAME main.cpp schema_order_test.cpp worker_launch_test.cpp worker_generation_test.cpp)
     string(TOLOWER "${SOURCE_DIR}/${NAME}" SOURCE_ID)
     if(ARG_ID STREQUAL SOURCE_ID)
       math(EXPR SOURCE_COUNT "${SOURCE_COUNT}+1")
@@ -240,7 +251,7 @@ endif()
   string(CONFIGURE "${WORKER_LAUNCHER_TEMPLATE}" WORKER_LAUNCHER @ONLY)
   set(WORKER_LAUNCHER_PATH "${CMAKE_CURRENT_BINARY_DIR}/worker-compiler-launcher.cmake")
   file(WRITE "${WORKER_LAUNCHER_PATH}" "${WORKER_LAUNCHER}")
-  foreach(TARGET locallore-llama-worker locallore-schema-order-test locallore-worker-launch-test)
+  foreach(TARGET locallore-llama-worker locallore-llama-worker-initial-world-v1 locallore-schema-order-test locallore-worker-launch-test locallore-worker-generation-test)
     set_property(TARGET ${TARGET} PROPERTY CXX_COMPILER_LAUNCHER "${CMAKE_COMMAND};-P;${WORKER_LAUNCHER_PATH};--")
   endforeach()
 endif()

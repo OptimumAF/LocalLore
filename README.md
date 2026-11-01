@@ -434,6 +434,11 @@ verify that the native routing leaves cancellation/status available during share
 authoring generation. This code prerequisite does not enable original-story
 creation or qualify author-role inference.
 
+The [experimental Author worker code checks](docs/desktop/D04_AUTHOR_WORKER_CODE_VERIFICATION_2026-10-31.md)
+pass90 independent validator cases and syntax-check both worker modes. The new
+profile remains unqualified and unconsumed; no worker/model/app was launched,
+and production Author access remains disabled.
+
 The [scripted selected-scene Rust gate](docs/desktop/D07_SELECTED_SCENE_V4_SHARED_QUALIFICATION_2026-10-29.md)
 adds isolated Protocol4 selected-turn runs, durable resume and observer-filtered
 reads through the existing engine/Store. The [desktop selected-scene qualification](docs/desktop/D07_SELECTED_SCENE_DESKTOP_QUALIFICATION_2026-10-29.md)

@@ -85,7 +85,7 @@ internal class PresentationCaptureTransport(val corpus: PresentationCaptureCorpu
                 beforePresentation?.also { beforePresentation = null }?.invoke()
                 captured
             }
-            "play_snapshot" -> JSONObject().put("version", 1).put("status", "rejected").put("error", "Version")
+            "play_snapshot" -> throw AssertionError("Presentation Gateway must use play_presentation_v2, not legacy play_snapshot")
             "capabilities" -> selected.envelope("capabilities")
             "model_status" -> selected.envelope("model_status")
             "close" -> JSONObject().put("version", 1).put("status", "ok").put("data", JSONObject())

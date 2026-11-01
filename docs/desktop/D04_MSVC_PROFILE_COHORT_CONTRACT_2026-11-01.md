@@ -32,6 +32,12 @@ Retained-record arithmetic only:32 entries total359493030B; two full scans
 718986060B; largest input92584312B. The original record has13 successful
 strict inspections and19 refusals (four fixed archives plus15 SDK inputs).
 These are forecasts from saved JSON, not new input identity/compatibility checks.
+The already retained7640B `b2-library-diagnostic-snapshot-v1.json`, SHA256
+`c7bce3ceb14e57fc260aa9e65c4edb0efad97dec2b020bf37eb6f1b34d7d8678`,
+also binds all32 aliases/order to the original snapshot. It supplies the19
+strict refusal sites/contexts and13 successful metadata digests. Attach these
+known fields to every baseline; they are not optional once this proof is bound.
+Read only these retained records during preflight/FIRST, never SDK inputs.
 
 Dependency: unchanged accepted16987B helper, SHA256
 `9972c0eb4d8cf936f252b090a8f0794b0d6b5328a2245b8720cdec32d5fafa53`,
@@ -255,6 +261,12 @@ in the fixed ID order above; contexts are the eight ordered names above.
 Descriptor digest covers JSON of the accepted frozen descriptor; metadata
 digests cover JSON of the actual accepted metadata object in its existing order.
 No signature here changes resource ceilings, baseline semantics or admission.
+The independent FIRST source is24202B, SHA256
+`a66cd5fef8e9fa70526d314c87cf1f1e93e8c627158a13dbcbe9ebb5992d9fa3`,
+frozen in author commit `fa451c7d5167840ecfb6236ed00fbdda6b917936` before any
+collector producer. Root integrated its unchanged bytes at8b61c0f6. Source
+review/whitespace passed; all52 remain UNRUN. The historical112+94 suite bytes
+and their spent results are unchanged.
 
 One fixed supervisor must retain all physical-D/Node-environment/source/owner/
 Stage/START/old-proof/global-stop/unknown/stream/deadline/storage controls and
@@ -264,6 +276,27 @@ supervisor, timeout/caps, actual owner, full reserves and independent source
 review must be concrete before asking for a new run. Startup/parse errors need
 bounded capture too. No auto retry, Node parent, native/app/model/device work,
 compiler/link/MT, setup/download, settings, desktop control or deletion.
+Freeze the proposed cohort child's observed completion deadline at60000ms,
+distinct from the spent code checks'30000ms. A child first observed closed
+after60000ms fails even if already closed; no kill of that closed child. A
+live timeout/overflow permits at most one owned-child kill/5000ms drain and
+remains failure. No process-tree containment or absolute filesystem deadline.
+The postflight own-START exception must require known in-memory child closure,
+the exact own leaf/hash/source/Stage/actual owner/current PowerShell PID and
+exempt only that START. Every other incomplete START stays fatal. Validate
+strict UTF-8, one canonical full JSON+LF, exact schemas/dictionaries and raw
+byte limits independently; malformed output is retained without recovering a
+success from a subset. A coherent known-closed nonzero partial report is saved
+as failed evidence before the terminal verdict. Any supervisor boundary failure
+prevents success and stays sticky.
+Provisional full retention reserve118784B comprises process40960, raw25600,
+separately decoded logical25600, snapshot16384, START768, result2048, Root
+review1536 and STOP512 (113408B), plus5376B headroom. Source, actual owner and
+Stage are additional. Maximum stream base64 occupies34136B inside process,
+leaving6824B for its exact envelope, summary/digest, source refs and inventory;
+prove the complete concrete envelope fits before admission. The process record
+must not duplicate the full parsed report. These are reviewed static bounds,
+not an actual inventory, executed check or new limit/run approval.
 
 Current metadata1656006B/cap1703936B leaves47930B; all other caps and output
 remain unchanged. Preliminary source/capture estimates do not fit that remainder.

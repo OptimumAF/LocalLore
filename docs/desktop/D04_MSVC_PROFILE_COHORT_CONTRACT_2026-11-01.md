@@ -219,6 +219,17 @@ The private `api` has exactly these five functions and a data-only `codebook`:
   held Buffer across a second independent scratch-buffer scan. Save a successful
   `{pin,identity}` in opened for final identity-only rechecks. Finally closes
   exactly once after open, including failure; close failure is critical.
+  A known successful read result must reach this private function without a
+  production-adapter post-read guard throwing first. Validate that its positive
+  returned bytes are at most the prechecked request and charge those bytes
+  BEFORE the post-await live/poison check. A concurrent failure can forbid any
+  further read but cannot erase bytes already returned by the owned handle.
+  Preserve the first fixed `IdentityFailure` or `InputFailure`; normalize caught
+  filesystem exceptions to those finite categories without publishing payloads.
+  A finally-close failure poisons the state and replaces only an absent first
+  failure, never a prior identity/read failure. I11 and I16 independently freeze
+  these combined-failure/known-returned-result controls within their original
+  groups; all52 remain source-only/UNRUN until separately admitted execution.
   The read callback never receives a write flag. Thrown errors have bounded
   fixed categories, without exception payloads. FIRST does not depend on new
   private error names for this path.

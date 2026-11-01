@@ -133,7 +133,11 @@ export async function runFixedProfileCohortSelfchecksV1(api) {
   add('I08', async () => { const f = fixture({ statChange: { bytes: 21 }, statAt: 1 }), s = state(); await rejected(() => api.readPinnedInput(f.pin, s, f.adapter)); assert.equal(f.requests.length, 0); assert.equal(f.stats.closes, 1); });
   add('I09', async () => { const f = fixture({ identifyChange: { root: 'changed' } }), s = state(); await rejected(() => api.readPinnedInput(f.pin, s, f.adapter)); assert.equal(f.stats.closes, 1); assert.equal(s.stopped, true); });
   add('I10', async () => { const f = fixture({ identifyChange: { path: 'D:/synthetic/alias.obj' } }), s = state(); await rejected(() => api.readPinnedInput(f.pin, s, f.adapter)); assert.equal(f.stats.closes, 1); });
-  add('I11', async () => { const f = fixture({ closeThrow: true }), s = state(); await rejected(() => api.readPinnedInput(f.pin, s, f.adapter)); assert.equal(f.stats.closes, 1); assert.equal(s.stopped, true); assert.equal(s.actualReadBytes, 40); });
+  add('I11', async () => { const f = fixture({ closeThrow: true }), s = state(); await rejected(() => api.readPinnedInput(f.pin, s, f.adapter)); assert.equal(f.stats.closes, 1); assert.equal(s.stopped, true); assert.equal(s.actualReadBytes, 40);
+    const both = fixture({ statChange: { leaf: 'changed' }, closeThrow: true }), failed = state();
+    const first = await rejected(() => api.readPinnedInput(both.pin, failed, both.adapter));
+    assert.equal(first.message, 'IdentityFailure'); assert.equal(both.stats.closes, 1); assert.equal(failed.stopped, true); assert.equal(failed.actualReadBytes, 20);
+  });
   add('I12', async () => { const f = fixture({ readThrow: true }), s = state(); await rejected(() => api.readPinnedInput(f.pin, s, f.adapter)); assert.equal(f.stats.closes, 1); assert.equal(s.pending, false); assert.equal(s.stopped, true); });
   add('I13', async () => { const f = fixture(), s = state({ reservedInputs: 31, reservedBytes: 536870892, reservedReadBytes: 1073741784, actualReadBytes: 1073741784 }); await api.readPinnedInput(f.pin, s, f.adapter); eq([s.reservedInputs, s.reservedBytes, s.reservedReadBytes, s.actualReadBytes], [32, 536870912, 1073741824, 1073741824]); });
   // Entry-byte and two-scan-reservation ceilings are coupled (512MiB*2=1GiB).
@@ -145,6 +149,27 @@ export async function runFixedProfileCohortSelfchecksV1(api) {
     const pending = api.readPinnedInput(f.pin, s, f.adapter); void pending.catch(() => {});
     let error; try { s.pending = false; const other = fixture(); await rejected(() => api.readPinnedInput(other.pin, s, other.adapter)); eq(other.calls, []); } catch (e) { error = e; } finally { release(); }
     await rejected(() => pending); assert.equal(f.stats.closes, f.calls.includes('open') ? 1 : 0); assert.equal(s.stopped, true); if (error) throw error;
+    // Hold a KNOWN successful20-byte read result across a concurrent poison.
+    // Race the reached signal against early settlement: an early refusal is a
+    // normal case failure, not a promise that can strand this fake read.
+    let reached, releaseResult;
+    const readReached = new Promise(resolve => { reached = resolve; });
+    const resultHeld = new Promise(resolve => { releaseResult = resolve; });
+    const held = fixture(), heldState = state(), openHeld = held.adapter.open;
+    held.adapter.open = async (...args) => {
+      const handle = await openHeld(...args), read = handle.read;
+      handle.read = async (...args) => { const result = await read(...args); reached(); await resultHeld; return result; };
+      return handle;
+    };
+    const active = api.readPinnedInput(held.pin, heldState, held.adapter); void active.catch(() => {});
+    const didReach = await Promise.race([readReached.then(() => true), active.then(() => false, () => false)]);
+    let concurrentError;
+    try { if (didReach) { const other = fixture(); await rejected(() => api.readPinnedInput(other.pin, heldState, other.adapter)); eq(other.calls, []); } }
+    catch (e) { concurrentError = e; }
+    finally { releaseResult(); }
+    await rejected(() => active);
+    assert.equal(didReach, true); assert.equal(held.stats.closes, 1); assert.equal(heldState.actualReadBytes, 20); assert.equal(heldState.stopped, true);
+    if (concurrentError) throw concurrentError;
   });
 
   add('P01', () => { const b = object(), j = job(), r = pair(j, b); eq(r.row, { slot: 1, strict: parsed(api), profile: parsed(api) }); assert.equal(r.stopped, false); assert.equal(r.critical, null); eq([j.snapshot().attempts, j.snapshot().inputCount], [2, 1]); });

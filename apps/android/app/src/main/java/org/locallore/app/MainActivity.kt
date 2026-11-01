@@ -41,7 +41,10 @@ open class MainActivity : ComponentActivity() {
     // Selected by application construction, never by story text or a model response.
     internal open fun createWorkspaceTransport(): NativeWorkspaceTransport =
         NativeWorkspaceTransport(applicationContext, operationObserver =
-            if (BuildConfig.INPUT_PROCESS_VERIFICATION) ProcessVerificationProbe::operation else null)
+            if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) PresentationProcessVerificationProbe::operation
+            else if (BuildConfig.INPUT_PROCESS_VERIFICATION) ProcessVerificationProbe::operation else null)
+    private val processVerificationEnabled: Boolean
+        get() = BuildConfig.INPUT_PROCESS_VERIFICATION || BuildConfig.PRESENTATION_PROCESS_VERIFICATION
     private lateinit var model: ShellViewModel
     private var pendingNavigationHint: PlayDraftScope? = null
     private var processVerificationRun: String? = null
@@ -76,12 +79,14 @@ open class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingNavigationHint = readNavigationHint(savedInstanceState)
-        processVerificationRun = if (BuildConfig.INPUT_PROCESS_VERIFICATION) try {
-            (savedInstanceState?.getString(ProcessVerificationProbe.RUN_STATE)
-                ?: intent.getStringExtra(ProcessVerificationProbe.RUN_EXTRA))
+        val runState = if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) PresentationProcessVerificationProbe.RUN_STATE else ProcessVerificationProbe.RUN_STATE
+        val runExtra = if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) PresentationProcessVerificationProbe.RUN_EXTRA else ProcessVerificationProbe.RUN_EXTRA
+        processVerificationRun = if (processVerificationEnabled) try {
+            (savedInstanceState?.getString(runState) ?: intent.getStringExtra(runExtra))
                 ?.takeIf { Regex("[0-9a-f]{16}").matches(it) }
         } catch (_: RuntimeException) { null } else null
         ProcessVerificationProbe.configure(applicationContext, processVerificationRun, taskId, savedInstanceState != null)
+        PresentationProcessVerificationProbe.configure(applicationContext, processVerificationRun, taskId, savedInstanceState != null)
         enableEdgeToEdge()
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -89,6 +94,7 @@ open class MainActivity : ComponentActivity() {
                 require(modelClass == ShellViewModel::class.java)
                 val transport = createWorkspaceTransport()
                 ProcessVerificationProbe.factoryCreated()
+                PresentationProcessVerificationProbe.factoryCreated()
                 transportObservation = WeakReference(transport)
                 val durable = DurableGateway(transport, autoCreateIfEmpty = false,
                     initialScopeHint = pendingNavigationHint)
@@ -97,7 +103,9 @@ open class MainActivity : ComponentActivity() {
                     deletionGateway = NativeArchiveGateway(applicationContext),
                     branchDeletionGateway = NativeArchiveGateway(applicationContext),
                     forkGateway = NativeForkGateway(transport::forkHandle,
-                        mutationObserver = if (BuildConfig.INPUT_PROCESS_VERIFICATION) {
+                        mutationObserver = if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) {
+                            { PresentationProcessVerificationProbe.operation("fork_mutation") }
+                        } else if (BuildConfig.INPUT_PROCESS_VERIFICATION) {
                             { ProcessVerificationProbe.operation("fork_mutation") }
                         } else null),
                     forkContextProvider = durable::forkContext,
@@ -143,20 +151,20 @@ open class MainActivity : ComponentActivity() {
                 branchDeletionAvailable = model.branchDeletionController != null,
                 onDeleteTimeline = model::openBranchDeletion,
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
-                exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION,
+                exposeTestTags = processVerificationEnabled,
                 draftInteractionAllowed = model::canEditPlayDraft,
                 onFork = model::openFork) {
                 BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
                     onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
                     onRetry = model::retryFork, onLookup = model::lookupFork, onForget = model::forgetFork,
                     onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork,
-                    exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
+                    exposeTestTags = processVerificationEnabled)
                 model.branchDeletionController?.let { controller ->
                     BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
                 }
                 model.creationController?.let { controller ->
                     StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
-                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION, onTemplate = controller::chooseTemplate,
+                        exposeTestTags = processVerificationEnabled, onTemplate = controller::chooseTemplate,
                         onPlayerName = controller::editPlayerName, onPlayerReview = controller::reviewChanges,
                         onTone = controller::editTone, onExcludedPhrases = controller::editExcludedPhrases,
                         onOriginal=controller::chooseOriginal,onOriginalEdit={s,e -> controller.editOriginal(s,e); Unit},
@@ -196,6 +204,7 @@ open class MainActivity : ComponentActivity() {
             }
         }
         ProcessVerificationProbe.created(pendingNavigationHint)
+        PresentationProcessVerificationProbe.created(pendingNavigationHint)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -208,8 +217,11 @@ open class MainActivity : ComponentActivity() {
                 putString("branch", value[2] as String)
             })
         }
-        processVerificationRun?.let { outState.putString(ProcessVerificationProbe.RUN_STATE, it) }
+        processVerificationRun?.let {
+            outState.putString(if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) PresentationProcessVerificationProbe.RUN_STATE else ProcessVerificationProbe.RUN_STATE, it)
+        }
         ProcessVerificationProbe.saved(pendingNavigationHint)
+        PresentationProcessVerificationProbe.saved(pendingNavigationHint)
     }
 
     private fun readNavigationHint(state: Bundle?): PlayDraftScope? = try {

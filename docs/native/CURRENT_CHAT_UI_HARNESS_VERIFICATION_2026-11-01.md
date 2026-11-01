@@ -25,7 +25,7 @@ only within each capture's actual scope, not as a blanket Windows Job proof.
 ## Actual checks, separately attributed
 
 There is no single fresh combined 63-test GREEN run. These are distinct observed
-cohorts with unchanged relevant production bytes:
+cohorts with explicit source attribution:
 
 | Cohort | Actual result | Evidence and scope |
 | --- | --- | --- |
@@ -66,6 +66,11 @@ integration audit setup have retained corrections. On Windows the Popen audit ev
 command string; Root's first guard wrongly treated it as an argv list and
 refused before dispatch. The corrected private runner checks the original argv
 and the exact Windows framing. No production boundary or old result was relaxed.
+
+A final diff check finds excess blank lines at the build guard's EOF. Removing
+two newline bytes preserves its exact parsed AST; the tested raw source remains
+in the writer commits. Final source bindings are refreshed, rather than claiming
+raw-byte identity across that formatting correction. No assertion changes.
 
 ## Resource failures remain failures
 

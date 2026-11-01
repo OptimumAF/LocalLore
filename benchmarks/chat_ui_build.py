@@ -661,5 +661,3 @@ def verify_current(admission):
     result = verify_frozen_product(value['artifacts'])
     contract.revalidate_inputs(value)
     return result
-
-

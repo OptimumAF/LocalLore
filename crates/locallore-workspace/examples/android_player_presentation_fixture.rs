@@ -175,9 +175,23 @@ fn expected(engine: &Engine) -> (Value, Value) {
         let id = (start + offset) * 2 + 1;
         messages.push(json!({"id":id,"text":text,"player":true}));
         messages.push(json!({"id":id+1,"text":receipt.narration(),"player":false}));
+        // Independent expectation over the original canonical numeric JSON,
+        // rather than invoking or copying the new native projection helper.
+        let mut expected_intent = json!(request.intent);
+        if let Some(actions) = expected_intent["value"].as_array_mut() {
+            for action in actions {
+                let field = match action["op"].as_str() {
+                    Some("promise") => "deadline",
+                    Some("believe") => "claim_event",
+                    _ => continue,
+                };
+                let original_number = action[field].as_u64().unwrap();
+                action[field] = json!(original_number.to_string());
+            }
+        }
         turns.push(json!({"original_scope":request.scope,"turn":request.turn,
             "event_ids":receipt.events().iter().map(AcceptedEvent::sequence).collect::<Vec<_>>(),
-            "intent":request.intent,"narration":receipt.narration()}));
+            "intent":expected_intent,"narration":receipt.narration()}));
     }
     (json!(turns), json!(messages))
 }
@@ -218,6 +232,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }]),
         );
     }
+    let u64_seed = seed("presentation-u64");
+    let u64_scope = u64_seed.scope.clone();
+    store.create_story("Presentation exact unsigned action values", u64_seed)?;
+    let promise = append(
+        &mut store,
+        &u64_scope,
+        "maximum-deadline",
+        Intent::Actions(vec![Command::Promise {
+            id: "survey-later".into(),
+            to: "mira".into(),
+            terms: "Compare the survey notes after the next tide.".into(),
+            deadline: u64::MAX,
+            return_item: None,
+        }]),
+    );
+    assert_eq!(json!(promise.request().intent)["value"][0]["deadline"].as_u64(), Some(u64::MAX));
+    let stated = append(
+        &mut store,
+        &u64_scope,
+        "statement-to-consider",
+        Intent::Dialogue {
+            text: "I heard the harbor bell.".into(),
+            audience: ["mira".into()].into(),
+        },
+    );
+    let claim_event = stated.events()[0].sequence();
+    assert!(claim_event > 0);
+    append(
+        &mut store,
+        &u64_scope,
+        "consider-statement",
+        Intent::Actions(vec![Command::Believe { claim_event }]),
+    );
     let mut selections = Vec::new();
     for (id, role) in [
         ("main", "before"),
@@ -253,12 +300,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         store.resume(&slash_scope)?.engine,
         json!([PRIVATE, "SECRET-TIDE-731"]),
     ));
+    selections.push((
+        "u64",
+        store.resume(&u64_scope)?.engine,
+        json!([PRIVATE, "SECRET-TIDE-731"]),
+    ));
     let mut archives = BTreeMap::new();
     for story in [
         &imported.root.story,
         &empty_scope.story,
         &mixed_scope.story,
         &slash_scope.story,
+        &u64_scope.story,
     ] {
         archives.insert(
             story.clone(),

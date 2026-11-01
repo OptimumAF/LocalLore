@@ -22,6 +22,28 @@ fn whole_visible<'a>(
     any
 }
 
+// Android's JSON number reader cannot represent every native u64 exactly.
+// Change only this display DTO: accepted Request/Receipt serialization stays
+// numeric, while these two unsigned action fields use canonical decimal text.
+fn intent_wire(intent: &Intent) -> Result<Value, Error> {
+    let mut value = json!(intent);
+    if let Intent::Actions(commands) = intent {
+        let actions = value["value"].as_array_mut().ok_or(Error::CorruptHistory)?;
+        if actions.len() != commands.len() {
+            return Err(Error::CorruptHistory);
+        }
+        for (command, action) in commands.iter().zip(actions) {
+            let (field, number) = match command {
+                Command::Promise { deadline, .. } => ("deadline", *deadline),
+                Command::Believe { claim_event } => ("claim_event", *claim_event),
+                _ => continue,
+            };
+            *action.get_mut(field).ok_or(Error::CorruptHistory)? = json!(number.to_string());
+        }
+    }
+    Ok(value)
+}
+
 pub(crate) fn project(engine: &Engine) -> Result<Value, Error> {
     let player = &engine.seed().player;
     // Reuse Core's current-scope/head/lineage/witness authority for both domains.
@@ -70,8 +92,9 @@ pub(crate) fn project(engine: &Engine) -> Result<Value, Error> {
         {
             return Err(Error::CorruptHistory);
         }
+        let intent = intent_wire(&receipt.request().intent)?;
         turns.push(json!({"original_scope":receipt.request().scope,"turn":receipt.request().turn,
-            "event_ids":event_ids,"intent":receipt.request().intent,"narration":receipt.narration()}));
+            "event_ids":event_ids,"intent":intent,"narration":receipt.narration()}));
     }
     let state = engine.state();
     let self_state = state.actors.get(player).ok_or(Error::UnknownReference)?;

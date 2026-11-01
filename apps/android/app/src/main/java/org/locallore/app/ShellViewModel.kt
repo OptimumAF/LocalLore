@@ -383,6 +383,21 @@ class ShellViewModel internal constructor(
     }
     fun backToStoryRecord() = recordController.back()
     fun retryRecordEvent() = recordController.retryEvent()
+
+    // Rendered-state entry points keep UI callback binding separate from trusted direct calls.
+    // This delegating phase preserves existing behavior for the original regression cohort.
+    fun closeStoryRecord(rendered: StoryRecordState) = closeStoryRecord()
+    fun recordSection(section: StoryRecordSection, rendered: StoryRecordState) = recordSection(section)
+    fun recordSearch(text: String, rendered: StoryRecordState) = recordSearch(text)
+    fun nextRecordPage(rendered: StoryRecordState) = nextRecordPage()
+    fun firstRecordPage(rendered: StoryRecordState) = firstRecordPage()
+    fun retryStoryRecord(rendered: StoryRecordState) = retryStoryRecord()
+    fun openRecordEvent(sequence: Long, rendered: StoryRecordState) = openRecordEvent(sequence, rendered.context)
+    fun openScopedRecordEvent(reference: StoryRecordScopedEvent, rendered: StoryRecordState) =
+        openScopedRecordEvent(reference, rendered.context)
+    fun backToStoryRecord(rendered: StoryRecordState) = backToStoryRecord()
+    fun retryRecordEvent(rendered: StoryRecordState) = retryRecordEvent()
+
     fun closeDiagnostics() { diagnosticController.dismiss(); synchronizeForkContext() }
     fun clearDiagnostics() = diagnosticController.clear()
     fun beginDiagnosticExport() = diagnosticController.beginExport()

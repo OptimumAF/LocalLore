@@ -21,6 +21,13 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [player inventory view](docs/android/PLAYER_INVENTORY_2026-11-01.md)
+preserves all validated native item IDs and quantities for saved stories instead
+of showing a healing-potion row in every world. A scoped read-only dialog keeps
+empty and unavailable inventory distinct. Native host11 and JVM439 pass;
+Android-test compilation and lint pass. Its three new Compose journeys remain
+unrun, and the pending SDK11 operation keeps its older frozen APK pair.
+
 The [current chat APK verification](docs/android/CURRENT_CHAT_APKS_2026-11-01.md)
 builds both Rust Android ABIs and the ordinary app/test packages. The 428 JVM
 tests, lint and package audits pass; all eight new UI methods are defined in the

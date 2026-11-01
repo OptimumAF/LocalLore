@@ -352,9 +352,11 @@ class PlayerPresentationGatewayAdversarialTest {
         val data = case.envelope("reply").getJSONObject("data")
         val untouched = data.toString()
         val maximum = "18446744073709551615"
-        val commands = (0 until case.turns.length()).flatMap { turnIndex ->
-            val intent = case.turns.getJSONObject(turnIndex).getJSONObject("intent")
-            assertEquals("actions", intent.getString("kind"))
+        val intents = (0 until case.turns.length()).map { turnIndex ->
+            case.turns.getJSONObject(turnIndex).getJSONObject("intent")
+        }
+        assertEquals(listOf("actions", "dialogue", "actions"), intents.map { it.getString("kind") })
+        val commands = intents.filter { it.getString("kind") == "actions" }.flatMap { intent ->
             val actions = intent.getJSONArray("value")
             (0 until actions.length()).map(actions::getJSONObject)
         }

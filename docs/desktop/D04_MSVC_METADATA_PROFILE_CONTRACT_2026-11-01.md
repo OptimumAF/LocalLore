@@ -1,5 +1,9 @@
 # MSVC metadata profile: source-only API contract
 
+The frozen contract below preceded implementation. Its separately approved
+code checks now pass112/112 and94/94; see [actual verification](D04_MSVC_METADATA_PROFILE_VERIFICATION_2026-11-01.md).
+No SDK/profile adoption or broader qualification follows from those code tests.
+
 Refs #25 D04.01/.02/.04, #31 D09.03 supporting; claim6561774956.
 **Implementation/test preparation only; no new check or SDK-input run admitted.**
 The [design proposal](D04_MSVC_METADATA_PROFILE_PROPOSAL_2026-11-01.md) records

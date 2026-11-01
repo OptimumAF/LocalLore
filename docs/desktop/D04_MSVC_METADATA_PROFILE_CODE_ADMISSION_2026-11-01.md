@@ -1,5 +1,9 @@
 # MSVC metadata profile: code-only admission
 
+Historical frozen proposal. The owner subsequently approved these finite code
+checks; both are now spent. See the [actual verification](D04_MSVC_METADATA_PROFILE_VERIFICATION_2026-11-01.md).
+Preparation statements and forecasts below retain their original scope.
+
 Refs #25 D04.01/.02/.04, supporting #31 D09.03 and #21;
 Root claim6561774956. Branch `feat/msvc-library-metadata-profile-v1`, physical
 checkout `D:/CodexLocalLore/01a165d9-ff25-7500-a550-1099087d4e37/source-desktop-fork-review`.

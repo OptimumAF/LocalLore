@@ -1,5 +1,9 @@
 # Proposed MSVC library metadata profile
 
+Historical design basis. The proposed pure-Buffer API now has separately
+approved passing code checks; [actual verification](D04_MSVC_METADATA_PROFILE_VERIFICATION_2026-11-01.md)
+preserves their scope. No real SDK/profile compatibility or worker adoption is implied.
+
 Refs #25 D04.01/.02/.04, supporting #31 D09.03 and #21; claim6561571557.
 Historical design basis. A separate source implementation and FIRST suite now
 follow the [frozen contract](D04_MSVC_METADATA_PROFILE_CONTRACT_2026-11-01.md);

@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [SDK12 inventory and chat UI profile](docs/native/PLAYER_INVENTORY_UI_V1.md)
+binds eleven methods to the separately frozen B59 inventory APK pair, with
+a fixed byte-attestation guard, separate ownership records and joined cleanup.
+Host verification and Android execution are separate gates; all eleven
+Android methods remain unrun. Earlier SDK11 inputs retain their own authority.
+
 The [SDK11 current-chat harness](docs/runtime/android/CURRENT_CHAT_UI_SDK11_CONTRACT_2026-11-01.md)
 binds eight keyboard/status/heading/action methods to the audited B55 APK pair.
 Its [host verification](docs/native/CURRENT_CHAT_UI_HARNESS_VERIFICATION_2026-11-01.md)

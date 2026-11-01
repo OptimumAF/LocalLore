@@ -49,8 +49,8 @@ class CancelPresentationTest {
         private fun ok(data: JSONObject) = JSONObject().put("version", 1).put("status", "ok").put("data", data)
         private fun receipt(request: JSONObject, narration: String) = JSONObject()
             .put("request", copy(request)).put("narration", narration)
-        private fun oldReceipt() = receipt(JSONObject().put("scope", scope()).put("intent", JSONObject()
-            .put("kind", "dialogue").put("value", JSONObject().put("text", "Earlier accepted dialogue"))),
+        private fun oldReceipt() = receipt(JSONObject().put("scope", scope()).put("turn", "earlier-accepted").put("expected_revision", 6).put("intent", JSONObject()
+            .put("kind", "dialogue").put("value", JSONObject().put("text", "Earlier accepted dialogue").put("audience", JSONArray().put("mira")))),
             "Earlier accepted narration")
         private fun turn(phase: String): JSONObject {
             val original = checkNotNull(request)
@@ -72,14 +72,14 @@ class CancelPresentationTest {
                     if (holdSnapshot) snapshot.pass()
                     ok(JSONObject().put("scope", scope()).put("revision", revision))
                 }
-                "play_snapshot" -> {
+                "play_presentation_v2" -> {
                     assertEquals(revision, command.getLong("expected_revision"))
                     val receipts = JSONArray().put(oldReceipt())
                     committedReceipt?.let { receipts.put(copy(it)) }
-                    ok(JSONObject().put("scope", scope()).put("revision", revision).put("rules", "fantasy_v1")
+                    ok(presentationFixture(JSONObject().put("scope", scope()).put("revision", revision).put("rules", "fantasy_v1")
                         .put("inventory", JSONObject().also { if (revision == 7L) it.put("potion", JSONObject()) })
                         .put("player", JSONObject().put("scope", scope()).put("revision", revision)
-                            .put("observer", "player")).put("receipts", receipts))
+                            .put("observer", "player")).put("receipts", receipts)))
                 }
                 "branches" -> ok(JSONObject().put("version", 2).put("story_id", "presentation-source")
                     .put("title", "Source").put("root_branch", "main").put("branches", JSONArray()

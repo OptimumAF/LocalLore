@@ -117,7 +117,7 @@ class OriginalStoryWireTest {
             val port=object: WorkspaceTransport {
                 override suspend fun exchange(command: JSONObject): JSONObject=host.exchange(command).also {
                     // Negative adapter test only: the unmodified JNI result above remains authoritative.
-                    if(corruptObserver && command.optString("op")=="play_snapshot" && it.optString("status")=="ok")
+                    if(corruptObserver && command.optString("op")=="play_presentation_v2" && it.optString("status")=="ok")
                         it.getJSONObject("data").getJSONObject("player").put("observer","foreign-observer")
                 }
                 override fun close()=host.close()

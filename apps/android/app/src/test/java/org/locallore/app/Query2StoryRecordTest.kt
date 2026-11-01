@@ -364,9 +364,14 @@ class Query2StoryRecordTest {
                     .put("root_branch", context.story.branch).put("branches", JSONArray().put(JSONObject().put("scope", sharedScope)
                         .put("parent_branch", JSONObject.NULL).put("fork_revision", JSONObject.NULL).put("revision", head).put("drafts", 0).put("retired", false))))
                 "resume", "open" -> ok(JSONObject().put("session", "same-session").put("scope", sharedScope).put("revision", head))
-                "play_snapshot" -> ok(JSONObject().put("scope", sharedScope).put("revision", head).put("rules", "narrative_v1")
-                    .put("inventory", JSONObject()).put("receipts", JSONArray()).put("player", JSONObject().put("scope", sharedScope)
-                        .put("revision", head).put("observer", snapshotNativeObserver ?: JSONObject.NULL)))
+                "play_presentation_v2" -> ok(JSONObject().put("version", 2).put("domain_version", 1)
+                    .put("scope", sharedScope).put("revision", head).put("rules", "narrative_v1")
+                    .put("inventory", JSONObject()).put("turns", JSONArray())
+                    .put("window", JSONObject().put("total", 0).put("start", 0).put("end", 0))
+                    .put("player", JSONObject().put("observer", snapshotNativeObserver ?: JSONObject.NULL)
+                        .put("self_state", JSONObject().put("name", "Synthetic player").put("location", "quay")
+                            .put("alive", true).put("energy", 10).put("abilities", JSONObject()).put("attributes", JSONObject())
+                            .put("injuries", JSONArray()).put("affiliations", JSONArray()).put("goals", JSONArray()))))
                 "capabilities" -> ok(JSONObject().put("free_text", false))
                 "inspection_query" -> {
                     inspections += JSONObject(command.toString())
@@ -407,7 +412,7 @@ class Query2StoryRecordTest {
                     assertEquals(setOf("kind"), observer.keys().asSequence().toSet()); assertEquals("player", observer.getString("kind"))
                 }
                 assertEquals(pages.size, port.inspections.size)
-                assertTrue(port.operations.all { it in setOf("workspace", "branches", "resume", "open", "play_snapshot", "capabilities", "inspection_query") })
+                assertTrue(port.operations.all { it in setOf("workspace", "branches", "resume", "open", "play_presentation_v2", "capabilities", "inspection_query") })
             } finally { gateway.close() }
             assertEquals(1, port.closes)
         }

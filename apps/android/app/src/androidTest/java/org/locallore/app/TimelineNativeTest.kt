@@ -22,7 +22,7 @@ class TimelineNativeTest {
         override suspend fun exchange(command: JSONObject): JSONObject = withContext(Dispatchers.IO) {
             val input = JSONObject().put("version", 1).put("command", command).toString().toByteArray(Charsets.UTF_8)
             JSONObject(NativeWorkspace.call(handle, input).toString(Charsets.UTF_8)).also {
-                if (command.getString("op") == "play_snapshot" && it.getString("status") == "ok")
+                if (command.getString("op") == "play_presentation_v2" && it.getString("status") == "ok")
                     lastView = JSONObject(it.getJSONObject("data").toString())
             }
         }
@@ -56,9 +56,9 @@ class TimelineNativeTest {
                 assertEquals(2L, child.revision); assertEquals(4, child.messages.size)
                 assertEquals("Not in your inventory", child.potionOwner)
                 val childView = checkNotNull(transport.lastView).toString()
-                val receipts = checkNotNull(transport.lastView).getJSONArray("receipts")
-                assertEquals("main", receipts.getJSONObject(0).getJSONObject("request").getJSONObject("scope").getString("branch"))
-                assertEquals("child", receipts.getJSONObject(1).getJSONObject("request").getJSONObject("scope").getString("branch"))
+                val turns = checkNotNull(transport.lastView).getJSONArray("turns")
+                assertEquals("main", turns.getJSONObject(0).getJSONObject("original_scope").getString("branch"))
+                assertEquals("child", turns.getJSONObject(1).getJSONObject("original_scope").getString("branch"))
                 assertFalse(child.messages.any { it.text.contains("PLATFORM_SIBLING_CANARY") })
                 val sibling = gateway.resumeSaved(parent.copy(branch = "sibling"))
                 assertEquals("You", sibling.potionOwner)

@@ -63,10 +63,10 @@ class DurableDeletionRecoveryTest {
             return when (op) {
                 "close" -> { sessions.remove(id); ok(JSONObject()) }
                 "open" -> ok(JSONObject().put("scope", scope(story)).put("revision", story.revision))
-                "play_snapshot" -> ok(JSONObject().put("scope", scope(story)).put("revision", story.revision)
+                "play_presentation_v2" -> ok(presentationFixture(JSONObject().put("scope", scope(story)).put("revision", story.revision)
                     .put("rules", "fantasy_v1").put("inventory", JSONObject().put("potion", JSONObject()))
                     .put("player", JSONObject().put("scope", scope(story)).put("revision", story.revision).put("observer", "player"))
-                    .put("receipts", JSONArray()))
+                    .put("receipts", JSONArray())))
                 "submit" -> { submitted = command.getJSONObject("request"); ok(turn("queued")) }
                 "prepare" -> ok(turn("ready"))
                 "cancel" -> ok(turn("cancelled"))

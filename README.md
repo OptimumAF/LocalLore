@@ -21,6 +21,15 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [presentation-process runner](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_V1.md)
+adds a distinct guarded three-APK host profile for the
+[V3 saved-task proof](docs/native/PLAYER_PRESENTATION_PROCESS_V3.md). It revalidates
+the separately frozen product build, limits the external controller to one
+claim, and replays original SDK/raw evidence. Host checks and closed build
+qualification do not establish Android process-restoration execution, which
+remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
+records the tests, original failures and remaining device gates.
+
 The [buffered restart qualification](docs/native/BUFFERED_RESTART_RUN_2026-10-29.md)
 completes one newly approved API 35/x86_64 run using PR #270's frozen build:
 verified local model transfer/import, real AUTHOR creation, idempotent retry,

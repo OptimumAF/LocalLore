@@ -82,7 +82,7 @@ The original baseline callbacks remain executable through test-only extension
 fallbacks; production member overloads take precedence after the fix. FIRST and
 GREEN share the byte-identical 33,981-byte test file, SHA256
 `f5246a3494b467759957185b53a3278a9d8cf9b19a79a3e4d9afc0ce7d351b7b`.
-Earlier test bodies remain unchanged. Final test changes add the equal-shell
+All 14 preexisting test bodies remain unchanged. Final test changes add the equal-shell
 opener case and broaden try/finally around the held-registration setup; no
 assertion is weakened. Repeated cohorts are not additive distinct test counts.
 
@@ -96,7 +96,7 @@ Each build uses a 900-second owned Windows Job, original command/child identity,
 start barrier, complete binary capture and known cleanup. All tracked raw source
 hashes are identical before/after each phase (2,597 initially; 2,598 finally).
 The first cold build compiles both JNI ABIs locally; later native tasks are
-up-to-date. Rust/controller/native source is byte-identical to the product base.
+up-to-date. Rust, BranchForkController and NativeFork sources are byte-identical to the product base.
 No new full Rust workspace test run or ARM64 execution is claimed.
 
 Final Gradle: 81 tasks, 14 executed / 67 up-to-date. Lint has zero errors, one

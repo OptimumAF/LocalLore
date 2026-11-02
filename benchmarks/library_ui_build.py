@@ -480,6 +480,3 @@ def verify_current(admission):
     from benchmarks import owned_library_ui_contract as contract
     value=contract.validate_admission(admission);contract.revalidate_inputs(value)
     result=verify_frozen_product(value['artifacts']);contract.revalidate_inputs(value);return result
-
-
-

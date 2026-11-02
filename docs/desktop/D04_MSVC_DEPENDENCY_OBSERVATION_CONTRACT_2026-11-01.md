@@ -115,7 +115,7 @@ Freeze12 groups B01..B12 before binding producer edits:
 | B09 | Stopped/refused profile pair refuses even when expected row copies it |
 | B10 | Changed strict success/refusal/site/context refuses, no strict rewrite |
 | B11 | Same metadata values with different insertion-order digest refuses |
-| B12 | Inputs unchanged; result binding is exact; no added authority/fields or raw-string output |
+| B12 | Inputs unchanged; exact object/result binding; no added authority/fields; errors contain no raw payload |
 
 Return exact six keys version,kind,executed,passed,failed,failed_case_ids; version1,
 kind`library_metadata_dependency_observer_first_v1`,12 groups and fixed IDs.

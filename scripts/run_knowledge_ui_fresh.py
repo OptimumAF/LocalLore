@@ -123,6 +123,8 @@ def _initial(authority_pin):
         for k in ('TEMP','TMP','TMPDIR')), 'environment')
     authority,h,_=frozen_inputs(authority_pin);_unused()
     api.env.check_binding(authority['ledger'])
+    ledger=read(authority['ledger']);api.storage._validate(ledger,r.REGISTRY)
+    r.need(type(ledger['version']) is int and ledger['version']==2, 'ledger_version')
     capacity=api.storage.preview_prepare(r.GUEST)
     r.need(capacity['would_fit'] is True and capacity['admission_granted'] is False and
            r.same(capacity['ledger'],authority['ledger']), 'capacity')
@@ -147,9 +149,17 @@ def prepared(authority_pin,prepare_authorization_pin):
         prepared=api.env.binding(r.GUEST/'prepared-v1.json'),
         prepare_result=api.env.binding(r.GUEST/'prepare-result-v1.json'),max_seconds=1800)
     api.env.validate_proposal(proposal,'run');api.env.verify_prepared(proposal,initial=True)
+    terminal=read(proposal['prepare_result'],r.GUEST/'prepare-result-v1.json')
+    r.need(type(terminal) is dict and set(terminal)=={'version','proposal_sha256','status',
+        'closure_verified','child_cleanup_complete','prepared_created'} and
+        type(terminal['version']) is int and terminal['version']==1 and terminal['status']=='completed' and
+        terminal['proposal_sha256']==h['prepare_proposal']['sha256'] and
+        all(terminal[k] is True for k in ('closure_verified','child_cleanup_complete','prepared_created')), 'prepare_terminal')
     pin=api.env.binding(r.REGISTRY/'ledger-v1.json');ledger=read(pin)
     api.storage._validate(ledger,r.REGISTRY);entry=api.storage._entry(ledger,r.GUEST)
-    api.history.validate_history(entry,r.REGISTRY);api.history.require_cleanup(entry)
+    # _validate owns recovery-history validation for recovered entries. Fresh
+    # entries have no recovery history and must not enter that validator.
+    api.history.require_cleanup(entry)
     r.need(type(ledger['version']) is int and ledger['version']==2 and entry['state']=='prepared' and
            type(entry['reserved_bytes']) is int and entry['reserved_bytes']==40*1024**3 and
            entry['proposal_sha256']==h['prepare_proposal']['sha256'] and entry['closure'] is None and
@@ -213,8 +223,9 @@ def _accept_activation(value,inputs):
            r.same(runtime['input'],inputs['input']), 'activation_cleanup')
     pin=api.env.binding(r.REGISTRY/'ledger-v1.json');ledger=read(pin)
     api.storage._validate(ledger,r.REGISTRY);entry=api.storage._entry(ledger,r.GUEST)
-    api.history.validate_history(entry,r.REGISTRY);api.history.require_cleanup(entry)
-    r.need(entry['state']=='closed' and entry['proposal_sha256']==inputs['run_proposal']['sha256'] and entry['closure'] is not None, 'storage_closure')
+    api.history.require_cleanup(entry)
+    r.need(entry['state']=='closed' and entry.get('recovery') is None and entry['retirement'] is None and
+           entry['proposal_sha256']==inputs['run_proposal']['sha256'] and entry['closure'] is not None, 'storage_closure')
     closure=read(entry['closure'],r.GUEST/'guest-storage-closure-v1.json')
     r.need(closure['closure_verified'] is True and closure['cleanup_complete'] is True and
            closure['proposal_sha256']==inputs['run_proposal']['sha256'] and r.same(closure['admission'],inputs['admission']), 'storage_closure')
@@ -281,7 +292,7 @@ def _supervise(request_pin,begin):
     # capture mechanisms, with a fixed40-minute outer ceiling for prepare+run.
     # Request release occurs only AFTER job assignment and exact started join.
     r,api=_parts();root=r.LIVE/'outer-owner-v1';root.mkdir()
-    child=job=capture=None;threads=[];worker=None;status='spawn_failed';closed=False;stalled=False
+    child=job=capture=None;threads=[];worker=None;status='spawn_failed';closed=False;stalled=False;readers_started=False
     try:
         capture=api.env.LiveOutput(root)
         child=subprocess.Popen([sys.executable,'-I','-S','-B',str(r.OPERATOR),'_worker'],stdin=subprocess.PIPE,
@@ -299,6 +310,7 @@ def _supervise(request_pin,begin):
             except BaseException:capture.failed.set()
         for channel,stream in enumerate((child.stdout,child.stderr)):
             thread=threading.Thread(target=drain,args=(stream,channel),daemon=True);threads.append(thread);thread.start()
+        readers_started=True
         child.stdin.write(BARRIER+api.env.encoded(request_pin));child.stdin.close()
         status='running'
         while True:
@@ -330,6 +342,8 @@ def _supervise(request_pin,begin):
                 try:stream.close()
                 except BaseException:closed=False
         if capture is not None:
+            # Closing empty capture files cannot qualify unread child pipes.
+            if child is not None and not readers_started:capture.failed.set()
             if stalled:capture.failed.set()
             else:
                 try:

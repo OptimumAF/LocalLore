@@ -57,12 +57,12 @@ checks below prevent passing unrelated hash-pinned JSON as the intended type.
 
 ## Required accepted evidence structure
 
-Dependency outer exact13keys in its accepted contract: version,kind,qualified,
+Dependency outer exact12keys in its accepted contract: version,kind,qualified,
 linkQualification,closureComplete,captureComplete,status,selfchecks,proofs,
 cohort,facts,critical. Version1/kind msvc_dependency_observation_v1, complete
 capture/status, critical=null, all qualification flags false. Require old
 successful cohort52/projection32/observer15 summaries and matching inner summary.
-Inner cohort is the accepted exact15-key report; require version1, correct
+Inner cohort is the accepted exact17-key report; require version1, correct
 kind/profile, complete/not stopped,32 inputs/64 attempts,32 ordered rows, seven
 proof couplings and inherited pins/catalog facts. Do not relabel its profile.
 Existing historical limits/counters remain bounded; this is not a new parse.

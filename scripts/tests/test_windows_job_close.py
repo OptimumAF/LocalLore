@@ -345,7 +345,8 @@ class WindowsJobCloseTests(unittest.TestCase):
         kernel = Kernel(); job = self.construct(kernel); clock = Clock()
         original = kernel.QueryInformationJobObject.body
         entered, release = threading.Event(), threading.Event()
-        results, errors = [], []
+        second_done = threading.Event()
+        results, second_results, errors = [], [], []
         def query(*args):
             if not entered.is_set():
                 entered.set()
@@ -354,16 +355,27 @@ class WindowsJobCloseTests(unittest.TestCase):
         def first():
             try: results.append(job.close())
             except BaseException as error: errors.append(type(error).__name__)
+        def second():
+            try: second_results.append(job.close())
+            except BaseException as error: errors.append(type(error).__name__)
+            finally: second_done.set()
         kernel.QueryInformationJobObject.body = query
         with patch.object(runtime, 'time', SimpleNamespace(monotonic=clock.monotonic, sleep=clock.sleep)):
             thread = threading.Thread(target=first)
+            other = threading.Thread(target=second)
             thread.start()
             try:
                 self.assertTrue(entered.wait(3))
-                self.assertIs(self.result(job, clock), False)
+                other.start()
+                self.assertTrue(second_done.wait(1), 'Second close waited for the blocked native query')
+                self.assertFalse(release.is_set())
+                self.assertTrue(thread.is_alive())
+                self.assertEqual(second_results, [False])
             finally:
                 release.set(); thread.join(timeout=3)
+                if other.ident is not None: other.join(timeout=3)
                 self.assertFalse(thread.is_alive())
+                self.assertFalse(other.is_alive())
         self.assertEqual(errors, [])
         self.assertEqual(results, [False])
         self.assertEqual(kernel.names(), ['TerminateJobObject', 'QueryInformationJobObject', 'CloseHandle'])

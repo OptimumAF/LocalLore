@@ -64,9 +64,10 @@ source maps, archives, raw captures, actual process/terminal joins and failures.
 
 Output is `D:/Dev/Experiments/LocalLore/2026-11-02-windows-job-close-v1`;
 selected recovery uses the matching `D:/Dev/Recovery/LocalLore` child. Controls
-64 MiB, new generated fixtures 128 MiB, selected recovery 128 MiB. Recovery was
-refined from 96 MiB before additional capture RED/GREEN checks so both failed
-cohorts and all four source archives can remain intact. These selected
+80 MiB, new generated fixtures 128 MiB, selected recovery 160 MiB. Controls and
+recovery were refined from 64/96 MiB before additional capture/oracle checks so
+all failures, five source archives and two profile fixture cohorts remain intact.
+These selected
 meters are not a disk quota or full cache/TEMP measurement. Process temporary
 paths stay D:/Dev/_Temp. No actual guest, ADB, SDK16 input/authority, model,
 phone, shared-ledger mutation, deletion, settings change or merge is authorized

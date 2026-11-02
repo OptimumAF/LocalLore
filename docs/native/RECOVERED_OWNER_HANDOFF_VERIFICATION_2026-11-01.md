@@ -119,9 +119,62 @@ regression failures and incomplete/superseded file inspections remain preserved.
 Selected outputs/recovery have separate 64 MiB budgets; no private raw data,
 credentials, saves or model weights are published.
 
-## Next gate
+## B77 authorized recovery attempt: refused before intent
 
-Only a matching owner-authorized operation may apply the reviewed recovery
+After the preceding host verification, the owner authorized the exact combined
+recovery and one UI run proposal (9,191 bytes, SHA-256
+`4ecc23f49c864757ae5a6aad7893eab54e91d5f2f93bcb318fa617f5ce85f135`).
+The operator invoked `receipt_avd_prepare_recovery.execute` **once** from the
+unchanged clean frozen `5907d831` checkout. Source/tool/artifact pins and the
+normal uninstrumented B66 product verifier passed again. The command was:
+
+```powershell
+& C:/Users/Avery/AppData/Local/Programs/Python/Python314/python.exe -I -S -B D:/Dev/Experiments/LocalLore/2026-11-01-recovered-owner-handoff-v1/admitted-recovery-v1.py
+```
+
+It exited 1 with `EnvironmentRefused: host_commit_capacity` at
+`receipt_avd_prepare_recovery.execute`'s first `resource_facts(prior)` call.
+That call precedes process-identity lookup, directory-fence construction,
+shared-ledger locking, output-directory creation and recovery intent publication.
+No SDK, ADB, guest boot, activation or UI method ran. No retry occurred.
+
+The existing policy requires available Windows commit capacity of **10 GiB**
+for this guest: 8 GiB guest memory plus a separate 2 GiB project margin. The
+physical-memory gate is independently 12 GiB. This is not the historical
+18 GiB cutoff. The refusal path does not emit its numeric commit snapshot;
+the exact refusal-time shortfall is therefore unknown. A later read-only
+observation at `2026-11-02T06:45:22.450761+00:00` measured 11,217,920,000 bytes
+available commit against 10,737,418,240 required and 22,036,647,936 bytes
+available physical memory. That later sample passed the commit policy; it
+does not qualify the earlier dispatch or authorize a repeated attempt.
+
+Post-refusal checks confirm the shared ledger remains version 1 and byte-identical
+at `4917ec696f7c9f9de5917838aafbd9c2d11184e17c8cbecd71f4eb66ae6a58c5`.
+The original 40 GiB reservation remains charged. The guest and its immediate
+parent, recovery output, activation controls and runtime are absent. There is
+no new native cleanup obligation from this pre-intent refusal, and no claim
+about historical native closure. Other emulators, shared ADB, settings and all
+prior evidence were preserved; no model operation, deletion or merge occurred.
+
+The additive local terminal record is 1,813 bytes, SHA-256
+`e716263a70064efcb9b0cfde303df02491162a11e82ce221c5e30eb87b39998d`, at
+`D:/Dev/Experiments/LocalLore/2026-11-01-recovered-owner-handoff-v1/live-operation-v1/refusal-terminal-v1.json`.
+The authority, operator, proposal, plan, ledger snapshot, dispatch, resource
+observation and terminal record have ten independently hash-checked recovery
+copies totaling 67,167 bytes at
+`D:/Dev/Recovery/LocalLore/2026-11-01-recovered-owner-handoff-v1/b77-refusal-v1`.
+The copy manifest is 4,487 bytes, SHA-256
+`a7ccdea39bb1ff40fab852f48d3c37c9eb95674df4afaa7fdeec3b1de9b0d152`.
+The traceback was observed in the command tool's result; the initial operator
+did not separately capture a raw stderr file. These private records are not
+uploaded. The earlier 173 host checks are retained evidence and were not rerun
+for this report-only update. B77/M10.02 live execution remains **blocked**;
+all nineteen Android methods remain **unrun** and full criteria stay unchecked.
+
+## Next gate after B77
+
+The B77 one-attempt grant was used; do not redispatch it when memory fluctuates.
+Only a fresh matching owner-authorized operation may apply the reviewed recovery
 plan, migrate the live ledger and prepare the existing charged guest. Later
 boot/testing requires the current fixed handoff and fresh storage, resource,
 port and native ownership gates. The spent old SDK14 grant and frozen old

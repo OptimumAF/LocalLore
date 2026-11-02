@@ -448,6 +448,18 @@ export async function runLibraryArchiveAlignmentV2SelfchecksV1(api) {
     const stopped = job.snapshot();
     refused(() => job.inspect(backing, STRICT), 'LibraryInputsProfile', 'metadata_job_stopped');
     eq(job.snapshot(), stopped); unchanged(backing, before);
+    // A separate job must accept the exact ceiling before refusing its next
+    // distinct one-byte view, without parsing that deliberately short input.
+    const boundary = fresh();
+    for (let n = 0; n < 16; n++) result(boundary.inspect(backing.subarray(0), V2), V2, EMPTY);
+    result(boundary.inspect(backing.subarray(0, 65536), V2), V2, EMPTY);
+    snapshot(boundary, V2, 17, 536870912, 17);
+    refused(() => boundary.inspect(backing.subarray(0, 1), V2), 'LibraryInputsSize',
+      'metadata_job_bytes', 536870913, 536870912);
+    snapshot(boundary, V2, 17, 536870912, 17, 0, true);
+    const boundaryStopped = boundary.snapshot();
+    refused(() => boundary.inspect(backing, STRICT), 'LibraryInputsProfile', 'metadata_job_stopped');
+    eq(boundary.snapshot(), boundaryStopped); unchanged(backing, before);
   });
   add('A17', () => {
     // Three complete buffers ~16.2MiB; no SDK data or256MiB allocation. Each

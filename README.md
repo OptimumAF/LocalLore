@@ -21,13 +21,23 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [SDK16 preparation inspector](docs/native/KNOWLEDGE_PREPARE_INPUTS_V1.md)
+verifies frozen source, installed tools and the original APK pair, then emits five
+nonexecutable planning records. [Verification](docs/native/KNOWLEDGE_PREPARE_INPUTS_VERIFICATION_2026-11-02.md)
+records a genuine completed inspection and 173 unique passing host tests. Capacity
+remains blocked; no guest, preparation, admission, boot or actual retirement is
+authorized. The current operator also recognizes the existing SDK15 retirement
+closure protocol while retaining every consent/cleanup/identity/storage guard.
+
 The [fresh SDK16 guest and capacity preview](docs/native/KNOWLEDGE_FRESH_CAPACITY_V1.md)
 reject the used SDK15 guest and report shared-ledger capacity without granting
 admission. [Verification](docs/native/KNOWLEDGE_FRESH_CAPACITY_VERIFICATION_2026-11-02.md)
 records 12 new checks, 44 storage regressions and 39 SDK16 profile checks passing.
-The fixed target parent is absent; a separate representative preview confirms
+At that inspection the fixed target parent was absent; a representative preview confirmed
 both the retained-root and byte limits block a fresh guest. No boot, shared-ledger
 write or real guest-image deletion occurred; the Knowledge journeys remain unrun.
+The ordinary project parent was subsequently created before inspection; the
+inspector leaves the guest itself absent.
 
 The [checked Windows host cleanup](docs/native/WINDOWS_JOB_CLOSE_VERIFICATION_2026-11-02.md)
 keeps failed handle, constructor and capture closure unqualified across five

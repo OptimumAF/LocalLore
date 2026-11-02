@@ -64,6 +64,10 @@ heads are rechecked around publication. All five records are read back. Any
 failure retains partial output; existing output is never overwritten, repaired,
 deleted or silently replaced with another fresh directory.
 
+The closed CLI exit/capture/source joins are required to qualify completion.
+A retained partial or `result-v1.json` by itself is never success or authority;
+a later failed recheck can leave that file present while the CLI refuses.
+
 An inspection can complete while capacity is blocked. `capacity_would_fit` and
 `capacity_blocked` reflect only the observed shared accounting result; every
 execution/preparation flag remains false even if capacity fits. Missing

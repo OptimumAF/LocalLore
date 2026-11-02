@@ -127,9 +127,7 @@ open class MainActivity : ComponentActivity() {
             val deletion by model.deletion.collectAsStateWithLifecycle()
             val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
             val creation by model.creation.collectAsStateWithLifecycle()
-            val recordFrame by model.storyRecordFrames.collectAsStateWithLifecycle(
-                initialValue = StoryRecordFrame(model.storyRecord.value),
-            )
+            val recordFrame by model.storyRecordFrames.collectAsStateWithLifecycle()
             val fork by model.fork.collectAsStateWithLifecycle()
             val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()

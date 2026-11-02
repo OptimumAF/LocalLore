@@ -38,6 +38,18 @@ class StoryRecordKnowledgeFilterTest {
         JSONObject(localText(bytes, 128 * 1024)).also { check(it.getInt("version") == 1) }
     }
     private fun objects(a: JSONArray): List<JSONObject> = (0 until a.length()).map(a::getJSONObject)
+    // Android's compile-time JSONObject surface omits the JVM library's similar().
+    // Compare the entire JSON shape, preserving array order and every scalar value.
+    private fun sameJson(a: Any?, b: Any?): Boolean = when {
+        a is JSONObject && b is JSONObject -> {
+            val keys = a.keys().asSequence().toSet()
+            keys == b.keys().asSequence().toSet() && keys.all { sameJson(a.get(it), b.get(it)) }
+        }
+        a is JSONArray && b is JSONArray -> a.length() == b.length() &&
+            (0 until a.length()).all { sameJson(a.get(it), b.get(it)) }
+        a is Number && b is Number -> a.toString() == b.toString()
+        else -> a == b
+    }
     private fun cases() = objects(corpus.getJSONArray("cases"))
     private fun filterRows(c: JSONObject) = objects(c.getJSONArray("filters"))
     private fun filter(c: JSONObject, origin: String?) = filterRows(c).single {
@@ -120,7 +132,7 @@ class StoryRecordKnowledgeFilterTest {
                     assertEquals("inspection_query", command.getString("op"))
                     assertEquals(setOf("version", "scope", "expected_head", "at_revision", "observer",
                         "view", "cursor", "limit", "search"), actualQuery.keys().asSequence().toSet())
-                    assertTrue("Original native query must match without a new JSON field", actualQuery.similar(rawQuery))
+                    assertTrue("Original native query must match without a new JSON field", sameJson(actualQuery, rawQuery))
                     assertEquals(if (f.isNull("origin")) "" else "\"origin\":\"" + f.getString("origin") + "\"",
                         actualQuery.getString("search"))
                     assertEquals(previous, q.cursor)
@@ -176,7 +188,7 @@ class StoryRecordKnowledgeFilterTest {
                 val expected = all.filter { it.getString("origin") == origin }
                 assertEquals(expectedCounts[index + 1], actual.size)
                 assertEquals(expected.map { it.getString("key") }, actual.map { it.getString("key") })
-                for ((a, b) in actual.zip(expected)) assertTrue(a.similar(b))
+                for ((a, b) in actual.zip(expected)) assertTrue(sameJson(a, b))
                 assertTrue(actual.all { partitions.add(it.getString("key")) })
             }
             assertEquals(all.map { it.getString("key") }.toSet(), partitions)

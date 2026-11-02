@@ -152,6 +152,7 @@ def inspect():
     OUTPUT.mkdir()
     api.env.create_json(OUTPUT/'b80-byte-attestation-v1.json',manifest)
     attestation = api.env.binding(OUTPUT/'b80-byte-attestation-v1.json')
+    _need(_same(_read(attestation),manifest), 'attestation')
     plan = api.recovery.plan(GUEST,Path(FAILURE['path']),OUTPUT/'recovery-plan-v1.json')
     plan_pin = api.env.binding(OUTPUT/'recovery-plan-v1.json')
     _need(_same(_read(plan_pin),plan), 'recovery_plan')
@@ -160,10 +161,12 @@ def inspect():
     for pin in plan['sources']:
         api.env.check_binding(pin)
     api.env.create_json(OUTPUT/'static-installed-inputs-v1.json',installed)
+    static_pin = api.env.binding(OUTPUT/'static-installed-inputs-v1.json')
+    _need(_same(_read(static_pin),installed), 'installed_copy')
     blueprint = dict(version=1,scope='sdk15-recovery-inspection-inputs-v1',source_root=str(SOURCE),head=SOURCE_HEAD,
         helper=helper,sources=sources,activation=api.env.binding(api.activation.HELPER),
         controls=str(api.activation.CONTROLS),runtime=str(api.activation.RUNTIME),guest=str(GUEST),
-        artifacts=artifacts,static_inputs=api.env.binding(OUTPUT/'static-installed-inputs-v1.json'),
+        artifacts=artifacts,static_inputs=static_pin,
         recovery_plan=plan_pin,attestation=attestation,fixed_roster=[list(row) for row in api.contract.INSTRUMENTATIONS],
         method_count=4,ready_for_execution=False,approval_inferred=False,pending=list(PENDING),
         original_observation_acceptance_required=True,no_historical_process_closure_claim=True,
@@ -195,6 +198,7 @@ def inspect():
     _need({p.name for p in OUTPUT.iterdir()} == FILES, 'output_roster')
     for pin in records.values():
         api.env.check_binding(pin)
+    _need(_same(_read(api.env.binding(OUTPUT/'result-v1.json')),result), 'result_copy')
     return result
 
 

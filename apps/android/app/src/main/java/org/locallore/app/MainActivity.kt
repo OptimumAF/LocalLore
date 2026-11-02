@@ -138,7 +138,9 @@ open class MainActivity : ComponentActivity() {
             val renderedDeletion = deletionFrame.state
             val renderedBranchDeletion = branchDeletionFrame.state
             val renderedActionStory = state.selectedStory
-            LocalLoreScreen(state, { action -> model.submit(action, renderedActionStory) }, model::setMode, model::cancel, model::startNewStory,
+            val renderedChatState = state
+            LocalLoreScreen(renderedChatState, { action -> model.submit(action, renderedActionStory) }, model::setMode,
+                { model.cancel(renderedChatState) }, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
                 onText = model::submitText,

@@ -25,7 +25,7 @@ activation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(activation)
 with patch.object(activation, 'SOURCE_ROOT', REPO):
     REAL = activation._api()
-FIXTURES = Path('D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-harness-v1/test-agent-v1/fixtures/activation')
+FIXTURES = profile.FIXTURE_ROOT / 'activation'
 
 
 def identity(pid, executable):

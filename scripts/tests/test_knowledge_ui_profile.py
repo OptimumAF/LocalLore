@@ -178,6 +178,7 @@ class KnowledgeUiAuthorityTests(unittest.TestCase):
         original = data.admission()
         old = copy.deepcopy(original)
         old['protocol'] = sdk15.PROTOCOL
+        old['guest']['root'] = str(sdk15.GUEST_ROOT)
         old['sources'] = sorted([legacy.pin(PureWindowsPath('D:/Synthetic/LocalLore/benchmarks') / name)
                                   for name in sdk15.SOURCE_NAMES], key=lambda pin: pin['path'])
         self.assertEqual(sdk15.validate_admission(old), old)

@@ -198,8 +198,9 @@ def _supervise(request_pin, begin):
         if child is not None:
             try:
                 if job is not None:closed=job.close() is True
-                else:child.kill();closed=True  # No barrier release without a job.
-                child.wait(timeout=5)
+                else:child.kill();closed=False  # Constructor handles remain unverified.
+            except BaseException:closed=False
+            try:child.wait(timeout=5)
             except BaseException:closed=False
         joined=True
         for thread in readers:

@@ -525,3 +525,21 @@ it is explicitly not claimed as an isolated reachable resource boundary.
 The proposed producer, source reviews, actual envelope/source sizes and full
 retention forecast remain pending. No source-retention/run/cap authority is
 inferred from this freeze.
+
+### Preserved unexecuted producer findings, 2026-11-02
+
+CoreV2 source review found optional read-produced Buffer admission. Independent
+P04 append froze at e766e385 (integrationa39dbfa8) BEFORE coreV3 added mandatory
+private binding before any job callback. EncoderV1 source review then found
+missing exclusive-size validation for reserved-but-unpinned candidates.
+Independent S03 append froze at adff4845 (integration879fc2a0) BEFORE EncoderV2
+required0<bytes<268435456 for EVERY admitted reservation. Original candidates,
+source findings, group IDs and assertions remain preserved. Neither finding
+is described as a reproduced test failure; no collector/suite/SDK input ran.
+
+Latest independent FIRST is42661B, SHA256
+`5070e734a093b0903d050a18b63f1af3ff8f9861c468e7006828939f28e5554c`.
+All24 groups remain UNRUN. Prior41187B freeze above is retained history.
+The whole reader/supervisor, full source/envelope proofs and fresh retention
+forecast are still prerequisites to a separate owner decision. No actual
+program/owner/Stage/START file, cap activation or input lookup is authorized.

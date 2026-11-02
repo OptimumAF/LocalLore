@@ -120,10 +120,11 @@ def _run_stages(authority_pin, attempt_pin, begin):
 
 
 def _worker():
-    r,b,api=_parts()
-    r.need(sys.stdin.buffer.readline()==BARRIER, 'barrier')
+    # No target imports, Git subprocess or observation before job assignment.
+    if sys.stdin.buffer.readline(len(BARRIER)+1)!=BARRIER:return 1
     payload=sys.stdin.buffer.read(131073)
-    r.need(len(payload)<=131072, 'request')
+    if len(payload)>131072:return 1
+    r,b,api=_parts()
     request_pin=api.env.decode_json(payload)
     request=b.read(request_pin,r.LIVE/'worker-request-v1.json')
     r.need(type(request) is dict and set(request)=={'version','scope','authority','attempt','parent','started_monotonic'} and
@@ -134,24 +135,32 @@ def _worker():
     r.validate_attempt(b.read(request['attempt'],r.ATTEMPT),request['authority'],authority)
     r.need(r.same(api.env.process_identity(request['parent']['pid']),request['parent']) and
            request['parent']['executable']==sys.executable, 'parent_identity')
+    identity=api.env.process_identity(os.getpid())
+    started=b.read(api.env.binding(r.LIVE/'worker-started-v1.json'))
+    r.need(type(started) is dict and set(started)=={'request','worker'} and
+           r.same(started['request'],request_pin) and r.same(started['worker'],identity), 'worker_identity')
     _budget(request['started_monotonic'],2100)
     # Even a failed pre-intent dispatch consumes this worker claim. A new parent
     # or a missing output directory cannot turn it into another attempt.
     b.save(r.LIVE/'worker-claim-v1.json',dict(version=1,authority=request['authority'],attempt=request['attempt'],
-        request=request_pin,worker=api.env.process_identity(os.getpid())))
+        request=request_pin,worker=identity))
     result=_run_stages(request['authority'],request['attempt'],request['started_monotonic'])
     return 0 if result['passed'] else 1
 
 
 def _supervise(request_pin, begin):
     """Fixed worker only; own 40-minute job, unchanged component supervisors."""
-    r,_,api=_parts();root=r.LIVE/'outer-owner-v1';root.mkdir()
+    r,b,api=_parts();root=r.LIVE/'outer-owner-v1';root.mkdir()
     child=job=capture=None;readers=[];status='spawn_failed';closed=False
+    worker=None
     try:
         capture=api.env.LiveOutput(root)
         child=subprocess.Popen([sys.executable,'-I','-S','-B',str(r.OPERATOR),'_worker'],stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,stderr=subprocess.PIPE,bufsize=0,creationflags=subprocess.CREATE_NO_WINDOW)
         job=api.env.host.WindowsJob(child.pid)
+        worker=api.env.process_identity(child.pid)
+        r.need(worker['executable']==sys.executable, 'worker_identity')
+        b.save(r.LIVE/'worker-started-v1.json',dict(request=request_pin,worker=worker))
         def drain(stream,channel):
             try:
                 while True:
@@ -192,6 +201,8 @@ def _supervise(request_pin, begin):
     complete=capture is not None and not stalled and not capture.failed.is_set() and not capture.overflow.is_set()
     return dict(status=status,worker_returncode=child.returncode if child is not None else None,
         cleanup_complete=closed and not stalled,output_capture_complete=complete,
+        worker=worker,stdout_bytes=capture.sizes[0] if capture is not None and not stalled else None,
+        stderr_bytes=capture.sizes[1] if capture is not None and not stalled else None,
         elapsed_ms=round(max(0,time.monotonic()-begin)*1000))
 
 
@@ -209,6 +220,13 @@ def execute(authority_pin):
         returned=_supervise(request,begin);result['owner']=b.save(r.LIVE/'outer-owner-result-v1.json',returned)
         r.need(returned['status']=='child_exited' and returned['worker_returncode']==0 and
                returned['cleanup_complete'] is True and returned['output_capture_complete'] is True, 'outer_terminal')
+        started=b.read(api.env.binding(r.LIVE/'worker-started-v1.json'))
+        claim=b.read(api.env.binding(r.LIVE/'worker-claim-v1.json'))
+        r.need(r.same(started,dict(request=request,worker=returned['worker'])) and
+               type(claim) is dict and set(claim)=={'version','authority','attempt','request','worker'} and
+               type(claim['version']) is int and claim['version']==1 and
+               r.same(claim['authority'],authority_pin) and r.same(claim['attempt'],attempt) and
+               r.same(claim['request'],request) and r.same(claim['worker'],returned['worker']), 'worker_join')
         stages_pin=api.env.binding(r.LIVE/'stage-result-v1.json');stages=b.read(stages_pin)
         r.need(stages['passed'] is True and stages['phase']=='completed' and r.same(stages['authority'],authority_pin) and
                r.same(stages['attempt'],attempt) and stages['feature_acceptance'] is False, 'stages')

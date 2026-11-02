@@ -1,6 +1,11 @@
 # Archive alignment metadata v2: prospective code-check admission
 
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21.
+**Subsequent outcome:** the separate actual approval was received; ONE code
+packet passed112 legacy,94 profile and18 new groups. Its grant is SPENT.
+See the [actual verification](D04_MSVC_ARCHIVE_ALIGNMENT_V2_VERIFICATION_2026-11-02.md).
+The prospective record below preserves preapproval status and is not fresh authority.
+
 **SOURCE READY ONLY. All224 cases at the new source remain UNRUN.**
 No new source copies, owner, Stage, START or child have been materialized/run.
 The proposed cap is NOT active and there is NO new code-check approval.

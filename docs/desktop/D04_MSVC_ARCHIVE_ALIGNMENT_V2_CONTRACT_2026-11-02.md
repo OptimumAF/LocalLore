@@ -1,5 +1,9 @@
 # Explicit archive-alignment metadata v2 contract
 
+Historical source contract below. Its subsequently implemented parser/API
+passed a separately approved [224-group synthetic packet](D04_MSVC_ARCHIVE_ALIGNMENT_V2_VERIFICATION_2026-11-02.md).
+That one-run grant is SPENT; SDK/native/link/quality qualification is not established.
+
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21.
 Root claim6588599049; `prep/msvc-archive-alignment-v2`, accepted base
 `d3862614cb6654305d88d44901eda36b83f2a4e8`.

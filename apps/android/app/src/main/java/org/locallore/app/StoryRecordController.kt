@@ -1,6 +1,7 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app
 
+import java.nio.charset.CharacterCodingException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -220,8 +221,11 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
     }
 }
 
-internal fun validStoryRecordSearch(text: String) =
-    text.toByteArray(Charsets.UTF_8).size <= STORY_RECORD_SEARCH_BYTES && text.none { it.isISOControl() }
+internal fun validStoryRecordSearch(text: String): Boolean {
+    if (text.length > STORY_RECORD_SEARCH_BYTES || text.any { it.isISOControl() }) return false
+    return try { localUtf8(text).size <= STORY_RECORD_SEARCH_BYTES }
+    catch (_: CharacterCodingException) { false }
+}
 
 internal fun validStoryRecordTurn(value: String) = value.length in 1..64 &&
     value.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_' }

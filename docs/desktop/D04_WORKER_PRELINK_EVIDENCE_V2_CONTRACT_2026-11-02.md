@@ -41,7 +41,8 @@ are NOT real provenance, a signature, filesystem permission or build authority.
 `bind` takes an exact record with the SAME five keys, each a Buffer of original
 UTF8 JSON bytes. Snapshot buffers<=24576B each, catalog<=8192B, Roots<=4096B each;
 each must be nonempty. Validate type/size then SHA against the copied anchors
-BEFORE strict UTF8 decoding/JSON.parse. Never evaluate source or directives.
+BEFORE strict UTF8 decoding/JSON.parse. Reject a UTF8 BOM rather than stripping
+it; no replacement decoding or normalization. Never evaluate source or directives.
 No canonicalization, trimming, byte patching or accepting a parsed replacement
 before digest verification. Reject invalid UTF8/JSON/extras/schema/couplings
 with fixed `WorkerPrelinkEvidenceV2Invalid`; bound excess uses
@@ -64,7 +65,11 @@ capture/status, critical=null, all qualification flags false. Require old
 successful cohort52/projection32/observer15 summaries and matching inner summary.
 Inner cohort is the accepted exact17-key report; require version1, correct
 kind/profile, complete/not stopped,32 inputs/64 attempts,32 ordered rows, seven
-proof couplings and inherited pins/catalog facts. Do not relabel its profile.
+proof couplings and inherited pins/catalog facts. Inner.reader=outer.reader,
+inner.supervisor=outer.supervisor, inner.helper=outer.helper,
+inner.first=outer.cohortFirst, inner.roster=outer.roster,
+inner.descriptor=outer.descriptor, inner.codebook=outer.codebook.
+Do not relabel its profile.
 Existing historical limits/counters remain bounded; this is not a new parse.
 
 facts has the accepted exact16keys, v1 profile/kind/purpose, complete metadata
@@ -74,6 +79,12 @@ catalogSha256 (its raw bytes ALSO match anchors). Catalog exactly15 ordered
 {slot,name} rows, slots18..32, unique canonical ASCII .lib names<=259B.
 Facts names<=32, sorted unique; exactly32 ordered {slot,libraryIds} rows;
 IDs dense/strictly increasing/in range and every name referenced at least once.
+Each ordered inner profile is the accepted10-element parsed encoding; its
+metadata digest at index9 and library count at index4 generate a fresh
+canonical array of {slot,metadataSha256,libraryCount} records in that order.
+Hash that array's JSON and require equality to facts.pinsSha256/outer.pins.
+Every corresponding facts row length must equal profile[4]; never accept an
+unrelated graph merely because both supplied envelopes have pinned digests.
 providedSlots must EXACTLY match supplied catalog by name (or null);
 unresolvedNameIds and allReferencesInProvidedCatalog recompute from that join.
 Keep old rows as evidence references, not a newly emitted graph.
@@ -85,8 +96,12 @@ false qualification flags. Exactly fixed rows33/ucrt.lib/root3 then
 positive sizes within285588/38478 ceilings. Each exact settled reader I/O has
 one input, both scans verified, opened+closed, actualReadBytes=2*pin.bytes.
 Aggregate I/O sums both, job exact6keys with v2 ID,2 inputs,4 attempts, summed
-bytes, not stopped; sections equal parsed sections plus refusal.context.sections
-(null means0), within2097152. Refusal fields/contexts are accepted bounded
+bytes, not stopped, sections within2097152. Parsed sections are a lower bound
+on job sections; parsed sections plus refusal.context.sections (null means0)
+are an upper bound. Error context can include a declaration refused BEFORE
+charge, so never infer exact charged work from it. The hash-bound Root attests
+the authoritative actual counter; current accepted observation235 equals its
+upper bound0+112+55+68. Refusal fields/contexts are accepted bounded
 fixed-category/site/numeric data; do not emit raw messages. Parsed summaries
 use EXACT three strict/four v2 deviation keys and existing limits/digests/names.
 Strict outcomes may be parsed or known refused. Runtime profile outcomes may

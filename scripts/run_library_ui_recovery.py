@@ -15,6 +15,9 @@ import time
 
 ROOT=Path(__file__).parents[1]
 BARRIER=b'sdk15-recovery-operation-worker-v1\n'
+SAFE_REFUSALS=frozenset(('host_commit_capacity','host_commit_unavailable','host_capacity',
+    'host_cpu_capacity','memory_unavailable','sdk_cleanup_unknown','recovery_fence_cleanup_unknown',
+    'ports_unavailable','storage_registry_locked','storage_recovery_cleanup_unknown'))
 
 
 def _parts():
@@ -29,6 +32,16 @@ def _parts():
 def _budget(begin, minimum):
     r,_,_=_parts();elapsed=time.monotonic()-begin
     r.need(0<=elapsed and elapsed+minimum<=r.MAX_SECONDS, 'operation_budget')
+
+
+def _failure_reason(error, rules, api):
+    if type(error) is rules.OperationRefused:
+        return str(error)  # Fixed codes supplied by this reviewed implementation.
+    known=tuple(cls for cls in (getattr(api.env,'EnvironmentRefused',None),
+        getattr(api.storage,'StorageRefused',None)) if isinstance(cls,type))
+    if type(error) in known and str(error) in SAFE_REFUSALS:
+        return str(error)
+    return 'operation_failed'
 
 
 def _initial(authority_pin):
@@ -110,7 +123,7 @@ def _run_stages(authority_pin, attempt_pin, begin):
         b.frozen_inputs(authority_pin);api.env.check_binding(authority_pin)
         result.update(passed=True,phase='completed',activation_result=final_pin,ledger_after=ledger_pin)
     except BaseException as error:
-        result.update(failure_type=type(error).__name__,reason=str(error) if type(error) is r.OperationRefused else 'operation_failed')
+        result.update(failure_type=type(error).__name__,reason=_failure_reason(error,r,api))
     result['elapsed_ms']=round(max(0,time.monotonic()-begin)*1000)
     try:b.save(r.LIVE/'stage-result-v1.json',result)
     except BaseException:
@@ -245,7 +258,7 @@ def _execute(authority_pin, begin):
         b.read_authority(authority_pin);api.env.check_binding(attempt)
         result.update(passed=True,stages=stages_pin)
     except BaseException as error:
-        result.update(failure_type=type(error).__name__,reason=str(error) if type(error) is r.OperationRefused else 'operation_failed')
+        result.update(failure_type=type(error).__name__,reason=_failure_reason(error,r,api))
     b.save(r.LIVE/'operation-result-v1.json',result)
     return result
 

@@ -59,6 +59,7 @@ _FACTS = dict(android_runtime_executed=False,model_material=False,deep_semantic_
  jvm_failures=0,jvm_errors=0,jvm_skips=0,selected_runtime_methods=4,compiled_ui_methods=4,
  intermediate_cohorts_additive=False,failed_whole_gate_passed=False,failed_old_test_apk_qualified=False,
  fresh_native_compilation=False)
+_PRODUCT_PERMISSIONS = ['org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION']
 
 class BuildRefused(ValueError):
     """Fixed public refusal; no private file or captured output is disclosed."""
@@ -436,7 +437,7 @@ def _create_manifest():
     _need('81 actionable tasks: 8 executed, 73 up-to-date' in output and 'BUILD SUCCESSFUL' in output,'audit')
     first=json.JSONDecoder().raw_decode(output[output.index('{'):])[0]
     pair=_json(output.splitlines()[-1].encode('utf-8'))
-    _need(first['status']==pair['status']=='passed' and first['permissions']==[] and len(first['libraries'])==4 and
+    _need(first['status']==pair['status']=='passed' and first['permissions']==_PRODUCT_PERMISSIONS and len(first['libraries'])==4 and
         pair['package']=='org.locallore.app' and pair['test_package']=='org.locallore.app.test' and
         pair['certificate_sha256']==_FIXED['certificate'] and pair['test_permissions']==['android.permission.REORDER_TASKS'],'audit')
     apks={};reports=r['android-v2/reports']

@@ -27,7 +27,7 @@ def put(p,raw):
 
 
 class Graph:
- def __init__(self):
+ def __init__(self,product_permissions=None):
   HOME.mkdir(parents=True,exist_ok=True);self.home=Path(tempfile.mkdtemp(prefix='library-',dir=HOME))
   self.root,self.out,self.rec,self.native_out=(self.home/n for n in ('product','capture','recovery','native'))
   self.fixed=copy.deepcopy(b._FIXED);self.fixed.update(root=str(self.root),capture=str(self.out),recovery=str(self.rec),native_capture=str(self.native_out),manifest=str(self.home/'manifest.json'))
@@ -67,7 +67,7 @@ class Graph:
    if partial:raw+=':app:compileDebugAndroidTestKotlin FAILED\n'
    elif name=='android-v2':
     raw+='BUILD SUCCESSFUL\n81 actionable tasks: 8 executed, 73 up-to-date\n'
-    raw+=json.dumps(dict(status='passed',permissions=[],libraries=[{}]*4))+'\n'
+    raw+=json.dumps(dict(status='passed',permissions=(b._PRODUCT_PERMISSIONS[:] if product_permissions is None else product_permissions),libraries=[{}]*4))+'\n'
     raw+=json.dumps(dict(status='passed',certificate_sha256=self.fixed['certificate'],package='org.locallore.app',test_package='org.locallore.app.test',test_permissions=['android.permission.REORDER_TASKS'],app={k:self.fixed['apks']['product_apk'][k] for k in ('bytes','sha256')},test={k:self.fixed['apks']['test_apk'][k] for k in ('bytes','sha256')}))+'\n'
    stdout=self.paths[name+'/stdout'];stdout.write_bytes(raw.encode());self.refs[name+'/stdout']=pin(stdout)
    stderr=self.paths[name+'/stderr'];stderr.write_bytes(b"Unresolved reference 'Espresso'\nUnresolved reference 'pressBack'" if partial else b'');self.refs[name+'/stderr']=pin(stderr)
@@ -148,6 +148,13 @@ class LibraryBuildTests(unittest.TestCase):
   self.assertEqual(result['validation_mode'],b.MODE);self.assertFalse(Path(self.g.fixed['manifest']).exists())
   self.assertFalse(result['recorded_execution']['facts']['android_runtime_executed'])
   result['roster'][0][0]='changed';self.assertEqual(b.create_manifest()['roster'],b.ROSTER)
+ def test_product_permission_is_exact_and_missing_extra_or_network_permissions_refuse(self):
+  expected=['org.locallore.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION']
+  self.assertEqual(b._PRODUCT_PERMISSIONS,expected)
+  for permissions in ([],expected+['android.permission.READ_CONTACTS'],expected+['android.permission.INTERNET'],['android.permission.INTERNET']):
+   graph=Graph(product_permissions=permissions)
+   with self.subTest(permissions=permissions),graph.patches(),self.assertRaisesRegex(b.BuildRefused,'^audit$'):
+    b.create_manifest()
  def test_fixed_manifest_copy_mode_extra_roles_and_swapped_apks_refuse(self):
   path=Path(self.g.fixed['manifest']);put(path,encoded(b.create_manifest()));roles=dict(build=pin(path),**self.g.fixed['apks'])
   self.assertEqual(b.verify_frozen_product(roles)['roster'],b.ROSTER)

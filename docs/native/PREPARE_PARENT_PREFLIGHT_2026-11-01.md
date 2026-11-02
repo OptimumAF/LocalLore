@@ -104,8 +104,10 @@ python -I -S -B D:/Dev/Experiments/LocalLore/2026-11-01-prepare-parent-preflight
 The create-only request records contain exact unittest argv, module roster,
 source bindings and Python version (Windows x64 CPython 3.14.7). Tests and raw
 results are under the same D: experiment root, within a 16 MiB evidence budget.
-These checks use synthetic paths and mocked resource, storage and SDK
-boundaries. They execute no Android SDK, production-ledger operation or emulator.
+The nine new regressions mock resource, storage and SDK boundaries. Existing
+cohorts use isolated synthetic fixtures, including native Windows file
+operations on tiny test images. No Android SDK, production ledger or emulator
+is used.
 `git diff --check` also passed. No APK rebuild or real runtime test was repeated.
 
 The real SDK14 cohort remains blocked. Before any later runtime attempt,

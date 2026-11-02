@@ -37,21 +37,30 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         val context = current.context ?: return
         if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, text))
     }
+    fun promiseFilter(filter: StoryRecordPromiseFilter) {
+        val current = mutable.value
+        val context = current.context ?: return
+        if (!disposed && current.visible && !current.loading && current.section == StoryRecordSection.PROMISES)
+            load(StoryRecordQuery(context, current.section, promiseFilter = filter))
+    }
     fun next() {
         val current = mutable.value
         val context = current.context ?: return
         if (!disposed && !current.loading && current.nextCursor != null)
-            load(StoryRecordQuery(context, current.section, current.search, current.nextCursor))
+            load(StoryRecordQuery(context, current.section, current.search, current.nextCursor,
+                promiseFilter = current.promiseFilter))
     }
     fun first() {
         val current = mutable.value
         val context = current.context ?: return
-        if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search))
+        if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search,
+            promiseFilter = current.promiseFilter))
     }
     fun retry() {
         val current = mutable.value
         val context = current.context ?: return
-        if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search, current.cursor))
+        if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search, current.cursor,
+            promiseFilter = current.promiseFilter))
     }
     fun openEvent(sequence: Long) {
         val current = mutable.value
@@ -122,7 +131,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         val ticket = ++generation
         pending?.cancel()
         publish(StoryRecordState(visible = true, loading = true, context = query.context,
-            section = query.section, search = query.search, cursor = query.cursor))
+            section = query.section, search = query.search, cursor = query.cursor, promiseFilter = query.promiseFilter))
         if (!validStoryRecordSearch(query.search)) {
             publish(mutable.value.copy(loading = false, problem = StoryRecordProblem.BAD_SEARCH))
             return
@@ -164,6 +173,9 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         eventSources = entry.eventSources.toList(), scopedEventSources = entry.scopedEventSources.toList())
 
     private fun validateEntry(entry: StoryRecordEntry, query: StoryRecordQuery, time: Long) {
+        if (entry.promiseStatus != null) check(query.section == StoryRecordSection.PROMISES && query.version == 2 &&
+            entry.origin == StoryRecordOrigin.DERIVED_COMPARISON)
+        if (query.promiseFilter.status != null) check(entry.promiseStatus == query.promiseFilter.status)
         check(entry.key.isNotEmpty() && entry.eventSources.size <= 64 && entry.scopedEventSources.size <= 64)
         check(entry.eventSources.all { it in 1..query.context.revision } &&
             entry.eventSources.toSet().size == entry.eventSources.size)

@@ -26,6 +26,32 @@ and explicit Query1 interpretation remain intact.
 
 ## Display shapes
 
+### Promise status browsing (2026-11-01)
+
+The Android query/state has a display-only `promiseFilter`: All, Open or
+Overdue. Non-All is supported only for Promises/version2 with empty free
+search. The existing native `search` field receives exactly `"status":"open"`
+or `"status":"overdue"`; there is no new native field, command or observer
+grant. Rust serializes eligible typed rows before searching, counting and
+paging. JSON quotes in terms are escaped and cannot spoof the exact token.
+Native adversarial tests pin these serializer/search semantics.
+
+Selecting a preset clears applied free search and starts page one. Free text
+search returns to All. The UI explicitly labels this as searching all promises;
+there is no implied AND/OR search or page-local filtering. Next/First/retry
+retain the preset, while evidence drill uses the existing same-player History
+query and Back restores the filtered page. Cursor identity includes the actual
+native search. Changing section or reopening restores All.
+
+`StoryRecordPromiseStatus` preserves the native open/overdue/fulfilled value
+on decoded promise entries. Unknown statuses and preset-mismatched rows reject
+the entire response. Kotlin never compares deadlines with either story time or
+the device clock, infers completion from terms, filters counts, or changes
+canonical promises. Existing unsigned deadlines, provenance, source scopes and
+eligibility checks remain. The new action captures the exact rendered state
+and uses the existing identity/visibility/disposal fence and referential control
+keys. [Executed evidence and limits](PROMISE_STATUS_BROWSING_2026-11-01.md).
+
 Add StoryRecordOrigin.KNOWN_AS_OBSERVED with native wire known_as_observed,
 label "Known as observed". In Query2 Knowledge it requires the bound native player subject,
 null confidence and native typed sources. CanonicalTruth is legacy Query1-only

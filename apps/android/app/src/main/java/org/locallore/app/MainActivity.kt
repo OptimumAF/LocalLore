@@ -177,7 +177,8 @@ open class MainActivity : ComponentActivity() {
                     onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordState) },
                     onScopedEvent = { reference -> model.openScopedRecordEvent(reference, renderedRecordState) },
                     onEventBack = { model.backToStoryRecord(renderedRecordState) },
-                    onEventRetry = { model.retryRecordEvent(renderedRecordState) })
+                    onEventRetry = { model.retryRecordEvent(renderedRecordState) },
+                    onPromiseFilter = { filter -> model.recordPromiseFilter(filter, renderedRecordState) })
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
                     if (model.beginDiagnosticExport()) {
                         try { documentPicker.launch("locallore-diagnostics.json") }

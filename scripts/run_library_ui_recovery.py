@@ -213,7 +213,12 @@ def _supervise(request_pin, begin):
 
 
 def execute(authority_pin):
-    r,b,api=_parts();begin=time.monotonic()
+    begin=time.monotonic()
+    return _execute(authority_pin,begin)
+
+
+def _execute(authority_pin, begin):
+    r,b,api=_parts()
     authority,_,ledger=_initial(authority_pin);_budget(begin,2100)
     attempt=_attempt(authority_pin,authority)
     result=dict(version=1,scope='sdk15-recovery-operation-final-v1',passed=False,authority=authority_pin,
@@ -245,13 +250,14 @@ def execute(authority_pin):
 
 
 def main(argv=None):
+    begin=time.monotonic()
     args=sys.argv[1:] if argv is None else argv
     if args==['_worker']:return _worker()
     if len(args)!=2 or args[0]!='--authority-sha256' or re.fullmatch('[0-9a-f]{64}',args[1]) is None:return 1
     try:
         r,_,api=_parts();pin=api.env.binding(r.AUTHORITY)
         r.need(pin['sha256']==args[1], 'authority_digest')
-        value=execute(pin)
+        value=_execute(pin,begin)
     except BaseException as error:
         print(json.dumps(dict(scope='sdk15-recovery-operation-final-v1',passed=False,failure_type=type(error).__name__)))
         return 1

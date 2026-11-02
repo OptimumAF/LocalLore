@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [archive opening clarification](docs/android/ARCHIVE_CORRECTED_OPEN_2026-11-01.md)
+replaces a stale warning: explicit Open resumes the original root, then the
+library can select a playable corrected timeline. Thirteen native tests and
+the full 494-case JVM/offline Android gate pass; two new UI tests compile only.
+
 The [focused relationship view](docs/android/RELATIONSHIP_FOCUS_2026-11-01.md)
 shows the native dimensions for one visible target, with exact case-sensitive
 IDs and scoped evidence. The offline Android gate passes 492 JVM cases and

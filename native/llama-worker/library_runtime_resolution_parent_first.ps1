@@ -23,6 +23,18 @@ function Invoke-FixedTwoParentSelfchecksV1($Dictionary, $ExpectedProofs) {
     function Assert-F2Parent($Condition) {
         if(-not $Condition){throw 'ParentFirstAssertion'}
     }
+    function New-F2ParentGateSummary {
+        # Match the live suite return type, not only its JSON reconstruction.
+        [ordered]@{version=1;kind='fixed_two_parent_first_v1';executed=6;passed=6;failed=0;failed_case_ids=[string[]]@()}
+    }
+    function Assert-F2ParentGateSummaryInvalid($Value) {
+        $caught=$false
+        try{$null=Validate-FirstSummary $Value 6 'fixed_two_parent_first_v1'}catch{
+            if(@('ReportKeys','ReportInteger','ObservationFirstSummary') -cnotcontains $_.Exception.Message){throw}
+            $caught=$true
+        }
+        Assert-F2Parent $caught
+    }
     function New-F2ParentContext {
         [ordered]@{cwdIdentity='cwd-1';cwdLibraryCount=0;rootIdentities=@($roots)}
     }
@@ -155,6 +167,44 @@ function Invoke-FixedTwoParentSelfchecksV1($Dictionary, $ExpectedProofs) {
                     Assert-F2ParentValid (New-F2ParentReport @('missing','missing'))
                     $second=New-F2ParentReport @('missing','selected');Assert-F2ParentValid $second
                     Assert-F2Parent ($second.job.inputCount -eq 1 -and $second.job.attempts -eq 2 -and $second.requests[1].slot -eq 34)
+                    # Call the actual fixed authority validator. An unavailable
+                    # function or unexpected exception fails V01; never skip it.
+                    $liveSummary=New-F2ParentGateSummary
+                    $gateResult=Validate-FirstSummary $liveSummary 6 'fixed_two_parent_first_v1'
+                    Assert-F2Parent ($null -eq $gateResult)
+                    $canonicalSummary=ConvertFrom-Json -InputObject (ConvertTo-F2ParentJson $liveSummary) -Depth 8
+                    Assert-F2Parent ($liveSummary -is [Collections.Specialized.OrderedDictionary] -and $canonicalSummary -is [pscustomobject])
+                    $gateResult=Validate-FirstSummary $canonicalSummary 6 'fixed_two_parent_first_v1'
+                    Assert-F2Parent ($null -eq $gateResult)
+                    foreach($key in @('version','kind','executed','passed','failed','failed_case_ids')){
+                        $badSummary=New-F2ParentGateSummary;$badSummary.Remove($key)
+                        Assert-F2ParentGateSummaryInvalid $badSummary
+                    }
+                    $badSummary=New-F2ParentGateSummary;$badSummary['extra']=1;Assert-F2ParentGateSummaryInvalid $badSummary
+                    foreach($key in @('version','executed','passed','failed')){
+                        foreach($type in @('bool','string','double')){
+                            $badSummary=New-F2ParentGateSummary
+                            switch -CaseSensitive ($type){
+                                'bool' {$badSummary[$key]=($key -ne 'failed')}
+                                'string' {$badSummary[$key]=[string]$badSummary[$key]}
+                                'double' {$badSummary[$key]=[double]$badSummary[$key]}
+                            }
+                            Assert-F2ParentGateSummaryInvalid $badSummary
+                        }
+                    }
+                    foreach($change in @('version','executed','passed','failed','kind','nonemptyIds','nonarrayIds')){
+                        $badSummary=New-F2ParentGateSummary
+                        switch -CaseSensitive ($change){
+                            'version' {$badSummary.version=2}
+                            'executed' {$badSummary.executed=5}
+                            'passed' {$badSummary.passed=5}
+                            'failed' {$badSummary.failed=1}
+                            'kind' {$badSummary.kind='fixed_two_runtime_first_v1'}
+                            'nonemptyIds' {$badSummary.failed_case_ids=@('V01')}
+                            'nonarrayIds' {$badSummary.failed_case_ids=''}
+                        }
+                        Assert-F2ParentGateSummaryInvalid $badSummary
+                    }
                 }
                 'V02' {
                     $refused=New-F2ParentReport

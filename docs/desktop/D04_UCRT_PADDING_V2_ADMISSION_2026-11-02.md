@@ -68,7 +68,10 @@ fatal. Current STOP guard/write both derive the new stem. Hash every pre-existin
 top-level packet file before START and compare afterward, plus all fixed pins.
 
 Reader additionally pins failed V1 Root review/process/result/raw/STOP before
-its Node gate. This adds no library search or file-body scan. Actual six parent
+its Node gate. This adds no library search or new SDK/library-payload scan.
+Existing source/tool/normal-image and retained-record guard hashes are separate
+disclosed reads;571176B bounds only the selected library's two payload scans.
+Actual six parent
 groups precede the ONE Node child's24 groups; preserve failure IDs in bounded
 raw output and return before SDK adapter creation unless both summaries pass.
 

@@ -292,7 +292,13 @@ reserve57344B (56KiB),4352slack. The TWO whole local collector-source copies
 (reader+supervisor) in the charged packet must total≤49152B (48KiB), retained
 uncompressed; owner/Stage/source-review≤4096B. Complete ceiling110592B (108KiB)
 would leave4370B under current114962B metadata headroom. This is a hard planning
-ceiling, NOT measured full-source admission; do not write new evidence/run now.
+ceiling, NOT measured full-source admission. After independent whole-source
+review, Root may stage only the two exact source copies and a truthful source
+review record under the existing cap, following fresh retention-only inventory
+and complete future reserves. This is authorized source preparation for the
+ongoing assignment, not a library read or execution of either collector.
+No owner decision, Stage, START, suite or child may be fabricated or run during
+that preparation. A new finite owner decision remains required for the packet.
 
 The public module/FIRST files are normal source-controlled project code, as in
 the preceding packets, not generated evidence or SDK-data repositories. Do not

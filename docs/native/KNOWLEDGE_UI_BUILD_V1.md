@@ -31,7 +31,11 @@ The closed baseline contains `version`, `scope`, `product`, `evidence`,
 - Product: fixed root/head/count, raw `source_before`, `source_after`,
   `source_archive` pins and explicit raw-byte encoding (no normalization).
 - Evidence: actual request/owner/terminal/command-terminal/stdout/stderr,
-  report-preservation/helper/actual-child/command-child pins.
+  report-preservation/helper/actual-child/command-child pins. Two additional
+  recorded proof pins, `jvm_execution` and `dex`, bind the separately forced
+  current JVM phase and actual compiled-class/method/JUnit/native-entry analysis.
+  All nested fresh-JVM evidence pins remain byte-bound; no proof is execution
+  authority or a repeat of those tests by the attestor.
 - Artifacts: fixed product/test APK pins; native: ordinary extracted arm64 and
   x86_64 library pins. `bindings` holds the exact recorded source/copy pairs.
 - Facts record actual JVM counts, selected/compiled methods, package/audit

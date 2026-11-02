@@ -16,6 +16,11 @@ Combine results only after that attempt; no `finally` success can override an
 earlier failure. A failed close keeps the original handle as diagnostic state,
 never as authority to retry. Repeated calls return the first bool without native
 calls; an unknown/failed result cannot become success later.
+An in-flight or reentrant second call returns false and keeps the first call's
+final outcome false. A small private state lock protects claim/finalization;
+it is never held across native calls or polling. No concurrent caller can make
+a second native close attempt, wait on native cleanup, or turn that uncertainty
+into success. This is an internal ownership safeguard, not a new public API.
 
 Construction must also observe native close results. A returned owner has
 successfully closed its temporary `OpenProcess` handle after assignment.

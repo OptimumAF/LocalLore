@@ -49,9 +49,10 @@ function validateResult(value, pin, aggregate) {
   for (const [values, names] of [[m.directives, false], [m.defaultLibraries, true]]) {
     let previous;
     for (const text of values) {
-      requireThat(typeof text === 'string' && (previous === undefined || previous < text));
+      requireThat(typeof text === 'string');
       if (names) requireThat(canonicalName(text));
       else requireThat(text.length <= 65536 && /^[\x20-\x7e]*$/.test(text));
+      requireThat(previous === undefined || previous < text);
       stringBytes += Buffer.byteLength(JSON.stringify(text));
       requireThat(stringBytes <= ROW_BYTES && aggregate.bytes + stringBytes <= TOTAL_BYTES);
       previous = text;

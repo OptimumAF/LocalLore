@@ -26,6 +26,30 @@ and explicit Query1 interpretation remain intact.
 
 ## Display shapes
 
+### Exact relationship focus (2026-11-01)
+
+`StoryRecordRelationshipTarget(id)` preserves the native typed `to` ID. The
+nullable `relationshipTarget` on query/state/entry is display selection, never
+an observer grant or NPC profile/name capability. Focus requires version2,
+Relationships, empty free search and the All promise filter. The adapter sends
+the additive Host command `inspection_relationship_focus {session, query,
+target}`; existing Query/Page shapes and JNI ABI stay unchanged.
+
+Rust compares typed eligible relationship targets exactly before sorting,
+counting and paging, after the existing candidate bound. Ordinary free search
+case-folds text and cannot implement this operation for valid case-distinct IDs.
+Focus cursors have a separate domain and bind the exact target; ordinary query
+digests remain unchanged. The decoder rejects the whole page if any target is
+invalid or mismatched. Same-player/head/scope and provenance fences still apply.
+
+Focus starts page one from an exact currently displayed entry. Paging/retry and
+evidence Back retain focus; All relationships, free search, section changes and
+reopen clear it. Evidence reads use the existing current-player History query,
+without a target or source-branch session. New actions retain the exact rendered
+identity/visibility/disposal fence and referential control keys.
+[Native/Host protocol](../storage/RELATIONSHIP_FOCUS_V1.md) and
+[executed checks and limits](RELATIONSHIP_FOCUS_2026-11-01.md).
+
 ### Promise status browsing (2026-11-01)
 
 The Android query/state has a display-only `promiseFilter`: All, Open or

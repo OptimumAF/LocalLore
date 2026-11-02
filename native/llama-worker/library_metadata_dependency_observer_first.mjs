@@ -229,8 +229,61 @@ export async function runDependencyObserverSelfchecksV1(api) {
       refuseFacts(check, f);
     }
   });
+  add('B15', () => {
+    const check = api.checkDependencyFactsV1;
+    for (const value of [new Number(1), '1', true, null, undefined, -1, 0, 0.5, 2, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      const f = factsFixture(); f.facts.unresolvedNameIds = [value]; refuseFacts(check, f);
+    }
+    const twoMissing = () => {
+      const f = factsFixture(); f.facts.libraryNames.push('zeta.lib'); f.facts.providedSlots.push(null);
+      f.facts.unresolvedNameIds.push(2); f.facts.rows[2].libraryIds = [2];
+      f.pins[2] = { slot: 3, metadataSha256: digest({ objects: 1, imports: 0,
+        directives: [], defaultLibraries: ['zeta.lib'] }), libraryCount: 1 };
+      f.facts.pinsSha256 = digest(f.pins); return f;
+    };
+    const validIds = twoMissing(); assert.equal(check(validIds.facts, validIds.pins, validIds.catalog), undefined);
+    for (const ids of [[], [1], [2, 1], [1, 2, 2], [1, 3], [0, 2]]) {
+      const f = twoMissing(); f.facts.unresolvedNameIds = ids; refuseFacts(check, f);
+    }
+    // Inert data prototypes, not getters/proxies or an execution attack. A
+    // boxed record's own fields can look right while JSON serializes to0.
+    const wrappers = [record => Object.assign(new Number(0), record),
+      record => Object.assign(Object.create({ foreignMarker: 0 }), record)];
+    for (const wrap of wrappers) {
+      for (const target of ['facts', 'pin', 'catalog', 'row']) {
+        const f = factsFixture();
+        if (target === 'facts') f.facts = wrap(f.facts);
+        if (target === 'pin') f.pins[0] = wrap(f.pins[0]);
+        if (target === 'catalog') f.catalog[0] = wrap(f.catalog[0]);
+        if (target === 'row') f.facts.rows[0] = wrap(f.facts.rows[0]);
+        f.facts.pinsSha256 = digest(f.pins); f.facts.catalogSha256 = digest(f.catalog);
+        refuseFacts(check, f);
+      }
+      for (const target of ['pair', 'rows', 'profile', 'metadata', 'deviations']) {
+        const f = fixture();
+        if (target === 'pair') f.pair = wrap(f.pair);
+        if (target === 'rows') { f.pair.row = wrap(f.pair.row); f.expected = wrap(f.expected); }
+        if (target === 'profile') f.profile = wrap(f.profile);
+        if (target === 'metadata') f.profile.metadata = wrap(f.profile.metadata);
+        if (target === 'deviations') f.profile.deviations = wrap(f.profile.deviations);
+        // Keep the profile's actual canonical digest coherent when its
+        // metadata wrapper changes JSON representation. Only type is invalid.
+        f.pair.row.profile = encode(f.profile);
+        f.expected.profile = [...f.pair.row.profile];
+        refuse(bind, f);
+      }
+    }
+    const plainFacts = factsFixture();
+    for (const record of [plainFacts.facts, ...plainFacts.pins, ...plainFacts.catalog, ...plainFacts.facts.rows]) Object.setPrototypeOf(record, null);
+    assert.equal(check(plainFacts.facts, plainFacts.pins, plainFacts.catalog), undefined);
+    const plainBinding = fixture();
+    for (const record of [plainBinding.pair, plainBinding.pair.row, plainBinding.expected,
+      plainBinding.profile, plainBinding.profile.metadata, plainBinding.profile.deviations]) Object.setPrototypeOf(record, null);
+    const accepted = bind(plainBinding.slot, plainBinding.pair, plainBinding.profile, plainBinding.expected);
+    assert.equal(accepted.result, plainBinding.profile);
+  });
 
-  assert.deepEqual(cases.map(([id]) => id), Array.from({ length: 14 }, (_, i) => 'B' + String(i + 1).padStart(2, '0')), 'Frozen observer FIRST roster');
+  assert.deepEqual(cases.map(([id]) => id), Array.from({ length: 15 }, (_, i) => 'B' + String(i + 1).padStart(2, '0')), 'Frozen observer FIRST roster');
   const failed_case_ids = [];
   for (const [id, run] of cases) { try { await run(); } catch { failed_case_ids.push(id); } }
   return { version: 1, kind: KIND, executed: cases.length, passed: cases.length - failed_case_ids.length,

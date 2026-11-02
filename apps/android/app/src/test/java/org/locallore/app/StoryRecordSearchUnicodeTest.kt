@@ -26,7 +26,7 @@ class StoryRecordSearchUnicodeTest {
         if (next) "cursor-1" else null, listOf("Synthetic page limitation"),
     )
     private fun wireText(text: String, version: Int = 2): String =
-        StoryRecordWire.command(StoryRecordQuery(context, search = text, version = version), "synthetic-session")
+        StoryRecordWire.command("synthetic-session", StoryRecordQuery(context, search = text, version = version))
             .getJSONObject("query").getString("search")
 
     @Test fun malformedSurrogatesAreRefusedWithoutSubstitutionOrAnEscapingException() {

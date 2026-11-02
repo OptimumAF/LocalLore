@@ -2,7 +2,7 @@
 
 Importing this module performs no target, process or filesystem observation.
 Four methods retain the original 90-second individual ceiling inside one
-1200-second controller. Those ceilings cannot all be consumed in one cohort.
+1200-second controller that also bounds setup and provenance checks.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import argparse

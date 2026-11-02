@@ -338,6 +338,18 @@ export async function runRuntimeMetadataV2Selfchecks(api) {
     assert.equal(r.rows[0].profile.summary.metadataSha256, digest(m));
     keys(r.rows[0].profile.summary, ['profileId', 'objects', 'imports', 'sections',
       'deviations', 'metadataSha256', 'defaultLibraries']);
+    // Additive post-producer review regression; original427-line FIRST above
+    // was frozen before producer. Raw accepted directive text is hashed, never
+    // copied into this bounded report or limited to an invented64KiB/token.
+    const longToken = '/X:' + 'x'.repeat(70000), large = fixture(directive(longToken));
+    assert(longToken.length > 65536 && large.data.length <= 285588);
+    const longSession = fresh(), longReport = structure(await longSession.observe(0, large.pin, large.adapter));
+    const longMetadata = metadata([], [longToken]);
+    eq(longReport.rows[0].strict, parsed('strict-v1', longMetadata, 1));
+    eq(longReport.rows[0].profile, parsed(V2, longMetadata, 1));
+    job(longReport, 1, large.data.length, 2, 2); stateIO(longReport, 1, large.data.length);
+    assert(!longSession.encode().includes(longToken));
+    assert(!longSession.encode().includes('x'.repeat(65537)));
   });
   add('T17', async () => {
     const n32 = namesText(32), ok = fresh(), a = fixture(directive(n32.text));

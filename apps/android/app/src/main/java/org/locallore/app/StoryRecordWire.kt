@@ -16,7 +16,7 @@ internal object StoryRecordWire {
                 .put("branch", query.context.story.branch)).put("expected_head", query.context.revision)
                 .put("at_revision", JSONObject.NULL).put("observer", JSONObject().put("kind", "player"))
                 .put("view", query.section.wire).put("limit", STORY_RECORD_PAGE_ROWS)
-                .put("search", query.search).put("cursor", query.cursor ?: JSONObject.NULL))
+                .put("search", nativeSearch(query)).put("cursor", query.cursor ?: JSONObject.NULL))
     }
 
     fun decode(data: JSONObject, query: StoryRecordQuery, player: String = "player"): StoryRecordPage = try {
@@ -123,12 +123,8 @@ internal object StoryRecordWire {
                 val to = row.text("to", 512)
                 require(from == player || to == player)
                 val deadline = deadline(row.get("deadline"), query.version)
-                val status = when (row.text("status")) {
-                    "open" -> "Open"
-                    "overdue" -> "Overdue"
-                    "fulfilled" -> "Fulfilled"
-                    else -> error("Unknown promise status")
-                }
+                val status = StoryRecordPromiseStatus.entries.single { it.wire == row.text("status") }
+                require(query.promiseFilter.status == null || query.promiseFilter.status == status)
                 require(row.has("return_item"))
                 val item = if (row.isNull("return_item")) null else row.text("return_item", 512)
                 val evidence = row.getJSONArray("sources").also { require(it.length() in 1..64) }
@@ -136,9 +132,9 @@ internal object StoryRecordWire {
                 val labels = sources.map { scopedSourceLabel(it, query) }
                 val references = sources.mapNotNull { scopedEventSource(it, query) }.distinct()
                 StoryRecordEntry(key, "Promise · $id",
-                    "From · $from\nTo · $to\nStatus · $status\nDue at story time · $deadline\n${row.text("terms")}" +
+                    "From · $from\nTo · $to\nStatus · ${status.label}\nDue at story time · $deadline\n${row.text("terms")}" +
                         (item?.let { "\nReturn item · $it" } ?: ""),
-                    origin, labels, scopedEventSources = references)
+                    origin, labels, scopedEventSources = references, promiseStatus = status)
             }
             "message", "scoped_message" -> {
                 require(if (kind == "message") query.version == 1 else query.version == 2)
@@ -180,10 +176,18 @@ internal object StoryRecordWire {
         }
     }
 
-    private fun validVersion(query: StoryRecordQuery) = when (query.version) {
+    private fun nativeSearch(query: StoryRecordQuery) = query.promiseFilter.status?.let {
+        "\"status\":\"${it.wire}\""
+    } ?: query.search
+
+    private fun validVersion(query: StoryRecordQuery): Boolean {
+        if (query.promiseFilter != StoryRecordPromiseFilter.ALL &&
+            (query.version != 2 || query.section != StoryRecordSection.PROMISES || query.search.isNotEmpty())) return false
+        return when (query.version) {
         1 -> query.section != StoryRecordSection.PROMISES
         2 -> true
         else -> false
+        }
     }
     private fun cursorPattern(query: StoryRecordQuery) = Regex("${query.version}:[1-9][0-9]{0,4}:[0-9a-f]{64}")
     private fun readScope(scope: JSONObject, query: StoryRecordQuery): StoryRecordScope {

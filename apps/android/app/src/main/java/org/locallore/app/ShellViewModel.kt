@@ -370,6 +370,7 @@ class ShellViewModel internal constructor(
     fun closeStoryRecord() { recordController.dismiss(); synchronizeForkContext() }
     fun recordSection(section: StoryRecordSection) = recordController.select(section)
     fun recordSearch(text: String) = recordController.search(text)
+    fun recordPromiseFilter(filter: StoryRecordPromiseFilter) = recordController.promiseFilter(filter)
     fun nextRecordPage() = recordController.next()
     fun firstRecordPage() = recordController.first()
     fun retryStoryRecord() = recordController.retry()
@@ -398,6 +399,9 @@ class ShellViewModel internal constructor(
     }
     fun recordSearch(text: String, rendered: StoryRecordState) {
         if (isCurrentRecordView(rendered)) recordSearch(text)
+    }
+    fun recordPromiseFilter(filter: StoryRecordPromiseFilter, rendered: StoryRecordState) {
+        if (isCurrentRecordView(rendered)) recordPromiseFilter(filter)
     }
     fun nextRecordPage(rendered: StoryRecordState) {
         if (isCurrentRecordView(rendered)) nextRecordPage()

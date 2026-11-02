@@ -24,12 +24,27 @@ enum class StoryRecordOrigin(val wire: String, val label: String) {
 }
 
 data class StoryRecordContext(val story: SavedStory, val revision: Long)
+/** Native display values, never inferred from deadline, prose or the device clock. */
+enum class StoryRecordPromiseStatus(val wire: String, val label: String) {
+    OPEN("open", "Open"),
+    OVERDUE("overdue", "Overdue"),
+    FULFILLED("fulfilled", "Fulfilled"),
+}
+
+/** Fixed Query2 serialized-row searches, applied by Rust before counting/paging. */
+enum class StoryRecordPromiseFilter(val label: String, val status: StoryRecordPromiseStatus?) {
+    ALL("All", null),
+    OPEN("Open", StoryRecordPromiseStatus.OPEN),
+    OVERDUE("Overdue", StoryRecordPromiseStatus.OVERDUE),
+}
+
 data class StoryRecordQuery(
     val context: StoryRecordContext,
     val section: StoryRecordSection = StoryRecordSection.PROGRESSION,
     val search: String = "",
     val cursor: String? = null,
     val version: Int = 2,
+    val promiseFilter: StoryRecordPromiseFilter = StoryRecordPromiseFilter.ALL,
 )
 data class StoryRecordEntry(
     val key: String,
@@ -40,6 +55,7 @@ data class StoryRecordEntry(
     val eventSources: List<Long> = emptyList(),
     val event: StoryRecordEvent? = null,
     val scopedEventSources: List<StoryRecordScopedEvent> = emptyList(),
+    val promiseStatus: StoryRecordPromiseStatus? = null,
 )
 
 data class StoryRecordScope(val story: String, val branch: String)
@@ -88,6 +104,7 @@ data class StoryRecordState(
     val limitations: List<String> = emptyList(),
     val problem: StoryRecordProblem? = null,
     val eventDetail: StoryRecordEventDetail? = null,
+    val promiseFilter: StoryRecordPromiseFilter = StoryRecordPromiseFilter.ALL,
 )
 
 internal const val STORY_RECORD_PAGE_ROWS = 8

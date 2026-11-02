@@ -18,9 +18,9 @@ ABI/link/build/runtime behavior or Author capability.
 Reuse helper9972c0eb, projectionf4afe4e1, existing cohort FIRST7ca31f68 (52 groups)
 and dependency FIRSTafee9aed (32 groups), all unchanged. No new binary/archive/
 directive parser, filesystem resolver, selected-member pruning or relaxed job
-limit. Proposed sole child runs52+32+12 synthetic groups BEFORE constructing
+limit. Proposed sole child runs52+32+14 synthetic groups BEFORE constructing
 the real adapter/state, then the SAME original17+15 inputs in saved order.
-All96 must pass. No separate Node syntax/test child or automatic retry.
+All98 must pass. No separate Node syntax/test child or automatic retry.
 
 Pin original roster62eb0ab9 and diagnosticc7bce3ce, plus PR334's complete
 snapshot611d5c5d8c8be232599fe4c0332032e25e693aad0f99a393902047bf7ef9334e.
@@ -91,16 +91,44 @@ paths, commands, limit selectors or runtime source evaluation.
 
 ## Independent additional FIRST
 
+PRE-EXECUTION source review of the62421B memory-only collector found sparse
+arrays could skip its new facts checks and unused dictionary names could pass.
+The accepted projection emits dense exact unions, but the independent whole
+report validator must enforce the same closed schema. Preserve original12-case
+author703ca3c4/integration4620f150 and collector1ce38292 as UNRUN history; append
+B13/B14 before fixing that producer. No assertion/ID is removed or weakened.
+
+For binding, require dense own indexed entries in both encoded modes and actual
+metadata directives/defaultLibraries before the existing validators. Reject
+holes/undefined even where JSON serialization would turn a hole into null.
+
+`checkDependencyFactsV1(facts,pins,catalog)` is a second private development
+callback, synchronous, returning undefined on valid data and throwing ONLY
+`DependencyObservationFactsInvalid` on refusal. It validates the exact accepted
+projection16-key schema, qualification/status constants, whole pins/catalog
+digests,32 ordered pins/graph rows,15 ordered canonical catalog entries,
+canonical sorted unique name union, provided slots/unresolved IDs and byte bounds
+specified below. Generic synthetic pins may be independently constructed; actual
+collector callers MUST derive them from the hash-pinned PR334 snapshot. No new
+authority, parser or resolver. It never mutates any input or publishes payloads.
+Require dense own indices in pins,catalog,names,providedSlots,rows,each row's IDs
+and unresolvedNameIds, with all lengths/types bounded before iteration. ID union
+must cover EVERY dictionary index, including exact empty-graph behavior; no extra
+unused name is allowed even with a self-consistent provided/unresolved mapping.
+FIRST fixtures construct facts/pin/catalog digests independently, without
+importing the new collector producer or executing its string source.
+
 New portable `native/llama-worker/library_metadata_dependency_observer_first.mjs`
 exports ONLY `async runDependencyObserverSelfchecksV1(api)`, no top-level run,
-producer import, files/process/environment/network or source eval. The sole
-callback is `api.bindDependencyObservationV1`. Missing callback throws
+producer import, files/process/environment/network or source eval. The two fixed
+callbacks are `api.bindDependencyObservationV1` and
+`api.checkDependencyFactsV1(facts,pins,catalog)`. Missing callback throws
 `UNRUN_SETUP: dependency observation API unavailable`. Fixtures independently
 construct canonical accepted-profile metadata, mode digests and expected rows
 using Node crypto; no actual binary or SDK data is needed. Budget fixture text/
 buffers≤1MiB; this is not an OS peak-memory claim.
 
-Freeze12 groups B01..B12 before binding producer edits:
+Freeze14 groups B01..B14 before amended producer edits:
 
 | ID | Required assertion/control |
 | --- | --- |
@@ -116,9 +144,11 @@ Freeze12 groups B01..B12 before binding producer edits:
 | B10 | Changed strict success/refusal/site/context refuses, no strict rewrite |
 | B11 | Same metadata values with different insertion-order digest refuses |
 | B12 | Inputs unchanged; exact object/result binding; no added authority/fields; errors contain no raw payload |
+| B13 | Sparse encoded modes/metadata and all sparse facts-array positions refuse |
+| B14 | Extra unused dictionary names refuse; valid exact union and empty graph pass |
 
 Return exact six keys version,kind,executed,passed,failed,failed_case_ids; version1,
-kind`library_metadata_dependency_observer_first_v1`,12 groups and fixed IDs.
+kind`library_metadata_dependency_observer_first_v1`,14 groups and fixed IDs.
 Preserve original assertions/IDs after findings. Source review is not a runtime
 pass or behavioral RED. Re-running the old52 and32 groups in a future sole
 child is part of a NEW finite grant, not reuse of their previous grants.
@@ -134,7 +164,7 @@ growth. No general remote server, arbitrary execution or desktop control.
 Proposed whole report: version1, kind`msvc_dependency_observation_v1`, false
 qualified/linkQualification/closureComplete, captureComplete boolean,
 status`complete`/`stopped`, exact selfchecks `{cohort,projection,observer}` (the
-52/32/12 six-key summaries), exact source/proof digests, an existing-format
+52/32/14 six-key summaries), exact source/proof digests, an existing-format
 cohort report and accepted projection facts or null, plus a fixed critical code
 or null. Freeze the complete concrete envelope/proof dictionary and independent
 validator BEFORE asking for execution; this paragraph is not a schema license.
@@ -169,7 +199,7 @@ The outer has ONLY version,kind,qualified,linkQualification,closureComplete,
 captureComplete,status,selfchecks,proofs,cohort,facts,critical, in that insertion
 order. Version1/kind`msvc_dependency_observation_v1`; all three qualification
 flags false. selfchecks has ONLY cohort,projection,observer: exact successful
-six-key52/32/12 summaries with their existing three kinds. Its cohort summary
+six-key52/32/14 summaries with their existing three kinds. Its cohort summary
 must equal the inner cohort.selfchecks. No aggregate count can hide a failure.
 
 proofs has ONLY reader,supervisor,helper,cohortFirst,projection,projectionFirst,

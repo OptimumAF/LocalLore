@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.NonSkippableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,8 @@ private class ForkDialogDelivery {
 }
 
 /** Presentation only: requested numeric boundaries are validated by the shared Rust port. */
+// A value-equal, distinct delivery must still retire the previous controls and consent.
+@NonSkippableComposable
 @Composable
 internal fun BranchForkPanel(
     visible: Boolean,

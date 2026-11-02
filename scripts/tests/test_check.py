@@ -43,7 +43,11 @@ class CheckRunnerTests(unittest.TestCase):
         self.assertTrue(all(argv[1] == "+1.93.1" for argv in cargo))
         self.assertTrue(all("--offline" in argv for argv in cargo[1:]))
         self.assertNotIn("--offline", cargo[0])
-        self.assertEqual(cargo[-1][-2:], ("--", "--check"))
+        fixtures = [argv for argv in cargo if "--example" in argv]
+        self.assertEqual([argv[argv.index("--example") + 1] for argv in fixtures],
+                         ["android_fixtures", "android_knowledge_filter_fixture"])
+        self.assertTrue(all(argv[-2:] == ("--", "--check") for argv in fixtures))
+        self.assertTrue(all("--locked" in argv for argv in fixtures))
         self.assertTrue(all(command.cwd == root for command in commands))
         self.assertEqual(commands[-1].argv[0], str(root / "target/checks" / (
             "native-linker-tests.exe" if os.name == "nt" else "native-linker-tests")))

@@ -184,9 +184,9 @@ internal object StoryRecordWire {
         if (query.promiseFilter != StoryRecordPromiseFilter.ALL &&
             (query.version != 2 || query.section != StoryRecordSection.PROMISES || query.search.isNotEmpty())) return false
         return when (query.version) {
-        1 -> query.section != StoryRecordSection.PROMISES
-        2 -> true
-        else -> false
+            1 -> query.section != StoryRecordSection.PROMISES
+            2 -> true
+            else -> false
         }
     }
     private fun cursorPattern(query: StoryRecordQuery) = Regex("${query.version}:[1-9][0-9]{0,4}:[0-9a-f]{64}")

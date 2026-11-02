@@ -25,6 +25,7 @@ MODEL_BYTES=2588147712
 MODEL_SHA256='181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c'
 SOURCE_NAMES=base.SOURCE_NAMES|{'owned_target_contract.py','owned_target_owner.py','receipt_avd_storage.py',
  'android_process_client_v4.py','android_process_verification_v4.py'}
+CURRENT_STORAGE_SOURCES = frozenset({'prepare_recovery_contract.py'})
 ADMISSION_KEYS={'version','protocol','run_id','root','seconds','server','guest','artifacts','sources','python','compatibility'}
 GUEST_KEYS={'root','proposal','authorization','emulator','qemu','refuser','refuser_source',
  'console_port','adb_port','serial','memory_mib','cores','max_seconds','api','abi'}
@@ -108,13 +109,18 @@ class _Contract:
         _need('.android' not in (part.casefold() for part in PureWindowsPath(value['path']).parts), 'auth')
 
     def _sources(self, value):
-        _need(type(value) is list and len(value) in (len(self.profile.SOURCE_NAMES), len(self.profile.SOURCE_NAMES) + 1), 'source')
+        # Frozen lists remain structurally readable. Live authority is stricter:
+        # revalidate_inputs compares against source_bindings' complete current set.
+        historical = self.profile.SOURCE_NAMES
+        current = historical | CURRENT_STORAGE_SOURCES
+        accepted = (historical, historical | {'__init__.py'}, current, current | {'__init__.py'})
+        _need(type(value) is list and len(value) in {len(names) for names in accepted}, 'source')
         for pin in value:
             self.binding(pin)
         paths = [p['path'] for p in value]
         parsed = [PureWindowsPath(p) for p in paths]
         _need(paths == sorted(set(paths)) and len({p.parent for p in parsed}) == 1 and (parsed[0].parent.name == 'benchmarks'), 'source')
-        _need({p.name for p in parsed} in (self.profile.SOURCE_NAMES, self.profile.SOURCE_NAMES | {'__init__.py'}), 'source')
+        _need({p.name for p in parsed} in accepted, 'source')
 
     def validate_admission(self, value):
         _obj(value, ADMISSION_KEYS)
@@ -579,7 +585,7 @@ class _Contract:
         from benchmarks import receipt_avd_environment as env
         root = Path(__file__).resolve().parents[1]
         _need(root.drive.upper() == 'D:' and root.resolve(strict=True) == root, 'source')
-        names = self.profile.SOURCE_NAMES | ({'__init__.py'} if (root / 'benchmarks/__init__.py').exists() else set())
+        names = self.profile.SOURCE_NAMES | CURRENT_STORAGE_SOURCES | ({'__init__.py'} if (root / 'benchmarks/__init__.py').exists() else set())
         return [env.binding(root / 'benchmarks' / name) for name in sorted(names)]
 
     def revalidate_inputs(self, admission):

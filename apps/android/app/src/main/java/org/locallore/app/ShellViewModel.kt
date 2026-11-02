@@ -300,7 +300,7 @@ class ShellViewModel internal constructor(
             }
         }
         if (gateway.durable) {
-            mutable.value = ShellState(busy = true, persistent = true, notice = "Opening local saved storiesâ€¦")
+            mutable.value = ShellState(busy = true, persistent = true, notice = "Opening local saved stories…")
             savedOperation("Saved story resumed. Uncommitted responses remain outside accepted history.") { gateway.initialize() }
         }
     }

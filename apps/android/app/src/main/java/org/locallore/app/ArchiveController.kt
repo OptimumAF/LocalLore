@@ -235,7 +235,7 @@ internal class ArchiveController(
         closeResult = result
         publish(mutable.value.copy(busy = previous != null, prepared = null,
             kind = null, closing = close,
-            notice = if (close) "Finishing local work and waiting for any outstanding document pickerâ€¦"
+            notice = if (close) "Finishing local work and waiting for any outstanding document picker…"
             else "Stopped. An export may be partial, and an import may already have completed. Close to refresh the library."))
         scope.launch {
             previous?.join()

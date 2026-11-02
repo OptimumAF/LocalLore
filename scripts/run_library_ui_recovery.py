@@ -188,8 +188,13 @@ def _supervise(request_pin, begin):
                 else:child.kill();closed=True  # No barrier release without a job.
                 child.wait(timeout=5)
             except BaseException:closed=False
-        for thread in readers:thread.join(timeout=2)
-        stalled=any(thread.is_alive() for thread in readers)
+        joined=True
+        for thread in readers:
+            try:
+                if thread.ident is not None:thread.join(timeout=2)
+            except BaseException:joined=False
+        try:stalled=not joined or any(thread.is_alive() for thread in readers)
+        except BaseException:stalled=True
         if child is not None and not stalled:
             for stream in (child.stdin,child.stdout,child.stderr):
                 try:stream.close()

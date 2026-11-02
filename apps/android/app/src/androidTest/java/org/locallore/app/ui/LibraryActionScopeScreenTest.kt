@@ -1,6 +1,7 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app.ui
 
+import android.view.KeyEvent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.collectAsState
@@ -12,7 +13,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
-import androidx.test.espresso.Espresso.pressBack
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -21,6 +22,7 @@ import org.locallore.app.*
 /** Real Shell/Compose controls and synthetic storage snapshots; Android execution is separate. */
 class LibraryActionScopeScreenTest {
     @get:Rule val compose = createComposeRule()
+    private fun pressBack() = InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
     private class Port(var initializeFails: Boolean) : DemoGateway {
         override val durable = true
         val a = SavedStory("library-a", "main", "Synthetic A", 7)

@@ -153,7 +153,8 @@ no old observations upgraded to v2 and no graph completeness assertion.
 
 ## Independent FIRST and next admission
 
-Independent export `runRuntimeMetadataV2Selfchecks(api)` takes ONLY the factory;
+Independent export `runRuntimeMetadataV2Selfchecks(api)` takes the exact plain
+one-field object `{createRuntimeMetadataObservationV2}` containing ONLY the factory;
 no producer fixture/expected-data helper. No top-level execution/filesystem/
 process/SDK access. It constructs synthetic Buffers/adapters and its own expected
 reports. Exactly20 groups T01..T20. Summary ONLY version,kind,executed,passed,

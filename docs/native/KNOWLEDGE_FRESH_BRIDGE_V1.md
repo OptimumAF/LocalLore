@@ -57,8 +57,9 @@ With applicable exact approval, the operator:
    alone is insufficient. A fresh entry must have no recovery history.
 6. Uses `env.plan_run` and a new exact run authorization, builds the standard
    SDK16 admission, and revalidates the current profile/build and source closure.
-   It snapshots the prepared ledger and requires the same bytes through final
-   input publication. Admission precedes the create-only activation input.
+   It snapshots the prepared ledger and rechecks the same bytes immediately
+   before final input publication. Admission precedes the create-only activation
+   input; later activation/owner checks still govern actual admission and boot.
 7. Calls the existing Knowledge activation, which owns the private server,
    guest, four-method controller, cancellation and cleanup. Acceptance requires
    joined stored activation/runtime results and the actual closed ledger entry
@@ -105,12 +106,14 @@ The fixed operation output is
 Runtime/controls retain the existing Knowledge activation paths. Ordinary output
 parents must exist; missing parents cause refusal before charged preparation.
 Large actual operations still need their reviewed storage/read/output/retention
-budget and exact fresh authority. This host packet budgets 32 MiB controls,
+budget and exact fresh authority. This host packet budgets 48 MiB controls,
 64 MiB NEW physical synthetic allocation, 12 GiB logical synthetic extent and
 128 MiB records-only recovery. The failed original logical-bound regression
 left one separately pinned partial dummy SD (1,350,832,128 logical bytes;
 1,350,832,128 allocated bytes in the final pinned receipt) retained in place, outside the new allocation
-allowance. It is not copied into records-only recovery. The existing literal
+allowance. Its original stays in place. A separately verified 1,313,129-byte
+compressed local backup preserves its exact byte stream within the recovery
+budget; it does not restore original NTFS allocation/layout. The existing literal
 8 GiB SD fixture now uses checked sparse kernel EOF extension and asserts
 at most 64 KiB allocation; its admission/config/userdata assertions are unchanged.
 Those are observed

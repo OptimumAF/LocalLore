@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [fixed SDK16 Knowledge profile](docs/native/KNOWLEDGE_UI_PROFILE_V1.md)
+connects the verified Knowledge APK pair to the existing guarded owner, finite
+client, complete proof replay and joined cancellation/cleanup controller. It
+selects only four model-free journeys. Host qualification is separate from the
+unrun Android journeys and requires no guest or shared-ledger change.
+
 The [Knowledge UI build contract](docs/native/KNOWLEDGE_UI_BUILD_VERIFICATION_2026-11-02.md)
 binds the current frozen APK pair and four compiled journeys without granting
 device execution. A forced 579-case JVM run, 25 host contract checks and genuine

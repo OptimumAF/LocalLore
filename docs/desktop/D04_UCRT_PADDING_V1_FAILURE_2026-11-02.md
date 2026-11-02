@@ -1,8 +1,10 @@
 # UCRT padding V1: failed synthetic gate, no input observation
 
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21; PR364.
-**FAILED / grant SPENT. No automatic retry.** The source correction below is
-UNRUN and does not change this outcome or establish any library-padding fact.
+**FAILED / grant SPENT. No automatic retry.** At this failed cohort's handoff,
+the source correction below was UNRUN. A separately approved
+[V2 packet](D04_UCRT_PADDING_V2_VERIFICATION_2026-11-02.md) subsequently passed;
+it does not change this V1 outcome or retroactively establish a V1 observation.
 
 ## Actual approved invocation
 

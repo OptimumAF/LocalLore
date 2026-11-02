@@ -2,7 +2,9 @@
 
 Historical preparation below. The ONE subsequently approved invocation
 [failed its Node E04 gate](D04_UCRT_PADDING_V1_FAILURE_2026-11-02.md) before
-SDK adapter creation. Its grant is SPENT; the source calibration is UNRUN.
+SDK adapter creation. Its grant is SPENT; the source calibration was UNRUN
+at that handoff. The separately approved [corrected V2](D04_UCRT_PADDING_V2_VERIFICATION_2026-11-02.md)
+subsequently passed all30 checks and the bounded observation; its grant is also SPENT.
 
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21.
 This is a source-ready diagnostic proposal. **The packet, both suites and all

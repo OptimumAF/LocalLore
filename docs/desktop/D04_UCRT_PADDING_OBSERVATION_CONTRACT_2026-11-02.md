@@ -1,5 +1,10 @@
 # Pinned UCRT archive-padding observation contract
 
+Historical preparation contract below. The separately approved
+[corrected V2 packet](D04_UCRT_PADDING_V2_VERIFICATION_2026-11-02.md) subsequently
+passed its30 checks and observation; its one-run grant is SPENT. The original
+V1 failure remains failed. The historical unknowns below are not current results.
+
 Refs #25 D04.01/.02/.04 supporting, #31 D09.03 supporting, #21.
 Root claim6584315284; `prep/ucrt-padding-observation-v1`, existing physical
 D: review checkout, based on accepted PR348/main`db2c23d0`.

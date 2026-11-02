@@ -1,6 +1,11 @@
 # Corrected UCRT padding V2: prospective admission
 
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21; PR364.
+**Subsequent outcome:** the actual separate approval was received; ONE V2
+packet passed6 parent and24 Node checks and the bounded observation. Its grant
+is SPENT. See the [actual verification](D04_UCRT_PADDING_V2_VERIFICATION_2026-11-02.md).
+The prospective record below preserves the preapproval state and is not fresh authority.
+
 **SOURCE PREPARATION ONLY. V2 and its corrected30 groups are UNRUN.**
 The proposed evidence allowance is NOT active; no new owner decision exists.
 

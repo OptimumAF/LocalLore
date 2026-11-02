@@ -46,8 +46,10 @@ class PaddingObservationError extends Error {
 function fail(code) { throw new PaddingObservationError(code); }
 function requireThat(ok, code) { if (!ok) fail(code); }
 const uint = value => Number.isSafeInteger(value) && value >= 0;
-const token = value => typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,256}$/.test(value);
-const digest = value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+const token = value => typeof value === 'string' && value.length > 0 &&
+  value.length <= 256 && !/[^A-Za-z0-9_.:-]/.test(value);
+const digest = value => typeof value === 'string' && value.length === 64 &&
+  /^[0-9a-f]{64}$/.test(value);
 const hash = buffer => createHash('sha256').update(buffer).digest('hex');
 
 // Read descriptors before values: invalid accessors are never invoked.
@@ -275,8 +277,10 @@ function validateObservation(value, code) {
     ['paddingRequired', 'paddingRequired'], ['paddingOffset', 'paddingOffset'],
     ['paddingByte', 'paddingByte']]) requireThat(target[a] === last[b], code);
   requireThat(target.memberIndex === 4 && target.memberOffset === 98452 &&
-    typeof target.nameHex === 'string' && /^[0-9a-f]{32}$/.test(target.nameHex) &&
-    typeof target.sizeHex === 'string' && /^[0-9a-f]{20}$/.test(target.sizeHex) &&
+    typeof target.nameHex === 'string' && target.nameHex.length === 32 &&
+    /^[0-9a-f]{32}$/.test(target.nameHex) &&
+    typeof target.sizeHex === 'string' && target.sizeHex.length === 20 &&
+    /^[0-9a-f]{20}$/.test(target.sizeHex) &&
     target.endHex === '600a', code);
   const name = Buffer.from(target.nameHex, 'hex'), size = Buffer.from(target.sizeHex, 'hex');
   requireThat(name.every(b => b >= 32 && b <= 126) &&

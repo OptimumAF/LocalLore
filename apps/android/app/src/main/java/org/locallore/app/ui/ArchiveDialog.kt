@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -52,6 +53,7 @@ fun ArchiveDialog(
     onOpenImported: (ArchiveImported) -> Unit,
 ) {
     if (!state.visible) return
+    val actionKey = ArchiveControlKey(state)
     val window = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val width = with(density) { window.width.toDp() }
@@ -107,18 +109,24 @@ fun ArchiveDialog(
                             style = MaterialTheme.typography.bodySmall)
                         Text("Opening starts on the imported root timeline. Choose other playable timelines, including corrected timelines, from the library.",
                             style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = { onOpenImported(imported) }, enabled = ready,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-open-imported")) {
-                            Text("Open imported story")
+                        key(actionKey) {
+                            Button(onClick = { onOpenImported(imported) }, enabled = ready,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-open-imported")) {
+                                Text("Open imported story")
+                            }
                         }
                     } else {
-                        OutlinedButton(onClick = onPrepareExport, enabled = ready,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-export-prepare")) {
-                            Text("Capture export preview")
+                        key(actionKey) {
+                            OutlinedButton(onClick = onPrepareExport, enabled = ready,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-export-prepare")) {
+                                Text("Capture export preview")
+                            }
                         }
-                        OutlinedButton(onClick = onImportPicker, enabled = ready,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-import-pick")) {
-                            Text("Choose archive to validate")
+                        key(actionKey) {
+                            OutlinedButton(onClick = onImportPicker, enabled = ready,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-import-pick")) {
+                                Text("Choose archive to validate")
+                            }
                         }
                         state.prepared?.let { prepared ->
                             val preview = prepared.preview
@@ -145,18 +153,22 @@ fun ArchiveDialog(
                                 if (state.kind == ArchiveKind.EXPORT) {
                                     Text("Choose a new document. LocalLore refuses nonempty or unverifiable opened destinations. " +
                                         "A stopped or failed write may leave a partial new document.", style = MaterialTheme.typography.bodySmall)
-                                    Button(onClick = { onExportPicker(prepared) }, enabled = ready,
-                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-export-pick")) {
-                                        Text("Export this full private archive")
+                                    key(actionKey) {
+                                        Button(onClick = { onExportPicker(prepared) }, enabled = ready,
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-export-pick")) {
+                                            Text("Export this full private archive")
+                                        }
                                     }
                                 } else if (state.kind == ArchiveKind.IMPORT) {
                                     Text("Import adds the original story ID and all timelines. An existing ID is a conflict; nothing is overwritten or remapped.",
                                         style = MaterialTheme.typography.bodySmall)
                                     Text("Cancellation may race a completed import. Close to refresh the library if the outcome is uncertain.",
                                         style = MaterialTheme.typography.bodySmall)
-                                    Button(onClick = { onConfirmImport(prepared) }, enabled = ready,
-                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-import-confirm")) {
-                                        Text("Import validated archive")
+                                    key(actionKey) {
+                                        Button(onClick = { onConfirmImport(prepared) }, enabled = ready,
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-import-confirm")) {
+                                            Text("Import validated archive")
+                                        }
                                     }
                                 }
                             }
@@ -164,14 +176,24 @@ fun ArchiveDialog(
                     }
                 }
                 if (state.imported == null && !state.closing &&
-                    (state.busy || state.awaitingPicker || state.prepared != null)) OutlinedButton(
-                    onClick = onCancel, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-cancel"),
-                ) { Text("Cancel archive work") }
-                TextButton(onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-close")) {
-                    Text(if (state.imported != null) "Return to library" else "Close")
+                    (state.busy || state.awaitingPicker || state.prepared != null)) key(actionKey) {
+                    OutlinedButton(
+                        onClick = onCancel, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-cancel"),
+                    ) { Text("Cancel archive work") }
+                }
+                key(actionKey) {
+                    TextButton(onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("archive-close")) {
+                        Text(if (state.imported != null) "Return to library" else "Close")
+                    }
                 }
             }
         }
     }
+}
+
+/** Retire clickable nodes when their exact displayed authority changes. */
+private class ArchiveControlKey(private val state: ArchiveUiState) {
+    override fun equals(other: Any?) = other is ArchiveControlKey && state === other.state
+    override fun hashCode() = System.identityHashCode(state)
 }

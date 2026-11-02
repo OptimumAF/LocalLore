@@ -325,7 +325,8 @@ class EnvironmentTests(unittest.TestCase):
     def proposal(self, phase="prepare"):
         # No dependency on actual installed SDK or credentials in any host test.
         files = [Path(env.__file__).resolve(), Path(env.host.__file__).resolve(),
-                 Path(env.commit_capacity.__file__).resolve(), Path(env.guest_storage.__file__).resolve()]
+                 Path(env.commit_capacity.__file__).resolve(), Path(env.guest_storage.__file__).resolve(),
+                 Path(env.__file__).with_name("prepare_recovery_contract.py").resolve()]
         self.java.mkdir(exist_ok=True)
         (self.sdk / "licenses").mkdir(parents=True, exist_ok=True)
         for relative in ("platform-tools/adb.exe", "emulator/emulator.exe",
@@ -360,6 +361,13 @@ class EnvironmentTests(unittest.TestCase):
         value = self.proposal()
         storage_path = str(Path(env.guest_storage.__file__).resolve())
         value["bindings"] = [item for item in value["bindings"] if item["path"] != storage_path]
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.validate_proposal(value, "prepare")
+
+    def test_missing_recovery_contract_binding_refuses_before_SDK(self):
+        value = self.proposal()
+        contract_path = str(Path(env.__file__).with_name("prepare_recovery_contract.py").resolve())
+        value["bindings"] = [item for item in value["bindings"] if item["path"] != contract_path]
         with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
             env.validate_proposal(value, "prepare")
 

@@ -29,6 +29,9 @@ remains unrun and needs matching execution authority.
 The [authorized preparation failure and parent preflight correction](docs/native/PREPARE_PARENT_PREFLIGHT_2026-11-01.md)
 record the successful exact retirement, the subsequent charged preparation
 failure and the nineteen UI methods that remain unrun.
+The [guarded preparation recovery contract](docs/runtime/android/PREPARE_RECOVERY.md)
+retains the reservation and failed history through a one-use, owned preparation;
+live recovery and later UI execution require their own verified gates.
 
 The [Player state UI qualification harness](docs/native/PLAYER_PROFILE_UI_V1.md)
 binds fourteen fixed chat, inventory and self-profile tests to PR #333's exact

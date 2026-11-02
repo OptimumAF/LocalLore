@@ -46,6 +46,11 @@ def _parts():
         from benchmarks import prepare_recovery_contract as history
         from benchmarks import knowledge_ui_profile_build as profile_build
         # Includes cached transitive modules, including the namespace package.
+        # The frozen inspector prepends SOURCE on every uncached API call.
+        # Remove its first prepend before re-entering it; otherwise the same
+        # namespace location appears twice and correctly fails its strict guard.
+        r.need(sys.path[:1]==[str(r.SOURCE)], 'module_source')
+        sys.path.pop(0)
         inspector._MODULES=None
         inspector._api()
         r.need(api.storage.DEFAULT_REGISTRY==r.REGISTRY and api.activation.SOURCE_ROOT==r.SOURCE and
@@ -85,7 +90,7 @@ def _installed(h):
     key=v['auth_key_path']
     r.need(type(key) is str and PureWindowsPath(key).is_absolute() and
            not any(ord(c)<32 for c in key), 'key_path')
-    # Credential path is metadata only; never stat/open/hash/copy key bytes.
+    # ADB credential path is metadata only; never stat/open/hash/copy key bytes.
     for role in ('adb','capabilities','source_review','compatibility','emulator','qemu','refuser','refuser_source'):
         api.env.check_binding(v[role])
     for pin in v['tools']+[p for p in v['python'].values() if p is not None]:api.env.check_binding(pin)

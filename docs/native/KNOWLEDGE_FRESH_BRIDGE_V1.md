@@ -35,8 +35,10 @@ With applicable exact approval, the operator:
 1. Verifies the frozen source/helper/Python/build/APK/tool bindings, original
    B88 manifest and four selectors. The original B88 manifest remains authority;
    its separately serialized inspection copy cannot replace it. Existing tool
-   metadata is rechecked; only the credential path is carried as metadata, with
-   no credential bytes opened, hashed or copied by this bridge.
+   metadata is rechecked; the ADB private-key path is carried as metadata without
+   opening, hashing or copying that key. The inherited environment verifier
+   rechecks the emulator console-token binding by hashing it; token contents
+   never leave that hashing stream and are not copied or printed.
 2. Requires unused output/run/guest paths, the approved current ledger and a
    fresh read-only capacity preview that fits. This does not reserve capacity.
    A create-only attempt directory/record is published before worker dispatch.
@@ -107,7 +109,7 @@ budget and exact fresh authority. This host packet budgets 32 MiB controls,
 64 MiB NEW physical synthetic allocation, 12 GiB logical synthetic extent and
 128 MiB records-only recovery. The failed original logical-bound regression
 left one separately pinned partial dummy SD (1,350,832,128 logical bytes;
-1,315,045,376 allocated bytes) retained in place, outside the new allocation
+1,350,832,128 allocated bytes in the final pinned receipt) retained in place, outside the new allocation
 allowance. It is not copied into records-only recovery. The existing literal
 8 GiB SD fixture now uses checked sparse kernel EOF extension and asserts
 at most 64 KiB allocation; its admission/config/userdata assertions are unchanged.

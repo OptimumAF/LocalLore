@@ -3,3 +3,4 @@
 LICENSE text
 apps/android/app/src/androidTest/assets/query2-corrected-opaque-v1.llore -text
 licenses/desktop/texts/* whitespace=-blank-at-eol,-blank-at-eof
+benchmarks/knowledge_ui_build_baseline.json -text

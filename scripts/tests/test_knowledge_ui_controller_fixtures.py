@@ -35,7 +35,7 @@ from scripts.tests import test_android_instrumentation_evidence as junit
 
 
 CREATED_ROOTS = []
-FIXTURE_ROOT = Path('D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-harness-v1/test-agent-v1/fixtures')
+FIXTURE_ROOT = Path('D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-fresh-capacity-v1/test-agent-v1/fixtures/sdk16')
 OWN_FOLDERS = ('controller', 'activation')
 BUDGET_OBSERVATIONS = []
 _SHARED = None
@@ -122,7 +122,7 @@ def running(value):
 class SyntheticFiles:
     def __init__(self):
         ensure_budget(8 * 1024 * 1024)
-        parent = Path('D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-harness-v1/test-agent-v1/fixtures/controller')
+        parent = FIXTURE_ROOT / 'controller'
         parent.mkdir(parents=True, exist_ok=True)
         self.base = Path(tempfile.mkdtemp(prefix='case-', dir=parent))
         assert self.base.is_absolute() and self.base.drive.upper() == 'D:'

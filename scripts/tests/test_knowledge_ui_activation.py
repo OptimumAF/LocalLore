@@ -25,7 +25,7 @@ activation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(activation)
 with patch.object(activation, 'SOURCE_ROOT', REPO):
     REAL = activation._api()
-FIXTURES = Path('D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-harness-v1/test-agent-v1/fixtures/activation')
+FIXTURES = profile.FIXTURE_ROOT / 'activation'
 
 
 def identity(pid, executable):
@@ -225,7 +225,7 @@ class KnowledgeUiActivationTests(unittest.TestCase):
         self.assertTrue(runtime.result['storage_closed']); self.assertTrue(runtime.result['cleanup_known'])
         self.assertFalse(runtime.result['feature_acceptance'])
         self.assertEqual(graph.a['guest']['root'], str(PureWindowsPath(
-            'D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-v1/avd-v1')))
+            'D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-v1/avd-v1')))
         self.assertEqual(len(graph.verifications), 2)
         self.assertTrue(all(row[3] == graph.caller for row in graph.verifications))
         self.assertEqual(graph.saves.count('stop.pending-v1.json'), 1)

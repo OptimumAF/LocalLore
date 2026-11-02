@@ -16,7 +16,7 @@ BOOT_CLAIM_FILE = 'owned-knowledge-ui-boot-claim-v1.json'
 APP = 'org.locallore.app'
 TEST = APP + '.test'
 MODEL_MATERIAL = False
-GUEST_ROOT = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-v1/avd-v1')
+GUEST_ROOT = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-v1/avd-v1')
 INSTRUMENTATIONS = (
     ('knowledge_labels', 'org.locallore.app.ui.KnowledgeRecordFilterScreenTest',
      'exactlyFiveKnowledgeFacetsExposeLiteralLabelsSelectionAndFortyEightDpTargetsOnlyInKnowledge'),

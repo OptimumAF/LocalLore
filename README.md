@@ -21,6 +21,14 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [fresh SDK16 guest and capacity preview](docs/native/KNOWLEDGE_FRESH_CAPACITY_V1.md)
+reject the used SDK15 guest and report shared-ledger capacity without granting
+admission. [Verification](docs/native/KNOWLEDGE_FRESH_CAPACITY_VERIFICATION_2026-11-02.md)
+records 12 new checks, 44 storage regressions and 39 SDK16 profile checks passing.
+The fixed target parent is absent; a separate representative preview confirms
+both the retained-root and byte limits block a fresh guest. No boot, shared-ledger
+write or real guest-image deletion occurred; the Knowledge journeys remain unrun.
+
 The [checked Windows host cleanup](docs/native/WINDOWS_JOB_CLOSE_VERIFICATION_2026-11-02.md)
 keeps failed handle, constructor and capture closure unqualified across five
 development-tool callers. All 28 new fault tests, 221 regressions and 39 SDK16
@@ -43,12 +51,15 @@ The [bounded SDK15 recovery operator](docs/runtime/android/SDK15_RECOVERY_OPERAT
 joins verified preparation recovery to fresh run inputs and the four-method UI
 runner. All 39 host checks pass, including a real owned-host-job capture test
 and refusal before recovery when the running Python does not match its pins.
-Actual recovery and Android execution still require the exact new approved scope.
+One approved frozen SDK15 recovery/run now passed all four Library tests;
+[the separate actual-run report](https://github.com/OptimumAF/LocalLore/blob/ed0e25b82119ec234b2cb278643a5e95d56eacac/docs/runtime/android/SDK15_APPROVED_RUN_VERIFICATION_2026-11-02.md)
+retains its exact source and limits. That grant is spent; any further operation
+needs its own applicable authority and admission.
 
 The [SDK15 recovery input inspection](docs/runtime/android/SDK15_RECOVERY_READINESS_2026-11-02.md)
-creates a source-bound, file-only plan for the existing charged reservation.
-Seventeen host tests and the actual inspection pass. It creates no execution
-authority; a tested post-recovery handoff and fresh exact approval remain required.
+creates a source-bound, file-only plan for the original charged reservation.
+Seventeen host tests and the original inspection pass. It creates no execution
+authority and cannot authorize another recovery or boot after the completed run.
 
 The [current library/recovery UI profile](docs/native/LIBRARY_UI_V1.md)
 selects four fixed PR #351 journeys through the current guarded owner and
@@ -57,7 +68,9 @@ attestation. Host qualification and actual Android execution are separate;
 spent SDK14 grants do not authorize the current product or selectors.
 The [host verification report](docs/native/LIBRARY_UI_VERIFICATION_2026-11-02.md)
 records 46 new checks, 173 existing regressions and genuine byte replay, with
-the original failed permission expectation preserved. Android remains unrun.
+the original failed permission expectation preserved. Its original frozen
+four-method Android run now passed as reported separately above; that result
+does not retroactively qualify changed tool sources or SDK16 Knowledge tests.
 
 The [current Story Record UI harness](docs/native/RECORD_CONTROLS_UI_V1.md)
 binds nineteen chat, inventory, profile, retained-control and promise journeys

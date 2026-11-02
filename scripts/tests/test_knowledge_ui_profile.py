@@ -35,9 +35,9 @@ class KnowledgeUiAuthorityTests(unittest.TestCase):
         self.assertEqual(contract.INSTRUMENTATIONS, data.SELECTORS)
         self.assertEqual(contract.CLAIM_KINDS, tuple(row[0] for row in data.SELECTORS))
         self.assertEqual(len(contract.INSTRUMENTATIONS), 4)
-        self.assertEqual(contract.GUEST_ROOT, sdk14.GUEST_ROOT)
+        self.assertNotEqual(contract.GUEST_ROOT, sdk14.GUEST_ROOT)
         self.assertEqual(str(contract.GUEST_ROOT), str(PureWindowsPath(
-            'D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-v1/avd-v1')))
+            'D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-v1/avd-v1')))
         self.assertEqual((contract.APP, contract.TEST, contract.MODEL_MATERIAL), ('org.locallore.app', 'org.locallore.app.test', False))
         self.assertEqual(contract.ARTIFACT_KEYS, {'build', 'product_apk', 'test_apk'})
         self.assertEqual(len(sdk14.INSTRUMENTATIONS), 19)
@@ -178,6 +178,7 @@ class KnowledgeUiAuthorityTests(unittest.TestCase):
         original = data.admission()
         old = copy.deepcopy(original)
         old['protocol'] = sdk15.PROTOCOL
+        old['guest']['root'] = str(sdk15.GUEST_ROOT)
         old['sources'] = sorted([legacy.pin(PureWindowsPath('D:/Synthetic/LocalLore/benchmarks') / name)
                                   for name in sdk15.SOURCE_NAMES], key=lambda pin: pin['path'])
         self.assertEqual(sdk15.validate_admission(old), old)

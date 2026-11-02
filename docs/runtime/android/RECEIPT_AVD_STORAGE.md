@@ -13,6 +13,15 @@ or replacing the production registry is an operator recovery action.
 
 ## Admission and retention
 
+`preview_prepare(root)` is a read-only observation using this same ledger's
+validation and current charges. It requires an existing ordinary D: parent and
+an absent, untracked candidate; it creates no root, registry, lock or reservation.
+Its separate root/byte limit flags and `would_fit` are accounting observations,
+not approval: `admission_granted` is always false. Detected input changes refuse.
+It does not check disk-free, memory, ports or runtime ownership and is not an
+atomic snapshot. Actual preparation still performs fresh locked admission.
+See [the exact preview contract](../../native/KNOWLEDGE_FRESH_CAPACITY_V1.md).
+
 For an explicitly observed legacy pre-SDK mkdir failure, the separate
 [one-use recovery contract](PREPARE_RECOVERY.md) can retain the same reservation
 and journal a guarded preparation. It is never automatic missing-root repair

@@ -5,6 +5,7 @@ ledger migration, resource/process observations, ADB and boot are separate.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import copy
+import json
 import os
 from pathlib import Path, PureWindowsPath
 import subprocess
@@ -190,10 +191,12 @@ def main(argv=None):
         return 1
     try:
         value = inspect()
-    except Exception:
-        # Detailed private faults remain in the operator capture. Never treat a
-        # partial inspection as dispatch authority or retry into its directory.
-        print('{"scope":"sdk15-recovery-inspection-result-v1","status":"refused","ready_for_execution":false}')
+    except Exception as error:
+        # Keep a useful fixed refusal without exposing arbitrary exception text.
+        # Partial records remain unready; never retry into their directory.
+        print(json.dumps(dict(scope='sdk15-recovery-inspection-result-v1',status='refused',
+            ready_for_execution=False,failure_type=type(error).__name__,
+            reason=str(error) if type(error) is InspectionRefused else 'inspection_failed')))
         return 1
     print(_api().env.encoded(value).decode('utf-8'))
     return 0

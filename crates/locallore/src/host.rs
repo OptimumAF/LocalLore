@@ -214,6 +214,11 @@ pub enum HostCommand {
         session: String,
         query: crate::inspection_query::Query,
     },
+    InspectionRelationshipFocus {
+        session: String,
+        query: crate::inspection_query::Query,
+        target: String,
+    },
     TraceConfigure {
         session: String,
         scope: Scope,
@@ -1089,6 +1094,31 @@ impl Host {
         };
         crate::inspection_query::query(&engine, query, self.story_lab).map_err(|e| e.to_string())
     }
+    /// Focus only rows already eligible in the same immutable player/observer lens.
+    /// The target ID grants no character profile or additional inspection privilege.
+    pub fn inspection_relationship_focus(
+        &self,
+        session: &str,
+        query: &crate::inspection_query::Query,
+        target: &str,
+    ) -> Result<crate::inspection_query::Page, String> {
+        let engine = {
+            let mut state = self.state.lock().map_err(|_| "Internal")?;
+            let session = state.sessions.get(session).ok_or("Closed")?;
+            if session.engine.scope() != &query.scope {
+                return Err("Scope".into());
+            }
+            let cached = session.engine.clone();
+            if let Some(port) = state.persistence.as_mut() {
+                port.resume(&query.scope)?
+            } else {
+                cached
+            }
+        };
+        crate::inspection_query::relationship_focus(&engine, query, target, self.story_lab)
+            .map_err(|error| error.to_string())
+    }
+
     pub fn new(story_lab: bool) -> Self {
         Self {
             state: Arc::default(),
@@ -1139,6 +1169,17 @@ impl Host {
             }
             if let HostCommand::InspectionQuery { session, query } = &envelope.command {
                 return match self.inspection_query(session, query) {
+                    Ok(page) => ok(json!(page)),
+                    Err(error) => reject(error),
+                };
+            }
+            if let HostCommand::InspectionRelationshipFocus {
+                session,
+                query,
+                target,
+            } = &envelope.command
+            {
+                return match self.inspection_relationship_focus(session, query, target) {
                     Ok(page) => ok(json!(page)),
                     Err(error) => reject(error),
                 };
@@ -2057,6 +2098,7 @@ impl Host {
             }
             HostCommand::Prepare { .. }
             | HostCommand::InspectionQuery { .. }
+            | HostCommand::InspectionRelationshipFocus { .. }
             | HostCommand::TraceConfigure { .. }
             | HostCommand::TraceRead { .. }
             | HostCommand::TraceNarrationValidationReadV1 { .. }

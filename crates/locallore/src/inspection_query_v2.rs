@@ -501,6 +501,33 @@ pub(super) fn actor_rows(engine: &Engine, actor: &str, view: View) -> Result<Vec
     rows(engine, &lens, view)
 }
 pub(super) fn query(engine: &Engine, request: &Query, grant: bool) -> Result<Page, QueryError> {
+    query_filtered(engine, request, grant, None)
+}
+
+pub(super) fn relationship_focus(
+    engine: &Engine,
+    request: &Query,
+    target: &str,
+    grant: bool,
+) -> Result<Page, QueryError> {
+    if request.version != 2 {
+        return Err(QueryError::Version);
+    }
+    if request.view != View::Relationships
+        || !request.search.is_empty()
+        || !crate::engine::valid_id(target)
+    {
+        return Err(QueryError::InvalidRequest);
+    }
+    query_filtered(engine, request, grant, Some(target))
+}
+
+fn query_filtered(
+    engine: &Engine,
+    request: &Query,
+    grant: bool,
+    relationship_target: Option<&str>,
+) -> Result<Page, QueryError> {
     if request.version != 2 {
         return Err(QueryError::Version);
     }
@@ -567,6 +594,11 @@ pub(super) fn query(engine: &Engine, request: &Query, grant: bool) -> Result<Pag
     if output.len() > MAX_CANDIDATES {
         return Err(QueryError::TooLarge);
     }
+    if let Some(target) = relationship_target {
+        // Eligibility has already been applied. Compare typed IDs exactly;
+        // ordinary case-insensitive text search cannot distinguish Mira/mira.
+        output.retain(|row| matches!(row, Row::Relationship { to, .. } if to == target));
+    }
     output.sort_by(|a, b| a.key().cmp(b.key()));
     let search = request.search.to_lowercase();
     let mut matching = vec![];
@@ -587,6 +619,12 @@ pub(super) fn query(engine: &Engine, request: &Query, grant: bool) -> Result<Pag
     let mut identity = request.clone();
     identity.cursor = None;
     let mut binding = Sha256::new();
+    if let Some(target) = relationship_target {
+        // Ordinary query digests remain byte-for-byte unchanged. Focused cursors
+        // cannot be retagged, even when an ordinary query has identical rows.
+        binding.update(b"\0locallore-relationship-focus-v1\0");
+        binding.update(serde_json::to_vec(target).map_err(|_| QueryError::Integrity)?);
+    }
     binding.update(serde_json::to_vec(&identity).map_err(|_| QueryError::Integrity)?);
     for (_, encoded) in &matching {
         binding.update((encoded.len() as u64).to_le_bytes());

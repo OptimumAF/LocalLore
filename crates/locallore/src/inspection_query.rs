@@ -359,6 +359,16 @@ fn at(engine: &Engine, revision: u64) -> Result<Engine, QueryError> {
 
 /// `story_lab_granted` must come from trusted native construction, never request JSON.
 /// Cursors detect accidental/stale/cross-query edits; they are not authentication tokens.
+pub fn relationship_focus(
+    engine: &Engine,
+    request: &Query,
+    target: &str,
+    story_lab_granted: bool,
+) -> Result<Page, QueryError> {
+    v2::relationship_focus(engine, request, target, story_lab_granted)
+}
+
+/// Ordinary free-text queries retain their existing matching and cursor identity.
 pub fn query(
     engine: &Engine,
     request: &Query,

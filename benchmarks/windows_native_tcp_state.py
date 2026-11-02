@@ -314,10 +314,12 @@ def _supervise(command, request, root, seconds, on_started):
                 capture.failed.set(); status = 'evidence_failed'
             else:
                 try:
-                    capture.close()
+                    if capture.close() is False:
+                        capture.failed.set()
                 except BaseException:
                     capture.failed.set()
                 if capture.failed.is_set():
+                    cleaned = False
                     status = 'evidence_failed'
                 elif capture.overflow.is_set():
                     status = 'output_limit'

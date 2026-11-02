@@ -13,6 +13,14 @@ or replacing the production registry is an operator recovery action.
 
 ## Admission and retention
 
+Planning and preparation require the selected guest root's parent to be an
+existing ordinary directory. The path validator rejects files, symlinks and
+Windows reparse points, including in ancestors. Planning refuses before SDK
+metadata inspection; preparation rechecks before resource observation or
+reservation. Neither operation creates missing parents. A parent that changes
+after this preflight can still cause a post-admission failure; its reservation
+remains charged. This check does not recover an earlier failed preparation.
+
 Before the central prepare entry point creates its root or invokes SDK tools,
 it calls:
 

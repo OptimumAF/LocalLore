@@ -26,6 +26,9 @@ binds nineteen chat, inventory, profile, retained-control and promise journeys
 to PR #337's exact APK pair. [Host verification](docs/native/RECORD_CONTROLS_UI_VERIFICATION_2026-11-01.md)
 passes 56 new checks and 79 existing regressions; actual Android execution
 remains unrun and needs matching execution authority.
+The [authorized preparation failure and parent preflight correction](docs/native/PREPARE_PARENT_PREFLIGHT_2026-11-01.md)
+record the successful exact retirement, the subsequent charged preparation
+failure and the nineteen UI methods that remain unrun.
 
 The [Player state UI qualification harness](docs/native/PLAYER_PROFILE_UI_V1.md)
 binds fourteen fixed chat, inventory and self-profile tests to PR #333's exact

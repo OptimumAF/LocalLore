@@ -29,6 +29,19 @@ class BranchForkShellTest {
     @Before fun setup() { Dispatchers.setMain(dispatcher) }
     @After fun cleanup() { owners.clear(); Dispatchers.resetMain() }
 
+    // Execute actual baseline callbacks before scoped member overloads exist.
+    // Kotlin selects the production member after the fix; oracle bodies stay unchanged.
+    @Suppress("UNUSED_PARAMETER", "EXTENSION_SHADOWED_BY_MEMBER")
+    private fun ShellViewModel.forgetFork(consent: Boolean, view: BranchForkUiState) = forgetFork(consent)
+    @Suppress("UNUSED_PARAMETER", "EXTENSION_SHADOWED_BY_MEMBER")
+    private fun ShellViewModel.cancelFork(view: BranchForkUiState) = cancelFork()
+    @Suppress("UNUSED_PARAMETER", "EXTENSION_SHADOWED_BY_MEMBER")
+    private fun ShellViewModel.closeFork(view: BranchForkUiState) = closeFork()
+    @Suppress("UNUSED_PARAMETER", "EXTENSION_SHADOWED_BY_MEMBER")
+    private fun ShellViewModel.lookupFork(view: BranchForkUiState) = lookupFork()
+    @Suppress("UNUSED_PARAMETER", "EXTENSION_SHADOWED_BY_MEMBER")
+    private fun ShellViewModel.retryFork(consent: Boolean, view: BranchForkUiState) = retryFork(consent)
+
     private class Hint(private val events: MutableList<String>, var value: BranchForkRecovery? = null) : ForkRecoveryPersistence {
         var failLoad = false; var failSave = false
         var onSave: ((BranchForkRecovery?) -> Unit)? = null
@@ -76,6 +89,7 @@ class BranchForkShellTest {
         val runs = mutableListOf<Long>(); val lookups = mutableListOf<BranchForkInput>(); val cancels = mutableListOf<Long?>()
         var registerGate: CompletableDeferred<Unit>? = null
         var registerFailure = false
+        var statusResult: BranchForkStatus? = null
         var lookupResult = BranchForkLookup(false, null)
         override suspend fun register(context: BranchForkContext, input: BranchForkInput, consent: Boolean): BranchForkStatus {
             check(consent); events += "register"; registrations += context to input
@@ -90,7 +104,7 @@ class BranchForkShellTest {
                 BranchForkOutcome(1, ForkScope(input.parent.story, input.childBranch), input.parent,
                     input.atRevision, input.atRevision, true))
         }
-        override suspend fun status(operation: Long): BranchForkStatus = error("Unexpected status")
+        override suspend fun status(operation: Long): BranchForkStatus = statusResult ?: error("Unexpected status")
         override suspend fun lookup(input: BranchForkInput): BranchForkLookup { lookups += input; return lookupResult }
         override fun cancel(operation: Long?) { cancels += operation }
         override fun close() { events += "fork-close" }
@@ -373,6 +387,80 @@ class BranchForkShellTest {
         assertEquals(3L, model.state.value.revision)
         assertTrue(forks.registrations.isEmpty()); assertTrue(forks.runs.isEmpty())
         assertEquals(Recovery, hint.value)
+    }
+    @Test fun staleForgetCannotClearLaterRecoveryAndFreshConsentStillWorks() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events)
+        val hint = Hint(events, Recovery); val model = model(stories, forks, hint)
+        advanceUntilIdle(); model.openFork(); val old = model.fork.value
+        model.forgetFork(true); model.prepareForkBoundary(null, 0)
+        forks.registerFailure = true; model.confirmFork(model.fork.value.input!!, true); advanceUntilIdle()
+        val later = checkNotNull(hint.value); val current = model.fork.value; val writes = hint.writes.size
+        assertNotEquals(Recovery.input.childBranch, later.input.childBranch)
+        model.forgetFork(true, old)
+        assertSame(later, hint.value); assertEquals(writes, hint.writes.size); assertSame(current, model.fork.value)
+        model.forgetFork(false, current); assertSame(later, hint.value)
+        model.forgetFork(true, current); assertNull(hint.value); assertEquals(writes + 1, hint.writes.size)
+    }
+    @Test fun staleCloseCannotDismissAnIdleReopenedForkAndCurrentCloseWorks() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events)
+        val model = model(stories, forks, Hint(events)); advanceUntilIdle(); model.openFork()
+        val old = model.fork.value; model.closeFork(); model.openFork(); val current = model.fork.value
+        assertNotSame(old, current); val cancels = forks.cancels.toList()
+        model.closeFork(old)
+        assertTrue(model.forkVisible.value); assertSame(current, model.fork.value); assertEquals(cancels, forks.cancels)
+        model.closeFork(current); assertFalse(model.forkVisible.value)
+    }
+    @Test fun staleCancelCannotTargetLaterPendingForkAndFreshCancelObservesCommittedResult() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events)
+        val hint = Hint(events); val model = model(stories, forks, hint); advanceUntilIdle(); model.openFork()
+        val old = model.fork.value; model.closeFork(); model.openFork()
+        val input = model.fork.value.input!!; val gate = CompletableDeferred<Unit>(); forks.registerGate = gate
+        val committed = BranchForkOutcome(1, ForkScope(input.parent.story, input.childBranch), input.parent, input.atRevision, input.atRevision, true)
+        forks.statusResult = BranchForkStatus(41, BranchForkPhase.COMPLETED, true, committed)
+        model.confirmFork(input, true); runCurrent(); val pending = model.fork.value
+        assertTrue(pending.busy); val cancels = forks.cancels.toList()
+        try {
+            model.cancelFork(old)
+            assertEquals(cancels, forks.cancels); assertSame(pending, model.fork.value)
+            model.cancelFork(pending); assertTrue(model.fork.value.uncertain)
+        } finally { gate.complete(Unit); advanceUntilIdle() }
+        assertEquals(committed, model.fork.value.outcome); assertFalse(model.fork.value.busy)
+        assertTrue(41L in forks.cancels); assertTrue(stories.resumes.isEmpty())
+        assertEquals(input, hint.value?.input)
+    }
+    @Test fun staleLookupCannotReadLaterRecoveryAndFreshLookupRemainsExplicit() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events)
+        val hint = Hint(events, Recovery); val model = model(stories, forks, hint); advanceUntilIdle(); model.openFork()
+        val old = model.fork.value; model.forgetFork(true); model.prepareForkBoundary(null, 0)
+        forks.registerFailure = true; model.confirmFork(model.fork.value.input!!, true); advanceUntilIdle()
+        val current = model.fork.value; val later = checkNotNull(hint.value)
+        model.lookupFork(old); advanceUntilIdle()
+        assertTrue(forks.lookups.isEmpty()); assertSame(current, model.fork.value); assertSame(later, hint.value)
+        model.lookupFork(current); advanceUntilIdle()
+        assertEquals(listOf(later.input), forks.lookups); assertSame(later, hint.value)
+    }
+    @Test fun staleRetryCannotDispatchLaterRecoveryAndFreshRetryKeepsItsIdentity() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events)
+        val hint = Hint(events, Recovery); val model = model(stories, forks, hint); advanceUntilIdle(); model.openFork()
+        val old = model.fork.value; model.forgetFork(true); model.prepareForkBoundary(null, 0)
+        forks.registerFailure = true; model.confirmFork(model.fork.value.input!!, true); advanceUntilIdle()
+        val current = model.fork.value; val later = checkNotNull(hint.value); val registered = forks.registrations.toList()
+        model.retryFork(true, old); advanceUntilIdle()
+        assertEquals(registered, forks.registrations); assertSame(current, model.fork.value); assertSame(later, hint.value)
+        forks.registerFailure = false; model.retryFork(true, current); advanceUntilIdle()
+        assertEquals(listOf(later.input, later.input), forks.registrations.map { it.second })
+        assertEquals(later.input, hint.value?.input); assertTrue(stories.resumes.isEmpty())
+    }
+    @Test fun valueEqualCopiedForkViewDoesNotGrantRecoveryControls() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events)
+        val hint = Hint(events, Recovery); val model = model(stories, forks, hint); advanceUntilIdle(); model.openFork()
+        val current = model.fork.value; val copy = current.copy(); val cancels = forks.cancels.toList()
+        val writes = hint.writes.toList(); assertEquals(current, copy); assertNotSame(current, copy)
+        model.lookupFork(copy); model.retryFork(true, copy); model.cancelFork(copy); model.closeFork(copy); model.forgetFork(true, copy)
+        advanceUntilIdle()
+        assertSame(current, model.fork.value); assertTrue(model.forkVisible.value); assertSame(Recovery, hint.value)
+        assertEquals(writes, hint.writes); assertEquals(cancels, forks.cancels); assertTrue(forks.lookups.isEmpty())
+        model.forgetFork(true, current); assertNull(hint.value)
     }
     private companion object {
         val Original = SavedStory("story", "main", "Original", 1)

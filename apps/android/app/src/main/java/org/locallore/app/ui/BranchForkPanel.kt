@@ -19,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -98,49 +99,69 @@ internal fun BranchForkPanel(
                     style = MaterialTheme.typography.bodySmall) }
                 if (state.lookupOnly) Text("Recovered request: lookup only. Nothing is created automatically.", modifier = Modifier.testTag("fork-lookup-only"))
                 if (editable && state.context != null) {
-                    OutlinedTextField(boundary, { value -> act { if (value.length <= 16 && value.all(Char::isDigit)) boundary = value } },
-                        label = { Text("Requested completed boundary") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("fork-boundary"))
-                    OutlinedButton(onClick = { act { requested?.let { onBoundary(input, it) } } }, enabled = requested != null,
-                        modifier = Modifier.fillMaxWidth().testTag("fork-review-boundary")) {
-                        Text(if (input == null) "Prepare new request" else "Review this boundary")
+                    key(delivery) {
+                        OutlinedTextField(boundary, { value -> act { if (value.length <= 16 && value.all(Char::isDigit)) boundary = value } },
+                            label = { Text("Requested completed boundary") }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("fork-boundary"))
+                        OutlinedButton(onClick = { act { requested?.let { onBoundary(input, it) } } }, enabled = requested != null,
+                            modifier = Modifier.fillMaxWidth().testTag("fork-review-boundary")) {
+                            Text(if (input == null) "Prepare new request" else "Review this boundary")
+                        }
                     }
                 }
                 if (input != null && !state.lookupOnly && state.outcome == null && storageProblem == null) {
                     Row {
-                        Checkbox(consent, { value -> act { consent = value } }, enabled = !state.busy, modifier = Modifier.testTag("fork-consent"))
+                        key(delivery) {
+                            Checkbox(consent, { value -> act { consent = value } }, enabled = !state.busy, modifier = Modifier.testTag("fork-consent"))
+                        }
                         Text("Create exactly this new timeline, preserving the original.")
                     }
-                    if (!state.uncertain) Button(onClick = { act { onConfirm(input, consent) } }, enabled = consent && !state.busy,
-                        modifier = Modifier.fillMaxWidth().testTag("fork-confirm")) { Text("Create timeline") }
-                    else OutlinedButton(onClick = { act { onRetry(consent) } }, enabled = consent && !state.busy,
-                        modifier = Modifier.fillMaxWidth().testTag("fork-retry")) { Text("Retry original request") }
+                    key(delivery) {
+                        if (!state.uncertain) Button(onClick = { act { onConfirm(input, consent) } }, enabled = consent && !state.busy,
+                            modifier = Modifier.fillMaxWidth().testTag("fork-confirm")) { Text("Create timeline") }
+                        else OutlinedButton(onClick = { act { onRetry(consent) } }, enabled = consent && !state.busy,
+                            modifier = Modifier.fillMaxWidth().testTag("fork-retry")) { Text("Retry original request") }
+                    }
                 }
-                if (recoveryPending) OutlinedButton(onClick = { act(onLookup) }, enabled = !state.busy,
-                    modifier = Modifier.fillMaxWidth().testTag("fork-lookup")) { Text("Look up original identity") }
+                if (recoveryPending) key(delivery) {
+                    OutlinedButton(onClick = { act(onLookup) }, enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth().testTag("fork-lookup")) { Text("Look up original identity") }
+                }
                 state.outcome?.let { outcome ->
                     Text((if (outcome.created) "Fork confirmed" else "Existing fork found") +
                         ": ${outcome.scope.story} / ${outcome.scope.branch} · fork ${outcome.forkRevision} · current head ${outcome.headRevision}",
                         modifier = Modifier.testTag("fork-outcome"))
-                    Button(onClick = { act { onResume(outcome) } }, enabled = !state.busy,
-                        modifier = Modifier.fillMaxWidth().testTag("fork-resume")) { Text("Resume this timeline") }
+                    key(delivery) {
+                        Button(onClick = { act { onResume(outcome) } }, enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth().testTag("fork-resume")) { Text("Resume this timeline") }
+                    }
                 }
                 if (state.busy) {
                     Text("Local timeline request is pending. A committed result wins late cancellation.", modifier = Modifier.testTag("fork-pending"))
-                    OutlinedButton(onClick = { act(onCancel) }, modifier = Modifier.fillMaxWidth().testTag("fork-cancel")) { Text("Request cancellation") }
+                    key(delivery) {
+                        OutlinedButton(onClick = { act(onCancel) }, modifier = Modifier.fillMaxWidth().testTag("fork-cancel")) { Text("Request cancellation") }
+                    }
                 }
                 state.notice?.let { Text(it, modifier = Modifier.testTag("fork-notice")) }
                 if (recoveryPending || storageProblem != null) {
                     Row {
-                        Checkbox(forgetConsent, { value -> act { forgetConsent = value } }, enabled = !state.busy,
-                            modifier = Modifier.testTag("fork-forget-consent"))
+                        key(delivery) {
+                            Checkbox(forgetConsent, { value -> act { forgetConsent = value } }, enabled = !state.busy,
+                                modifier = Modifier.testTag("fork-forget-consent"))
+                        }
                         Text("Forget only the recovery hint. A timeline may already exist.")
                     }
-                    TextButton(onClick = { act { onForget(forgetConsent) } }, enabled = forgetConsent && !state.busy,
-                        modifier = Modifier.testTag("fork-forget")) { Text("Forget recovery hint") }
+                    key(delivery) {
+                        TextButton(onClick = { act { onForget(forgetConsent) } }, enabled = forgetConsent && !state.busy,
+                            modifier = Modifier.testTag("fork-forget")) { Text("Forget recovery hint") }
+                    }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { act(onClose) }, enabled = !state.busy, modifier = Modifier.testTag("fork-close")) { Text("Close") } },
+        confirmButton = {
+            key(delivery) {
+                TextButton(onClick = { act(onClose) }, enabled = !state.busy, modifier = Modifier.testTag("fork-close")) { Text("Close") }
+            }
+        },
     )
 }

@@ -417,9 +417,9 @@ class BranchForkShellTest {
         val input = model.fork.value.input!!; val gate = CompletableDeferred<Unit>(); forks.registerGate = gate
         val committed = BranchForkOutcome(1, ForkScope(input.parent.story, input.childBranch), input.parent, input.atRevision, input.atRevision, true)
         forks.statusResult = BranchForkStatus(41, BranchForkPhase.COMPLETED, true, committed)
-        model.confirmFork(input, true); runCurrent(); val pending = model.fork.value
-        assertTrue(pending.busy); val cancels = forks.cancels.toList()
         try {
+            model.confirmFork(input, true); runCurrent(); val pending = model.fork.value
+            assertTrue(pending.busy); val cancels = forks.cancels.toList()
             model.cancelFork(old)
             assertEquals(cancels, forks.cancels); assertSame(pending, model.fork.value)
             model.cancelFork(pending); assertTrue(model.fork.value.uncertain)
@@ -461,6 +461,17 @@ class BranchForkShellTest {
         assertSame(current, model.fork.value); assertTrue(model.forkVisible.value); assertSame(Recovery, hint.value)
         assertEquals(writes, hint.writes); assertEquals(cancels, forks.cancels); assertTrue(forks.lookups.isEmpty())
         model.forgetFork(true, current); assertNull(hint.value)
+    }
+    @Test fun forkOpenerRejectsAnEarlierValueEqualShellViewAndFreshOpenerWorks() = runTest(dispatcher) {
+        val events = mutableListOf<String>(); val stories = Stories(events); val forks = Forks(events)
+        val model = model(stories, forks, Hint(events)); advanceUntilIdle()
+        val old = model.state.value; model.openFork(); model.closeFork()
+        val current = model.state.value; assertEquals(old, current); assertNotSame(old, current)
+        val cancels = forks.cancels.toList()
+        model.openFork(old); model.openFork(current.copy())
+        assertFalse(model.forkVisible.value); assertEquals(cancels, forks.cancels)
+        model.openFork(current); assertTrue(model.forkVisible.value); assertNotNull(model.fork.value.input)
+        assertTrue(forks.registrations.isEmpty()); assertTrue(stories.resumes.isEmpty())
     }
     private companion object {
         val Original = SavedStory("story", "main", "Original", 1)

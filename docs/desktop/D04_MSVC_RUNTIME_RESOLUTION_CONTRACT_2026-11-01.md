@@ -480,3 +480,48 @@ and the standalone facts JSON+LF to12288B. Validate each and the WHOLE24576B
 envelope explicitly. These conservative parts include replaced null/newline
 overcounts; they introduce no arbitrary padding fields. Actual worst-case
 construction/measurement and independent review remain admission prerequisites.
+
+## Pre-producer FIRST freeze and source-review clarifications
+
+Independent FIRST is now frozen as SOURCE ONLY/UNRUN,41187B, SHA256
+`c35df1fe95685e92caffddff7aaef57d8b595ed39069e4493e6f51994c39830d`.
+The original author's exact draft and the separate review amendments remain
+preserved locally before any producer. Only the final sanitized file snapshot
+is integrated for publication; private draft ancestry is not pushed. All24
+group IDs and original assertions remain, with review cases appended.
+No behavioral RED, passing suite or SDK observation is claimed.
+
+FIRST uses synthetic opaque root-0..root-4 identities. The private encoder
+tests structural/context/candidate coupling with these tokens; this is not
+physical root attestation. Production guardSearch MUST enforce the original
+root pins, and the independent parent MUST compare actual report context to
+them. Neither check may be relaxed to accommodate a synthetic fixture.
+
+I07 does not seed fictitious valid near-limit history. A fresh state with
+nonzero/incoherent counters is InputFailure before callbacks. Test candidate
+sizes0/268435456 as InputLimit before allocation/reservation/open, tiny actual
+reservation/read arithmetic and replay/count controls. Under2 exclusive
+<256MiB files, dynamic512MiB-input/1GiB-scan overrun is mathematically
+unreachable. Those inherited ceilings remain enforced and source-reviewed;
+the suite does not claim to have crossed an unreachable bound or allocate
+huge buffers/change limits to do so.
+
+For a COHERENT fixed-two JobStopped report, the terminal refusal MUST be
+LibraryInputsSize (kind3), site metadata_job_sections, limit2097152 and
+2097152<actual≤4297064447, with context.sections≤actual and the existing
+stopped snapshot/terminal-attempt rules. Other global stop sites/categories
+are prevented by this closed caller protocol; unexpected ones remain bounded
+raw failure, not a successful/coherent substitute. The independent56-byte
+bigobj fixture declares4294967295 sections: context.sections=actual4294967295,
+directiveBytes/tokenCount0, position contexts null, while job.sections=0,
+inputCount1/inputBytes56/attempts1/stopped=true. The refused global charge is
+not committed; per-attempt declared sections must never be confused with it.
+
+Review additions also require exact whole canonical JSON+LF; coherent strict-
+and profile-terminal unknown attempts; isolated critical/attempt adversaries;
+first-identity and held-size refusal before payload work; open-failure sticky
+poisoning; and row32/33/name259/260 controls. A row33 case also exceeds union32;
+it is explicitly not claimed as an isolated reachable resource boundary.
+The proposed producer, source reviews, actual envelope/source sizes and full
+retention forecast remain pending. No source-retention/run/cap authority is
+inferred from this freeze.

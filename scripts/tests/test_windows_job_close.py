@@ -626,5 +626,48 @@ class WindowsJobCloseTests(unittest.TestCase):
                 self.android_transfer(close=error_type('SYNTHETIC_PRIVATE_HANDLE_CANARY'))
 
 
+    def test_capture_close_failure_never_certifies_cleanup_or_skips_other_safe_caller_tails(self):
+        for mode in ('supervisor', 'tcp', 'recovery'):
+            for fault in (False, OSError('synthetic capture close'), ValueError('synthetic capture close'),
+                          KeyboardInterrupt(), SystemExit()):
+                with self.subTest(mode=mode, fault=type(fault).__name__):
+                    graph = CallerGraph()
+                    original = graph.capture.close
+                    def close():
+                        original()
+                        return raised(fault)
+                    graph.capture.close = close
+                    result = graph.run(mode)
+                    self.assertIs(result['cleanup_complete'], False)
+                    self.assertIs(result['output_capture_complete'], False)
+                    self.assertEqual(graph.child.wait_calls, 1)
+                    self.assertEqual(graph.capture.close_calls, 1)
+                    self.assertTrue(all(pipe.closed for pipe in
+                        (graph.child.stdin, graph.child.stdout, graph.child.stderr)))
+                    self.assertTrue(all(thread.joins == [2] for thread in graph.threads))
+
+    def test_capture_file_close_cancellation_attempts_all_files_once_and_stays_failed(self):
+        for fault in (OSError('synthetic file close'), ValueError('synthetic file close'),
+                      KeyboardInterrupt(), SystemExit()):
+            with self.subTest(fault=type(fault).__name__):
+                calls = []
+                class File:
+                    def __init__(self, index): self.index = index
+                    def close(self):
+                        calls.append(self.index)
+                        if self.index == 0: raise fault
+                capture = object.__new__(environment.LiveOutput)
+                capture._lock, capture._closed = threading.Lock(), False
+                capture._files, capture.failed = [File(0), File(1)], threading.Event()
+                error = None
+                try: result = capture.close()
+                except BaseException as caught: error = type(caught).__name__
+                self.assertIsNone(error, 'Capture close escaped before completing every file tail')
+                self.assertIs(result, False)
+                self.assertEqual(calls, [0, 1])
+                self.assertIs(capture.close(), False)
+                self.assertEqual(calls, [0, 1])
+
+
 if __name__ == '__main__':
     unittest.main()

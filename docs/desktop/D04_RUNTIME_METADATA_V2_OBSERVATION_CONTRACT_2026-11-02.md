@@ -53,8 +53,11 @@ object with ONLY async `observe(index,pin,adapter)`, `snapshot()`, `encode()`.
 There are no filesystem/environment/process imports or top-level execution.
 The module imports node:crypto, the accepted real v2 job and accepted reader.
 
-`proofs` is an exact plain data record with ONLY module,first,reader,supervisor,
-runtimeSnapshot,runtimeRootReview,paddingSnapshot,paddingRootReview,descriptor.
+`proofs` is an exact plain data record with ONLY module,parser,heldReader,
+collector,first,supervisor,runtimeSnapshot,runtimeRootReview,paddingSnapshot,
+paddingRootReview,descriptor. module is this new session source; parser is
+library_inputs.mjs; heldReader is the unchanged library_padding_observation.mjs;
+collector is the future fixed Node driver; first is the new independent FIRST.
 Each is primitive lowercase64hex. Copy it at construction; later caller
 mutation cannot alter evidence. The actual driver binds real source/record
 digests, including the descriptor's JSON digest. Synthetic tests may use
@@ -120,7 +123,10 @@ settled exact reader record retains opened,closed,verifiedPasses and reservation
 No omitted row, invented pin or refunded work after failure.
 
 strict/profile=null if unattempted. Otherwise an exact record with ONLY
-status,summary,error. Refused: status=refused,summary=null,error ONLY kind,site,
+status,summary,error. An attempted critical inspect/hash/summary-limit failure
+has status=failed,summary=null,error=null, coupled to the report's non-null
+critical; it must not be disguised as an unattempted null or known refusal.
+Refused: status=refused,summary=null,error ONLY kind,site,
 context; kind one of the real six LibraryInputs categories, site bounded ASCII
 source token1..64, context exact memberIndex,memberOffset,sectionIndex,sections,
 directiveBytes,tokenCount,actual,limit (nonnegative safe integer or null).
@@ -129,8 +135,14 @@ error=null, summary ONLY profileId,objects,imports,sections,deviations,
 metadataSha256,defaultLibraries. The full actual metadata is hashed using its
 existing canonical insertion order, not included in output. Never emit raw
 directives/member names/payloads/paths. Preserve every defaultLibraries name,
-sorted unique canonical ASCII .lib names<=259B, at most32 per row; excess is
-ReportLimit, not truncation or inferred absence. No recursive lookup or graph
+sorted unique canonical ASCII .lib names<=259B, at most32 per mode. Before
+committing any parsed summary, its JSON UTF8 size plus all earlier committed
+parsed summaries MUST be <=16384B inclusive. Per-mode/aggregate excess is
+ReportLimit: mark this attempted mode failed, retain earlier bounded summaries
+intact, and stop. Never commit an oversized summary then truncate it from a
+report. The remaining8192B of the24576B report bound reserves all fixed control,
+two pins, eleven proofs, job/I/O and refusal context; independently review that
+finite envelope bound. No recursive lookup or graph
 join is performed. A new name is data only, never a command or permission.
 
 Strict summaries have EXACT old three deviation keys; profile summaries have
@@ -158,10 +170,15 @@ T09 first/second digest mismatch; T10 positive short/chunked reads and two scans
 T11 held/path identity drift; T12 zero/overread/read throw; T13 close-only and
 first-failure retention; T14 late stop charges positive bytes and closes;
 T15 report/pin/result isolation; T16 sorted DEFAULTLIB extraction/full metadata
-digest/no raw directives; T17 32 names accepted/33 rejected without truncation;
+digest/no raw directives; T17 32 short names accepted/33 rejected, plus long-name
+aggregate summary-budget refusal before commit without truncating prior summaries;
 T18 complete/partial/pending statuses and unattempted nulls; T19 invalid
 callback/wrapper schemas/unknown I/O failures; T20 false qualification flags,
 v1 projection isolation and exact report keys across success/failure branches.
+For T20 ONLY, FIRST may explicitly import the accepted real v1/v2 jobs and v1
+projection to construct a VALID v1 positive baseline, then actual v2 and forged
+v1-with-four-deviation-key denials. These are synthetic source interfaces, not
+filesystem access. Do not infer projection isolation from compact summaries.
 Keep every subcase; fixtures<=2MiB/group, no large boundary buffers required.
 
 A future packet must retain/review exact programs/sources, these FIRST, old224

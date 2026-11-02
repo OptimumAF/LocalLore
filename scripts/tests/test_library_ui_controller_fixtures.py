@@ -1,6 +1,6 @@
 """SDK15 graph using established SDK4 binary framing fixtures and fresh four-method oracles.
 
-Native/process/socket observations and the B66 build-proof boundary are mocks.
+Native/process/socket observations and the B80 build-proof boundary are mocks.
 The payload files are deliberately NOT APKs; separate build tests and the real
 artifact guard validate that boundary. Other source/runtime/capture/claim/JUnit
 bindings use actual tiny owned D: files. The exact synthetic adb pin is the sole

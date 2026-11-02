@@ -643,7 +643,11 @@ export async function runPaddingObservationSelfchecksV1(api) {
     const over = reportFixture(api); over.extra = 'x'.repeat(8193);
     rejects(() => api.encodePaddingReportV1(over), 'PaddingReport');
     rejects(() => api.encodePaddingReportV1(JSON.stringify(reportFixture(api)) + '\r\n'), 'PaddingReport');
-    const beyond = reportFixture(api); beyond.observation.target.bodyEnd = MAX + 1;
+    const original = reportFixture(api), originalTarget = JSON.stringify(original.observation.target);
+    const beyond = copy(original); beyond.observation.target.bodyEnd = MAX + 1;
+    check(beyond.observation.target.bodyEnd === MAX + 1 &&
+      Object.isFrozen(original.observation.target) &&
+      JSON.stringify(original.observation.target) === originalTarget);
     rejects(() => api.encodePaddingReportV1(beyond), 'PaddingReport');
   });
 

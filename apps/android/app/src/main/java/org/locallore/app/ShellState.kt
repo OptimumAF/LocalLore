@@ -50,6 +50,8 @@ data class ShellState(
     val creationActive: Boolean = false,
     val inventory: List<PlayerInventoryItem>? = null,
     val playerProfile: PlayerSelfProfile? = null,
+    /** Process-local response identity for UI cancellation; never serialized or gameplay authority. */
+    internal val responseOwner: Any? = null,
 )
 
 sealed interface DemoResult {

@@ -457,11 +457,13 @@ internal fun LocalLoreScreen(
                                             modifier = Modifier.testTag("busy-status"),
                                         )
                                     }
-                                    if (state.preparingResponse) OutlinedButton(
-                                        onClick = onCancel,
-                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                            .testTag("cancel-turn"),
-                                    ) { Text("Cancel response") }
+                                    if (state.preparingResponse) key(ResponseCancelIdentity(state.responseOwner ?: state)) {
+                                        OutlinedButton(
+                                            onClick = onCancel,
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                                .testTag("cancel-turn"),
+                                        ) { Text("Cancel response") }
+                                    }
                                 }
                             }
                             // Recreate button controllers on a logical scope change. Retained
@@ -553,4 +555,10 @@ private fun DemoMode.label(): String = when (this) {
     DemoMode.REJECTED -> "Rejected"
     DemoMode.DELAYED -> "Delayed"
     DemoMode.FAILED -> "Failure"
+}
+
+/** Retire only the response Cancel node; keep the composer and transcript intact. */
+private class ResponseCancelIdentity(private val value: Any) {
+    override fun equals(other: Any?) = other is ResponseCancelIdentity && other.value === value
+    override fun hashCode() = System.identityHashCode(value)
 }

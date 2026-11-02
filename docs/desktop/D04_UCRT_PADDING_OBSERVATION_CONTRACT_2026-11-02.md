@@ -64,6 +64,15 @@ methods as own data properties. Arrays are dense. Numeric fields are safe
 unsigned integers, flags are primitive Booleans. No callback-supplied raw error
 message/path is exposed. Successful metadata snapshots contain no Buffer aliases.
 
+Adapter/wrapper holders also have Object.prototype or null prototype. The FIRST
+API holder has three specified callbacks PLUS its descriptor/proofs data. Invalid
+observer target domains (index5/negative/fractional, odd/<8 offset) usePaddingType;
+a valid target that disagrees with the reached header usesPaddingTarget. Buffers
+outside the declared length range, including<8 or285589, usePaddingBounds; an
+eight-byte wrong magic usesPaddingSignature. No other overlapping-error priority
+is implied. Successful io is a frozen snapshot; only the returned Buffer remains
+ordinary mutable data inside the shallow-frozen result.
+
 `PaddingObservationError` has `name`=`PaddingObservationError`, `message` and
 `code` equal to one fixed code, and `io` either null or a frozen current snapshot.
 Fixed codes: `PaddingType,PaddingBounds,PaddingSignature,PaddingHeader,PaddingSize,
@@ -217,6 +226,9 @@ the parsed record, or throws`InvalidPaddingObservationReport`;
 `$ExpectedPin` has the same seven keys as report.input. `$ExpectedProofs` has
 the eleven proof keys. `Validate-PaddingParentSummary($Value)` returns nothing
 or throws`InvalidPaddingParentSummary`.
+The trusted expected-proof/pin parameters are PSCustomObject/JSON-data values
+in both production and FIRST. Only suite-summary handoff intentionally accepts
+a live OrderedDictionary; do not broaden global raw-record type checks.
 Normalize ONLY a trusted OrderedDictionary summary, keep global record checks
 strict. No alternate function/path selector. Parent FIRST definitions perform
 no I/O and do not run on import. START precedes these checks; child creation

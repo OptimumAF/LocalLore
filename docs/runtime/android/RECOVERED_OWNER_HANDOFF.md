@@ -56,6 +56,14 @@ model, general shell command, arbitrary profile or extra Android method is
 added. Current metadata must be generated with `source_bindings()`, rather than
 copying the legacy `SOURCE_NAMES` list or retagging an old admission.
 
+The product validator anchors the baseline at its original recorded location,
+`D:/Worktrees/locallore-record-controls-ui-core-v1/benchmarks/record_controls_ui_build_baseline.json`.
+Moving a reader cannot change that data identity inside the immutable B66
+manifest. The byte-identical copy in the current flow checkout remains a
+source-roster input; the original data anchor is separately read and hash-checked.
+No APK, baseline bytes/hash, recorded manifest, source fact or negative reader
+check is resealed or relaxed to accommodate the new implementation location.
+
 ## Recovered preparation through owner closure
 
 After a separately authorized recovery produces known SDK/fence cleanup, its

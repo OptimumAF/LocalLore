@@ -22,7 +22,7 @@ direct methods, controller eligibility and native observer/head/branch fences
 remain. Browsing adds no gameplay call, NPC sheet grant or name resolution.
 
 Two related boundaries also needed attention. The pinned Compose clickable
-node's semantics action reads its mutable current handler. Referencially keyed
+node's semantics action reads its mutable current handler. Referentially keyed
 buttons/chips/source rows therefore retire old nodes along with their view;
 the exact-state guard rejects the old handler retained by a detached node.
 Only callback-bearing controls are keyed. Search draft/editor and both list
@@ -130,7 +130,7 @@ APK/native copies53,193,694B were preserved. That run remains failed. Old
 generated artifacts may be rebuilt; the selected original copies remain.
 
 Private inspection helpers separately encountered a modified-UTF8 class-parser
-setup error, a formatter expecting seven groups instead of six, and a CRLF-only
+setup error, a formatter expecting seven groups instead of six, and an LF-only
 task-line framing assumption. Corrected readers/formatting retain those outcomes;
 they do not count as product counterexamples or justify rerunning passed tests.
 

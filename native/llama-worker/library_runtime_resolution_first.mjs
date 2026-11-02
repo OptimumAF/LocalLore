@@ -433,6 +433,15 @@ export async function runFixedTwoRuntimeSelfchecksV1(api) {
       r => r.requests[0].strict[9] = 2097152, r => r.requests[0].strict[10] = 65536]) {
       const invalidStop = globalJobStoppedReport(api); change(invalidStop); assert.throws(() => api.encodeFixedTwoReportV1(invalidStop), { message: 'ReportFailure' });
     }
+    for (const bytes of [0, 268435456]) {
+      const invalidReservation = stopped(api, 'InputLimit');
+      invalidReservation.search.context = context(); invalidReservation.search.probes = [{ index: 0, rootIndex: 0, outcome: 'selected' }];
+      invalidReservation.requests[0] = row(0, 'selected');
+      invalidReservation.requests[0].candidate = { index: 0, rootIndex: 0, bytes, rootIdentity: ROOTS[0], leafIdentity: 'leaf-0' };
+      acceptedReport(api, invalidReservation); // The selected size was refused BEFORE admission; no payload is allocated or read.
+      invalidReservation.io = { reservedInputs: 1, reservedBytes: bytes, reservedReadBytes: 2 * bytes, actualReadBytes: 0 };
+      assert.throws(() => api.encodeFixedTwoReportV1(invalidReservation), { message: 'ReportFailure' });
+    }
   });
   add('S04', () => {
     const r = report(api); eq(r.facts.priorNameIds, Array.from({ length: 9 }, (_, i) => i)); assert.equal(r.facts.allKnownNamesProvided, true); assert.equal(r.facts.bothProfileMetadataAvailable, true);

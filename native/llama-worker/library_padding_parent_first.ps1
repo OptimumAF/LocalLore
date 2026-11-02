@@ -98,10 +98,12 @@ function Invoke-PaddingParentSelfchecksV1($ExpectedProofs,$ExpectedPin) {
         # Use the SAME OrderedDictionary constructor as the actual return below.
         $live=New-PaddingFirstSummary -Passed 6 -Failed @()
         Assert-PaddingFirst ($live -is [Collections.Specialized.OrderedDictionary])
-        $null=Validate-PaddingParentSummary $live
+        $liveResult=Validate-PaddingParentSummary $live
+        Assert-PaddingFirst ($null -eq $liveResult)
         [byte[]]$wire=Get-PaddingFirstWire $live
         $canonical=ConvertFrom-Json -InputObject ([Text.Encoding]::UTF8.GetString($wire)) -Depth 8 -ErrorAction Stop
-        $null=Validate-PaddingParentSummary $canonical
+        $canonicalResult=Validate-PaddingParentSummary $canonical
+        Assert-PaddingFirst ($null -eq $canonicalResult)
         Assert-PaddingFirst ($canonical.kind -ceq 'ucrt_padding_parent_first_v1' -and $canonical.executed -eq 6)
         foreach($mutate in @(
             {$args[0].version=2},{$args[0].kind='ucrt_padding_first_v1'},

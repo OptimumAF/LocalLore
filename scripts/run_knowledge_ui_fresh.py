@@ -321,7 +321,10 @@ def _supervise(request_pin,begin):
             try:
                 if thread.ident is not None:thread.join(timeout=2)
             except BaseException:stalled=True
-        stalled=stalled or any(t.is_alive() for t in threads)
+        for thread in threads:
+            try:
+                if thread.is_alive():stalled=True
+            except BaseException:stalled=True
         if child is not None and not stalled:
             for stream in (child.stdin,child.stdout,child.stderr):
                 try:stream.close()
@@ -340,7 +343,11 @@ def _supervise(request_pin,begin):
 
 
 def execute(authority_pin):
-    begin=time.monotonic();r,api=_parts();a,_=_initial(authority_pin);_budget(begin,2100)
+    return _execute(authority_pin,time.monotonic())
+
+
+def _execute(authority_pin,begin):
+    r,api=_parts();a,_=_initial(authority_pin);_budget(begin,2100)
     attempt=_attempt(authority_pin,a)
     result=dict(version=1,scope='sdk16-fresh-operation-final-v1',passed=False,authority=authority_pin,
         attempt=attempt,owner=None,stages=None,feature_acceptance=False)
@@ -366,12 +373,13 @@ def execute(authority_pin):
 
 
 def main(argv=None):
+    begin=time.monotonic()
     args=sys.argv[1:] if argv is None else argv
     if args==['_worker']:return _worker()
     if len(args)!=2 or args[0]!='--authority-sha256' or re.fullmatch('[0-9a-f]{64}',args[1]) is None:return 1
     try:
         r,api=_parts();pin=api.env.binding(r.AUTHORITY);r.need(pin['sha256']==args[1], 'authority_digest')
-        result=execute(pin)
+        result=_execute(pin,begin)
         print(api.env.encoded(result).decode('utf-8'))
         return 0 if result['passed'] else 1
     except BaseException:

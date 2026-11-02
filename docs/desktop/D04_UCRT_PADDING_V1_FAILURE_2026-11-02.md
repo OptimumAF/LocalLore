@@ -100,8 +100,9 @@ the original encoder-rejection assertion, every prior assertion and all24 IDs.
 No production module, parser policy, frozen-return contract or accepted helper
 was relaxed. Whitespace checks pass; the calibration itself is UNRUN.
 
-Next source-only work: independently review this calibration, prepare a separate
-corrected packet and exact admission preserving this failed namespace/STOP and
+Independent calibration source review is released; execution remains UNRUN.
+Next source-only work: prepare a separate corrected packet and exact admission
+preserving this failed namespace/STOP and
 all earlier output. A fresh finite decision is mandatory before another run.
 Current cap headroom is67198B; even the old41493B pair plus4096B envelopes and
 57344B full reserve would need102933B, a35735B shortfall before new guard text.

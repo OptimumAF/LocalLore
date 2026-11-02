@@ -13,7 +13,7 @@ import sys
 import time
 from types import SimpleNamespace
 
-SOURCE_ROOT = Path("D:/Worktrees/locallore-profile-ui-core-v1")
+SOURCE_ROOT = Path("D:/Worktrees/locallore-record-controls-ui-core-v1")
 HELPER = SOURCE_ROOT / 'benchmarks/record_controls_ui_activation.py'
 CONTROLS = Path('D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-harness-v1/run-controls-v1')
 RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-01-current-record-controls-ui-run-v1')

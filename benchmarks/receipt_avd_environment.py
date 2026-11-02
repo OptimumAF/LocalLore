@@ -737,7 +737,7 @@ class LiveOutput:
                 for stream in self._files:
                     try:
                         stream.close()
-                    except Exception:
+                    except BaseException:
                         self.failed.set()
             return not self.failed.is_set()
 
@@ -795,37 +795,65 @@ def supervise(command, request, root, seconds, on_started, stop_proposal_sha256=
     finally:
         if child is not None:
             if job is not None:
-                cleaned = job.close()
+                try:
+                    cleaned = job.close() is True
+                except BaseException:
+                    cleaned = False
             else:
-                child.kill(); cleaned = True  # Barrier has not been released.
+                # Barrier is unreleased, but constructor handles are unverified.
+                try:
+                    child.kill()
+                except BaseException:
+                    pass
+                cleaned = False
             try:
                 child.wait(timeout=5)
-            except subprocess.TimeoutExpired:
+            except BaseException:
                 cleaned = False
             for t in readers:
-                t.join(timeout=2)
-            cleaned = cleaned and not any(t.is_alive() for t in readers)
-            if cleaned:
+                try:
+                    t.join(timeout=2)
+                except BaseException:
+                    cleaned = False
+                    capture.failed.set()
+            readers_stopped = True
+            for t in readers:
+                try:
+                    readers_stopped = not t.is_alive() and readers_stopped
+                except BaseException:
+                    readers_stopped = False
+            cleaned = cleaned and readers_stopped
+            if readers_stopped:
                 for stream in (child.stdin, child.stdout, child.stderr):
                     try:
                         stream.close()
-                    except (OSError, ValueError):
+                    except BaseException:
                         cleaned = False
         # A trailing reader/force/close failure must override an earlier stop/exit.
-        stalled_reader = any(t.is_alive() for t in readers)
+        stalled_reader = False
+        for t in readers:
+            try:
+                stalled_reader = t.is_alive() or stalled_reader
+            except BaseException:
+                stalled_reader = True
         if capture is not None and stalled_reader:
             # Never wait on its capture lock or close a file still being written.
             capture.failed.set()
             status = "evidence_failed"
         elif capture is not None:
-            capture.close()
+            try:
+                if capture.close() is False:
+                    capture.failed.set()
+            except BaseException:
+                capture.failed.set()
             if capture.failed.is_set():
+                cleaned = False
                 status = "evidence_failed"
             elif capture.overflow.is_set():
                 status = "output_limit"
     sizes = [None, None] if stalled_reader else capture.sizes if capture is not None else [0, 0]
     capture_complete = (capture is not None and not capture.failed.is_set() and
-                        not capture.overflow.is_set() and not any(t.is_alive() for t in readers))
+                        not capture.overflow.is_set() and not stalled_reader)
     return {"status": status, "cleanup_complete": cleaned,
             "elapsed_ms": round((time.monotonic() - started) * 1000),
             "worker_returncode": child.returncode if child else None,

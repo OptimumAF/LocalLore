@@ -358,6 +358,15 @@ export async function runPaddingObservationSelfchecksV1(api) {
       await rejectsAsync(() => api.readPinnedArchiveV1(f.expected, f.adapter), 'PaddingPin');
       check(f.state.identifies === 0 && f.state.opens === 0);
     }
+    for (const change of [p => { p.sha256 += '\n'; },
+      p => { p.rootIdentity += '\n'; }, p => { p.rootIdentity += '\r'; },
+      p => { p.leafIdentity += '\n'; }, p => { p.leafIdentity += '\r'; }]) {
+      const f = readerFixture(); change(f.expected);
+      const error = await rejectsAsync(() => api.readPinnedArchiveV1(f.expected, f.adapter), 'PaddingPin');
+      if (error.io !== null) same(error.io, zeroIO());
+      check(f.state.identifies === 0 && f.state.opens === 0 &&
+        f.state.reads === 0 && f.state.closes === 0);
+    }
     const accessor = readerFixture(); let touched = 0;
     Object.defineProperty(accessor.expected, 'bytes', { enumerable: true,
       get() { touched++; return 20; } });
@@ -541,6 +550,9 @@ export async function runPaddingObservationSelfchecksV1(api) {
       r => { r.input.sourceSlot = 34; }, r => { r.input.name = 'vcruntime.lib'; },
       r => { r.input.expectedSha256 = '0'.repeat(64); },
       r => { r.input.rootIdentity = 'bad/path'; }, r => { r.input.leafIdentity = 'x'.repeat(257); },
+      r => { r.input.rootIdentity += '\n'; }, r => { r.input.rootIdentity += '\r'; },
+      r => { r.input.leafIdentity += '\n'; }, r => { r.input.leafIdentity += '\r'; },
+      r => { r.proofs.module += '\n'; },
       r => { r.proofs.module = 'A'.repeat(64); }, r => { r.proofs.extra = 'a'.repeat(64); },
       r => { delete r.proofs.first; }, r => { r.selfchecks.executed = 23; },
       r => { r.selfchecks.passed = '24'; }, r => { r.selfchecks.failed_case_ids = ['F01']; },
@@ -553,6 +565,8 @@ export async function runPaddingObservationSelfchecksV1(api) {
       r => { r.observation.headers[4].paddingByte = 10; },
       r => { r.observation.target.sizeHex = '20'.repeat(10); },
       r => { r.observation.target.nameHex = '00'.repeat(16); },
+      r => { r.observation.target.nameHex += '\n'; },
+      r => { r.observation.target.sizeHex += '\r'; },
       r => { r.observation.target.endHex = '600A'; },
       r => { delete r.observation.headers[2]; },
       r => { r.observation.headers.extra = 1; },

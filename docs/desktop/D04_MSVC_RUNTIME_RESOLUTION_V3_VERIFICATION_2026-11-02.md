@@ -34,7 +34,7 @@ state/job/SDK adapter. No separate syntax or version-query child was launched.
 | Node FIRST |24 executed, 24 passed, 0 failed; empty IDs |
 | Candidate probes |6 ordered probes; first existing entry selected for each name |
 | New accepted job |2 inputs; 324066 input bytes; 4 attempts; 123 sections; stopped=false |
-| New selected-file scans |648132 actual bytes, equal reserved bytes for two full scans |
+| New selected-file scans |648132 actual bytes, equal reserved read bytes for two full scans |
 | Search/final identity guards |finalVerified=true; no current-directory library shadow |
 | Owned Node process |PID 53236; closed=true; exit 0 |
 | Child output |4481 B complete stdout; 0 B complete stderr |
@@ -101,7 +101,7 @@ qualification/closure flags stay false despite complete capture and name presenc
 ## Timing and environment
 
 The process record's observed child completion is 1360 ms under the 60000 ms
-deadline, with no kill or drain required. Its UTC started/ended fields are
+deadline, with no kill or drain timeout. Its UTC started/ended fields are
 `2026-11-02T17:29:13.7447264Z` and `2026-11-02T17:29:16.4752288Z`:
 the 2.7305024 s receipt interval includes work after the child stopwatch stopped.
 It is distinct from the 1360 ms child interval. The outer wrapper wall time was
@@ -150,6 +150,10 @@ audit identities, not new hashes calculated during documentation.
 | Parent FIRST |23857 |`653df7938858947d30fb8ec62bd40727c546a2f2b4dd8fc81869114df08b1314` |
 
 File prefixes below are `b2-msvc-runtime-resolution-v3-`.
+
+The source-review record preserves preparation-time UNRUN flags from before
+START. The later parent/process/report records establish the actual6+24 result;
+the earlier record is not rewritten after execution.
 
 | Retained record | Bytes | SHA256 |
 | --- | ---: | --- |

@@ -749,6 +749,26 @@
         {
           "additionalProperties": false,
           "properties": {
+            "op": {
+              "const": "inspection_relationship_focus",
+              "type": "string"
+            },
+            "query": {
+              "$ref": "#/$defs/Query"
+            },
+            "session": {
+              "type": "string"
+            },
+            "target": {
+              "type": "string"
+            }
+          },
+          "required": ["op", "session", "query", "target"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
             "enabled": {
               "type": "boolean"
             },

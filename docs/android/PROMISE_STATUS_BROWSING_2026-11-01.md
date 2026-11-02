@@ -133,7 +133,16 @@ TEMP peaks. Helperv1 did not include its final measured budget in the pass
 assertion; actual final measurements are within bounds. Helperv2 adds that
 assertion for the final native phase without changing any test or supervision
 deadline. There is no hostile-concurrent-tamper or full-generated-backup claim.
-Original generated/capture trees and failed setup records remain.
+Original external capture trees and failed setup records remain. Ordinary build
+scratch is regenerated. Reusing the build directory for this packet replaced the
+57 generated XML files from B65's final full gate; those exact XML bytes were
+not separately archived and are not claimed recoverable. B65's raw execution
+captures, case/hash manifest, dated independent readback, first full-build XML,
+targeted FIRST/GREEN evidence and immutable APK copies remain. This is a
+preservation gap, not a new test result or a reconstructed capture. The local
+`prior-generated-evidence-continuity-v1.json` records all57 changed hashes.
+All58 B66 XML reports are now preserved in verified original/copy pairs. Future
+reuse must preserve unique generated reports before another build.
 
 The initial collector used an incorrectly transcribed second UI method name.
 Its correction revalidates existing partial copies instead of overwriting them;

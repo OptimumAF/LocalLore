@@ -1037,3 +1037,117 @@ fn n12_native_read_setup_checkpoint_bounds_grants_queries_privacy_and_drift_neve
     drop(opened);
     unchanged(&f.source, &inventory(original_source(f.kind, false)));
 }
+
+#[test]
+fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current_profile() {
+    use crate::{digest, encode, memory_comparison_v2 as v2, memory_comparison_v4 as v4};
+    use crate::local_lane::LaneFactory;
+    use locallore::{engine::Engine, inspection_query::Observer};
+    use serde_json::{json, Value};
+
+    // EXPLICIT DATA-ONLY artifact, not a native run or an authenticated source.
+    // No receipt, checkpoint, setup, invocation, provider, grant or runtime is
+    // created. Corpus-derived request/prefix/input hashes test the real codec;
+    // the historical-shaped profile is synthetic provenance, not fake results.
+    let root = fixture_root("data-only-historical-read");
+    let dir = root.join("selected-data-only");
+    fs::create_dir(&dir).unwrap();
+    for arm in ["left", "right"] { fs::create_dir(dir.join(arm)).unwrap(); }
+    fs::write(dir.join("run.lock"), b"").unwrap();
+    let corpus = comparison::suite().unwrap();
+    let before = Engine::new(corpus.seed().clone()).unwrap();
+    assert!(before.receipts().is_empty());
+    let step = &corpus.steps()[0];
+    let request = step.request(&before);
+    let prefix = digest(&encode(before.receipts()).unwrap());
+    let semantic = v2::semantic_input(&before, &request).unwrap();
+    let source_profile = LaneFactory::ScriptedBaseline.profile().unwrap();
+    let mut historical_profile = source_profile.clone();
+    historical_profile.id = "data-only-obsolete-native-selected4-profile".into();
+    historical_profile.validate().unwrap();
+    // This deliberately differs from the fixed current native profile's
+    // provenance label; neither feature branch calls native_profile().
+    assert_ne!(historical_profile.id, source_profile.id);
+    let current = v4::current_binding(false).unwrap();
+    let inputs: Vec<Value> = ["left", "right"].into_iter().map(|arm| json!({
+        "arm":arm,"scope":before.scope(),"before_head":before.revision(),
+        "prefix_sha256":prefix,"input_semantic_sha256":semantic,"request":request,
+    })).collect();
+    let mut manifest = json!({
+        "version":4,"run_type":"selected_case","source_protocol_version":4,
+        "arms":v4::current_arm_descriptors(),"client_id":"data-only-historical-read",
+        "source_binding":"a".repeat(64),
+        "source_kind":comparison::ComparisonKind::ContinuousRollout,
+        "source_profile":source_profile,"source_native":false,
+        "selection":{"turn":step.id(),"index":0,"clicked_arm":"left"},
+        "lane":"native_selected_case","profile":historical_profile,
+        "suite_sha256":current.suite_sha256,"source_sha256":"0".repeat(64),
+        "source_reference_sha256":null,"source_inputs":inputs,
+    });
+    manifest["binding"] = json!(digest(&encode(&manifest).unwrap()));
+    let file = dir.join("selected.json");
+    let original = encode(&manifest).unwrap();
+    fs::write(&file, &original).unwrap();
+
+    let report = serde_json::to_value(super::inspect_selected(&dir).unwrap()).unwrap();
+    assert_eq!(report["version"], 4);
+    assert_eq!(report["source_protocol_version"], 4);
+    assert_eq!(report["lane"], "native_selected_case");
+    assert_eq!(report["completed"], false);
+    assert!(report["rows"].as_array().unwrap().is_empty());
+    assert!(report["profile"] == manifest["profile"]);
+    assert!(report["source_profile"] == manifest["source_profile"]);
+    assert_eq!(report["source_native"], false);
+    assert_eq!(report["physical_setups"], 0);
+    assert!(report["physical_setup_ms"].is_null() && report["native_load"].is_null());
+    assert_eq!(report["human_reviewed"], 0);
+    assert_eq!(report["human_rubric"], "not_reviewed");
+    assert_eq!(report["quality_accepted"], false);
+    for note in ["human_quality_not_reviewed", "native_setup_measurement_unavailable"] {
+        assert!(report["unavailable"].as_array().unwrap().iter().any(|value| value == note));
+    }
+    let opened = super::desktop_read::open_read_only(&dir).unwrap();
+    let summary = super::desktop_read::summary(&opened, true).unwrap();
+    assert_eq!(summary["version"], 4);
+    assert_eq!(summary["kind"], "selected_read");
+    assert_eq!(summary["read_only"], true);
+    assert_eq!(summary["execution_available"], false);
+    assert!(encode(&summary).unwrap().len() <= 16 * 1024);
+    for field in ["generation_grant", "request", "source_inputs", "profile", "report", "rows"] {
+        assert!(summary.get(field).is_none());
+    }
+    for arm in summary["arms"].as_array().unwrap() {
+        assert_eq!(arm["before_head"], 0);
+        assert!(arm["after_head"].is_null());
+        assert_eq!(arm["available"], false);
+    }
+    let diagnostics = super::desktop_read::diagnostics(&opened,
+        summary["binding"].as_str().unwrap(), Observer::Omniscient, true).unwrap();
+    assert!(diagnostics["rows"].as_array().unwrap().is_empty());
+    assert_eq!(diagnostics["quality_accepted"], false);
+    assert_eq!(refused(super::desktop_read::summary(&opened, false)), "Forbidden");
+    // The empty read artifact and obsolete profile remain data, not a source
+    // read capability, prepared execution plan or generation authorization.
+    #[cfg(not(feature = "local-model"))]
+    assert_eq!(refused(prepare_selected(&root.join("missing-full-source"),
+        manifest["source_binding"].as_str().unwrap(), &row(0, Arm::Left),
+        SelectedIntent { client_id: "no-feature-historical-data".into(),
+            lane: SelectedLane::ApprovedNative }, &Cancellation::default())),
+        "NativeFeatureUnavailable");
+    assert_eq!(refused(prepare_selected(&dir,
+        manifest["source_binding"].as_str().unwrap(), &row(0, Arm::Left),
+        SelectedIntent { client_id: "read-is-not-scripted-authority".into(),
+            lane: SelectedLane::ScriptedBaseline }, &Cancellation::default())),
+        "SelectedLaneMismatch");
+    drop(opened);
+    assert!(fs::read(&file).unwrap() == original);
+    assert!(fs::read(dir.join("run.lock")).unwrap().is_empty());
+    let mut names = fs::read_dir(&dir).unwrap().map(|entry|
+        entry.unwrap().file_name().to_string_lossy().into_owned()).collect::<Vec<_>>();
+    names.sort();
+    assert!(names.iter().map(String::as_str).eq(["left", "right", "run.lock", "selected.json"]));
+    for arm in ["left", "right"] {
+        assert!(fs::read_dir(dir.join(arm)).unwrap().next().is_none());
+    }
+    assert!(!root.join("missing-full-source").exists());
+}

@@ -1,5 +1,10 @@
 # Dependency-facts projection: one synthetic code-check proposal
 
+Historical proposal below. The owner subsequently approved ONE synthetic code
+check under the unchanged cap. Its [verification](D04_MSVC_DEPENDENCY_CODE_VERIFICATION_2026-11-01.md)
+records32/32 passing groups; the grant is SPENT. Earlier source-only/UNRUN and
+no-owner/Stage/START descriptions remain pre-execution history, not a repeat grant.
+
 Refs #25 D04.01/.02/.04 supporting, #31 D09.03 supporting and #21.
 Root claims6568896942/6569026299; independent FIRST claims6568937264/6569054216.
 Branch `prep/msvc-dependency-facts-v1`, existing physical chat-root checkout

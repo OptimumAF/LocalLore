@@ -1,5 +1,10 @@
 # MSVC dependency facts: pure projection contract
 
+Frozen preparation contract below. The separately approved synthetic code
+check has now passed32/32 and is SPENT; see [verification](D04_MSVC_DEPENDENCY_CODE_VERIFICATION_2026-11-01.md).
+Actual dependency observations and closure remain unverified. Historical
+source-only language below is not permission for another check or input read.
+
 Refs #25 D04.01/.02/.04 supporting, #31 D09.03 supporting, #21.
 Root claim6568896942, branch `prep/msvc-dependency-facts-v1` from accepted
 a9cf8c61422d5b67a9877c1f1ffa3c4f02adbc31. **SOURCE PREPARATION ONLY.**

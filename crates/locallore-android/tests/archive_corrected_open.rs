@@ -36,16 +36,24 @@ impl Fixture {
         let directory = std::env::temp_dir().join(format!(
             "locallore-archive-corrected-open-{}-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
             NEXT.fetch_add(1, Ordering::Relaxed),
         ));
         #[cfg(windows)]
         assert!(directory.to_string_lossy().starts_with("D:"));
         std::fs::create_dir(&directory).unwrap();
-        std::fs::write(directory.join("owner-v1"), b"synthetic-archive-corrected-open-v1").unwrap();
+        std::fs::write(
+            directory.join("owner-v1"),
+            b"synthetic-archive-corrected-open-v1",
+        )
+        .unwrap();
         let source = directory.join("source.sqlite3");
         let target = directory.join("target.sqlite3");
-        let mut seed: Seed = serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
+        let mut seed: Seed =
+            serde_json::from_str(include_str!("../../../fixtures/lantern_quay.json")).unwrap();
         seed.scope.story = "corrected-archive-70".into();
         let root = seed.scope.clone();
         let fact = seed.facts.get_mut("relic-location").unwrap();
@@ -58,11 +66,23 @@ impl Fixture {
         belief.proposition = BELIEF.into();
         seed.beliefs.push(belief);
         let mut store = Store::open(&source, None).unwrap();
-        store.create_story("Synthetic corrected archive", seed.clone()).unwrap();
-        play(&mut store, &root, "before-correction", vec![
-            Command::Discover { fact: "relic-location".into() },
-            Command::Say { text: CLAIM.into(), audience: ["mira".into()].into() },
-        ]);
+        store
+            .create_story("Synthetic corrected archive", seed.clone())
+            .unwrap();
+        play(
+            &mut store,
+            &root,
+            "before-correction",
+            vec![
+                Command::Discover {
+                    fact: "relic-location".into(),
+                },
+                Command::Say {
+                    text: CLAIM.into(),
+                    audience: ["mira".into()].into(),
+                },
+            ],
+        );
         assert_eq!(store.resume(&root).unwrap().engine.revision(), 2);
         let input = AuthorCorrectionInputV1 {
             version: 1,
@@ -71,7 +91,9 @@ impl Fixture {
             fork_revision: 2,
             child_branch: "retired-correction".into(),
             operation: AuthorCorrectionOperationV1::ReplaceFactProposition {
-                fact: "relic-location".into(), expected_proposition: OBSERVED.into(), replacement: TRUTH.into(),
+                fact: "relic-location".into(),
+                expected_proposition: OBSERVED.into(),
+                replacement: TRUTH.into(),
             },
             reason: REASON.into(),
         };
@@ -79,25 +101,64 @@ impl Fixture {
         let outcome = store.apply_author_correction(&prepared, &|| false).unwrap();
         assert!(outcome.created);
         let retired = outcome.scope;
-        let corrected = store.fork_branch(&ForkRequest {
-            parent: retired.clone(), child_branch: "playable-corrected".into(),
-            expected_parent_revision: 3, at_revision: 3,
-        }, &|| false).unwrap().scope;
-        let plan = store.prepare_branch_deletion(&retired, 3, &|| false).unwrap();
-        assert_eq!(store.delete_branch(plan, &|| false).unwrap().retained_through_revision, Some(3));
-        play(&mut store, &root, "parent-future", vec![Command::Say {
-            text: FUTURE.into(), audience: ["mira".into()].into(),
-        }]);
+        let corrected = store
+            .fork_branch(
+                &ForkRequest {
+                    parent: retired.clone(),
+                    child_branch: "playable-corrected".into(),
+                    expected_parent_revision: 3,
+                    at_revision: 3,
+                },
+                &|| false,
+            )
+            .unwrap()
+            .scope;
+        let plan = store
+            .prepare_branch_deletion(&retired, 3, &|| false)
+            .unwrap();
+        assert_eq!(
+            store
+                .delete_branch(plan, &|| false)
+                .unwrap()
+                .retained_through_revision,
+            Some(3)
+        );
+        play(
+            &mut store,
+            &root,
+            "parent-future",
+            vec![Command::Say {
+                text: FUTURE.into(),
+                audience: ["mira".into()].into(),
+            }],
+        );
         assert_eq!(store.resume(&root).unwrap().engine.domain_version(), 1);
         let child = store.resume(&corrected).unwrap().engine;
         assert_eq!(child.domain_version(), 2); // Produced by an accepted correction, never a fixture flag.
-        assert_eq!(child.effective_fact("relic-location").unwrap().proposition, TRUTH);
-        assert_eq!(child.observed_facts("player", &corrected, 3).unwrap()["relic-location"].proposition, OBSERVED);
+        assert_eq!(
+            child.effective_fact("relic-location").unwrap().proposition,
+            TRUTH
+        );
+        assert_eq!(
+            child.observed_facts("player", &corrected, 3).unwrap()["relic-location"].proposition,
+            OBSERVED
+        );
         drop(store);
         seed.scope.story = "control-archive-70".into();
         let control = seed.scope.clone();
-        Store::open(&target, None).unwrap().create_story("Existing control", seed).unwrap();
-        Self { directory, source, target, root, corrected, retired, control }
+        Store::open(&target, None)
+            .unwrap()
+            .create_story("Existing control", seed)
+            .unwrap();
+        Self {
+            directory,
+            source,
+            target,
+            root,
+            corrected,
+            retired,
+            control,
+        }
     }
     fn stage(&self, name: &str) -> PathBuf {
         let path = self.directory.join(name);
@@ -105,17 +166,29 @@ impl Fixture {
         path
     }
     fn export(&self, archives: &ArchiveRegistry) -> Vec<u8> {
-        let owner = archives.open(&self.source, &self.stage("export-stage")).unwrap();
+        let owner = archives
+            .open(&self.source, &self.stage("export-stage"))
+            .unwrap();
         let request = serde_json::to_vec(&json!({"story":self.corrected.story,
-            "branch":self.corrected.branch,"expected_revision":3})).unwrap();
+            "branch":self.corrected.branch,"expected_revision":3}))
+        .unwrap();
         let captured = data(decode(archives.prepare_export(owner, &request)));
         assert_eq!(captured["preview"]["version"], 3);
         assert_eq!(captured["preview"]["root_branch"], self.root.branch);
-        assert!(captured["preview"]["retired_branch_ids"].as_array().unwrap().contains(&json!(self.retired.branch)));
-        let bytes = archives.export_bytes(owner, captured["token"].as_u64().unwrap()).unwrap();
+        assert!(captured["preview"]["retired_branch_ids"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(self.retired.branch)));
+        let bytes = archives
+            .export_bytes(owner, captured["token"].as_u64().unwrap())
+            .unwrap();
         let text = std::str::from_utf8(&bytes).unwrap();
         assert!(text.contains(TRUTH) && text.contains(REASON) && text.contains(NPC_BELIEF));
-        std::fs::write(self.directory.join("full-private-synthetic-v3.json"), &bytes).unwrap();
+        std::fs::write(
+            self.directory.join("full-private-synthetic-v3.json"),
+            &bytes,
+        )
+        .unwrap();
         archives.close(owner);
         bytes
     }
@@ -126,13 +199,22 @@ impl Fixture {
 fn play(store: &mut Store, scope: &Scope, turn: &str, actions: Vec<Command>) {
     let engine = store.resume(scope).unwrap().engine;
     let request = engine.request(turn, Intent::Actions(actions));
-    let prepared = engine.preview(&request, &Engine::proposal(&request).unwrap()).unwrap();
+    let prepared = engine
+        .preview(&request, &Engine::proposal(&request).unwrap())
+        .unwrap();
     store.begin_turn(&request).unwrap();
     store.commit_prepared(&prepared).unwrap();
 }
 fn canonical(path: &Path, scope: &Scope) -> (Vec<u8>, Vec<u8>) {
-    let engine = Store::open(path, None).unwrap().resume(scope).unwrap().engine;
-    (engine.canonical_bytes(), serde_json::to_vec(engine.canonical_records()).unwrap())
+    let engine = Store::open(path, None)
+        .unwrap()
+        .resume(scope)
+        .unwrap()
+        .engine;
+    (
+        engine.canonical_bytes(),
+        serde_json::to_vec(engine.canonical_records()).unwrap(),
+    )
 }
 fn decode(bytes: Vec<u8>) -> Value {
     assert!(bytes.len() <= 262_144);
@@ -144,13 +226,23 @@ fn data(reply: Value) -> Value {
     reply["data"].clone()
 }
 fn rejected(reply: Value, error: &str) {
-    assert_eq!(reply, json!({"version":1,"status":"rejected","error":error}));
+    assert_eq!(
+        reply,
+        json!({"version":1,"status":"rejected","error":error})
+    );
 }
 fn call(workspace: &WorkspaceRegistry, handle: u64, command: Value) -> Value {
-    decode(workspace.call(handle, &serde_json::to_vec(&json!({"version":1,"command":command})).unwrap()))
+    decode(workspace.call(
+        handle,
+        &serde_json::to_vec(&json!({"version":1,"command":command})).unwrap(),
+    ))
 }
 fn resume(workspace: &WorkspaceRegistry, handle: u64, scope: &Scope) -> Value {
-    data(call(workspace, handle, json!({"op":"resume","scope":scope})))
+    data(call(
+        workspace,
+        handle,
+        json!({"op":"resume","scope":scope}),
+    ))
 }
 fn presentation(session: &Value) -> Value {
     json!({"op":"play_presentation_v2","session":session["session"],"scope":session["scope"],"expected_revision":3})
@@ -163,26 +255,47 @@ fn inspect(session: &Value, view: &str) -> Value {
 fn no_private(value: &Value) {
     let text = value.to_string();
     for hidden in [TRUTH, REASON, NPC_BELIEF, FUTURE] {
-        assert!(!text.contains(hidden), "private or parent-future canary leaked: {hidden}");
+        assert!(
+            !text.contains(hidden),
+            "private or parent-future canary leaked: {hidden}"
+        );
     }
 }
 
 #[test]
-fn actual_archive3_import_opens_original_root_then_playable_corrected_history_without_private_truth() {
+fn actual_archive3_import_opens_original_root_then_playable_corrected_history_without_private_truth(
+) {
     let fixture = Fixture::new();
-    let source_before = [canonical(&fixture.source, &fixture.root), canonical(&fixture.source, &fixture.corrected)];
+    let source_before = [
+        canonical(&fixture.source, &fixture.root),
+        canonical(&fixture.source, &fixture.corrected),
+    ];
     let control_before = canonical(&fixture.target, &fixture.control);
     let archives = ArchiveRegistry::default();
     let bytes = fixture.export(&archives);
-    let owner = archives.open(&fixture.target, &fixture.stage("import-stage")).unwrap();
+    let owner = archives
+        .open(&fixture.target, &fixture.stage("import-stage"))
+        .unwrap();
     let prepared = data(decode(archives.prepare_import(owner, &bytes)));
-    assert_eq!(Store::open(&fixture.target, None).unwrap().stories().unwrap().len(), 1);
-    let imported = data(decode(archives.commit_import(owner, prepared["token"].as_u64().unwrap())));
+    assert_eq!(
+        Store::open(&fixture.target, None)
+            .unwrap()
+            .stories()
+            .unwrap()
+            .len(),
+        1
+    );
+    let imported = data(decode(
+        archives.commit_import(owner, prepared["token"].as_u64().unwrap()),
+    ));
     assert_eq!(imported["root"], json!(fixture.root));
     assert_ne!(imported["root"], json!(fixture.corrected));
     archives.close(owner);
     assert_eq!(canonical(&fixture.target, &fixture.root), source_before[0]);
-    assert_eq!(canonical(&fixture.target, &fixture.corrected), source_before[1]);
+    assert_eq!(
+        canonical(&fixture.target, &fixture.corrected),
+        source_before[1]
+    );
 
     let workspace = WorkspaceRegistry::default();
     let handle = workspace.open(&fixture.target).unwrap();
@@ -192,14 +305,36 @@ fn actual_archive3_import_opens_original_root_then_playable_corrected_history_wi
     assert_eq!(root_view["scope"], imported["root"]);
     assert_eq!(root_view["turns"].as_array().unwrap().len(), 2);
     assert!(root_view.to_string().contains(FUTURE));
-    let catalog = data(call(&workspace, handle, json!({"op":"branches","story":fixture.root.story})));
+    let catalog = data(call(
+        &workspace,
+        handle,
+        json!({"op":"branches","story":fixture.root.story}),
+    ));
     let branches = catalog["branches"].as_array().unwrap();
-    assert!(branches.iter().any(|branch| branch["scope"] == json!(fixture.corrected) && branch["retired"] == false));
-    assert!(branches.iter().any(|branch| branch["scope"] == json!(fixture.retired) && branch["retired"] == true));
-    rejected(call(&workspace, handle, json!({"op":"resume","scope":fixture.retired})), "NotFound");
+    assert!(branches
+        .iter()
+        .any(|branch| branch["scope"] == json!(fixture.corrected) && branch["retired"] == false));
+    assert!(branches
+        .iter()
+        .any(|branch| branch["scope"] == json!(fixture.retired) && branch["retired"] == true));
+    rejected(
+        call(
+            &workspace,
+            handle,
+            json!({"op":"resume","scope":fixture.retired}),
+        ),
+        "NotFound",
+    );
     let session = resume(&workspace, handle, &fixture.corrected);
-    rejected(call(&workspace, handle, json!({"op":"play_snapshot","session":session["session"],
-        "scope":fixture.corrected,"expected_revision":3})), "Version");
+    rejected(
+        call(
+            &workspace,
+            handle,
+            json!({"op":"play_snapshot","session":session["session"],
+        "scope":fixture.corrected,"expected_revision":3}),
+        ),
+        "Version",
+    );
     let view = data(call(&workspace, handle, presentation(&session)));
     assert_eq!(view["version"], 2);
     assert_eq!(view["domain_version"], 2);
@@ -207,22 +342,33 @@ fn actual_archive3_import_opens_original_root_then_playable_corrected_history_wi
     assert_eq!(view["player"]["observer"], "player");
     assert_eq!(view["window"], json!({"total":1,"start":0,"end":1}));
     assert_eq!(view["turns"][0]["original_scope"], json!(fixture.root));
-    assert_eq!(view["turns"][0]["event_ids"], json!([1,2]));
+    assert_eq!(view["turns"][0]["event_ids"], json!([1, 2]));
     no_private(&view);
 
     let knowledge = data(call(&workspace, handle, inspect(&session, "knowledge")));
     let rows = knowledge["rows"].as_array().unwrap();
     assert!(knowledge["next_cursor"].is_null());
-    let observed = rows.iter().find(|row| row["origin"] == "known_as_observed" && row["id"] == "relic-location").unwrap();
+    let observed = rows
+        .iter()
+        .find(|row| row["origin"] == "known_as_observed" && row["id"] == "relic-location")
+        .unwrap();
     assert_eq!(observed["text"], OBSERVED);
-    assert_eq!(observed["sources"], json!([{"kind":"scoped_event","value":{"original_scope":fixture.root,"sequence":1}}]));
+    assert_eq!(
+        observed["sources"],
+        json!([{"kind":"scoped_event","value":{"original_scope":fixture.root,"sequence":1}}])
+    );
     for (origin, text) in [("subjective_belief", BELIEF), ("recorded_statement", CLAIM)] {
-        assert!(rows.iter().any(|row| row["origin"] == origin && row["text"] == text));
+        assert!(rows
+            .iter()
+            .any(|row| row["origin"] == origin && row["text"] == text));
     }
     assert!(rows.iter().all(|row| row["origin"] != "canonical_truth"));
     no_private(&knowledge);
     let history = data(call(&workspace, handle, inspect(&session, "history")));
-    assert!(history["rows"].as_array().unwrap().contains(&json!({"kind":"author_correction","revision":3})));
+    assert!(history["rows"]
+        .as_array()
+        .unwrap()
+        .contains(&json!({"kind":"author_correction","revision":3})));
     no_private(&history);
     let mut forbidden = inspect(&session, "knowledge");
     forbidden["query"]["observer"] = json!({"kind":"omniscient"});
@@ -232,14 +378,26 @@ fn actual_archive3_import_opens_original_root_then_playable_corrected_history_wi
     let reopened = workspace.open(&fixture.target).unwrap();
     let fresh = resume(&workspace, reopened, &fixture.corrected);
     assert_eq!(data(call(&workspace, reopened, presentation(&fresh))), view);
-    assert_eq!(data(call(&workspace, reopened, inspect(&fresh, "knowledge"))), knowledge);
-    assert_eq!(data(call(&workspace, reopened, inspect(&fresh, "history"))), history);
+    assert_eq!(
+        data(call(&workspace, reopened, inspect(&fresh, "knowledge"))),
+        knowledge
+    );
+    assert_eq!(
+        data(call(&workspace, reopened, inspect(&fresh, "history"))),
+        history
+    );
     workspace.close(reopened);
     assert_eq!(canonical(&fixture.target, &fixture.root), source_before[0]);
-    assert_eq!(canonical(&fixture.target, &fixture.corrected), source_before[1]);
+    assert_eq!(
+        canonical(&fixture.target, &fixture.corrected),
+        source_before[1]
+    );
     assert_eq!(canonical(&fixture.target, &fixture.control), control_before);
     assert_eq!(canonical(&fixture.source, &fixture.root), source_before[0]);
-    assert_eq!(canonical(&fixture.source, &fixture.corrected), source_before[1]);
+    assert_eq!(
+        canonical(&fixture.source, &fixture.corrected),
+        source_before[1]
+    );
 }
 
 #[test]
@@ -254,19 +412,46 @@ fn cancelled_and_closed_import_capabilities_cannot_open_a_story_or_retarget_fres
     let stale = prepared["token"].as_u64().unwrap();
     archives.cancel(owner);
     rejected(decode(archives.commit_import(owner, stale)), "InvalidToken");
-    assert_eq!(Store::open(&fixture.target, None).unwrap().stories().unwrap().len(), 1);
+    assert_eq!(
+        Store::open(&fixture.target, None)
+            .unwrap()
+            .stories()
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(canonical(&fixture.target, &fixture.control), control_before);
-    let fresh = data(decode(archives.prepare_import(owner, &bytes)))["token"].as_u64().unwrap();
+    let fresh = data(decode(archives.prepare_import(owner, &bytes)))["token"]
+        .as_u64()
+        .unwrap();
     assert_ne!(fresh, stale);
     archives.close(owner);
-    rejected(decode(archives.commit_import(owner, fresh)), "InvalidHandle");
-    assert_eq!(Store::open(&fixture.target, None).unwrap().stories().unwrap().len(), 1);
+    rejected(
+        decode(archives.commit_import(owner, fresh)),
+        "InvalidHandle",
+    );
+    assert_eq!(
+        Store::open(&fixture.target, None)
+            .unwrap()
+            .stories()
+            .unwrap()
+            .len(),
+        1
+    );
     let new_owner = archives.open(&fixture.target, &stage).unwrap();
-    rejected(decode(archives.commit_import(new_owner, fresh)), "InvalidToken");
-    let token = data(decode(archives.prepare_import(new_owner, &bytes)))["token"].as_u64().unwrap();
+    rejected(
+        decode(archives.commit_import(new_owner, fresh)),
+        "InvalidToken",
+    );
+    let token = data(decode(archives.prepare_import(new_owner, &bytes)))["token"]
+        .as_u64()
+        .unwrap();
     let imported = data(decode(archives.commit_import(new_owner, token)));
     assert_eq!(imported["root"], json!(fixture.root));
-    rejected(decode(archives.commit_import(new_owner, token)), "InvalidToken");
+    rejected(
+        decode(archives.commit_import(new_owner, token)),
+        "InvalidToken",
+    );
     archives.close(new_owner);
     let corrected_before = canonical(&fixture.target, &fixture.corrected);
     let workspace = WorkspaceRegistry::default();
@@ -286,8 +471,14 @@ fn cancelled_and_closed_import_capabilities_cannot_open_a_story_or_retarget_fres
     rejected(call(&workspace, handle, command.clone()), "InvalidHandle");
     rejected(call(&workspace, reopened, command), "Closed");
     let current = resume(&workspace, reopened, &fixture.corrected);
-    assert_eq!(data(call(&workspace, reopened, presentation(&current)))["domain_version"], 2);
+    assert_eq!(
+        data(call(&workspace, reopened, presentation(&current)))["domain_version"],
+        2
+    );
     workspace.close(reopened);
-    assert_eq!(canonical(&fixture.target, &fixture.corrected), corrected_before);
+    assert_eq!(
+        canonical(&fixture.target, &fixture.corrected),
+        corrected_before
+    );
     assert_eq!(canonical(&fixture.target, &fixture.control), control_before);
 }

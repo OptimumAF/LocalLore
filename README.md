@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [fork-control scope fix](docs/android/FORK_ACTION_SCOPE_2026-11-02.md) keeps
+retained dialog actions from affecting a replacement recovery request.
+557 JVM tests and the offline build/lint/APK audits pass. Five new Compose
+cases compile and remain unrun; existing recovery-run inputs stay frozen.
+
 The [library and recovery control fix](docs/android/LIBRARY_ACTION_SCOPE_2026-11-02.md)
 keeps old views and disposed screens from retargeting current storage navigation.
 Twelve independent regressions pass after eleven reproduced failures; the full

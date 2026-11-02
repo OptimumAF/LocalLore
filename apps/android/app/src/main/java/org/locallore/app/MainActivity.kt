@@ -154,11 +154,15 @@ open class MainActivity : ComponentActivity() {
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
                 exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION,
                 draftInteractionAllowed = model::canEditPlayDraft,
-                onFork = model::openFork) {
-                BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
-                    onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
-                    onRetry = model::retryFork, onLookup = model::lookupFork, onForget = model::forgetFork,
-                    onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork,
+                onFork = { model.openFork(renderedChatState) }) {
+                // Plain values bind each callback to what this composition displayed.
+                val renderedFork = fork
+                BranchForkPanel(forkVisible, renderedFork, forkProblem, forkRecoveryPending,
+                    onBoundary = { input, revision -> model.prepareForkBoundary(input, revision, renderedFork) },
+                    onConfirm = { input, consent -> model.confirmFork(input, consent, renderedFork) },
+                    onRetry = { model.retryFork(it, renderedFork) }, onLookup = { model.lookupFork(renderedFork) },
+                    onForget = { model.forgetFork(it, renderedFork) }, onCancel = { model.cancelFork(renderedFork) },
+                    onClose = { model.closeFork(renderedFork) }, onResume = { model.resumeFork(it, renderedFork) },
                     exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
                 model.branchDeletionController?.let { controller ->
                     BranchDeletionDialog(renderedBranchDeletion,

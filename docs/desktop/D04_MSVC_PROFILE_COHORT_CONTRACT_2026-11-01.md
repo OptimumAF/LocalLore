@@ -1,5 +1,10 @@
 # Fixed32 metadata cohort: source-only contract
 
+Frozen pre-execution contract below. The separately approved single packet is
+now SPENT; its [verification](D04_MSVC_PROFILE_COHORT_VERIFICATION_2026-11-01.md)
+records52/52 synthetic groups and32/32 profile metadata parses. Historical
+source-only/UNRUN language below describes preparation, not a repeat grant.
+
 Refs #25 D04.01/.02/.04, #31 D09.03 supporting and #21.
 Claims6563966151/6563993989; Root owns this document on
 `docs/msvc-profile-cohort-contract-v1` from accepted main

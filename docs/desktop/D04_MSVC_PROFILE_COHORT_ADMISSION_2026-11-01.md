@@ -1,5 +1,11 @@
 # Fixed32 metadata cohort: reviewed admission proposal
 
+Historical proposal below. The owner subsequently approved the exact160KiB
+increase and ONE bounded packet. Its [actual verification](D04_MSVC_PROFILE_COHORT_VERIFICATION_2026-11-01.md)
+records52/52 FIRST and32/32 profile metadata parses; the grant is SPENT.
+Keep the original proposal, limits and pre-execution UNRUN descriptions as
+history; they are not current permission or a second-run allowance.
+
 Refs #25 D04.01/.02/.04, #31 D09.03 supporting and #21.
 Claims6563993989/6564273552, with independent FIRST corrections6564422920/
 6564668422. Branch `docs/msvc-profile-cohort-contract-v1`, physical checkout

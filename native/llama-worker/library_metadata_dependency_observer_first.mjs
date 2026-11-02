@@ -46,8 +46,39 @@ function refuse(bind, f) {
   return caught;
 }
 
+// Independent small facts/pins/catalog data; never invoke the projection to
+// construct the validator's expected graph. Generic pins are schema fixtures,
+// not authentication of an actual PR334 observation.
+function factsFixture(empty = false) {
+  const catalog = Array.from({ length: 15 }, (_, i) => ({ slot: i + 18,
+    name: i === 0 ? 'alpha.lib' : `catalog-${String(i).padStart(2, '0')}.lib` }));
+  const names = empty ? [] : ['alpha.lib', 'unknown.lib'];
+  const rows = Array.from({ length: 32 }, (_, i) => ({ slot: i + 1,
+    libraryIds: empty ? [] : i === 0 ? [0, 1] : i === 1 ? [1] : [] }));
+  const pins = rows.map(row => {
+    const metadata = { objects: 1, imports: 0, directives: [],
+      defaultLibraries: row.libraryIds.map(id => names[id]) };
+    return { slot: row.slot, metadataSha256: digest(metadata), libraryCount: row.libraryIds.length };
+  });
+  const facts = { version: 1, kind: 'msvc_library_dependency_facts_v1', profileId: ID,
+    purpose: 'build_input_metadata_only', qualified: false, linkQualification: false,
+    closureComplete: false, captureComplete: true, status: 'metadata_facts_complete',
+    pinsSha256: digest(pins), catalogSha256: digest(catalog), libraryNames: names,
+    providedSlots: empty ? [] : [18, null], rows, unresolvedNameIds: empty ? [] : [1],
+    allReferencesInProvidedCatalog: empty };
+  return { facts, pins, catalog };
+}
+function refuseFacts(check, f) {
+  const before = JSON.stringify(f);
+  let error;
+  try { check(f.facts, f.pins, f.catalog); } catch (caught) { error = caught; }
+  assert(error instanceof Error, 'Expected fixed facts refusal');
+  assert.equal(error.message, 'DependencyObservationFactsInvalid');
+  assert.equal(JSON.stringify(f), before);
+}
+
 export async function runDependencyObserverSelfchecksV1(api) {
-  if (!api || typeof api.bindDependencyObservationV1 !== 'function') {
+  if (!api || typeof api.bindDependencyObservationV1 !== 'function' || typeof api.checkDependencyFactsV1 !== 'function') {
     throw Error('UNRUN_SETUP: dependency observation API unavailable');
   }
   const bind = api.bindDependencyObservationV1;
@@ -147,7 +178,59 @@ export async function runDependencyObserverSelfchecksV1(api) {
     const error = refuse(bind, invalid); assert(!error.message.includes(marker)); assert(!JSON.stringify(error).includes(marker));
   });
 
-  assert.deepEqual(cases.map(([id]) => id), Array.from({ length: 12 }, (_, i) => 'B' + String(i + 1).padStart(2, '0')), 'Frozen observer FIRST roster');
+  add('B13', () => {
+    // A nullable context hole serializes exactly like a valid null. Equality
+    // alone and slice(...).every(...) therefore fail to reject these cases.
+    for (const which of ['pair', 'expected']) {
+      const f = refusalFixture();
+      delete (which === 'pair' ? f.pair.row.strict : f.expected.strict)[9];
+      assert.equal(JSON.stringify(f.pair.row), JSON.stringify(f.expected));
+      refuse(bind, f);
+    }
+    const undefinedContext = refusalFixture(); undefinedContext.pair.row.strict[9] = undefined; refuse(bind, undefinedContext);
+    const inherited = refusalFixture(), inheritedValues = Object.create(Array.prototype);
+    inheritedValues[9] = null; Object.setPrototypeOf(inherited.pair.row.strict, inheritedValues);
+    delete inherited.pair.row.strict[9]; assert.equal(Object.hasOwn(inherited.pair.row.strict, 9), false); refuse(bind, inherited);
+    for (const mode of ['strict', 'profile']) {
+      const f = fixture(); delete f.pair.row[mode][3]; f.expected = clone(f.pair.row); refuse(bind, f);
+    }
+    for (const field of ['directives', 'defaultLibraries']) {
+      const f = fixture(); delete f.profile.metadata[field][0];
+      f.pair.row.profile = encode(f.profile); f.expected = clone(f.pair.row); refuse(bind, f);
+    }
+    const check = api.checkDependencyFactsV1;
+    const missingName = factsFixture(); delete missingName.facts.libraryNames[1];
+    // Preserve the old map/flatMap hole-skipping interpretation so that this
+    // specifically reaches the prior validator's false acceptance, not merely
+    // a different unresolved-list mismatch.
+    missingName.facts.unresolvedNameIds = []; missingName.facts.allReferencesInProvidedCatalog = true;
+    refuseFacts(check, missingName);
+    for (const change of [f => delete f.facts.providedSlots[1], f => delete f.facts.rows[3],
+      f => delete f.facts.rows[0].libraryIds[1], f => delete f.facts.unresolvedNameIds[0],
+      f => delete f.pins[3], f => delete f.catalog[3]]) {
+      const f = factsFixture(); change(f); f.facts.pinsSha256 = digest(f.pins); f.facts.catalogSha256 = digest(f.catalog); refuseFacts(check, f);
+    }
+  });
+  add('B14', () => {
+    const check = api.checkDependencyFactsV1;
+    for (const empty of [false, true]) {
+      const f = factsFixture(empty), before = JSON.stringify(f);
+      assert.equal(check(f.facts, f.pins, f.catalog), undefined); assert.equal(JSON.stringify(f), before);
+    }
+    for (const provided of [false, true]) {
+      const f = factsFixture(); f.facts.libraryNames.push('z-unused.lib');
+      if (provided) {
+        f.catalog[1].name = 'z-unused.lib'; f.facts.catalogSha256 = digest(f.catalog);
+        f.facts.providedSlots.push(19);
+      } else {
+        f.facts.providedSlots.push(null); f.facts.unresolvedNameIds.push(2);
+      }
+      // Every field is coherent except exact union coverage: index2 is unused.
+      refuseFacts(check, f);
+    }
+  });
+
+  assert.deepEqual(cases.map(([id]) => id), Array.from({ length: 14 }, (_, i) => 'B' + String(i + 1).padStart(2, '0')), 'Frozen observer FIRST roster');
   const failed_case_ids = [];
   for (const [id, run] of cases) { try { await run(); } catch { failed_case_ids.push(id); } }
   return { version: 1, kind: KIND, executed: cases.length, passed: cases.length - failed_case_ids.length,

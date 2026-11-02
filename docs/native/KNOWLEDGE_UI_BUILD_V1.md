@@ -36,8 +36,11 @@ The closed baseline contains `version`, `scope`, `product`, `evidence`,
   current JVM phase and actual compiled-class/method/JUnit/native-entry analysis.
   All nested fresh-JVM evidence pins remain byte-bound; no proof is execution
   authority or a repeat of those tests by the attestor.
-- Artifacts: fixed product/test APK pins; native: ordinary extracted arm64 and
-  x86_64 library pins. `bindings` holds the exact recorded source/copy pairs.
+- Artifacts: fixed product/test APK pins; native: ordinary generated arm64 and
+  x86_64 library pins. APK entries separately match the ordinary Gradle stripped
+  outputs and their retained copies through the DEX proof. Generated unstripped
+  files are not mislabeled as byte-identical packaged entries. `bindings` holds
+  the exact recorded source/copy pairs.
 - Facts record actual JVM counts, selected/compiled methods, package/audit
   review and explicit false Android/model/feature-acceptance/fresh-native flags.
 - Instrumentations are the following exact ordered four triples, all in

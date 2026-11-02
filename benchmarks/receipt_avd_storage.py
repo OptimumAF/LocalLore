@@ -246,6 +246,53 @@ def _entry(ledger, root):
     return entries[0]
 
 
+def preview_prepare(root, registry=DEFAULT_REGISTRY):
+    """Read-only capacity observation, never a reservation or runtime grant.
+
+    Reuses admission's ledger validation and all current charges. Detected
+    changes refuse; this is not a locked/linearizable snapshot or a promise
+    against concurrent filesystem changes. reserve_prepare must still perform
+    its fresh locked admission. No SDK, disk-free, RAM or port check runs here.
+    """
+    root, registry = safe_path(root), safe_path(registry, exists=True, directory=True)
+
+    def paths_unchanged():
+        safe_path(root)
+        safe_path(root.parent, exists=True, directory=True)
+        safe_path(registry, exists=True, directory=True)
+        require(not os.path.lexists(root), "target_exists")
+        require(not _contains(root, registry) and not _contains(registry, root), "overlapping_roots")
+        require(not os.path.lexists(registry / "admission.lock"), "registry_locked")
+
+    paths_unchanged()
+    path = registry / "ledger-v1.json"
+    require(path.is_file(), "ledger_missing")
+    before = binding(path)
+    ledger = read_json(path)
+    check_binding(before)
+    _validate(ledger, registry)
+    require(not any(_contains(Path(e["root"]), root) or _contains(root, Path(e["root"]))
+                    for e in ledger["entries"]), "root_already_tracked")
+    charges = [_charge(entry) for entry in ledger["entries"]]
+    # Revalidate closure, retirement and recovery proofs as well as the ledger:
+    # unchanged ledger bytes alone do not establish unchanged external evidence.
+    _validate(ledger, registry)
+    require(charges == [_charge(entry) for entry in ledger["entries"]], "preview_changed")
+    paths_unchanged()
+    check_binding(before)
+    active = sum(entry["state"] != "retired" for entry in ledger["entries"])
+    charged = sum(charges)
+    root_limit = active + 1 > MAX_GUESTS
+    byte_limit = charged + RESERVATION_BYTES > BUDGET_BYTES
+    return {"version": 1, "scope": "receipt-avd-prepare-capacity-preview-v1",
+            "root": str(root), "ledger": before, "max_guests": MAX_GUESTS,
+            "budget_bytes": BUDGET_BYTES, "reservation_bytes": RESERVATION_BYTES,
+            "active_count": active, "charged_bytes": charged,
+            "projected_bytes": charged + RESERVATION_BYTES,
+            "root_limit_exceeded": root_limit, "byte_limit_exceeded": byte_limit,
+            "would_fit": not root_limit and not byte_limit, "admission_granted": False}
+
+
 def reserve_prepare(root, proposal_sha256, registry=DEFAULT_REGISTRY):
     """Durably reserve before root mkdir or SDK calls; failure never auto-releases."""
     root, registry = safe_path(root), safe_path(registry)

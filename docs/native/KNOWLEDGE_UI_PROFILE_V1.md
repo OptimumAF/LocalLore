@@ -26,12 +26,14 @@ All bytes are revalidated. Missing current recovery dependencies cannot select
 an older fallback. No new registry, direct SDK creation or permission to launch
 follows from having valid metadata.
 
-The guest remains the already charged
-`D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-v1/avd-v1`.
-This profile neither creates nor adopts it. Shared admission stays two unretired
-roots, 64 GiB accounting and 40 GiB for preparing/live guests; recovery and
-applicable approval remain independent. SDK15 authority cannot authorize SDK16,
-even though the literal guest path matches. PR #354's frozen operation stays separate.
+The guest is fixed to the fresh candidate
+`D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-v1/avd-v1`.
+The earlier November 1 literal was consumed by the approved SDK15 run and is
+now refused by SDK16. This profile neither creates nor adopts a guest. Shared
+admission stays two unretired roots, 64 GiB accounting and 40 GiB for preparing/live
+guests; preparation and applicable approval remain independent. SDK15 authority
+cannot authorize SDK16. PR #354's frozen operation stays separate. See the
+[fresh-path/capacity boundary](KNOWLEDGE_FRESH_CAPACITY_V1.md).
 
 `knowledge_ui_profile_build.verify_current(admission)` validates this exact
 profile/source set, invokes B88 `verify_frozen_product`, matches the ordered

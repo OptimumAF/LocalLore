@@ -1,5 +1,10 @@
 # Fixed-two runtime metadata v2: proposed finite admission
 
+Historical proposed admission. Owner call_ba0248fc71854626ba91a86d441c4c12
+subsequently approved ONLY the stated128KiB increase and ONE packet, now
+PASSED / SPENT. See [actual verification](D04_RUNTIME_METADATA_V2_OBSERVATION_VERIFICATION_2026-11-02.md).
+The source/pre-admission statements below retain their original chronology.
+
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21.
 **SOURCE ONLY / ALL NEW CHECKS AND OBSERVATIONS UNRUN. NO RUN AUTHORITY.**
 PR369's approved code packet passed and is SPENT. No proposal below activates

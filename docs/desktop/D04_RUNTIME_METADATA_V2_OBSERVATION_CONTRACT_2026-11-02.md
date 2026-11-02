@@ -1,5 +1,9 @@
 # Fixed-two runtime metadata v2 observation: source contract
 
+Historical source contract. The separately approved sole packet now PASSED;
+its grant is SPENT. See [actual verification](D04_RUNTIME_METADATA_V2_OBSERVATION_VERIFICATION_2026-11-02.md).
+Source-only/UNRUN statements below describe this contract's original freeze.
+
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21.
 Claim6591090481. Base accepted main dcbb4bdb (PR369). SOURCE ONLY / UNRUN.
 The PR369 code grant is SPENT. This contract grants no child or SDK read.

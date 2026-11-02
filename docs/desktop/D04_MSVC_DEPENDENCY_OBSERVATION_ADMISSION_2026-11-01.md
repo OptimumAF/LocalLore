@@ -1,5 +1,11 @@
 # Same32 dependency observation: concrete admission proposal
 
+Historical proposal below. The owner approved its exact+176KiB and ONE packet;
+[actual verification](D04_MSVC_DEPENDENCY_OBSERVATION_VERIFICATION_2026-11-01.md)
+records99/99 gates and complete same32 facts capture, with two names outside
+the provided catalog. The grant is SPENT; earlier UNRUN/no-owner language is
+pre-execution history, not current permission for another observation.
+
 Refs #25 D04.01/.02/.04 supporting, #31 D09.03 supporting, #21.
 Root claims6569261802/6569356789; independent FIRST claims6569305029/
 6569549284/6569713057. Branch `prep/msvc-dependency-observation-v1`, existing

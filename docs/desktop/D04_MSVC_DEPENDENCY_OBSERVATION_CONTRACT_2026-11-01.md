@@ -1,5 +1,11 @@
 # Same32 dependency observation: preparation contract
 
+Frozen preparation contract below. The separately approved ONE packet is now
+SPENT; [verification](D04_MSVC_DEPENDENCY_OBSERVATION_VERIFICATION_2026-11-01.md)
+records99 passing gates,32 inputs and71 dependency references. ucrt.lib and
+vcruntime.lib are outside the provided catalog; closure stays unqualified.
+Historical source-only/UNRUN language is not a repeat-run allowance.
+
 Refs #25 D04.01/.02/.04 supporting, #31 D09.03 supporting, #21.
 Root claim6569261802, branch `prep/msvc-dependency-observation-v1` from accepted
 df73034ebcf03a448927be4aea617b603df61833. **SOURCE PREPARATION ONLY.**

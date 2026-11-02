@@ -40,6 +40,7 @@ class ShellViewModel internal constructor(
     internal val creation = creationController?.state ?: MutableStateFlow(StoryCreationUiState()).asStateFlow()
     internal val archiveController = archiveGateway?.let { ArchiveController(it, viewModelScope, ::archiveClosed) }
     val archive = archiveController?.state ?: MutableStateFlow(ArchiveUiState()).asStateFlow()
+    internal val archiveFrames = archiveController?.frames ?: MutableStateFlow(ArchiveFrame(archive.value)).asStateFlow()
     private var archiveImportPicker: Long? = null
     private var archiveExportPicker: Long? = null
     internal val deletionController = deletionGateway?.let { StoryDeletionController(viewModelScope, it, ::deletionClosed) }
@@ -232,6 +233,18 @@ class ShellViewModel internal constructor(
             }
         }
     }
+    internal fun beginArchiveImportPicker(rendered: ArchiveUiState): Boolean {
+        if (disposed) return false
+        val ticket = archiveController?.beginImportPicker(rendered) ?: return false
+        archiveImportPicker = ticket
+        return true
+    }
+    internal fun beginArchiveExportPicker(expected: ArchivePrepared, rendered: ArchiveUiState): Boolean {
+        if (disposed) return false
+        val ticket = archiveController?.beginExportPicker(expected, rendered) ?: return false
+        archiveExportPicker = ticket
+        return true
+    }
     internal fun beginArchiveImportPicker(): Boolean {
         val ticket = archiveController?.beginImportPicker() ?: return false
         archiveImportPicker = ticket
@@ -287,7 +300,7 @@ class ShellViewModel internal constructor(
             }
         }
         if (gateway.durable) {
-            mutable.value = ShellState(busy = true, persistent = true, notice = "Opening local saved stories…")
+            mutable.value = ShellState(busy = true, persistent = true, notice = "Opening local saved storiesâ€¦")
             savedOperation("Saved story resumed. Uncommitted responses remain outside accepted history.") { gateway.initialize() }
         }
     }

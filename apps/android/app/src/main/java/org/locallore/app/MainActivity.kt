@@ -123,7 +123,7 @@ open class MainActivity : ComponentActivity() {
         setContent {
             val state by model.state.collectAsStateWithLifecycle()
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
-            val archive by model.archive.collectAsStateWithLifecycle()
+            val archiveFrame by model.archiveFrames.collectAsStateWithLifecycle()
             val deletion by model.deletion.collectAsStateWithLifecycle()
             val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
             val creation by model.creation.collectAsStateWithLifecycle()
@@ -133,6 +133,7 @@ open class MainActivity : ComponentActivity() {
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
             val renderedRecordState = recordFrame.state
+            val renderedArchive = archiveFrame.state
             val renderedActionStory = state.selectedStory
             LocalLoreScreen(state, { action -> model.submit(action, renderedActionStory) }, model::setMode, model::cancel, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
@@ -188,19 +189,21 @@ open class MainActivity : ComponentActivity() {
                     }
                 }
                 model.archiveController?.let { controller ->
-                    ArchiveDialog(archive, controller::dismiss, controller::cancel, controller::prepareExport,
+                    ArchiveDialog(renderedArchive, { controller.dismiss(renderedArchive) },
+                        { controller.cancel(renderedArchive) }, { controller.prepareExport(renderedArchive) },
                         onImportPicker = {
-                            if (model.beginArchiveImportPicker()) {
+                            if (model.beginArchiveImportPicker(renderedArchive)) {
                                 try { archiveImportPicker.launch("*/*") }
                                 catch (_: Exception) { model.archiveImportPickerFailed() }
                             }
                         },
                         onExportPicker = { expected ->
-                            if (model.beginArchiveExportPicker(expected)) {
+                            if (model.beginArchiveExportPicker(expected, renderedArchive)) {
                                 try { archiveExportPicker.launch("locallore-private-story.json") }
                                 catch (_: Exception) { model.archiveExportPickerFailed() }
                             }
-                        }, onConfirmImport = controller::confirmImport, onOpenImported = controller::openImported)
+                        }, onConfirmImport = { expected -> controller.confirmImport(expected, renderedArchive) },
+                        onOpenImported = { expected -> controller.openImported(expected, renderedArchive) })
                 }
             }
         }

@@ -41,6 +41,9 @@ data class ArchiveUiState(
     val closing: Boolean = false,
 )
 
+/** Transient display identity; never a native token or canonical record. */
+internal class ArchiveFrame(val state: ArchiveUiState)
+
 internal interface ArchiveGateway {
     suspend fun prepareExport(story: SavedStory): ArchivePrepared
     suspend fun prepareImport(bytes: ByteArray): ArchivePrepared
@@ -58,7 +61,9 @@ internal class ArchiveController(
     private val onClosed: (ArchiveImported?) -> Unit,
 ) {
     private val mutable = MutableStateFlow(ArchiveUiState())
+    private val publishedFrames = MutableStateFlow(ArchiveFrame(mutable.value))
     val state = mutable.asStateFlow()
+    val frames = publishedFrames.asStateFlow()
     private var generation = 0L
     private var picker: Picker? = null
     private var active: Job? = null
@@ -69,11 +74,33 @@ internal class ArchiveController(
         val prepared: ArchivePrepared?, var valid: Boolean = true)
     private companion object { val pickerTickets = AtomicLong() }
 
+    private fun publish(value: ArchiveUiState) {
+        mutable.value = value
+        // Value-equal reopen must still deliver the latest exact callback owner.
+        publishedFrames.value = ArchiveFrame(mutable.value)
+    }
+    private fun renderedCurrent(rendered: ArchiveUiState) =
+        !disposed && rendered.visible && mutable.value === rendered
+
+    fun dismiss(rendered: ArchiveUiState) { if (renderedCurrent(rendered)) dismiss() }
+    fun cancel(rendered: ArchiveUiState) { if (renderedCurrent(rendered)) cancel() }
+    fun prepareExport(rendered: ArchiveUiState) { if (renderedCurrent(rendered)) prepareExport() }
+    fun beginImportPicker(rendered: ArchiveUiState): Long? =
+        if (renderedCurrent(rendered)) beginImportPicker() else null
+    fun beginExportPicker(expected: ArchivePrepared, rendered: ArchiveUiState): Long? =
+        if (renderedCurrent(rendered)) beginExportPicker(expected) else null
+    fun confirmImport(expected: ArchivePrepared, rendered: ArchiveUiState) {
+        if (renderedCurrent(rendered)) confirmImport(expected)
+    }
+    fun openImported(expected: ArchiveImported, rendered: ArchiveUiState) {
+        if (renderedCurrent(rendered)) openImported(expected)
+    }
+
     fun open(story: SavedStory) {
         if (disposed || mutable.value.visible || draining || picker != null || active != null) return
         generation++
         closeResult = null
-        mutable.value = ArchiveUiState(visible = true, selected = story)
+        publish(ArchiveUiState(visible = true, selected = story))
     }
     private fun available() = !disposed && mutable.value.visible && !mutable.value.busy &&
         !mutable.value.closing && !draining && picker == null && mutable.value.imported == null
@@ -81,19 +108,19 @@ internal class ArchiveController(
     fun prepareExport() {
         if (!available()) return
         val story = mutable.value.selected ?: return
-        mutable.value = mutable.value.copy(kind = ArchiveKind.EXPORT, prepared = null)
+        publish(mutable.value.copy(kind = ArchiveKind.EXPORT, prepared = null))
         work({ archiveNotice(it) }) { ticket ->
             val prepared = freeze(gateway.prepareExport(story))
-            if (current(ticket)) mutable.value = mutable.value.copy(prepared = prepared,
-                notice = "Review this exact captured archive before choosing a new destination.")
+            if (current(ticket)) publish(mutable.value.copy(prepared = prepared,
+                notice = "Review this exact captured archive before choosing a new destination."))
         }
     }
     fun beginImportPicker(): Long? {
         if (!available()) return null
         val ticket = newPicker(ArchiveKind.IMPORT, null) ?: return null
         gateway.cancel()
-        mutable.value = mutable.value.copy(kind = ArchiveKind.IMPORT, prepared = null,
-            awaitingPicker = true, notice = null)
+        publish(mutable.value.copy(kind = ArchiveKind.IMPORT, prepared = null,
+            awaitingPicker = true, notice = null))
         return ticket
     }
     fun beginExportPicker(expected: ArchivePrepared): Long? {
@@ -101,7 +128,7 @@ internal class ArchiveController(
         val prepared = mutable.value.prepared ?: return null
         if (prepared !== expected) return null
         val ticket = newPicker(ArchiveKind.EXPORT, prepared) ?: return null
-        mutable.value = mutable.value.copy(awaitingPicker = true, notice = null)
+        publish(mutable.value.copy(awaitingPicker = true, notice = null))
         return ticket
     }
     private fun newPicker(kind: ArchiveKind, prepared: ArchivePrepared?): Long? {
@@ -118,7 +145,7 @@ internal class ArchiveController(
         val pending = picker ?: return null
         if (pending.ticket != ticket || pending.kind != kind) return null
         picker = null
-        if (!disposed) mutable.value = mutable.value.copy(awaitingPicker = false)
+        if (!disposed) publish(mutable.value.copy(awaitingPicker = false))
         if (disposed || !pending.valid || pending.generation != generation || mutable.value.closing) {
             finishClosing()
             return null
@@ -128,7 +155,7 @@ internal class ArchiveController(
     fun completeImport(ticket: Long, reader: (suspend () -> ByteArray)?) {
         if (takePicker(ticket, ArchiveKind.IMPORT) == null) return
         if (reader == null) {
-            mutable.value = mutable.value.copy(notice = "Import cancelled. No archive was imported.")
+            publish(mutable.value.copy(notice = "Import cancelled. No archive was imported."))
             return
         }
         work({ archiveNotice(it) }) { serial ->
@@ -137,20 +164,20 @@ internal class ArchiveController(
                 if (!current(serial)) return@work
                 if (bytes.size > MAX_ARCHIVE_BYTES) throw ArchiveFailure("TooLarge")
                 val prepared = freeze(gateway.prepareImport(bytes))
-                if (current(serial)) mutable.value = mutable.value.copy(prepared = prepared,
-                    notice = "Archive validated locally. Review it, then explicitly confirm import.")
+                if (current(serial)) publish(mutable.value.copy(prepared = prepared,
+                    notice = "Archive validated locally. Review it, then explicitly confirm import."))
             } finally { bytes.fill(0) }
         }
     }
     fun completeExport(ticket: Long, writer: (suspend (ByteArray) -> Unit)?) {
         val pending = takePicker(ticket, ArchiveKind.EXPORT) ?: return
         if (writer == null) {
-            mutable.value = mutable.value.copy(notice = "Export cancelled. No document was written by LocalLore.")
+            publish(mutable.value.copy(notice = "Export cancelled. No document was written by LocalLore."))
             return
         }
         val prepared = pending.prepared ?: return
         // The native token is single use. A failed/partial write requires a new captured preview.
-        mutable.value = mutable.value.copy(prepared = null)
+        publish(mutable.value.copy(prepared = null))
         work({ "Export failed or stopped. The new destination may contain a partial plaintext archive. Capture a new preview to retry." }) { serial ->
             val bytes = gateway.exportBytes(prepared.token)
             try {
@@ -158,8 +185,8 @@ internal class ArchiveController(
                 if (bytes.size > MAX_ARCHIVE_BYTES || bytes.size.toLong() != prepared.preview.bytes)
                     throw ArchiveFailure("Integrity")
                 writer(bytes)
-                if (current(serial)) mutable.value = mutable.value.copy(
-                    notice = "The captured archive was written. Your document provider may sync this plaintext copy.")
+                if (current(serial)) publish(mutable.value.copy(
+                    notice = "The captured archive was written. Your document provider may sync this plaintext copy."))
             } finally { bytes.fill(0) }
         }
     }
@@ -167,11 +194,11 @@ internal class ArchiveController(
         if (!available() || mutable.value.kind != ArchiveKind.IMPORT) return
         val prepared = mutable.value.prepared ?: return
         if (prepared !== expected) return
-        mutable.value = mutable.value.copy(prepared = null)
+        publish(mutable.value.copy(prepared = null))
         work({ importCommitNotice(it) }) { ticket ->
             val imported = gateway.commitImport(prepared.token)
-            if (current(ticket)) mutable.value = mutable.value.copy(imported = imported,
-                notice = "Archive imported. Choose whether to open its root timeline or return to the library.")
+            if (current(ticket)) publish(mutable.value.copy(imported = imported,
+                notice = "Archive imported. Choose whether to open its root timeline or return to the library."))
         }
     }
     fun pickerFailed(ticket: Long) {
@@ -179,9 +206,9 @@ internal class ArchiveController(
         if (pending.ticket != ticket) return
         picker = null
         if (disposed) return
-        mutable.value = mutable.value.copy(awaitingPicker = false)
+        publish(mutable.value.copy(awaitingPicker = false))
         if (pending.valid && pending.generation == generation && !mutable.value.closing)
-            mutable.value = mutable.value.copy(notice = "Unable to open the document picker. No document was read or written.")
+            publish(mutable.value.copy(notice = "Unable to open the document picker. No document was read or written."))
         finishClosing()
     }
     fun cancel() {
@@ -206,16 +233,16 @@ internal class ArchiveController(
         previous?.cancel()
         draining = true
         closeResult = result
-        mutable.value = mutable.value.copy(busy = previous != null, prepared = null,
+        publish(mutable.value.copy(busy = previous != null, prepared = null,
             kind = null, closing = close,
-            notice = if (close) "Finishing local work and waiting for any outstanding document picker…"
-            else "Stopped. An export may be partial, and an import may already have completed. Close to refresh the library.")
+            notice = if (close) "Finishing local work and waiting for any outstanding document pickerâ€¦"
+            else "Stopped. An export may be partial, and an import may already have completed. Close to refresh the library."))
         scope.launch {
             previous?.join()
             if (!disposed && generation == serial) {
                 active = null
                 draining = false
-                mutable.value = mutable.value.copy(busy = false)
+                publish(mutable.value.copy(busy = false))
                 finishClosing()
             }
         }
@@ -224,7 +251,7 @@ internal class ArchiveController(
         if (disposed || !mutable.value.closing || draining || active != null || picker != null) return
         val result = closeResult
         closeResult = null
-        mutable.value = ArchiveUiState()
+        publish(ArchiveUiState())
         onClosed(result)
     }
     fun dispose() {
@@ -235,22 +262,22 @@ internal class ArchiveController(
         gateway.cancel()
         active?.cancel()
         gateway.close()
-        mutable.value = ArchiveUiState()
+        publish(ArchiveUiState())
     }
     private fun current(ticket: Long) = !disposed && generation == ticket && mutable.value.visible && !mutable.value.closing
     private fun work(failureNotice: (Exception) -> String, block: suspend (Long) -> Unit) {
         val ticket = ++generation
-        mutable.value = mutable.value.copy(busy = true, notice = null)
+        publish(mutable.value.copy(busy = true, notice = null))
         val job = scope.launch(start = CoroutineStart.LAZY) {
             try { block(ticket) }
             catch (failure: CancellationException) {
-                if (current(ticket)) mutable.value = mutable.value.copy(notice = failureNotice(failure))
+                if (current(ticket)) publish(mutable.value.copy(notice = failureNotice(failure)))
                 throw failure
             } catch (failure: Exception) {
-                if (current(ticket)) mutable.value = mutable.value.copy(notice = failureNotice(failure))
+                if (current(ticket)) publish(mutable.value.copy(notice = failureNotice(failure)))
             } finally {
                 if (active === currentCoroutineContext()[Job]) active = null
-                if (current(ticket)) mutable.value = mutable.value.copy(busy = false)
+                if (current(ticket)) publish(mutable.value.copy(busy = false))
             }
         }
         active = job

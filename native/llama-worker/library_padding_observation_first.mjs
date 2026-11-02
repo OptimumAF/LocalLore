@@ -109,7 +109,7 @@ function fullIO(bytes = MAX) {
 }
 
 // Hook closures exist only in this in-memory fake. The API sees exactly its
-// three adapter methods and four own data-property wrapper methods.
+// three adapter methods and three own data-property wrapper methods.
 function readerFixture(data = Buffer.alloc(20, 65)) {
   const original = { bytes: data.length, sha256: hash(data),
     rootIdentity: 'synthetic-root-3', leafIdentity: 'synthetic-leaf-33' };
@@ -477,7 +477,8 @@ export async function runPaddingObservationSelfchecksV1(api) {
     check(a.io.opened && !a.io.closed && stat.state.closes === 1);
     const read = readerFixture(); read.hooks.read = () => { throw Error('private read'); };
     read.hooks.close = () => { throw Error('private close'); };
-    await rejectsAsync(() => api.readPinnedArchiveV1(read.expected, read.adapter), 'PaddingRead');
+    const b = await rejectsAsync(() => api.readPinnedArchiveV1(read.expected, read.adapter), 'PaddingRead');
+    check(b.io.opened && !b.io.closed && b.io.actualReadBytes === 0 && b.io.verifiedPasses === 0);
     check(read.state.closes === 1);
     const close = readerFixture(); close.hooks.close = () => { throw Error('private close'); };
     const c = await rejectsAsync(() => api.readPinnedArchiveV1(close.expected, close.adapter), 'PaddingClose');

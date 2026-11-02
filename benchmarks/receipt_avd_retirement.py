@@ -39,7 +39,8 @@ PROTOCOLS = frozenset(('owned-emulator-target-v1', 'owned-emulator-restart-targe
                        'owned-emulator-transcript-ui-v1',
                        'owned-emulator-current-chat-ui-v1',
                        'owned-emulator-player-inventory-chat-ui-v1',
-                       'owned-emulator-player-profile-chat-ui-v1'))
+                       'owned-emulator-player-profile-chat-ui-v1',
+                       'owned-emulator-record-controls-ui-v1'))
 
 
 class RetirementRefused(ValueError):

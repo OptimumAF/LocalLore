@@ -190,7 +190,7 @@ fun StoryRecordDialog(
                                 ) { Text("All relationships") }
                             }
                         }
-                        Text("Your relationships toward this character. Their private thoughts are not shown.",
+                        Text("How your character relates to others. Their private thoughts are not shown.",
                             style = MaterialTheme.typography.bodySmall)
                         Text("Choose a visible target to focus, or search all relationships.",
                             style = MaterialTheme.typography.bodySmall)

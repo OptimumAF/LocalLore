@@ -96,12 +96,12 @@ false qualification flags. Exactly fixed rows33/ucrt.lib/root3 then
 positive sizes within285588/38478 ceilings. Each exact settled reader I/O has
 one input, both scans verified, opened+closed, actualReadBytes=2*pin.bytes.
 Aggregate I/O sums both, job exact6keys with v2 ID,2 inputs,4 attempts, summed
-bytes, not stopped, sections within2097152. Parsed sections are a lower bound
-on job sections; parsed sections plus refusal.context.sections (null means0)
-are an upper bound. Error context can include a declaration refused BEFORE
-charge, so never infer exact charged work from it. The hash-bound Root attests
-the authoritative actual counter; current accepted observation235 equals its
-upper bound0+112+55+68. Refusal fields/contexts are accepted bounded
+bytes, not stopped; sections equal parsed sections plus refusal.context.sections
+(null means0), within2097152. The accepted parser charges declared sections
+BEFORE per-member/input section refusals. A job-overflow failure before charge
+stops the job and cannot enter this complete/not-stopped evidence policy.
+Retain the actual authoritative snapshot, not invented replacement counters;
+the current accepted counter235 equals0+112+55+68. Refusal fields/contexts are accepted bounded
 fixed-category/site/numeric data; do not emit raw messages. Parsed summaries
 use EXACT three strict/four v2 deviation keys and existing limits/digests/names.
 Strict outcomes may be parsed or known refused. Runtime profile outcomes may
@@ -156,7 +156,8 @@ factory object. It constructs independent small valid synthetic complete
 v1/v2/Root/catalog JSON Buffers and anchors; no producer fixture helper.
 Exactly16groups E01..E16, finite summary ONLY version,kind,executed,passed,
 failed,failed_case_ids; version1,kind worker_prelink_evidence_v2_first,
-16/16/0/[] is the sole passing gate. All fixture bytes<128KiB/group.
+16/16/0/[] is the sole passing gate. Each fixture set<128KiB, total synthetic
+fixture bytes<2MiB/group; no memory/RSS measurement is claimed.
 
 E01 factory/anchors shape/no getters; E02 exact favorable result/false flags;
 E03 byte-SHA-before-JSON/strictUTF8/no rewriting; E04 input/encoded caps;

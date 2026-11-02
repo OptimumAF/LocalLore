@@ -4,6 +4,7 @@ All authority/authorization records are synthetic test data at unique paths.
 They cannot be used by the fixed operational scripts without test-only patches.
 """
 import copy
+import io
 from contextlib import ExitStack
 from dataclasses import replace
 import os
@@ -28,6 +29,8 @@ from scripts.tests.test_library_ui_recovery_operator import synthetic_attempt, s
 
 BASE = Path('D:/Dev/Experiments/LocalLore/2026-11-02-library-recovery-operator-v1/test-agent-v1')
 SOURCE = Path(__file__).resolve().parents[2]
+REAL_RECOVERY_EXECUTE = recovery.execute
+REAL_RECORD_STATE = storage.record_state
 
 
 def budget(extra=0):
@@ -208,3 +211,92 @@ class OperatorFixture:
         elif self.fault == 'capture': result['output_capture_complete'] = False
         elif self.fault == 'cleanup': result['cleanup_complete'] = False
         return result
+
+
+class Flag:
+    def __init__(self): self.value = False
+    def set(self): self.value = True
+    def is_set(self): return self.value
+
+
+class SupervisorPorts:
+    """Deterministic fake child/job/readers; never constructs a native owner."""
+    def __init__(self, fault=None):
+        budget(1024 * 1024); BASE.mkdir(parents=True, exist_ok=True)
+        self.root = Path(tempfile.mkdtemp(prefix='supervisor-ports-', dir=BASE))
+        self.live = self.root / 'live'; self.live.mkdir(); self.fault = fault; self.events = []; self.stack = ExitStack()
+        self.job_assigned = False; self.job_closed = False; self.killed = False; self.capture_closed = False
+        self.raw_stdin = bytearray(); self.threads = []; self.stdout = b'\x00\x1a\r\n\xff stdout\n'; self.stderr = b'\xff\x00 stderr\r\n'
+        self.request = BuilderFixture.store(self.root / 'request.json', {'synthetic_request': True})
+        self.rules = SimpleNamespace(LIVE=self.live, OPERATOR=self.root / 'never-executed-worker.py', MAX_SECONDS=2400, need=rules.need)
+        self.worker = dict(pid=8801, creation_filetime=99881, executable=sys.executable)
+        graph = self
+        class Input:
+            closed = False
+            def write(self, raw):
+                if not graph.job_assigned or not (graph.live / 'worker-started-v1.json').is_file():
+                    raise AssertionError('Barrier released before job ownership and started receipt')
+                graph.events.append('barrier'); graph.raw_stdin.extend(raw); return len(raw)
+            def close(self): self.closed = True
+        class Child:
+            pid = 8801
+            def __init__(self):
+                self.stdin = Input(); self.stdout = io.BytesIO(graph.stdout); self.stderr = io.BytesIO(graph.stderr)
+                self.returncode = None if graph.fault == 'expired' else 0
+            def poll(self): return self.returncode
+            def kill(self): graph.killed = True; self.returncode = -9
+            def wait(self, timeout):
+                if graph.fault == 'wait': raise OSError('synthetic wait unknown')
+                return self.returncode
+        class Capture:
+            def __init__(self): self.failed = Flag(); self.overflow = Flag(); self.sizes = [0, 0]; self.raw = [bytearray(), bytearray()]
+            def append(self, channel, raw):
+                if graph.fault == 'capture': self.failed.set(); return False
+                if graph.fault == 'overflow': self.overflow.set(); return False
+                self.raw[channel].extend(raw); self.sizes[channel] += len(raw); return True
+            def close(self):
+                if graph.fault == 'capture_close': raise OSError('synthetic capture close')
+                graph.capture_closed = True
+        class Thread:
+            def __init__(self, target, args, daemon):
+                self.target = target; self.args = args; self.ident = None; graph.threads.append(self)
+            def start(self):
+                if graph.fault == 'thread_start' and len(graph.threads) == 2: raise OSError('synthetic reader start')
+                self.ident = len(graph.threads); self.target(*self.args)
+            def join(self, timeout):
+                if graph.fault == 'join': raise OSError('synthetic reader join')
+            def is_alive(self):
+                if graph.fault == 'alive_query': raise OSError('synthetic reader state')
+                return graph.fault == 'stalled'
+        self.child = Child(); self.capture = Capture()
+        def create_job(pid):
+            self.events.append('job')
+            if fault == 'job': raise OSError('synthetic job assignment')
+            self.job_assigned = True
+            def close():
+                self.job_closed = True
+                if fault == 'job_close': return False
+                if self.child.returncode is None: self.child.returncode = -9
+                return True
+            return SimpleNamespace(close=close)
+        def identity(pid):
+            self.events.append('identity')
+            return dict(self.worker, executable='D:\\Synthetic\\wrong-worker.exe') if fault == 'image' else self.worker
+        self.api = SimpleNamespace(env=SimpleNamespace(LiveOutput=lambda path: self.capture,
+            host=SimpleNamespace(WindowsJob=create_job), process_identity=identity, encoded=env.encoded))
+        def save(path, value):
+            self.events.append('started'); return BuilderFixture.store(path, value)
+        self.builder = SimpleNamespace(save=save)
+        self.Thread = Thread
+    def __enter__(self):
+        self.stack.enter_context(patch.object(operator, '_parts', return_value=(self.rules, self.builder, self.api)))
+        self.spawn = self.stack.enter_context(patch.object(operator.subprocess, 'Popen', return_value=self.child))
+        self.stack.enter_context(patch.object(operator.threading, 'Thread', self.Thread))
+        self.stack.enter_context(patch.object(operator.time, 'monotonic', return_value=2500 if self.fault == 'expired' else 100))
+        self.stack.enter_context(patch.object(operator.time, 'sleep', side_effect=AssertionError('Unexpected unbounded fake wait')))
+        return self
+    def __exit__(self, *args):
+        self.stack.close()
+        self.child.stdout.close(); self.child.stderr.close(); self.child.stdin.close(); budget()
+        return False
+    def run(self): return operator._supervise(self.request, 100)

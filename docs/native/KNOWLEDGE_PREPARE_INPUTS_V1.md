@@ -83,3 +83,21 @@ An independent read-only retirement preview may identify the exact closed UI
 guest images and complete preserved records. It does not pin a plan, mutate the
 shared ledger, grant deletion, or restore discarded disk/RAM state from metadata.
 Actual retirement/SDK preparation/boot remain separate authorized operations.
+
+## SDK15 retirement compatibility
+
+The operational Source80 remains frozen for preparation inspection. Its old
+retirement executor omitted the actual SDK15 Library protocol, so it refuses
+that closure before image ownership/deletion. The current operator checkout's
+executor adds only `owned-emulator-library-ui-v1` to the known protocol set.
+SDK14 and SDK15 use the same existing worker/cleanup schema; all matching
+admission, exact root/proposal, typed identities, all-true cleanup, consent,
+process/file ownership, source and storage checks remain unchanged. Unqualified
+SDK16 retirement proofs remain rejected.
+
+Any eventual exact retirement proposal must name the new tested operator
+executor and its byte bindings, not claim that Source80's unchanged executor
+can perform this operation. A successful metadata closure replay is not a fresh
+native liveness check or retirement permission. The original old-protocol
+refusal and blocked proposal remain retained; no plan pin or deletion follows
+from this compatibility change.

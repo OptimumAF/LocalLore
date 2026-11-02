@@ -246,6 +246,19 @@ setup/generation fixture is required to be fabricated: zero/unavailable recovery
 and rejected cross-codec setup data are honest unit evidence; unchanged common
 owner suites and separately admitted model/IPC/render work own positive evidence.
 
+An additional FIRST group must compile in BOTH feature configurations and prove
+positive recorded-native CODEC/read compatibility without current-profile lookup
+or model assets. It may construct a clearly labelled DATA-ONLY empty native-shaped
+artifact: real corpus seed/request/input hashes, valid historical profile data
+distinct from today's native profile, closed manifest4/digest, ordinary selected
+directories/run.lock, no receipts/checkpoints/invocations/setup. Use actual
+inspect/read APIs, not a duplicate validator. Assert incomplete/no rows, zero/null
+setup measurements, unreviewed/false quality, read-only/no execution grant and
+preserved bytes; an obsolete profile is readable data, never fresh authority.
+NoFeature fresh prepare still refuses. This tests schema/capability compatibility
+only, not genuine native production, origin authentication or inference. Preserve
+all original12 FIRST groups and add this oracle before producer implementation.
+
 All source/tests are UNCOMPILED/UNRUN now. Current standing source authorization
 does not spend any old/pending finite run grant. First author/integrator get
 separate serialized branches; sources/output/temp stay physically D:. Preserve

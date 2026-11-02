@@ -71,7 +71,11 @@ automatic retry is supplied.
 
 ## Bounds and operation
 
-The whole CLI operation has a fixed 2,400-second watchdog. Preparation retains
+The whole CLI worker has a fixed 2,400-second watchdog, measured from first CLI
+entry including input/import prechecks. Closing its job can wait five seconds,
+followed by a five-second child wait and two two-second reader joins: up to
+14 seconds of bounded waits after the worker ceiling. OS handle/pipe/capture
+close/flush and result publication have no hard wall-clock guarantee. Preparation retains
 its existing 180-second child limit; eventual guest lifetime remains at most
 1,800 seconds, private owner 1,700, and existing activation/controller deadlines
 are unchanged. Minimum remaining budgets are checked before the stages.
@@ -100,7 +104,14 @@ Runtime/controls retain the existing Knowledge activation paths. Ordinary output
 parents must exist; missing parents cause refusal before charged preparation.
 Large actual operations still need their reviewed storage/read/output/retention
 budget and exact fresh authority. This host packet budgets 32 MiB controls,
-64 MiB synthetic fixtures and 128 MiB records-only recovery. Those are observed
+64 MiB NEW physical synthetic allocation, 12 GiB logical synthetic extent and
+128 MiB records-only recovery. The failed original logical-bound regression
+left one separately pinned partial dummy SD (1,350,832,128 logical bytes;
+1,315,045,376 allocated bytes) retained in place, outside the new allocation
+allowance. It is not copied into records-only recovery. The existing literal
+8 GiB SD fixture now uses checked sparse kernel EOF extension and asserts
+at most 64 KiB allocation; its admission/config/userdata assertions are unchanged.
+Those are observed
 packet bounds, not a system quota or proof of all TEMP/cache high-water usage.
 
 No runtime, model, SDK, native library or license choice changes. Kotlin, Rust,

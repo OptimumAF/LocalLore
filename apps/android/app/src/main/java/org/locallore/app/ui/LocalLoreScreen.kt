@@ -109,6 +109,8 @@ internal fun LocalLoreScreen(
     val currentActionScope by rememberUpdatedState(actionScope)
     val currentActionPersistent by rememberUpdatedState(renderedActionPersistent)
     val currentActionBlocked by rememberUpdatedState(actionBlocked)
+    // A value-equal refresh still replaces the displayed storage-control owner.
+    val currentStorageState by rememberUpdatedState(StorageActionIdentity(state))
     val draftScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
     val draftPending = state.persistent && renderedStory == null && (state.busy || state.recoveryRequired)
     val observedDraft = playDraft
@@ -238,24 +240,46 @@ internal fun LocalLoreScreen(
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (state.persistent && state.stories.isNotEmpty()) {
                                 var libraryExpanded by remember { mutableStateOf(false) }
+                                var libraryOwner by remember { mutableStateOf<Any?>(null) }
+                                val renderedLibraryOwner = libraryOwner
                                 Box {
-                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
-                                        modifier = Modifier.testTag("saved-library")) {
-                                        Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
+                                    key(StorageActionIdentity(state)) {
+                                        TextButton(onClick = {
+                                            if (currentStorageState.value === state) {
+                                                libraryOwner = Any(); libraryExpanded = true
+                                            }
+                                        }, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
+                                            modifier = Modifier.testTag("saved-library")) {
+                                            Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
+                                        }
                                     }
                                     DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
-                                        onDismissRequest = { libraryExpanded = false },
+                                        onDismissRequest = {
+                                            if (libraryOwner === renderedLibraryOwner) {
+                                                libraryExpanded = false; libraryOwner = null
+                                            }
+                                        },
                                         modifier = Modifier.semantics { testTagsAsResourceId = exposeTestTags }) {
                                         state.stories.forEach { story ->
-                                            DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
-                                                onClick = { libraryExpanded = false; onResume(story) },
-                                                modifier = Modifier.testTag("saved-story-${story.story}"))
+                                            key(StorageActionIdentity(state), StorageActionIdentity(story), renderedLibraryOwner) {
+                                                DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
+                                                    onClick = {
+                                                        if (currentStorageState.value === state && libraryExpanded &&
+                                                            renderedLibraryOwner != null && libraryOwner === renderedLibraryOwner) {
+                                                            libraryExpanded = false; libraryOwner = null
+                                                            onResume(story)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.testTag("saved-story-${story.story}"))
+                                            }
                                         }
                                     }
                                 }
                             }
                             if (onTimeline != null && state.persistent && state.selectedStory != null && state.timelines.isNotEmpty()) {
                                 var timelinesExpanded by remember(state.selectedStory.story) { mutableStateOf(false) }
+                                var timelineOwner by remember(state.selectedStory.story) { mutableStateOf<Any?>(null) }
+                                val renderedTimelineOwner = timelineOwner
                                 val canSelect = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired
                                 val selected = state.timelines.firstOrNull { it.branch == state.selectedStory.branch }
                                 selected?.let { timeline ->
@@ -265,19 +289,37 @@ internal fun LocalLoreScreen(
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                                 Box {
-                                    TextButton(onClick = { timelinesExpanded = true }, enabled = canSelect,
-                                        modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-library")) {
-                                        Text("Choose timeline · ${state.timelines.size}")
+                                    key(StorageActionIdentity(state)) {
+                                        TextButton(onClick = {
+                                            if (currentStorageState.value === state) {
+                                                timelineOwner = Any(); timelinesExpanded = true
+                                            }
+                                        }, enabled = canSelect,
+                                            modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-library")) {
+                                            Text("Choose timeline · ${state.timelines.size}")
+                                        }
                                     }
                                     DropdownMenu(expanded = timelinesExpanded && canSelect,
-                                        onDismissRequest = { timelinesExpanded = false },
+                                        onDismissRequest = {
+                                            if (timelineOwner === renderedTimelineOwner) {
+                                                timelinesExpanded = false; timelineOwner = null
+                                            }
+                                        },
                                         modifier = Modifier.semantics { testTagsAsResourceId = exposeTestTags }) {
                                         state.timelines.forEach { timeline ->
-                                            DropdownMenuItem(text = { Text("${timeline.branch} · " +
-                                                (timeline.parentBranch?.let { "from $it at ${timeline.forkRevision}" } ?: "original") +
-                                                " · revision ${timeline.revision} · ${timeline.uncommittedDrafts} uncommitted") },
-                                                onClick = { timelinesExpanded = false; onTimeline(timeline) },
-                                                modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-${timeline.branch}"))
+                                            key(StorageActionIdentity(state), StorageActionIdentity(timeline), renderedTimelineOwner) {
+                                                DropdownMenuItem(text = { Text("${timeline.branch} · " +
+                                                    (timeline.parentBranch?.let { "from $it at ${timeline.forkRevision}" } ?: "original") +
+                                                    " · revision ${timeline.revision} · ${timeline.uncommittedDrafts} uncommitted") },
+                                                    onClick = {
+                                                        if (currentStorageState.value === state && timelinesExpanded &&
+                                                            renderedTimelineOwner != null && timelineOwner === renderedTimelineOwner) {
+                                                            timelinesExpanded = false; timelineOwner = null
+                                                            onTimeline(timeline)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-${timeline.branch}"))
+                                            }
                                         }
                                     }
                                 }
@@ -436,10 +478,13 @@ internal fun LocalLoreScreen(
                     }
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (state.persistent && state.recoveryRequired) OutlinedButton(
-                                onClick = onRecover, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recover-save"),
-                            ) { Text("Recover saved progress") }
+                            if (state.persistent && state.recoveryRequired) key(StorageActionIdentity(state)) {
+                                OutlinedButton(
+                                    onClick = { if (currentStorageState.value === state) onRecover() },
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recover-save"),
+                                ) { Text("Recover saved progress") }
+                            }
                             AnimatedVisibility(visible = state.busy) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(
@@ -560,5 +605,10 @@ private fun DemoMode.label(): String = when (this) {
 /** Retire only the response Cancel node; keep the composer and transcript intact. */
 private class ResponseCancelIdentity(private val value: Any) {
     override fun equals(other: Any?) = other is ResponseCancelIdentity && other.value === value
+    override fun hashCode() = System.identityHashCode(value)
+}
+
+private class StorageActionIdentity(val value: Any) {
+    override fun equals(other: Any?) = other is StorageActionIdentity && other.value === value
     override fun hashCode() = System.identityHashCode(value)
 }

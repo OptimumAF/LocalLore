@@ -121,7 +121,8 @@ open class MainActivity : ComponentActivity() {
             return
         }
         setContent {
-            val state by model.state.collectAsStateWithLifecycle()
+            val shellFrame by model.frames.collectAsStateWithLifecycle()
+            val state = shellFrame.state
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
             val archiveFrame by model.archiveFrames.collectAsStateWithLifecycle()
             val deletionFrame by model.deletionFrames.collectAsStateWithLifecycle()
@@ -141,12 +142,13 @@ open class MainActivity : ComponentActivity() {
             val renderedChatState = state
             LocalLoreScreen(renderedChatState, { action -> model.submit(action, renderedActionStory) }, model::setMode,
                 { model.cancel(renderedChatState) }, model::startNewStory,
-                onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
+                onDiagnostics = model::openDiagnostics, onResume = { model.resume(it, renderedChatState) },
+                onRecover = { model.recover(renderedChatState) },
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
                 onText = model::submitText,
                 archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
                 deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
-                onTimeline = model::resumeTimeline,
+                onTimeline = { model.resumeTimeline(it, renderedChatState) },
                 branchDeletionAvailable = model.branchDeletionController != null,
                 onDeleteTimeline = model::openBranchDeletion,
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,

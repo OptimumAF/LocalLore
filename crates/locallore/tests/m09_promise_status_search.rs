@@ -76,7 +76,11 @@ fn many_promises() -> Engine {
         },
     );
     let mut engine = Engine::new(seed).unwrap();
-    commit(&mut engine, "walk", vec![Command::Move { to: "pier".into() }]);
+    commit(
+        &mut engine,
+        "walk",
+        vec![Command::Move { to: "pier".into() }],
+    );
     commit(
         &mut engine,
         "return",
@@ -86,7 +90,9 @@ fn many_promises() -> Engine {
                 to: "oren".into(),
                 quantity: 1,
             },
-            Command::CompletePromise { id: "return-key".into() },
+            Command::CompletePromise {
+                id: "return-key".into(),
+            },
         ],
     );
     engine
@@ -101,7 +107,10 @@ fn exact_native_status_has_complete_counts_pages_and_query_bound_cursors() {
         let first = query(&engine, &q, false).unwrap();
         assert_eq!(first.total, 9);
         assert_eq!(first.rows.len(), 8);
-        let cursor = first.next_cursor.clone().expect("ninth matching row remains");
+        let cursor = first
+            .next_cursor
+            .clone()
+            .expect("ninth matching row remains");
         let mut rows = first.rows;
         q.cursor = Some(cursor.clone());
         let second = query(&engine, &q, false).unwrap();
@@ -112,7 +121,9 @@ fn exact_native_status_has_complete_counts_pages_and_query_bound_cursors() {
         let ids: BTreeSet<_> = rows
             .iter()
             .map(|row| match row {
-                Row::Promise { id, status: actual, .. } => {
+                Row::Promise {
+                    id, status: actual, ..
+                } => {
                     assert_eq!(actual, status);
                     assert!(id.starts_with(prefix));
                     id.clone()
@@ -125,7 +136,10 @@ fn exact_native_status_has_complete_counts_pages_and_query_bound_cursors() {
         for other in ["", if token == OPEN { OVERDUE } else { OPEN }] {
             let mut retagged = request(&engine, other);
             retagged.cursor = Some(cursor.clone());
-            assert_eq!(query(&engine, &retagged, false).unwrap_err(), QueryError::InvalidCursor);
+            assert_eq!(
+                query(&engine, &retagged, false).unwrap_err(),
+                QueryError::InvalidCursor
+            );
         }
     }
     assert_eq!(canon(&engine), before);
@@ -136,8 +150,14 @@ fn fulfilled_terms_and_unwitnessed_incoming_rows_cannot_spoof_status_presets() {
     let engine = many_promises();
     let before = canon(&engine);
     let generic = query(&engine, &request(&engine, "open"), false).unwrap();
-    assert_eq!(generic.total, 10, "ordinary text search also finds fulfilled terms");
-    assert!(generic.rows.iter().any(|row| matches!(row, Row::Promise { id, status, .. }
+    assert_eq!(
+        generic.total, 10,
+        "ordinary text search also finds fulfilled terms"
+    );
+    assert!(generic
+        .rows
+        .iter()
+        .any(|row| matches!(row, Row::Promise { id, status, .. }
         if id == "return-key" && status == "fulfilled")));
     let fulfilled = query(&engine, &request(&engine, FULFILLED), false).unwrap();
     assert_eq!(fulfilled.rows.len(), 1);
@@ -154,8 +174,12 @@ fn fulfilled_terms_and_unwitnessed_incoming_rows_cannot_spoof_status_presets() {
             let encoded = serde_json::to_string(&page).unwrap();
             assert!(!encoded.contains(PRIVATE));
             assert!(!encoded.contains("hidden-incoming"));
-            if token.is_empty() { assert_eq!(page.total, 19); }
-            if token == PRIVATE { assert_eq!(page.total, 0); }
+            if token.is_empty() {
+                assert_eq!(page.total, 19);
+            }
+            if token == PRIVATE {
+                assert_eq!(page.total, 0);
+            }
             match page.next_cursor {
                 Some(cursor) => q.cursor = Some(cursor),
                 None => break,
@@ -182,7 +206,11 @@ fn creditor_preset_retains_observed_open_status_after_unwitnessed_completion() {
     commit(
         &mut engine,
         "transfer",
-        vec![Command::Give { item: "potion".into(), to: "mira".into(), quantity: 1 }],
+        vec![Command::Give {
+            item: "potion".into(),
+            to: "mira".into(),
+            quantity: 1,
+        }],
     );
     let mut creditor = request(&engine, OPEN);
     creditor.observer = Observer::Character { id: "mira".into() };
@@ -191,7 +219,9 @@ fn creditor_preset_retains_observed_open_status_after_unwitnessed_completion() {
     commit(
         &mut engine,
         "local-completion",
-        vec![Command::CompletePromise { id: "potion-return".into() }],
+        vec![Command::CompletePromise {
+            id: "potion-return".into(),
+        }],
     );
     let before = canon(&engine);
     creditor.expected_head = engine.revision();
@@ -200,9 +230,11 @@ fn creditor_preset_retains_observed_open_status_after_unwitnessed_completion() {
     assert_eq!(query(&engine, &creditor, true).unwrap().total, 0);
     let player = query(&engine, &request(&engine, FULFILLED), false).unwrap();
     assert_eq!(player.total, 1);
-    assert!(matches!(&player.rows[0], Row::Promise { id, status, sources, .. }
+    assert!(
+        matches!(&player.rows[0], Row::Promise { id, status, sources, .. }
         if id == "potion-return" && status == "fulfilled"
-            && sources.contains(&Source::ScopedEvent { original_scope: engine.scope().clone(), sequence: 3 })));
+            && sources.contains(&Source::ScopedEvent { original_scope: engine.scope().clone(), sequence: 3 }))
+    );
     assert_eq!(canon(&engine), before);
 }
 
@@ -234,15 +266,32 @@ fn corrected_child_status_search_keeps_original_sources_and_excludes_other_histo
         },
         reason: "PRIVATE_AUTHOR_REASON_66".into(),
     };
-    let corrected = parent.apply_author_correction(
-        &parent.prepare_author_correction(&correction, &|| false).unwrap(), &|| false,
-    ).unwrap().engine;
+    let corrected = parent
+        .apply_author_correction(
+            &parent
+                .prepare_author_correction(&correction, &|| false)
+                .unwrap(),
+            &|| false,
+        )
+        .unwrap()
+        .engine;
     let mut child = corrected.fork("reading", corrected.revision()).unwrap();
     let mut sibling = corrected.fork("sibling", corrected.revision()).unwrap();
-    for (engine, id) in [(&mut parent, "parent-future"), (&mut sibling, "sibling-only")] {
-        commit(engine, id, vec![Command::Promise {
-            id: id.into(), to: "mira".into(), terms: id.into(), deadline: 200, return_item: None,
-        }]);
+    for (engine, id) in [
+        (&mut parent, "parent-future"),
+        (&mut sibling, "sibling-only"),
+    ] {
+        commit(
+            engine,
+            id,
+            vec![Command::Promise {
+                id: id.into(),
+                to: "mira".into(),
+                terms: id.into(),
+                deadline: 200,
+                return_item: None,
+            }],
+        );
     }
     commit(&mut child, "local-clock", vec![Command::Wait { ticks: 1 }]);
     let before = canon(&child);
@@ -255,7 +304,12 @@ fn corrected_child_status_search_keeps_original_sources_and_excludes_other_histo
                 && sources == &vec![Source::ScopedEvent { original_scope: original_scope.clone(), sequence: 1 }]
     )));
     let encoded = serde_json::to_string(&page).unwrap();
-    for forbidden in ["parent-future", "sibling-only", "PRIVATE_CORRECTED_TRUTH_66", "PRIVATE_AUTHOR_REASON_66"] {
+    for forbidden in [
+        "parent-future",
+        "sibling-only",
+        "PRIVATE_CORRECTED_TRUTH_66",
+        "PRIVATE_AUTHOR_REASON_66",
+    ] {
         assert!(!encoded.contains(forbidden));
         let mut search = q.clone();
         search.search = forbidden.into();

@@ -51,7 +51,7 @@ unchanged. Preflight observed 28.38 GiB available physical memory; CPU, drive,
 commit and private-port gates passed without threshold or system-setting changes.
 
 The operation and activation results passed their original complete replay,
-source/capture/caller/worker/stop/history/storage joins. Independent read-only
+source/capture/caller/worker/stop/history/storage joins. Separate read-only
 OS checks found all **nine named original owned process identities absent**
 after the command exited. No verifier restarted a guest, ADB service or test.
 

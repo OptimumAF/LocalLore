@@ -124,8 +124,8 @@ open class MainActivity : ComponentActivity() {
             val state by model.state.collectAsStateWithLifecycle()
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
             val archiveFrame by model.archiveFrames.collectAsStateWithLifecycle()
-            val deletion by model.deletion.collectAsStateWithLifecycle()
-            val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
+            val deletionFrame by model.deletionFrames.collectAsStateWithLifecycle()
+            val branchDeletionFrame by model.branchDeletionFrames.collectAsStateWithLifecycle()
             val creation by model.creation.collectAsStateWithLifecycle()
             val recordFrame by model.storyRecordFrames.collectAsStateWithLifecycle()
             val fork by model.fork.collectAsStateWithLifecycle()
@@ -134,6 +134,8 @@ open class MainActivity : ComponentActivity() {
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
             val renderedRecordState = recordFrame.state
             val renderedArchive = archiveFrame.state
+            val renderedDeletion = deletionFrame.state
+            val renderedBranchDeletion = branchDeletionFrame.state
             val renderedActionStory = state.selectedStory
             LocalLoreScreen(state, { action -> model.submit(action, renderedActionStory) }, model::setMode, model::cancel, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
@@ -154,7 +156,9 @@ open class MainActivity : ComponentActivity() {
                     onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork,
                     exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
                 model.branchDeletionController?.let { controller ->
-                    BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
+                    BranchDeletionDialog(renderedBranchDeletion,
+                        { controller.dismiss(renderedBranchDeletion) }, { controller.cancel(renderedBranchDeletion) },
+                        { expected -> controller.confirm(expected, renderedBranchDeletion) })
                 }
                 model.creationController?.let { controller ->
                     StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
@@ -166,7 +170,9 @@ open class MainActivity : ComponentActivity() {
                         onOriginalCreate={s,r -> controller.confirmOriginal(s,r); Unit})
                 }
                 model.deletionController?.let { controller ->
-                    StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
+                    StoryDeletionDialog(renderedDeletion,
+                        { controller.dismiss(renderedDeletion) }, { controller.cancel(renderedDeletion) },
+                        { expected -> controller.confirm(expected, renderedDeletion) })
                 }
                 StoryRecordDialog(renderedRecordState,
                     { model.closeStoryRecord(renderedRecordState) },

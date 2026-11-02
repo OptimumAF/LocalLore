@@ -22,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -47,6 +48,7 @@ fun BranchDeletionDialog(
     onConfirm: (BranchDeletionPrepared) -> Unit,
 ) {
     if (!state.visible) return
+    val actionKey = BranchDeletionControlKey(state)
     val window = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val width = with(density) { window.width.toDp() }
@@ -99,11 +101,13 @@ fun BranchDeletionDialog(
                             Text("Native rows removed", style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
                             preview.removedRows.forEach { (name, count) -> Text("$name · $count", style = MaterialTheme.typography.bodySmall) }
                             Text(preview.privacyWarning, style = MaterialTheme.typography.bodySmall)
-                            Button(onClick = { onConfirm(prepared) }, enabled = !state.busy && !state.closing && state.deleted == null,
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("branch-delete-confirm")) {
-                                Text("Delete this timeline")
+                            key(actionKey) {
+                                Button(onClick = { onConfirm(prepared) }, enabled = !state.busy && !state.closing && state.deleted == null,
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError),
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("branch-delete-confirm")) {
+                                    Text("Delete this timeline")
+                                }
                             }
                         }
                     }
@@ -118,13 +122,22 @@ fun BranchDeletionDialog(
                         }
                     }
                 }
-                if (state.deleted == null && !state.closing) OutlinedButton(onClick = onCancel,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("branch-delete-cancel")) { Text("Cancel deletion") }
-                TextButton(onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("branch-delete-close")) {
-                    Text(if (state.closing) "Waiting to close…" else "Close")
+                if (state.deleted == null && !state.closing) key(actionKey) {
+                    OutlinedButton(onClick = onCancel,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("branch-delete-cancel")) { Text("Cancel deletion") }
+                }
+                key(actionKey) {
+                    TextButton(onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("branch-delete-close")) {
+                        Text(if (state.closing) "Waiting to close…" else "Close")
+                    }
                 }
             }
         }
     }
+}
+
+private class BranchDeletionControlKey(private val state: BranchDeletionUiState) {
+    override fun equals(other: Any?) = other is BranchDeletionControlKey && state === other.state
+    override fun hashCode() = System.identityHashCode(state)
 }

@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "scope": "sdk15-approved-ui-run-summary-v1",
+  "date": "2026-11-02",
+  "status": "verified_in_review",
+  "frozen": {
+    "operator_head": "b6cda49410bdf4aaa067a15ce165f64c793fbe53",
+    "source_head": "18809566af72530408e2e25007ee4d501e6bf12a",
+    "product_head": "7ab4918fa1044d960edcb1172fe7684474eb3a89",
+    "artifacts": {
+      "build": {
+        "bytes": 30730,
+        "sha256": "496f6358a860c2f5ff8809610d0d2f83e93dd867fbfdfe5e6c4c551871058ad3"
+      },
+      "product_apk": {
+        "bytes": 28365001,
+        "sha256": "3c355ec7568e8a6468790c417d986d413f5414f43cde2719f77a9041ea15abb6"
+      },
+      "test_apk": {
+        "bytes": 2541802,
+        "sha256": "5a96cfd007e42a5eb7e739375316c2ba43263490c2cca784b35d91b83712b698"
+      }
+    }
+  },
+  "target_configuration": {
+    "android_api": 35,
+    "abi": "x86_64",
+    "emulator": true,
+    "memory_mib": 8192,
+    "cores": 4
+  },
+  "methods": [
+    {
+      "class_name": "org.locallore.app.ui.LibraryActionScopeScreenTest",
+      "method": "oldRecoverCannotBorrowAnEqualFailedRetryAndFreshUnselectedRecoveryWorks",
+      "kind": "library_recovery_equal",
+      "passed": true,
+      "shell_exit": 0,
+      "command_elapsed_ms": 7783,
+      "stdout_sha256": "bc5c54835c3f70478e24e054d774b692615f964028fc90f4a7e606f0117eb915",
+      "evidence_sha256": "bf5144cad8e26cd778daa68c8837e74a02f605c24f8cdbba1f4c251294171357"
+    },
+    {
+      "class_name": "org.locallore.app.ui.LibraryActionScopeScreenTest",
+      "method": "oldStoryRowsAndOpenerCannotActOnReopenedOrEqualRefreshedLibrary",
+      "kind": "library_story_popup",
+      "passed": true,
+      "shell_exit": 0,
+      "command_elapsed_ms": 8205,
+      "stdout_sha256": "63ebbdcb78732e754de78801f0cde8f13f6f6f7ecf4186ed40ced32664d6b0a0",
+      "evidence_sha256": "fdcebc4f4a163db63a466bf3f03fb6742e59462348413289d819d6a97567d580"
+    },
+    {
+      "class_name": "org.locallore.app.ui.LibraryActionScopeScreenTest",
+      "method": "oldTimelineRowCannotActOnReopenedMenuAndFreshChoiceWorks",
+      "kind": "library_timeline_popup",
+      "passed": true,
+      "shell_exit": 0,
+      "command_elapsed_ms": 8033,
+      "stdout_sha256": "3ecc98f5ae16ab81b3c71c3c2a42193365c0b33c6d371fb69e95bf521bbadd3e",
+      "evidence_sha256": "e214663bd7d657150f7e5ac66b9ee92a7fed76240389557c0956c8334eef91cd"
+    },
+    {
+      "class_name": "org.locallore.app.ui.LibraryActionScopeScreenTest",
+      "method": "disposedScreenRowCannotBorrowSameViewModelAfterRemount",
+      "kind": "library_screen_remount",
+      "passed": true,
+      "shell_exit": 0,
+      "command_elapsed_ms": 7984,
+      "stdout_sha256": "3adc200e60e7a323a026368c5ae1ae2c067183a0b4dcf6df7bf724829df4d3a8",
+      "evidence_sha256": "f8f4ff00e7928ee41ad13979c4f054e621f5dfd1683f6834dbaf867bf433bde3"
+    }
+  ],
+  "client_count": 29,
+  "operation_elapsed_ms": 605957,
+  "activation_elapsed_ms": 437761,
+  "controller_elapsed_ms": 304662,
+  "verification": {
+    "original_junit_revalidated": true,
+    "complete_client_trace_replayed": true,
+    "owned_worker_and_history_replayed": true,
+    "exact_original_owned_processes_absent": 9,
+    "frozen_job_close_bool_recorded": false,
+    "extra_readonly_verifier_api_error_preserved": true
+  },
+  "storage": {
+    "ledger_version": 2,
+    "entry_state": "closed",
+    "reserved_before_bytes": 42949672960,
+    "reserved_after_bytes": 18957702908,
+    "ledger_after_sha256": "84ad23a43f6c4abd6be82164fcec2e4e7b51277f1e250a507af22654be1a7294",
+    "images_preserved_in_place": true,
+    "image_bytes_copied": false,
+    "metadata_can_restore_images": false
+  },
+  "preservation": {
+    "pairs": 353,
+    "copied_bytes": 39063400,
+    "receipt_sha256": "dffeed884bc216c7bcd37f410abd05c32fa0e7debb8a5518c6f74c12c2e67201",
+    "recovery_snapshot_bytes": 39085039
+  },
+  "model_material": false,
+  "physical_phone": false,
+  "feature_acceptance": false,
+  "merge_performed": false,
+  "grant_spent": true,
+  "limitations": [
+    "SDK15 four LibraryActionScope methods only; SDK16 Knowledge journeys remain unrun",
+    "Fake inference and emulator results do not qualify model quality or physical ARM64 devices",
+    "Frozen PR354 code did not record its native job-handle CloseHandle BOOL; separate PR361 is not retroactively credited",
+    "Recorded command/operation times are development harness timings, not inference performance",
+    "No whole-run memory, thermal, battery, network-traffic, TalkBack or full journey qualification"
+  ]
+}

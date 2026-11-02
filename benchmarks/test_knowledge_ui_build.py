@@ -34,7 +34,9 @@ def pin(path):
 
 class Graph:
     def __init__(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="locallore-b88-", dir="D:/Dev/_Temp")
+        fixture_parent = Path(__file__).resolve().parents[1] / "target/b88-test-fixtures"
+        fixture_parent.mkdir(parents=True, exist_ok=True)
+        self.temp = tempfile.TemporaryDirectory(prefix="locallore-b88-", dir=fixture_parent)
         self.home = Path(self.temp.name)
         assert self.home.drive.upper() == "D:" and self.home.resolve() == self.home
         self.allowed = set()
@@ -92,7 +94,7 @@ class Graph:
                 suffix.replace("/", "__"), path.read_bytes())))
         self.reports = dict(version=1, mode="android", files=self.bindings, cases=self.cases,
             tests=579, unique=579, failures=0, errors=0, skipped=0)
-        self.jvm_reports = dict(version=1, mode="targeted", files=self.jvm_pairs,
+        self.jvm_reports = dict(version=1, mode="jvm", files=self.jvm_pairs,
             cases=copy.deepcopy(self.cases), tests=579, unique=579, failures=0, errors=0, skipped=0)
         package = dict(status="passed", permissions=self.audit["product_permissions"],
             libraries=self.audit["libraries"])
@@ -262,6 +264,7 @@ class Graph:
         return result, dict(build=build, **copy.deepcopy(self.fixed["apks"]))
 
 
+@unittest.skipUnless(os.name == 'nt', 'D-only held-stream byte fixtures')
 class KnowledgeBuildTests(unittest.TestCase):
     def refused(self, action, category=None):
         with self.assertRaises(b.BuildRefused) as raised:

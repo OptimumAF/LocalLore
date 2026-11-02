@@ -146,6 +146,10 @@ Freeze32 groups D01..D32, preserving all original assertions after review:
 | D31 | Exact output keys/hashes/counts/status and no directive/path output |
 | D32 |32 maximum-length names/rows fit all byte limits and retain all edges |
 
+D19 fixtures establish refusal; the public callback cannot observe internal
+prewalk-versus-hash timing. Independently review that ordering in source, without
+adding instrumentation or claiming the ordering was measured by a passing case.
+
 Return ONLY version,kind,executed,passed,failed,failed_case_ids; version1,
 kind`library_metadata_dependency_first_v1`,32 groups, IDs only on failure.
 Source review is not an executed result. Do not weaken a test to match a

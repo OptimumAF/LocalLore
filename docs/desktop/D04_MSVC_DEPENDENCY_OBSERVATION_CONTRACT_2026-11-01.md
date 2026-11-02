@@ -163,6 +163,59 @@ all their failures remain unchanged. Prove actual full-envelope worst cases and
 all physical/base64/decoded/snapshot costs before any owner decision. Original
 cohort full rows and new dependency graph must not be silently omitted to fit.
 
+### Exact outer envelope frozen before producer integration
+
+The outer has ONLY version,kind,qualified,linkQualification,closureComplete,
+captureComplete,status,selfchecks,proofs,cohort,facts,critical, in that insertion
+order. Version1/kind`msvc_dependency_observation_v1`; all three qualification
+flags false. selfchecks has ONLY cohort,projection,observer: exact successful
+six-key52/32/12 summaries with their existing three kinds. Its cohort summary
+must equal the inner cohort.selfchecks. No aggregate count can hide a failure.
+
+proofs has ONLY reader,supervisor,helper,cohortFirst,projection,projectionFirst,
+observerFirst,roster,diagnostic,cohortSnapshot,codebook,descriptor,pins,catalog;
+each lowercase64hex. Couple the inner seven proof fields exactly: inner.reader
+=outer.reader, supervisor=supervisor, helper=helper, first=cohortFirst,
+roster=roster, descriptor=descriptor, codebook=codebook. Other fixed sources/
+snapshots match their frozen pins; pins/catalog hash the arrays defined above.
+For complete facts, their pinsSha256/catalogSha256 equal outer pins/catalog.
+Parent independently checks all actual owner/source/Stage/proof references.
+
+Complete requires captureComplete=true, status`complete`, outer critical=null,
+inner status`complete` with null critical, exact expected full32 encoded rows
+and all existing inner-schema counters. Inner JSON+LF must be exactly7071B:
+row/count/dictionary/selfcheck values match PR334; changed own source proofs
+remain fixed-length64hex. Facts have the accepted exact16-key shape, true
+captureComplete but false qualification/link/closure flags; all32 graph rows'
+library counts equal the saved profile counts,71 total and at most5 each.
+
+Stopped requires captureComplete=false,status`stopped`,facts=null. Existing
+inner critical codes remain allowed unchanged and outer critical must equal
+the first inner critical in those cases. Two additional outer details:
+`DependencyObservationMismatch` requires an inner stopped `ReportFailure`,
+fully attempted current pair, nonempty prefix and every earlier row equal
+the saved rows (current profile may be a known refusal or mismatching parse).
+`DependencyProjectionRefused` requires a complete exact32-row inner cohort.
+No outer success is inferred from an inner complete report. All later guard
+failures preserve the earlier outer/inner first cause.
+
+No extra field or padding capability. Bound the outer envelope with cohort=null
+and facts=null to2048B. Preserve inner≤16384B and facts' separately validated
+row≤128B, name-union-array≤8385B and empty-rows/names envelope≤2048B. These give
+a conservative facts JSON+LF bound14561B, also checked explicitly. By branch:
+complete7071+14561+2048=23680B <24576; stopped16384+2048=18432B <24576.
+These overcount replaced nulls/newlines conservatively. Independently check the
+WHOLE canonical strict UTF-8 JSON+LF≤24576B before emitting/retaining it.
+
+The supervisor validates these schemas/couplings independently, including
+per-slot strict baseline, full saved-row equality where required, fact names/
+IDs/provided-slot/null resolution and graph counts. Complete process evidence
+holds only bounded summary/digests plus raw/base64, never another full report.
+Known-closed coherent failed snapshots remain failed; malformed/overlimit raw
+output stays raw failure. A future complete packet reserve is at least126976B
+(prior118784 plus8192 for the24576B snapshot), in addition to actual sources,
+owner,Stage and prep records. Final actual sizes/envelope proof remain required.
+
 ## Storage and next admission
 
 Current final charged metadata1801774B/cap1867776B leaves66002B. Cumulative

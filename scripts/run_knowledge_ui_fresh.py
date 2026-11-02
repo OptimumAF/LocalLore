@@ -22,12 +22,16 @@ import uuid
 ROOT=Path(__file__).parents[1]
 BARRIER=b'sdk16-fresh-operation-worker-v1\n'
 _MODULES=None
+_RULES=None
 
 
 def _parts():
-    global _MODULES
-    sys.path.insert(0,str(ROOT))
-    from scripts import knowledge_ui_fresh_contract as r
+    global _MODULES,_RULES
+    if _RULES is None:
+        path=ROOT/'scripts/knowledge_ui_fresh_contract.py'
+        spec=importlib.util.spec_from_file_location('_sdk16_fresh_rules',path)
+        _RULES=importlib.util.module_from_spec(spec);spec.loader.exec_module(_RULES)
+    r=_RULES
     r.need(Path(r.__file__).resolve()==ROOT/'scripts/knowledge_ui_fresh_contract.py', 'contract_source')
     if _MODULES is None:
         # Load the exact previously reviewed inspector, not a caller-selected

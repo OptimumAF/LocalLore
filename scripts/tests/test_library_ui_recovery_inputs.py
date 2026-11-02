@@ -182,6 +182,31 @@ class LibraryUiRecoveryInputsTests(unittest.TestCase):
         self.assertEqual(namespace['BUILD']['sha256'], '496f6358a860c2f5ff8809610d0d2f83e93dd867fbfdfe5e6c4c551871058ad3')
         self.assertEqual(namespace['FILES'], FILES)
 
+    def test_fixed_real_pins_match_native_windows_binding_paths_without_relaxing_arbitrary_callers(self):
+        expected = {
+            'FAILURE': (2171, 'e21cf804358ba01c8f10c5b9a426da749b32cbc9c6c4920751e93ca8a1571505'),
+            'STATIC': (3678, 'd2ca3f1ef02ed01169b84bb62090f663aca610db159e8db97606d1e1becccf99'),
+            'BUILD': (30730, '496f6358a860c2f5ff8809610d0d2f83e93dd867fbfdfe5e6c4c551871058ad3'),
+        }
+        for role, (size, digest) in expected.items():
+            pin = copy.deepcopy(getattr(tool, role))
+            native = dict(path=str(Path(pin['path'])), bytes=size, sha256=digest)
+            with self.subTest(role=role), patch.object(env, 'binding', return_value=native) as observed, \
+                 patch.object(Path, 'open', side_effect=AssertionError('No real artifact read')), \
+                 patch.object(Path, 'stat', side_effect=AssertionError('No real artifact stat')):
+                self.assertEqual((pin['bytes'], pin['sha256']), (size, digest))
+                try:
+                    env.check_binding(pin)  # Keep the production reader and dictionary equality unchanged.
+                except env.EnvironmentRefused:
+                    self.fail(role + ' fixed pin cannot match the native Windows path emitted by binding')
+                observed.assert_called_once_with(pin['path'])
+        arbitrary = dict(path='D:/Synthetic/noncanonical-caller.json', bytes=17, sha256='a' * 64)
+        canonical = dict(arbitrary, path=str(Path(arbitrary['path'])))
+        self.assertNotEqual(arbitrary['path'], canonical['path'])
+        with patch.object(env, 'binding', return_value=canonical), \
+             patch.object(Path, 'open', side_effect=AssertionError('No caller artifact read')):
+            with self.assertRaises(env.EnvironmentRefused): env.check_binding(arbitrary)
+
     def test_complete_inspection_emits_exactly_five_bound_non_executable_records(self):
         graph = Graph()
         with graph.ports(): result = tool.inspect()

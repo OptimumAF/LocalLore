@@ -373,6 +373,15 @@ export async function runFixedTwoRuntimeSelfchecksV1(api) {
     const nested = { inspect(buffer, mode) { const value = real.inspect(buffer, mode); if (mode === 'strict-v1') { reentry = api.resolveFixedLibraryV1(1, c.s, c.f.adapter); void reentry.catch(() => {}); } return value; }, snapshot: () => real.snapshot() };
     const before = c.f.calls.length, interrupted = api.inspectDiscoveredPairV1(nested, c.input.buffer, 33);
     await throws(() => reentry, 'RequestOrder'); eq([interrupted.stopped, interrupted.critical, interrupted.row.strict[0], interrupted.row.profile], [true, 'RequestOrder', 0, null]); assert.equal(real.snapshot().attempts, 1); assert.equal(c.f.calls.length, before);
+    const orphanJob = job(); let orphanInspectCalls = 0, orphanSnapshotCalls = 0;
+    const orphanSpy = {
+      inspect(buffer, mode) { orphanInspectCalls++; return orphanJob.inspect(buffer, mode); },
+      snapshot() { orphanSnapshotCalls++; return orphanJob.snapshot(); }
+    };
+    const orphan = api.inspectDiscoveredPairV1(orphanSpy, object(), 33);
+    eq([orphan.stopped, orphan.critical, orphan.profileResult, orphan.row.strict, orphan.row.profile], [true, 'RequestOrder', null, null, null]);
+    eq([orphanInspectCalls, orphanSnapshotCalls], [0, 0]);
+    const orphanSnapshot = orphanJob.snapshot(); eq([orphanSnapshot.inputCount, orphanSnapshot.attempts], [0, 0]);
   });
 
   add('S01', () => {

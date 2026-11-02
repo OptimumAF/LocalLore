@@ -279,8 +279,15 @@ def main(argv=None):
     except InspectionRefused as error:
         print(json.dumps(dict(passed=False, reason=str(error))))
         return 1
-    except Exception:
-        print(json.dumps(dict(passed=False, reason='inspection_refused')))
+    except Exception as error:
+        # Retain a finite diagnostic category without exposing error messages,
+        # private paths, token material or values from failed inputs.
+        kind = type(error).__name__
+        if kind not in {'EnvironmentRefused', 'StorageRefused', 'BuildRefused',
+                        'OSError', 'FileNotFoundError', 'FileExistsError', 'PermissionError',
+                        'TypeError', 'KeyError', 'ValueError', 'TimeoutExpired'}:
+            kind = 'unexpected_error'
+        print(json.dumps(dict(passed=False, reason='inspection_refused', error_type=kind)))
         return 1
     print(json.dumps(result))
     return 0

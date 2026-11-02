@@ -35,7 +35,9 @@ python -I -S -B D:/Worktrees/LocalLore-theme-archive-review-v1/scripts/freeze_kn
 ```
 
 The only other accepted argument is `--help`; it performs no inspection. There
-are no path/profile/registry/executable overrides. The fixed existing output
+are no path/profile/registry/executable overrides. Failure output retains only
+a fixed refusal code or finite exception category, never raw exception payloads.
+The fixed existing output
 parent is `D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-prepare-inputs-v1`.
 The inspector creates only its absent `frozen-inputs-v1` directory and these five
 create-only records:

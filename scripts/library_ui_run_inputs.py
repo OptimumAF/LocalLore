@@ -165,12 +165,13 @@ def create_inputs(authority_pin, recovery_authorization, recovery_result):
     for folder in (r.RUNTIME,r.CONTROLS):
         api.env.safe_path(folder,exists=False);folder.mkdir()
     admission_pin=save(r.ADMISSION,admission)
-    # Activation input is published last, after complete run/admission validation.
-    input_pin=save(r.INPUT,dict(version=1,scope='library-ui-run-input-v1',admission=admission_pin,helper=h['activation']))
     again,_=recovered(authority_pin,recovery_authorization,recovery_result)
     r.need(r.same(ledger,again), 'ledger_changed')
     frozen_inputs(authority_pin)
-    for pin in (authority_pin,recovery_authorization,recovery_result,proposal_pin,run_auth_pin,admission_pin,input_pin):api.env.check_binding(pin)
+    for pin in (authority_pin,recovery_authorization,recovery_result,proposal_pin,run_auth_pin,admission_pin,h['activation']):api.env.check_binding(pin)
+    # Activation input is the final publication, after every pre-input join.
+    input_pin=save(r.INPUT,dict(version=1,scope='library-ui-run-input-v1',admission=admission_pin,helper=h['activation']))
+    api.env.check_binding(input_pin);api.env.check_binding(admission_pin)
     return dict(version=1,scope='sdk15-post-recovery-inputs-v1',authority=authority_pin,
         recovery_authorization=recovery_authorization,recovery_result=recovery_result,ledger_before=ledger,
         run_proposal=proposal_pin,run_authorization=run_auth_pin,admission=admission_pin,input=input_pin)

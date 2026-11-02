@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [promise status controls](docs/android/PROMISE_STATUS_BROWSING_2026-11-01.md)
+offer All, Open and Overdue views using Rust's existing player-visible query.
+The offline Android build passes 479 JVM cases and both APK audits; four
+native query regressions pass. Two new Compose journeys compile but remain
+unrun on Android.
+
 The [Story Record control fix](docs/android/STORY_RECORD_ACTION_SCOPE_2026-11-01.md)
 binds controls to the exact rendered view and preserves fresh frame delivery
 when record values repeat. Thirteen original JVM regressions pass within the

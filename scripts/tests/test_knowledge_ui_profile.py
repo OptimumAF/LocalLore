@@ -251,8 +251,8 @@ class KnowledgeUiAuthorityTests(unittest.TestCase):
              patch.object(mechanisms._TargetRuntimeCore, '__init__') as worker, \
              patch.object(wire._OwnedTargetSdkCapture, '__init__') as capture, \
              patch.object(build, 'verify_current') as product:
-            with self.assertRaises(core.TargetRefused): SubstituteOwner({}, {})
-            with self.assertRaises(core.TargetRefused): SubstituteWorker({}, {}, None)
+            with self.assertRaisesRegex(owner.OwnerRefused, '^owner_type$'): SubstituteOwner({}, {})
+            with self.assertRaisesRegex(owner.OwnerRefused, '^owner_type$'): SubstituteWorker({}, {}, None)
             with self.assertRaises(client.ClientRefused): SubstituteCapture(None, 1, None)
             live.assert_not_called(); worker.assert_not_called(); capture.assert_not_called()
             product.assert_not_called()

@@ -43,8 +43,10 @@ Output is create-only under
 - `handoff-inputs-v1.json`: fixed profile, limits, pins and explicit pending gates.
 - `result-v1.json`: completed inspection record, always unready for execution.
 
-Each generated record is read back equal to its validated in-memory value and
-its pin is rechecked before/after the final result. The tool also rechecks
+The four generated input records are read back equal to their validated
+in-memory values, and their pins are rechecked before/after the final result.
+The final result is separately read back equal to its returned value.
+The tool also rechecks
 original ledger/source/tool/artifact/helper pins after planning. A partial or
 changed set refuses and remains preserved; no overwrite, rollback or automatic
 retry occurs. These are bounded snapshots, not simultaneous filesystem ownership
@@ -121,7 +123,7 @@ All seven source paths point to the frozen SDK15 checkout. Its parent mode is
 `create_one`; the old entry remains preparing with 42,949,672,960 bytes charged.
 The handoff is 8,214 bytes, SHA256
 `b94367b9a70e194138a03528e6971c8be1e66d25551021f9140f1fb115a03475`.
-Both records retain explicit pending authority and readiness gates.
+The handoff retains explicit pending authority and readiness gates.
 
 The original build role stays the B81 30,730-byte manifest, SHA256
 `496f6358a860c2f5ff8809610d0d2f83e93dd867fbfdfe5e6c4c551871058ad3`.

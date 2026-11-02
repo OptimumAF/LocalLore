@@ -543,3 +543,54 @@ All24 groups remain UNRUN. Prior41187B freeze above is retained history.
 The whole reader/supervisor, full source/envelope proofs and fresh retention
 forecast are still prerequisites to a separate owner decision. No actual
 program/owner/Stage/START file, cap activation or input lookup is authorized.
+
+### Independent supervisor data checks before its producer
+
+The Node FIRST exercises the child encoder, not the PowerShell supervisor's
+independent validator. Freeze six small supervisor data groups BEFORE writing
+that new validator. This adds no second child or SDK input: the future SAME
+supervisor creates its immutable packet START, runs these six fixed data groups,
+retains their bounded summary, and launches its ONE fixed Node child ONLY on
+6/6 success. That child then requires all24 Node groups before its real adapter.
+All30 groups remain UNRUN; this is source preparation, not a new run decision.
+
+Independent owned source is
+`native/llama-worker/library_runtime_resolution_parent_first.ps1`. It declares
+ONLY `Invoke-FixedTwoParentSelfchecksV1($Dictionary,$ExpectedProofs)` and private
+fixture helpers; no top-level suite, filesystem/environment/process/network
+operation, source evaluation, general command/path or code-string argument.
+It calls the fixed supervisor function
+`Validate-FixedTwoRuntimeReport([byte[]]$Raw,$Dictionary,$ExpectedProofs,$Roster)`.
+That function returns the parsed report ONLY on success and throws the fixed
+`InvalidRuntimeMetadataReport` on any invalid input. No injected scriptblock
+or arbitrary executable selector is exposed. Actual codebook/source proofs
+are supplied as DATA; fake roster root tokens remain synthetic.
+
+Dictionary has kinds,sites,contexts,sha256,descriptorSha256 under the existing
+Context-Codebook format. ExpectedProofs is the fixed15-key report dictionary.
+The fake roster contains only the pure validator's dependencies:
+search.rootIdentities and15 sdkInputs.requestedName records in original order.
+The real supervisor supplies the authenticated full original roster instead;
+actual root pins MUST be enforced there, never replaced by fixture tokens.
+
+GroupsV01..V06: complete two-found and missing outcomes; coherent known-refusal
+and JobStopped/unknown terminal reports; flag/proof/schema/primitive-type and
+canonical-byte refusals; pipeline/job/read/section/reservation-prefix refusals
+(including0/MAX reservation); exact names/IDs/catalog/presence versus metadata;
+and bounded raw/name/row/report resource controls. Preserve every group/assertion.
+The summary has ONLY version,kind,executed,passed,failed,failed_case_ids:
+version1,kind`fixed_two_parent_first_v1`,executed6,passed6,failed0,empty IDs.
+Fixtures are tiny ordered JSON data, never SDK observations or metadata parsing.
+
+The supervisor records the actual summary to the fixed
+`b2-msvc-runtime-resolution-parent-selfchecks-v1.json`, at most1024B. Its
+immutable START precedes these checks, preserving the existing global incomplete-
+START stop if the supervisor dies. No START field falsely claims checks passed.
+The Node authority gate additionally requires this fixed file to equal the
+canonical exact6/6 summary. Stage/owner declare parentSelfcheckCases6 as well
+as Node selfcheckCases24; owner sources additionally bind parentFirst. Both
+supervisor and child hash the exact test-source file; only the supervisor
+loads its fixed definitions. No retry follows a failed/missing parent summary.
+Keep existing START768B, report24576B, streams24576/1024B and60s child/5s drain
+bounds. Add the1024B summary to the FULL retention forecast before admission.
+All previous caps/output and failed/spent records remain unchanged.

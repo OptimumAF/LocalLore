@@ -195,6 +195,7 @@ open class MainActivity : ComponentActivity() {
                     onEventBack = { model.backToStoryRecord(renderedRecordState) },
                     onEventRetry = { model.retryRecordEvent(renderedRecordState) },
                     onPromiseFilter = { filter -> model.recordPromiseFilter(filter, renderedRecordState) },
+                    onKnowledgeFilter = { filter -> model.recordKnowledgeFilter(filter, renderedRecordState) },
                     onFocusRelationship = { entry -> model.focusRecordRelationship(entry, renderedRecordState) },
                     onAllRelationships = { model.allRecordRelationships(renderedRecordState) })
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {

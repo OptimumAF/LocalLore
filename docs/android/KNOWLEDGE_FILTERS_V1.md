@@ -10,14 +10,16 @@ OBSERVED ("Known as observed", `known_as_observed`), STATEMENTS ("Statements",
 local Query/State only. It is not a native JSON field, grant or canonical type.
 
 Only version-2 KNOWLEDGE may use an active filter. It requires empty search,
-promise filter ALL and no relationship target. Contradictions fail as invalid
-response before dispatch. Native search is the exact closed literal
+promise filter ALL and no relationship target. With valid search text,
+contradictions fail as invalid response before dispatch. Native search is the exact closed literal
 `"origin":"<wire-origin>"`; ALL preserves the existing user search. Rust applies
 observer/story/branch/revision restrictions and matching before counting and
 paging. Kotlin never removes rows or recomputes totals. Every returned row must
 match the requested native origin. Existing byte/source/cursor limits apply.
 
-Search switches to ALL; leaving the section resets the filter. First/Next/Retry
+Selecting any facet, including ALL, clears search. The wire's ALL mode preserves
+an explicitly supplied literal search. Search switches to ALL; selecting a
+section (including reselecting KNOWLEDGE) resets the filter. First/Next/Retry
 retain it, and changing it starts at the first page. Late/replaced/closed or
 disposed views cannot act on a new view. MainActivity passes the exact rendered
 record state; interactive controls use the existing record delivery key.

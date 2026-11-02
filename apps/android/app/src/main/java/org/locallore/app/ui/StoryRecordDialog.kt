@@ -23,10 +23,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +45,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.locallore.app.StoryRecordEntry
 import org.locallore.app.StoryRecordPromiseFilter
+import org.locallore.app.StoryRecordKnowledgeFilter
 import org.locallore.app.StoryRecordSection
 import org.locallore.app.StoryRecordState
 import org.locallore.app.StoryRecordScopedEvent
@@ -64,11 +67,18 @@ fun StoryRecordDialog(
     onPromiseFilter: (StoryRecordPromiseFilter) -> Unit = {},
     onFocusRelationship: (StoryRecordEntry) -> Unit = {},
     onAllRelationships: () -> Unit = {},
+    onKnowledgeFilter: (StoryRecordKnowledgeFilter) -> Unit = {},
 ) {
     if (!state.visible) return
     val actionKey = RecordActionKey(state)
+    val lifetime = remember { RecordDialogLifetime() }
+    val currentActionKey by rememberUpdatedState(actionKey)
+    DisposableEffect(lifetime) { onDispose { lifetime.active = false } }
+    fun act(block: () -> Unit) {
+        if (lifetime.active && currentActionKey == actionKey) block()
+    }
     // A new story/head or applied query must never inherit another context's edited search.
-    var searchDraft by remember(state.context, state.search, state.promiseFilter, state.relationshipTarget) {
+    var searchDraft by remember(state.context, state.search, state.promiseFilter, state.relationshipTarget, state.knowledgeFilter) {
         mutableStateOf(state.search)
     }
     val recordScrollState = rememberScrollState()
@@ -79,7 +89,7 @@ fun StoryRecordDialog(
     val canQuery = state.context != null && !state.loading
 
     Dialog(
-        onDismissRequest = { if (state.eventDetail != null) onEventBack() else onDismiss() },
+        onDismissRequest = { act { if (state.eventDetail != null) onEventBack() else onDismiss() } },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
@@ -99,13 +109,13 @@ fun StoryRecordDialog(
                     StoryEventDetail(
                         detail = eventDetail,
                         context = state.context,
-                        onRetry = onEventRetry,
+                        onRetry = onEventRetry?.let { retry -> { act { retry() } } },
                         actionKey = actionKey,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
                     key(actionKey) {
                         OutlinedButton(
-                            onClick = onEventBack,
+                            onClick = { act { onEventBack() } },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                 .testTag("story-event-back"),
                         ) { Text("Back to records") }
@@ -144,7 +154,7 @@ fun StoryRecordDialog(
                                 sections.forEach { section ->
                                     FilterChip(
                                         selected = state.section == section,
-                                        onClick = { onSection(section) },
+                                        onClick = { act { onSection(section) } },
                                         enabled = state.context != null,
                                         label = { Text(section.label) },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp)
@@ -154,6 +164,25 @@ fun StoryRecordDialog(
                             }
                         }
                     }
+                    if (state.section == StoryRecordSection.KNOWLEDGE) {
+                        Text("Knowledge record type", style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.semantics { heading() })
+                        key(actionKey) {
+                            StoryRecordKnowledgeFilter.entries.chunked(2).forEach { filters ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    filters.forEach { filter ->
+                                        FilterChip(selected = state.knowledgeFilter == filter,
+                                            onClick = { act { onKnowledgeFilter(filter) } }, enabled = canQuery,
+                                            label = { Text(filter.label) },
+                                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                                .testTag("story-record-knowledge-${filter.name.lowercase()}"))
+                                    }
+                                }
+                            }
+                        }
+                        Text("Choose a type or search all knowledge. An observation records what was learned then; " +
+                            "it may differ from current world truth.", style = MaterialTheme.typography.bodySmall)
+                    }
                     if (state.section == StoryRecordSection.PROMISES) {
                         Text("Promise status", style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.semantics { heading() })
@@ -162,7 +191,7 @@ fun StoryRecordDialog(
                                 StoryRecordPromiseFilter.entries.forEach { filter ->
                                     FilterChip(
                                         selected = state.promiseFilter == filter,
-                                        onClick = { onPromiseFilter(filter) },
+                                        onClick = { act { onPromiseFilter(filter) } },
                                         enabled = canQuery,
                                         label = { Text(filter.label) },
                                         modifier = Modifier.weight(1f).heightIn(min = 48.dp)
@@ -183,7 +212,7 @@ fun StoryRecordDialog(
                                 modifier = Modifier.testTag("story-record-relationship-target"))
                             key(actionKey) {
                                 OutlinedButton(
-                                    onClick = onAllRelationships,
+                                    onClick = { act { onAllRelationships() } },
                                     enabled = canQuery,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                         .testTag("story-record-all-relationships"),
@@ -197,7 +226,7 @@ fun StoryRecordDialog(
                     }
                     OutlinedTextField(
                         value = searchDraft,
-                        onValueChange = { searchDraft = it },
+                        onValueChange = { text -> act { searchDraft = text } },
                         enabled = canQuery,
                         label = { Text(when (state.section) {
                             StoryRecordSection.PROMISES -> "Search all promises"
@@ -209,7 +238,7 @@ fun StoryRecordDialog(
                     )
                     key(actionKey) {
                         Button(
-                            onClick = { onSearch(searchDraft) },
+                            onClick = { act { onSearch(searchDraft) } },
                             enabled = canQuery,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                 .testTag("story-record-search-submit"),
@@ -240,7 +269,7 @@ fun StoryRecordDialog(
                             )
                             key(actionKey) {
                                 OutlinedButton(
-                                    onClick = onRetry,
+                                    onClick = { act { onRetry() } },
                                     enabled = canQuery,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                         .testTag("story-record-retry"),
@@ -269,8 +298,11 @@ fun StoryRecordDialog(
                             }
                             state.entries.forEachIndexed { index, entry ->
                                 key(actionKey, entry.key) {
-                                    StoryRecordRow(entry, index, onEvent, onScopedEvent,
-                                        onFocusRelationship.takeIf { state.relationshipTarget == null && canQuery })
+                                    StoryRecordRow(entry, index,
+                                        { sequence -> act { onEvent(sequence) } },
+                                        { reference -> act { onScopedEvent(reference) } },
+                                        if (state.relationshipTarget == null && canQuery)
+                                            { entry -> act { onFocusRelationship(entry) } } else null)
                                 }
                             }
                         }
@@ -289,13 +321,13 @@ fun StoryRecordDialog(
                     key(actionKey) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
-                                onClick = onFirst,
+                                onClick = { act { onFirst() } },
                                 enabled = canQuery && state.cursor != null,
                                 modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                                     .testTag("story-record-first"),
                             ) { Text("First page") }
                             OutlinedButton(
-                                onClick = onNext,
+                                onClick = { act { onNext() } },
                                 enabled = canQuery && state.problem == null && state.nextCursor != null,
                                 modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                                     .testTag("story-record-next"),
@@ -306,7 +338,7 @@ fun StoryRecordDialog(
                 // Dismissal remains reachable even when enlarged text fills a small window.
                 key(actionKey) {
                     TextButton(
-                        onClick = onDismiss,
+                        onClick = { act { onDismiss() } },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                             .testTag("story-record-close"),
                     ) { Text("Close") }
@@ -321,6 +353,9 @@ private class RecordActionKey(private val state: StoryRecordState) {
     override fun equals(other: Any?) = other is RecordActionKey && state === other.state
     override fun hashCode() = System.identityHashCode(state)
 }
+
+/** A removed dialog cannot regain authority if the same record instance is mounted again. */
+private class RecordDialogLifetime { var active = true }
 
 @Composable
 private fun StoryRecordRow(entry: StoryRecordEntry, index: Int, onEvent: (Long) -> Unit,

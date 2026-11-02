@@ -19,11 +19,11 @@ OUTPUT = OUT / 'frozen-inputs-v1'
 REGISTRY = Path('D:/Dev/_Migration/LocalLore-AVD-Storage')
 GUEST = Path('D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-v1/avd-v1')
 LEDGER_SHA256 = '4917ec696f7c9f9de5917838aafbd9c2d11184e17c8cbecd71f4eb66ae6a58c5'
-FAILURE = dict(path='D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-capacity-v1/approved-operation-v1/prepare-observed-failure-v1.json',
+FAILURE = dict(path=str(Path('D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-capacity-v1/approved-operation-v1/prepare-observed-failure-v1.json')),
     bytes=2171,sha256='e21cf804358ba01c8f10c5b9a426da749b32cbc9c6c4920751e93ca8a1571505')
-STATIC = dict(path='D:/Dev/Experiments/LocalLore/2026-11-01-recovered-owner-handoff-v1/frozen-inputs-v3/static-installed-inputs-v1.json',
+STATIC = dict(path=str(Path('D:/Dev/Experiments/LocalLore/2026-11-01-recovered-owner-handoff-v1/frozen-inputs-v3/static-installed-inputs-v1.json')),
     bytes=3678,sha256='d2ca3f1ef02ed01169b84bb62090f663aca610db159e8db97606d1e1becccf99')
-BUILD = dict(path='D:/Dev/Experiments/LocalLore/2026-11-02-library-ui-harness-v1/library-ui-build-v1.json',
+BUILD = dict(path=str(Path('D:/Dev/Experiments/LocalLore/2026-11-02-library-ui-harness-v1/library-ui-build-v1.json')),
     bytes=30730,sha256='496f6358a860c2f5ff8809610d0d2f83e93dd867fbfdfe5e6c4c551871058ad3')
 FILES = frozenset(('b80-byte-attestation-v1.json','recovery-plan-v1.json',
     'static-installed-inputs-v1.json','handoff-inputs-v1.json','result-v1.json'))

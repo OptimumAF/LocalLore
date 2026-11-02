@@ -133,7 +133,8 @@ def _worker():
            type(request['started_monotonic']) in (int,float), 'request')
     authority=b.read_authority(request['authority'])
     r.validate_attempt(b.read(request['attempt'],r.ATTEMPT),request['authority'],authority)
-    r.need(r.same(api.env.process_identity(request['parent']['pid']),request['parent']) and
+    r.need(os.getppid()==request['parent']['pid'] and
+           r.same(api.env.process_identity(os.getppid()),request['parent']) and
            request['parent']['executable']==sys.executable, 'parent_identity')
     identity=api.env.process_identity(os.getpid())
     started=b.read(api.env.binding(r.LIVE/'worker-started-v1.json'))

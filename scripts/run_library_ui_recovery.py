@@ -229,7 +229,8 @@ def _execute(authority_pin, begin):
         request=b.save(r.LIVE/'worker-request-v1.json',dict(version=1,scope='sdk15-recovery-operation-worker-request-v1',
             authority=authority_pin,attempt=attempt,parent=parent,started_monotonic=begin))
         returned=_supervise(request,begin);result['owner']=b.save(r.LIVE/'outer-owner-result-v1.json',returned)
-        r.need(returned['status']=='child_exited' and returned['worker_returncode']==0 and
+        r.need(returned['status']=='child_exited' and type(returned['worker_returncode']) is int and
+               returned['worker_returncode']==0 and
                returned['cleanup_complete'] is True and returned['output_capture_complete'] is True, 'outer_terminal')
         started=b.read(api.env.binding(r.LIVE/'worker-started-v1.json'))
         claim=b.read(api.env.binding(r.LIVE/'worker-claim-v1.json'))

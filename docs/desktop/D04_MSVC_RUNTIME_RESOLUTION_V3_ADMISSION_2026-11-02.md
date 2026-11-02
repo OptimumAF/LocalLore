@@ -1,5 +1,12 @@
 # V3 fixed-two metadata amendment: complete admission proposal
 
+> Historical proposal: the separately approved ONE V3 packet has completed and
+> its grant is SPENT. [Actual verification](D04_MSVC_RUNTIME_RESOLUTION_V3_VERIFICATION_2026-11-02.md)
+> records 6/6 parent and 24/24 Node checks, a complete capture, one profile parse
+> and one profile refusal. This is not complete metadata or link qualification.
+> V1 remains FAILED; V2 remains superseded and unlaunched. The pre-decision
+> statements below are preserved as proposal history, not current run authority.
+
 Refs #25 D04.01/.02/.04 supporting, #31 D09.03 supporting, #21; draft PR348.
 Root owns these new documents and memory-only producer preparation on the
 existing `prep/msvc-runtime-resolution-v1` branch/physical D: checkout.

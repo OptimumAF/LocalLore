@@ -63,7 +63,7 @@ ONLY the two already pinned files from PR348V3, in fixed order; no lookup:
 
 Production matches complete retained pins, ordinary canonical root/leaf paths
 and signatures from the original roster/PR348V3; no alternate SDK/root/name or
-fallback. Exactly two held handles total, one per input, two scans each,
+fallback. At most two held handles total, one per input, two scans each,
 324066 input bytes/648132 selected read bytes maximum. <=65536B chunks,
 positive short reads, held/path/root identity, both SHA checks, retained-buffer
 hash and one close attempt are the accepted reader's unchanged protocol.

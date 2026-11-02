@@ -27,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -111,6 +112,8 @@ internal fun LocalLoreScreen(
     val currentActionBlocked by rememberUpdatedState(actionBlocked)
     // A value-equal refresh still replaces the displayed storage-control owner.
     val currentStorageState by rememberUpdatedState(StorageActionIdentity(state))
+    val storageControls = remember { StorageActionLifetime() }
+    DisposableEffect(storageControls) { onDispose { storageControls.active = false } }
     val draftScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
     val draftPending = state.persistent && renderedStory == null && (state.busy || state.recoveryRequired)
     val observedDraft = playDraft
@@ -245,7 +248,7 @@ internal fun LocalLoreScreen(
                                 Box {
                                     key(StorageActionIdentity(state)) {
                                         TextButton(onClick = {
-                                            if (currentStorageState.value === state) {
+                                            if (storageControls.active && currentStorageState.value === state) {
                                                 libraryOwner = Any(); libraryExpanded = true
                                             }
                                         }, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
@@ -264,7 +267,7 @@ internal fun LocalLoreScreen(
                                             key(StorageActionIdentity(state), StorageActionIdentity(story), renderedLibraryOwner) {
                                                 DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
                                                     onClick = {
-                                                        if (currentStorageState.value === state && libraryExpanded &&
+                                                        if (storageControls.active && currentStorageState.value === state && libraryExpanded &&
                                                             renderedLibraryOwner != null && libraryOwner === renderedLibraryOwner) {
                                                             libraryExpanded = false; libraryOwner = null
                                                             onResume(story)
@@ -291,7 +294,7 @@ internal fun LocalLoreScreen(
                                 Box {
                                     key(StorageActionIdentity(state)) {
                                         TextButton(onClick = {
-                                            if (currentStorageState.value === state) {
+                                            if (storageControls.active && currentStorageState.value === state) {
                                                 timelineOwner = Any(); timelinesExpanded = true
                                             }
                                         }, enabled = canSelect,
@@ -312,7 +315,7 @@ internal fun LocalLoreScreen(
                                                     (timeline.parentBranch?.let { "from $it at ${timeline.forkRevision}" } ?: "original") +
                                                     " · revision ${timeline.revision} · ${timeline.uncommittedDrafts} uncommitted") },
                                                     onClick = {
-                                                        if (currentStorageState.value === state && timelinesExpanded &&
+                                                        if (storageControls.active && currentStorageState.value === state && timelinesExpanded &&
                                                             renderedTimelineOwner != null && timelineOwner === renderedTimelineOwner) {
                                                             timelinesExpanded = false; timelineOwner = null
                                                             onTimeline(timeline)
@@ -480,7 +483,7 @@ internal fun LocalLoreScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (state.persistent && state.recoveryRequired) key(StorageActionIdentity(state)) {
                                 OutlinedButton(
-                                    onClick = { if (currentStorageState.value === state) onRecover() },
+                                    onClick = { if (storageControls.active && currentStorageState.value === state) onRecover() },
                                     enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recover-save"),
                                 ) { Text("Recover saved progress") }
@@ -612,3 +615,6 @@ private class StorageActionIdentity(val value: Any) {
     override fun equals(other: Any?) = other is StorageActionIdentity && other.value === value
     override fun hashCode() = System.identityHashCode(value)
 }
+
+/** Event callbacks from a disposed Screen must not borrow a surviving ViewModel. */
+private class StorageActionLifetime { var active = true }

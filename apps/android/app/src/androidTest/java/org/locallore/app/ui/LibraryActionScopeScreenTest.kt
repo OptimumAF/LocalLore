@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
@@ -50,15 +51,17 @@ class LibraryActionScopeScreenTest {
     @Test fun oldRecoverCannotBorrowAnEqualFailedRetryAndFreshUnselectedRecoveryWorks() = journey(0)
     @Test fun oldStoryRowsAndOpenerCannotActOnReopenedOrEqualRefreshedLibrary() = journey(1)
     @Test fun oldTimelineRowCannotActOnReopenedMenuAndFreshChoiceWorks() = journey(2)
+    @Test fun disposedScreenRowCannotBorrowSameViewModelAfterRemount() = journey(3)
 
     private fun journey(kind: Int) {
         val port = Port(initializeFails = kind == 0); val store = ViewModelStore()
+        val shown = mutableStateOf(true)
         lateinit var model: ShellViewModel
         compose.runOnUiThread { model = ShellViewModel(port); store.put("model", model) }
         compose.setContent {
             val frame by model.frames.collectAsState()
             val rendered = frame.state
-            Box(Modifier.requiredSize(360.dp, 620.dp)) {
+            if (shown.value) Box(Modifier.requiredSize(360.dp, 620.dp)) {
                 LocalLoreScreen(rendered, model::submit, model::setMode,
                     { model.cancel(rendered) }, model::reset,
                     onResume = { model.resume(it, rendered) }, onRecover = { model.recover(rendered) },
@@ -137,6 +140,19 @@ class LibraryActionScopeScreenTest {
                     compose.runOnIdle {
                         assertEquals(1, port.resumes.size); assertEquals("fork", model.state.value.selectedStory!!.branch)
                     }
+                }
+                3 -> {
+                    control("saved-library").performClick()
+                    val old = click("saved-story-library-b"); val before = model.state.value
+                    compose.runOnIdle { shown.value = false }
+                    waitAbsent("saved-library"); waitAbsent("saved-story-library-b")
+                    compose.runOnIdle { shown.value = true }
+                    control("saved-library").performClick()
+                    compose.runOnIdle {
+                        assertSame(before, model.state.value); old(); assertTrue(port.resumes.isEmpty())
+                    }
+                    compose.onNodeWithTag("saved-story-library-b").assertIsDisplayed().performClick(); ready()
+                    compose.runOnIdle { assertEquals(1, port.resumes.size); assertEquals(port.b, model.state.value.selectedStory) }
                 }
             }
             compose.runOnIdle { assertEquals(0, port.gameplay); assertEquals(port.history, model.state.value.messages) }

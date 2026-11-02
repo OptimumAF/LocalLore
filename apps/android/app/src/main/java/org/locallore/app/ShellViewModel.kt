@@ -38,6 +38,7 @@ class ShellViewModel internal constructor(
     private var disposed = false
     internal val creationController = creationGateway?.let { StoryCreationController(it, viewModelScope, ::creationClosed) }
     internal val creation = creationController?.state ?: MutableStateFlow(StoryCreationUiState()).asStateFlow()
+    internal val creationFrames = creationController?.frames ?: MutableStateFlow(StoryCreationFrame(creation.value)).asStateFlow()
     internal val archiveController = archiveGateway?.let { ArchiveController(it, viewModelScope, ::archiveClosed) }
     val archive = archiveController?.state ?: MutableStateFlow(ArchiveUiState()).asStateFlow()
     internal val archiveFrames = archiveController?.frames ?: MutableStateFlow(ArchiveFrame(archive.value)).asStateFlow()

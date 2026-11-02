@@ -208,9 +208,11 @@ internal fun StoryCreationDialog(
                         }
                     }
                 }
-                OutlinedButton(onClick = onDismiss, enabled = !state.closing,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-creation-cancel")) {
-                    Text(if (state.closing) "Finishing…" else if (request == null && !state.busy) "Close" else "Cancel")
+                key(CreationIdentity(state)) {
+                    OutlinedButton(onClick = onDismiss, enabled = !state.closing,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("story-creation-cancel")) {
+                        Text(if (state.closing) "Finishing…" else if (request == null && !state.busy) "Close" else "Cancel")
+                    }
                 }
             }
         }

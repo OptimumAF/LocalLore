@@ -126,7 +126,8 @@ open class MainActivity : ComponentActivity() {
             val archiveFrame by model.archiveFrames.collectAsStateWithLifecycle()
             val deletionFrame by model.deletionFrames.collectAsStateWithLifecycle()
             val branchDeletionFrame by model.branchDeletionFrames.collectAsStateWithLifecycle()
-            val creation by model.creation.collectAsStateWithLifecycle()
+            val creationFrame by model.creationFrames.collectAsStateWithLifecycle()
+            val renderedCreation = creationFrame.state
             val recordFrame by model.storyRecordFrames.collectAsStateWithLifecycle()
             val fork by model.fork.collectAsStateWithLifecycle()
             val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
@@ -161,7 +162,7 @@ open class MainActivity : ComponentActivity() {
                         { expected -> controller.confirm(expected, renderedBranchDeletion) })
                 }
                 model.creationController?.let { controller ->
-                    StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
+                    StoryCreationDialog(renderedCreation, { controller.dismiss(renderedCreation) }, controller::editTitle, controller::confirm,
                         exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION, onTemplate = controller::chooseTemplate,
                         onPlayerName = controller::editPlayerName, onPlayerReview = controller::reviewChanges,
                         onTone = controller::editTone, onExcludedPhrases = controller::editExcludedPhrases,

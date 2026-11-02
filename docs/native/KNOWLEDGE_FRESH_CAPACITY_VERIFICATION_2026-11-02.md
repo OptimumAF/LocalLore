@@ -63,7 +63,7 @@ The original independent tests cover exact count/byte boundaries, monotonically
 retained closed charges, fresh file growth, retired evidence charging, no retired
 reuse, missing/locked/corrupt/orphaned recovery inputs, stale closure/proofs,
 detected ledger/lock/root/proof changes, path/parent/ancestry rejection and no
-mutator/process/socket/import work. Semantic cases use real shared storage
+mutator/process/socket work or import-time I/O. Semantic cases use real shared storage
 validation on tiny retained synthetic ledgers; historical byte floors do not
 allocate GiB files. SDK16 cases also require early rejection of the old literal.
 
@@ -158,8 +158,8 @@ proposal and every pre-existing storage AST is unchanged after removing only
 that function. Separate refinement review found all assertion and budget-check
 ASTs unchanged. The 9+3 independent test files are byte-identical to their
 original proposals. Review is evidence, not human acceptance. Private raw
-captures, process identities and ledger history stay local; only this sanitized
-report and synthetic source/tests are published. No real guest images, model
+captures, process identities and ledger history stay local; source/tests and
+sanitized reports are published. No real guest images, model
 weights or credentials were copied; tiny synthetic fixture bytes are included.
 
 ## Remaining gate and next task
@@ -172,6 +172,9 @@ boot must have its applicable exact authorization and fresh admission; this
 packet supplies none. Do not adopt/reset the SDK15 guest or replace its images.
 
 No emulator/ADB lifecycle, phone/model operation, system setting change,
-unrelated-emulator stop, ledger mutation, image deletion, private upload, release
+unrelated-emulator stop, shared-ledger mutation, real guest-image deletion, private upload, release
 or merge occurred. Physical-device/model/ARM64, real Android rendering/TalkBack,
-full journeys and release acceptance remain separate open gates.
+full journeys and release acceptance remain separate open gates. Tests do mutate
+their tiny isolated ledgers, and existing storage fixtures clean up their own
+synthetic files; those operations do not touch the protected shared ledger or
+real guest images.

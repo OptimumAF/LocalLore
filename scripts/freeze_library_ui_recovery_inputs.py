@@ -104,9 +104,12 @@ def _static():
     pins += value['tools'] + [p for p in value['python'].values() if p is not None]
     for pin in pins:
         api.env.check_binding(pin)
+    old_source = value['refuser_source']
     value = copy.deepcopy(value)
     value['refuser_source'] = api.env.binding(SOURCE/'benchmarks/native/deny_adb_client.c')
     api.env.check_binding(value['refuser_source'])
+    _need(_same({k:value['refuser_source'][k] for k in ('bytes','sha256')},
+                {k:old_source[k] for k in ('bytes','sha256')}), 'refuser_source')
     return value, pins
 
 
@@ -148,7 +151,10 @@ def inspect():
     api.env.safe_path(OUTPUT,exists=False)
     OUTPUT.mkdir()
     api.env.create_json(OUTPUT/'b80-byte-attestation-v1.json',manifest)
+    attestation = api.env.binding(OUTPUT/'b80-byte-attestation-v1.json')
     plan = api.recovery.plan(GUEST,Path(FAILURE['path']),OUTPUT/'recovery-plan-v1.json')
+    plan_pin = api.env.binding(OUTPUT/'recovery-plan-v1.json')
+    _need(_same(_read(plan_pin),plan), 'recovery_plan')
     _need(_same(plan['sources'],api.recovery._sources()) and len(plan['sources']) == 7 and
           all(Path(p['path']).parent == SOURCE/'benchmarks' for p in plan['sources']), 'recovery_sources')
     for pin in plan['sources']:
@@ -158,12 +164,13 @@ def inspect():
         helper=helper,sources=sources,activation=api.env.binding(api.activation.HELPER),
         controls=str(api.activation.CONTROLS),runtime=str(api.activation.RUNTIME),guest=str(GUEST),
         artifacts=artifacts,static_inputs=api.env.binding(OUTPUT/'static-installed-inputs-v1.json'),
-        recovery_plan=api.env.binding(OUTPUT/'recovery-plan-v1.json'),fixed_roster=[list(row) for row in api.contract.INSTRUMENTATIONS],
+        recovery_plan=plan_pin,attestation=attestation,fixed_roster=[list(row) for row in api.contract.INSTRUMENTATIONS],
         method_count=4,ready_for_execution=False,approval_inferred=False,pending=list(PENDING),
         original_observation_acceptance_required=True,no_historical_process_closure_claim=True,
         limits=dict(memory_mib=8192,cores=4,guest_seconds=1800,owner_seconds=1700,parent_seconds=1730,
             controller_seconds=1200,caller_seconds=1230,ready_seconds=400,private_adb_port=15937,console_port=5592,guest_adb_port=5593))
     api.env.create_json(OUTPUT/'handoff-inputs-v1.json',blueprint)
+    handoff = api.env.binding(OUTPUT/'handoff-inputs-v1.json')
     # Planning does not reserve a state snapshot. Revalidate before claiming a
     # completed inspection; partial files are retained and never auto-retried.
     _git()
@@ -172,16 +179,22 @@ def inspect():
     for pin in installed_pins + list(artifacts.values()) + [helper,blueprint['activation']]:
         api.env.check_binding(pin)
     _need(_same(api.env.binding(SOURCE/'benchmarks/native/deny_adb_client.c'),installed['refuser_source']), 'inputs_changed')
+    records = dict(attestation=attestation,recovery_plan=plan_pin,static_inputs=blueprint['static_inputs'],handoff=handoff)
+    for pin in records.values():
+        api.env.check_binding(pin)
+    _need(_same(_read(handoff),blueprint), 'handoff')
     _need({p.name for p in OUTPUT.iterdir()} == FILES-{'result-v1.json'}, 'output_roster')
     result = dict(version=1,scope='sdk15-recovery-inspection-result-v1',status='completed-file-only',
         head=SOURCE_HEAD,helper=helper,source_count=25,recovery_source_count=7,method_count=4,
         ledger_before=ledger,ledger_after=after_ledger,ledger_unchanged=True,
-        handoff=api.env.binding(OUTPUT/'handoff-inputs-v1.json'),recovery_plan=blueprint['recovery_plan'],
+        handoff=handoff,recovery_plan=plan_pin,records=records,
         ready_for_execution=False,approval_inferred=False,recovery_executed=False,authority_created=False,
         guest_parent_created=False,admission_created=False,activation_input_created=False,
         resource_or_process_observation=False,sdk_or_adb_executed=False)
     api.env.create_json(OUTPUT/'result-v1.json',result)
     _need({p.name for p in OUTPUT.iterdir()} == FILES, 'output_roster')
+    for pin in records.values():
+        api.env.check_binding(pin)
     return result
 
 

@@ -258,4 +258,41 @@ class KnowledgeUiAuthorityTests(unittest.TestCase):
             product.assert_not_called()
 
 
+    @unittest.skipUnless(os.name == 'nt', 'Windows paths; no SDK or native calls')
+    def test_public_environment_rejects_old_source_proposal_before_reading_authorization(self):
+        # Metadata only: neither proposal nor authority is published. Token lookup
+        # is mocked so even the installed Windows profile API is not invoked.
+        env = wire.environment
+        root = Path('D:/Synthetic/LocalLore/source-bound-guest')
+        sdk = Path('D:/Synthetic/LocalLore/sdk')
+        current = [Path(env.__file__).resolve(), Path(env.host.__file__).resolve(),
+            Path(env.commit_capacity.__file__).resolve(), Path(env.guest_storage.__file__).resolve(),
+            Path(env.__file__).with_name('prepare_recovery_contract.py').resolve()]
+        tools = [sdk/'platform-tools/adb.exe', sdk/'emulator/emulator.exe',
+            sdk/'cmdline-tools/latest/bin/avdmanager.bat',
+            sdk/'system-images/android-35/google_apis/x86_64/data/empty_data_disk']
+        token = 'D:/Synthetic/LocalLore/token'
+        proposal = dict(version=1, phase='run', avd_name=env.NAME, serial='emulator-5592',
+            console_port=env.PORT, sdk=str(sdk), java_home='D:/Synthetic/LocalLore/jdk',
+            paths=env.paths(root), adb_path=str(tools[0]), token={'path': token}, old_avd={},
+            bindings=[{'path': str(p)} for p in current+tools], userdata_mib=12288, sdcard_mib=8192,
+            memory_mib=8192, cores=4, host_free_min=env.root_free_min(root),
+            host_available_memory_min=12*env.GIB, allow_environment_calls=False, root_go_pending=True,
+            prepare_proposal={}, prepared={}, prepare_result={}, max_seconds=1800)
+        with patch.object(env, 'token_path', return_value=token):
+            self.assertIsNone(env.validate_proposal(proposal, 'run'))
+            old = copy.deepcopy(proposal)
+            for pin in old['bindings'][:len(current)]:
+                pin['path'] = str(Path('D:/Worktrees/locallore-record-actions-tests-v1/benchmarks') /
+                                  Path(pin['path']).name)
+            with patch.object(env, 'read_json', return_value=old) as read, \
+                 patch.object(env, 'verify_installation') as installation, \
+                 patch.object(env, 'check_external_state') as external:
+                with self.assertRaises(env.EnvironmentRefused):
+                    env.authorize('unpublished-proposal.json', 'unpublished-authority.json', 'run')
+                read.assert_called_once_with('unpublished-proposal.json')
+                installation.assert_not_called(); external.assert_not_called()
+            self.assertIsNone(env.validate_proposal(proposal, 'run'))
+
+
 if __name__ == '__main__': unittest.main()

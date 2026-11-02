@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [library and recovery control fix](docs/android/LIBRARY_ACTION_SCOPE_2026-11-02.md)
+keeps old views and disposed screens from retargeting current storage navigation.
+Twelve independent regressions pass after eleven reproduced failures; the full
+offline Android gate passes 550 JVM checks and APK audits. Four UI journeys compile
+but remain unrun on Android. The earlier failed build remains recorded separately.
+
 The [chat cancellation fix](docs/android/CHAT_CANCEL_SCOPE_2026-11-01.md)
 binds Cancel to its displayed response while preserving acknowledgement and
 commit-wins reconciliation. Ten independent regressions pass after six reproduced

@@ -25,7 +25,10 @@ The [bounded SDK15 recovery operator](docs/runtime/android/SDK15_RECOVERY_OPERAT
 joins verified preparation recovery to fresh run inputs and the four-method UI
 runner. All 39 host checks pass, including a real owned-host-job capture test
 and refusal before recovery when the running Python does not match its pins.
-Actual recovery and Android execution still require the exact new approved scope.
+One [explicitly approved SDK15 run](docs/runtime/android/SDK15_APPROVED_RUN_VERIFICATION_2026-11-02.md)
+completed guarded recovery and all four model-free Android UI methods. The guest
+closed with its images preserved; that grant is spent. Device/model and full
+journey acceptance remain open.
 
 The [SDK15 recovery input inspection](docs/runtime/android/SDK15_RECOVERY_READINESS_2026-11-02.md)
 creates a source-bound, file-only plan for the existing charged reservation.

@@ -38,6 +38,15 @@ enum class StoryRecordPromiseFilter(val label: String, val status: StoryRecordPr
     OVERDUE("Overdue", StoryRecordPromiseStatus.OVERDUE),
 }
 
+/** Existing native player-visible record types; observations are not current world truth. */
+enum class StoryRecordKnowledgeFilter(val label: String, val origin: StoryRecordOrigin?) {
+    ALL("All", null),
+    OBSERVED("Known as observed", StoryRecordOrigin.KNOWN_AS_OBSERVED),
+    STATEMENTS("Statements", StoryRecordOrigin.RECORDED_STATEMENT),
+    BELIEFS("Beliefs", StoryRecordOrigin.SUBJECTIVE_BELIEF),
+    DISCOVERIES("Discoveries", StoryRecordOrigin.RECORDED_DISCOVERY),
+}
+
 /** An eligible native relationship target ID, not an NPC name or profile grant. */
 data class StoryRecordRelationshipTarget(val id: String)
 
@@ -49,6 +58,7 @@ data class StoryRecordQuery(
     val version: Int = 2,
     val promiseFilter: StoryRecordPromiseFilter = StoryRecordPromiseFilter.ALL,
     val relationshipTarget: StoryRecordRelationshipTarget? = null,
+    val knowledgeFilter: StoryRecordKnowledgeFilter = StoryRecordKnowledgeFilter.ALL,
 )
 data class StoryRecordEntry(
     val key: String,
@@ -111,6 +121,7 @@ data class StoryRecordState(
     val eventDetail: StoryRecordEventDetail? = null,
     val promiseFilter: StoryRecordPromiseFilter = StoryRecordPromiseFilter.ALL,
     val relationshipTarget: StoryRecordRelationshipTarget? = null,
+    val knowledgeFilter: StoryRecordKnowledgeFilter = StoryRecordKnowledgeFilter.ALL,
 )
 
 internal const val STORY_RECORD_PAGE_ROWS = 8

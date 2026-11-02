@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [Knowledge record filters](docs/android/KNOWLEDGE_FILTERS_VERIFICATION_2026-11-02.md)
+separate observations, statements, beliefs and discoveries using the existing
+native player query. The actual Core corpus and all 579 JVM checks pass;
+four new Compose journeys compile but remain unrun on Android.
+
 The [record-search Unicode fix](docs/android/RECORD_SEARCH_UNICODE_2026-11-02.md)
 rejects malformed text before reader/JSON dispatch while preserving valid text
 and existing byte limits. 566 JVM tests and the offline build/lint/APK audits

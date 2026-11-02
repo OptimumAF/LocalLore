@@ -328,10 +328,12 @@ internal fun LocalLoreScreen(
                                 }
                             }
                             if (forkAvailable && state.persistent && (state.selectedStory != null || forkRecoveryAvailable)) {
-                                OutlinedButton(onClick = onFork,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
-                                    modifier = Modifier.heightIn(min = 48.dp).testTag("fork-timeline")) {
-                                    Text(if (forkRecoveryAvailable) "Recover timeline request…" else "New timeline…")
+                                key(StorageActionIdentity(state)) {
+                                    OutlinedButton(onClick = { if (storageControls.active && currentStorageState.value === state) onFork() },
+                                        enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
+                                        modifier = Modifier.heightIn(min = 48.dp).testTag("fork-timeline")) {
+                                        Text(if (forkRecoveryAvailable) "Recover timeline request…" else "New timeline…")
+                                    }
                                 }
                             }
                             if (state.forkActive) Text("Timeline review is open or finishing. Other actions are paused.",

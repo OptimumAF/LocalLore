@@ -13,6 +13,7 @@ import unittest
 from benchmarks import android_instrumentation_evidence as evidence
 from benchmarks import android_process_record_controls_ui_verification as replay
 from benchmarks import record_controls_ui_build as build
+from benchmarks import record_controls_ui_controller as controller
 from benchmarks import owned_record_controls_ui_contract as contract
 from benchmarks import receipt_avd_environment as env
 from scripts.tests import test_archive_ui_build_fixtures as pins
@@ -28,8 +29,46 @@ def write(path, value):
     return pins.pin(path)
 
 
+def closed_roster_fixture(*, missing_last=False, extra_method=False):
+    """Independent fixed directory oracle, without constructing a successful wire graph."""
+    files = data.SyntheticFiles()
+    output = files.base / 'closed-roster-v1'
+    output.mkdir()
+    for name in ('clients', 'proofs'):
+        (output / name).mkdir()
+    names = ['request-v1.json', 'sdk-session-v14.json', 'setup-v1.json',
+             'installed-before-v1.json', 'installed-after-v1.json',
+             'controller-result-v1.json']
+    names += ['method-%02d-v1.json' % index for index in range(1, 20)
+              if not (missing_last and index == 19)]
+    if extra_method:
+        names.append('method-20-v1.json')
+    for name in names:
+        files.write(output / name, b'{}\n')
+    return output
+
+
 @unittest.skipUnless(os.name == 'nt', 'Real tiny D: host files, no native/socket calls')
 class RecordControlsUiControllerTests(unittest.TestCase):
+    def test_closed_directory_accepts_exactly_all_nineteen_method_evidence_files(self):
+        output = closed_roster_fixture()
+        self.assertEqual(len(list(output.glob('method-*-v1.json'))), 19)
+        self.assertIsNone(controller._closed_roster(output))
+
+    def test_closed_directory_refuses_missing_nineteenth_method_evidence(self):
+        output = closed_roster_fixture(missing_last=True)
+        self.assertTrue((output / 'method-18-v1.json').is_file())
+        self.assertFalse((output / 'method-19-v1.json').exists())
+        with self.assertRaises(env.EnvironmentRefused):
+            controller._closed_roster(output)
+
+    def test_closed_directory_refuses_an_extra_unselected_twentieth_method(self):
+        output = closed_roster_fixture(extra_method=True)
+        self.assertTrue((output / 'method-19-v1.json').is_file())
+        self.assertTrue((output / 'method-20-v1.json').is_file())
+        with self.assertRaises(env.EnvironmentRefused):
+            controller._closed_roster(output)
+
     def test_one_complete_graph_has_exact_nineteen_claims_and_forty_four_clients(self):
         g = data.shared_graph()
         with g.inputs():

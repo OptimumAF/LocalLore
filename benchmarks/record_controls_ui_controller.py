@@ -369,7 +369,7 @@ def _closed_roster(output):
     names = {"request-v1.json", contract.SESSION_FILE, "setup-v1.json",
              "installed-before-v1.json", "installed-after-v1.json",
              "controller-result-v1.json", "clients", "proofs"}
-    names.update("method-%02d-v1.json" % i for i in range(1, 15))
+    names.update("method-%02d-v1.json" % i for i in range(1, 20))
     _need({path.name for path in output.iterdir()} == names)
     for name in ("clients", "proofs"):
         env.safe_path(output / name, exists=True, directory=True)

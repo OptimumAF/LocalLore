@@ -23,7 +23,8 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 The [bounded SDK15 recovery operator](docs/runtime/android/SDK15_RECOVERY_OPERATOR_2026-11-02.md)
 joins verified preparation recovery to fresh run inputs and the four-method UI
-runner. All 38 host checks pass, including a real owned-host-job capture test.
+runner. All 39 host checks pass, including a real owned-host-job capture test
+and refusal before recovery when the running Python does not match its pins.
 Actual recovery and Android execution still require the exact new approved scope.
 
 The [SDK15 recovery input inspection](docs/runtime/android/SDK15_RECOVERY_READINESS_2026-11-02.md)

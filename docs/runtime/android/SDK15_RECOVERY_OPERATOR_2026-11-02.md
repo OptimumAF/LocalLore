@@ -23,6 +23,11 @@ head and operator/builder/contract bytes, the reviewed proposal, B82 handoff and
 source-bound recovery plan. Changed source, booleans borrowed as integers,
 extra keys, alternate paths, old SDK14 inputs or model permission refuse.
 
+Before creating an attempt or dispatching recovery, the builder compares the
+running Python executable and loaded runtime DLL with the frozen installed
+bindings. Merely having the pinned files installed is insufficient. The reviewed
+recipe selects that executable by absolute path; PATH does not choose it.
+
 The fixed authority file is
 `D:/Dev/Experiments/LocalLore/2026-11-02-library-recovery-operator-v1/human-authority-v1.json`.
 It is created by the coordinating human operator only after applicable fresh
@@ -71,6 +76,8 @@ RUN digest **before** boot claim/launch. Success requires original worker,
 capture, controller, source and verified closure joins. The outer operator checks
 the returned/stored activation result and closed RUN ledger/history. It never
 manually closes the ledger or discounts an unknown outcome.
+Migration and preparation release none of the original 40 GiB charge. Only
+qualified normal RUN closure may replace it with measured retained storage.
 
 ## Deadline and ownership
 
@@ -89,11 +96,16 @@ Slow prechecks can refuse or consume the overall allowance; a snapshot is not a
 resource reservation or guarantee of a complete run.
 
 After watchdog expiry/interruption, retained job/child/reader waits have up to
-14 additional seconds. OS close/flush and evidence publication are synchronous
+14 additional seconds. OS file I/O, close/flush and evidence publication are synchronous
 and not guaranteed to finish within that wait bound. Unknown job/reader/capture
 cleanup stays failed/unknown. Outer host cleanup cannot prove recovery fence,
 SDK, guest flush, app drain or storage closure; the original charge/history stay
 preserved whenever their own required closure proof is unavailable.
+
+The proposed 256 MiB runtime, 16 MiB operation/control and 128 MiB selected
+recovery allowances are coordinator-monitored retention bounds. These scripts
+do not enforce aggregate directory quotas. Preserve an overrun and refuse
+further work; do not delete evidence or silently grow another guest.
 
 Finite exact admission refusals from the actual frozen EnvironmentRefused and
 StorageRefused classes retain their safe reason codes. `host_commit_capacity`
@@ -105,7 +117,7 @@ reserve and the separate existing 12 GiB physical-memory floor.
 
 ## Verification actually performed
 
-Final executable/test source: `0b617243e8e43231661425d457a9f0d973fd0474`.
+Final executable/test source: `6c53d959fd14a1abf631a4c1b2e33b723a570426`.
 Later publication changes are documentation only. Windows / installed CPython
 3.14.7, with process-local `TEMP`, `TMP`, `TMPDIR` all `D:/Dev/_Temp`; commands ran
 from the physical operator checkout. OUT below abbreviates
@@ -120,12 +132,14 @@ from the physical operator checkout. OUT below abbreviates
 | Same driver, `full integrated-final-v1` | Intermediate 37 methods pass, 77.190 s, including the native host case |
 | `python -I -S -B OUT/run-diagnostic-v1.py first diagnostic-first-v1` | At `32b31521`: one method/two AssertionError subfailures, 7.895 s |
 | Same diagnostic driver, `first diagnostic-green-v1` | Unchanged method passes, 8.033 s |
-| `python -I -S -B OUT/run-host-v1.py full integrated-final-v2` | **38 methods pass, 105.442 s, zero failures/errors/skips** |
+| `python -I -S -B OUT/run-host-v1.py full integrated-final-v2` | Intermediate 38 methods pass, 105.442 s |
+| Independent interpreter target, FIRST / GREEN | One method/four assertion-failing subcases before the gate; unchanged target passes after it, 11.621 s |
+| `python -I -S -B OUT/run-host-v1.py full integrated-final-v3` | **39 methods pass, 139.532 s, zero failures/errors/skips** |
 | Python 3.9 grammar / whitespace checks | Six new Python files pass / `git diff --check b6e8aa1e` passes |
 
 Central host jobs have known cleanup, complete bounded binary capture and
-unchanged monitored source/test/ledger pins. The final 9,357-byte stderr has
-SHA256 `98745fdfdf460a8ff1446b7490a480133fc9fdd86cf0492215a273af4b69228d`.
+unchanged monitored source/test/ledger pins. The final 9,615-byte stderr has
+SHA256 `46c94d3824fd11a8e8a0c2340649ff977c7172b3129920c3adac4c2e81bbf2b1`.
 Counts are not additive across intermediate/targeted cohorts.
 
 The tests use actual isolated recovery journals, planning/authorization schemas,
@@ -149,13 +163,24 @@ no shared ledger contents were read/changed. The corrected seam requires the
 exact fake registry/guest/prepared transition only inside that synthetic callback;
 builder/outer transition tripwires remain. All failed/corrected captures stay.
 
-Independent metadata and outer source/evidence reviews found no remaining
-concrete blocker. Primary preservation verifies 95 current source/control pairs
+Final review also found that a different PATH-selected Python could reach
+recovery while the pinned interpreter files merely existed. The new matched
+runtime positive control passes; executable/runtime-DLL mismatches at both the
+builder and operator entry points reproduce four assertion failures before the
+fix, then refuse before build verification, attempt or recovery after it. Exact
+six-file FIRST snapshots and the original/additive request joins are retained.
+
+Independent metadata and outer source/evidence reviews at the preceding
+checkpoint found no remaining concrete blocker; narrow interpreter-fix review
+also found none. Final proposal review is separate from human authorization.
+Initial preservation verifies 95 checkpoint source/control pairs
 (223,689 bytes) plus 12 exact historical source snapshots recovered against their
 recorded request hashes. Receipt: 61,988 bytes, SHA256
 `a9b3d41f8b2ab3fafc12f826b1290886eab0e0be56c888d6af070eab40e22862`.
 Synthetic fixtures remain in their bounded original location, not full recovery
-copies. Final docs/proposal/reviews are preserved separately. No private raw
+copies. The final revision adds separately named source/control preservation,
+including interpreter FIRST snapshots and the superseded unapproved proposal.
+No private raw
 outputs, credentials, saves or model weights are uploaded.
 
 ## Execution gate

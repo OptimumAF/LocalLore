@@ -18,9 +18,9 @@ ABI/link/build/runtime behavior or Author capability.
 Reuse helper9972c0eb, projectionf4afe4e1, existing cohort FIRST7ca31f68 (52 groups)
 and dependency FIRSTafee9aed (32 groups), all unchanged. No new binary/archive/
 directive parser, filesystem resolver, selected-member pruning or relaxed job
-limit. Proposed sole child runs52+32+14 synthetic groups BEFORE constructing
+limit. Proposed sole child runs52+32+15 synthetic groups BEFORE constructing
 the real adapter/state, then the SAME original17+15 inputs in saved order.
-All98 must pass. No separate Node syntax/test child or automatic retry.
+All99 must pass. No separate Node syntax/test child or automatic retry.
 
 Pin original roster62eb0ab9 and diagnosticc7bce3ce, plus PR334's complete
 snapshot611d5c5d8c8be232599fe4c0332032e25e693aad0f99a393902047bf7ef9334e.
@@ -111,10 +111,17 @@ canonical sorted unique name union, provided slots/unresolved IDs and byte bound
 specified below. Generic synthetic pins may be independently constructed; actual
 collector callers MUST derive them from the hash-pinned PR334 snapshot. No new
 authority, parser or resolver. It never mutates any input or publishes payloads.
-Require dense own indices in pins,catalog,names,providedSlots,rows,each row's IDs
+Require plain Object/null-prototype JSON records, and dense own indices in
+pins,catalog,names,providedSlots,rows,each row's IDs
 and unresolvedNameIds, with all lengths/types bounded before iteration. ID union
 must cover EVERY dictionary index, including exact empty-graph behavior; no extra
 unused name is allowed even with a self-consistent provided/unresolved mapping.
+Validate every unresolved ID as a primitive nonnegative safe integer in range,
+with exact cardinality/order/value; JSON equality alone cannot type-check a
+boxed Number. B15 was added after full V2 source review caught that gap, before
+producer correction or any execution. Inert boxed/foreign record prototypes
+must likewise not masquerade as plain JSON records. No hostile-proxy/code
+execution security boundary is claimed for in-process development callbacks.
 FIRST fixtures construct facts/pin/catalog digests independently, without
 importing the new collector producer or executing its string source.
 
@@ -128,7 +135,7 @@ construct canonical accepted-profile metadata, mode digests and expected rows
 using Node crypto; no actual binary or SDK data is needed. Budget fixture text/
 buffers≤1MiB; this is not an OS peak-memory claim.
 
-Freeze14 groups B01..B14 before amended producer edits:
+Freeze15 groups B01..B15 before amended producer edits:
 
 | ID | Required assertion/control |
 | --- | --- |
@@ -146,9 +153,10 @@ Freeze14 groups B01..B14 before amended producer edits:
 | B12 | Inputs unchanged; exact object/result binding; no added authority/fields; errors contain no raw payload |
 | B13 | Sparse encoded modes/metadata and all sparse facts-array positions refuse |
 | B14 | Extra unused dictionary names refuse; valid exact union and empty graph pass |
+| B15 | Unresolved IDs require primitive bounded integer types; boxed/foreign records refuse |
 
 Return exact six keys version,kind,executed,passed,failed,failed_case_ids; version1,
-kind`library_metadata_dependency_observer_first_v1`,14 groups and fixed IDs.
+kind`library_metadata_dependency_observer_first_v1`,15 groups and fixed IDs.
 Preserve original assertions/IDs after findings. Source review is not a runtime
 pass or behavioral RED. Re-running the old52 and32 groups in a future sole
 child is part of a NEW finite grant, not reuse of their previous grants.
@@ -164,7 +172,7 @@ growth. No general remote server, arbitrary execution or desktop control.
 Proposed whole report: version1, kind`msvc_dependency_observation_v1`, false
 qualified/linkQualification/closureComplete, captureComplete boolean,
 status`complete`/`stopped`, exact selfchecks `{cohort,projection,observer}` (the
-52/32/14 six-key summaries), exact source/proof digests, an existing-format
+52/32/15 six-key summaries), exact source/proof digests, an existing-format
 cohort report and accepted projection facts or null, plus a fixed critical code
 or null. Freeze the complete concrete envelope/proof dictionary and independent
 validator BEFORE asking for execution; this paragraph is not a schema license.
@@ -199,7 +207,7 @@ The outer has ONLY version,kind,qualified,linkQualification,closureComplete,
 captureComplete,status,selfchecks,proofs,cohort,facts,critical, in that insertion
 order. Version1/kind`msvc_dependency_observation_v1`; all three qualification
 flags false. selfchecks has ONLY cohort,projection,observer: exact successful
-six-key52/32/14 summaries with their existing three kinds. Its cohort summary
+six-key52/32/15 summaries with their existing three kinds. Its cohort summary
 must equal the inner cohort.selfchecks. No aggregate count can hide a failure.
 
 proofs has ONLY reader,supervisor,helper,cohortFirst,projection,projectionFirst,

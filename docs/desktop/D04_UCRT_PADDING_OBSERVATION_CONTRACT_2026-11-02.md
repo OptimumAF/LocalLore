@@ -234,6 +234,19 @@ strict. No alternate function/path selector. Parent FIRST definitions perform
 no I/O and do not run on import. START precedes these checks; child creation
 requires actual canonical6/6, which the child independently pins before Node FIRST.
 
+The independently authored pure validators live in the normal project module
+`native/llama-worker/library_padding_validation.ps1`. The fixed local supervisor
+imports this exact literal path after checking its owner-bound source digest,
+and checks that digest again immediately after import and at postflight. This
+supersedes the preparation claim that its definitions would be embedded verbatim
+in the supervisor. Like the fixed public Node module and parent FIRST import,
+this is a named source dependency, never an argument/environment/code selector.
+Owner, source-review and Stage bind the complete six-source closure (module,
+Node FIRST, parent FIRST, validation, reader, supervisor); Stage also binds the
+validation digest explicitly. Review the entire imported module for top-level
+work and name collisions. No existing artifact is moved or reclassified: both
+local collector copies remain fully charged, uncompressed, within48KiB.
+
 ## Independent FIRST, frozen before producer
 
 Node `runPaddingObservationSelfchecksV1(api)` receives a frozen API containing
@@ -242,6 +255,8 @@ no files/env/children/model. Execute all24 fixed groups; failures retain IDs.
 Return ONLY`version:1,kind:'ucrt_padding_first_v1',executed,passed,failed,
 failed_case_ids`, IDs F01–F12/I01–I08/E01–E04. No omitted/renamed assertions or
 success shortcuts. Cases must test actual callbacks/encoder, not duplicate them.
+If this summary fails its24/24 gate, retain it as bounded raw failure output
+before returning nonzero, without constructing or calling the SDK adapter.
 
 * F01–F03: exact non-LF, LF and other-byte observations; no qualification claim.
 * F04–F08: magic/type/header/decimal/body and missing-pad boundaries.

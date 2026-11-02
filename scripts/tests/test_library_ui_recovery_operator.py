@@ -365,6 +365,33 @@ class LibraryUiRecoveryOperatorTests(unittest.TestCase):
                     self.assertFalse(again['passed']); self.assertEqual(execute.call_count, 1)
                     self.assertEqual(stage.read_bytes(), original); activate.assert_not_called()
 
+    def test_known_capacity_refusals_keep_finite_reason_codes_but_private_or_untrusted_text_stays_generic(self):
+        from scripts.tests.library_ui_recovery_test_fixture import OperatorFixture
+        cases = (
+            (env.EnvironmentRefused('host_commit_capacity'), 'host_commit_capacity'),
+            (env.EnvironmentRefused('host_capacity'), 'host_capacity'),
+            (env.EnvironmentRefused('PRIVATE capacity path and operator detail'), 'operation_failed'),
+            (ValueError('host_commit_capacity'), 'operation_failed'),
+            (contract.OperationRefused('operation_budget'), 'operation_budget'),
+        )
+        for error, expected in cases:
+            with self.subTest(kind=type(error).__name__, expected=expected), OperatorFixture() as graph:
+                pin, request, _, worker = worker_records(graph)
+                builder.save(contract.LIVE / 'worker-claim-v1.json', dict(version=1,
+                    authority=graph.authority_pin, attempt=request['attempt'], request=pin, worker=worker))
+                with patch.object(graph.api.recovery, 'execute', side_effect=error) as recover, \
+                     patch.object(builder, 'create_inputs', side_effect=AssertionError('Capacity refusal reached inputs')) as create, \
+                     patch.object(graph.api.activation, 'execute', side_effect=AssertionError('Capacity refusal reached UI'), create=True) as activate:
+                    result = operator._run_stages(graph.authority_pin, request['attempt'], 100)
+                    self.assertFalse(result['passed']); self.assertEqual(result['phase'], 'recovery')
+                    self.assertEqual(result['failure_type'], type(error).__name__)
+                    self.assertEqual(recover.call_count, 1); create.assert_not_called(); activate.assert_not_called()
+                    self.assertFalse(contract.INPUT.exists())
+                    self.assertEqual(graph.graph.fixture.ledger_bytes(), graph.before_ledger)
+                    self.assertNotIn('PRIVATE', json.dumps(result))
+                    self.assertEqual(result['reason'], expected)
+                    self.assertEqual(env.read_json(contract.LIVE / 'stage-result-v1.json')['reason'], expected)
+
     def test_stale_worker_claim_or_insufficient_budget_stops_before_recovery_authorization(self):
         from scripts.tests.library_ui_recovery_test_fixture import OperatorFixture
         for fault in ('claim', 'budget'):

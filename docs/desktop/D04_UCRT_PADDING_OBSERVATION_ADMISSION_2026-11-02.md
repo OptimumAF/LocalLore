@@ -1,5 +1,9 @@
 # Pinned UCRT padding observation: source and admission
 
+Historical preparation below. The ONE subsequently approved invocation
+[failed its Node E04 gate](D04_UCRT_PADDING_V1_FAILURE_2026-11-02.md) before
+SDK adapter creation. Its grant is SPENT; the source calibration is UNRUN.
+
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21.
 This is a source-ready diagnostic proposal. **The packet, both suites and all
 30 new groups are UNRUN. No new run approval is recorded here.**

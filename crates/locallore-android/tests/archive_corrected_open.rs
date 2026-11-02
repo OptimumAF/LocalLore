@@ -51,6 +51,7 @@ impl Fixture {
         let fact = seed.facts.get_mut("relic-location").unwrap();
         fact.proposition = OBSERVED.into();
         fact.discoverable_at = Some("quay".into());
+        fact.known_by.clear(); // The first accepted action must actually discover event1.
         seed.beliefs[0].proposition = NPC_BELIEF.into();
         let mut belief = seed.beliefs[0].clone();
         belief.believer = seed.player.clone();

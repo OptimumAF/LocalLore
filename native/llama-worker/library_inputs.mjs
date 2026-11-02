@@ -16,6 +16,12 @@ export const MSVC_LIBRARY_METADATA_PROFILE = Object.freeze({
     members: MAX_ITEMS, longnames: MAX_ITEMS, tokens: MAX_ITEMS,
     directiveBytes: MAX_DIRECTIVES, nameBytes: 4096, libraryNameBytes: 255 })
 });
+// Separate opt-in metadata interpretation. Legacy strict/v1 keep LF-only
+// alignment; the v2 result reports required NUL alignment as a deviation.
+export const MSVC_LIBRARY_METADATA_PROFILE_V2 = Object.freeze({
+  id: 'msvc-library-metadata-v2', version: 2, purpose: 'build_input_metadata_only',
+  limits: MSVC_LIBRARY_METADATA_PROFILE.limits
+});
 const BIGOBJ_ID = Buffer.from('c7a1bad1eebaa94baf20faf66aa4dcb8', 'hex');
 const MAGIC = Buffer.from('!<arch>\n');
 function fail(site, category = 'Format', actual = null, limit = null) {
@@ -231,7 +237,14 @@ function archive(b, state) {
     }
     if (name === '/' && ++indexes > 2) fail('archive_index_count');
     at += 60 + size;
-    if (at % 2) { range(b, at, 1, 'archive_padding_range'); if (b[at++] !== 10) fail('archive_padding_byte'); }
+    if (at % 2) {
+      range(b, at, 1, 'archive_padding_range');
+      const padding = b[at++];
+      if (padding !== 10) {
+        if (!state.archiveAlignmentV2 || padding !== 0) fail('archive_padding_byte');
+        ++state.deviations.nulArchivePaddingMembers;
+      }
+    }
   }
   const names = new Map();
   if (longnames) {
@@ -253,13 +266,14 @@ function archive(b, state) {
     object(body, state); // Unknown members are never silently skipped.
   }
 }
-function inspectData(buffer, compatibility = false, chargeSections = null) {
+function inspectData(buffer, compatibility = false, chargeSections = null, archiveAlignmentV2 = false) {
   if (!Buffer.isBuffer(buffer)) fail('input_type', 'Type');
   if (buffer.length >= MAX_BYTES) fail('input_bytes', 'Size', buffer.length, MAX_BYTES);
   const state = { objects: 0, imports: 0, sections: 0, directiveBytes: 0, tokenCount: 0,
     directives: new Set(), defaultLibraries: new Set(), memberIndex: null, memberOffset: null, sectionIndex: null,
-    compatibility, chargeSections,
-    deviations: { unknownMachineObjects: 0, unusedRelocationPointers: 0, terminalNulSections: 0 } };
+    compatibility, chargeSections, archiveAlignmentV2,
+    deviations: { unknownMachineObjects: 0, unusedRelocationPointers: 0, terminalNulSections: 0,
+      ...(archiveAlignmentV2 ? { nulArchivePaddingMembers: 0 } : {}) } };
   try {
     if (buffer.length >= 8 && buffer.subarray(0, 8).equals(MAGIC)) archive(buffer, state);
     else object(buffer, state);
@@ -282,7 +296,12 @@ export function inspectLibraryInputs(buffer) {
 // One closed, bounded cohort. Buffer identity is the entry identity; neither
 // equal bytes nor shared backing memory can collapse independent entries.
 export function createLibraryMetadataJob(profileId) {
-  const profile = MSVC_LIBRARY_METADATA_PROFILE;
+  return createMetadataJob(profileId, MSVC_LIBRARY_METADATA_PROFILE, false);
+}
+export function createLibraryMetadataJobV2(profileId) {
+  return createMetadataJob(profileId, MSVC_LIBRARY_METADATA_PROFILE_V2, true);
+}
+function createMetadataJob(profileId, profile, archiveAlignmentV2) {
   if (profileId !== profile.id) fail('metadata_profile', 'Profile');
   const entries = new WeakMap();
   let inputCount = 0, inputBytes = 0, attempts = 0, sections = 0, stopped = false;
@@ -310,7 +329,8 @@ export function createLibraryMetadataJob(profileId) {
       }
       if (modes.has(mode)) stop('metadata_repeat_attempt');
       modes.add(mode); ++attempts;
-      const result = inspectData(buffer, mode === profile.id, chargeSections);
+      const result = inspectData(buffer, mode === profile.id, chargeSections,
+        archiveAlignmentV2 && mode === profile.id);
       return { profileId: mode, purpose: profile.purpose, qualified: false,
         linkQualification: false, closureComplete: false, metadata: result.metadata,
         sections: result.sections, deviations: result.deviations };

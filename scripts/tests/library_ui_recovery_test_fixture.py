@@ -14,6 +14,7 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from benchmarks import adb_held_socket_probe as runtime_probe
 from benchmarks import isolated_adb_lease as base
 from benchmarks import owned_library_ui_contract as profile
 from benchmarks import prepare_recovery_contract as history
@@ -129,7 +130,7 @@ class BuilderFixture:
         self.recovery_authorization = env.binding(rules.RECOVERY_AUTHORIZATION)
         self.recovery_result = env.binding(rules.RECOVERY_RESULT) if self.execute_recovery else None
         self.before_ledger = f.ledger_bytes()
-        self.api = SimpleNamespace(env=env, storage=storage, recovery=recovery, history=history, contract=profile,
+        self.api = SimpleNamespace(env=env, storage=storage, recovery=recovery, history=history, contract=profile, probe=runtime_probe,
             activation=SimpleNamespace(SOURCE_ROOT=SOURCE, RUNTIME=runtime, CONTROLS=controls,
                 HELPER=SOURCE / 'benchmarks/library_ui_activation.py'), base=base,
             build=SimpleNamespace(verify_frozen_product=Mock(side_effect=self.verify_artifacts),

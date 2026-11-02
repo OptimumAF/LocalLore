@@ -167,5 +167,30 @@ class LibraryUiRunInputTests(unittest.TestCase):
             self.assertFalse(rules.ADMISSION.exists()); self.assertFalse(rules.INPUT.exists())
             self.assertEqual(graph.fixture.ledger_bytes(), graph.before_ledger)
 
+    def test_actual_interpreter_and_runtime_dll_must_match_pinned_inputs_before_attempt_or_recovery(self):
+        from scripts import run_library_ui_recovery as operator
+        from scripts.tests.library_ui_recovery_test_fixture import OperatorFixture
+        with OperatorFixture() as graph:
+            _, _, installed = builder.frozen_inputs(graph.authority_pin)
+            self.assertEqual(graph.api.probe._python_bindings(), installed['python'])
+            self.assertFalse(rules.LIVE.exists()); graph.supervisor.assert_not_called()
+        for component in ('executable', 'runtime_dll'):
+            for entry in ('frozen_inputs', 'operator'):
+                with self.subTest(component=component, entry=entry), OperatorFixture() as graph:
+                    actual = graph.graph.wire.runtime_bindings()
+                    path = graph.root / ('different-actual-' + component + '.bin')
+                    path.write_bytes(b'SYNTHETIC other interpreter/runtime observation; never executed')
+                    actual[component] = env.binding(path)
+                    self.assertNotEqual(actual, graph.graph.installed['python'])
+                    with patch.object(graph.api.probe, '_python_bindings', return_value=actual):
+                        with self.assertRaises(rules.OperationRefused) as refused:
+                            if entry == 'frozen_inputs': builder.frozen_inputs(graph.authority_pin)
+                            else: operator.execute(graph.authority_pin)
+                    self.assertEqual(str(refused.exception), 'python')
+                    graph.api.build.verify_frozen_product.assert_not_called(); graph.supervisor.assert_not_called()
+                    self.assertFalse(rules.LIVE.exists()); self.assertFalse(rules.EXECUTION.exists())
+                    self.assertFalse(rules.INPUT.exists())
+                    self.assertEqual(graph.graph.fixture.ledger_bytes(), graph.before_ledger)
+
 
 if __name__ == '__main__': unittest.main()

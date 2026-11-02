@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [new-story dismissal fix](docs/android/CREATION_DISMISS_SCOPE_2026-11-01.md)
+binds Close to its displayed review and preserves joined cancellation. Nine
+independent JVM regressions pass after six reproduced failures; the full offline
+Android gate passes 528 JVM checks and APK audits. Two Compose journeys compile
+but remain unrun on Android; full milestone acceptance stays pending.
+
 The [deletion control fix](docs/android/DELETION_ACTION_SCOPE_2026-11-01.md)
 binds story/timeline consent and cancellation to the displayed view, with fresh
 frames after busy reopen. Eleven original assertion failures become green with

@@ -46,8 +46,9 @@ def _api():
         from benchmarks import library_ui_activation as activation
         from benchmarks import library_ui_build as build
         from benchmarks import isolated_adb_lease as base
+        from benchmarks import adb_held_socket_probe as probe
         modules=dict(env=env,storage=storage,recovery=recovery,history=history,contract=contract,
-                     activation=activation,build=build,base=base)
+                     activation=activation,build=build,base=base,probe=probe)
         for module in modules.values():
             r.need(Path(module.__file__).resolve().parent==r.SOURCE/'benchmarks', 'module_source')
         r.need(storage.DEFAULT_REGISTRY==r.REGISTRY and activation.SOURCE_ROOT==r.SOURCE and
@@ -99,6 +100,7 @@ def frozen_inputs(authority_pin):
     for key in ('adb','capabilities','source_review','compatibility','emulator','qemu','refuser','refuser_source'):
         api.env.check_binding(installed[key])
     for pin in installed['tools']+[p for p in installed['python'].values() if p is not None]:api.env.check_binding(pin)
+    r.need(r.same(api.probe._python_bindings(),installed['python']), 'python')
     r.need(type(installed['auth_key_path']) is str, 'key_path')
     r.need(r.same(installed['refuser_source'],api.env.binding(r.SOURCE/'benchmarks/native/deny_adb_client.c')), 'refuser_source')
     api.build.verify_frozen_product(h['artifacts'])

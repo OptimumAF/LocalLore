@@ -144,6 +144,13 @@ Fixed algorithm; all identity/size/hash checks fail closed:
    handles ONCE in reverse acquisition order (copy,manifest,source), then final
    liveness check. Success only after all closes succeed. No reopen/delete.
 
+Freeze exact observation order: step2 re-identifies SOURCE then ROOT; step4
+identifies ROOT,SOURCE,MANIFEST. Step6 stats SOURCE then MANIFEST, identifies
+ROOT,SOURCE,MANIFEST,DESTINATION, then scans manifest2/post-stat, followed by
+destination pre-stat, scan1/post-stat, scan2/post-stat. Step7 identifies
+ROOT,SOURCE,MANIFEST,DESTINATION before reverse closes. Every successful stat
+must retain the same expected identity and size for that file at that phase.
+
 EOF reads request length1 into same buffer and must return0. They do not add
 reserved selected bytes; any positive EOF return is actual read evidence,
 charged before CONTENT failure (ioUncertain false for a valid positive EOF).

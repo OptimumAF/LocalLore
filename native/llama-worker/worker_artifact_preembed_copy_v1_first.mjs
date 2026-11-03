@@ -292,6 +292,19 @@ export async function runWorkerArtifactPreembedCopySelfchecksV1(api) {
       const p = proof(f, await f.helper.copyNext(f.requests.A), 'IO'); assert.equal(touched, 0);
       eq([p.io.opened, p.io.closeAttempts, p.io.closed, p.io.unknownClosures], [2, 2, 2, 1]);
     }
+    // Additive calibration AFTER initial producer0b767133, BEFORE targeted
+    // fixes: safe cleanup capture is broader than full-handle validation.
+    for (const shape of ['nonenumerable-close', 'function-wrapper']) {
+      const f = fixture(create); f.hooks.open = (tag, _, normal) => {
+        const handle = normal(); if (tag !== 'A:source') return handle;
+        if (shape === 'function-wrapper') return Object.defineProperty(function invalidWrapper() {}, 'close',
+          { value: handle.close, enumerable: true });
+        Object.defineProperty(handle, 'close', { value: handle.close, enumerable: false }); return handle;
+      };
+      const p = proof(f, await f.helper.copyNext(f.requests.A), 'IO');
+      eq([p.io.openAttempts, p.io.opened, p.io.closeAttempts, p.io.closed, p.io.unknownClosures], [1, 1, 1, 1, 0]);
+      assert.equal(p.io.verifiedScans, 0); assert(f.handles.every(handle => handle.closeCalls === 1 && handle.closed));
+    }
   });
   add('P11', async () => {
     for (const tag of ['A:copy', 'A:manifest', 'A:source']) {
@@ -303,6 +316,24 @@ export async function runWorkerArtifactPreembedCopySelfchecksV1(api) {
     const prior = fixture(create); prior.hooks.open = (tag, _, normal) => { const h = normal(); if (tag === 'A:copy') source(prior).data[0] ^= 1; return h; };
     prior.hooks.close = () => { prior.time = 60001; throw Error('later cleanup'); };
     const p = proof(prior, await prior.helper.copyNext(prior.requests.A), 'CONTENT'); assert.equal(p.io.unknownClosures, 3);
+    // Observe the first live failure at each successful close, without letting
+    // a later close failure replace it or skip remaining reverse cleanup.
+    for (const cause of ['DEADLINE', 'CANCELLED', 'CLOCK']) {
+      const f = fixture(create); f.hooks.close = (tag, _, normal) => {
+        if (tag === 'A:manifest') throw Error('later manifest close');
+        const result = normal();
+        if (tag === 'A:copy') {
+          if (cause === 'DEADLINE') f.time = 60001;
+          if (cause === 'CANCELLED') assert.equal(f.helper.cancel(), true);
+          if (cause === 'CLOCK') f.hooks.now = () => NaN;
+        }
+        return result;
+      };
+      const failure = proof(f, await f.helper.copyNext(f.requests.A), cause);
+      eq(f.calls.filter(entry => entry.method === 'close').map(entry => entry.tag), ['A:copy', 'A:manifest', 'A:source']);
+      eq([failure.io.closeAttempts, failure.io.closed, failure.io.unknownClosures, failure.io.verifiedScans], [3, 2, 1, 6]);
+      assert(f.handles.every(handle => handle.closeCalls === 1)); assert.equal(failure.unknownClosure, true); await used(f);
+    }
   });
   add('P12', async () => {
     const idle = fixture(create); assert.equal(idle.helper.cancel(), true); assert.equal(idle.helper.cancel(), false);
@@ -360,11 +391,19 @@ export async function runWorkerArtifactPreembedCopySelfchecksV1(api) {
     const done = fixture(create); await done.helper.copyNext(done.requests.A); await done.helper.copyNext(done.requests.B); await used(done);
   });
   add('P15', async () => {
+    // Factory capture must already be complete BEFORE the first copyNext.
+    const immediate = fixture(create); immediate.config.targetRoot = 'D:/caller/changed-before-copy';
+    immediate.adapter.identify = () => { throw Error('replaced before copy'); };
+    immediate.adapter.open = () => { throw Error('replaced before copy'); };
+    immediate.adapter.now = () => { throw Error('replaced before copy'); };
+    proof(immediate, await immediate.helper.copyNext(immediate.requests.A));
+    eq(immediate.calls.map(label), trace('A', immediate.requests.A.linked.executable.bytes, immediate.requests.A.linked.manifest.bytes));
     const f = fixture(create), original = clone(f.requests.A), held = deferred(); let release;
     f.hooks.identify = (_, __, normal) => { release = () => normal(); return held.promise; };
     const pending = f.helper.copyNext(f.requests.A); await until(() => release !== undefined);
     f.requests.A.linked.executable.sha256 = 'a'.repeat(64); f.requests.A.rootIdentity = 'changed';
     f.config.targetRoot = 'D:/caller/changed'; f.adapter.open = () => { throw Error('replaced'); }; f.adapter.now = () => { throw Error('replaced'); };
+    f.adapter.identify = () => { throw Error('replaced'); };
     delete f.hooks.identify; held.resolve(release()); const result = await pending;
     const expected = f.requests.A; f.requests.A = original; proof(f, result); f.requests.A = expected;
     const saved = clone(result); assert.throws(() => { result.copy.bytes = 0; }, TypeError);
@@ -381,7 +420,10 @@ export async function runWorkerArtifactPreembedCopySelfchecksV1(api) {
     const makeBad = [r => null, r => ({ ...r, candidate: 'B' }), r => ({ ...r, extra: true }),
       r => ({ ...r, executableIdentity: r.manifestIdentity }), r => ({ ...r, rootIdentity: 1 }),
       r => ({ ...r, linked: { ...r.linked, executable: { sha256: '0'.repeat(64), bytes: 1 } } }),
-      r => ({ ...r, linked: { ...r.linked, manifest: { sha256: r.linked.manifest.sha256, bytes: 65537 } } })];
+      r => ({ ...r, linked: { ...r.linked, manifest: { sha256: r.linked.manifest.sha256, bytes: 65537 } } }),
+      r => ({ ...r, linked: { ...r.linked, executable: { ...r.linked.executable, bytes: 67108865 } } }),
+      r => ({ ...r, linked: { ...r.linked, executable: { ...r.linked.executable, bytes: 0 } } }),
+      r => ({ ...r, linked: { ...r.linked, manifest: { ...r.linked.manifest, bytes: 0 } } })];
     for (const change of makeBad) {
       const f = fixture(create); const p = proof(f, await f.helper.copyNext(change(clone(f.requests.A))), 'INPUT', null);
       eq(p.io, io()); eq(f.calls, []); assert.equal(f.nowCalls, 0); await used(f);

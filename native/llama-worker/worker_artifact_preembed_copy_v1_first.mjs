@@ -428,6 +428,13 @@ export async function runWorkerArtifactPreembedCopySelfchecksV1(api) {
       const f = fixture(create); const p = proof(f, await f.helper.copyNext(change(clone(f.requests.A))), 'INPUT', null);
       eq(p.io, io()); eq(f.calls, []); assert.equal(f.nowCalls, 0); await used(f);
     }
+    // Additional post-producer/pre-fix source calibration: JavaScript's $
+    // anchor must not make a65-character digest ending in newline valid.
+    for (const part of ['executable', 'manifest']) for (const digest of ['a'.repeat(64) + '\n', '0'.repeat(64) + '\n']) {
+      const f = fixture(create), request = clone(f.requests.A); request.linked[part].sha256 = digest;
+      const p = proof(f, await f.helper.copyNext(request), 'INPUT', null);
+      eq(p.io, io()); eq(f.calls, []); assert.equal(f.nowCalls, 0); await used(f);
+    }
     let touched = 0; const f = fixture(create), bad = { ...f.requests.A }; Object.defineProperty(bad, 'candidate',
       { enumerable: true, get() { touched++; return 'A'; } }); proof(f, await f.helper.copyNext(bad), 'INPUT', null); assert.equal(touched, 0);
     const extra = fixture(create); proof(extra, await extra.helper.copyNext(extra.requests.A, 'extra'), 'INPUT', null); eq(extra.calls, []);
@@ -456,6 +463,17 @@ export async function runWorkerArtifactPreembedCopySelfchecksV1(api) {
       for (const key of ['adopt', 'author', 'receipt', 'mt', 'delete', 'record', 'retry']) assert(!Object.hasOwn(p, key));
       assert.equal(p.qualified, false); assert.equal(p.linkQualification, false); assert.equal(p.closureComplete, false);
     }
+    // A thrown foreign value is opaque. Looking through its prototype or
+    // reading properties can itself throw; generic I/O failure needs neither.
+    let touched = 0; const f = fixture(create), opaque = new Proxy(Object.create(null), {
+      getPrototypeOf() { touched++; throw Error('opaque private prototype'); },
+      get() { touched++; throw Error('opaque private property'); }
+    });
+    f.hooks.identify = () => { throw opaque; };
+    const p = proof(f, await f.helper.copyNext(f.requests.A), 'IO');
+    eq(p.io, reserve(f.requests.A.linked.executable.bytes, f.requests.A.linked.manifest.bytes));
+    snapshot(f, p.io, null, true); assert.equal(touched, 0); assert.equal(f.handles.length, 0);
+    assert(!f.calls.some(entry => entry.method === 'close')); assert(!JSON.stringify(p).includes('opaque private')); await used(f);
   });
 
   eq(cases.map(([id]) => id), Array.from({ length: 20 }, (_, i) => 'P' + String(i + 1).padStart(2, '0')));

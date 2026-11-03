@@ -27,6 +27,12 @@ environment, ordered resolution/no-shadow, process containment limitations,
 normal worker invariance and fresh object directives. Existing output roots
 must already exist; this component creates only the fixed preEmbedCopy file.
 A boolean or this proof cannot establish the missing prerequisites.
+The accepted coordinator has a5000ms prepareManifest outer timer and no signal
+in that request; this helper has a60000ms cooperative deadline. It is NOT yet
+wired as that port. A future reviewed wrapper must handle cancellation, late
+settlement and continued ownership of every pending handle/output; it cannot
+release a lease or claim closure when the outer coordinator has timed out.
+No MT or later child can follow an unsettled/failed preservation operation.
 
 Root owns this NEW contract then NEW producer
 native/llama-worker/worker_artifact_preembed_copy_v1.mjs.

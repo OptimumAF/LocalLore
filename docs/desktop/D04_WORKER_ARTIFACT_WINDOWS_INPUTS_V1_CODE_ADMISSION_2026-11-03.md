@@ -115,7 +115,9 @@ No preparation command ran. Failure retains partial files/STOP and consumes
 the grant: no owner/Stage/START/Node continuation or automatic retry.
 On success only, create truthful review/owner/Stage records, bind fixed fixture
 scope, refresh full remaining reservation/roster and invoke the supervisor ONCE.
-No separate general preparer, untrusted script runner or extra child is added.
+No separate general preparer, untrusted script runner or additional Node test,
+worker or compiler child is added. Root's fixed PowerShell preparation/guard
+commands remain distinct from the ONE Node check child.
 These fixed operator commands stay in Git; both whole private programs must
 additionally be retained UNCOMPRESSED in the same charged evidence group.
 
@@ -191,7 +193,9 @@ ONE fixed-fixture preparation plus one26-group Node packet. All previous narrow
 failed/unlaunched exceptions stay; no new STOP exemption, cleanup, alternate
 root, automatic retry or budget reset.
 
-No SDK/library/header/tool payload read/lookup, retained-report binding, build/
+Only the fixed source/history/Node/normal-image/fixture guard reads above are
+included; no new SDK/library/header/compiler-tool payload read/lookup,
+retained-report binding, build/
 link/MT/CMake/Ninja/worker/model/app/IPC/WebView/Android/device operation, system
 settings, download, release or desktop control. Rust/frontend/native-app/Android
 checks are outside this grant; unchanged production/shared sources are not

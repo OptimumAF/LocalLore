@@ -46,7 +46,10 @@ createWorkerArtifactWindowsInputsV1(spec)
 createWorkerArtifactWindowsInputsV1ForTesting(spec, adapter)
 ```
 
-Production imports only Node builtin filesystem/crypto/performance facilities;
+Production uses only Node builtin filesystem/crypto/performance facilities
+and process.platform. The production factory refuses non-win32 platforms with
+WorkerArtifactWindowsInputsV1Invalid before filesystem access; ForTesting may
+run its synthetic protocol on other hosts without claiming Windows evidence.
 its concrete adapter uses `lstat`, `realpath`, `open`, held `stat/read/close` and
 `performance.now`. No shell, environment selection, subprocess, downloads,
 recursive enumeration, arbitrary reader callback or source evaluation.
@@ -89,8 +92,9 @@ Synthetic tests may use synthetic tokens; they are not real-file provenance.
 At construction require total declared bytes <=536870912 and twice that sum
 <=1073741824; each individual and count limit is unchanged. Accept inclusive
 total ceilings. Factory shape/path/identity/initial-clock failures throw ONLY
-`WorkerArtifactWindowsInputsV1Invalid`; string/component/count/input-byte/job
+`WorkerArtifactWindowsInputsV1Invalid`; path-string/component/count/input-byte/job
 byte excess throws `WorkerArtifactWindowsInputsV1Limit`. No I/O on setup failure.
+Identity-token or SHA string shape/length failures are Invalid, not path Limits.
 Validate all descriptors/spec/limits before calling initial now. Initial now
 must be finite nonnegative Number; fractional performance values are allowed.
 

@@ -3,12 +3,23 @@
 Refs M10.02 `RECORD_CANCELLATION_UI_OPERATION_READINESS`, supporting M09.04/M09.06.
 Two guard fixes are implemented for review. Full task checkboxes remain unchanged.
 
-Code `a1dd3d9ef172633f293e3594360a305198fd8186`, tested tree
-`8124a1848dfeb46c5ff529122c7f5041a4b29de0`, on open/unmerged #389 at
-`c5fcb827ac6400781d80e50e8ee32b7110f1dedd`. The source map contains 2,661 files:
-2,659 inherited entries with only two production files changed, plus two original
-test files. The four changed paths are explicitly staged through an alternate
-index; the normal checkout and index remain preserved. Documentation is later.
+Current tested code `57bc31740e3f8d3883de4d8a28623daeb4193149`, tree
+`39dd3d2dc810f057e0b75e3a83b6c04f5183e963`, on open/unmerged #389 at
+`c5fcb827ac6400781d80e50e8ee32b7110f1dedd`. The source map has 2,663 files:
+2,659 inherited entries with two production changes, two original test files and
+two reviewed documents. The final delta after testing changes this report only.
+Publication uses an alternate index; normal checkout/index remain preserved.
+
+Original code `a1dd3d9e`/tree `8124a184` and its 101 passing Windows checks remain
+preserved. Final review found that the two new inspection tests use the same
+Windows-only physical-D fixture as the existing NT-gated cohort but had omitted
+its platform declaration. A later commit adds only `import os` and that NT class
+gate. Both method source bodies/ASTs and all Windows assertions are unchanged;
+the reader tests already have the gate. All 101 checks and the real artifact
+verification were rerun after this correction, with zero Windows skips.
+No Linux execution or historical failing CI result is claimed. The repository's
+existing host workflow uses Windows; the correction declares the fixture's
+actual platform requirement for other callers as well.
 
 ## Actual Windows checks
 
@@ -23,14 +34,14 @@ artifact verifier receives no alternate reader factory.
 | --- | ---: | --- | ---: |
 | Original late-ledger FIRST | 2 | 1 pass, 1 assertion failure | 13.079 |
 | Original reader FIRST (oracle v2) | 4 | 3 pass, 1 positive-path BuildRefused error | 1.137 |
-| New corrected tests | 6 | 0 failures/errors/skips | 1.386 |
-| Final metadata including unchanged parent regressions | 66 | 0 failures/errors/skips | 17.138 |
-| Existing diagnostic/record build regressions | 35 | 0 failures/errors/skips | 36.518 |
+| New corrected tests | 6 | 0 failures/errors/skips | 1.298 |
+| Final metadata including unchanged parent regressions | 66 | 0 failures/errors/skips | 16.669 |
+| Existing diagnostic/record build regressions | 35 | 0 failures/errors/skips | 25.817 |
 
 **101 unique final method IDs** are the disjoint union of the final 66 and build
 35. The six-method repeat and subtest variants are not additive. The 35 build
 methods use retained synthetic data; they do not rerun Android or JVM tests.
-No full-project or CI pass is claimed. Windows reader tests are NT-only; this
+No full-project or CI pass is claimed. All six new tests use NT-only physical-D fixtures; this
 actual cohort has zero skips, not a Linux qualification claim.
 
 Both original failures remain failures. The late-ledger oracle changed only its
@@ -38,7 +49,8 @@ isolated fixture ledger during the final activation observation and detected
 that no refusal occurred. The reader positive oracle varies only a directory's
 observed size across actual reads/final checks; it encountered the same existing
 BuildRefused path. The three strict reader protection methods already pass before
-the production change. The exact six test bodies are unchanged through final.
+the production change. The six method bodies remain unchanged; the versioned NT class gate amendment
+is recorded separately from the original oracle hashes.
 
 Reader tests keep the real shared bound-file reads/open/fstat/hash behavior.
 They reject changed device, inode, mode/type, mtime and link count; link/reparse
@@ -59,19 +71,21 @@ device, inode, full mode, mtime and link count match. Both raw errors, workers a
 exact attempted source remain preserved. No third old-profile retry occurred.
 
 After the fix, the **public current-source** `verify_frozen_product` succeeds in
-11.598s owner with known cleanup. It uses the actual corrected shared reader,
+5.367s owner with known cleanup; the earlier 11.598s replay is also retained. It uses the actual corrected shared reader,
 the sealed baseline and original saved descriptor; no factory seam is supplied.
 The returned manifest is value-equal to the original 32,140-byte descriptor, SHA256
 `4d39b74ad5aee455ce9060c01d760204022101e4b6b8ce58d12f666450d2894e`.
-Source maps before/after match all 2,661 files and both final test cohorts.
+Latest source maps before/after match all 2,663 files and both final v2 test
+cohorts. Original v1 source/results and archive remain historical, not overwritten.
 This revalidates saved build/APK facts, not original JVM execution or Android.
 No APK rebuild, selector/profile change, new model/runtime choice or feature
 acceptance follows. Shared ledger stays
 `c0d39a503e7ce86607215a33bdad84c0d6b9769cc762234a17105c69eb4d0673`.
 
 Private frozen commands include `run_owned.py red-late-v1`, `red-reader-v1`,
-`new-v1`, `final-v1`, `build-v1`, `run_inspection.py`,
-`run_inspection_diagnostic.py`, `run_real_attestation.py` and `commit_code.py`.
+`new-v2`, `final-v2`, `build-v2`, `run_inspection.py`,
+`run_inspection_diagnostic.py`, `run_real_attestation_v2.py`, `commit_code.py` and
+`commit_portability_v2.py`. Earlier versioned workers/results remain retained.
 All run from physical D: with the stated environment. The six new tests can be
 reproduced from a physical D: checkout with process-local TEMP/TMP on D: using:
 

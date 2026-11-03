@@ -9,20 +9,20 @@ import json
 from pathlib import Path, PureWindowsPath
 import re
 
-OUT=Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-fresh-v1')
+OUT = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1')
 OPERATOR_ROOT=OUT/'candidate-source-v1'
 OPERATOR=OPERATOR_ROOT/'scripts/run_record_cancellation_operation.py'
 CONTRACT=OPERATOR_ROOT/'scripts/record_cancellation_operation_contract.py'
 AUTHORITY=OUT/'parent-authority-v1.json'
 LIVE=OUT/'live-parent-v1'
 ATTEMPT=LIVE/'attempt-v1.json'
-SOURCE=Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-profile-v1/candidate-source-v1')
+SOURCE = OUT/'frozen-profile-source-v1'
 FRESH_ROOT=OUT
 FRESH_SOURCE=OPERATOR_ROOT
-FRESH_HEAD='287b158e72ed5c0811a2e7e433e73ada4f4d6c52'
-FRESH_OPERATOR={'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-fresh-v1\\candidate-source-v1\\scripts\\run_record_cancellation_ui_fresh.py', 'bytes': 29984, 'sha256': 'e59270006c263f76dbd51d4393db850776453ca3da206c49b2f44e31a235e108'}
-FRESH_CONTRACT={'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-fresh-v1\\candidate-source-v1\\scripts\\record_cancellation_ui_fresh_contract.py', 'bytes': 7683, 'sha256': 'e9fdacf5a04c7a70e897e68fcff5c165b2f1b375f95c5ae76a014557078852f7'}
-HANDOFF={'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-fresh-v1\\inspection-v1\\frozen-inputs-v1.json', 'bytes': 9074, 'sha256': '8ee6bd191b3b996c79aae877a125b2b2255ad4e61316ad1baae88cd477b1a40d'}
+FRESH_HEAD = 'c89b9e4f73a5481a1ba5afd9808821e023d1cd0c'
+FRESH_OPERATOR = {'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\candidate-source-v1\\scripts\\run_record_cancellation_ui_fresh.py', 'bytes': 29986, 'sha256': '0a1f9feb5276fd96ac691b0757f264fe88f2aee158a91dc907c0d08f2e0fd198'}
+FRESH_CONTRACT = {'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\candidate-source-v1\\scripts\\record_cancellation_ui_fresh_contract.py', 'bytes': 7647, 'sha256': '1762385e5bb660cc475cfde7af2040886061e6f057d6734cc6e01cdbcff93bab'}
+HANDOFF = {'bytes': 9255, 'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\inspection-v1\\frozen-inputs-v1.json', 'sha256': '50e86854bcb5aeb3eb4c5c002e42c40bcf86285e869d8b99a51f95b8b73a0b7b'}
 FRESH_AUTHORITY=FRESH_ROOT/'human-authority-v1.json'
 FRESH_LIVE=FRESH_ROOT/'live-operation-v1'
 PROPOSAL=FRESH_ROOT/'PROPOSED_OPERATION.md'

@@ -11,9 +11,9 @@ from unittest.mock import Mock, patch
 from scripts import record_cancellation_ui_fresh_contract as fresh
 from scripts import record_cancellation_operation_contract as parent
 
-HEAD = '287b158e72ed5c0811a2e7e433e73ada4f4d6c52'
-TREE = '81dae478d06f2da8be5f14a693f276318fe0c4ac'
-OUT = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-fresh-v1')
+HEAD = 'c89b9e4f73a5481a1ba5afd9808821e023d1cd0c'
+TREE = 'd29c520f60c2f21204fef0972d25f7d322ca368a'
+OUT = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1')
 
 
 def pin(path):

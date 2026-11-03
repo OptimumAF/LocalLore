@@ -3,7 +3,11 @@ package org.locallore.app
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -77,10 +81,11 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         val ticket = ++generation
         pending?.cancel()
         mutable.value = current.copy(eventDetail = StoryRecordEventDetail(sequence, scopedReference = reference))
-        pending = scope.launch {
+        launchRead(ticket, detail = true) {
             try {
                 val page = reader.readStoryRecord(query)
-                if (disposed || ticket != generation) return@launch
+                currentCoroutineContext().ensureActive()
+                if (disposed || ticket != generation) return@launchRead
                 check(page.query == query && page.storyTime == current.storyTime && page.nextCursor == null)
                 if (page.total == 0 && page.entries.isEmpty())
                     throw StoryRecordFailure(StoryRecordProblem.EVENT_UNAVAILABLE)
@@ -119,10 +124,11 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
             mutable.value = mutable.value.copy(loading = false, problem = StoryRecordProblem.BAD_SEARCH)
             return
         }
-        pending = scope.launch {
+        launchRead(ticket, detail = false) {
             try {
                 val page = reader.readStoryRecord(query)
-                if (disposed || ticket != generation) return@launch
+                currentCoroutineContext().ensureActive()
+                if (disposed || ticket != generation) return@launchRead
                 check(page.query == query && page.storyTime >= 0 && page.total in 0..65536)
                 check(page.entries.size <= STORY_RECORD_PAGE_ROWS && page.total >= page.entries.size)
                 check(page.entries.map { it.key }.toSet().size == page.entries.size)
@@ -142,6 +148,35 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                     problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE)
             }
         }
+    }
+    private fun launchRead(ticket: Long, detail: Boolean, block: suspend () -> Unit) {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            currentCoroutineContext().ensureActive()
+            block()
+        }
+        pending = job
+        job.invokeOnCompletion { failure ->
+            if (failure is CancellationException) {
+                // Completion may run on a cancelling thread. Only queue a finite state
+                // settlement on the owner dispatcher; never retry or read from cleanup.
+                scope.launch(NonCancellable) {
+                    if (!disposed && ticket == generation) {
+                        val current = mutable.value
+                        if (detail) {
+                            current.eventDetail?.takeIf { it.loading }?.let {
+                                mutable.value = current.copy(eventDetail = it.copy(loading = false,
+                                    entry = null, problem = StoryRecordProblem.UNAVAILABLE))
+                            }
+                        } else if (current.loading) {
+                            mutable.value = current.copy(loading = false, problem = StoryRecordProblem.UNAVAILABLE)
+                        }
+                    }
+                    if (pending === job) pending = null
+                }
+            }
+        }
+        // Registration precedes start so cancellation before dispatcher entry also settles.
+        job.start()
     }
     fun dismiss() {
         generation++

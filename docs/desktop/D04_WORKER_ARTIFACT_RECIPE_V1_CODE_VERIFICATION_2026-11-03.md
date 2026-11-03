@@ -150,4 +150,3 @@ Next runnable task: source-only fixed coordinator and independent finite tests
 for actual inputs, quoting, storage, output/pre-embed and supervised six-child
 build lifecycle. Any SDK/input observation or build requires its own reviewed
 admission and finite owner decision; this grant is SPENT.
-

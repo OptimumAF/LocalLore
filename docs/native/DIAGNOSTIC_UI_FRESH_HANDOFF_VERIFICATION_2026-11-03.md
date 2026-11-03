@@ -56,7 +56,8 @@ Python test processes, never SDK/ADB/guest/model operations.
 | Independently authored new methods |28:22contract/read/inputs,6stage/supervisor |
 | Root new host methods |2, actual owned Windows Python processes |
 | Existing selected regressions |14unchanged WindowsJob constructor/fake-kernel methods |
-| Unittest runner interval |13.121612s, owned interval13.644s |
+| Raw unittest interval |12.144s |
+| Host test capture interval |13.121612s, owned interval13.644s |
 | Genuine fixed startup |17.514393s, owned interval18.055s,exit0,stderr0,known cleanup |
 | Common before/after maps |2,616files, identical across final-v3 and genuine-v5 |
 | Tested raw Git tree |`a953ed73cbec76805f637b511cf6458137b06aa2` |

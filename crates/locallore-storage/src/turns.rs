@@ -790,9 +790,14 @@ fn checkpoint(_: u8) -> Result<()> {
     Ok(())
 }
 #[cfg(test)]
-thread_local! { static FAULT: std::cell::Cell<Option<(u8,bool)>> = const {std::cell::Cell::new(None)}; }
+thread_local! {
+    static FAULT: std::cell::Cell<Option<(u8,bool)>> = const {std::cell::Cell::new(None)};
+    // Observe existing boundaries without injecting a failure or changing production code.
+    static LAST_CHECKPOINT: std::cell::Cell<Option<u8>> = const {std::cell::Cell::new(None)};
+}
 #[cfg(test)]
 fn checkpoint(stage: u8) -> Result<()> {
+    LAST_CHECKPOINT.set(Some(stage));
     if let Some((at, abrupt)) = FAULT.get() {
         if at == stage {
             if abrupt {
@@ -835,6 +840,13 @@ mod tests {
     }
     impl Drop for Temp {
         fn drop(&mut self) {
+            if std::thread::panicking() {
+                eprintln!(
+                    "preserving failed atomic-turn fixture at {}",
+                    self.0.display()
+                );
+                return;
+            }
             std::fs::remove_dir_all(&self.0).unwrap();
         }
     }
@@ -1074,6 +1086,104 @@ mod tests {
         ));
         drop(tx);
         assert_eq!(second.cancel_turn(&r).unwrap().phase, TurnPhase::Cancelled);
+    }
+    #[test]
+    fn reader_held_commit_rolls_back_and_exact_retry_commits_once() {
+        let dir = Temp::new();
+        let mut store = dir.open();
+        store.create_story("Fixture", seed()).unwrap();
+        let (request, proposal, narration) = plan();
+        store.begin_turn(&request).unwrap();
+        let before = store.resume(&request.scope).unwrap().engine;
+
+        // A real SELECT, not BEGIN alone, holds the rollback-journal read lock.
+        // A reader permits BEGIN IMMEDIATE and the writes, but blocks COMMIT.
+        let mut reader =
+            Connection::open_with_flags(dir.path(), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .unwrap();
+        let journal: String = reader
+            .pragma_query_value(None, "journal_mode", |row| row.get(0))
+            .unwrap();
+        assert_eq!(journal, "delete");
+        let read_tx = reader
+            .transaction_with_behavior(TransactionBehavior::Deferred)
+            .unwrap();
+        let held_head: i64 = read_tx
+            .query_row(
+                "SELECT head_revision FROM branches WHERE story_id=?1 AND branch_id=?2",
+                (&request.scope.story, &request.scope.branch),
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(held_head, 0);
+
+        assert_eq!(FAULT.get(), None);
+        LAST_CHECKPOINT.set(None);
+        assert_eq!(
+            store.commit_turn(&request, &proposal, &narration),
+            Err(TurnError::Storage(StorageError::Busy))
+        );
+        // All writes succeeded; COMMIT failed before the post-commit checkpoint.
+        // This distinguishes reader contention from a failed BEGIN or cache spill.
+        assert_eq!(LAST_CHECKPOINT.get(), Some(5));
+        read_tx.commit().unwrap();
+        drop(reader);
+
+        let rolled_back = store.resume(&request.scope).unwrap();
+        assert!(!rolled_back.projection_needs_rebuild);
+        assert_eq!(
+            rolled_back.engine.canonical_bytes(),
+            before.canonical_bytes()
+        );
+        assert_eq!(rolled_back.engine.revision(), 0);
+        assert_eq!(rolled_back.engine.state().items["potion"].owner, "player");
+        assert_eq!(rolled_back.engine.state().story_time, 100);
+        let draft = store.turn_status(&request).unwrap();
+        assert_eq!(draft.phase, TurnPhase::Draft);
+        assert!(draft.receipt.is_none());
+        assert_eq!(store.drafts(&request.scope).unwrap().len(), 1);
+
+        let receipt = store.commit_turn(&request, &proposal, &narration).unwrap();
+        assert_eq!(receipt.events().len(), 2);
+        assert_eq!(LAST_CHECKPOINT.get(), Some(6));
+        let committed = store.resume(&request.scope).unwrap();
+        assert!(!committed.projection_needs_rebuild);
+        assert_eq!(committed.engine.revision(), 2);
+        assert_eq!(committed.engine.state().items["potion"].owner, "mira");
+        assert_eq!(committed.engine.state().story_time, 101);
+        assert_eq!(
+            store.commit_turn(&request, &proposal, &narration).unwrap(),
+            receipt
+        );
+        drop(store);
+
+        let mut reopened = dir.open();
+        let restored = reopened.resume(&request.scope).unwrap();
+        assert!(!restored.projection_needs_rebuild);
+        assert_eq!(
+            restored.engine.canonical_bytes(),
+            committed.engine.canonical_bytes()
+        );
+        assert_eq!(restored.engine.receipts(), committed.engine.receipts());
+        assert_eq!(
+            reopened.turn_status(&request).unwrap().receipt,
+            Some(receipt.clone())
+        );
+        assert!(reopened.drafts(&request.scope).unwrap().is_empty());
+        assert_eq!(
+            reopened
+                .commit_turn(&request, &proposal, &narration)
+                .unwrap(),
+            receipt
+        );
+        assert_eq!(
+            reopened
+                .resume(&request.scope)
+                .unwrap()
+                .engine
+                .canonical_bytes(),
+            committed.engine.canonical_bytes()
+        );
     }
     #[test]
     fn actual_threads_cancel_against_commit_have_one_durable_winner() {

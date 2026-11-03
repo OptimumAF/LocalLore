@@ -136,6 +136,10 @@ actual bytes. A positive safe returned count <=requested length is charged to
 actualReadBytes BEFORE a late cancellation/deadline/poison check. Zero,
 overlong, malformed counts or throws stop `InputFailure`; never charge invented
 counts. Keep actual<=reservedReadBytes and both fixed job limits.
+After accepting args/sequence and checking an already latched stop, reserve
+BEFORE this operation's first live/clock check. An already expired job therefore
+records1,n,2n reserved and zero actual/open attempts, then InputDeadline. A
+previous cancellation/critical stop or invalid/concurrent call reserves nothing.
 
 ## Accepted held-input protocol, concrete adapter and safe cleanup
 

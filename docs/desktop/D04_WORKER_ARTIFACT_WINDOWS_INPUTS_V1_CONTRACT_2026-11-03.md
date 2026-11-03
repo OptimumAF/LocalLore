@@ -1,5 +1,11 @@
 # Worker artifact Windows inputs v1: bounded real-filesystem component
 
+Outcome: [24 mock groups and2 actual Windows Node-filesystem checks passed in
+ONE approved packet](D04_WORKER_ARTIFACT_WINDOWS_INPUTS_V1_CODE_VERIFICATION_2026-11-03.md).
+Its grant is SPENT. Original SOURCE ONLY/UNRUN/cap2860 language below preserves
+the frozen chronology; the approved metadata cap is now2924KiB. Other limits,
+all prior failures/output and full admission/desktop qualification gates remain.
+
 Refs #25 D04.01/.02/.04; #31 D09.03/.05 supporting; #21.
 Base accepted PR390/main a635686c. SOURCE ONLY / ALL NEW CHECKS UNRUN.
 PR390's finite grant is SPENT. Current retained metadata cap2860KiB and every

@@ -1,5 +1,11 @@
 # Worker artifact Windows inputs v1: proposed bounded file-check admission
 
+Outcome: [ONE approved packet passed24 mock and2 actual Windows Node-filesystem
+checks](D04_WORKER_ARTIFACT_WINDOWS_INPUTS_V1_CODE_VERIFICATION_2026-11-03.md).
+Grant SPENT; cap2924KiB and all other limits/output remain. Original UNRUN and
+proposed-cap language below records the frozen pre-approval chronology.
+Worker/app/native IPC/model/device and full admission qualification stay open.
+
 Refs #25 D04.01/.02/.04; #31 D09.03/.05 supporting; #21.
 **SOURCE PREPARED / ALL24 MOCK +2 WINDOWS FILE CHECKS UNRUN.**
 PR390's grant is SPENT. Current2860KiB /2,928,640B evidence cap is unchanged.

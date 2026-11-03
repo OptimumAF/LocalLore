@@ -215,7 +215,7 @@ def tree_files(root):
 def installation_files(sdk, java):
     sdk, java = Path(sdk), Path(java)
     files = [Path(__file__).resolve(), Path(host.__file__).resolve(), Path(commit_capacity.__file__).resolve(),
-             Path(guest_storage.__file__).resolve()]
+             Path(guest_storage.__file__).resolve(), Path(__file__).with_name("prepare_recovery_contract.py").resolve()]
     for folder in (sdk / "emulator", sdk / "cmdline-tools/latest",
                    sdk / "system-images/android-35/google_apis/x86_64", java,
                    sdk / "licenses", sdk / "platform-tools"):
@@ -245,6 +245,23 @@ def plan_prepare(root, sdk, java_home, output, real_candidate=False, four_core_c
     floors = root_free_min(root)
     p = paths(root)
     require(not Path(root).exists(), "target_exists")
+    # The experiment parent is an operator precondition, never created implicitly.
+    safe_path(Path(p["root"]).parent, directory=True)
+    proposal = _prepare_proposal_value(root, sdk, java_home, real_candidate, four_core_candidate)
+    create_json(output, proposal)
+    return proposal
+
+
+def _prepare_proposal_value(root, sdk, java_home, real_candidate=False, four_core_candidate=False):
+    """Build current inputs after the caller establishes its root ownership fence.
+
+    Ordinary planning checks absence/parent first. Recovery calls this only after
+    its durable one-use claim and atomic, held directory creation. Not a CLI.
+    """
+    require(type(real_candidate) is bool and type(four_core_candidate) is bool and
+            (not four_core_candidate or real_candidate), "invalid_profile")
+    require(os.name == "nt", "windows_required")
+    floors, p = root_free_min(root), paths(root)
     sdk = safe_path(sdk, directory=True)
     java = safe_path(java_home, directory=True)
     image = sdk / "system-images/android-35/google_apis/x86_64"
@@ -262,7 +279,6 @@ def plan_prepare(root, sdk, java_home, output, real_candidate=False, four_core_c
                 "host_free_min": floors,
                 "host_available_memory_min": (12 if real_candidate else 4) * GIB,
                 "allow_environment_calls": False, "root_go_pending": True}
-    create_json(output, proposal)
     return proposal
 
 
@@ -292,6 +308,7 @@ def validate_proposal(proposal, phase):
     require(isinstance(items, list) and len({x["path"] for x in items}) == len(items), "invalid_proposal")
     required = {str(Path(__file__).resolve()), str(Path(host.__file__).resolve()),
                 str(Path(commit_capacity.__file__).resolve()), str(Path(guest_storage.__file__).resolve()), proposal["adb_path"],
+                str(Path(__file__).with_name("prepare_recovery_contract.py").resolve()),
                 str(Path(proposal["sdk"]) / "emulator/emulator.exe"),
                 str(Path(proposal["sdk"]) / "cmdline-tools/latest/bin/avdmanager.bat"),
                 str(Path(proposal["sdk"]) / "system-images/android-35/google_apis/x86_64/data/empty_data_disk")}
@@ -439,11 +456,18 @@ def prepare(proposal_path, authorization_path):
     require(digest(proposal_path) == admitted_sha, "proposal_changed")
     root = Path(proposal["paths"]["root"])
     require(not root.exists(), "target_exists")
+    safe_path(root.parent, directory=True)
     facts = resource_facts(proposal)
     # Admission is durable before either target creation or any SDK worker.
     storage_transition(guest_storage.reserve_prepare, root, admitted_sha)
     # Every path below belongs exclusively to this newly created target.
     root.mkdir()
+    return _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha, facts)
+
+
+def _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha, facts, registry=None):
+    """Shared post-admission body; recovery retains its directory fence around it."""
+    root = Path(proposal["paths"]["root"])
     create_json(root / "prepare-start-v1.json", {"proposal_sha256": admitted_sha, "facts": facts,
                                                "owner": process_identity(os.getpid())})
     pending = None; failure = None; closure = False
@@ -468,7 +492,10 @@ def prepare(proposal_path, authorization_path):
                 "child_cleanup_complete": known, "prepared_created": failure is None})
     if failure is not None:
         raise failure
-    storage_transition(guest_storage.record_state, root, "prepared")
+    if registry is None:
+        storage_transition(guest_storage.record_state, root, "prepared")
+    else:
+        storage_transition(guest_storage.record_state, root, "prepared", registry=registry)
     return pending
 
 
@@ -710,7 +737,7 @@ class LiveOutput:
                 for stream in self._files:
                     try:
                         stream.close()
-                    except Exception:
+                    except BaseException:
                         self.failed.set()
             return not self.failed.is_set()
 
@@ -768,37 +795,65 @@ def supervise(command, request, root, seconds, on_started, stop_proposal_sha256=
     finally:
         if child is not None:
             if job is not None:
-                cleaned = job.close()
+                try:
+                    cleaned = job.close() is True
+                except BaseException:
+                    cleaned = False
             else:
-                child.kill(); cleaned = True  # Barrier has not been released.
+                # Barrier is unreleased, but constructor handles are unverified.
+                try:
+                    child.kill()
+                except BaseException:
+                    pass
+                cleaned = False
             try:
                 child.wait(timeout=5)
-            except subprocess.TimeoutExpired:
+            except BaseException:
                 cleaned = False
             for t in readers:
-                t.join(timeout=2)
-            cleaned = cleaned and not any(t.is_alive() for t in readers)
-            if cleaned:
+                try:
+                    t.join(timeout=2)
+                except BaseException:
+                    cleaned = False
+                    capture.failed.set()
+            readers_stopped = True
+            for t in readers:
+                try:
+                    readers_stopped = not t.is_alive() and readers_stopped
+                except BaseException:
+                    readers_stopped = False
+            cleaned = cleaned and readers_stopped
+            if readers_stopped:
                 for stream in (child.stdin, child.stdout, child.stderr):
                     try:
                         stream.close()
-                    except (OSError, ValueError):
+                    except BaseException:
                         cleaned = False
         # A trailing reader/force/close failure must override an earlier stop/exit.
-        stalled_reader = any(t.is_alive() for t in readers)
+        stalled_reader = False
+        for t in readers:
+            try:
+                stalled_reader = t.is_alive() or stalled_reader
+            except BaseException:
+                stalled_reader = True
         if capture is not None and stalled_reader:
             # Never wait on its capture lock or close a file still being written.
             capture.failed.set()
             status = "evidence_failed"
         elif capture is not None:
-            capture.close()
+            try:
+                if capture.close() is False:
+                    capture.failed.set()
+            except BaseException:
+                capture.failed.set()
             if capture.failed.is_set():
+                cleaned = False
                 status = "evidence_failed"
             elif capture.overflow.is_set():
                 status = "output_limit"
     sizes = [None, None] if stalled_reader else capture.sizes if capture is not None else [0, 0]
     capture_complete = (capture is not None and not capture.failed.is_set() and
-                        not capture.overflow.is_set() and not any(t.is_alive() for t in readers))
+                        not capture.overflow.is_set() and not stalled_reader)
     return {"status": status, "cleanup_complete": cleaned,
             "elapsed_ms": round((time.monotonic() - started) * 1000),
             "worker_returncode": child.returncode if child else None,

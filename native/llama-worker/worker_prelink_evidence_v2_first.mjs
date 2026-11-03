@@ -191,6 +191,20 @@ export async function runWorkerPrelinkEvidenceV2Selfchecks(api) {
       ['catalog', 8192], ['dependencyRoot', 4096], ['runtimeRoot', 4096]]) {
       const bytes = Buffer.alloc(maximum + 1, 32), input = { ...p.input, [key]: bytes };
       const anchors = { ...p.anchors, [key]: sha(bytes) }; throws(() => create(anchors).bind(input), LIMIT);
+      // Additive boundary calibration, still BEFORE producer. Valid original
+      // JSON plus ASCII whitespace must pass at each inclusive byte ceiling.
+      assert(p.input[key].length <= maximum);
+      const padded = Buffer.concat([p.input[key], Buffer.alloc(maximum - p.input[key].length, 32)]);
+      assert.equal(padded.length, maximum);
+      const positiveInput = { ...p.input, [key]: padded };
+      const positiveAnchors = { ...p.anchors, [key]: sha(padded) };
+      if (key === 'dependencySnapshot' || key === 'runtimeSnapshot') {
+        const rootKey = key === 'dependencySnapshot' ? 'dependencyRoot' : 'runtimeRoot';
+        positiveInput[rootKey] = raw({ ...p.f[rootKey], snapshot: sha(padded) });
+        positiveAnchors[rootKey] = sha(positiveInput[rootKey]);
+      }
+      assert(INPUT.reduce((sum, field) => sum + positiveInput[field].length, 0) < 128 * 1024);
+      eq(create(positiveAnchors).bind(positiveInput), { ...expected(p), anchors: positiveAnchors });
     }
     for (const bad of [null, [], Object.create(p.input), { ...p.input, catalog: p.f.catalog },
       { ...p.input, catalog: new Uint8Array(p.input.catalog) }, { ...p.input, catalog: Buffer.alloc(0) },
@@ -293,6 +307,13 @@ export async function runWorkerPrelinkEvidenceV2Selfchecks(api) {
     const nullCharge = fixture(); nullCharge.runtimeSnapshot.rows[0].strict.error.context.sections = null;
     runtimeSections(nullCharge); const n = pack(nullCharge); eq(bind(n), expected(n));
     const declared = fixture();
+    // Synthetic report-policy fixture, not a binary observation: a declaration
+    // of300000 sections needs at least the56-byte BIGOBJ header before charge.
+    declared.runtimeSnapshot.rows[0].pin.bytes = 56;
+    declared.runtimeSnapshot.rows[0].io = io(56);
+    declared.runtimeSnapshot.job.inputBytes = 86;
+    declared.runtimeSnapshot.io = { reservedInputs: 2, reservedBytes: 86,
+      reservedReadBytes: 172, actualReadBytes: 172 };
     for (const key of ['strict', 'profile']) declared.runtimeSnapshot.rows[0][key] = refusal(300000, {
       kind: 'LibraryInputsSize', site: 'coff_sections_member', context: { ...Object.fromEntries(CONTEXT.map(k => [k, null])),
         sections: 300000, directiveBytes: 0, tokenCount: 0, actual: 300000, limit: 65536 } });

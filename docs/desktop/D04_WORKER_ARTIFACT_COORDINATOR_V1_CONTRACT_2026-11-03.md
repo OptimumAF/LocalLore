@@ -1,5 +1,9 @@
 # Fixed worker artifact coordinator v1: source contract
 
+Outcome: [52 actual synthetic groups passed in one approved packet](D04_WORKER_ARTIFACT_COORDINATOR_V1_CODE_VERIFICATION_2026-11-03.md).
+That finite grant is SPENT. Original unrun language records source chronology;
+Windows adapters/native execution and qualification remain missing/unrun.
+
 Refs #25 D04.01/.02/.04; #31 D09.03/.05 supporting; #21.
 Base accepted PR379/main7b707bc9. SOURCE ONLY / UNRUN. All run grants SPENT.
 This is a development build harness, never an app/model/IPC/remote tool API.

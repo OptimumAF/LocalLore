@@ -1,5 +1,9 @@
 # Worker artifact coordinator v1: proposed code-only admission
 
+Outcome: [the separately approved one packet passed all52 groups](D04_WORKER_ARTIFACT_COORDINATOR_V1_CODE_VERIFICATION_2026-11-03.md).
+The finite grant is SPENT; approved cap2860KiB/all other limits now apply.
+The source-only/unrun/proposed text below preserves the pre-approval plan.
+
 Refs #25 D04.01/.02/.04; #31 D09.03/.05 supporting; #21.
 **SOURCE PREPARED / ALL NEW CHECKS UNRUN. NO EXECUTION AUTHORITY.**
 PR379's ONE passing packet is SPENT. No native build or adapter is admitted.

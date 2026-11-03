@@ -117,7 +117,8 @@ history. The current packet's copy closure is separate.
 Formatting removes one extra final LF from the independent test only; exact
 proposal/pre-format bytes and AST including source locations are preserved.
 Final54and genuine startup ran on the common normalized bytes. Repeated runs
-are not added to54. Both authors reviewed source/captures without executing tests.
+are not added to54. Both independent reviewers reviewed source/captures without
+rerunning tests.
 
 Independent source/capture review v2 SHA256
 `90ee62cabc2f449dca69d1d35fa033d92fe487cca3484260378ebfb333902269`

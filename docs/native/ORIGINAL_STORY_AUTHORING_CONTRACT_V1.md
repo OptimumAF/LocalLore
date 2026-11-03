@@ -78,3 +78,24 @@ It retains the existing180s class/850s SDK/900s phase bounds and measured SDK2
 capture protocol. Exact source rosters, original JUnit/client raw bytes,
 known owners/closures and server observations must validate. This phase does
 not qualify real inference, OS-death, physical/ARM64, accessibility or full M09.
+
+## Current controller cancellation status
+
+The current original-story coroutine may end with `CancellationException` before
+the gateway returns a result. Only its still-current, nonclosing ticket may
+replace progress text with a finite stopped notice and clear review consent.
+The same cancellation is rethrown; the existing finalizer clears busy/creating.
+An obsolete, closing or disposed operation cannot publish that notice.
+
+Before Create starts, the exact input, proposal and title remain visible and no
+story has been created by this attempt. The new current-cancellation notice path
+adds no retry or gateway call; existing regenerate/dismiss cleanup is unchanged.
+Once Create starts, its request remains consumed: a
+story may already exist, and Close still requires a library refresh. The UI must
+not claim rollback, release a creation key or restore consent from an old review.
+
+This is a controller contract, not proof of native-provider cancellation or
+resource drain. Unknown native cleanup still uses the existing owner quarantine.
+[Kotlin cancellation documentation](https://kotlinlang.org/docs/exception-handling.html)
+distinguishes cancellation from ordinary exception propagation. No gateway,
+engine, inference, persistence or lifecycle protocol changes are introduced.

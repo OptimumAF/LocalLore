@@ -300,3 +300,17 @@ After code checks, concrete output-root lease/admission/roster and the coordinat
 timeout/cancellation wrapper still need implementation and separate verification
 before any native build. Full D04/D09/desktop/human-quality gates stay open,
 AuthorDisabled; preserved PR366 is unchanged and uncompiled.
+
+Independent full source reviews by the contract reviewer and FIRST author
+released corrected producer4b81a3f8 against the complete FIRST and contract.
+This release is textual conformance review only, not a test pass, owner
+acceptance, native evidence or permission to run. Final documentation records
+that distinction; the corrected code and all original assertions stay intact.
+
+Actual source checks: git diff --check a635686c8b18acf796d940522e974b88ded834ae
+returns0; git status --short is clean after each committed handoff. Source
+scope inspection shows exactly the three new paths above. git --version reports
+2.33.0.windows.2; PowerShell reports7.6.5/Core. These source commands ran from the
+physical D: checkout with process-local TEMP/TMP=D:/Dev/_Temp. A read-only
+Test-Path of PR393's exact proposed fixture root returnsFalse. No Node child,
+module parser/import, selfcheck, fixture preparation or program retention ran.

@@ -94,6 +94,11 @@ On timer expiry abort, mark PORT_TIMEOUT; active launch means unknownClosure.
 On cancel, give active operation at most5000ms to settle; a still-active launch
 then stops CLOSURE/unknownClosure, other operations CANCELLED. Ignore every
 late resolve/reject; attach rejection handlers. Clock failures stop PORT_ERROR.
+The original deadline is not extended: its expiry and the cancel-grace timer
+race, first expiry wins with its specified code. Clock setup failure BEFORE
+offering a port makes no port call and no offered-launch increment or unknown
+child claim. A clock failure after offering a launch is conservatively unknown.
+Record-stage clock errors instead produce the EVIDENCE override below.
 A timer is a stop detector, not OS/process-tree containment.
 
 ## Exact receipts
@@ -160,6 +165,8 @@ record kind worker_artifact_record_v1; exact {version,kind,retained,report}.
 version1,retainedtrue,report=SHA256 of final report's exact JSON.stringify UTF8.
 It is called ONCE on terminal success/failure/cancel, no retries/overwrites.
 The acknowledgement is excluded from report.receipts to avoid a self-hash cycle.
+Pre-run cancellation still attempts this one record operation. If its timer
+setup fails, record itself is not called; EVIDENCE/retained:false and no retry.
 Real adapter preserves raw failing receipts/outputs and monotone journal.
 Failed/invalid/timed-out record returns retained:false with code EVIDENCE and
 firstCode the original report code; do not attempt a second record.
@@ -182,9 +189,12 @@ admit; for EACH index0..5: recheck(before), then
   launchStep, inspectOutputs, recheck(after);
 then compare(index6), record.
 Step order is compileA,linkA,manifestA,compileB,linkB,manifestB exactly.
-Increment attempted immediately BEFORE the launch operation (offered attempts,
-not a claim that a native PID exists); completed only after that
-step's inspectOutputs AND after-recheck pass. No phase skip or fallback.
+Increment attempted immediately BEFORE actually offering launchStep, AFTER
+successful timer setup (offered attempts, not a claim that a native PID exists).
+Increment completed immediately after that step's inspectOutputs AND valid
+successful after-recheck, BEFORE honoring simultaneous cancellation. Thus a
+cancelled report may have completed6 but cannot become success. No phase skip
+or fallback.
 Every request/receipt remains frozen even if caller later mutates original data.
 AbortSignal internals are deliberately not frozen.
 

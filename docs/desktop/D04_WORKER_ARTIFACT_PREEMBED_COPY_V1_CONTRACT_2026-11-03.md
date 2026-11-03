@@ -1,5 +1,10 @@
 # Exclusive pre-embed preservation v1: source contract
 
+Outcome: [20 mock groups passed in ONE approved code packet](D04_WORKER_ARTIFACT_PREEMBED_COPY_V1_CODE_VERIFICATION_2026-11-03.md).
+Grant SPENT; actual Windows copy/native integration remains UNRUN. Approved
+metadata cap is now2988KiB, other limits/failures/output unchanged. Historical
+UNRUN/pending/cap statements below retain their source chronology.
+
 Integration update: PR393 is now accepted on main aa175135 after one approved
 24-mock/2-real-Node-filesystem packet. Its grant is SPENT. This branch safely
 integrated that main at4f91bd70 without changing this helper or its FIRST.

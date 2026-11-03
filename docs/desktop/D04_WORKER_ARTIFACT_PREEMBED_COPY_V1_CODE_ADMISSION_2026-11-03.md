@@ -1,5 +1,10 @@
 # Pre-embed preservation v1: proposed bounded code-check admission
 
+Outcome: [ONE approved packet passed20 mock groups](D04_WORKER_ARTIFACT_PREEMBED_COPY_V1_CODE_VERIFICATION_2026-11-03.md).
+Its grant is SPENT. Actual Windows copying remains UNRUN; approved evidence cap
+is now2988KiB, all other limits/output retained. The original SOURCE PREPARED/
+UNRUN/proposed-cap text below records the frozen pre-approval chronology.
+
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03/.05 supporting; #21.
 **SOURCE PREPARED / ALL20 MOCK GROUPS AND ACTUAL WINDOWS COPY PATH UNRUN.**
 

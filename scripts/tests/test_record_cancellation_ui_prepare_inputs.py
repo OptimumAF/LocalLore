@@ -16,7 +16,7 @@ from scripts.tests import test_record_cancellation_ui_prepare_inputs_fixtures as
 
 
 class RecordCancellationCatalogTests(unittest.TestCase):
-    def test_full_2644_catalog_binds_literal_git_vectors_without_resource_observation(self):
+    def test_full_2664_catalog_binds_literal_git_vectors_without_resource_observation(self):
         graph = f.CatalogGraph(); before = graph.detached()
         reader = Mock(wraps=graph.reader)
         observed = Mock(side_effect=AssertionError('unexpected resource observation'))
@@ -26,7 +26,7 @@ class RecordCancellationCatalogTests(unittest.TestCase):
         self.assertEqual(returned, before)
         returned['files'][0]['sha256'] = '0' * 64
         self.assertEqual(graph.value, before)
-        self.assertEqual(reader.call_count, 2644)
+        self.assertEqual(reader.call_count, 2664)
         self.assertEqual(graph.value['files'][0]['git_blob'], 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391')
         self.assertEqual(graph.value['files'][1]['git_blob'], 'ce013625030ba8dba906f756967f9e9ca394464a')
         self.assertTrue(all(maximum == 16 * 1024**2 for _, maximum in graph.calls))
@@ -95,7 +95,7 @@ class RecordCancellationCatalogTests(unittest.TestCase):
             self.assertEqual(seal.call_count, 2)
             self.assertTrue(all(call.args == (subject.SOURCE_PUBLICATION,) for call in seal.call_args_list))
             self.assertEqual(walk.call_count, 1)
-            self.assertEqual(reader.call_count, 2644)
+            self.assertEqual(reader.call_count, 2664)
         graph = f.CatalogGraph(); reader = Mock()
         with patch.object(subject, '_raw', return_value=json.dumps(graph.value).encode()), \
              patch.object(subject, '_walk', return_value=(graph.names, ['unlisted-empty-directory'])), \
@@ -213,8 +213,8 @@ class RecordCancellationInspectionFlowTests(unittest.TestCase):
                 self.assertIs(handoff['execution_authorized'], False)
                 self.assertIs(handoff['model_material'], False)
                 self.assertEqual(handoff['artifacts']['build'], subject.BUILD)
-                self.assertEqual(handoff['source_head'], '287b158e72ed5c0811a2e7e433e73ada4f4d6c52')
-                self.assertEqual(result['source_files'], 2644)
+                self.assertEqual(handoff['source_head'], 'c89b9e4f73a5481a1ba5afd9808821e023d1cd0c')
+                self.assertEqual(result['source_files'], 2664)
                 self.assertEqual(result['benchmark_sources'], 28)
                 self.assertEqual((result['installed_files'], result['installed_bytes_per_pass'], result['installed_hash_passes']), (1, 4, 2))
                 self.assertEqual(graph.hash_passes, 2)

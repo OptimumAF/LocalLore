@@ -101,9 +101,10 @@ export function createWorkerArtifactCoordinatorV1(options) {
         if (activeCancel === beginGrace) activeCancel = null;
         let clearFailed = false;
         for (const token of timers) { try { clockClear(token); } catch { clearFailed = true; } }
-        if (clearFailed) reject(new Stop('PORT_ERROR', unknown()));
-        else if (good) resolve(value);
-        else reject(value);
+        // Preserve the first detected failure through subsequent cleanup faults.
+        if (!good) reject(value);
+        else if (clearFailed) reject(new Stop('PORT_ERROR', unknown()));
+        else resolve(value);
       };
       const expire = code => { if (!done) { abort(); finish(false, new Stop(code, unknown())); } };
       const beginGrace = () => {

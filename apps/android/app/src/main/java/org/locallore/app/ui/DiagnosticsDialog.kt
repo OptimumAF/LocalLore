@@ -30,22 +30,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.locallore.app.DiagnosticsUiState
+import org.locallore.app.DiagnosticsReview
+import org.locallore.app.diagnosticsActions
 
 /** Presents the coordinator's frozen export preview; callbacks own consent, writing and clearing. */
 @Composable
 fun DiagnosticsDialog(
     state: DiagnosticsUiState,
-    onDismiss: () -> Unit,
-    onClear: () -> Unit,
-    onExport: () -> Unit,
+    onDismiss: (DiagnosticsReview) -> Unit,
+    onClear: (DiagnosticsReview) -> Unit,
+    onExport: (DiagnosticsReview) -> Unit,
 ) {
     if (!state.visible) return
+    val actions = diagnosticsActions(state.review, onDismiss, onClear, onExport)
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val windowWidth = with(density) { windowSize.width.toDp() }
     val windowHeight = with(density) { windowSize.height.toDp() }
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = actions.dismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
@@ -102,19 +105,19 @@ fun DiagnosticsDialog(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Button(
-                        onClick = onExport,
+                        onClick = actions.export,
                         enabled = !state.exporting,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                             .testTag("diagnostics-export"),
                     ) { Text(if (state.exporting) "Exporting…" else "Export JSON") }
                     OutlinedButton(
-                        onClick = onClear,
+                        onClick = actions.clear,
                         enabled = !state.exporting,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                             .testTag("diagnostics-clear"),
                     ) { Text("Clear diagnostics") }
                     TextButton(
-                        onClick = onDismiss,
+                        onClick = actions.dismiss,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                             .testTag("diagnostics-close"),
                     ) { Text(if (state.exporting) "Cancel export / close" else "Close") }

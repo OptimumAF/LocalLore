@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -24,8 +26,10 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -113,11 +117,19 @@ internal fun BranchForkPanel(
                     }
                 }
                 if (input != null && !state.lookupOnly && state.outcome == null && storageProblem == null) {
-                    Row {
-                        key(delivery) {
-                            Checkbox(consent, { value -> act { consent = value } }, enabled = !state.busy, modifier = Modifier.testTag("fork-consent"))
+                    key(delivery) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .toggleable(value = consent, enabled = !state.busy, role = Role.Checkbox,
+                                    onValueChange = { value -> act { consent = value } })
+                                .testTag("fork-consent"),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(consent, onCheckedChange = null, enabled = !state.busy,
+                                modifier = Modifier.size(48.dp))
+                            Text("Create exactly this new timeline, preserving the original.",
+                                modifier = Modifier.weight(1f))
                         }
-                        Text("Create exactly this new timeline, preserving the original.")
                     }
                     key(delivery) {
                         if (!state.uncertain) Button(onClick = { act { onConfirm(input, consent) } }, enabled = consent && !state.busy,
@@ -147,12 +159,19 @@ internal fun BranchForkPanel(
                 }
                 state.notice?.let { Text(it, modifier = Modifier.testTag("fork-notice")) }
                 if (recoveryPending || storageProblem != null) {
-                    Row {
-                        key(delivery) {
-                            Checkbox(forgetConsent, { value -> act { forgetConsent = value } }, enabled = !state.busy,
-                                modifier = Modifier.testTag("fork-forget-consent"))
+                    key(delivery) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .toggleable(value = forgetConsent, enabled = !state.busy, role = Role.Checkbox,
+                                    onValueChange = { value -> act { forgetConsent = value } })
+                                .testTag("fork-forget-consent"),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(forgetConsent, onCheckedChange = null, enabled = !state.busy,
+                                modifier = Modifier.size(48.dp))
+                            Text("Forget only the recovery hint. A timeline may already exist.",
+                                modifier = Modifier.weight(1f))
                         }
-                        Text("Forget only the recovery hint. A timeline may already exist.")
                     }
                     key(delivery) {
                         TextButton(onClick = { act { onForget(forgetConsent) } }, enabled = forgetConsent && !state.busy,

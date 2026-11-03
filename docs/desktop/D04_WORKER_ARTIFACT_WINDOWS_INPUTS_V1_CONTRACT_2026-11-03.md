@@ -152,6 +152,12 @@ performed these new expected root/leaf checks for every project/SDK input.
 open receives only that captured pin and literal'r'. Held wrapper has exact
 own-data stat/read/close functions. stat returns exact `{leaf,bytes}` matching
 the pin/before identity. Compare complete before/after identity records.
+Adapter calls are exactly identify(pin), open(pin,'r'), now(); held calls are
+stat(), read(buffer,offset,length,position), close(). The read reply is an exact
+ordinary/null-prototype own-DATA record {bytesRead}; never invoke its getters.
+Production copies only FileHandle.read's bytesRead into that closed reply.
+Valid held wrappers are ordinary/null-prototype exact3-key own-DATA records;
+objectlike invalid wrappers (including functions) still require safe cleanup.
 
 Before checking liveness or validating any returned handle's other methods,
 capture a known own-DATA close function WITHOUT invoking getters. An objectlike
@@ -164,6 +170,8 @@ also fails. Never retry close, reopen or continue with another pin.
 After cleanup, check live clock/poison once more before returning proof or
 advancing the successful prefix. Cancellation/deadline during a successful
 close still stops without another close; retain the confirmed closed count.
+If a primary cause already exists, keep it. Otherwise perform that final live
+check before the final retained-Buffer hash; the first detected cause wins.
 
 One read-only handle per pin. First full scan fills ONE pin-sized Buffer;
 second scan independently hashes the SAME handle using <=65536B scratch space.

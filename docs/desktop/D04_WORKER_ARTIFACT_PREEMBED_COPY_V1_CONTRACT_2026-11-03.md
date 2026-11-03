@@ -107,6 +107,7 @@ after every awaited operation and before final proof selection. now finite
 nonnegative monotone across the entire factory including A/B; invalid/throw/
 backward -> CLOCK. Each copy starts a new60000ms deadline, not a new monotonic
 history. Deadline -> DEADLINE. Cancellation takes precedence at a live check.
+The inclusive allowed maximum is elapsed===60000; elapsed>60000 is DEADLINE.
 Cancellation -> CANCELLED after a pending operation settles. No timers, retry
 or hard containment claim; an unresponsive native promise needs the caller's
 outer supervisor and makes closure uncertain there. Check liveness before any
@@ -206,6 +207,9 @@ qualified:false,linkQualification:false,closureComplete:false,
 requiresFreshAdmission:true,normalWorkerUnchangedRequired:true}.
 Failure stops forever with nextCandidate null; successA advancesB; successB
 terminal with next null.
+stopped denotes failure or requested cancellation, not ordinary exhaustion:
+after two successes nextCandidate is null/stopped false; Used still applies
+and cancel returns false. These clarifications match the prefrozen FIRST.
 Detached snapshots/proofs cannot change private counters or future jobs.
 
 ## Independent FIRST, source review and execution gate

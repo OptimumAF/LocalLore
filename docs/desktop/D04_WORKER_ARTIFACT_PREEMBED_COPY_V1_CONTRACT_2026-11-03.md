@@ -1,5 +1,13 @@
 # Exclusive pre-embed preservation v1: source contract
 
+Integration update: PR393 is now accepted on main aa175135 after one approved
+24-mock/2-real-Node-filesystem packet. Its grant is SPENT. This branch safely
+integrated that main at4f91bd70 without changing this helper or its FIRST.
+Historical PR393-pending/cap2860 statements below record earlier source
+preparation. The current retained-evidence cap is2924KiB; this component's20
+mock groups and actual Windows copy path remain UNRUN. Only a new exact finite
+decision after reviewed code-check admission can authorize its packet.
+
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03/.05 supporting; #21.
 Base accepted main a635686c / PR390. SOURCE ONLY / ALL NEW CHECKS UNRUN.
 PR393 is separate, unchanged and not a dependency. Its approval is pending.

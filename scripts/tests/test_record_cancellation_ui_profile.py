@@ -32,7 +32,7 @@ class RecordCancellationUiProfileTests(unittest.TestCase):
              'record-cancellation-ui-socket-proof-v1'))
         self.assertEqual((c.CLIENT_VERSION, c.SESSION_FILE), (18, 'sdk-session-v18.json'))
         self.assertEqual(str(c.GUEST_ROOT), str(PureWindowsPath(
-            'D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-v1/avd-v1')))
+            'D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-ui-v1/avd-v1')))
         self.assertEqual(c.OWNER_SCRIPT, 'owned_record_cancellation_ui_owner.py')
         self.assertEqual(c.BOOT_CLAIM_FILE, 'owned-record-cancellation-ui-boot-claim-v1.json')
         self.assertEqual(c.CERTIFICATE_SHA256, f.CERTIFICATE)

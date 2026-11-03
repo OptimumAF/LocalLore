@@ -51,6 +51,8 @@ Capture its immutable A/B recipe paths; never accept a supplied recipe/path.
 Production factory refuses non-Windows with Error('WorkerArtifactPreembedCopyV1Platform').
 Other invalid factory/adapter shape -> Error('WorkerArtifactPreembedCopyV1Invalid').
 No getters/symbols/extras/coercion; capture all functions and config at factory.
+This capture is complete before copyNext is called, not lazily after its first
+call or await; later config/adapter replacement cannot redirect any operation.
 
 Test adapter exact own DATA {identify,open,now}, functions captured, trusted
 development capabilities, never player/model input.
@@ -76,6 +78,11 @@ sync() -> undefined; close() -> undefined.
 Capture close BEFORE validating other methods or doing any later await. If
 returned value has a valid own DATA close function, attempt it ONCE even if
 another field is invalid or cancellation/deadline occurred during open.
+Safe cleanup capture accepts non-null objects OR functions and does not require
+that own close DATA property to be enumerable. The remaining full-handle
+validation still requires the exact enumerable own-DATA method record; a
+nonenumerable-close/function wrapper therefore fails IO but its known close
+must run once, without falsely reporting unknown closure after it succeeds.
 An offered open with throw/rejection/invalid result/missing close is uncertain
 unless a captured close succeeds. No fabricated closure; no cleanup retry.
 
@@ -180,6 +187,14 @@ expected hash mismatch -> CONTENT; malformed handle/byte operation -> IO.
 Preserve first failure code through
 cleanup/clock errors; only an otherwise good job becomes CLOSE after close
 failure. Missing close marks unknown, other handles still close.
+Observe and latch cancellation/clock/deadline immediately before and after EACH
+awaited cleanup close, while continuing all remaining reverse-order cleanup.
+Those observations never escape the cleanup loop or skip a known handle. If a
+successful copy.close first exposes DEADLINE/CANCELLED/CLOCK, a later failing
+manifest.close cannot replace that earlier code; still report its unknown close.
+These explicit calibration cases follow initial producer0b767133 and the
+original prefrozen20 groups, before targeted producer fixes; no behavioral
+RED or execution is claimed.
 IO flags are independent: unknownClosure follows unknownClosures>0;
 ioUncertain also covers thrown/invalid byte-return operations.
 

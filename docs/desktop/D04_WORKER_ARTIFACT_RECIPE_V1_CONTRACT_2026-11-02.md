@@ -15,7 +15,7 @@ Root read ONLY frozen D: build.ninja/rules.ninja TEXT. Historical C: compatibili
 paths and wrapper commands remain historical, never executed or recreated.
 Selected effective flags/order below preserve their nonincremental semantics;
 new experimental definition and explicit owned output names are intentional.
-No source/header/library/tool/SDK payload was newly read, built or executed.
+No C++ source/header or library/tool/SDK payload was newly read, built or executed.
 
 Root initially owns this NEW contract, then NEW
 `native/llama-worker/worker_artifact_recipe_v1.mjs`. Independent author first

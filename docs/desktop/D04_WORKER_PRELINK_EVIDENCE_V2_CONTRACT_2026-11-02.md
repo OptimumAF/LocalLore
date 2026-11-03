@@ -45,8 +45,10 @@ BEFORE strict UTF8 decoding/JSON.parse. Reject a UTF8 BOM rather than stripping
 it; no replacement decoding or normalization. Never evaluate source or directives.
 No canonicalization, trimming, byte patching or accepting a parsed replacement
 before digest verification. Reject invalid UTF8/JSON/extras/schema/couplings
-with fixed `WorkerPrelinkEvidenceV2Invalid`; bound excess uses
-`WorkerPrelinkEvidenceV2Limit`. No raw input/error/path/name excerpts.
+with fixed `WorkerPrelinkEvidenceV2Invalid`; raw Buffer/output byte-bound excess
+uses `WorkerPrelinkEvidenceV2Limit`. Semantic range/schema violations (counts,
+deviations, too many names, invalid pin sizes) are Invalid, not byte-limit errors.
+An empty Buffer is Invalid. No raw input/error/path/name excerpts.
 Inputs are not mutated or retained by reference. No sticky session/budget or
 retry is added: each pure call returns its own detached frozen result or fails.
 
@@ -77,6 +79,8 @@ capture/status, false qualification flags. pinsSha256/catalogSha256 equal outer
 proofs.pins/catalog; supplied catalog's CANONICAL JSON array hash equals that
 catalogSha256 (its raw bytes ALSO match anchors). Catalog exactly15 ordered
 {slot,name} rows, slots18..32, unique canonical ASCII .lib names<=259B.
+Reject any old catalog name ucrt.lib/vcruntime.lib before extension: a fixed
+runtime presence pin must never silently overwrite a prior same-name entry.
 Facts names<=32, sorted unique; exactly32 ordered {slot,libraryIds} rows;
 IDs dense/strictly increasing/in range and every name referenced at least once.
 Each ordered inner profile is the accepted10-element parsed encoding; its

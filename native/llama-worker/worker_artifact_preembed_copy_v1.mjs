@@ -13,12 +13,17 @@ const IO = ['reservedCopies', 'reservedReadBytes', 'reservedWriteBytes', 'actual
   'openAttempts', 'opened', 'closeAttempts', 'closed', 'unknownClosures', 'verifiedScans'];
 const QUALIFICATION = Object.freeze({ qualified: false, linkQualification: false, closureComplete: false,
   requiresFreshAdmission: true, normalWorkerUnchangedRequired: true });
-class CopyFault extends Error { constructor(code) { super(code); this.code = code; } }
+const faultCodes = new WeakMap();
+class CopyFault extends Error { constructor(code) { super(code); faultCodes.set(this, code); } }
+// Unknown thrown values can be proxies. Never read their fields or prototypes.
+const privateCode = error => error !== null && (typeof error === 'object' || typeof error === 'function')
+  ? faultCodes.get(error) : undefined;
+const failureCode = error => privateCode(error) ?? 'IO';
 const fail = code => { throw new CopyFault(code); };
 const requireThat = (value, code) => { if (!value) fail(code); };
 const integer = value => Number.isSafeInteger(value) && value >= 0;
 const token = value => typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[^A-Za-z0-9_.:-]/.test(value);
-const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value) && value !== '0'.repeat(64);
+const hash = value => typeof value === 'string' && value.length === 64 && !/[^a-f0-9]/.test(value) && value !== '0'.repeat(64);
 const clone = value => JSON.parse(JSON.stringify(value));
 function freeze(value) {
   if (value !== null && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -75,7 +80,7 @@ function publicCounters(io) {
   }));
 }
 
-function core(recipe, adapter) {
+function core(recipe, adapter, installGuard = null) {
   const totals = counters(); let index = 0, busy = false, ended = false, cancelled = false;
   let uncertain = false, lastNow = null;
   function cancel() {
@@ -122,12 +127,17 @@ function core(recipe, adapter) {
     }
     async function acquire(path, mode) {
       live(); add('openAttempts'); let value;
-      try { value = await adapter.open(path, mode); } catch { add('unknownClosures'); fail('IO'); }
+      try { value = await adapter.open(path, mode); } catch (error) {
+        add('unknownClosures');
+        if (privateCode(error) !== undefined) throw error;
+        fail('IO');
+      }
       let close = null;
       // Capture cleanup without reading any getter or validating other fields first.
       try {
-        const d = value !== null && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'close') : null;
-        if (d && d.enumerable && Object.hasOwn(d, 'value') && typeof d.value === 'function') close = d.value;
+        const d = value !== null && (typeof value === 'object' || typeof value === 'function')
+          ? Object.getOwnPropertyDescriptor(value, 'close') : null;
+        if (d && Object.hasOwn(d, 'value') && typeof d.value === 'function') close = d.value;
       } catch { /* A usable close could not be captured; ownership remains unknown. */ }
       if (close) { acquired.push({ close }); add('opened'); } else add('unknownClosures');
       live();
@@ -182,6 +192,7 @@ function core(recipe, adapter) {
       add('reservedReadBytes', 4 * req.linked.executable.bytes + 2 * req.linked.manifest.bytes);
       add('reservedWriteBytes', req.linked.executable.bytes);
       start = time();
+      if (installGuard) installGuard(live);
       const buffer = Buffer.alloc(CHUNK), executableFact = req.linked.executable, manifestFact = req.linked.manifest;
       await identify(candidate.outputRoot, 'directory', req.rootIdentity);
       const executable = await acquire(candidate.executable, 'r');
@@ -209,17 +220,23 @@ function core(recipe, adapter) {
       await scan(copy, copyIdentity, executableFact, buffer);
       await paths(true, copyIdentity);
     } catch (error) {
-      code = error instanceof CopyFault ? error.code : 'IO';
+      code = failureCode(error);
     } finally {
+      function observeCleanup() {
+        try { live(); } catch (error) { if (code === null) code = failureCode(error); }
+      }
       for (let i = acquired.length - 1; i >= 0; i--) {
+        observeCleanup();
         add('closeAttempts');
         try {
           requireThat(await acquired[i].close() === undefined, 'CLOSE'); add('closed');
         } catch {
           add('unknownClosures'); if (code === null) code = 'CLOSE';
         }
+        observeCleanup();
       }
-      if (code === null) { try { live(); } catch (error) { code = error instanceof CopyFault ? error.code : 'IO'; } }
+      if (code === null) observeCleanup();
+      if (installGuard) installGuard(null);
       if (code !== null) ended = true; else index++;
       busy = false;
     }
@@ -237,20 +254,24 @@ function physicalIdentity(stat) {
     ? stat.dev.toString() + ':' + stat.ino.toString() : '';
 }
 const ordinaryFile = stat => stat.isFile() && !stat.isSymbolicLink() && stat.nlink === 1n;
-function windowsAdapter() {
+function windowsAdapter(guard) {
   return {
     async identify(path, kind) {
-      const s = await lstat(path, { bigint: true }), physical = await realpath(path);
+      guard(); const s = await lstat(path, { bigint: true });
+      guard(); const physical = await realpath(path); guard();
       return { identity: physicalIdentity(s), ordinary: kind === 'directory'
         ? s.isDirectory() && !s.isSymbolicLink() : ordinaryFile(s), real: normalize(physical) === normalize(path) };
     },
     async open(path, mode) {
+      guard();
       if (mode === 'r') {
         // Refuse cooperative alias/nonordinary reads before opening their contents.
-        const s = await lstat(path, { bigint: true }), physical = await realpath(path);
-        if (!physicalIdentity(s) || !ordinaryFile(s) || normalize(physical) !== normalize(path)) throw Error('PreembedUnsafeInput');
+        const s = await lstat(path, { bigint: true }); guard();
+        const physical = await realpath(path); guard();
+        if (!physicalIdentity(s) || !ordinaryFile(s) || normalize(physical) !== normalize(path)) fail('IDENTITY');
       }
       const handle = await fsOpen(path, mode);
+      // No post-open guard here: the core captures close before checking liveness.
       return {
         async identity() {
           const s = await handle.stat({ bigint: true });
@@ -267,7 +288,9 @@ function windowsAdapter() {
 }
 export function createWorkerArtifactPreembedCopyV1(spec) {
   if (process.platform !== 'win32') throw Error('WorkerArtifactPreembedCopyV1Platform');
-  return core(recipeOf(spec), adapterOf(windowsAdapter()));
+  let guard = () => fail('IO');
+  return core(recipeOf(spec), adapterOf(windowsAdapter(() => guard())),
+    live => { guard = live ?? (() => fail('IO')); });
 }
 export function createWorkerArtifactPreembedCopyV1ForTesting(spec, adapter) {
   return core(recipeOf(spec), adapterOf(adapter));

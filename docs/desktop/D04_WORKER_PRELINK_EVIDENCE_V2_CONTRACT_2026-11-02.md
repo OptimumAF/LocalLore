@@ -1,5 +1,9 @@
 # Worker prelink evidence v2: source-only binding contract
 
+Historical source contract. Its separately approved ONE code packet now
+PASSED / grant SPENT. See [actual verification](D04_WORKER_PRELINK_EVIDENCE_V2_CODE_VERIFICATION_2026-11-02.md).
+The original source-only/UNRUN statements below retain their freeze chronology.
+
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21.
 Claim6591518066; accepted main027ddbaf (PR373). SOURCE ONLY / UNRUN.
 All previous finite grants are SPENT. No new child or build is admitted.

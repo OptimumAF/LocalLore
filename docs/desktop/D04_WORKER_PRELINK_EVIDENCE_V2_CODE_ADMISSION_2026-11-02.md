@@ -1,5 +1,11 @@
 # Worker prelink evidence v2: proposed bounded code packet
 
+Historical proposed admission. Owner call_3c86fcf143ef49508e14e373fc511f89
+subsequently approved the ONE stated code packet under the SAME2796KiB cap,
+now PASSED / SPENT. See [actual verification](D04_WORKER_PRELINK_EVIDENCE_V2_CODE_VERIFICATION_2026-11-02.md).
+No later code/SDK/build/run authority follows; pre-admission statements below
+retain their original chronology.
+
 Refs #25 D04.01/.02/.04 supporting; #31 D09.03 supporting; #21.
 **SOURCE ONLY / ALL NEW CHECKS UNRUN. NO EXECUTION GRANT.**
 PR373's ONE observation packet PASSED and is SPENT. Current cap2796KiB is

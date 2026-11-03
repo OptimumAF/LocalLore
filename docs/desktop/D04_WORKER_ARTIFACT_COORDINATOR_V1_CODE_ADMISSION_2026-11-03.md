@@ -66,7 +66,9 @@ group, unchanged binder<2MiB design; these are allocation/serialized forecasts,
 not measured RSS/GC/heap. No old256MiB binary-boundary buffer.
 The separate OUTER supervisor has a real30-second stopwatch for the ONE Node
 child, independent of the injected test clocks. stdout/stderr4096B each,
-concurrent lossless raw/Base64/decoded capture; one direct-child kill attempt
+concurrently captured; bytes within the caps are preserved exactly across raw,
+Base64 and decoded accounting. Overflow retains incomplete bounded prefixes,
+fails the packet and prevents continuation. One direct-child kill attempt
 and5s drain on timeout/overflow/I/O failure, unknown closure stops.
 No OS/process-tree/resource-quota claim; childCount1 binds its real receipt.
 
@@ -137,7 +139,8 @@ Target12,356,228,504B and runtime210B unchanged. All earlier output/failures cha
 The full run includes36,864B child slot (8192raw+20480process/Base64+8192decoded),
 START768+aggregate4096+result2048+Root2048+STOP512=9472B controls, plus15,104B
 remaining reserve. Before the sole child keep ALL unconsumed61,440 minus actual
-START bytes, not a typical-log forecast or a second run. No log truncation.
+START bytes, not a typical-log forecast or a second run. Overflow cannot be
+hidden by truncation and relabeled as success or used to reduce the reserve.
 The original full reserve remains required even if actual output is tiny.
 
 No cap change is active. A separate decision must authorize ONLY +64KiB evidence

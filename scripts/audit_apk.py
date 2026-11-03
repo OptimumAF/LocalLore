@@ -628,6 +628,191 @@ def audit_receipt_service(tree, *, model_volume=False):
     return {"receipt_service": model_volume, "exported": False}
 
 
+_COMPONENT_IDS = {
+    "theme": "0x01010000", "name": "0x01010003", "permission": "0x01010006", "protectionLevel": "0x01010009",
+    "enabled": "0x0101000e", "exported": "0x01010010", "process": "0x01010011",
+    "authorities": "0x01010018", "launchMode": "0x0101001d", "value": "0x01010024",
+    "windowSoftInputMode": "0x0101022b", "isolatedProcess": "0x010103a9",
+    "directBootAware": "0x01010505", "appComponentFactory": "0x0101057a",
+}
+_STARTUP_INITIALIZERS = frozenset(("androidx.emoji2.text.EmojiCompatInitializer",
+    "androidx.lifecycle.ProcessLifecycleInitializer", "androidx.profileinstaller.ProfileInstallerInitializer"))
+_PROFILE_ACTIONS = frozenset("androidx.profileinstaller.action." + name for name in
+    ("INSTALL_PROFILE", "SKIP_FILE", "SAVE_PROFILE", "BENCHMARK_OPERATION"))
+
+
+def _component_attributes(node, allowed):
+    """Require each component attribute's owner, framework namespace and numeric ID."""
+    values = {}
+    for qualified, identifier, value in node["attributes"]:
+        name = qualified.rsplit(":", 1)[-1]
+        require(name in allowed and qualified == _BACKUP_URI + name
+                and identifier == _COMPONENT_IDS[name], "Unreviewed component attribute")
+        values[name] = value
+    return values
+
+
+def audit_app_components(tree, package="org.locallore.app", *, model_provisioning=False,
+                         model_picker=False, model_volume=False, model_receipt=False):
+    """Audit the reviewed MAIN debug profiles, not TEST APKs or runtime IPC behavior."""
+    require(all(type(flag) is bool for flag in
+                (model_provisioning, model_picker, model_volume, model_receipt)), "Invalid component profile")
+    require(not (model_picker or model_volume or model_receipt) or model_provisioning,
+            "Component fixtures require provisioning")
+    require(not (model_picker and model_volume) and (not model_receipt or model_volume),
+            "Conflicting component fixtures")
+    expected_package = ("org.locallore.app.modelpickerverify" if model_picker else
+                        "org.locallore.app.modelvolumeverify" if model_volume else "org.locallore.app.modelverify")
+    require(package == expected_package if model_provisioning else package in (
+        "org.locallore.app", "org.locallore.app.archiveverify", "org.locallore.app.litertverify",
+        "org.locallore.app.draftverify", "org.locallore.app.draftprocessverify"), "Wrong component package")
+    nodes = _backup_nodes(tree)  # Shared bounded, ownership-preserving AAPT parser.
+    roots = [i for i, node in enumerate(nodes) if node["parent"] is None]
+    require(len(roots) == 1 and nodes[roots[0]]["name"] == "manifest", "Wrong component manifest")
+    root = roots[0]
+    require(_backup_string(_backup_attribute(nodes[root], "package")) == package, "Wrong component identity")
+    apps = [i for i, node in enumerate(nodes) if node["name"] == "application"]
+    require(len(apps) == 1 and nodes[apps[0]]["parent"] == root, "Wrong component application")
+    app = apps[0]
+    # Badging and a suffix regex alone cannot attest a compiled permission's
+    # namespace, numeric identity or owning node. Bind the same signature pair.
+    permissions = set()
+    for node in nodes:
+        if node["name"] not in {"permission", "permission-tree", "permission-group", "uses-permission",
+                                "uses-permission-sdk-23", "uses-permission-sdk-m"}:
+            continue
+        require(node["name"] in ("permission", "uses-permission") and node["parent"] == root
+                and not node["children"] and node["name"] not in permissions, "Wrong compiled permission owner or count")
+        permissions.add(node["name"])
+        expected = {"name", "protectionLevel"} if node["name"] == "permission" else {"name"}
+        values = _component_attributes(node, expected)
+        require(set(values) == expected and _backup_string(values["name"]) ==
+                package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION", "Wrong compiled permission identity")
+        if node["name"] == "permission":
+            require(re.fullmatch(r"(?:0x0*2|2)", values["protectionLevel"]), "Wrong compiled signature protection")
+    require(permissions == {"permission", "uses-permission"}, "Missing compiled signature permission pair")
+    require(not any(name.rsplit(":", 1)[-1].startswith("sharedUser") or identifier == "0x0101000b"
+                    for name, identifier, _ in nodes[root]["attributes"]), "Shared component identity")
+    inherited = {"name": "0x01010003", "manageSpaceActivity": "0x01010004",
+                 "permission": "0x01010006", "process": "0x01010011", "taskAffinity": "0x01010012",
+                 "directBootAware": "0x01010505"}
+    require(not any(name.rsplit(":", 1)[-1] in inherited or identifier in inherited.values()
+                    for name, identifier, _ in nodes[app]["attributes"]), "Unreviewed inherited component override")
+    factory = [item for item in nodes[app]["attributes"]
+               if item[0].rsplit(":", 1)[-1] == "appComponentFactory" or item[1] == _COMPONENT_IDS["appComponentFactory"]]
+    if factory:
+        require(_backup_string(_backup_attribute(nodes[app], "appComponentFactory",
+            namespace=_BACKUP_URI, identifier=_COMPONENT_IDS["appComponentFactory"])) ==
+            "androidx.core.app.CoreComponentFactory", "Unreviewed component factory")
+
+    main = "org.locallore.app.MainActivity"
+    setup, play = "org.locallore.app.LocalModelSetupActivity", "org.locallore.app.LiteRtPlayActivity"
+    harness = "androidx.activity.ComponentActivity"
+    provider = "androidx.startup.InitializationProvider"
+    receiver = "androidx.profileinstaller.ProfileInstallReceiver"
+    service = "org.locallore.app.ReceiptProofService"
+    activities = {main, harness}
+    if model_provisioning:
+        activities |= {setup, play}
+    if model_picker:
+        activities |= {"org.locallore.app." + name for name in ("ModelPickerFixtureActivity",
+            "ModelPickerInterruptionFixtureActivity", "ModelPickerPendingFixtureActivity", "ModelSetupRecoveryFixtureActivity")}
+    if model_receipt:
+        activities |= {"org.locallore.app." + name for name in RECEIPT_SETUP_ACTIVITIES}
+    expected = {("activity", name) for name in activities} | {("provider", provider), ("receiver", receiver)}
+    if model_volume:
+        expected.add(("service", service))
+    components, reviewed = {}, set()
+    tags = {"activity", "activity-alias", "provider", "receiver", "service"}
+    for i, node in enumerate(nodes):
+        if node["name"] not in tags:
+            continue
+        require(node["parent"] == app, "Wrong component declaration owner")
+        name = _backup_string(_backup_attribute(node, "name", namespace=_BACKUP_URI,
+                                                identifier=_COMPONENT_IDS["name"]))
+        key = node["name"], name
+        require(key in expected and key not in components, "Unexpected or duplicate application component")
+        components[key] = i
+        reviewed.add(i)
+    require(set(components) == expected, "Missing application component")
+
+    def intent_filter(index, entries):
+        node = nodes[index]
+        require(node["name"] == "intent-filter" and not node["attributes"], "Unreviewed intent filter")
+        reviewed.add(index)
+        observed = []
+        for child in node["children"]:
+            item = nodes[child]
+            require(item["name"] in ("action", "category") and not item["children"], "Unreviewed intent entry")
+            values = _component_attributes(item, {"name"})
+            require(set(values) == {"name"}, "Missing intent identity")
+            observed.append((item["name"], _backup_string(values["name"])))
+            reviewed.add(child)
+        require(len(observed) == len(entries) and set(observed) == set(entries), "Wrong component intent set")
+
+    launcher = setup if model_provisioning else main
+    for name in activities:
+        index = components["activity", name];node = nodes[index]
+        allowed = {"name", "exported"}
+        if name in (main, harness):
+            allowed.add("theme")
+        if name == main:
+            allowed.add("windowSoftInputMode")
+        if name in (setup, play):
+            allowed.add("launchMode")
+        values = _component_attributes(node, allowed)
+        require(values.get("exported") == ("true" if name in (launcher, harness) else "false"),
+                "Wrong activity export boundary")
+        if "theme" in values:
+            require(re.fullmatch(r"@0x[0-9a-fA-F]{8}", values["theme"]), "Wrong activity theme encoding")
+        if "windowSoftInputMode" in values:
+            require(re.fullmatch(r"(?:[0-9]+|0x[0-9a-fA-F]{1,8})", values["windowSoftInputMode"]),
+                    "Wrong input-mode encoding")
+        if name in (setup, play):
+            require(re.fullmatch(r"(?:0x0*2|2)", values.get("launchMode", "")), "Wrong model launch mode")
+        if name == launcher:
+            require(len(node["children"]) == 1, "Wrong launcher filter count")
+            intent_filter(node["children"][0], (("action", "android.intent.action.MAIN"),
+                                                ("category", "android.intent.category.LAUNCHER")))
+        else:
+            require(not node["children"], "Nonlauncher activity has child declarations")
+
+    node = nodes[components["provider", provider]]
+    values = _component_attributes(node, {"name", "exported", "authorities"})
+    require(values.get("exported") == "false" and _backup_string(values.get("authorities", "")) ==
+            package + ".androidx-startup", "Wrong Startup provider boundary")
+    initializers = []
+    for child in node["children"]:
+        item = nodes[child];require(item["name"] == "meta-data" and not item["children"], "Unreviewed provider child")
+        values = _component_attributes(item, {"name", "value"})
+        require(_backup_string(values.get("value", "")) == "androidx.startup", "Wrong initializer value")
+        initializers.append(_backup_string(values.get("name", "")));reviewed.add(child)
+    require(len(initializers) == len(_STARTUP_INITIALIZERS) and set(initializers) == _STARTUP_INITIALIZERS,
+            "Unreviewed Startup initializer set")
+
+    node = nodes[components["receiver", receiver]]
+    values = _component_attributes(node, {"name", "permission", "exported", "enabled", "directBootAware"})
+    require(values.get("exported") == values.get("enabled") == "true" and values.get("directBootAware") == "false"
+            and _backup_string(values.get("permission", "")) == "android.permission.DUMP", "Wrong profile receiver boundary")
+    require(len(node["children"]) == len(_PROFILE_ACTIONS), "Wrong profile filter count")
+    actions = []
+    for child in node["children"]:
+        item = nodes[child];require(len(item["children"]) == 1, "Wrong profile intent size")
+        entry = nodes[item["children"][0]]
+        value = _backup_string(_component_attributes(entry, {"name"}).get("name", ""))
+        intent_filter(child, (("action", value),));actions.append(value)
+    require(set(actions) == _PROFILE_ACTIONS, "Wrong profile action set")
+    if model_volume:
+        node = nodes[components["service", service]]
+        values = _component_attributes(node, {"name", "exported", "process", "isolatedProcess"})
+        require(values.get("exported") == values.get("isolatedProcess") == "false" and
+                _backup_string(values.get("process", "")) == ":receiptproof" and not node["children"],
+                "Wrong receipt service boundary")
+    controlled = tags | {"intent-filter", "action", "category", "data", "grant-uri-permission", "path-permission", "instrumentation"}
+    require(all(i in reviewed for i, node in enumerate(nodes) if node["name"] in controlled),
+            "Unreviewed component declaration")
+
+
 def aapt2_path():
     for variable in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
         value = os.environ.get(variable)
@@ -688,6 +873,9 @@ def main(argv=None):
         permissions = audit_manifest(dump("badging", str(args.apk)), manifest_tree, package)
         rules_file = audit_backup_resource(manifest_tree, dump("resources", str(args.apk)), package)
         audit_backup_rules(dump("xmltree", str(args.apk), "--file", rules_file))
+        audit_app_components(manifest_tree, package, model_provisioning=args.model_provisioning,
+                             model_picker=args.model_picker_fixture, model_volume=args.model_volume_verification,
+                             model_receipt=args.model_receipt_verification)
         if args.model_provisioning:
             audit_model_launcher(dump("badging", str(args.apk)),
                                  dump("xmltree", str(args.apk), "--file", "AndroidManifest.xml"),

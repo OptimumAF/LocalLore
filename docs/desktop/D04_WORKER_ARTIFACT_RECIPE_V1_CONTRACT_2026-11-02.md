@@ -43,10 +43,20 @@ backtick or shell operators < > | &. Spaces/non-ASCII are permitted otherwise.
 String UTF8<=1024B inclusive; each component<=255 UTF8 bytes. Limit violations
 are Limit; forbidden syntax Invalid. This is lexical validation ONLY: ordinary
 canonical containment/tool identity must be freshly proven by future admission.
+Reject DOS device components too: take text before its first dot, remove any
+trailing ASCII spaces and fold ASCII A..Z to a..z. Deny con/prn/aux/nul and
+com/lpt followed by one digit1..9 or superscript1/2/3 (¹²³), including suffixes.
+These spellings follow [Microsoft's reserved-name documentation](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file);
+the byte caps and extra delimiter refusals here are this recipe's own policy.
 
 Tool leaf names EXACT cl.exe/link.exe/mt.exe respectively (case-sensitive recipe).
 workerRoot,upstreamA/B,buildA/B,targetRoot must be pairwise DISTINCT and disjoint
-under Windows case-insensitive component containment. Prefix peers such as
+under LEXICAL ASCII-case-insensitive component containment: compare paths after
+replacing only ASCII A..Z by a..z, then equality or prefix followed by '/'.
+Non-ASCII characters are compared exactly, without Unicode normalization or
+case folding. This is NOT Windows filesystem identity or Unicode alias proof;
+future ordinary opened-path admission MUST independently prove physical
+disjointness, including Unicode aliases/reparse behavior. Prefix peers such as
 D:/tree and D:/tree-other are disjoint. sdkUmRoot must not overlap any project
 root; tools must not be inside any project root. No silent normalization,
 case folding or source/output relocation in emitted strings.

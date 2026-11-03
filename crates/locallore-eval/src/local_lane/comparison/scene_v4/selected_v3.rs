@@ -121,8 +121,8 @@ pub struct PreparedSelectedPlan {
     before: [Engine; 2],
 }
 
-type SourceSnapshot = (Value, Manifest, [Vec<StoredTurn4>; 2]);
-fn source_inputs(
+pub(super) type SourceSnapshot = (Value, Manifest, [Vec<StoredTurn4>; 2]);
+pub(super) fn source_inputs(
     dir: &Path,
     snapshot: &SourceSnapshot,
     selection: &Selection,

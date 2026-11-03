@@ -1,8 +1,9 @@
 //! Protocol4 scene narration comparison over the existing owners.
-//! Native execution requires its trusted lease entry. Native selected execution,
-//! desktop selected integration and CLI native execution remain unavailable.
+//! Native execution requires its trusted lease entry. Native selected source is
+//! separate artifact4; desktop native selected routing and CLI remain unavailable.
 pub mod desktop_api;
 pub mod selected_v3;
+pub mod selected_v4;
 use super::*;
 #[cfg(test)]
 mod narration_diagnostic_companion_review_tests;

@@ -64,10 +64,25 @@ launchStep additionally receives AbortSignal (freeze request, not signal).
 recheck adds when ('before','manifest','after'); inspectOutputs adds stage;
 prepareManifest adds the candidate's current linked executable/manifest facts;
 compare has index6 and both candidates' compiled objects/final executables.
-record receives the final frozen report directly. No port can choose a tool,
+record receives the final frozen report directly. Exact request keys (listed
+order is descriptive, not a separate semantic requirement):
+
+- admit: {version,recipe,recipeHash} as above.
+- recheck: {version,context,index,step,when}.
+- launchStep: {version,context,index,step,policy,signal}; policy exact
+  {timeoutMs,stdoutCap,stderrCap,drainMs}, drainMs5000 and other values below.
+- inspectOutputs: {version,context,index,step,stage}, stage===step.stage.
+- prepareManifest: {version,context,index,step,linked}; linked exact
+  {executable,manifest} containing that candidate's stored LINK file facts.
+- compare: {version,context,index,candidates}; index6, candidates dense
+  [{id:'A',object,executable},{id:'B',object,executable}], compiled object and
+  final post-embed PE facts, each entry exact keys id,object,executable.
+- record: report itself, no wrapper and no signal.
+
+No port can choose a tool,
 argument, index, stage, path, subsequent operation or recovery action.
 
-All non-record replies MUST be primitive canonical JSON strings, <=4096 UTF8
+All replies, including record acknowledgement, MUST be primitive canonical JSON strings, <=4096 UTF8
 bytes, no surrounding whitespace/newline: JSON.stringify(JSON.parse(wire))===wire.
 Use exact own keys/types below; no object getters/proxies execute in replies.
 Store each structurally valid parsed receipt as a detached deep-frozen value
@@ -144,6 +159,7 @@ binary touching, dependency rebuild or normal-worker adoption.
 record kind worker_artifact_record_v1; exact {version,kind,retained,report}.
 version1,retainedtrue,report=SHA256 of final report's exact JSON.stringify UTF8.
 It is called ONCE on terminal success/failure/cancel, no retries/overwrites.
+The acknowledgement is excluded from report.receipts to avoid a self-hash cycle.
 Real adapter preserves raw failing receipts/outputs and monotone journal.
 Failed/invalid/timed-out record returns retained:false with code EVIDENCE and
 firstCode the original report code; do not attempt a second record.

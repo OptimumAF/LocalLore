@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [fixed SDK17 parent](docs/native/DIAGNOSTIC_OPERATION_PARENT_V1.md)
+puts the entire frozen fresh-helper invocation, including expensive preflight,
+inside an owned job deadline. Its small bootstrap remains cooperative; it grants
+no retirement, guest admission, preparation or boot authority.
+
 The [fixed SDK17 fresh handoff](docs/native/DIAGNOSTIC_UI_FRESH_HANDOFF_V1.md)
 joins separately approved guarded preparation to the existing six-test
 diagnostic runner. It adds no execution authority, capacity exception or model

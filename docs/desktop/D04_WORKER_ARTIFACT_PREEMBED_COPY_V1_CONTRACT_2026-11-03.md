@@ -234,4 +234,3 @@ before targeted producer fixes. No code/syntax/import/FIRST/actual FS invocation
 under current standing source authority. A later exact retained-program review,
 full fresh inventory/reserve and finite owner decision is required for checks.
 No run grant or cap increase follows from source review, this contract or merge.
-

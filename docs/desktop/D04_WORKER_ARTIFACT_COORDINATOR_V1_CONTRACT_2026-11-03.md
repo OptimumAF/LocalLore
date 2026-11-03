@@ -99,6 +99,12 @@ race, first expiry wins with its specified code. Clock setup failure BEFORE
 offering a port makes no port call and no offered-launch increment or unknown
 child claim. A clock failure after offering a launch is conservatively unknown.
 Record-stage clock errors instead produce the EVIDENCE override below.
+First failure wins during timer cleanup too: if an operation has already failed
+(including deadline/grace expiry), a subsequent clear error cannot replace that
+failure/code/unknown flag. Cleanup PORT_ERROR applies when the operation would
+otherwise succeed. This source-review clarification and additive C14 controls
+follow initial producer532b7747; the original20 groups remain prefrozen and
+unchanged. No behavioral RED or code execution is claimed.
 A timer is a stop detector, not OS/process-tree containment.
 
 ## Exact receipts

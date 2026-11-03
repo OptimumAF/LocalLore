@@ -24,7 +24,7 @@ ROOT=Path(__file__).parents[1]
 BARRIER=b'sdk18-fresh-operation-worker-v1\n'
 _MODULES=None
 _RULES=None
-_SOURCE_FILE_COUNT = 2664
+_SOURCE_FILE_COUNT = 2671
 
 
 def _raw_file(pin, maximum=2*1024**2):

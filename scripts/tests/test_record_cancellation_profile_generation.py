@@ -11,11 +11,11 @@ from unittest.mock import Mock, call, patch
 from benchmarks import record_cancellation_ui_activation as activation
 from benchmarks import owned_record_cancellation_ui_contract as contract
 
-OUT = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1')
+OUT = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-freeze-v1')
 FROZEN = OUT / 'frozen-profile-source-v1'
 CONTROLS = OUT / 'run-controls-v1'
 HELPER = FROZEN / 'benchmarks/record_cancellation_ui_activation.py'
-RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-runtime-v1')
+RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-ui-runtime-v1')
 OLD_PROFILE = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-profile-v1/candidate-source-v1')
 OLD_FRESH = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-fresh-v1/candidate-source-v1')
 OLD_READINESS = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-readiness-v1/candidate-source-v1')
@@ -45,7 +45,7 @@ class RecordCancellationProfileGenerationTests(unittest.TestCase):
         self.assertEqual((activation.OUTER_SECONDS, activation.OWNER_SECONDS, activation.PARENT_SECONDS), (1800, 1700, 1730))
         self.assertEqual((contract.PROTOCOL, contract.SDK_PROTOCOL, contract.PROOF_PROTOCOL, contract.CLIENT_VERSION),
             ('owned-emulator-record-cancellation-ui-v1', 'sdk-record-cancellation-ui-v1', 'record-cancellation-ui-socket-proof-v1', 18))
-        self.assertEqual(str(contract.GUEST_ROOT).replace('\\', '/'), 'D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-v1/avd-v1')
+        self.assertEqual(str(contract.GUEST_ROOT).replace('\\', '/'), 'D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-ui-v1/avd-v1')
         self.assertEqual([row[0] for row in contract.INSTRUMENTATIONS], ['record_cancel_1', 'record_cancel_2', 'record_cancel_3', 'record_cancel_4', 'record_cancel_5'])
         self.assertEqual({row[1] for row in contract.INSTRUMENTATIONS}, {'org.locallore.app.StoryRecordCancellationScreenTest'})
         self.assertEqual(tuple(row[2] for row in contract.INSTRUMENTATIONS), (

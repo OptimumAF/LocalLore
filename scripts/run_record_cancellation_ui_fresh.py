@@ -339,9 +339,35 @@ def _accept_activation(value,inputs):
     return final_pin,pin
 
 
+def _failure_details(error, rules, api):
+    """Only exact trusted exception types and literal codes reach metadata."""
+    trusted = (
+        (rules.FreshRunRefused, 'FreshRunRefused', frozenset((
+            'operation_budget', 'prepare_terminal', 'prepared_state', 'already_used',
+            'worker_claim', 'source_snapshot', 'source_closure', 'binding',
+            'ledger_changed', 'activation', 'activation_cleanup', 'storage_closure'))),
+        (getattr(api.env, 'EnvironmentRefused', None), 'EnvironmentRefused', frozenset((
+            'host_capacity', 'host_commit_capacity', 'host_commit_unavailable',
+            'ports_unavailable', 'storage_registry_locked', 'storage_storage_capacity_exceeded'))),
+        (getattr(getattr(api, 'storage', None), 'StorageRefused', None), 'StorageRefused',
+            frozenset(('registry_locked', 'storage_capacity_exceeded'))),
+    )
+    for cls, category, codes in trusted:
+        if cls is not None and type(error) is cls:
+            args = error.args
+            reason = args[0] if len(args) == 1 and type(args[0]) is str and args[0] in codes else 'operation_failed'
+            return category, reason
+    if type(error) is KeyboardInterrupt:
+        return 'KeyboardInterrupt', 'cancelled'
+    for cls in (OSError, FileNotFoundError, FileExistsError, PermissionError, ValueError, KeyError, TypeError):
+        if type(error) is cls:
+            return cls.__name__, 'operation_failed'
+    return 'operation_failed', 'operation_failed'
+
+
 def _run_stages(authority_pin,attempt_pin,begin):
     r,api=_parts()
-    result=dict(version=1,scope='sdk18-fresh-operation-stages-v1',passed=False,phase='initial',authority=authority_pin,
+    result=dict(version=1,scope='sdk18-fresh-operation-stages-v1',passed=False,phase='initial',step='validate_inputs',authority=authority_pin,
         attempt=attempt_pin,prepare_authorization=None,inputs=None,activation_result=None,ledger_after=None,feature_acceptance=False)
     try:
         a,h,_=frozen_inputs(authority_pin);r.validate_attempt(read(attempt_pin,r.ATTEMPT),authority_pin,a)
@@ -352,22 +378,24 @@ def _run_stages(authority_pin,attempt_pin,begin):
         # A historical preview and the recorded grant never replace it.
         api.env.check_binding(a['ledger'])
         r.need(not os.path.lexists(r.GUEST), 'already_used')
+        result['step']='prepare_authorization'
         auth=save(r.PREPARE_AUTHORIZATION,dict(version=1,phase='prepare',proposal_sha256=h['prepare_proposal']['sha256'],
             allow_environment_calls=True,root_go_pending=False))
-        result.update(phase='prepare',prepare_authorization=auth)
+        result.update(phase='prepare',step='prepare_dispatch',prepare_authorization=auth)
         api.env.prepare(h['prepare_proposal']['path'],r.PREPARE_AUTHORIZATION)
-        prepared(authority_pin,auth);_budget(begin,2000)
-        result['phase']='run_inputs';inputs=create_inputs(authority_pin,auth);result['inputs']=inputs
-        _budget(begin,1900);result['phase']='activation'
-        final_pin,ledger=_accept_activation(api.activation.execute(inputs['input']),inputs)
-        frozen_inputs(authority_pin);api.env.check_binding(attempt_pin)
-        result.update(passed=True,phase='completed',activation_result=final_pin,ledger_after=ledger)
+        result['step']='prepared_validation';prepared(authority_pin,auth)
+        result['step']='prepare_budget';_budget(begin,2000)
+        result.update(phase='run_inputs',step='run_inputs');inputs=create_inputs(authority_pin,auth);result['inputs']=inputs
+        result['step']='activation_budget';_budget(begin,1900)
+        result.update(phase='activation',step='activation_dispatch')
+        activation=api.activation.execute(inputs['input'])
+        result['step']='activation_validation';final_pin,ledger=_accept_activation(activation,inputs)
+        result['step']='final_validation';frozen_inputs(authority_pin);api.env.check_binding(attempt_pin)
+        result.update(passed=True,phase='completed',step='completed',activation_result=final_pin,ledger_after=ledger)
     except BaseException as error:
         # No exception text (including paths/tokens/SDK stderr) is public output.
         result['passed']=False
-        kind=type(error).__name__
-        result['failure_type']=kind if kind in {'FreshRunRefused','EnvironmentRefused','StorageRefused','KeyboardInterrupt',
-            'OSError','FileNotFoundError','FileExistsError','PermissionError','ValueError','KeyError','TypeError'} else 'operation_failed'
+        result['failure_type'],result['reason']=_failure_details(error,r,api)
     result['elapsed_ms']=round(max(0,time.monotonic()-begin)*1000)
     try:save(r.LIVE/'stage-result-v1.json',result)
     except BaseException:

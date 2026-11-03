@@ -206,7 +206,9 @@ attempted,completed,receipts,unknownClosure,
 qualifiedfalse,linkQualificationfalse,closureCompletefalse,
 requiresFreshAdmissiontrue,normalWorkerUnchangedRequiredtrue,
 processTreeContainedfalse.
-Before valid admit, attempt/baseline/closure null; recipe always its digest.
+Before semantically successful admit, attempt/baseline/closure null; recipe
+always its digest. A structurally valid false-check admit receipt is preserved
+in receipts but does NOT establish report context.
 Finite codes ONLY ADMISSION,RECHECK,PROCESS,CLOSURE,OUTPUT,MANIFEST,COMPARE,
 CANCELLED,PORT_TIMEOUT,PORT_ERROR,RECEIPT,EVIDENCE.
 status cancelled ONLY codeCANCELLED; others failed. Success attempted/completed6.
@@ -238,6 +240,9 @@ cancel-grace timeout/late completion fencing; C15 concurrent/reused run refusal;
 C16 detached/frozen request/receipt/captured ports; C17 first failure/evidence
 failure/no record retry; C18 byte/integer bounds; C19 no adoption/qualification;
 C20 complete bounded report/receipt trace, closed operation set/no hidden child.
+For C20 assert actual30-receipt trace/report bounds AND the conservative
+30*4096+2048<=131072 arithmetic; do not add forbidden padding fields to invent
+a maximum-sized valid receipt.
 Keep every assertion; any corrected contract/test precedes producer.
 
 New code checks remain UNRUN until their exact whole supervisor/collector,

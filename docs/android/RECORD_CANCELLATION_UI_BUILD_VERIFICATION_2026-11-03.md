@@ -5,7 +5,7 @@ M09.04/M09.06 device acceptance remains pending. Tickets retain the live plan.
 
 Code commit: `c9de9f852478ceddcd7e566714c709f70c6bcf7f`.
 Tested tree: `ff6c2539095a540f872f2827cb2c774d00ee0597`.
-The subsequent documentation commit changes no tested executable source.
+The subsequent documentation commits change no tested executable source.
 Tooling parent: PR #384, `b1ba494248bb0d9f55661081ddb27175d1eb3cc9`.
 Product dependency: PR #386, `7e29fb724ed781e953f321385f66a5f8982ad0f1`.
 

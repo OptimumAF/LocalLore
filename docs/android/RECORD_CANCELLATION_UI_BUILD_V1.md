@@ -12,7 +12,7 @@ boot a guest, start ADB, run Android tests, or copy a model.
 The tooling parent is PR #384, commit
 `b1ba494248bb0d9f55661081ddb27175d1eb3cc9`. The independently frozen product is
 PR #386, commit `7e29fb724ed781e953f321385f66a5f8982ad0f1`, depending on
-PR #385. Rebuilding the tooling branch does not replace the qualified product.
+PR #385. Rebuilding the tooling branch does not replace the frozen product artifacts.
 
 `benchmarks.record_cancellation_ui_build` exposes:
 
@@ -56,7 +56,7 @@ hard preemption of OS I/O. Strict JSON rejects duplicate keys and nonfinite
 numbers. Git/source, phase, package and compiled proof joins must all agree.
 
 Malformed roles and `None` refuse before reader construction/baseline loading.
-Foreign paths refuse before any artifact read attempt. Ordinary exceptions
+Foreign caller-provided artifact paths refuse before any artifact read attempt. Ordinary exceptions
 cross public boundaries as fixed, whitelisted refusal categories; private error
 text is not returned. `KeyboardInterrupt` and `SystemExit` still propagate.
 

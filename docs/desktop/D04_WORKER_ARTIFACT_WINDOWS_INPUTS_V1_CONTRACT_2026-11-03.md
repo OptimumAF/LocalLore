@@ -275,6 +275,14 @@ Separate NEW `worker_artifact_windows_inputs_v1_native_first.mjs` later exports
 `runWorkerArtifactWindowsInputsNativeSelfchecksV1(api,fixtureSpec)`, API exact
 `{createWorkerArtifactWindowsInputsV1}`. TWO groups N01/N02, six-key summary
 kind worker_artifact_windows_inputs_native_first_v1, version1,2/2/0/[] required.
+On non-win32, throw UNRUN_PLATFORM before calling the production factory;
+invalid/missing API or fixture setup throws UNRUN_SETUP before filesystem access.
+These real-filesystem groups STOP at the first unexpected failure. If N01
+fails, N02 is UNRUN: return executed1,passed0,failed1,failed_case_ids['N01']
+without another factory or read. If N01 passes and N02 fails, return
+executed2,passed1,failed1,failed_case_ids['N02']. Never fabricate an N02 result.
+Only2/2/0/[] passes. The mock24 groups may collect all their finite fake cases;
+their failure prevents Native FIRST from starting in a future guarded packet.
 The fixed private launcher, not this library, must separately admit/create and
 pin ONE tiny original synthetic D: file/root before tests, under the unchanged
 8MiB fixture allowance. fixtureSpec exact `{pin}` for slot1/project, with the

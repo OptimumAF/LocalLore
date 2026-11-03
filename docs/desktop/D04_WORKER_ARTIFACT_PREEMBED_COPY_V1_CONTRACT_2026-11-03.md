@@ -260,3 +260,43 @@ before targeted producer fixes. No code/syntax/import/FIRST/actual FS invocation
 under current standing source authority. A later exact retained-program review,
 full fresh inventory/reserve and finite owner decision is required for checks.
 No run grant or cap increase follows from source review, this contract or merge.
+
+## Source implementation chronology and remaining gate
+
+The original FIRST author commit af49159f (integration94408b6d) precedes initial
+producer0b767133. Complete independent FIRST/producer review happened AFTER that
+initial producer; it was not a pre-producer release and no behavioral RED ran.
+Original20 groups and every original assertion are retained. Post-producer
+source review added capture/cleanup/factory/size controls in author0fe7ab32
+(integration03092bcc), then digest-newline/opaque-throw controls in author4a012a06
+(integrationc5929f0d), all BEFORE targeted producer correction4b81a3f8.
+Contract calibration756813e4 (integratione1049966) precedes those controls.
+The earlier source revisions remain in Git; they are unrun, not failed runs.
+
+The correction captures any safely available own DATA close, observes and
+latches liveness around each cleanup await, validates exact digest length,
+classifies foreign thrown values without inspecting their prototypes/fields,
+and privately guards between the concrete lstat/realpath/open awaits. Newly
+opened handles return to the core for close capture BEFORE its post-open guard.
+No test seam or new public capability exposes that private guard.
+
+ALL20 mock groups, syntax/import checks and the actual Windows filesystem path
+remain UNRUN. Text review and git diff --check are the only current checks.
+No Rust, frontend, native IPC/WebView, worker build/link/MT/model, Android,
+device, offline/privacy, packaging or quality qualification ran for this slice.
+Only three NEW development files change from accepted maina635686c; no app,
+shared Rust, story/persistence/inference/memory implementation was changed.
+
+PR393 remains separate at b1712465 with its own pending finite decision. Its
+fixture is absent and its programs/checks remain unretained/uninvoked. The
+current2860KiB evidence cap and every other limit stay unchanged. Source-only
+preparation authorizes no retention packet, fixture, check invocation, native
+operation, retry, deletion or cap increase.
+
+Next prerequisite for this component: a reviewed finite code-check packet,
+actual retained-source equality/full review, current inventory and FULL reserves,
+then applicable owner authority. Do not infer permission from this source PR.
+After code checks, concrete output-root lease/admission/roster and the coordinator
+timeout/cancellation wrapper still need implementation and separate verification
+before any native build. Full D04/D09/desktop/human-quality gates stay open,
+AuthorDisabled; preserved PR366 is unchanged and uncompiled.

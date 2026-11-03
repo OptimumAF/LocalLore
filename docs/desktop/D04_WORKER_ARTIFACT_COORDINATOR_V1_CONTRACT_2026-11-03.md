@@ -40,7 +40,8 @@ of its exact JSON.stringify UTF8 bytes. Do not accept a caller-supplied recipe.
 ports exact own DATA function keys ONLY:
 admit,launchStep,inspectOutputs,prepareManifest,recheck,compare,record.
 clock exact own DATA function keys ONLY set,clear, with trusted local
-set(callback,milliseconds) -> opaque token and clear(token) semantics.
+set(callback,milliseconds) -> opaque token and clear(token) semantics. Like
+real setTimeout, set does not invoke inline; clear cancels a pending callback.
 Capture function values at construction so caller mutations cannot replace them.
 These are trusted development capabilities, not model/player input. A future
 real adapter must bind clock to real timers and implement all physical proof
@@ -50,14 +51,15 @@ Factory invalid shape throws ONLY Error('WorkerArtifactCoordinatorV1Invalid').
 Return frozen {run,cancel}. run() is single-use: consume before first await;
 any concurrent/subsequent call rejects Error('WorkerArtifactCoordinatorV1Used')
 without port calls or another record. cancel() returns true exactly once before
-settlement (including before run), false thereafter; signal active launch via a
+terminal report selection (including before run), false thereafter, including
+while recording that terminal report; signal active launch via a
 standard AbortSignal and wait for owned closure, never start a later child.
 No reset/retry/re-run API. Cancel does not delete or restore outputs.
 
 Every normal port request is detached frozen JSON DATA with a context
 {attempt,recipe,baseline,closure} once admitted; all four are lowercase SHA256.
 Initial admit receives {version:1,recipe:<recipe object>,recipeHash:<SHA256>}.
-Other requests have version1, context, index and fixed step from that recipe;
+Other step requests have version1, context, index and fixed step from that recipe;
 launchStep additionally receives AbortSignal (freeze request, not signal).
 recheck adds when ('before','manifest','after'); inspectOutputs adds stage;
 prepareManifest adds the candidate's current linked executable/manifest facts;
@@ -148,8 +150,10 @@ firstCode the original report code; do not attempt a second record.
 
 ## Fixed state transitions and terminal report
 
-At each awaited boundary check cancellation before starting and after validating
-the returned receipt. For launch, interpret closure failure before cancellation.
+At each awaited boundary check cancellation before starting. After return,
+validate/store the receipt and interpret semantic failure before cancellation.
+For launch, closure/timeout/overflow failures take precedence; known-closed
+kill/nonzero during requested cancellation becomes CANCELLED as specified above.
 No later child after cancellation, failed validation, changed context, exhausted
 reserve, exception, uncertain closure or evidence failure. First failure wins.
 Synchronous throw/rejected port -> PORT_ERROR; launch throw/reject is unknown.
@@ -162,7 +166,8 @@ admit; for EACH index0..5: recheck(before), then
   launchStep, inspectOutputs, recheck(after);
 then compare(index6), record.
 Step order is compileA,linkA,manifestA,compileB,linkB,manifestB exactly.
-Increment attempted immediately BEFORE launch; completed only after that
+Increment attempted immediately BEFORE the launch operation (offered attempts,
+not a claim that a native PID exists); completed only after that
 step's inspectOutputs AND after-recheck pass. No phase skip or fallback.
 Every request/receipt remains frozen even if caller later mutates original data.
 AbortSignal internals are deliberately not frozen.
@@ -179,10 +184,10 @@ Before valid admit, attempt/baseline/closure null; recipe always its digest.
 Finite codes ONLY ADMISSION,RECHECK,PROCESS,CLOSURE,OUTPUT,MANIFEST,COMPARE,
 CANCELLED,PORT_TIMEOUT,PORT_ERROR,RECEIPT,EVIDENCE.
 status cancelled ONLY codeCANCELLED; others failed. Success attempted/completed6.
-Report JSON<=65536B; no arbitrary error text or artifact adoption/Author tokens.
-On report-size excess stop RECEIPT, retain only already bounded receipts that
-fit (do not truncate logs: real raw evidence belongs to adapter). In this
-fixed30-receipt schema/4096 limits the full bound should be tested explicitly.
+Report JSON<=131072B; no arbitrary error text or artifact adoption/Author tokens.
+The fixed trace has at most30 receipts, each <=4096B, plus less than2048B of
+closed report metadata/delimiters; the full bound must be tested explicitly.
+Never drop/truncate receipts to fit. Real raw diagnostics stay with the adapter.
 
 ## Independent FIRST and later execution gate
 

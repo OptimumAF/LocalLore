@@ -55,7 +55,10 @@ slash/case. Production uses lstat, realpath and dev/ino identity; directories
 ordinary and file nlink===1 required. Reject missing/zero identity, symlinks,
 nonfiles/nonfolders, mismatched realpath or multihardlinks. Node cooperative
 identity checks are NOT complete Windows reparse/alternate-name/race protection.
-Unknown native identity cannot be asserted safe. No OS settings/ACL changes.
+Unknown native identity cannot be asserted safe. Production identity is decimal
+dev:ino with bigint dev>=0 and ino>0; zero inode refuses. Path comparison folds
+ASCII A-Z only after slash normalization; Unicode code units stay exact.
+No OS settings/ACL changes.
 
 open(path,mode) returns exact own DATA {identity,read,write,sync,close}.
 mode 'r' for linked exe/manifest, 'wx+' for fixed preEmbedCopy ONLY.
@@ -83,6 +86,11 @@ successes, further calls reject Error('WorkerArtifactPreembedCopyV1Used').
 Consume each offered job before first await; a failed job is never retried.
 cancel() returns true once before terminal state, false thereafter; pre-run
 cancellation leaves zero I/O/reservation and next copyNext returns CANCELLED.
+Busy check precedes used, cancel and request validation. Used precedes other
+validation. Idle cancellation (before A or between A/B) permits ONE unoffered
+CANCELLED proof with candidate null and zero new reservation, then Used; snapshot
+stopped is already true/nextCandidate null after that cancellation. In-flight
+cancel affects the current proof; no extra cancellation proof follows.
 Cancelled/failed partial output stays. No reset, authority token, record or MT.
 
 ## Bounded algorithm and invariants
@@ -90,7 +98,9 @@ Cancelled/failed partial output stays. No reset, authority token, record or MT.
 One reused65536B buffer and incremental SHA256; no whole-file allocation.
 Per-copy deadline60000ms inclusive from its first now(), checked before and
 after every awaited operation and before final proof selection. now finite
-nonnegative monotone; invalid/throw/backward -> CLOCK. Deadline -> DEADLINE.
+nonnegative monotone across the entire factory including A/B; invalid/throw/
+backward -> CLOCK. Each copy starts a new60000ms deadline, not a new monotonic
+history. Deadline -> DEADLINE. Cancellation takes precedence at a live check.
 Cancellation -> CANCELLED after a pending operation settles. No timers, retry
 or hard containment claim; an unresponsive native promise needs the caller's
 outer supervisor and makes closure uncertain there. Check liveness before any
@@ -98,7 +108,10 @@ new ordinary operation; cleanup closes still occur after stop.
 
 Valid offered job reserves BEFORE first I/O: copies1, readBytes=4*exe+2*manifest,
 writeBytes=exe. Job clock setup failure after valid input still spends reserve.
-Totals at most2copies,537133056read,134217728write. Invalid/concurrent/used/
+Totals at most2copies,537133056read,134217728write. These algorithmic maxima do
+NOT extend the existing physical64MiB aggregate target forecast: future admission
+must fit actual copies AND all other outputs in the unchanged full allowances.
+Invalid/concurrent/used/
 pre-cancel calls reserve zero. Reservations never returned after failure.
 
 Fixed algorithm; all identity/size/hash checks fail closed:
@@ -114,9 +127,11 @@ Fixed algorithm; all identity/size/hash checks fail closed:
 5. Second source scan to exact length+EOF, incremental hash expected, writing
    each returned chunk to destination at exact position with short-write loop.
    Each write returns1..remaining; zero/negative/NaN/oversize -> IO, no retry of
-   failed operation. After full source hash equality, sync destination ONCE.
+   failed operation. After full source hash equality, stat source again and
+   count its second verified scan, then sync destination ONCE.
 6. Stat source/manifest and re-identify all paths/root; scan manifest second
-   time+EOF, hash expected. Stat destination exactly expected exe bytes and
+   time+EOF, hash expected, stat manifest again, count its second verified scan.
+   Stat destination exactly expected exe bytes and
    original exclusive identity; scan destination twice+EOF, both hashes equal
    linked exe; stat after each. No source/copy alias, inode swap or size change.
 7. Re-identify root/source/manifest/destination after scans. Close ALL captured
@@ -125,19 +140,30 @@ Fixed algorithm; all identity/size/hash checks fail closed:
 
 EOF reads request length1 into same buffer and must return0. They do not add
 reserved selected bytes; any positive EOF return is actual read evidence,
-charged before failure. Returned integer positive read/write bytes are charged
+charged before CONTENT failure (ioUncertain false for a valid positive EOF).
+A zero non-EOF read is IO with ioUncertain false (known premature EOF); zero
+write is invalid, IO with ioUncertain true. Returned integer positive bytes are charged
 BEFORE later cancellation/deadline/hash checks, even after stop; safe integer
 positive oversize also charged then IO. Overflow actual counters -> IO. Invalid
 byte counts or thrown read/write have unknown side effects; mark ioUncertain.
 For positive oversize reported counts, do not hash/write outside buffer.
 Actual selected counters may exceed reserves on a failing/lying adapter; never
-erase/clamp evidence or claim success in that case. Production wrappers return
+erase/clamp evidence or claim success in that case. Accumulate actual read/write
+internally as BigInt; normally expose safe nonnegative integer Numbers. If an
+addition exceeds MAX_SAFE_INTEGER, retain its exact canonical decimal string
+in that actual counter, mark ioUncertain and stop IO immediately. No overflow
+rounding/truncation or BigInt in JSON; reservation/other counters stay Numbers.
+Positive oversize and negative/NaN/noninteger counts are invalid/uncertain.
+Production wrappers return
 Node's bytesRead/bytesWritten, do not silently coerce/repair malformed responses.
 All bytes physically written stay charged even if subsequent sync/hash fails.
 One open attempt counted immediately before offer; opened increments when a
 close-capable object is captured. closeAttempts/closed count successful close
 or uncertain close once; unknownClosures count opens with missing usable close,
-open failures or captured-close failures. Preserve first failure code through
+open failures or captured-close failures (including wx+ rejection/EEXIST; no
+error-code inference of closure). Identity or expected-size mismatch -> IDENTITY;
+expected hash mismatch -> CONTENT; malformed handle/byte operation -> IO.
+Preserve first failure code through
 cleanup/clock errors; only an otherwise good job becomes CLOSE after close
 failure. Missing close marks unknown, other handles still close.
 IO flags are independent: unknownClosure follows unknownClosures>0;
@@ -165,7 +191,8 @@ Cumulative snapshot exact {version:1,kind:'worker_artifact_preembed_copy_snapsho
 nextCandidate:'A'/'B'/null,busy,stopped,io,unknownClosure,ioUncertain,
 qualified:false,linkQualification:false,closureComplete:false,
 requiresFreshAdmission:true,normalWorkerUnchangedRequired:true}.
-Failure stops forever; successA advancesB; successB terminal with next null.
+Failure stops forever with nextCandidate null; successA advancesB; successB
+terminal with next null.
 Detached snapshots/proofs cannot change private counters or future jobs.
 
 ## Independent FIRST, source review and execution gate

@@ -8,11 +8,25 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/** Transient review identity. It never enters diagnostic JSON or canonical state. */
+class DiagnosticsReview internal constructor()
+
+internal class DiagnosticsActions(val dismiss: () -> Unit, val clear: () -> Unit, val export: () -> Unit)
+
+/** Retained controls carry the review they displayed, never a lookup of the latest review. */
+internal fun diagnosticsActions(
+    review: DiagnosticsReview,
+    onDismiss: (DiagnosticsReview) -> Unit,
+    onClear: (DiagnosticsReview) -> Unit,
+    onExport: (DiagnosticsReview) -> Unit,
+): DiagnosticsActions = DiagnosticsActions({ onDismiss(review) }, { onClear(review) }, { onExport(review) })
+
 data class DiagnosticsUiState(
     val visible: Boolean = false,
     val preview: String = "",
     val exporting: Boolean = false,
     val notice: String? = null,
+    val review: DiagnosticsReview = DiagnosticsReview(),
 )
 
 /** Owner-thread consent state. Exported records contain no URI, filename, story or exception. */
@@ -37,8 +51,27 @@ internal class DiagnosticsController(private val log: DiagnosticLog, private val
         if (disposed || !mutable.value.visible || mutable.value.exporting) return
         log.clear()
         preview = log.snapshot()
-        mutable.value = mutable.value.copy(preview = preview!!.json, notice = "Diagnostics cleared from memory.")
+        mutable.value = mutable.value.copy(preview = preview!!.json, notice = "Diagnostics cleared from memory.",
+            review = DiagnosticsReview())
     }
+
+    /** Scope UI delivery to its frozen review; current-owner lifecycle APIs remain separate. */
+    fun clear(review: DiagnosticsReview): Boolean {
+        if (!ownsReview(review) || mutable.value.exporting) return false
+        clear()
+        return true
+    }
+
+    fun dismiss(review: DiagnosticsReview): Boolean {
+        if (!ownsReview(review)) return false
+        dismiss()
+        return true
+    }
+
+    fun beginExport(review: DiagnosticsReview): Boolean = ownsReview(review) && beginExport()
+
+    private fun ownsReview(review: DiagnosticsReview): Boolean =
+        !disposed && mutable.value.visible && mutable.value.review === review
 
     fun dismiss() {
         invalidate()

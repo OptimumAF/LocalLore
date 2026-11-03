@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Rule
 import org.junit.Test
 import org.locallore.app.ui.DiagnosticsDialog
@@ -44,16 +45,19 @@ class DiagnosticsDialogTest {
         compose.runOnIdle { assertEquals(0, calls) }
     }
 
-    @Test fun previewIsExactAndActionsAreExplicitAndStateless() {
+    @Test fun previewIsExactAndActionsCarryTheRenderedReview() {
         var dismissed = 0
         var cleared = 0
         var exported = 0
         val preview = "{\"version\":1,\"records\":[]}"
+        val state = DiagnosticsUiState(visible = true, preview = preview)
         compose.setContent {
             MaterialTheme {
                 DiagnosticsDialog(
-                    DiagnosticsUiState(visible = true, preview = preview),
-                    { dismissed++ }, { cleared++ }, { exported++ },
+                    state,
+                    { assertSame(state.review, it); dismissed++ },
+                    { assertSame(state.review, it); cleared++ },
+                    { assertSame(state.review, it); exported++ },
                 )
             }
         }

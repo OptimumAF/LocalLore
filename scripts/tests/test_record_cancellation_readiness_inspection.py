@@ -1,10 +1,12 @@
 """Original late-snapshot oracles; retained tiny metadata, no operational calls."""
+import os
 import unittest
 
 from scripts import record_cancellation_ui_prepare_inputs as inspection
 from scripts.tests.test_record_cancellation_ui_prepare_inputs_fixtures import InspectionGraph
 
 
+@unittest.skipUnless(os.name == 'nt', 'retained private inspection fixture requires physical D')
 class RecordCancellationReadinessInspectionTests(unittest.TestCase):
     def test_current_snapshot_positive_is_still_not_preparation_authority(self):
         with InspectionGraph(inspection, fits=True) as graph:

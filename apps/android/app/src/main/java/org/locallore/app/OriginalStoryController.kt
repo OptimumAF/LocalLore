@@ -115,7 +115,12 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
     private fun current(ticket: Long)=!disposed && generation==ticket && state?.closing==false
     private fun run(ticket: Long, block: suspend () -> Unit) {
         active=scope.launch(start=CoroutineStart.LAZY) {
-            try { block() } catch(cancelled: CancellationException) { throw cancelled }
+            try { block() } catch(cancelled: CancellationException) {
+                if(current(ticket)) update(checkNotNull(state).copy(review=null,
+                    notice=if(createStarted) "Creation could not be confirmed. A story may already exist. Close to refresh the library."
+                        else "Draft generation or review stopped. Nothing was created. Cancel to finish local work."))
+                throw cancelled
+            }
             catch (_: Exception) { if(current(ticket)) update(checkNotNull(state).copy(review=null,
                 notice=if(createStarted) "Creation could not be confirmed. Close to refresh the library." else "The draft could not be reviewed or generated. Nothing was created. Cancel to finish local work.")) }
             finally { if(active===currentCoroutineContext()[Job])active=null

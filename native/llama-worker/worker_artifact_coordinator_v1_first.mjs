@@ -387,6 +387,34 @@ export async function runWorkerArtifactCoordinatorSelfchecksV1(api) {
       await flush(); eq(result, saved); assert.equal(selected(f, 'record').length, 1);
       assert.equal(selected(f, 'launchStep').length, launch ? 1 : 0);
     }
+    // Additive source-review regression AFTER initial producer532b7747 and
+    // original20-group FIRST, BEFORE the cleanup fix. No behavioral RED/run.
+    // A failing clear must not replace an already selected expiry cause.
+    for (const which of ['admit-deadline', 'admit-grace', 'admit-original-first',
+      'launch-deadline', 'launch-grace', 'launch-original-first']) {
+      const f = fixture(create), held = deferred(), launch = which.startsWith('launch'); let receipt;
+      f.hooks[launch ? 'launchStep' : 'admit'] = (_, value) => { receipt = value; return held.promise; };
+      const pending = run(f); await until(() => receipt !== undefined);
+      const original = f.timer.find(launch ? 125000 : 5000); assert(original);
+      if (which.endsWith('grace') || which.endsWith('original-first')) assert.equal(f.coordinator.cancel(), true);
+      const expiry = which.endsWith('grace') ? [...f.timer.pending.keys()].find(token => token !== original) : original;
+      assert(expiry); let cleanupFailures = 0;
+      f.timer.hooks.clear = () => { cleanupFailures++; f.timer.hooks.clear = null; throw Error('private expiry cleanup failure'); };
+      f.timer.fire(expiry);
+      const code = which.endsWith('grace') ? (launch ? 'CLOSURE' : 'CANCELLED') : 'PORT_TIMEOUT';
+      const result = await pending, saved = clone(result);
+      state(f, result, code, launch ? 1 : 0, 0, launch, launch); assert.equal(cleanupFailures, 1);
+      eq(f.calls.map(entry => entry.label), launch ? ['admit', 'recheck:0:before', 'launchStep:0', 'record'] : ['admit', 'record']);
+      if (which.endsWith('original-first')) held.reject(Error('private cleanup late rejection'));
+      else held.resolve(wire(receipt));
+      await flush();
+      // A failed clear may leave an old timer pending; its late callback also
+      // cannot replace the frozen terminal result or start another operation.
+      for (const token of [...f.timer.pending.keys()]) f.timer.fire(token);
+      await flush(); eq(result, saved); assert.equal(selected(f, 'record').length, 1);
+      assert.equal(selected(f, 'launchStep').length, launch ? 1 : 0);
+      assert(!wire(result).includes('private expiry cleanup'));
+    }
     const setup = fixture(create); setup.timer.hooks.set = (_, ms) => { if (ms === 125000) { setup.timer.hooks.set = null; throw Error('clock setup'); } };
     state(setup, await run(setup), 'PORT_ERROR', 0, 0); assert.equal(selected(setup, 'launchStep').length, 0);
     const beforeAdmission = fixture(create); beforeAdmission.timer.hooks.set = () => {

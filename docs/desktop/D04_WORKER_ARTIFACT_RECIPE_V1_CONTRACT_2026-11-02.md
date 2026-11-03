@@ -1,5 +1,9 @@
 # Experimental worker artifact recipe v1: source contract
 
+Outcome: [32 actual synthetic groups passed in one separately approved packet](D04_WORKER_ARTIFACT_RECIPE_V1_CODE_VERIFICATION_2026-11-03.md).
+Its finite grant is SPENT. Source-only/unrun text below records the frozen
+contract's chronology; native compilation/argv qualification remains unrun.
+
 Refs #25 D04.01/.02/.04; #31 D09.03/.05 supporting; #21.
 Base accepted main752e0b06/PR375. SOURCE ONLY / UNRUN; all finite grants SPENT.
 

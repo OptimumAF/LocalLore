@@ -1,5 +1,9 @@
 # Worker artifact recipe v1: proposed pure code-check admission
 
+Outcome: [the separately approved one packet passed 32 groups](D04_WORKER_ARTIFACT_RECIPE_V1_CODE_VERIFICATION_2026-11-03.md).
+That finite grant is now SPENT. The proposed/unrun statements below preserve
+the pre-approval plan; no future execution authority follows from this record.
+
 Refs #25 D04.01/.02/.04; #31 D09.03/.05 supporting; #21.
 **SOURCE ONLY / NEW CHECKS UNRUN. NO EXECUTION AUTHORITY.**
 All prior finite grants, including PR375's passing code packet, are SPENT.

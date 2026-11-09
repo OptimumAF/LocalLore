@@ -101,6 +101,20 @@ controller against the independently observed owner and its worker. It
 requires normal stop, complete cleanup and the matching closed storage
 receipt before accepting the two test results.
 
-These modules have no launch entry point. A supervised owner must still
-check live process ancestry and job membership, recheck resources and ports,
-and use the shared locked transition before starting the guest.
+## Supervised owner adapter
+
+`benchmarks/owned_archive_provider_platform.py` requires a pinned handoff
+from the activation supervisor. It holds the expected process identities and
+checks job membership and live ancestry before dispatch. The worker checks
+its immediate job and the owner-to-supervisor chain. The
+[Windows job query](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-queryinformationjobobject)
+uses the calling process's immediate job when jobs are nested.
+
+The adapter checks host resources, a separate 256 MiB records allowance,
+guest ports and the approved ledger. The shared runtime checks the private
+ADB port. The prepared reservation transitions to retained under the
+ledger lock before the guest starts. The controller requests an owned stop,
+and the parent publishes completion only after closure replay.
+
+An activation supervisor must still spend the one-use grant and start the
+owner under its bounded job. Device execution requires separate approval.

@@ -21,6 +21,7 @@ CANDIDATE = OUT / "candidate-v1.json"
 RUN_AUTHORITY = OUT / "run-authorization-v1.json"
 HANDOFF = OUT / "boot-handoff-v1.json"
 OWNED_ROOT = OUT / "owned-v1"
+COMPLETION = OUT / "activation-completion-v1.json"
 SCOPE = "sdk26-archive-provider-activation-candidate-v1"
 OWNER_SECONDS = 1700
 _SERVER_INPUTS = ("adb", "tools", "capabilities", "source_review", "auth_key")
@@ -38,7 +39,7 @@ _COMPATIBILITY = {
 
 
 def _unused(*, staging=False):
-    paths = (RUN_AUTHORITY, HANDOFF, OWNED_ROOT, prep.GUEST / owned.BOOT_CLAIM_FILE)
+    paths = (RUN_AUTHORITY, HANDOFF, OWNED_ROOT, COMPLETION, prep.GUEST / owned.BOOT_CLAIM_FILE)
     if staging:
         paths += (OUT,)
     for path in paths:

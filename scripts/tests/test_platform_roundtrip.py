@@ -111,10 +111,16 @@ class Pipeline(TempCase):
         fixture.mkdir()
         app, test = self.root / "app.apk", self.root / "test.apk"
         app.write_bytes(b"synthetic APK placeholder")
+        packaged = self.root / "packaged"
+        packaged.mkdir()
+        fixture_path = patch.object(proof, "PACKAGED_FIXTURES", packaged)
+        fixture_path.start()
+        self.addCleanup(fixture_path.stop)
         with zipfile.ZipFile(test, "w") as archive:
             for name in proof.ASSETS:
                 (fixture / name).write_bytes(b"{}")
-                archive.writestr("assets/platform-roundtrip-v1/" + name, b"{}")
+                (packaged / name).write_bytes(b'{"historical":true}')
+                archive.writestr("assets/platform-roundtrip-v1/" + name, b'{"historical":true}')
         executable = self.root / "native"
         executable.write_bytes(b"synthetic executable placeholder")
         sdk = self.root / "sdk/platform-tools"
@@ -125,7 +131,7 @@ class Pipeline(TempCase):
                                fixture_executable=executable, fixtures=fixture,
                                output_directory=self.root / "proof")
 
-    def setup_pipeline(self, args, wire=transcript(), clean=True):
+    def setup_pipeline(self, args, wire=transcript(), clean=True, mock_preflight=True):
         identities = {proof.PACKAGE: proof.digest(args.app_apk.read_bytes()),
                       proof.TEST_PACKAGE: proof.digest(args.test_apk.read_bytes())}
         fake = SimpleNamespace(clients_cleaned=True)
@@ -149,7 +155,58 @@ class Pipeline(TempCase):
         handle = patch.object(proof.subprocess, "run", side_effect=badging)
         self.addCleanup(handle.stop)
         handle.start()
+        if mock_preflight:
+            preflight = patch.object(proof, "check_fixture_pair",
+                                     return_value=({"status": "passed"}, proof.fixture_hashes(args.fixtures)))
+            preflight.start()
+            self.addCleanup(preflight.stop)
         return fake, identities
+
+    def test_fixture_preflight_binds_distinct_inputs_before_device(self):
+        args = self.args()
+        self.setup_pipeline(args, mock_preflight=False)
+        with patch.object(proof, "native_check", side_effect=proof.Failure("process_failed")) as native:
+            result = proof.run(args)
+        native.assert_called_once()
+        exe, mode, output, packaged, current, _ = native.call_args.args
+        self.assertEqual((args.fixture_executable, "check-fixtures", args.output_directory / "fixture-check"),
+                         (exe, mode, output))
+        self.assertEqual(proof.PACKAGED_FIXTURES, packaged)
+        self.assertEqual(args.fixtures, current)
+        self.assertNotEqual(proof.fixture_hashes(packaged), proof.fixture_hashes(current))
+        self.assertEqual("process_failed", result["failure"])
+        proof.subprocess.run.assert_not_called()
+        proof.OwnedDevice.assert_not_called()
+
+    def test_fixture_preflight_refuses_changed_expected_bytes(self):
+        args = self.args()
+        packaged = proof.PACKAGED_FIXTURES
+        def change(*_):
+            (args.fixtures / "windows-origin.json").write_bytes(b"changed")
+            return {"status": "passed"}
+
+        with patch.object(proof, "native_check", side_effect=change):
+            with self.assertRaisesRegex(proof.Failure, "fixture_drift"):
+                proof.check_fixture_pair(args.fixture_executable, self.root / "check", packaged, args.fixtures,
+                                         proof.fixture_hashes(packaged), lambda *args, **kwargs: None)
+
+    def test_outbound_archive_must_match_preflight_digest(self):
+        args = self.args()
+        self.setup_pipeline(args)
+        def device_read(_device, _run, name):
+            return b'{"different":true}' if name == "windows-return.json" else b"{}"
+
+        read_small = proof.read_small
+        def read_back(path):
+            return b"{}" if Path(path) == args.output_directory / "outbound/windows-return.json" else read_small(path)
+
+        with patch.object(proof, "phase", return_value={"passed": 1}), \
+             patch.object(proof, "remote_marker"), patch.object(proof, "remote_read", side_effect=device_read), \
+             patch.object(proof, "read_small", side_effect=read_back), \
+             patch.object(proof, "native_check") as native, patch.object(proof, "stop_owned"):
+            result = proof.run(args)
+        self.assertEqual("windows_transfer_drift", result["failure"])
+        native.assert_not_called()
 
     def test_failed_test_is_retained_and_never_reaches_native_verification(self):
         args = self.args()

@@ -99,6 +99,11 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [record-search Unicode fix](docs/android/RECORD_SEARCH_UNICODE_2026-11-02.md)
+rejects malformed text before reader/JSON dispatch while preserving valid text
+and existing byte limits. 566 JVM tests and the offline build/lint/APK audits
+pass; no device or model result follows from these host checks.
+
 The [fork-control scope fix](docs/android/FORK_ACTION_SCOPE_2026-11-02.md) keeps
 retained dialog actions from affecting a replacement recovery request.
 557 JVM tests and the offline build/lint/APK audits pass. Five new Compose

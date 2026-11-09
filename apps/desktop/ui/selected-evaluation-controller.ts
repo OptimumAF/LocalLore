@@ -29,6 +29,7 @@ import type {
     SelectedError,
     SelectedEvidence,
     SelectedLane,
+    SelectedPrepared,
     SelectedSourceIdentity,
     SelectedStatus,
     SelectedSummary,
@@ -98,6 +99,9 @@ type ExpectedIdentity = {
 };
 const POLL_MS = 300,
     MAX_STATUS_POLLS = 1000;
+function sourceProtocolOf(value: SelectedPrepared | SelectedSummary): 2 | 3 | 4 {
+    return value.version === 1 ? 2 : value.source_protocol_version;
+}
 function frozen<T>(value: T): T {
     if (
         value !== null &&
@@ -403,17 +407,15 @@ export class SelectedEvaluationController {
                 // A pending/failed resume may still carry the old prepared
                 // metadata. Validate that against its previously bound source;
                 // a successful resume alone can promote the requested identity.
-                if (
-                    resumed &&
-                    sourceProtocol === 4 &&
-                    value.prepared?.version !== 3
-                )
+                const prepared = value.prepared;
+                const scene =
+                    prepared?.version === 3 || prepared?.version === 4
+                        ? prepared
+                        : null;
+                const lane = expected.lane ?? (scene ? value.lane : null);
+                if (resumed && sourceProtocol === 4 && !scene)
                     throw new Error("SelectedEvaluationWire");
-                if (
-                    value.prepared?.version === 3 &&
-                    value.error !== null &&
-                    sourceBinding === undefined
-                )
+                if (scene && value.error !== null && sourceBinding === undefined)
                     throw new Error("SelectedEvaluationWire");
                 if (
                     (expected.lane &&
@@ -428,20 +430,19 @@ export class SelectedEvaluationController {
                 )
                     throw new Error("SelectedEvaluationWire");
                 if (
-                    value.prepared &&
+                    prepared &&
                     ((sourceProtocol !== undefined &&
-                        value.prepared.version !== sourceProtocol - 1) ||
-                        (value.prepared.version === 3 &&
+                        sourceProtocolOf(prepared) !== sourceProtocol) ||
+                        (scene &&
                             sourceBinding !== undefined &&
-                            value.prepared.source_binding !== sourceBinding) ||
+                            scene.source_binding !== sourceBinding) ||
                         (expected.turn &&
-                            value.prepared.selection.turn !== expected.turn) ||
+                            prepared.selection.turn !== expected.turn) ||
                         (expected.arm &&
-                            value.prepared.selection.clicked_arm !==
-                                expected.arm) ||
-                        (expected.lane &&
-                            value.prepared.lane !==
-                                (expected.lane === "approved_native"
+                            prepared.selection.clicked_arm !== expected.arm) ||
+                        (lane &&
+                            prepared.lane !==
+                                (lane === "approved_native"
                                     ? "native_selected_case"
                                     : "scripted_selected_case")))
                 )
@@ -457,13 +458,10 @@ export class SelectedEvaluationController {
                 ) {
                     delete expected.pendingResume;
                 }
-                if (
-                    value.error === null &&
-                    !value.running &&
-                    value.prepared?.version === 3
-                ) {
-                    expected.sourceBinding ??= value.prepared.source_binding;
-                    expected.sourceProtocol ??= 4;
+                if (value.error === null && !value.running && scene) {
+                    expected.sourceBinding ??= scene.source_binding;
+                    expected.sourceProtocol ??= scene.source_protocol_version;
+                    if (scene.version === 4) expected.lane ??= "approved_native";
                 }
                 if (!expected.runId && value.run_id !== null)
                     expected.runId = value.run_id;
@@ -858,7 +856,7 @@ export class SelectedEvaluationController {
                     operation: null,
                     sourceBinding: selectedHash(body.sourceBinding),
                     sourceProtocol: known
-                        ? ((known.version + 1) as 2 | 3 | 4)
+                        ? sourceProtocolOf(known)
                         : expected.sourceProtocol,
                 };
         }
@@ -1047,7 +1045,16 @@ export class SelectedEvaluationController {
                     t.token,
                     t.binding,
                 );
-                const prepared = this.state.status?.prepared;
+                const status = this.state.status;
+                const prepared = status?.prepared;
+                const expected = this.expected.get(t.client);
+                if (
+                    (next.version === 4 && status?.lane !== "approved_native") ||
+                    (expected?.sourceProtocol === 4 &&
+                        expected.lane === "approved_native" &&
+                        next.version !== 4)
+                )
+                    throw new Error("SelectedEvaluationWire");
                 if (
                     prepared &&
                     (next.version !== prepared.version ||
@@ -1068,6 +1075,10 @@ export class SelectedEvaluationController {
                         }))
                 )
                     throw new Error("SelectedEvaluationWire");
+                if (expected && next.version === 4) {
+                    expected.lane ??= "approved_native";
+                    expected.sourceProtocol ??= sourceProtocolOf(next);
+                }
                 this.patch({ summary: next });
             } else if (action === "evidence" && summary && request && arm)
                 this.patch({

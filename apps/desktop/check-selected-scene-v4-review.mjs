@@ -2471,6 +2471,11 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
         const { source_binding: omitted, ...unbound } = prepared(4);
         assert.equal(omitted, SOURCE);
         finiteWire(() => decode.prepared(unbound));
+        finiteWire(() =>
+            m.checkedSelectedStatus(status(CLIENT, "prepared", 4, {
+                lane: "scripted_baseline",
+            })),
+        );
         const measured = {
             ...diagnostics(4),
             physical_setups: 1,
@@ -2483,6 +2488,7 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             { physical_setup_ms: null },
             { native_load: {} },
             { quality_accepted: true },
+            { human_rubric: "accepted" },
         ])
             finiteWire(() => decode.diagnostics({ ...measured, ...patch }));
     });
@@ -2502,11 +2508,14 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             const ready = appSelection(f, state);
             assert.equal(ready.props.nativeSceneSelected, true);
             assert.deepEqual(ready.props.source, source);
+            state.status.binding = PREFIX;
+            assert.equal(appSelection(f, state).props.nativeSceneSelected, false);
+            state.status.binding = SOURCE;
             state.status.phase = "opening";
             const waiting = appSelection(f, state);
             assert.equal(waiting.props.nativeSceneSelected, false);
             assert.equal(waiting.props.source, null);
-            for (const value of [null, "4", 3, 5])
+            for (const value of [null, undefined, "4", 3, 5])
                 assert.throws(
                     () => checked({ ...state.source, selected_native_format: value }),
                     /ComparisonReaderWire/,
@@ -2583,6 +2592,15 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             }]);
             assert.equal(f.c.get().error, null);
             assert.equal(f.c.get().status.prepared.version, 4);
+
+            const bad = fixture(4);
+            await opened(bad);
+            bad.hooks.set("resume", ({ clientId }) =>
+                status(clientId, "completed", 4, { prepared: prepared(3) }),
+            );
+            await bad.c.resume(source);
+            assert.equal(bad.c.get().error, "SelectedEvaluationWire");
+            assert.equal(bad.c.get().status.prepared, null);
         },
     );
 

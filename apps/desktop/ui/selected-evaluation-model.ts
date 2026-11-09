@@ -80,8 +80,15 @@ type SelectedPreparedV3 = Omit<SelectedPreparedV1, "version" | "lane"> & {
     lane: "scripted_selected_case";
     constructions: ComparisonArmDescriptorV4[];
 };
+type SelectedPreparedV4 = Omit<SelectedPreparedV3, "version" | "lane"> & {
+    version: 4;
+    lane: "native_selected_case";
+};
 export type SelectedPrepared =
-    SelectedPreparedV1 | SelectedPreparedV2 | SelectedPreparedV3;
+    | SelectedPreparedV1
+    | SelectedPreparedV2
+    | SelectedPreparedV3
+    | SelectedPreparedV4;
 type SelectedSummaryV1 = {
     version: 1;
     kind: "selected_read";
@@ -109,8 +116,15 @@ type SelectedSummaryV3 = Omit<SelectedSummaryV1, "version" | "lane"> & {
     lane: "scripted_selected_case";
     constructions: ComparisonArmDescriptorV4[];
 };
+type SelectedSummaryV4 = Omit<SelectedSummaryV3, "version" | "lane"> & {
+    version: 4;
+    lane: "native_selected_case";
+};
 export type SelectedSummary =
-    SelectedSummaryV1 | SelectedSummaryV2 | SelectedSummaryV3;
+    | SelectedSummaryV1
+    | SelectedSummaryV2
+    | SelectedSummaryV3
+    | SelectedSummaryV4;
 export type SelectedStatus = {
     version: 1;
     kind: "selected_evaluation";
@@ -241,8 +255,15 @@ type SelectedDiagnosticsV3 = Omit<
     human_rubric: "not_reviewed";
     rows: SelectedDiagnosticRowV3[];
 };
+type SelectedDiagnosticsV4 = Omit<SelectedDiagnosticsV3, "version" | "lane"> & {
+    version: 4;
+    lane: "native_selected_case";
+};
 export type SelectedDiagnostics =
-    SelectedDiagnosticsV1 | SelectedDiagnosticsV2 | SelectedDiagnosticsV3;
+    | SelectedDiagnosticsV1
+    | SelectedDiagnosticsV2
+    | SelectedDiagnosticsV3
+    | SelectedDiagnosticsV4;
 export type SelectedEvidence = {
     version: 1;
     binding: string;
@@ -507,28 +528,30 @@ function selectedConstruction(
 }
 function versioned(v: unknown, fields: string[], prepared = false): Obj {
     const version = object(v).version;
-    requireWire(version === 1 || version === 2 || version === 3);
+    const scene = version === 3 || version === 4;
+    requireWire(version === 1 || version === 2 || scene);
     const o = exact(v, [
         ...fields,
         ...(version !== 1 ? ["source_protocol_version", "constructions"] : []),
-        ...(version === 3 && prepared ? ["source_binding"] : []),
+        ...(scene && prepared ? ["source_binding"] : []),
     ]);
     if (version !== 1) {
-        requireWire(o.source_protocol_version === (version === 3 ? 4 : 3));
+        requireWire(o.source_protocol_version === (scene ? 4 : 3));
         const values = array(
             o.constructions,
-            (v) => selectedConstruction(v, undefined, version === 3),
+            (v) => selectedConstruction(v, undefined, scene),
             2,
         );
         requireWire(values.length === 2);
-        selectedConstruction(values[0], "left", version === 3);
-        selectedConstruction(values[1], "right", version === 3);
+        selectedConstruction(values[0], "left", scene);
+        selectedConstruction(values[1], "right", scene);
         requireWire(
             object(values[0]).narration_policy ===
                 object(values[1]).narration_policy,
         );
     }
     if (version === 3) requireWire(o.lane === "scripted_selected_case");
+    if (version === 4) requireWire(o.lane === "native_selected_case");
     return o;
 }
 export function checkedSelectedPrepared(v: unknown): SelectedPrepared {
@@ -539,7 +562,7 @@ export function checkedSelectedPrepared(v: unknown): SelectedPrepared {
     );
     requireWire(o.kind === "selected_prepared");
     selectedHash(o.binding);
-    if (o.version === 3) selectedHash(o.source_binding);
+    if (o.version === 3 || o.version === 4) selectedHash(o.source_binding);
     storedLane(o.lane);
     selection(o.selection);
     arms(
@@ -601,7 +624,10 @@ export function checkedSelectedStatus(
     nullable(o.run_id, selectedUuid);
     nullable(o.run_token, selectedUuid);
     nullable(o.binding, selectedHash);
-    nullable(o.prepared, checkedSelectedPrepared);
+    nullable(o.prepared, (v) => {
+        if (checkedSelectedPrepared(v).version === 4)
+            requireWire(o.lane === "approved_native");
+    });
     nullable(o.error, (v) => one(v, selectedErrors));
     nullable(o.cause, (v) => one(v, selectedErrors));
     bool(o.cleanup_required);
@@ -726,6 +752,8 @@ export function checkedSelectedDiagnostics(
         wrapper(v, "selected_diagnostics_result", "diagnostics", token),
         256 * 1024,
     );
+    const version = object(raw).version;
+    const scene = version === 3 || version === 4;
     const o = versioned(raw, [
         "version",
         "kind",
@@ -742,7 +770,7 @@ export function checkedSelectedDiagnostics(
         "human_reviewed",
         "quality_accepted",
         "unavailable",
-        ...(object(raw).version === 3 ? ["human_rubric"] : []),
+        ...(scene ? ["human_rubric"] : []),
     ]);
     requireWire(
         o.version === summary.version &&
@@ -773,7 +801,7 @@ export function checkedSelectedDiagnostics(
                 "roles_known",
                 "elapsed_ms",
                 "actual_receipt_sha256",
-                ...(o.version === 3
+                ...(scene
                     ? [
                           "construction",
                           "construction_evidence_status",
@@ -834,7 +862,7 @@ export function checkedSelectedDiagnostics(
             bool(r.roles_known);
             integer(r.elapsed_ms);
             nullable(r.actual_receipt_sha256, selectedHash);
-            if (o.version === 3) {
+            if (scene) {
                 selectedConstruction(r.construction, arm, true);
                 one(r.construction_evidence_status, [
                     "validated_committed_scene_narrator_v1",
@@ -910,12 +938,11 @@ export function checkedSelectedDiagnostics(
         integer(o[k]);
     nullable(o.physical_setup_ms, integer);
     requireWire(o.human_reviewed === 0 && o.quality_accepted === false);
-    if (o.version === 3)
-        requireWire(
-            o.human_rubric === "not_reviewed" &&
-                o.physical_setups === 0 &&
-                o.physical_setup_ms === null,
-        );
+    if (scene) requireWire(o.human_rubric === "not_reviewed");
+    if (version === 3)
+        requireWire(o.physical_setups === 0 && o.physical_setup_ms === null);
+    if (version === 4)
+        requireWire((o.physical_setups === 0) === (o.physical_setup_ms === null));
     array(o.unavailable, text);
     return o as SelectedDiagnostics;
 }

@@ -31,7 +31,7 @@ const armLabel = (arm: SelectedArm, version: number | undefined) =>
         ? arm === "left"
             ? "Left arm"
             : "Right arm"
-        : version === 3
+        : version === 3 || version === 4
           ? arm === "left"
               ? "Literal scene"
               : "Relevant memory scene"
@@ -121,6 +121,7 @@ export type SelectedEvaluationViewProps = {
     observer: ObserverV2;
     sourceUnavailable?: boolean;
     sourceProtocolVersion?: 2 | 3 | 4;
+    nativeSceneSelected?: boolean;
 };
 export function SelectedEvaluationView({
     controller: c,
@@ -129,6 +130,7 @@ export function SelectedEvaluationView({
     observer,
     sourceUnavailable = false,
     sourceProtocolVersion,
+    nativeSceneSelected = false,
 }: SelectedEvaluationViewProps) {
     const subscribe = useCallback(
         (listener: () => void) => c.subscribe(listener),
@@ -141,11 +143,13 @@ export function SelectedEvaluationView({
             ? linkedSource
             : null;
     const [lane, setLane] = useState<SelectedLane>("scripted_baseline");
-    const sceneSource = sourceProtocolVersion === 4;
+    const sceneNativeUnavailable =
+        sourceProtocolVersion === 4 && !nativeSceneSelected;
+    const nativeLaneBlocked =
+        sceneNativeUnavailable && lane === "approved_native";
     useEffect(() => {
-        if (sceneSource && lane === "approved_native")
-            setLane("scripted_baseline");
-    }, [sceneSource, lane]);
+        if (nativeLaneBlocked) setLane("scripted_baseline");
+    }, [nativeLaneBlocked]);
     const [savedId, setSavedId] = useState("");
     const [arm, setArm] = useState<SelectedArm>("left");
     const [edge, setEdge] = useState<"before" | "after">("after");
@@ -172,6 +176,12 @@ export function SelectedEvaluationView({
         !!status.binding;
     const prepared = status?.prepared;
     const summary = s.allowed ? s.summary : null;
+    const resumeSource =
+        (sceneNativeUnavailable && status?.lane === "approved_native") ||
+        ((summary?.version === 4 || prepared?.version === 4) &&
+            sourceProtocolVersion !== 4)
+            ? null
+            : source;
     // Render fence precedes effects: an actor prop never gets one render of an
     // old omniscient body while setObserver is waiting for its React effect.
     const evidence =
@@ -349,7 +359,8 @@ export function SelectedEvaluationView({
                             const value = event.target.value;
                             if (
                                 value === "scripted_baseline" ||
-                                (value === "approved_native" && !sceneSource)
+                                (value === "approved_native" &&
+                                    !sceneNativeUnavailable)
                             )
                                 setLane(value);
                         }}
@@ -357,8 +368,11 @@ export function SelectedEvaluationView({
                         <option value="scripted_baseline">
                             Scripted baseline · fake inference
                         </option>
-                        <option value="approved_native" disabled={sceneSource}>
-                            {sceneSource
+                        <option
+                            value="approved_native"
+                            disabled={sceneNativeUnavailable}
+                        >
+                            {sceneNativeUnavailable
                                 ? "Native selected scene execution unavailable"
                                 : "Installed native model · approved assets required"}
                         </option>
@@ -371,14 +385,10 @@ export function SelectedEvaluationView({
                         !!s.clientId ||
                         !source ||
                         !row ||
-                        (sceneSource && lane !== "scripted_baseline")
+                        nativeLaneBlocked
                     }
                     onClick={() => {
-                        if (
-                            source &&
-                            row &&
-                            !(sceneSource && lane !== "scripted_baseline")
-                        )
+                        if (source && row && !nativeLaneBlocked)
                             void c.prepare(
                                 source,
                                 row,
@@ -409,7 +419,7 @@ export function SelectedEvaluationView({
                       : "Choose a comparison report and a source turn in the reader before preparing an experiment."}
             </p>
             <p>
-                {sceneSource
+                {sceneNativeUnavailable
                     ? "Native selected scene execution is unavailable. "
                     : ""}
                 {lane === "scripted_baseline"
@@ -518,7 +528,7 @@ export function SelectedEvaluationView({
                     <details>
                         <summary>Prepared identity hashes</summary>
                         <p className="hash-value">{prepared.binding}</p>
-                        {prepared.version === 3 && (
+                        {(prepared.version === 3 || prepared.version === 4) && (
                             <p className="hash-value">
                                 Source snapshot binding:{" "}
                                 {prepared.source_binding}
@@ -594,10 +604,13 @@ export function SelectedEvaluationView({
             <div className="comparison-controls">
                 <button
                     disabled={
-                        !s.allowed || blocked || !status?.run_token || !source
+                        !s.allowed ||
+                        blocked ||
+                        !status?.run_token ||
+                        !resumeSource
                     }
                     onClick={() => {
-                        if (source) void c.resume(source);
+                        if (resumeSource) void c.resume(resumeSource);
                     }}
                 >
                     Resume / verify with linked source

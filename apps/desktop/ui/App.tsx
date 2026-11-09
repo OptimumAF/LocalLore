@@ -163,6 +163,12 @@ function SelectedExperiment({
             sourceProtocolVersion={
                 supportedSourceProtocol ? sourceProtocolVersion : undefined
             }
+            nativeSceneSelected={
+                source !== null &&
+                sourceProtocolVersion === 4 &&
+                snapshot.status?.binding === source.binding &&
+                snapshot.source?.selected_native_format === 4
+            }
         />
     );
 }

@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [SDK15 recovery input inspection](docs/runtime/android/SDK15_RECOVERY_READINESS_2026-11-02.md)
+creates a source-bound, file-only plan for the existing charged reservation.
+Seventeen host tests and the actual inspection pass. It creates no execution
+authority; a tested post-recovery handoff and fresh exact approval remain required.
+
 The [current library/recovery UI profile](docs/native/LIBRARY_UI_V1.md)
 selects four fixed PR #351 journeys through the current guarded owner and
 recovery source. It has separate SDK15 authority and exact frozen-build

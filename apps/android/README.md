@@ -540,6 +540,14 @@ The [narrow native boundary](../../docs/native/ANDROID_ARCHIVE_BOUNDARY.md),
 [shared format](../../docs/storage/M08_PLAYABLE_ARCHIVE_V1.md) describe limits.
 This adds no inference dependency, network/storage permission, or automatic upload.
 
+The model-free `org.locallore.app.ArchiveProviderPlatformTest` uses the
+archive-verification APK pair (`-PlocalLoreArchiveVerification=true`).
+It checks that the remote test provider receives cancellation while opening a
+read-only asset, then verifies that the next import returns only the declared
+file slice and closes its descriptor. The fixture lives in the test APK.
+Compile and package it with `:app:assembleDebug :app:assembleDebugAndroidTest`.
+Executing the test requires a separately approved, owned Android run.
+
 The separate [Windows–Android proof](../../docs/native/PLATFORM_ROUNDTRIP_VERIFICATION_2026-10-23.md)
 transfers original fixture bytes through actual Rust/JNI and verifies replay,
 branch snapshots and continued play. It uses a headless Windows fixture tool;

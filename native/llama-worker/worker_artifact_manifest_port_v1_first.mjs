@@ -579,6 +579,30 @@ export async function runWorkerArtifactManifestPortSelfchecksV1(api) {
     clean.copyHook = (normal, request) => clean.proof(request, 'IDENTITY');
     await refused(clean.port, clean.port.prepareManifest(clean.request(), new AbortController().signal),
       { stop: 'COPY', copyCode: 'IDENTITY' });
+
+    for (const [extraRead, extraWrite] of [[1, 0], [2, 0], [1, 1]]) {
+      const f = fixture(create);
+      f.link(0);
+      f.copyHook = (normal, request) => {
+        const { io } = normal();
+        // The last destination scan read every expected byte but found data at EOF.
+        return { ...f.proof(request, 'CONTENT'), io: { ...io, verifiedScans: 5,
+          actualReadBytes: io.reservedReadBytes + extraRead,
+          actualWriteBytes: io.reservedWriteBytes + extraWrite } };
+      };
+      const operation = f.port.prepareManifest(f.request(), new AbortController().signal);
+      if (extraRead === 1 && extraWrite === 0) {
+        await refused(f.port, operation, { stop: 'COPY', copyCode: 'CONTENT' });
+      } else {
+        await assert.rejects(operation, { message: STOPPED });
+        const result = f.port.snapshot();
+        assert.equal(result.stop, 'UNCERTAIN');
+        assert.equal(result.uncertain, true);
+        assert.equal(result.completed, 0);
+        eq(await f.port.drain(), result);
+      }
+      eq(actions(f, 'roster'), [['roster', 'before']]);
+    }
   });
 
   add('M08', async () => {
@@ -746,6 +770,20 @@ export async function runWorkerArtifactManifestPortSelfchecksV1(api) {
       invalid.recheckHook = normal => {
         const value = closeStop(normal(), false);
         edit(value);
+        return value;
+      };
+      await refused(invalid.port, invalid.port.prepareManifest(invalid.request(), new AbortController().signal),
+        { stop: 'UNCERTAIN', uncertain: true });
+      eq(actions(invalid, 'copy'), []);
+    }
+    for (const stopped of [false, true]) {
+      const invalid = fixture(create);
+      invalid.link(0);
+      invalid.recheckHook = normal => {
+        const ready = normal();
+        const value = stopped ? closeStop(ready, false) : ready;
+        assert.equal(value.roots[0].complete, true);
+        value.roots[0].directoryClosure = 'none';
         return value;
       };
       await refused(invalid.port, invalid.port.prepareManifest(invalid.request(), new AbortController().signal),

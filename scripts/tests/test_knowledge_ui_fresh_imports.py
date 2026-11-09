@@ -24,6 +24,7 @@ class PartsPorts:
     def __enter__(self):
         self.stack=ExitStack();self.checks=[];self.loads=[];self.gits=[]
         self.root=bridge.ROOT;self.source=rules.SOURCE
+        self.contract_path=self.root/'scripts/knowledge_ui_fresh_contract.py'
         clean=[p for p in sys.path if p and PureWindowsPath(p) not in
                (PureWindowsPath(self.root),PureWindowsPath(self.source))]
         self.stack.enter_context(patch.object(sys,'path',clean))
@@ -82,7 +83,7 @@ class PartsPorts:
 
     def spec(self,name,path):
         path=Path(path)
-        allowed={rules.CONTRACT:'contract',rules.INSPECTOR_ROOT/'scripts/freeze_knowledge_ui_prepare_inputs.py':'inspector'}
+        allowed={self.contract_path:'contract',rules.INSPECTOR_ROOT/'scripts/freeze_knowledge_ui_prepare_inputs.py':'inspector'}
         if path not in allowed:raise AssertionError('unexpected loader path')
         self.loads.append((name,path))
         return SimpleNamespace(name=name,path=path,role=allowed[path],loader=SimpleNamespace(exec_module=self.populate))
@@ -95,7 +96,7 @@ class PartsPorts:
         if module._test_role=='contract':
             for name,value in vars(rules).items():
                 if not name.startswith('__'):setattr(module,name,value)
-            module.__file__=str(rules.CONTRACT)
+            module.__file__=str(self.contract_path)
         elif module._test_role=='inspector':
             for name,value in vars(self.inspector).items():
                 if not name.startswith('__'):setattr(module,name,value)
@@ -107,12 +108,15 @@ class FreshPartsNamespaceTests(unittest.TestCase):
         with PartsPorts() as ports:
             accepted_rules,api=bridge._parts()
             self.assertEqual(accepted_rules.SOURCE,rules.SOURCE)
+            self.assertEqual(accepted_rules.CONTRACT,rules.CONTRACT)
             self.assertIs(api.env,ports.api.env)
             self.assertNotIn(str(ports.root),sys.path)
             self.assertEqual(ports.checks,[[str(ports.source/'benchmarks')]]*2)
             self.assertEqual(ports.gits,[(rules.INSPECTOR_ROOT,rules.INSPECTOR_HEAD),(rules.SOURCE,rules.SOURCE_HEAD)])
-            self.assertTrue(any(path==rules.INSPECTOR_ROOT/'scripts/freeze_knowledge_ui_prepare_inputs.py'
-                                for name,path in ports.loads))
+            self.assertEqual(ports.loads,[
+                ('_sdk16_fresh_rules',ports.contract_path),
+                ('_sdk16_frozen_inspector',rules.INSPECTOR_ROOT/'scripts/freeze_knowledge_ui_prepare_inputs.py'),
+            ])
 
     def test_parts_still_refuses_a_cached_foreign_transitive_benchmark_module(self):
         with PartsPorts() as ports:

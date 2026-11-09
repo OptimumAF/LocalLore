@@ -26,6 +26,7 @@ from scripts import freeze_knowledge_ui_prepare_inputs as tool
 
 SOURCE = Path('D:/Worktrees/LocalLore-original-input-compose-review-v1')
 SOURCE_HEAD = '80f2c10cceb7fb061bb0ab9ddfa50c7e17fd99f2'
+OPERATOR = Path('D:/Worktrees/LocalLore-theme-archive-review-v1')
 HOME = Path('D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-prepare-inputs-v1/test-agent-v1')
 GUEST = Path('D:/Dev/Experiments/LocalLore/2026-11-02-knowledge-ui-v1/avd-v1')
 FILES = {'knowledge-build-v1.json','prepare-proposal-v1.json','capacity-preview-v1.json',
@@ -49,8 +50,8 @@ class KnowledgePrepareDefinitionTests(unittest.TestCase):
         self.assertEqual(namespace['SOURCE'],SOURCE)
         self.assertEqual(namespace['SOURCE_HEAD'],SOURCE_HEAD)
         self.assertEqual(namespace['GUEST'],GUEST)
-        self.assertEqual(namespace['OPERATOR'],path.parents[1])
-        self.assertEqual(namespace['HELPER'],path)
+        self.assertEqual(namespace['OPERATOR'],OPERATOR)
+        self.assertEqual(namespace['HELPER'],OPERATOR/'scripts/freeze_knowledge_ui_prepare_inputs.py')
         self.assertEqual(namespace['OUTPUT'],namespace['OUT']/'frozen-inputs-v1')
         self.assertEqual(tuple(namespace['MISSING']),MISSING)
 

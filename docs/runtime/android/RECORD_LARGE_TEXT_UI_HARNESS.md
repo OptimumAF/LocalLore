@@ -79,3 +79,22 @@ activation and ledger closure. Before an actual run, freeze and review the
 SDK19 plan, qualify current readiness, and obtain approval for that exact
 operation under the [shared storage guard](RECEIPT_AVD_STORAGE.md).
 The Android layout and touch results and separate screen-reader checks are pending.
+
+## Host readiness before approval
+
+After freezing the installed-tool and preparation bindings and the SDK19
+plan at the fixed operation paths, inspect the exact plan from the same
+physical D: source directory that would execute it.
+
+```powershell
+python -I -S -B scripts/inspect_record_large_text_ui_readiness.py --plan-sha256 <plan-sha256>
+```
+
+The Windows inspector requires the authority and attempt paths to be absent.
+It uses the same byte, ledger, resource and temporary loopback bind checks as
+the operation. It repeats the source, APK, plan, preparation and ledger
+bindings before it publishes its create-only advisory report. It retains a
+finite refusal category if a check fails. The report is private local evidence
+under the fixed SDK19 readiness directory. It grants no admission. Actual
+execution still requires the reviewed proposal, exact human approval and fresh
+guard checks.

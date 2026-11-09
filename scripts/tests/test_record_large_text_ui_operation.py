@@ -164,7 +164,7 @@ class StageTests(unittest.TestCase):
         self.assertIs(result["feature_acceptance"], False)
         self.assertEqual((result["phase"], result["step"]), ("completed", "completed"))
         ports.verify_attempt.assert_called()
-        ports.preflight.assert_called_once_with(ports.approved, ports.plan, ports.prepare)
+        ports.preflight.assert_called_once_with(ports.approved["ledger"], ports.plan, ports.prepare)
         ports.prepare_guest.assert_called_once()
         ports.create_admission.assert_called_once_with(ports.plan)
         ports.activate.assert_called_once_with(ports.admission)

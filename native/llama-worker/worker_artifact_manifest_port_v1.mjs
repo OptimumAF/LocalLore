@@ -115,7 +115,9 @@ function leaseSnapshot(value) {
         !identity(root.identity) || root.marker !== 'created' ||
         !['open', 'unknown'].includes(root.markerClosure) ||
         !['none', 'closed', 'unknown'].includes(root.directoryClosure) ||
-        typeof root.complete !== 'boolean') throw BAD_DATA;
+        typeof root.complete !== 'boolean' ||
+        (root.complete && root.directoryClosure !== 'closed') ||
+        (ready && (!root.complete || root.markerClosure !== 'open'))) throw BAD_DATA;
     const files = boundedArray(root.files, 0, 8).map(value => {
       const row = record(value, ['name', 'identity', 'bytes']);
       const bytes = decimal(row.bytes);
@@ -150,6 +152,11 @@ function copySnapshot(value) {
   if (proof.unknownClosure !== (io.unknownClosures > 0) || io.opened > io.openAttempts ||
       io.closeAttempts > io.opened || io.closed > io.closeAttempts ||
       (!proof.unknownClosure && io.closed !== io.openAttempts)) throw BAD_DATA;
+  if (!proof.ioUncertain) {
+    const extraProbe = !proof.ok && io.reservedCopies === 1 && io.reservedReadBytes > 0 && io.opened > 0 ? 1n : 0n;
+    if (BigInt(io.actualWriteBytes) > BigInt(io.reservedWriteBytes) ||
+        BigInt(io.actualReadBytes) > BigInt(io.reservedReadBytes) + extraProbe) throw BAD_DATA;
+  }
   return { ...proof, io };
 }
 
@@ -218,7 +225,6 @@ export function createWorkerArtifactManifestPortV1(options) {
 
     const roots = view.roots.map((root, index) => {
       const names = [MARKER, ...Object.values(leaves[index])];
-      requireThat(root.complete && root.directoryClosure === 'closed', 'ROSTER');
       const files = new Map();
       for (const row of root.files) {
         requireThat(names.includes(row.name) && !files.has(row.name), 'ROSTER');

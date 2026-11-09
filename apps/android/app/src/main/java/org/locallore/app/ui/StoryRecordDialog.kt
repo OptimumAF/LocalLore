@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import org.locallore.app.StoryRecordEntry
+import org.locallore.app.StoryRecordPromiseFilter
 import org.locallore.app.StoryRecordSection
 import org.locallore.app.StoryRecordState
 import org.locallore.app.StoryRecordScopedEvent
@@ -60,11 +61,12 @@ fun StoryRecordDialog(
     onEventBack: () -> Unit = {},
     onEventRetry: (() -> Unit)? = null,
     onScopedEvent: (StoryRecordScopedEvent) -> Unit = {},
+    onPromiseFilter: (StoryRecordPromiseFilter) -> Unit = {},
 ) {
     if (!state.visible) return
     val actionKey = RecordActionKey(state)
     // A new story/head or applied query must never inherit another context's edited search.
-    var searchDraft by remember(state.context, state.search) { mutableStateOf(state.search) }
+    var searchDraft by remember(state.context, state.search, state.promiseFilter) { mutableStateOf(state.search) }
     val recordScrollState = rememberScrollState()
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
@@ -148,11 +150,32 @@ fun StoryRecordDialog(
                             }
                         }
                     }
+                    if (state.section == StoryRecordSection.PROMISES) {
+                        Text("Promise status", style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.semantics { heading() })
+                        key(actionKey) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                StoryRecordPromiseFilter.entries.forEach { filter ->
+                                    FilterChip(
+                                        selected = state.promiseFilter == filter,
+                                        onClick = { onPromiseFilter(filter) },
+                                        enabled = canQuery,
+                                        label = { Text(filter.label) },
+                                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                            .testTag("story-record-promise-status-${filter.name.lowercase()}"),
+                                    )
+                                }
+                            }
+                        }
+                        Text("Choose a status or search all promises.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     OutlinedTextField(
                         value = searchDraft,
                         onValueChange = { searchDraft = it },
                         enabled = canQuery,
-                        label = { Text("Search visible records") },
+                        label = { Text(if (state.section == StoryRecordSection.PROMISES)
+                            "Search all promises" else "Search visible records") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("story-record-search"),
                     )

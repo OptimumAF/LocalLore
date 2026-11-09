@@ -26,7 +26,7 @@ The injected adapter contains exactly four own data functions.
 `stat()`, `read(buffer,offset,length,position)` and `close()`.
 The held stat returns the file identity record without `real`. Length and
 link count are integers. The two timestamp fields are canonical signed
-decimal nanoseconds. Read returns a byte count and close returns undefined.
+64-bit decimal nanoseconds. Read returns a byte count and close returns undefined.
 `now()` returns finite nonnegative monotonic milliseconds. The native
 adapter uses guarded `lstat`, `realpath` and positional FileHandle reads.
 
@@ -64,8 +64,10 @@ result before file I/O. Capture the same genuine signal for the attempt.
 
 ## Held read and evidence
 
-Resolve the known root and selected ordinary one-link file without following
-an alias. Require the expected real pathname, identity and length. Compare
+Require the known root and selected ordinary one-link file to match the
+expected real pathname, identity and length. These are cooperative
+pathname and held identity checks under the private owner contract.
+They are not an OS no-follow guarantee. Compare
 named and held fingerprints including device, inode, link count, length,
 modification time and change time. A regular-file handle is opened read-only.
 Capture its own close method before any post-await cancellation or validation.
@@ -87,16 +89,19 @@ may be held for parsing. Other roles stream through the scratch buffer.
 Never return raw file bytes. The owner must record the actual smaller
 per-stage forecast before any native offer.
 
-The supplied genuine abort signal and a four-second monotonic cooperative
-deadline fence new reads before and after every awaited operation and around
-parser entry. Cancel or timeout does not race the promise away from the
+Use a private follower of the supplied genuine abort signal and a
+four-second monotonic cooperative deadline per offer. A pre-aborted signal
+does not offer file I/O. Keep monotonic history across the reader. Fence new
+reads before and after every awaited operation and around parser entry.
+Cancel or timeout does not race the promise away from the
 owner. Retain a late handle long enough to close it once. Closure is attempted
 even after an earlier refusal and cannot overwrite its first reason.
 `snapshot()` exposes a bounded private status, current sequence position,
 pending state, accumulated exact byte counts and closure uncertainty. The
 stage owner separately retains a terminal coordinator report and drains
-any pending output observation before releasing its lease. This boundary
-also applies to future positional abort wiring for the inspector port.
+any pending output observation before releasing its lease. Future
+`inspectOutputs` and `compare` positional abort wiring must supply the
+same coordinator signal across the complete attempt.
 
 Check cancellation first, then clock and elapsed time. The deadline is
 inclusive at 4,000 ms. Capture a returned handle or known count before the
@@ -150,7 +155,8 @@ hashes, and A/B equality before producing the coordinator receipts.
 Before implementing, claim the reader and independent synthetic FIRST paths.
 Freeze checks for fixed order and scope, changed names or identities, content
 drift across scans, short and malformed reads, EOF, caps, cancellation, late
-open and unknown close, and real accepted parser behavior on fixed synthetic
-COFF bytes. A later actual packet must bind new compiler output and the
+open and unknown close. Use the real strict parser on a fixed x64 object
+with a directive, a valid bare BigObj and a one-member archive to test the
+envelope refusal. A later actual packet must bind new compiler output and the
 stage owner's current tool, input and resolution proofs. This contract
 does not authorize inspection of a real output or any process launch.

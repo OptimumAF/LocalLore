@@ -45,10 +45,12 @@ class ShellViewModel internal constructor(
     private var archiveExportPicker: Long? = null
     internal val deletionController = deletionGateway?.let { StoryDeletionController(viewModelScope, it, ::deletionClosed) }
     internal val deletion = deletionController?.state ?: MutableStateFlow(StoryDeletionUiState()).asStateFlow()
+    internal val deletionFrames = deletionController?.frames ?: MutableStateFlow(StoryDeletionFrame(deletion.value)).asStateFlow()
     internal val branchDeletionController = branchDeletionGateway?.let {
         BranchDeletionController(viewModelScope, it, ::branchDeletionClosed)
     }
     internal val branchDeletion = branchDeletionController?.state ?: MutableStateFlow(BranchDeletionUiState()).asStateFlow()
+    internal val branchDeletionFrames = branchDeletionController?.frames ?: MutableStateFlow(BranchDeletionFrame(branchDeletion.value)).asStateFlow()
 
     private var forkEpoch = 0L
     private var forkRecoveryIdentity: BranchForkRecovery? = null

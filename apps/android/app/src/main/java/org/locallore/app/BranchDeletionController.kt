@@ -44,6 +44,9 @@ data class BranchDeletionUiState(
     val deleted: BranchDeleted? = null,
     val notice: String? = null,
 )
+/** Transient rendered identity, never native deletion authority. */
+internal class BranchDeletionFrame(val state: BranchDeletionUiState)
+
 internal interface BranchDeletionGateway {
     suspend fun prepareBranch(story: SavedStory): BranchDeletionPrepared
     suspend fun commitBranch(token: Long): BranchDeleted
@@ -59,17 +62,32 @@ internal class BranchDeletionController(
     private val onClosed: (BranchDeleted?, Boolean) -> Unit,
 ) {
     private val mutable = MutableStateFlow(BranchDeletionUiState())
+    private val publishedFrames = MutableStateFlow(BranchDeletionFrame(mutable.value))
     val state = mutable.asStateFlow()
+    val frames = publishedFrames.asStateFlow()
     private var generation = 0L
     private var active: Job? = null
     private var disposed = false
     private var commitAttempted = false
 
+    private fun publish(value: BranchDeletionUiState) {
+        mutable.value = value
+        publishedFrames.value = BranchDeletionFrame(mutable.value)
+    }
+    private fun renderedCurrent(rendered: BranchDeletionUiState) =
+        !disposed && rendered.visible && mutable.value === rendered
+
+    fun dismiss(rendered: BranchDeletionUiState) { if (renderedCurrent(rendered)) dismiss() }
+    fun cancel(rendered: BranchDeletionUiState) { if (renderedCurrent(rendered)) cancel() }
+    fun confirm(expected: BranchDeletionPrepared, rendered: BranchDeletionUiState) {
+        if (renderedCurrent(rendered)) confirm(expected)
+    }
+
     fun open(story: SavedStory, rootBranch: String) {
         if (disposed || mutable.value.visible || active != null || rootBranch.isBlank() ||
             story.branch == rootBranch || story.revision < 0) return
         commitAttempted = false
-        mutable.value = BranchDeletionUiState(visible = true, selected = story)
+        publish(BranchDeletionUiState(visible = true, selected = story))
         work(commit = false) { ticket ->
             val prepared = gateway.prepareBranch(story)
             val preview = prepared.preview
@@ -86,8 +104,8 @@ internal class BranchDeletionController(
                 removedBranches = immutableList(preview.removedBranches),
                 removedRows = immutableMap(preview.removedRows),
             ))
-            if (current(ticket)) mutable.value = mutable.value.copy(prepared = captured,
-                notice = "Review the native timeline preview. Nothing is deleted until you confirm.")
+            if (current(ticket)) publish(mutable.value.copy(prepared = captured,
+                notice = "Review the native timeline preview. Nothing is deleted until you confirm."))
         }
     }
 
@@ -96,17 +114,17 @@ internal class BranchDeletionController(
         if (disposed || !before.visible || before.busy || before.closing || before.deleted != null) return
         val prepared = before.prepared ?: return
         if (prepared !== expected) return
-        mutable.value = before.copy(prepared = null)
+        publish(before.copy(prepared = null))
         commitAttempted = true
         work(commit = true) { ticket ->
             val deleted = gateway.commitBranch(prepared.token)
             if (deleted.storyId != prepared.preview.storyId || deleted.branchId != prepared.preview.branchId) {
                 throw BranchDeletionFailure("InvalidResponse")
             }
-            if (current(ticket)) mutable.value = mutable.value.copy(
+            if (current(ticket)) publish(mutable.value.copy(
                 deleted = deleted.copy(invalidatedBranches = immutableList(deleted.invalidatedBranches)),
                 notice = "Timeline deletion completed. Close to refresh the retained saved history.",
-            )
+            ))
         }
     }
 
@@ -117,10 +135,10 @@ internal class BranchDeletionController(
         val previous = active
         val accepted = mutable.value.deleted
         val uncertain = commitAttempted && accepted == null
-        mutable.value = mutable.value.copy(prepared = null, closing = true, busy = previous != null,
+        publish(mutable.value.copy(prepared = null, closing = true, busy = previous != null,
             notice = if (uncertain)
                 "Deletion may already have completed. Waiting for local work before refreshing saved timelines."
-            else "Waiting for local work before refreshing saved timelines.")
+            else "Waiting for local work before refreshing saved timelines."))
         gateway.cancel()
         previous?.cancel()
         scope.launch {
@@ -128,7 +146,7 @@ internal class BranchDeletionController(
             if (disposed || generation != ticket) return@launch
             active = null
             gateway.cancel() // Also revoke a late noncooperative preview's capability.
-            mutable.value = BranchDeletionUiState()
+            publish(BranchDeletionUiState())
             onClosed(accepted, uncertain)
         }
     }
@@ -140,22 +158,22 @@ internal class BranchDeletionController(
         gateway.cancel()
         active?.cancel()
         gateway.close()
-        mutable.value = BranchDeletionUiState()
+        publish(BranchDeletionUiState())
     }
     private fun current(ticket: Long) = !disposed && generation == ticket && mutable.value.visible && !mutable.value.closing
     private fun work(commit: Boolean, block: suspend (Long) -> Unit) {
         val ticket = ++generation
-        mutable.value = mutable.value.copy(busy = true, notice = null)
+        publish(mutable.value.copy(busy = true, notice = null))
         val job = scope.launch(start = CoroutineStart.LAZY) {
             try { block(ticket) }
             catch (cancelled: CancellationException) {
-                if (current(ticket)) mutable.value = mutable.value.copy(notice = branchDeletionNotice(cancelled, commit))
+                if (current(ticket)) publish(mutable.value.copy(notice = branchDeletionNotice(cancelled, commit)))
                 throw cancelled
             } catch (failure: Exception) {
-                if (current(ticket)) mutable.value = mutable.value.copy(notice = branchDeletionNotice(failure, commit))
+                if (current(ticket)) publish(mutable.value.copy(notice = branchDeletionNotice(failure, commit)))
             } finally {
                 if (active === currentCoroutineContext()[Job]) active = null
-                if (current(ticket)) mutable.value = mutable.value.copy(busy = false)
+                if (current(ticket)) publish(mutable.value.copy(busy = false))
             }
         }
         active = job

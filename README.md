@@ -67,6 +67,12 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [deletion control fix](docs/android/DELETION_ACTION_SCOPE_2026-11-01.md)
+binds story/timeline consent and cancellation to the displayed view, with fresh
+frames after busy reopen. Eleven original assertion failures become green with
+unchanged tests; the full offline Android gate passes 519 JVM cases and APK
+audits. Two new UI journeys compile but remain unrun on Android.
+
 The [archive control fix](docs/android/ARCHIVE_ACTION_SCOPE_2026-11-01.md)
 binds consent controls to the exact displayed view and delivers fresh frames
 after equal-valued reopen. Nine original assertion failures become green with

@@ -16,7 +16,7 @@ const FLAG = ['exitKnown', 'jobKnown', 'member', 'resumed', 'signaled', 'killAtt
 const aborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted').get;
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-const digest = value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value) && !/^0+$/.test(value);
+const digest = value => typeof value === 'string' && value.length === 64 && !/[^0-9a-f]/.test(value) && value !== '0'.repeat(64);
 const jsonHash = value => sha(JSON.stringify(value));
 const boolean = value => typeof value === 'boolean';
 const int = (value, lo, hi) => Number.isSafeInteger(value) && value >= lo && value <= hi;
@@ -159,6 +159,7 @@ export function createWorkerArtifactCompileHostV1(options) {
       stepMatches(offer.step, step) && equal(offer.policy, POLICY));
     const isAborted = () => aborted.call(signal);
     const alreadyAborted = isAborted();
+    requireHost(!used);
     used = true;
     requireHost(!alreadyAborted);
     const authorized = wire(await authorize(scope), ['kind', 'scope', 'spend', 'start', 'writerPolicy']);

@@ -151,6 +151,40 @@ class PlayDraftRestorationTest {
         }
     }
 
+    @Test fun disposedComposerActionsCannotEditAReopenedDraftForTheSameScope() {
+        render()
+        draft(PlayInputKind.DIALOGUE, "SYNTHETIC draft in the first A composer")
+        val retainedText = checkNotNull(tag("play-input").fetchSemanticsNode().config[SemanticsActions.SetText].action)
+        val retainedKind = checkNotNull(tag("play-kind-action").fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+        val retainedExample = checkNotNull(tag("play-example").fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+
+        select(b)
+        assertDraft(PlayInputKind.ACTION, "")
+        select(a)
+        assertDraft(PlayInputKind.ACTION, "")
+        val fresh = "SYNTHETIC fresh draft in the second A composer"
+        draft(PlayInputKind.DIALOGUE, fresh)
+
+        compose.runOnIdle { retainedText(AnnotatedString("SYNTHETIC stale text from the first A composer")) }
+        assertDraft(PlayInputKind.DIALOGUE, fresh)
+        compose.runOnIdle { retainedKind() }
+        assertDraft(PlayInputKind.DIALOGUE, fresh)
+        compose.runOnIdle { retainedExample() }
+        assertDraft(PlayInputKind.DIALOGUE, fresh)
+        noSend()
+
+        tag("play-example").assertIsEnabled().performClick()
+        assertDraft(PlayInputKind.ACTION, "I give my last potion to Mira.")
+        val updated = "SYNTHETIC deliberate edit in the active composer"
+        draft(PlayInputKind.DIALOGUE, updated)
+        assertDraft(PlayInputKind.DIALOGUE, updated)
+        noSend()
+        tag("play-send").assertIsEnabled().performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(Sent(PlayInput(PlayInputKind.DIALOGUE, updated), a.story, a.branch)), sent)
+        }
+    }
+
     @Test fun saveBoundUsesUtf8BytesAndDoesNotRelaxTheSmallerSendBound() {
         val restoration = render()
         val exact = "é".repeat(4096)

@@ -903,10 +903,13 @@ fn separate_actual_scripted_scene_source_prepares_scripted_and_honors_native_con
             summary["snapshot"]["report"],
             serde_json::to_value(&report).unwrap()
         );
-        assert_eq!(
-            summary["snapshot"]["unavailable"],
-            json!(["selected_protocol4_native_rerun_unavailable"])
-        );
+        assert_eq!(summary["snapshot"]["unavailable"], json!([]));
+        let source = f
+            .manager
+            .comparison_source(&f.lease, f.epoch, true, token(&ready))
+            .unwrap();
+        assert_eq!(source["source"]["selected_native_format"], 4);
+        assert_eq!(source["source"]["execution_available"], false);
         let client = uuid().unwrap();
         let calls = Arc::new(AtomicUsize::new(0));
         let observed = calls.clone();

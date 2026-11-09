@@ -41,6 +41,7 @@ const groups = [
     "actual panel controls and diagnostics",
     "actual stale-lane normalization with hook double",
     "actual App selection path",
+    "native Scene 4 selected route and private diagnostics",
 ];
 
 async function main() {
@@ -125,7 +126,7 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
         const built = await build({
             stdin: {
                 contents:
-                    'export * from "./ui/selected-evaluation-model";export {SelectedEvaluationController} from "./ui/selected-evaluation-controller";export {SelectedEvaluationView} from "./ui/selected-evaluation-view";export {SelectedSceneAppSelectionForReview} from "./ui/App";export {createElement} from "react";export {renderToStaticMarkup} from "react-dom/server";export {nodes,hooks} from "selected-scene-review-hooks";',
+                    'export * from "./ui/selected-evaluation-model";export {checkedReaderSource} from "./ui/comparison-reader-model";export {SelectedEvaluationController} from "./ui/selected-evaluation-controller";export {SelectedEvaluationView} from "./ui/selected-evaluation-view";export {SelectedSceneAppSelectionForReview} from "./ui/App";export {createElement} from "react";export {renderToStaticMarkup} from "react-dom/server";export {nodes,hooks} from "selected-scene-review-hooks";',
                 resolveDir: root,
                 loader: "tsx",
             },
@@ -220,6 +221,7 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             "checkedSelectedPrepared",
             "checkedSelectedStatus",
             "checkedSelectedSource",
+            "checkedReaderSource",
             "checkedSelectedSummary",
             "checkedSelectedDiagnostics",
             "checkedSelectedEvidence",
@@ -328,9 +330,9 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
         version === 1
             ? {}
             : {
-                  source_protocol_version: version + 1,
+                  source_protocol_version: version === 4 ? 4 : version + 1,
                   constructions: clone(
-                      version === 3 ? constructors4 : constructors3,
+                      version >= 3 ? constructors4 : constructors3,
                   ),
               };
     function prepared(version = 3) {
@@ -338,8 +340,9 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             version,
             kind: "selected_prepared",
             binding: SELECTED,
-            ...(version === 3 ? { source_binding: SOURCE } : {}),
-            lane: "scripted_selected_case",
+            ...(version >= 3 ? { source_binding: SOURCE } : {}),
+            lane:
+                version === 4 ? "native_selected_case" : "scripted_selected_case",
             selection: clone(selection),
             arms: ["left", "right"].map((arm, i) => ({
                 arm,
@@ -356,7 +359,8 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             version,
             kind: "selected_read",
             binding: READ,
-            lane: "scripted_selected_case",
+            lane:
+                version === 4 ? "native_selected_case" : "scripted_selected_case",
             selection: clone(selection),
             arms: ["left", "right"].map((arm, i) => ({
                 arm,
@@ -386,7 +390,7 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             elapsed_ms: 3,
             actual_receipt_sha256: RECEIPT,
         };
-        if (version === 3)
+        if (version >= 3)
             return {
                 ...common,
                 construction: clone(constructors4[index]),
@@ -429,7 +433,8 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             version,
             kind: "selected_diagnostics",
             binding: READ,
-            lane: "scripted_selected_case",
+            lane:
+                version === 4 ? "native_selected_case" : "scripted_selected_case",
             completed: true,
             rows: [
                 diagnosticRow(version, "left"),
@@ -442,12 +447,15 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             left_reserved_roles: 3,
             right_reserved_roles: 3,
             human_reviewed: 0,
-            ...(version === 3 ? { human_rubric: "not_reviewed" } : {}),
+            ...(version >= 3 ? { human_rubric: "not_reviewed" } : {}),
             quality_accepted: false,
-            unavailable: [
-                "scripted_lane_no_native_setup_measurement",
-                "selected_protocol4_native_rerun_unavailable",
-            ],
+            unavailable:
+                version === 4
+                    ? ["native_setup_measurement_unavailable"]
+                    : [
+                          "scripted_lane_no_native_setup_measurement",
+                          "selected_protocol4_native_rerun_unavailable",
+                      ],
             ...tagged(version),
         };
     }
@@ -626,7 +634,7 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             [
                 "unsupported version",
                 (v) => {
-                    v.version = 4;
+                    v.version = 5;
                 },
             ],
             [
@@ -1292,7 +1300,7 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             operation_id: 7,
             phase,
             running: ["preparing", "running", "cancelling"].includes(phase),
-            lane: "scripted_baseline",
+            lane: version === 4 ? "approved_native" : "scripted_baseline",
             plan_token: PLAN_TOKEN,
             run_id: phase === "prepared" || phase === "preparing" ? null : RUN,
             run_token:
@@ -1339,7 +1347,14 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
                     return clone(result);
                 }
                 if (action === "open" || action === "resume") {
-                    const result = status(body.clientId, "completed", version);
+                    const result = status(
+                        body.clientId,
+                        "completed",
+                        version,
+                        action === "open" && version === 4
+                            ? { prepared: null, plan_token: null }
+                            : {},
+                    );
                     records.set(body.clientId, result);
                     return clone(result);
                 }
@@ -2438,6 +2453,138 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
                 assert(button("Prepare selected case").props.disabled);
             },
         );
+
+    await check("native Scene 4 DTOs preserve the closed format-4 shape", () => {
+        for (const kind of ["prepared", "summary", "diagnostics"]) {
+            const value = factories[kind](4);
+            assert.deepEqual(decode[kind](value), value);
+            finiteWire(() =>
+                decode[kind]({ ...value, lane: "scripted_selected_case" }),
+            );
+            finiteWire(() =>
+                decode[kind]({ ...value, source_protocol_version: 5 }),
+            );
+            finiteWire(() =>
+                decode[kind]({ ...value, selected_native_format: 4 }),
+            );
+        }
+        const { source_binding: omitted, ...unbound } = prepared(4);
+        assert.equal(omitted, SOURCE);
+        finiteWire(() => decode.prepared(unbound));
+        const measured = {
+            ...diagnostics(4),
+            physical_setups: 1,
+            physical_setup_ms: 37,
+            unavailable: [],
+        };
+        assert.deepEqual(decode.diagnostics(measured), measured);
+        for (const patch of [
+            { physical_setups: 0 },
+            { physical_setup_ms: null },
+            { native_load: {} },
+            { quality_accepted: true },
+        ])
+            finiteWire(() => decode.diagnostics({ ...measured, ...patch }));
+    });
+    await check(
+        "only a ready protocol-4 source can advertise the native route",
+        () => {
+            const state = readerState();
+            const checked = (v) => m.checkedReaderSource(
+                wrap("comparison_reader", "source", v, SOURCE_TOKEN),
+                SOURCE_TOKEN,
+                SOURCE,
+            );
+            assert.equal(checked(state.source).selected_native_format, undefined);
+            state.source = checked({ ...state.source, selected_native_format: 4 });
+            assert.equal(state.source.execution_available, false);
+            const f = fixture(4);
+            const ready = appSelection(f, state);
+            assert.equal(ready.props.nativeSceneSelected, true);
+            assert.deepEqual(ready.props.source, source);
+            state.status.phase = "opening";
+            const waiting = appSelection(f, state);
+            assert.equal(waiting.props.nativeSceneSelected, false);
+            assert.equal(waiting.props.source, null);
+            for (const value of [null, "4", 3, 5])
+                assert.throws(
+                    () => checked({ ...state.source, selected_native_format: value }),
+                    /ComparisonReaderWire/,
+                );
+            assert.throws(
+                () => checked({ ...state.source, protocol_version: 3 }),
+                /ComparisonReaderWire/,
+            );
+        },
+    );
+    await check(
+        "advertised native Prepare requires explicit lane selection",
+        async () => {
+            const f = fixture(4);
+            const view = hookView(f, { nativeSceneSelected: true });
+            assert.match(view.draw(), /fake inference/);
+            view.effects();
+            assert.equal(laneSelect().props.value, "scripted_baseline");
+            laneSelect().props.onChange({ target: { value: "approved_native" } });
+            view.draw({ nativeSceneSelected: false });
+            const unavailable = button("Prepare selected case");
+            assert(unavailable.props.disabled);
+            unavailable.props.onClick();
+            assert(!f.calls.some((v) => v.action === "prepare"));
+            view.draw({ nativeSceneSelected: true });
+            assert.equal(laneSelect().props.value, "approved_native");
+            button("Prepare selected case").props.onClick();
+            await flush();
+            const actions = f.calls.filter(
+                (v) => v.action === "prepare" || v.action === "start",
+            );
+            assert.deepEqual(actions.map((v) => v.action), ["prepare"]);
+            assert.equal(actions[0].body.lane, "approved_native");
+            assert.equal(f.c.get().status.prepared.version, 4);
+            for (const value of [
+                prepared(3),
+                { ...prepared(4), source_binding: PREFIX },
+            ]) {
+                const bad = fixture(4);
+                bad.hooks.set("prepare", ({ clientId }) =>
+                    status(clientId, "prepared", 4, { prepared: value }),
+                );
+                await bad.c.prepare(source, row, "approved_native", 4);
+                assert.equal(bad.c.get().error, "SelectedEvaluationWire");
+            }
+        },
+    );
+    await check(
+        "native Scene 4 recorded Open, private results and bound Resume",
+        async () => {
+            const f = fixture(4);
+            await opened(f);
+            assert.equal(f.c.get().status.prepared, null);
+            await f.c.readDiagnostics();
+            const visible = render(f);
+            assert.match(visible, /Recorded results · Installed native model/i);
+            assert.match(visible, /Literal scene/);
+            assert.match(visible, /Relevant memory scene/);
+            assert.doesNotMatch(render(f, { observer: mira }), /Recorded results/);
+            const stale = button("Resume / verify with linked source");
+            assert(stale.props.disabled);
+            stale.props.onClick();
+            assert(!f.calls.some((v) => v.action === "resume"));
+            render(f, { nativeSceneSelected: true });
+            button("Resume / verify with linked source").props.onClick();
+            await flush();
+            const resumes = f.calls.filter((v) => v.action === "resume");
+            assert.deepEqual(resumes.map((v) => v.body), [{
+                clientId: f.c.get().clientId,
+                readerClientId: READER,
+                runToken: READ_TOKEN,
+                sourceBinding: SOURCE,
+                sourceToken: SOURCE_TOKEN,
+            }]);
+            assert.equal(f.c.get().error, null);
+            assert.equal(f.c.get().status.prepared.version, 4);
+        },
+    );
 
     for (const c of controllers) c.dispose();
     controllers.clear();

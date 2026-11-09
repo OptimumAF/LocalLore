@@ -152,6 +152,14 @@ def _existing_credentials(credentials_pin, files, ledger):
     return [by_name[name] for name in sorted(by_name)]
 
 
+def _closed_files(plan, closure_name):
+    files = storage._files(h.GUEST)
+    inventory = [{"relative": name, "bytes": files[name].stat().st_size}
+                 for name in sorted(files) if name != closure_name]
+    _need(closure_name in files and _same(inventory, plan["guest_files"]), "guest_inventory")
+    return files
+
+
 def complete(staged_pin, credentials_pin, ledger_pin):
     """Complete a manifest using verified copies of both already preserved credentials."""
     staged = h.at(staged_pin, STAGED)
@@ -181,9 +189,7 @@ def complete(staged_pin, credentials_pin, ledger_pin):
     for path in (destination, pending, MANIFEST):
         storage.safe_path(path)
         _need(not os.path.lexists(path), "already_used")
-    inventory = [item for item in close._inventory() if item["relative"] != closure_name]
-    _need(_same(inventory, plan["guest_files"]), "guest_inventory")
-    files = storage._files(h.GUEST)
+    files = _closed_files(plan, closure_name)
     names = [name for name in _ordinary(files) if name != closure_name]
     copies = _copies(staged, files, names)
     copies.extend(_existing_credentials(credentials_pin, files, ledger))
@@ -196,12 +202,17 @@ def complete(staged_pin, credentials_pin, ledger_pin):
         storage.check_binding(pin)
     _ledger(ledger_pin)
     env.create_json(pending, manifest)
-    preserved = {name: path for name, path in storage._files(h.GUEST).items() if name not in storage.DISPOSABLE}
+    preserved = {name: path for name, path in _closed_files(plan, closure_name).items()
+                 if name not in storage.DISPOSABLE}
     verified = storage._evidence(h.GUEST, pending, preserved, closure_pin)
     _ledger(ledger_pin)
+    _closed_files(plan, closure_name)
     pending.rename(MANIFEST)
+    preserved = {name: path for name, path in _closed_files(plan, closure_name).items()
+                 if name not in storage.DISPOSABLE}
     result = storage._evidence(h.GUEST, MANIFEST, preserved, closure_pin)
     _need(all(_same(result[key], verified[key]) for key in ("bytes", "sha256")), "manifest")
+    _closed_files(plan, closure_name)
     _ledger(ledger_pin)
     return result
 

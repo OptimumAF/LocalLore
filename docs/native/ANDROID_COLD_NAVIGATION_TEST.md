@@ -1,0 +1,62 @@
+# Android fresh-task navigation test
+
+Refs [#13](https://github.com/OptimumAF/LocalLore/issues/13) (M09.06) and
+[#8](https://github.com/OptimumAF/LocalLore/issues/8) (supporting M04.05).
+The test covers the private navigation hint from
+[#433](https://github.com/OptimumAF/LocalLore/pull/433).
+
+The case uses the existing input-process verification build and launches the
+actual MainActivity twice. It creates two synthetic stories with the Rust
+workspace and saves a distinguishable child timeline. The first activity
+starts without a navigation hint, then selects that child. The test waits
+for the real private hint file to contain the exact story and timeline IDs.
+It closes the first activity and launches a new task without saved-instance
+navigation. A fresh factory must resolve the private hint and display the
+child's accepted history. The existing process probe checks that the second
+launch uses read-only Host operations.
+
+The test changes only a fresh, isolated `org.locallore.app.draftprocessverify`
+installation. It refuses existing workspace, navigation or probe state
+before creating the synthetic fixture. It retains the fixture and proof
+files for inspection. It uses scripted inference to seed accepted history.
+The two activities run in one Android process, so this case measures fresh
+task navigation and file-backed selection separately from OS process death.
+
+## Offline build
+
+Run from `apps/android` using the installed SDK and the repository's Java
+wrapper entry point. These tasks build both APKs and run host checks.
+
+```powershell
+& "$env:JAVA_HOME/bin/java.exe" -classpath gradle/wrapper/gradle-wrapper.jar `
+  org.gradle.wrapper.GradleWrapperMain :app:assembleDebug :app:assembleDebugAndroidTest `
+  :app:testDebugUnitTest :app:lintDebug --offline --no-daemon --console=plain `
+  --project-cache-dir .gradle-input-process '-Pandroid.builder.sdkDownload=false' `
+  '-PlocalLoreInputDraftVerification=true' '-PlocalLoreInputProcessVerification=true'
+```
+
+The outputs are under `app/build-input-process/outputs/apk`. From the
+repository root, `scripts/audit_apk.py` supports
+`--input-process-verification` for the product APK.
+
+The offline verification passed 427 JVM tests across 49 suites, Android
+instrumentation compilation, lint and both APK assemblies. The product
+audit checked the isolated manifest and both packaged native ABIs. The
+pair check matched signing identities and found the annotated test method
+in the test APK only.
+
+## Guarded device selector
+
+After separate approval and normal storage, process ownership and device
+admission, select the following runner, method and argument for one attempt.
+Require an executed pass for the exact method. An assumption skip gives
+no qualification evidence.
+
+- Runner `org.locallore.app.draftprocessverify.test/androidx.test.runner.AndroidJUnitRunner`
+- Method `org.locallore.app.ColdNavigationFreshTaskTest#reopensConfirmedChildFromPrivateHintWithoutSavedTaskState`
+- Instrumentation argument `cold_navigation_v1=true`
+
+The application and test APKs must come from the same isolated build. The
+test leaves previous runs ineligible for reuse. Retain test output and the
+bounded created/command proof records under `noBackupFilesDir/process-verify-v1`.
+Actual Android execution remains pending.

@@ -51,19 +51,51 @@ def _installed(read, pins):
     installed = {}
     observed_uids = {}
     for role, package, _ in TARGETS:
-        listing = _package_uids(read(_package_query(package)), package)
+        listing = _package_uids(read(_package_query(package), "package"), package)
         for name, uid in listing.items():
             core._need(observed_uids.setdefault(name, uid) == uid, "identity")
-        line = _line(read(["cmd", "package", "path", "--user", "0", package]))
+        line = _line(read(["cmd", "package", "path", "--user", "0", package], "package-path"))
         pattern = (r"package:/data/app/(?:~~[A-Za-z0-9_=-]+/)?"
                    + re.escape(package) + r"-[A-Za-z0-9_~=-]+/base\.apk")
         core._need(re.fullmatch(pattern, line) is not None, "identity")
         path = line.removeprefix("package:")
         digest = pins[role]["sha256"]
-        core._need(_line(read(["sha256sum", path])) == digest + "  " + path, "binding")
+        core._need(_line(read(["sha256sum", path], "package-hash")) == digest + "  " + path, "binding")
         installed[role] = dict(package=package, uid=listing[package], path=path, sha256=digest)
     core._need(len(set(observed_uids.values())) == len(TARGETS), "identity")
     return installed
+
+
+def _journey(read, pins):
+    """Run or replay the fixed sequence, checking each reply before continuing."""
+    expected = binding.artifact_bindings()
+    core._need(core._same(pins, expected), "binding")
+    try:
+        core._need(_line(read(["getprop", "sys.boot_completed"], "boot")) == "1", "environment")
+        for prop, value in (("ro.build.version.sdk", "35"), ("ro.product.cpu.abi", "x86_64"),
+                            ("ro.kernel.qemu", "1")):
+            core._need(_line(read(["getprop", prop], "property")) == value, "environment")
+        core._need(_line(read(["am", "get-current-user"], "user")) == "0", "identity")
+
+        # Prove both absences before the first staged write or install.
+        for _, package, _ in TARGETS:
+            core._need(read(_package_query(package), "package-absent") == b"", "identity")
+        for role, _, path in TARGETS:
+            pin = expected[role]
+            core._need(read(["dd", "of=" + path, "bs=65536"], "apk-stage", source=pin) == b"", "observation")
+            core._need(_line(read(["sha256sum", path], "staged-hash")) == pin["sha256"] + "  " + path, "binding")
+            core._need(_line(read(["pm", "install", "-R", "-t", "--user", "0", path], "install"))
+                       == "Success", "observation")
+
+        before = _installed(read, expected)
+        kind, _, _ = binding.INSTRUMENTATIONS[0]
+        raw = read(binding.instrumentation_argv(kind), kind, limit=evidence.MAX_BYTES)
+        result = binding.validate_result(kind, raw)
+        core._need(core._same(before, _installed(read, expected)), "identity")
+    except (UnicodeError, evidence.EvidenceRefused):
+        raise core.TargetRefused("observation") from None
+    return {"scope": SCOPE, "execution_authorized": False, "runtime_verified": False,
+            "installed": before, "tests": [dict(kind=kind, **result)]}
 
 
 def replay(rows, pins):
@@ -73,7 +105,7 @@ def replay(rows, pins):
     core._need(type(rows) is list and len(rows) == COMMAND_COUNT, "schema")
     tape = iter(rows)
 
-    def read(argv, *, source=None, limit=_MAX_REPLY):
+    def read(argv, _label, *, source=None, limit=_MAX_REPLY):
         row = next(tape)
         core._obj(row, _ROW_KEYS, "schema")
         core._need(core._same(row["argv"], argv), "capability")
@@ -85,28 +117,4 @@ def replay(rows, pins):
                    and (source is not None or stderr == b""), "observation")
         return stdout
 
-    try:
-        for prop, value in (("sys.boot_completed", "1"), ("ro.build.version.sdk", "35"),
-                            ("ro.product.cpu.abi", "x86_64"), ("ro.kernel.qemu", "1")):
-            core._need(_line(read(["getprop", prop])) == value, "environment")
-        core._need(_line(read(["am", "get-current-user"])) == "0", "identity")
-
-        # Prove both absences before the first staged write or install.
-        for _, package, _ in TARGETS:
-            core._need(read(_package_query(package)) == b"", "identity")
-        for role, _, path in TARGETS:
-            pin = expected[role]
-            core._need(read(["dd", "of=" + path, "bs=65536"], source=pin) == b"", "observation")
-            core._need(_line(read(["sha256sum", path])) == pin["sha256"] + "  " + path, "binding")
-            core._need(_line(read(["pm", "install", "-R", "-t", "--user", "0", path]))
-                       == "Success", "observation")
-
-        before = _installed(read, expected)
-        kind, _, _ = binding.INSTRUMENTATIONS[0]
-        raw = read(binding.instrumentation_argv(kind), limit=evidence.MAX_BYTES)
-        result = binding.validate_result(kind, raw)
-        core._need(core._same(before, _installed(read, expected)), "identity")
-    except (UnicodeError, evidence.EvidenceRefused):
-        raise core.TargetRefused("observation") from None
-    return {"scope": SCOPE, "execution_authorized": False, "runtime_verified": False,
-            "installed": before, "tests": [dict(kind=kind, **result)]}
+    return _journey(read, pins)

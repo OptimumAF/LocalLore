@@ -194,14 +194,21 @@ device evidence.
 `benchmarks/cross_owner_deletion_ui_capture.py` connects this replay to the
 existing owned-target verifier. It checks the expected caller and session,
 rereads each command's pinned output, and applies the fixed per-command
-deadlines. A future story-deletion owner can use it once a capture exists.
-The adapter provides host record verification.
+deadlines. The same verifier checks the records produced by the fixed
+controller.
 
 `benchmarks/owned_cross_owner_deletion_ui.py` supplies the fixed host contract
 for that adapter. Its source roster includes the DEX checks, and its command
 rules require the isolated packages, one exact method, and installs with
-replacement disabled. A live owner and its operation still require a separately
-reviewed proposal and admission.
+replacement disabled. The controller in
+`benchmarks/cross_owner_deletion_ui_controller.py` runs those 26 commands only
+against an already owned target. It verifies each recorded reply before the
+next command, replays the full capture and checks observer cleanup. A live
+owner and its operation still require a separately reviewed proposal and
+admission. The controller's first command requires `sys.boot_completed=1`.
+The verified SDK23 run observed two empty boot-property replies after transport
+readiness before the third returned `1`. A future operator needs a bounded,
+owned Android boot-readiness check before dispatching this fixed capture.
 
 Parent-retirement verification has its own debug identity and project cache:
 

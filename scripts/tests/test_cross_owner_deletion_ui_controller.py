@@ -136,6 +136,15 @@ class CrossOwnerDeletionUiControllerTests(unittest.TestCase):
         self.assertEqual(self.verify_result(), result)
         self.assertEqual(self.replay_clients.call_count, 2)
 
+    def test_transport_ready_without_android_boot_refuses_before_any_writes(self):
+        self.tape[0]["stdout"] = b""
+        result = self.run_controller()
+        self.assertEqual((result["outcome"], result["client_count"]), ("refused", 1))
+        self.assertEqual([step["label"] for step in self.steps], ["boot"])
+        self.wire.stream.assert_not_called()
+        self.replay_clients.assert_not_called()
+        self.live.close.assert_called_once_with()
+
     def test_occupied_package_refuses_before_staging_either_apk(self):
         self.tape[6]["stdout"] = f"package:{binding.TEST} uid:10002\n".encode()
         result = self.run_controller()

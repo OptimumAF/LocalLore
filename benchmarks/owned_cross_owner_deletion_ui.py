@@ -4,14 +4,21 @@ Importing this module defines the contract without creating a guest or running
 any command. A live owner needs separately admitted source and operation scope.
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
+import copy
 from pathlib import Path, PureWindowsPath
 import sys
 
+from benchmarks import android_process_client_v4 as wire
+from benchmarks import android_process_verification_v4 as verification
 from benchmarks import cross_owner_deletion_ui_binding as artifacts
 from benchmarks import cross_owner_deletion_ui_capture as capture
 from benchmarks import owned_target_contract as core
+from benchmarks import owned_target_owner as mechanisms
 from benchmarks import receipt_avd_environment as env
-from benchmarks.owned_target_contract import _int, _need, _path, _same
+from benchmarks.owned_target_contract import (
+    CLEANUP_KEYS, PORT, REQUEST_KEYS, WORKER_KEYS, TargetRefused, _int, _need, _obj,
+    _path, _process, _same,
+)
 
 PROTOCOL = "owned-emulator-cross-owner-deletion-ui-v1"
 SDK_PROTOCOL = "sdk-cross-owner-deletion-ui-v1"
@@ -30,7 +37,8 @@ CLAIM_KINDS = tuple(kind for kind, _, _ in INSTRUMENTATIONS)
 ARTIFACT_KEYS = frozenset(artifacts.artifact_bindings())
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | core.CURRENT_STORAGE_SOURCES | {
     OWNER_SCRIPT, "cross_owner_deletion_ui_binding.py", "cross_owner_deletion_ui_capture.py",
-    "cross_owner_deletion_ui_replay.py", "saved_library_status_binding.py",
+    "cross_owner_deletion_ui_replay.py", "cross_owner_deletion_ui_controller.py",
+    "saved_library_status_binding.py",
     "archive_ui_build.py", "android_instrumentation_evidence.py",
 })
 _AUDIT_SOURCES = ("audit_apk.py", "audit_physical_model_apk.py")
@@ -87,11 +95,60 @@ _API = _CrossOwnerDeletionContract(core.ContractProfile(
 for _name in (
     "binding", "validate_admission", "validate_running", "validate_session",
     "validate_operation", "operation_digest", "validate_client_record",
-    "validate_proof", "validate_query_bundle", "validate_claim",
-    "instrumentation_kind", "source_bindings", "revalidate_inputs",
+    "validate_proof", "validate_query_bundle", "validate_claim", "claim_record",
+    "instrumentation_kind", "source_bindings", "revalidate_inputs", "check_stop", "_rows",
+    "validate_observation", "validate_guest_observation", "validate_guest_prefix",
+    "device_transport", "validate_guest_job", "validate_ready",
 ):
     globals()[_name] = getattr(_API, _name)
 del _name
+
+
+_CONTRACT = sys.modules[__name__]
+REPLAY = verification._Verifier(_CONTRACT)
+
+
+class LiveOwnedCrossOwnerDeletionTarget(mechanisms._LiveOwnedTarget):
+    """Observe one already owned target after checking the exact APK pair."""
+
+    def __init__(self, admission_binding, running_binding):
+        mechanisms._need(type(self) is LiveOwnedCrossOwnerDeletionTarget, "owner_type")
+        admission_binding, running_binding = copy.deepcopy((admission_binding, running_binding))
+        admission = validate_admission(REPLAY._json(admission_binding))
+        artifacts.verify_artifacts(admission["artifacts"])
+        super().__init__(admission_binding, running_binding)
+
+    @property
+    def _contract(self):
+        mechanisms._need(type(self) is LiveOwnedCrossOwnerDeletionTarget, "owner_type")
+        return _CONTRACT
+
+    @property
+    def _verification(self):
+        mechanisms._need(type(self) is LiveOwnedCrossOwnerDeletionTarget, "owner_type")
+        return REPLAY
+
+
+class OwnedCrossOwnerDeletionSdkCapture(wire._OwnedTargetSdkCapture):
+    """Capture commands only through the fixed cross-owner deletion observer."""
+
+    def __init__(self, directory, seconds, lease):
+        wire._need(type(self) is OwnedCrossOwnerDeletionSdkCapture, "client_type")
+        super().__init__(directory, seconds, lease)
+
+    @property
+    def _contract(self):
+        wire._need(type(self) is OwnedCrossOwnerDeletionSdkCapture, "client_type")
+        return _CONTRACT
+
+    @property
+    def _verification(self):
+        wire._need(type(self) is OwnedCrossOwnerDeletionSdkCapture, "client_type")
+        return REPLAY
+
+    @property
+    def _expected_lease_class(self):
+        return LiveOwnedCrossOwnerDeletionTarget
 
 
 def verify_capture(admission_binding, running_binding, session_binding, expected_caller):

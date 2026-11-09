@@ -2134,9 +2134,9 @@ export class Controller {
             this.unresolved = op;
             let status = await this.submitTurn(op);
             if (op.cancelled || !this.current(op)) {
-                const cancelled = await this.control(op, "cancel");
-                if (this.current(op))
-                    await this.publishResult(op, cancelled, before);
+                if (!terminalTurnPhases.includes(status.phase))
+                    status = await this.control(op, "cancel");
+                await this.publishResult(op, status, before);
                 return;
             }
             this.patch({
@@ -2147,9 +2147,9 @@ export class Controller {
             if (status.phase === "queued") {
                 status = await this.control(op, "prepare");
                 if (op.cancelled || !this.current(op)) {
-                    const cancelled = await this.control(op, "cancel");
-                    if (this.current(op))
-                        await this.publishResult(op, cancelled, before);
+                    if (!terminalTurnPhases.includes(status.phase))
+                        status = await this.control(op, "cancel");
+                    await this.publishResult(op, status, before);
                     return;
                 }
                 this.patch({ turnStatus: status });
@@ -2215,10 +2215,12 @@ export class Controller {
                 !Array.isArray(status.receipt.events) ||
                 !status.receipt.events.length ||
                 status.receipt.events.some(
-                    (e) =>
+                    (e, index) =>
                         !e?.scope ||
                         !sameScope(e.scope, op.session.scope) ||
-                        !Number.isSafeInteger(e.sequence),
+                        e.turn !== op.request.turn ||
+                        !Number.isSafeInteger(e.sequence) ||
+                        e.sequence !== op.request.expected_revision + index + 1,
                 ) ||
                 typeof status.receipt.narration !== "string")
         )
@@ -2230,7 +2232,7 @@ export class Controller {
         status: TurnStatus,
         before: PlayView,
     ) {
-        if (!this.current(op)) return;
+        if (!this.current(op) || this.unresolved !== op) return;
         this.patch({
             turnStatus: status,
             visibleError:
@@ -2286,16 +2288,30 @@ export class Controller {
     }
     async pendingStatus() {
         const op = this.operation;
-        if (!op?.submitted) return null;
+        if (!op?.submitted || this.unresolved !== op || op.cancelled)
+            return null;
+        const previous = this.state.turnStatus;
         const status = await this.control(op, "turn_status");
-        if (!this.current(op) || this.operation !== op || op.cancelled)
+        if (
+            !this.current(op) ||
+            this.operation !== op ||
+            this.unresolved !== op ||
+            op.cancelled ||
+            this.state.turnStatus !== previous
+        )
             return null;
         this.patch({ turnStatus: status });
         return status;
     }
     async cancel() {
         const op = this.operation;
-        if (!op) return;
+        const visible = this.state.turnStatus;
+        if (
+            !op ||
+            (visible?.turn === op.request.turn &&
+                terminalTurnPhases.includes(visible.phase))
+        )
+            return;
         const recovering = this.state.pending?.stage === "recovering";
         op.cancelled = true;
         this.patch({
@@ -2311,14 +2327,18 @@ export class Controller {
                 // A lost submit acknowledgement may already be admitted. A
                 // separate lookup can resolve Cancel while an older recovery
                 // lookup is delayed or lost; it must prove the original key.
-                await this.control(op, "turn_status");
+                const known = await this.control(op, "turn_status");
                 op.submitted = true;
+                if (terminalTurnPhases.includes(known.phase)) {
+                    await this.publishResult(op, known, this.state.play!);
+                    return;
+                }
             }
             const status = await this.control(op, "cancel");
-            if (this.current(op))
-                await this.publishResult(op, status, this.state.play!);
+            await this.publishResult(op, status, this.state.play!);
         } catch {
-            if (this.current(op)) this.fail("TransportUnknown");
+            if (this.current(op) && this.unresolved === op)
+                this.fail("TransportUnknown");
         }
     }
     retry() {
@@ -2337,21 +2357,14 @@ export class Controller {
                 status = await this.submitTurn(op);
             }
             if (!this.current(op) || this.unresolved !== op) return;
-            if (op.cancelled) {
-                status = await this.control(op, "cancel");
-                await this.publishResult(op, status, this.state.play!);
-                return;
-            }
-            if (status.phase === "queued")
+            if (!op.cancelled && status.phase === "queued")
                 status = await this.control(op, "prepare");
             if (!this.current(op) || this.unresolved !== op) return;
-            if (op.cancelled) {
-                status = await this.control(op, "cancel");
-                await this.publishResult(op, status, this.state.play!);
-                return;
+            if (!terminalTurnPhases.includes(status.phase)) {
+                if (op.cancelled) status = await this.control(op, "cancel");
+                else if (status.phase === "ready")
+                    status = await this.control(op, "commit");
             }
-            if (status.phase === "ready")
-                status = await this.control(op, "commit");
             if (!this.current(op) || this.unresolved !== op) return;
             if (terminalTurnPhases.includes(status.phase)) {
                 await this.publishResult(op, status, this.state.play!);

@@ -187,7 +187,10 @@ for (const scenario of [
     "foreign-prepare",
     "coercible-recovery",
     "nonterminal-commit",
+    "foreign-receipt-event",
     "ready-listener-cancel",
+    "late-pending-status",
+    "cancelled-lost-ack-committed",
 ]) {
     const session = {
         id: "binding",
@@ -200,6 +203,12 @@ for (const scenario of [
     let saved = false;
     let receipt;
     let lookups = 0;
+    let enterPrepare, releasePrepare, enterRefresh, releaseRefresh, releasePoll;
+    const prepareEntered = new Promise((resolve) => (enterPrepare = resolve));
+    const heldPrepare = new Promise((resolve) => (releasePrepare = resolve));
+    const refreshEntered = new Promise((resolve) => (enterRefresh = resolve));
+    const heldRefresh = new Promise((resolve) => (releaseRefresh = resolve));
+    const heldPoll = new Promise((resolve) => (releasePoll = resolve));
     const status = (phase, patch = {}) => ({
         scope: session.scope,
         turn: request.turn,
@@ -213,9 +222,22 @@ for (const scenario of [
         saved = true;
         return status("committed");
     };
+    const wrongEvent = () =>
+        status("committed", {
+            receipt: {
+                ...receipt,
+                events: [{ ...receipt.events[0], turn: "foreign-event-turn" }],
+            },
+        });
     const gateway = {
         async call(command) {
-            if (command.op === "open") return { revision: saved ? 1 : 0 };
+            if (command.op === "open") {
+                if (scenario === "late-pending-status" && saved) {
+                    enterRefresh();
+                    await heldRefresh;
+                }
+                return { revision: saved ? 1 : 0 };
+            }
             if (command.op === "play_snapshot") {
                 const revision = saved ? 1 : 0;
                 return {
@@ -241,10 +263,20 @@ for (const scenario of [
                 request = command.request;
                 receipt = {
                     request,
-                    events: [{ sequence: 1, scope: session.scope }],
+                    events: [
+                        {
+                            sequence: 1,
+                            scope: session.scope,
+                            turn: request.turn,
+                            outcome: { kind: "synthetic" },
+                        },
+                    ],
                     narration: "Synthetic committed receipt.",
                 };
-                if (scenario === "coercible-recovery")
+                if (
+                    scenario === "coercible-recovery" ||
+                    scenario === "cancelled-lost-ack-committed"
+                )
                     throw new Error("Transport");
                 return scenario === "foreign-submit"
                     ? status("queued", {
@@ -255,12 +287,18 @@ for (const scenario of [
             assert.equal(command.session, session.id);
             assert.deepEqual(command.scope, session.scope);
             assert.equal(command.turn, request.turn);
-            if (command.op === "prepare")
+            if (command.op === "prepare") {
+                if (scenario === "late-pending-status") {
+                    enterPrepare();
+                    await heldPrepare;
+                }
                 return scenario === "foreign-prepare"
                     ? status("ready", { turn: "unrelated-turn" })
                     : status("ready");
+            }
             if (command.op === "commit") {
                 const accepted = committed();
+                if (scenario === "foreign-receipt-event") return wrongEvent();
                 return scenario === "nonterminal-commit"
                     ? status("ready")
                     : accepted;
@@ -268,7 +306,18 @@ for (const scenario of [
             if (command.op === "cancel") return status("cancelled");
             assert.equal(command.op, "turn_status");
             lookups++;
-            if (scenario === "foreign-submit" || saved) return committed();
+            if (scenario === "late-pending-status") {
+                await heldPoll;
+                return status("running");
+            }
+            if (scenario === "foreign-receipt-event" && lookups === 1)
+                return wrongEvent();
+            if (
+                scenario === "foreign-submit" ||
+                scenario === "cancelled-lost-ack-committed" ||
+                saved
+            )
+                return committed();
             if (scenario === "coercible-recovery" && lookups === 1)
                 return status("ready", { expected_revision: "0" });
             return status("ready");
@@ -280,17 +329,32 @@ for (const scenario of [
     let cancellation;
     let requested = false;
     const unsubscribe = controller.subscribe(() => {
-        if (
+        const state = controller.get();
+        const cancelReady =
             scenario === "ready-listener-cancel" &&
-            !requested &&
-            controller.get().turnStatus?.phase === "ready"
-        ) {
+            state.turnStatus?.phase === "ready";
+        const cancelSubmit =
+            scenario === "cancelled-lost-ack-committed" &&
+            state.pending?.stage === "submitting";
+        if (!requested && (cancelReady || cancelSubmit)) {
             requested = true;
             cancellation = controller.cancel();
         }
     });
-    await controller.send();
-    if (scenario === "foreign-submit") {
+    const sending = controller.send();
+    if (scenario === "late-pending-status") {
+        await prepareEntered;
+        const oldPoll = controller.pendingStatus();
+        releasePrepare();
+        await refreshEntered;
+        assert.equal(controller.get().turnStatus.phase, "committed");
+        releasePoll();
+        assert.equal(await oldPoll, null);
+        assert.equal(controller.get().turnStatus.phase, "committed");
+        releaseRefresh();
+    }
+    await sending;
+    if (scenario === "foreign-submit" || scenario === "cancelled-lost-ack-committed") {
         assert.deepEqual(turnCalls, ["submit"]);
         assert.equal(controller.get().visibleError, "TransportUnknown");
         await controller.retry();
@@ -322,6 +386,24 @@ for (const scenario of [
             "prepare",
             "commit",
             "turn_status",
+        ]);
+    } else if (scenario === "foreign-receipt-event") {
+        assert.equal(controller.get().visibleError, "TransportUnknown");
+        assert.equal(controller.get().play.revision, 0);
+        await controller.retry();
+        assert.deepEqual(turnCalls, [
+            "submit",
+            "prepare",
+            "commit",
+            "turn_status",
+            "turn_status",
+        ]);
+    } else if (scenario === "late-pending-status") {
+        assert.deepEqual(turnCalls, [
+            "submit",
+            "prepare",
+            "turn_status",
+            "commit",
         ]);
     } else {
         assert(cancellation, "subscriber cancels before a commit offer");

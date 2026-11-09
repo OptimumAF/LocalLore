@@ -8,13 +8,14 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal data class OriginalStoryUiState(val input: OriginalInput = OriginalInput(), val proposal: OriginalProposal? = null,
     val title: String = "Original story", val provider: String, val job: String? = null, val review: OriginalReview? = null,
     val busy: Boolean = false, val creating: Boolean = false, val closing: Boolean = false, val notice: String? = null,
-    val editorEpoch: Any = Any())
+    val editorEpoch: Any = Any(), val reviewProblem: OriginalReviewProblem? = null)
 
 /** Drafts are inert author intent. Only an exact, explicitly reviewed native capability can create. */
 internal class OriginalStoryController(private val gateway: OriginalStoryGateway, private val scope: CoroutineScope,
@@ -24,6 +25,9 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
     private var active: Job? = null
     private var disposed = false
     private var createStarted = false
+    // A native job may be acknowledged after the visible editor has retired.
+    private var nativeJob: String? = null
+    private var beginUnconfirmed = false
     private val creationId = UUID.randomUUID().toString().replace("-", "")
     fun open(capabilities: OriginalCapabilities) {
         if (disposed || state != null || !capabilities.available) return
@@ -50,28 +54,58 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
         val captured=next.proposal?.frozen()
         val reviewedInput = if(captured == null) next.input.frozen() else next.input.copy(
             cast=captured.characters.map { OriginalCast(it.name,it.description) }).frozen()
-        update(next.copy(input=reviewedInput,proposal=captured,review=null,editorEpoch=epoch,
+        update(next.copy(input=reviewedInput,proposal=captured,review=null,editorEpoch=epoch,reviewProblem=null,
             notice="Review all changes before creating. Nothing is saved yet."))
     }
     fun generate(expected: OriginalStoryUiState) {
         if(!editable(expected) || !OriginalStoryWire.valid(expected.input)) return
         val ticket=++generation; val input=expected.input.frozen()
-        update(expected.copy(busy=true,review=null,editorEpoch=Any(),notice=if(expected.provider=="local") "Generating a draft locally…" else "Generating a synthetic scripted draft…"))
+        update(expected.copy(busy=true,job=null,review=null,editorEpoch=Any(),reviewProblem=null,notice=if(expected.provider=="local") "Generating a draft locally…" else "Generating a synthetic scripted draft…"))
+        if (!current(ticket)) return
         run(ticket) {
             var begun: String? = null
             try {
-                expected.job?.let { check(gateway.cancelOriginal(it)) }
-                val job=gateway.beginOriginal(input); begun=job.job
+                // Observe finite control replies even when dismiss cancels this caller. Never
+                // carry that cancellation shield into model generation.
+                val job = withContext(NonCancellable) {
+                    if (!current(ticket)) return@withContext null
+                    nativeJob?.let {
+                        check(gateway.cancelOriginal(it))
+                        nativeJob = null
+                    }
+                    if (!current(ticket)) return@withContext null
+                    begin(input).also {
+                        nativeJob = it.job
+                        begun = it.job
+                    }
+                } ?: return@run
+                if (!current(ticket)) return@run
                 check(job.provider==expected.provider)
-                if(current(ticket)) update(checkNotNull(state).copy(job=job.job))
+                currentCoroutineContext().ensureActive()
                 val generated=gateway.generateOriginal(job.job)
                 check(generated.job==job.job && generated.provider==job.provider && generated.input==input)
                 val proposal=generated.proposal.frozen()
-                if(current(ticket)) update(checkNotNull(state).copy(input=input,proposal=proposal,review=null,editorEpoch=Any(),
+                if(current(ticket)) update(checkNotNull(state).copy(input=input,proposal=proposal,job=job.job,review=null,editorEpoch=Any(),
                     notice="Edit the cast and world, then choose Review changes. World truth and private beliefs are separate."))
             } finally {
-                if(!current(ticket) && begun!=null) withContext(NonCancellable) { gateway.cancelOriginal(checkNotNull(begun)) }
+                // Dismiss joins this job and owns its cancellation acknowledgement.
+                if(disposed && begun!=null) withContext(NonCancellable) { gateway.cancelOriginal(checkNotNull(begun)) }
             }
+        }
+    }
+    private suspend fun begin(input: OriginalInput): OriginalJob {
+        val priorUnconfirmed = beginUnconfirmed
+        beginUnconfirmed = true
+        try {
+            return gateway.beginOriginal(input).also { beginUnconfirmed = false }
+        } catch (failure: Exception) {
+            // These Begin rejections occur before Rust installs a job. An unreadable or missing
+            // reply gives no job ID to cancel and cannot prove that the dialog is safe to close.
+            if (failure is LocalInferenceBusy || failure is WorkspaceFailure &&
+                failure.category in setOf("Closed", "Busy", "Unsupported", "IdExhausted", "InvalidInput", "TooLarge")) {
+                beginUnconfirmed = priorUnconfirmed
+            }
+            throw failure
         }
     }
     fun review(expected: OriginalStoryUiState) {
@@ -79,9 +113,17 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
         if(!editable(expected) || !validStoryTitle(expected.title) || !validOriginalDraft(expected.input,proposal) ||
             !OriginalStoryWire.valid(expected.input,proposal)) return
         val ticket=++generation; val input=expected.input.frozen(); val captured=proposal.frozen(); val title=expected.title
-        update(expected.copy(busy=true,review=null,editorEpoch=Any(),notice="Reviewing the starting world…"))
+        update(expected.copy(busy=true,review=null,editorEpoch=Any(),reviewProblem=null,
+            notice="Reviewing the starting world…"))
         run(ticket) {
-            val result=gateway.reviewOriginal(job,input,captured,title).frozen()
+            val result = try {
+                gateway.reviewOriginal(job, input, captured, title).frozen()
+            } catch (failure: WorkspaceFailure) {
+                if (failure.category != "InvalidProposal") throw failure
+                val problem = failure.originalReviewProblem ?: throw failure
+                if (current(ticket)) update(checkNotNull(state).copy(reviewProblem = problem, notice = null))
+                return@run
+            }
             check(result.job==job && result.input==input && result.proposal==captured && result.title==title)
             if(current(ticket)) update(checkNotNull(state).copy(review=result,editorEpoch=Any(),notice="Read the accepted starting world. Only Create saves it."))
         }
@@ -98,11 +140,14 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
         val before=state ?: return
         if(disposed || before.closing) return
         val ticket=++generation; val previous=active
-        update(before.copy(review=null,closing=true,busy=true,editorEpoch=Any(),notice="Finishing local work…"))
+        update(before.copy(review=null,closing=true,busy=true,editorEpoch=Any(),reviewProblem=null,
+            notice="Finishing local work…"))
         active=scope.launch(start=CoroutineStart.LAZY) {
             previous?.join()
             try {
-                val cancelled=before.job?.let { gateway.cancelOriginal(it) } ?: true
+                check(!beginUnconfirmed)
+                val cancelled=nativeJob?.let { gateway.cancelOriginal(it) } ?: true
+                nativeJob = null
                 if(!disposed && generation==ticket) { state=null; closed(StoryCreationClose(refreshRequired=createStarted || !cancelled)) }
             } catch (_: Exception) {
                 if(!disposed && generation==ticket) update(checkNotNull(state).copy(notice="Local work could not be confirmed as finished. Close the app before continuing. No automatic retry was made."))
@@ -115,7 +160,12 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
     private fun current(ticket: Long)=!disposed && generation==ticket && state?.closing==false
     private fun run(ticket: Long, block: suspend () -> Unit) {
         active=scope.launch(start=CoroutineStart.LAZY) {
-            try { block() } catch(cancelled: CancellationException) { throw cancelled }
+            try { block() } catch(cancelled: CancellationException) {
+                if(current(ticket)) update(checkNotNull(state).copy(review=null,
+                    notice=if(createStarted) "Creation could not be confirmed. A story may already exist. Close to refresh the library."
+                        else "Draft generation or review stopped. Nothing was created. Cancel to finish local work."))
+                throw cancelled
+            }
             catch (_: Exception) { if(current(ticket)) update(checkNotNull(state).copy(review=null,
                 notice=if(createStarted) "Creation could not be confirmed. Close to refresh the library." else "The draft could not be reviewed or generated. Nothing was created. Cancel to finish local work.")) }
             finally { if(active===currentCoroutineContext()[Job])active=null

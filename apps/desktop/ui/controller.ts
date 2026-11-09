@@ -1,6 +1,7 @@
 import { initialTrace, checkedTrace, attemptKey } from "./trace-model";
 import type {
     TraceQuery,
+    TraceReply,
     TraceNarrationValidationEligibility,
 } from "./trace-model";
 import { checkedNarrationValidationDataV1 } from "./narration-diagnostic-model";
@@ -37,6 +38,8 @@ import type {
     NativeAction,
     ModelState,
 } from "./model";
+const terminalTurnPhases = ["committed", "cancelled", "failed", "stale"];
+
 interface Operation {
     session: Session;
     epoch: number;
@@ -115,6 +118,7 @@ export class Controller {
     private modelOperation: { baseline: number; id: number | null } | null =
         null;
     private modelReadSequence = 0;
+    private modelTerminalRefresh: Promise<void> | null = null;
     private providerReadSequence = 0;
     private providerClosing = false;
     private listeners = new Set<() => void>();
@@ -123,6 +127,7 @@ export class Controller {
     private inspectionEpoch = 0;
     private queryEpoch = 0;
     private traceEpoch = 0;
+    private traceBinding: { key: string; reply: TraceReply } | null = null;
     private traceControlPending = false;
     private traceNarrationEpoch = 0;
     private traceGameplayFence: TraceGameplayFence | null = null;
@@ -229,7 +234,22 @@ export class Controller {
                 },
             };
         }
-        this.state = { ...this.state, ...value };
+        const previous = this.state;
+        const next = { ...previous, ...value };
+        if (
+            next.selectedId !== previous.selectedId ||
+            next.view !== previous.view ||
+            next.observer !== previous.observer ||
+            next.play?.scope.story !== previous.play?.scope.story ||
+            next.play?.scope.branch !== previous.play?.scope.branch ||
+            next.play?.revision !== previous.play?.revision
+        ) {
+            this.inspectionEpoch++;
+            next.inspection = null;
+            next.inspectionRevision = null;
+            next.inspectionObserver = null;
+        }
+        this.state = next;
         this.listeners.forEach((listener) => listener());
     }
     selected() {
@@ -690,7 +710,27 @@ export class Controller {
     // Used by another application-owned view/test client; still opens the same Rust owner.
     async attach(session: Session) {
         await this.invalidate();
-        this.patch({ sessions: [session], selectedId: session.id });
+        const current = this.selected();
+        const changed =
+            !current ||
+            current.id !== session.id ||
+            !sameScope(current.scope, session.scope);
+        this.patch({
+            sessions: [session],
+            selectedId: session.id,
+            ...(changed
+                ? {
+                      play: null,
+                      playV2: null,
+                      draft: "",
+                      turnStatus: null,
+                      receiptTurn: null,
+                      diff: [],
+                      diffRevision: null,
+                      page: 0,
+                  }
+                : {}),
+        });
         await this.refresh();
     }
     async switchSession(id: string) {
@@ -917,7 +957,14 @@ export class Controller {
             inspectionRevision: null,
             inspectionObserver: null,
         });
-        if (!session || !play || this.state.view !== "lab") return;
+        if (
+            epoch !== this.inspectionEpoch ||
+            !session ||
+            !play ||
+            this.state.view !== "lab" ||
+            !sameScope(session.scope, play.scope)
+        )
+            return;
         try {
             const value = (await this.gateway.call({
                 op: "inspect",
@@ -947,6 +994,7 @@ export class Controller {
         this.patch({ trace: { ...this.state.trace, ...value } });
     }
     private clearTrace(reset = false) {
+        this.traceBinding = null;
         this.traceEpoch++;
         this.traceNarrationEpoch++;
         this.tracePatch({
@@ -962,7 +1010,13 @@ export class Controller {
     private traceContext(): TraceQuery | null {
         const session = this.selected(),
             play = this.state.play ?? this.state.playV2;
-        if (!session || !play || this.state.disposed) return null;
+        if (
+            !session ||
+            !play ||
+            this.state.disposed ||
+            !sameScope(session.scope, play.scope)
+        )
+            return null;
         const lens =
             this.state.view === "play" ? "player" : this.state.observer;
         return {
@@ -988,6 +1042,26 @@ export class Controller {
             current !== null &&
             structural(current) === structural(query)
         );
+    }
+    private currentTraceReplyKey() {
+        const query = this.traceContext(),
+            play = this.state.play ?? this.state.playV2;
+        return this.state.trace.shown && query && play
+            ? structural({
+                  query,
+                  player: play.player.observer,
+                  view: this.state.view,
+              })
+            : null;
+    }
+    traceReply(state: State = this.state) {
+        const binding = this.traceBinding;
+        return state === this.state &&
+            binding &&
+            binding.reply === state.trace.reply &&
+            binding.key === this.currentTraceReplyKey()
+            ? binding.reply
+            : null;
     }
     async showTrace(shown = true) {
         this.clearTrace();
@@ -1015,7 +1089,11 @@ export class Controller {
         if (!query || !this.state.trace.shown) return;
         const sequence = ++this.traceEpoch,
             selected = this.state.trace.selected,
-            player = (this.state.play ?? this.state.playV2)!.player.observer;
+            player = (this.state.play ?? this.state.playV2)!.player.observer,
+            key = structural({ query, player, view: this.state.view });
+        const current = () =>
+            sequence === this.traceEpoch && key === this.currentTraceReplyKey();
+        this.traceBinding = null;
         this.traceNarrationEpoch++;
         this.tracePatch({
             narrationValidation: this.emptyTraceNarrationValidation(),
@@ -1025,14 +1103,15 @@ export class Controller {
             error: null,
             notice: "",
         });
+        if (!current()) return;
         try {
             const value = checkedTrace(
                 checkedJsonV2(await this.gateway.call(query), 65_536),
                 query,
                 player,
             );
-            if (sequence !== this.traceEpoch || !this.sameTraceContext(query))
-                return;
+            if (!current()) return;
+            this.traceBinding = { key, reply: value };
             const attempts = value.snapshot.attempts;
             this.tracePatch({
                 busy: false,
@@ -1045,7 +1124,7 @@ export class Controller {
                       : null,
             });
         } catch (error) {
-            if (sequence === this.traceEpoch && this.sameTraceContext(query))
+            if (current())
                 this.tracePatch({ busy: false, error: category(error) });
         }
     }
@@ -1102,7 +1181,7 @@ export class Controller {
     }
     selectTrace(selected: string) {
         if (
-            this.state.trace.reply?.snapshot.attempts.some(
+            this.traceReply()?.snapshot.attempts.some(
                 (a) => attemptKey(a) === selected,
             )
         ) {
@@ -1210,6 +1289,7 @@ export class Controller {
             return denied("busy");
         if (!t.reply || t.reply.snapshot.status === "disabled")
             return denied("trace_unavailable");
+        if (!this.traceReply()) return denied("context_changed");
         const query = this.traceContext();
         if (!query) return denied("source_unavailable");
         // Recheck the retained metadata's complete tuple; external transport
@@ -1324,7 +1404,7 @@ export class Controller {
     }
     traceAttempt() {
         return (
-            this.state.trace.reply?.snapshot.attempts.find(
+            this.traceReply()?.snapshot.attempts.find(
                 (a) => attemptKey(a) === this.state.trace.selected,
             ) ?? null
         );
@@ -1783,8 +1863,14 @@ export class Controller {
     setInputKind(inputKind: State["inputKind"]) {
         if (!this.state.pending) this.patch({ inputKind });
     }
-    async refreshModel() {
-        const sequence = ++this.modelReadSequence;
+    refreshModel(): Promise<void> {
+        return (
+            this.modelTerminalRefresh ??
+            this.readModel(++this.modelReadSequence)
+        );
+    }
+    private async readModel(sequence: number) {
+        if (this.state.disposed || sequence !== this.modelReadSequence) return;
         try {
             const model = (await this.native("model_status")) as ModelState;
             if (
@@ -1793,24 +1879,34 @@ export class Controller {
                 typeof model.phase !== "string"
             )
                 throw new Error("Wire");
-            if (!this.state.disposed && sequence === this.modelReadSequence) {
-                const op = this.modelOperation;
-                if (
-                    op &&
-                    op.id === null &&
-                    Number.isSafeInteger(model.operation_id) &&
-                    model.operation_id > op.baseline &&
-                    ["choosing", "checking", "copying", "loading"].includes(
-                        model.phase,
-                    )
-                ) {
-                    op.id = model.operation_id;
-                    this.patch({ modelCancelReady: true });
-                }
-                this.patch({ model });
-            }
+            if (this.state.disposed || sequence !== this.modelReadSequence)
+                return;
+            const op = this.modelTerminalRefresh ? null : this.modelOperation;
+            const cancellable = [
+                "choosing",
+                "checking",
+                "copying",
+                "loading",
+            ].includes(model.phase);
+            if (
+                op &&
+                op.id === null &&
+                cancellable &&
+                Number.isSafeInteger(model.operation_id) &&
+                model.operation_id > op.baseline
+            )
+                op.id = model.operation_id;
+            this.patch({
+                model,
+                modelCancelReady:
+                    cancellable &&
+                    op !== null &&
+                    op.id !== null &&
+                    op.id === model.operation_id,
+            });
         } catch (error) {
-            if (!this.state.disposed) this.fail(error);
+            if (!this.state.disposed && sequence === this.modelReadSequence)
+                this.fail(error);
         }
     }
     async modelAction(command: "model_import" | "model_load" | "model_unload") {
@@ -1819,6 +1915,7 @@ export class Controller {
             baseline: this.state.model?.operation_id ?? 0,
             id: null as number | null,
         };
+        ++this.modelReadSequence;
         this.modelOperation = operation;
         this.patch({
             modelBusy: true,
@@ -1833,38 +1930,57 @@ export class Controller {
                 polling = false;
             });
         }, 150);
+        let failure: { error: unknown } | undefined;
         try {
             await this.native(command);
-            // A periodic status read must not supersede the definitive post-action
-            // refresh and let the action resolve with the previous loaded state.
-            clearInterval(timer);
-            await this.refreshModel();
         } catch (error) {
-            clearInterval(timer);
-            if (!this.state.disposed) {
-                this.fail(error);
-                await this.refreshModel();
-            }
+            failure = { error };
         } finally {
             clearInterval(timer);
-            if (this.modelOperation === operation) {
-                this.modelOperation = null;
-                if (!this.state.disposed)
-                    this.patch({ modelBusy: false, modelCancelReady: false });
+            try {
+                if (!this.state.disposed) {
+                    // Reserve the final read before notifying subscribers, so a
+                    // manual Refresh joins it and cannot supersede settlement.
+                    const sequence = ++this.modelReadSequence;
+                    const refresh = Promise.resolve().then(() =>
+                        this.readModel(sequence),
+                    );
+                    this.modelTerminalRefresh = refresh;
+                    this.patch({ modelCancelReady: false });
+                    if (failure) this.fail(failure.error);
+                    await refresh;
+                }
+            } finally {
+                this.modelTerminalRefresh = null;
+                if (this.modelOperation === operation) {
+                    this.modelOperation = null;
+                    if (!this.state.disposed)
+                        this.patch({
+                            modelBusy: false,
+                            modelCancelReady: false,
+                        });
+                }
             }
         }
     }
     async cancelModel() {
+        if (this.state.disposed || this.modelTerminalRefresh) return;
         const operation = this.modelOperation;
         const operationId = operation?.id;
         if (!operationId) {
             this.fail("ModelOperationUnknown");
             return;
         }
+        if (!this.state.modelCancelReady) return;
         try {
             await this.native("model_cancel", { operationId });
         } catch (error) {
-            if (this.modelOperation === operation) this.fail(error);
+            if (
+                !this.state.disposed &&
+                this.modelOperation === operation &&
+                this.state.modelCancelReady
+            )
+                this.fail(error);
         }
     }
     requestLab() {
@@ -1947,16 +2063,46 @@ export class Controller {
                 });
         }
     }
-    private control(
+    private async control(
         op: Operation,
         action: "prepare" | "commit" | "cancel" | "turn_status",
-    ) {
-        return this.gateway.call({
-            op: action,
-            session: op.session.id,
-            scope: op.session.scope,
-            turn: op.request.turn,
-        }) as Promise<TurnStatus>;
+    ): Promise<TurnStatus> {
+        const status = this.checkedTurnStatus(
+            op,
+            await this.gateway.call({
+                op: action,
+                session: op.session.id,
+                scope: op.session.scope,
+                turn: op.request.turn,
+            }),
+        );
+        if (
+            (action === "commit" || action === "cancel") &&
+            !terminalTurnPhases.includes(status.phase)
+        )
+            throw new Error("Wire");
+        return status;
+    }
+    private async submitTurn(op: Operation): Promise<TurnStatus> {
+        const status = this.checkedTurnStatus(
+            op,
+            await this.gateway.call(
+                op.request.intent.kind === "free_text"
+                    ? {
+                          op: "free_text",
+                          session: op.session.id,
+                          request: op.request,
+                      }
+                    : {
+                          op: "submit",
+                          session: op.session.id,
+                          request: op.request,
+                          mode: op.mode,
+                      },
+            ),
+        );
+        op.submitted = true;
+        return status;
     }
     send(): Promise<void> {
         if (this.operation) return this.operation.promise;
@@ -2033,7 +2179,6 @@ export class Controller {
             cancelled: false,
             promise: Promise.resolve(),
         };
-        const mode = op.mode;
         this.operation = op;
         this.patch({
             pending: {
@@ -2046,7 +2191,7 @@ export class Controller {
             visibleError: null,
             notice: "",
         });
-        op.promise = this.run(op, mode, play).finally(() => {
+        op.promise = this.run(op, play).finally(() => {
             this.outstanding.delete(op.promise);
             if (this.operation === op) {
                 this.operation = null;
@@ -2056,56 +2201,41 @@ export class Controller {
         this.outstanding.add(op.promise);
         return op.promise;
     }
-    private async run(op: Operation, mode: FakeMode, before: PlayView) {
+    private async run(op: Operation, before: PlayView) {
         try {
             this.unresolved = op;
-            let status = (await this.gateway.call(
-                op.request.intent.kind === "free_text"
-                    ? {
-                          op: "free_text",
-                          session: op.session.id,
-                          request: op.request,
-                      }
-                    : {
-                          op: "submit",
-                          session: op.session.id,
-                          request: op.request,
-                          mode,
-                      },
-            )) as TurnStatus;
-            op.submitted = true;
+            let status = await this.submitTurn(op);
             if (op.cancelled || !this.current(op)) {
-                const cancelled = await this.control(op, "cancel");
-                if (this.current(op))
-                    await this.publishResult(op, cancelled, before);
+                if (!terminalTurnPhases.includes(status.phase))
+                    status = await this.control(op, "cancel");
+                await this.publishResult(op, status, before);
                 return;
             }
             this.patch({
                 turnStatus: status,
                 pending: { ...this.state.pending!, stage: "generating" },
             });
-            status = await this.control(op, "prepare");
-            if (op.cancelled || !this.current(op)) {
-                const cancelled = await this.control(op, "cancel");
-                if (this.current(op))
-                    await this.publishResult(op, cancelled, before);
-                return;
+            if (op.cancelled || !this.current(op)) return;
+            if (status.phase === "queued") {
+                status = await this.control(op, "prepare");
+                if (op.cancelled || !this.current(op)) {
+                    if (!terminalTurnPhases.includes(status.phase))
+                        status = await this.control(op, "cancel");
+                    await this.publishResult(op, status, before);
+                    return;
+                }
+                this.patch({ turnStatus: status });
             }
-            this.patch({ turnStatus: status });
+            if (op.cancelled || !this.current(op)) return;
             if (status.phase === "ready") {
                 try {
                     status = await this.control(op, "commit");
                 } catch {
                     status = await this.control(op, "turn_status");
-                    if (
-                        status.phase === "ready" ||
-                        status.phase === "running"
-                    ) {
-                        this.unresolved = op;
-                        throw new Error("TransportUnknown");
-                    }
                 }
             }
+            if (!terminalTurnPhases.includes(status.phase))
+                throw new Error("TransportUnknown");
             await this.publishResult(op, status, before);
         } catch (error) {
             if (this.current(op) && this.unresolved === op) {
@@ -2135,27 +2265,19 @@ export class Controller {
             }
         }
     }
-    private async publishResult(
-        op: Operation,
-        status: TurnStatus,
-        before: PlayView,
-    ) {
-        if (!this.current(op)) return;
+    private checkedTurnStatus(op: Operation, value: unknown): TurnStatus {
+        const status = value as TurnStatus;
         if (
             !status ||
             !status.scope ||
             status.turn !== op.request.turn ||
             !sameScope(status.scope, op.session.scope) ||
+            !Number.isSafeInteger(status.expected_revision) ||
             status.expected_revision !== op.request.expected_revision ||
-            ![
-                "queued",
-                "running",
-                "ready",
-                "committed",
-                "cancelled",
-                "failed",
-                "stale",
-            ].includes(status.phase)
+            (status.error !== null && typeof status.error !== "string") ||
+            (!["queued", "running", "ready"].includes(status.phase) &&
+                !terminalTurnPhases.includes(status.phase)) ||
+            (status.phase !== "committed" && status.receipt !== null)
         )
             throw new Error("Wire");
         if (
@@ -2165,14 +2287,24 @@ export class Controller {
                 !Array.isArray(status.receipt.events) ||
                 !status.receipt.events.length ||
                 status.receipt.events.some(
-                    (e) =>
-                        !e.scope ||
+                    (e, index) =>
+                        !e?.scope ||
                         !sameScope(e.scope, op.session.scope) ||
-                        !Number.isSafeInteger(e.sequence),
+                        e.turn !== op.request.turn ||
+                        !Number.isSafeInteger(e.sequence) ||
+                        e.sequence !== op.request.expected_revision + index + 1,
                 ) ||
                 typeof status.receipt.narration !== "string")
         )
             throw new Error("Wire");
+        return status;
+    }
+    private async publishResult(
+        op: Operation,
+        status: TurnStatus,
+        before: PlayView,
+    ) {
+        if (!this.current(op) || this.unresolved !== op) return;
         this.patch({
             turnStatus: status,
             visibleError:
@@ -2197,12 +2329,7 @@ export class Controller {
             )
                 this.patch({ draft: "" });
         }
-        if (
-            ["committed", "cancelled", "failed", "stale"].includes(
-                status.phase,
-            ) &&
-            this.unresolved === op
-        )
+        if (terminalTurnPhases.includes(status.phase) && this.unresolved === op)
             this.unresolved = null;
         if (op.request.intent.kind === "free_text") await this.refreshModel();
         await this.refresh();
@@ -2230,14 +2357,33 @@ export class Controller {
     }
     async pendingStatus() {
         const op = this.operation;
-        if (!op?.submitted) return null;
+        if (!op?.submitted || this.unresolved !== op || op.cancelled)
+            return null;
+        const previous = this.state.turnStatus;
         const status = await this.control(op, "turn_status");
-        if (this.current(op)) this.patch({ turnStatus: status });
+        if (
+            !this.current(op) ||
+            this.operation !== op ||
+            this.unresolved !== op ||
+            op.cancelled ||
+            this.state.turnStatus !== previous
+        )
+            return null;
+        // Polling observes terminal replies without publishing them ahead of
+        // the operation that settles the receipt and refreshes the snapshot.
+        if (!terminalTurnPhases.includes(status.phase))
+            this.patch({ turnStatus: status });
         return status;
     }
     async cancel() {
         const op = this.operation;
-        if (!op) return;
+        const visible = this.state.turnStatus;
+        if (
+            !op ||
+            (visible?.turn === op.request.turn &&
+                terminalTurnPhases.includes(visible.phase))
+        )
+            return;
         const recovering = this.state.pending?.stage === "recovering";
         op.cancelled = true;
         this.patch({
@@ -2254,29 +2400,17 @@ export class Controller {
                 // separate lookup can resolve Cancel while an older recovery
                 // lookup is delayed or lost; it must prove the original key.
                 const known = await this.control(op, "turn_status");
-                if (
-                    !known?.scope ||
-                    known.turn !== op.request.turn ||
-                    !sameScope(known.scope, op.session.scope) ||
-                    known.expected_revision !== op.request.expected_revision ||
-                    ![
-                        "queued",
-                        "running",
-                        "ready",
-                        "committed",
-                        "cancelled",
-                        "failed",
-                        "stale",
-                    ].includes(known.phase)
-                )
-                    throw new Error("Wire");
                 op.submitted = true;
+                if (terminalTurnPhases.includes(known.phase)) {
+                    await this.publishResult(op, known, this.state.play!);
+                    return;
+                }
             }
             const status = await this.control(op, "cancel");
-            if (this.current(op))
-                await this.publishResult(op, status, this.state.play!);
+            await this.publishResult(op, status, this.state.play!);
         } catch {
-            if (this.current(op)) this.fail("TransportUnknown");
+            if (this.current(op) && this.unresolved === op)
+                this.fail("TransportUnknown");
         }
     }
     retry() {
@@ -2288,46 +2422,23 @@ export class Controller {
             let status: TurnStatus;
             try {
                 status = await this.control(op, "turn_status");
+                op.submitted = true;
             } catch (error) {
                 if (!this.current(op) || this.unresolved !== op) return;
                 if (category(error) !== "UnknownTurn") throw error;
-                status = (await this.gateway.call(
-                    op.request.intent.kind === "free_text"
-                        ? {
-                              op: "free_text",
-                              session: op.session.id,
-                              request: op.request,
-                          }
-                        : {
-                              op: "submit",
-                              session: op.session.id,
-                              request: op.request,
-                              mode: op.mode,
-                          },
-                )) as TurnStatus;
-                op.submitted = true;
+                status = await this.submitTurn(op);
             }
             if (!this.current(op) || this.unresolved !== op) return;
-            if (op.cancelled) {
-                status = await this.control(op, "cancel");
-                await this.publishResult(op, status, this.state.play!);
-                return;
-            }
-            if (status.phase === "queued")
+            if (!op.cancelled && status.phase === "queued")
                 status = await this.control(op, "prepare");
             if (!this.current(op) || this.unresolved !== op) return;
-            if (op.cancelled) {
-                status = await this.control(op, "cancel");
-                await this.publishResult(op, status, this.state.play!);
-                return;
+            if (!terminalTurnPhases.includes(status.phase)) {
+                if (op.cancelled) status = await this.control(op, "cancel");
+                else if (status.phase === "ready")
+                    status = await this.control(op, "commit");
             }
-            if (status.phase === "ready")
-                status = await this.control(op, "commit");
             if (!this.current(op) || this.unresolved !== op) return;
-            if (
-                status.phase === "committed" ||
-                ["failed", "cancelled", "stale"].includes(status.phase)
-            ) {
+            if (terminalTurnPhases.includes(status.phase)) {
                 await this.publishResult(op, status, this.state.play!);
             } else if (this.current(op)) this.fail("TransportUnknown");
         } catch {
@@ -2362,7 +2473,16 @@ export class Controller {
         return {
             version: s.playV2 ? 2 : 1,
             query: s.query,
-            trace: s.trace,
+            trace:
+                s.trace.reply && !this.traceReply(s)
+                    ? {
+                          ...s.trace,
+                          reply: null,
+                          selected: null,
+                          narrationValidation:
+                              this.emptyTraceNarrationValidation(),
+                      }
+                    : s.trace,
             model: s.model,
             playMode: s.playMode,
             inputKind: s.inputKind,

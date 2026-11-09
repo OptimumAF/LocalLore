@@ -31,7 +31,7 @@ MAX_REQUEST = helpers.MAX_REQUEST
 MAX_REPORT = 2 * 1024 * 1024
 PUBLIC_SOURCES = (*helpers.PUBLIC_SOURCES, 'benchmarks/adb_device_roster.py',
                   'benchmarks/adb_device_roster_windows.py', 'benchmarks/adb_device_roster_probe.py',
-                  'benchmarks/receipt_avd_storage.py')
+                  'benchmarks/receipt_avd_storage.py', 'benchmarks/prepare_recovery_contract.py')
 RESULT_KEYS = {'version', 'protocol', 'status', 'reason', 'acquisition_completed',
                'roster_observed', 'feature_acceptance', 'sources_equal', 'python_equal',
                'admission', 'request', 'owner', 'version_report', 'report', 'worker', 'version_bytes'}

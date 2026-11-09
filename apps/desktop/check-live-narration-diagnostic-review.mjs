@@ -199,9 +199,9 @@ async function withController(run, options) {
         await f.close();
     }
 }
-function render(c, label) {
+function render(c, label, state = c.get()) {
     const markup = m.renderToStaticMarkup(
-        m.createElement(m.TurnDebugger, { controller: c, state: c.get() }),
+        m.createElement(m.TurnDebugger, { controller: c, state }),
     );
     html.push({ label, markup });
     return markup;
@@ -942,6 +942,60 @@ for (const [name, value] of [
             assert(!actor.includes("scene_first_person"));
             assert.equal(c.get().trace.narrationValidation.reply, null);
         }));
+for (const change of ["lens", "head"])
+    await test(`real Panel SSR hides an old private snapshot after ${change} change`, () =>
+        withController(async ({ c, host }) => {
+            host.queueDiagnostic(data(query("live-session")));
+            await c.readTraceNarrationValidation();
+            const previous = c.get();
+            assert(c.traceReply(previous));
+            const original = render(c, `trace-before-${change}`, previous);
+            assert(original.includes(originalTurn));
+            assert(original.includes("scene_first_person"));
+
+            if (change === "lens") c.setObserver("mira");
+            else {
+                host.head++;
+                await c.refresh();
+            }
+            assert.equal(c.traceReply(previous), null);
+            const stale = render(c, `trace-stale-${change}`, previous);
+            assert(stale.includes("Metadata context is stale"));
+            for (const privateText of [
+                scope.story,
+                originalTurn,
+                "scene_first_person",
+                "Retained attempts",
+                "Compare accepted turn",
+            ])
+                assert(!stale.includes(privateText));
+        }));
+
+await test("a synchronous lens change retires a pending old metadata dispatch", () =>
+    withController(async ({ c, host }) => {
+        const count = host.calls.length;
+        let changed = false;
+        const unsubscribe = c.subscribe(() => {
+            if (!changed && c.get().trace.busy) {
+                changed = true;
+                c.setObserver("mira");
+            }
+        });
+        try {
+            await c.readTrace();
+            assert(changed);
+            const reads = host.calls
+                .slice(count)
+                .filter((command) => command.op === "trace_read");
+            assert.deepEqual(
+                reads.map((command) => command.observer),
+                [{ kind: "character", id: "mira" }],
+            );
+        } finally {
+            unsubscribe();
+        }
+    }));
+
 await test("real Panel SSR pending local cancel and native refusal remain distinct", () =>
     withController(async ({ c, host }) => {
         const held = host.holdDiagnostic(),

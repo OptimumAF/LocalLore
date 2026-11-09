@@ -162,4 +162,26 @@ class TranscriptFollowTest {
         assertFalse(transcriptEndReached(5, headOfLongReply.copy(viewportEndOffset = 0)))
         assertFalse(transcriptEndReached(5, headOfLongReply.copy(tailSize = 0)))
     }
+
+    @Test fun tailOverflowIsTheDistanceFromTheMeasuredBottomToTheViewportEnd() {
+        val viewport = TranscriptViewport(5, 12, -16, 600, tailOffset = 40, tailSize = 1800)
+        assertEquals(1240L, transcriptTailOverflow(viewport))
+        assertEquals(1L, transcriptTailOverflow(viewport.copy(tailOffset = -1199)))
+        assertEquals(0L, transcriptTailOverflow(viewport.copy(tailOffset = -1200)))
+        assertEquals(0L, transcriptTailOverflow(viewport.copy(tailOffset = -1250)))
+        assertEquals(6_442_450_941L, transcriptTailOverflow(viewport.copy(
+            viewportStartOffset = Int.MIN_VALUE, viewportEndOffset = Int.MIN_VALUE + 1,
+            tailOffset = Int.MAX_VALUE, tailSize = Int.MAX_VALUE,
+        )))
+    }
+
+    @Test fun tailOverflowRequiresUsableViewportAndMeasuredTail() {
+        val viewport = TranscriptViewport(5, 12, 0, 600, tailOffset = 40, tailSize = 1800)
+        assertNull(transcriptTailOverflow(viewport.copy(viewportEndOffset = 0)))
+        assertNull(transcriptTailOverflow(viewport.copy(viewportStartOffset = 700)))
+        assertNull(transcriptTailOverflow(viewport.copy(tailOffset = null)))
+        assertNull(transcriptTailOverflow(viewport.copy(tailSize = null)))
+        assertNull(transcriptTailOverflow(viewport.copy(tailSize = 0)))
+        assertNull(transcriptTailOverflow(viewport.copy(tailSize = -1)))
+    }
 }

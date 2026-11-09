@@ -60,6 +60,15 @@ provider. The gateway retains its original pending turn key on this fixed
 uncertainty exception. Already accepted outcomes remain saved; cancellation
 never promises rollback.
 
+On this terminal uncertainty, the saved-story UI retains its last confirmed
+view and directs the player to restart the app process and check the same
+story and timeline. The in-session recovery action is unavailable for the
+retired lease. A commit status check can discover retirement after a
+temporary failure. In that case the UI uses the restart path. Temporary
+storage errors on a usable lease still offer exact-key recovery in the
+current session. Fresh startup uses the normal passive saved-history path,
+with no automatic resubmission.
+
 One owner reserves exactly one transport before native allocation; its transport
 reservation and native-port binding are atomic. Each turn has one engine and
 fresh role calls. A single whole cleanup deadline bounds the sequence. Cancellation
@@ -68,6 +77,31 @@ not proof of worker terminal state: the worker must report an actual terminal
 result, including a terminal empty result when cancellation discards generation.
 Late allocation tasks remain tracked, and an undrained child prevents claiming
 its parent engine safely closed.
+
+An admitted Android `inspection_query` or `play_presentation_v2` read can
+finish after the caller retires its view. The owner observes the native reply
+within the original finite command deadline, then propagates caller
+cancellation and discards the result. A read that exceeds that deadline or
+fails the workspace reply checks still quarantines the workspace. These two read-only
+operations keep the existing active-run admission checks. Mutating commands
+retain the existing conservative handling of uncertain cancellation.
+
+The owner reserves each finite command that is incompatible with generation
+before dispatching it. Play preparation and author generation stay busy until
+all such commands return bounded replies or the owner is quarantined.
+The existing status, cancellation and lifecycle commands retain their
+concurrent admission. A retired caller of an in-flight read still holds its
+reservation until native completion is known.
+
+For the external workspace, the production transport decodes each bounded
+UTF-8 Host reply before the owner releases command admission. It requires one
+v1 object, an integer version, and either success with object data or rejection
+with a string error. Generation and the owner's cleanup Cancel use the same
+envelope check. Unusable envelopes follow the existing uncertainty and native
+invalidation path. Valid rejection metadata stays available to the gateway,
+which still checks operation payloads and their scope. Envelope framing and
+shape are checked around the platform JSON tokenizer. Canonical outcomes
+remain subject to the original saved-turn recovery rules.
 
 The injected worker contract makes these states testable without an SDK. A
 future SDK adapter must establish them from actual callbacks and resource joins;

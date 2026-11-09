@@ -17,6 +17,18 @@ internal fun decodeNavigationHint(value: Any?): PlayDraftScope? {
     return PlayDraftScope(story, branch).takeIf { encodeNavigationHint(it) != null }
 }
 
+internal const val STORED_NAVIGATION_LIMIT = 132
+
+internal fun encodeStoredNavigationHint(scope: PlayDraftScope): ByteArray? =
+    encodeNavigationHint(scope)?.joinToString(separator = "\n", postfix = "\n")?.toByteArray(Charsets.US_ASCII)
+
+internal fun decodeStoredNavigationHint(bytes: ByteArray): PlayDraftScope? {
+    if (bytes.size !in 1..STORED_NAVIGATION_LIMIT) return null
+    val fields = bytes.toString(Charsets.US_ASCII).split('\n')
+    if (fields.size != 4 || fields[0] != "1" || fields[3].isNotEmpty()) return null
+    return decodeNavigationHint(listOf(1, fields[1], fields[2]))
+}
+
 /** An unresolved startup must not erase the restored hint before native validation. */
 internal fun navigationHintToSave(previous: PlayDraftScope?, state: ShellState): PlayDraftScope? {
     if (!state.persistent) return null

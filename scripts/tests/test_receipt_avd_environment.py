@@ -322,10 +322,20 @@ class EnvironmentTests(unittest.TestCase):
                         prepare.assert_not_called(); launch.assert_not_called()
                     self.assertFalse((self.root / (phase + "-worker-claimed-v1.json")).exists())
 
-    def proposal(self, phase="prepare"):
+    def proposal(self, phase="prepare", *, preparation_root=None):
         # No dependency on actual installed SDK or credentials in any host test.
         files = [Path(env.__file__).resolve(), Path(env.host.__file__).resolve(),
-                 Path(env.commit_capacity.__file__).resolve(), Path(env.guest_storage.__file__).resolve()]
+                 Path(env.commit_capacity.__file__).resolve(), Path(env.guest_storage.__file__).resolve(),
+                 Path(env.__file__).with_name("prepare_recovery_contract.py").resolve()]
+        if preparation_root is not None:
+            helpers = preparation_root / "benchmarks"
+            helpers.mkdir(parents=True)
+            files = [helpers / name for name in (
+                "receipt_avd_environment.py", "runtime_spike.py", "host_commit_capacity.py",
+                "receipt_avd_storage.py", "prepare_recovery_contract.py",
+            )]
+            for path in files:
+                path.write_bytes(b"historical preparation helper fixture")
         self.java.mkdir(exist_ok=True)
         (self.sdk / "licenses").mkdir(parents=True, exist_ok=True)
         for relative in ("platform-tools/adb.exe", "emulator/emulator.exe",
@@ -363,8 +373,15 @@ class EnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
             env.validate_proposal(value, "prepare")
 
-    def prepared_run(self, real_candidate=False, four_core_candidate=False):
-        prepare = self.proposal()
+    def test_missing_recovery_contract_binding_refuses_before_SDK(self):
+        value = self.proposal()
+        contract_path = str(Path(env.__file__).with_name("prepare_recovery_contract.py").resolve())
+        value["bindings"] = [item for item in value["bindings"] if item["path"] != contract_path]
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.validate_proposal(value, "prepare")
+
+    def prepared_run(self, real_candidate=False, four_core_candidate=False, *, preparation_root=None):
+        prepare = self.proposal(preparation_root=preparation_root)
         if real_candidate or four_core_candidate:
             prepare.update(memory_mib=8192, host_available_memory_min=12 * env.GIB)
         if four_core_candidate:
@@ -1215,6 +1232,44 @@ class EnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(env.EnvironmentRefused, "prepared_changed"):
             env.verify_prepared(run)
 
+    def test_historical_run_checks_original_helper_roster_and_scoped_authorization(self):
+        original_root = self.base / "original-checkout"
+        run, proposal, authority = self.prepared_run(preparation_root=original_root)
+        authorization = env.read_json(authority)
+        authorization["run_scope"] = "synthetic-resume-v1"
+        authority.write_bytes(env.encoded(authorization))
+
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.validate_proposal(run, "run")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.verify_prepared(run, initial=True)
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^not_authorized$"):
+            env.authorize(proposal, authority, "run", run_scope="wrong-scope", preparation_root=original_root)
+
+        value = env.authorize(proposal, authority, "run", run_scope="synthetic-resume-v1",
+                              expected_proposal_sha256=env.digest(proposal), preparation_root=original_root)
+        self.assertEqual(value, run)
+        prepared = env.verify_prepared(value, initial=True, preparation_root=original_root)
+        self.assertEqual(prepared, env.read_json(run["prepared"]["path"]))
+        self.assertEqual(env.read_json(proposal), run)
+
+    def test_historical_helpers_refuse_wrong_root_roster_or_bytes(self):
+        original_root = self.base / "original-checkout"
+        value = self.proposal(preparation_root=original_root)
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^unsafe_path$"):
+            env.validate_proposal(value, "prepare", preparation_root="C:/synthetic-checkout")
+        foreign_root = self.base / "foreign-checkout"
+        (foreign_root / "benchmarks").mkdir(parents=True)
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.validate_proposal(value, "prepare", preparation_root=foreign_root)
+
+        mixed = dict(value, bindings=value["bindings"] + [env.binding(Path(env.__file__).resolve())])
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^binding_set_changed$"):
+            env.verify_installation(mixed, preparation_root=original_root)
+        (original_root / "benchmarks/receipt_avd_environment.py").write_bytes(b"changed historical source")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^binding_changed$"):
+            env.verify_installation(value, preparation_root=original_root)
+
     def test_added_sdk_file_invalidates_installation_set(self):
         p, a = self.files(self.proposal())
         (self.sdk / "emulator/extra.dll").write_bytes(b"unbound")
@@ -1351,7 +1406,23 @@ class EnvironmentTests(unittest.TestCase):
                 returned = wintypes.DWORD()
                 self.assertTrue(kernel.DeviceIoControl(msvcrt.get_osfhandle(stream.fileno()),
                     0x900C4, None, 0, None, 0, ctypes.byref(returned), None))  # FSCTL_SET_SPARSE
-                stream.truncate(8 * env.GIB)
+                # Python's Windows CRT truncate may write zeros even after
+                # FSCTL_SET_SPARSE, allocating GiB in this metadata-only case.
+                # Extend the same sparse test file through checked kernel EOF.
+                kernel.SetFilePointerEx.argtypes = [wintypes.HANDLE, ctypes.c_longlong,
+                    ctypes.POINTER(ctypes.c_longlong), wintypes.DWORD]
+                kernel.SetFilePointerEx.restype = wintypes.BOOL
+                kernel.SetEndOfFile.argtypes = [wintypes.HANDLE]
+                kernel.SetEndOfFile.restype = wintypes.BOOL
+                handle = msvcrt.get_osfhandle(stream.fileno())
+                self.assertTrue(kernel.SetFilePointerEx(handle, 8 * env.GIB, None, 0))
+                self.assertTrue(kernel.SetEndOfFile(handle))
+            kernel.GetCompressedFileSizeW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD)]
+            kernel.GetCompressedFileSizeW.restype = wintypes.DWORD
+            high = wintypes.DWORD(); ctypes.set_last_error(0)
+            low = kernel.GetCompressedFileSizeW(str(content / 'sdcard.img'), ctypes.byref(high))
+            self.assertFalse(low == 0xffffffff and ctypes.get_last_error() != 0)
+            self.assertLessEqual((high.value << 32) | low, 65536)
             (content / "userdata-qemu.img").write_bytes(b"must not adopt")
         return env.host.ProcessResult("completed", 10, b"created", 0, 0, True)
 

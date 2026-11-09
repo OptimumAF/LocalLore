@@ -70,6 +70,14 @@ val inputDraftVerification = providers.gradleProperty("localLoreInputDraftVerifi
 require(inputDraftVerification == null || inputDraftVerification == "true")
 val inputProcessVerification = providers.gradleProperty("localLoreInputProcessVerification").orNull
 require(inputProcessVerification == null || inputProcessVerification == "true")
+val presentationProcessVerification = providers.gradleProperty("localLorePresentationProcessVerification").orNull
+require(presentationProcessVerification == null || presentationProcessVerification == "true")
+require(presentationProcessVerification != "true" || inputDraftVerification == "true") {
+    "Presentation process verification requires the input draft verification profile."
+}
+require(presentationProcessVerification != "true" || inputProcessVerification != "true") {
+    "Presentation and legacy process verification are separate installations."
+}
 require(inputProcessVerification != "true" || inputDraftVerification == "true") {
     "Process verification requires the input draft verification profile."
 }
@@ -84,7 +92,10 @@ val selectedProjectCache = (gradle.startParameter.projectCacheDir ?: rootProject
 require((inputProcessVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-input-process").canonicalFile)) {
     "Input process verification requires its exclusive .gradle-input-process project cache."
 }
-require((inputDraftVerification == "true" && inputProcessVerification != "true") == (selectedProjectCache == rootProject.file(".gradle-input-draft").canonicalFile)) {
+require((presentationProcessVerification == "true") == (selectedProjectCache == rootProject.file(".gradle-presentation-process").canonicalFile)) {
+    "Presentation process verification requires its exclusive .gradle-presentation-process project cache."
+}
+require((inputDraftVerification == "true" && inputProcessVerification != "true" && presentationProcessVerification != "true") == (selectedProjectCache == rootProject.file(".gradle-input-draft").canonicalFile)) {
     "Input draft verification requires its exclusive .gradle-input-draft project cache."
 }
 require(inputDraftVerification != "true" || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
@@ -165,6 +176,8 @@ if (liteRt == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-parent-retention"))
 } else if (cancelAckVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-cancel-ack"))
+} else if (presentationProcessVerification == "true") {
+    layout.buildDirectory.set(layout.projectDirectory.dir("build-presentation-process"))
 } else if (inputProcessVerification == "true") {
     layout.buildDirectory.set(layout.projectDirectory.dir("build-input-process"))
 } else if (inputDraftVerification == "true") {
@@ -178,6 +191,7 @@ val verificationSuffix = when {
     liteRt == "true" -> ".litertverify"
     externalInference == "true" -> ".externalverify"
     cancelAckVerification == "true" -> ".cancelack"
+    presentationProcessVerification == "true" -> ".presentationprocessverify"
     inputProcessVerification == "true" -> ".draftprocessverify"
     inputDraftVerification == "true" -> ".draftverify"
     parentRetention == "true" -> ".parentverify"
@@ -269,6 +283,7 @@ android {
         buildConfigField("boolean", "MODEL_RECEIPT_VERIFICATION", (modelReceipt == "true" || physicalModel == "true").toString())
         buildConfigField("boolean", "PHYSICAL_MODEL_VERIFICATION", (physicalModel == "true").toString())
         buildConfigField("boolean", "INPUT_PROCESS_VERIFICATION", (inputProcessVerification == "true").toString())
+        buildConfigField("boolean", "PRESENTATION_PROCESS_VERIFICATION", (presentationProcessVerification == "true").toString())
         applicationId = when {
             capacityTest -> "org.locallore.app.capacityv4"
             reliefFaultTest -> "org.locallore.app.capacityfaultsv4"
@@ -285,7 +300,7 @@ android {
         manifestPlaceholders["modelPickerTestAuthority"] = "org.locallore.app$verificationSuffix.test.modelpicker"
         if (verificationSuffix.isNotEmpty()) {
             applicationIdSuffix = verificationSuffix
-            versionNameSuffix = when { liteRt == "true" -> "-litert-worker"; externalInference == "true" -> "-external-inference"; cancelAckVerification == "true" -> "-cancel-ack-verification"; inputDraftVerification == "true" -> "-input-draft-verification"; parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
+            versionNameSuffix = when { liteRt == "true" -> "-litert-worker"; externalInference == "true" -> "-external-inference"; cancelAckVerification == "true" -> "-cancel-ack-verification"; presentationProcessVerification == "true" -> "-presentation-process-verification"; inputDraftVerification == "true" -> "-input-draft-verification"; parentRetention == "true" -> "-parent-retention"; timelineVerification == "true" -> "-timeline-verification"; storyDeletion == "true" -> "-story-deletion"; archiveCapacity == "true" -> "-archive-capacity"; else -> "-archive-verification" }
         }
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

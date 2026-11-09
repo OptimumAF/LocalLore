@@ -29,6 +29,7 @@ class StoryDeletionShellTest {
             "/synthetic/stories.sqlite3", 1, if (empty) emptyList() else listOf(original),
             if (empty) null else original, textProvider = TextProvider.SCRIPTED, databaseSchemaVersion = 2)
         override suspend fun initialize() = saved()
+        override suspend fun snapshot() = saved()
         override suspend fun reconcileSaved(): SavedSnapshot { reconciles++; return saved() }
         override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult {
             mutations++; return DemoResult.Rejected("Inventory")

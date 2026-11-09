@@ -11,12 +11,82 @@ palette on dark green surfaces. This changes presentation only. The
 [system-theme verification report](../../docs/android/SYSTEM_THEME_VERIFICATION_2026-10-30.md)
 records host checks and the Android visual/accessibility checks still pending.
 
+Story Record gives each section and paging control its own row when the
+available width cannot fit two controls at the current text scale. The record
+body scrolls while Close stays in view. `StoryRecordLargeTextTest` exercises
+the dialog at 320 × 420 dp with standard and 2× text.
+
+To build and audit its isolated APK pair, run this from the repository root:
+
+```powershell
+python scripts/check.py android --archive-verification --offline
+```
+
+Use the existing `org.locallore.app.archiveverify` product and its `.test`
+package for a guarded Android run. Select only
+`org.locallore.app.StoryRecordLargeTextTest#narrowRecordReflowsAtDoubleTextSizeAndKeepsActionsReachable`
+on a target with at least 320 dp of available width.
+
 The [native story-scene adoption](../../docs/native/ANDROID_STORY_SCENE_V1_VERIFICATION_2026-10-31.md)
 selects the existing starter or authored scene recipe from each validated Rust
 seed when the external local-inference owner is configured. Kotlin and model
 replies cannot choose that recipe. Ordinary scripted construction and legacy
 Host defaults retain their behavior. Host/fake-provider, JVM and APK checks
 do not establish device/model execution or narrative quality.
+
+The saved-story screen shows the empty-library message after a confirmed
+empty catalog. While opening, recovering, or changing the library, it uses the
+existing workflow status. A confirmed catalog with stories and no selected
+story directs the player to Saved stories.
+If opening or recovering the local library returns no snapshot, the shell
+keeps the last confirmed view and offers recovery.
+
+The [library status test binding](../../benchmarks/saved_library_status_binding.py)
+replays the frozen ordinary APP and TEST files against the signed pair audit.
+It verifies the single Compose test definition in the signed TEST bytes and
+accepts only a complete result for that method. The eventual Android run needs
+a separately approved target.
+
+The [owned-guest controller](../../benchmarks/saved_library_status_controller.py)
+requires both ordinary packages to be absent before staging either APK.
+Installation uses Android's explicit no-replacement option (`-R`).
+The controller checks both installed UIDs, APK paths and hashes before and
+after the selected test and replays the captured commands and result.
+
+The [prepared-guest handoff](../../benchmarks/saved_library_status_handoff.py)
+joins the fixed approval and one-use attempt to the preparation receipts,
+signed APKs and the shared v2 storage ledger. The owner rechecks the pinned
+handoff and supervisor process before starting its private ADB service. It
+must consume the exact prepared reservation before starting the guest.
+The [one-use supervisor](../../benchmarks/saved_library_status_operation.py)
+runs preparation and activation in owned Windows jobs. It preserves the
+first attempt and requires replay of the test, process cleanup and storage
+closure before reporting a pass. The [readiness check](../../benchmarks/saved_library_status_readiness.py)
+checks the fixed plan and shared ledger against the supplied digests,
+revalidates installed tools and APKs, and probes host capacity and ports.
+It reports advisory evidence. A live run requires separate approval and
+a fresh locked storage admission.
+
+The [prepared guest review](../../benchmarks/saved_library_status_prepared_review.py)
+can check the SDK23 pre-boot refusal against its verified archive, the
+current prepared reservation and the original AVD files. A matching
+result supports review for reuse under separate approval.
+
+The [reuse handoff](../../benchmarks/saved_library_status_resume_handoff.py)
+uses an activation-only approval and a fresh attempt directory. It
+preserves the original preparation and run proposal bytes. The owned
+runner checks the original preparation source and the current runtime
+source separately. It can consume the existing reservation only when the
+approved ledger bytes and prepared digest still match under the shared
+lock. The [resume supervisor](../../benchmarks/saved_library_status_resume_operation.py)
+rechecks resources and ports before it dispatches the same saved-library
+test. It requires scope-aware process and storage closure replay. A live run
+requires fresh approval.
+
+For the frozen SDK23 proposal, the [readiness audit](../../scripts/inspect_sdk23_resume_readiness.py)
+checks the full commit reference and sealed inputs before sampling free
+space. A disk refusal reports the current shortfall and skips the image,
+SDK and port checks. A ready result is advisory.
 
 ## Build and run
 
@@ -268,6 +338,10 @@ stale navigation; navigation never sends a turn. The list retains Compose's scop
 saved scroll state; actual recreation and keyboard behavior need device testing.
 See [implementation and host verification](../../docs/android/TRANSCRIPT_NAVIGATION_VERIFICATION_2026-10-30.md)
 for the tested policy and the four compiled, unrun screen journeys.
+The [rolling-window follow fix](../../docs/android/TRANSCRIPT_ROLLOVER_2026-11-01.md)
+also recognizes exact retained-message overlap as the 40-message window advances.
+Its JVM regressions pass; the two additional rendered journeys are compiled but
+remain unrun on a device.
 
 Accepted state survives Activity recreation and native/process owner recreation.
 Startup resumes a default saved story; use **Saved stories** to select another.
@@ -478,6 +552,11 @@ it never sends automatically. The fixture proposes that gift and literal dialogu
 other actions may be rejected by the existing Rust intent guard/mechanical rules.
 Dialogue records words as a statement, not world truth. There is no text-to-command
 compiler in Kotlin and no cloud fallback.
+
+Free-text inventory and ability refusals use the engine's rejection category
+to explain what to check before retrying. A clarification refusal asks for a
+clearer turn. The named potion and Blink messages belong to the corresponding
+typed demo shortcuts.
 
 Input is bounded to 2048 UTF-8 bytes with valid Unicode. Text remains unchanged
 across the native request and exact-key recovery. Pending work disables editing;

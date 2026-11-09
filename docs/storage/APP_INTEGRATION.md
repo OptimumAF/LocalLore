@@ -49,12 +49,29 @@ old coverage proofs return Unsupported there. These refusals do not mean
 durable correction UI or complete Domain2 app resume is available.
 
 The bounded `workspace` operation returns metadata for up to 256 stories in
-deterministic story-ID order. Startup resumes the first entry, or creates a new
-opaque story identity when empty. The library permits explicit selection; this
-order does not imply last-used or newest. New/reset preserves previous saves.
+deterministic story-ID order. Startup without a resolved selection uses the
+first entry. Empty-library behavior follows the shell's existing creation
+policy. The library permits explicit selection. New/reset preserves previous saves.
 Closing a session preserves its story. Android exposes separately previewed,
 explicitly confirmed whole-story deletion and nonroot timeline retirement; see
 the [retention contract](../native/PARENT_RETENTION_CONTRACT.md).
+
+Android gives a valid saved-task hint priority. A fresh launch can also read a
+versioned, at most 132-byte record containing only the last confirmed story and
+timeline IDs. The app stores this optional hint in `noBackupFilesDir` using
+background atomic writes. It resolves the IDs through the native catalog and
+bound Resume before displaying history. A retired or absent target uses the
+existing visible fallback, which is not remembered as a new confirmed choice.
+Unreadable hint storage is optional. The hint carries no session, turn key,
+revision, story prose or draft text and cannot start inference or commit work.
+
+Android binds each Resume reply to the selected story and timeline before
+attaching its session. Navigation retains its ownership across release and
+resume, so a delayed Close or Resume cannot replace a newer attachment. Open
+refresh checks the active session, exact scope and integer revision before
+reading player history. The latest read publishes its head, observer and
+provider together with the matching native presentation and timeline catalog.
+The native head can advance beyond the earlier catalog row.
 
 `Host::with_persistence` accepts a trusted storage port; wire requests cannot
 choose file paths, issue SQL or install providers. Submitted requests and
@@ -79,6 +96,15 @@ force-stop or a cold launch. See [Android draft lifecycle evidence](../native/AN
 Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.
+
+On Android, a queued or ready reply must match the pending turn, exact story
+and timeline, and integer expected revision before it can advance preparation
+or commit. Malformed or foreign replies keep the original key available for
+explicit recovery. Recovery rechecks the binding after preparation, and checks
+that the same request is still active before dispatch. Commit and cancellation
+require a terminal reply. A matching terminal
+receipt still resolves a lost commit acknowledgement using the original
+request.
 
 Unopenable, foreign, corrupt or incompatible databases and bounded storage errors
 surface visibly. Production startup has no silent memory fallback. Full-disk and

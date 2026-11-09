@@ -273,22 +273,27 @@ def _supervise(command, request, root, seconds, on_started):
                     cleaned = job.close() is True
                 else:
                     # The admitted child still blocks before its stdin barrier.
-                    child.kill(); cleaned = True
-            except (OSError,ValueError):
+                    child.kill(); cleaned = False
+            except BaseException:
                 cleaned = False
             try:
                 child.wait(timeout=5)
-            except (OSError,subprocess.TimeoutExpired):
+            except BaseException:
                 cleaned = False
             for thread in readers:
                 try:
                     thread.join(timeout=2)
-                except RuntimeError:
+                except BaseException:
                     # Thread.start may have failed before there was a reader.
                     # Preserve failed ownership without skipping later closes.
                     cleaned = False
                     capture.failed.set()
-            readers_stopped = not any(t.is_alive() for t in readers)
+            readers_stopped = True
+            for thread in readers:
+                try:
+                    readers_stopped = not thread.is_alive() and readers_stopped
+                except BaseException:
+                    readers_stopped = False
             cleaned = cleaned and readers_stopped
             # A failed job close must not suppress safe pipe-close attempts.
             # Never race a still-running reader over its own stream.
@@ -296,18 +301,25 @@ def _supervise(command, request, root, seconds, on_started):
                 for stream in (child.stdin,child.stdout,child.stderr):
                     try:
                         stream.close()
-                    except (OSError,ValueError):
+                    except BaseException:
                         cleaned = False
-        stalled = any(t.is_alive() for t in readers)
+        stalled = False
+        for thread in readers:
+            try:
+                stalled = thread.is_alive() or stalled
+            except BaseException:
+                stalled = True
         if capture is not None:
             if stalled:
                 capture.failed.set(); status = 'evidence_failed'
             else:
                 try:
-                    capture.close()
-                except (OSError,ValueError):
+                    if capture.close() is False:
+                        capture.failed.set()
+                except BaseException:
                     capture.failed.set()
                 if capture.failed.is_set():
+                    cleaned = False
                     status = 'evidence_failed'
                 elif capture.overflow.is_set():
                     status = 'output_limit'

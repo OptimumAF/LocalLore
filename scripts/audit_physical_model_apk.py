@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from benchmarks import runtime_spike as host
 
 APP = "org.locallore.app.phoneverify"
+INPUT_PROCESS_APP = "org.locallore.app.draftprocessverify"
 TEST = APP + ".test"
 RUNNER = "androidx.test.runner.AndroidJUnitRunner"
 TEST_METHODS = {
@@ -121,7 +122,8 @@ class Dex:
                     result.add(method)
         return result
 
-    def definitions(self):
+    def definitions(self, *, with_code=False):
+        require(type(with_code) is bool, "Invalid code metadata selection")
         result = {}
         for p in self.table(96, 32):
             name = self.at(self.types, self.u32(p))
@@ -148,14 +150,21 @@ class Dex:
                         code, body = self.uleb(body)
                         owner, method, proto = self.at(self.methods, method_index)
                         require(owner == name, "DEX method belongs to another class")
+                        units = 0
                         if code:
                             self.slice(code, 16)
-                        methods.append((method, proto, flags, method_index in annotations))
+                            if with_code:
+                                require(code % 4 == 0, "Unaligned DEX code item")
+                                units = self.u32(code + 12)
+                                self.slice(code + 16, units * 2)
+                        row = (method, proto, flags, method_index in annotations)
+                        methods.append(row + (units,) if with_code else row)
             result[name] = (self.u32(p + 4), methods)
         return result
 
 
-def dex_classes(path):
+def dex_classes(path, *, with_code=False):
+    require(type(with_code) is bool, "Invalid code metadata selection")
     result = {}
     with zipfile.ZipFile(path) as archive:
         entries = archive.infolist()
@@ -165,7 +174,8 @@ def dex_classes(path):
         require(0 < len(dex) <= 32 and sum(e.file_size for e in dex) <= 128 * 1024 * 1024, "Invalid DEX aggregate")
         for entry in dex:
             require(0 < entry.file_size <= 32 * 1024 * 1024, "Invalid DEX size")
-            classes = Dex(archive.read(entry)).definitions()
+            decoded = Dex(archive.read(entry))
+            classes = decoded.definitions(with_code=True) if with_code else decoded.definitions()
             require(not result.keys() & classes.keys(), "Class defined in multiple DEX files")
             result.update(classes)
     return result
@@ -229,7 +239,8 @@ def one(header, name, expected):
 
 def audit_test_manifest(test_badging, test_tree, app):
     """Shared closed test-APK boundary; no package discovery or tool execution."""
-    require(type(app) is str and app in ("org.locallore.app", "org.locallore.app.archiveverify", APP),
+    require(type(app) is str and app in ("org.locallore.app", "org.locallore.app.archiveverify", APP, INPUT_PROCESS_APP,
+                                       "org.locallore.app.presentationprocessverify"),
             "Unreviewed instrumentation app package")
     test_package = app + ".test"
     test_badging, test_tree = (base.aapt_text(value) for value in (test_badging, test_tree))

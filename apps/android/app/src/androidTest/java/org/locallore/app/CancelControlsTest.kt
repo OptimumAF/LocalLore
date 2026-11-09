@@ -184,7 +184,7 @@ class CancelControlsTest {
         text("Earlier accepted dialogue").assertIsDisplayed()
         text("Earlier accepted narration").assertIsDisplayed()
         tag("revision").assertTextEquals("Accepted revision · 7")
-        tag("potion-owner").assertTextEquals("Healing potion · You")
+        compose.assertPlayerPotionQuantity(1) { f.model.state.value }
         compose.runOnIdle {
             assertEquals(7L, f.model.state.value.revision)
             assertEquals(listOf("Earlier accepted dialogue", "Earlier accepted narration"),
@@ -303,7 +303,7 @@ class CancelControlsTest {
         text("Accepted despite the cancellation race").assertIsDisplayed()
         text("Earlier accepted narration").assertIsDisplayed()
         tag("revision").assertTextEquals("Accepted revision · 8")
-        tag("potion-owner").assertTextEquals("Healing potion · Not in your inventory")
+        compose.assertPlayerPotionQuantity(null) { model.state.value }
         tag("notice").assertTextEquals("Cancellation checked. Showing the accepted saved history.")
         compose.runOnIdle {
             assertEquals(4, model.state.value.messages.size)

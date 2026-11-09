@@ -1,0 +1,91 @@
+{
+  "data": {
+    "domain_version": 2,
+    "inventory": {
+      "saffron-tonic": {
+        "healing": true,
+        "owner": "a-71be92c40d6f8a53c201-0",
+        "quantity": 2,
+        "return_to": null
+      }
+    },
+    "player": {
+      "observer": "a-71be92c40d6f8a53c201-0",
+      "self_state": {
+        "abilities": {},
+        "affiliations": [
+          "cartographers",
+          "夜のギルド"
+        ],
+        "alive": true,
+        "attributes": {},
+        "energy": 0,
+        "goals": [
+          "finish-chart",
+          "守る"
+        ],
+        "injuries": [
+          "sprained-wrist"
+        ],
+        "location": "l-71be92c40d6f8a53c201-1",
+        "name": "Noor 灯"
+      }
+    },
+    "revision": 3,
+    "rules": "narrative_v1",
+    "scope": {
+      "branch": "corrected",
+      "story": "self-profile-narrative"
+    },
+    "turns": [
+      {
+        "event_ids": [
+          1
+        ],
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "op": "wait",
+              "ticks": 1
+            }
+          ]
+        },
+        "narration": "Story time advances from 10 to 11.",
+        "original_scope": {
+          "branch": "main",
+          "story": "self-profile-narrative"
+        },
+        "turn": "arrive-and-wait"
+      },
+      {
+        "event_ids": [
+          3
+        ],
+        "intent": {
+          "kind": "actions",
+          "value": [
+            {
+              "op": "move",
+              "to": "l-71be92c40d6f8a53c201-1"
+            }
+          ]
+        },
+        "narration": "You move to l-71be92c40d6f8a53c201-1.",
+        "original_scope": {
+          "branch": "corrected",
+          "story": "self-profile-narrative"
+        },
+        "turn": "walk-to-lookout"
+      }
+    ],
+    "version": 2,
+    "window": {
+      "end": 2,
+      "start": 0,
+      "total": 2
+    }
+  },
+  "status": "ok",
+  "version": 1
+}

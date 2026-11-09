@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -43,6 +46,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.locallore.app.DemoAction
 import org.locallore.app.DemoMode
@@ -64,6 +68,8 @@ private val PlayDraftSaver = Saver<PlayDraft, Any>(
     save = { savePlayDraft(it) },
     restore = { restorePlayDraft(it) },
 )
+
+private enum class PlayerInspector { INVENTORY, PROFILE }
 
 /** A state-only sample surface. The coordinator owns every response and state change. */
 @Composable
@@ -97,6 +103,17 @@ internal fun LocalLoreScreen(
     // not validate its inputs, and null -> selected would discard the pending payload.
     var playDraft by rememberSaveable(stateSaver = PlayDraftSaver) { mutableStateOf(PlayDraft()) }
     val renderedStory = state.selectedStory
+    val actionScope = renderedStory?.let { PlayDraftScope(it.story, it.branch) }
+    val renderedActionPersistent = state.persistent
+    val actionBlocked = state.busy || state.archiveActive || state.deletionActive || state.forkActive ||
+        state.creationActive || state.recoveryRequired || (state.persistent && renderedStory == null)
+    val currentActionScope by rememberUpdatedState(actionScope)
+    val currentActionPersistent by rememberUpdatedState(renderedActionPersistent)
+    val currentActionBlocked by rememberUpdatedState(actionBlocked)
+    // A value-equal refresh still replaces the displayed storage-control owner.
+    val currentStorageState by rememberUpdatedState(StorageActionIdentity(state))
+    val storageControls = remember { StorageActionLifetime() }
+    DisposableEffect(storageControls) { onDispose { storageControls.active = false } }
     val draftScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
     val draftPending = state.persistent && renderedStory == null && (state.busy || state.recoveryRequired)
     val observedDraft = playDraft
@@ -123,14 +140,52 @@ internal fun LocalLoreScreen(
     val transcriptNavigation = rememberTranscriptNavigation(
         transcript, 4 + (if (onText != null) 1 else 0) + (if (onStoryRecord != null) 1 else 0),
     )
+    val sceneHeading = storyHeading(state)
+    val inventoryScope = if (state.persistent) renderedStory?.let { PlayDraftScope(it.story, it.branch) } else null
+    val inventoryEligible = inventoryScope != null && state.inventory != null && !state.recoveryRequired && !state.archiveActive &&
+        !state.deletionActive && !state.forkActive && !state.creationActive
+    val profileEligible = inventoryScope != null && state.playerProfile != null && !state.recoveryRequired && !state.archiveActive &&
+        !state.deletionActive && !state.forkActive && !state.creationActive
+    val currentInventoryScope by rememberUpdatedState(inventoryScope)
+    val currentInventoryEligible by rememberUpdatedState(inventoryEligible)
+    val currentProfileEligible by rememberUpdatedState(profileEligible)
+    var inspector by remember(state.persistent, inventoryScope) { mutableStateOf<PlayerInspector?>(null) }
+    SideEffect {
+        if ((inspector == PlayerInspector.INVENTORY && !inventoryEligible) ||
+            (inspector == PlayerInspector.PROFILE && !profileEligible)) inspector = null
+    }
     LocalLoreTheme {
         overlay()
+        if (inspector == PlayerInspector.INVENTORY && inventoryEligible) key(state.persistent, inventoryScope) {
+            PlayerInventoryDialog(state.inventory) {
+                if (currentInventoryScope == inventoryScope && inspector == PlayerInspector.INVENTORY) inspector = null
+            }
+        }
+        if (inspector == PlayerInspector.PROFILE && profileEligible) key(state.persistent, inventoryScope) {
+            state.playerProfile?.let { profile ->
+                PlayerSelfProfileDialog(profile, state.rulesProfile, state.revision) {
+                    if (currentInventoryScope == inventoryScope && inspector == PlayerInspector.PROFILE) inspector = null
+                }
+            }
+        }
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { safePadding ->
             Box(
-                modifier = Modifier.fillMaxSize().padding(safePadding),
+                modifier = Modifier.fillMaxSize().padding(safePadding)
+                    .consumeWindowInsets(safePadding).imePadding(),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 Column(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {
+                chatAnnouncement(state)?.let { announcement ->
+                    Text(
+                        announcement,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
+                            .testTag("chat-announcement").semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
                 // A single scroll surface keeps actions reachable in landscape and at large fonts.
                 LazyColumn(
                     state = transcriptNavigation.listState,
@@ -188,24 +243,46 @@ internal fun LocalLoreScreen(
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (state.persistent && state.stories.isNotEmpty()) {
                                 var libraryExpanded by remember { mutableStateOf(false) }
+                                var libraryOwner by remember { mutableStateOf<Any?>(null) }
+                                val renderedLibraryOwner = libraryOwner
                                 Box {
-                                    TextButton(onClick = { libraryExpanded = true }, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
-                                        modifier = Modifier.testTag("saved-library")) {
-                                        Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
+                                    key(StorageActionIdentity(state)) {
+                                        TextButton(onClick = {
+                                            if (storageControls.active && currentStorageState.value === state) {
+                                                libraryOwner = Any(); libraryExpanded = true
+                                            }
+                                        }, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
+                                            modifier = Modifier.testTag("saved-library")) {
+                                            Text("Saved stories · ${state.stories.size} · ${state.selectedStory?.story.orEmpty()}")
+                                        }
                                     }
                                     DropdownMenu(expanded = libraryExpanded && !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
-                                        onDismissRequest = { libraryExpanded = false },
+                                        onDismissRequest = {
+                                            if (libraryOwner === renderedLibraryOwner) {
+                                                libraryExpanded = false; libraryOwner = null
+                                            }
+                                        },
                                         modifier = Modifier.semantics { testTagsAsResourceId = exposeTestTags }) {
                                         state.stories.forEach { story ->
-                                            DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
-                                                onClick = { libraryExpanded = false; onResume(story) },
-                                                modifier = Modifier.testTag("saved-story-${story.story}"))
+                                            key(StorageActionIdentity(state), StorageActionIdentity(story), renderedLibraryOwner) {
+                                                DropdownMenuItem(text = { Text("${story.title} · ${story.story} · revision ${story.revision}") },
+                                                    onClick = {
+                                                        if (storageControls.active && currentStorageState.value === state && libraryExpanded &&
+                                                            renderedLibraryOwner != null && libraryOwner === renderedLibraryOwner) {
+                                                            libraryExpanded = false; libraryOwner = null
+                                                            onResume(story)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.testTag("saved-story-${story.story}"))
+                                            }
                                         }
                                     }
                                 }
                             }
                             if (onTimeline != null && state.persistent && state.selectedStory != null && state.timelines.isNotEmpty()) {
                                 var timelinesExpanded by remember(state.selectedStory.story) { mutableStateOf(false) }
+                                var timelineOwner by remember(state.selectedStory.story) { mutableStateOf<Any?>(null) }
+                                val renderedTimelineOwner = timelineOwner
                                 val canSelect = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired
                                 val selected = state.timelines.firstOrNull { it.branch == state.selectedStory.branch }
                                 selected?.let { timeline ->
@@ -215,28 +292,48 @@ internal fun LocalLoreScreen(
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                                 Box {
-                                    TextButton(onClick = { timelinesExpanded = true }, enabled = canSelect,
-                                        modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-library")) {
-                                        Text("Choose timeline · ${state.timelines.size}")
+                                    key(StorageActionIdentity(state)) {
+                                        TextButton(onClick = {
+                                            if (storageControls.active && currentStorageState.value === state) {
+                                                timelineOwner = Any(); timelinesExpanded = true
+                                            }
+                                        }, enabled = canSelect,
+                                            modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-library")) {
+                                            Text("Choose timeline · ${state.timelines.size}")
+                                        }
                                     }
                                     DropdownMenu(expanded = timelinesExpanded && canSelect,
-                                        onDismissRequest = { timelinesExpanded = false },
+                                        onDismissRequest = {
+                                            if (timelineOwner === renderedTimelineOwner) {
+                                                timelinesExpanded = false; timelineOwner = null
+                                            }
+                                        },
                                         modifier = Modifier.semantics { testTagsAsResourceId = exposeTestTags }) {
                                         state.timelines.forEach { timeline ->
-                                            DropdownMenuItem(text = { Text("${timeline.branch} · " +
-                                                (timeline.parentBranch?.let { "from $it at ${timeline.forkRevision}" } ?: "original") +
-                                                " · revision ${timeline.revision} · ${timeline.uncommittedDrafts} uncommitted") },
-                                                onClick = { timelinesExpanded = false; onTimeline(timeline) },
-                                                modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-${timeline.branch}"))
+                                            key(StorageActionIdentity(state), StorageActionIdentity(timeline), renderedTimelineOwner) {
+                                                DropdownMenuItem(text = { Text("${timeline.branch} · " +
+                                                    (timeline.parentBranch?.let { "from $it at ${timeline.forkRevision}" } ?: "original") +
+                                                    " · revision ${timeline.revision} · ${timeline.uncommittedDrafts} uncommitted") },
+                                                    onClick = {
+                                                        if (storageControls.active && currentStorageState.value === state && timelinesExpanded &&
+                                                            renderedTimelineOwner != null && timelineOwner === renderedTimelineOwner) {
+                                                            timelinesExpanded = false; timelineOwner = null
+                                                            onTimeline(timeline)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.heightIn(min = 48.dp).testTag("timeline-${timeline.branch}"))
+                                            }
                                         }
                                     }
                                 }
                             }
                             if (forkAvailable && state.persistent && (state.selectedStory != null || forkRecoveryAvailable)) {
-                                OutlinedButton(onClick = onFork,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
-                                    modifier = Modifier.heightIn(min = 48.dp).testTag("fork-timeline")) {
-                                    Text(if (forkRecoveryAvailable) "Recover timeline request…" else "New timeline…")
+                                key(StorageActionIdentity(state)) {
+                                    OutlinedButton(onClick = { if (storageControls.active && currentStorageState.value === state) onFork() },
+                                        enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
+                                        modifier = Modifier.heightIn(min = 48.dp).testTag("fork-timeline")) {
+                                        Text(if (forkRecoveryAvailable) "Recover timeline request…" else "New timeline…")
+                                    }
                                 }
                             }
                             if (state.forkActive) Text("Timeline review is open or finishing. Other actions are paused.",
@@ -260,29 +357,48 @@ internal fun LocalLoreScreen(
                             }
                         }
                     }
-                    if (state.persistent && state.selectedStory == null) item(key = "empty-library") {
-                        Text("No saved stories. Choose New story to begin.", modifier = Modifier.testTag("empty-library"))
+                    savedLibraryStatus(state)?.let { status ->
+                        item(key = "empty-library") {
+                            Text(status.message, modifier = Modifier.testTag(status.tag).semantics {
+                                liveRegion = LiveRegionMode.Polite
+                            })
+                        }
                     }
-                    if (!state.persistent || state.selectedStory != null) item(key = "scene") {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (sceneHeading != null) item(key = "scene") {
+                        Column(modifier = Modifier.testTag("story-heading"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                             Text(
-                                "Lantern Quay",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontFamily = FontFamily.Serif,
-                                modifier = Modifier.semantics { heading() },
+                                if (state.persistent) "Saved story" else "Demo scene",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("story-heading-kind"),
                             )
                             Text(
-                                "The tide laps below the quay. Mira waits beside you. " +
-                                    "Oren’s borrowed brass key rests in your satchel.",
+                                sceneHeading.title,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontFamily = FontFamily.Serif,
+                                modifier = Modifier.testTag("story-heading-title").semantics { heading() },
+                            )
+                            Text(
+                                sceneHeading.introduction,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontFamily = FontFamily.Serif,
+                                modifier = Modifier.testTag("story-heading-introduction"),
                             )
                         }
                     }
                     if (!state.persistent || state.selectedStory != null) item(key = "state") {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
+                            if (state.persistent) key(state.persistent, inventoryScope) {
+                                PlayerInventorySummary(state.inventory, inventoryEligible) {
+                                    if (inventoryEligible && currentInventoryEligible && currentInventoryScope == inventoryScope)
+                                        inspector = PlayerInspector.INVENTORY
+                                }
+                                PlayerSelfProfileSummary(state.playerProfile, profileEligible) {
+                                    if (profileEligible && currentProfileEligible && currentInventoryScope == inventoryScope)
+                                        inspector = PlayerInspector.PROFILE
+                                }
+                            } else Text(
                                 "Healing potion · ${state.potionOwner}",
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.testTag("potion-owner"),
@@ -302,6 +418,7 @@ internal fun LocalLoreScreen(
                         ) {
                             Text(
                                 if (message.isPlayer) "You" else "Narrator",
+                                modifier = if (exposeTestTags) Modifier.testTag("message-role-${message.id}") else Modifier,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -322,9 +439,7 @@ internal fun LocalLoreScreen(
                             Text(
                                 state.notice.orEmpty(),
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.testTag("notice").semantics {
-                                    liveRegion = LiveRegionMode.Polite
-                                },
+                                modifier = Modifier.testTag("notice"),
                             )
                         }
                     }
@@ -373,10 +488,13 @@ internal fun LocalLoreScreen(
                     }
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (state.persistent && state.recoveryRequired) OutlinedButton(
-                                onClick = onRecover, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recover-save"),
-                            ) { Text("Recover saved progress") }
+                            if (state.persistent && state.recoveryRequired && !state.localRestartRequired) key(StorageActionIdentity(state)) {
+                                OutlinedButton(
+                                    onClick = { if (storageControls.active && currentStorageState.value === state) onRecover() },
+                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recover-save"),
+                                ) { Text("Recover saved progress") }
+                            }
                             AnimatedVisibility(visible = state.busy) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(
@@ -389,36 +507,42 @@ internal fun LocalLoreScreen(
                                             strokeWidth = 2.dp,
                                         )
                                         Text(
-                                            when {
-                                                state.preparingResponse -> "Preparing local response…"
-                                                state.checkingCancellation -> "Checking cancellation…"
-                                                else -> "Opening saved progress…"
-                                            },
+                                            chatBusyStatus(state),
                                             style = MaterialTheme.typography.bodyMedium,
-                                            modifier = Modifier.testTag("busy-status").semantics {
-                                                liveRegion = LiveRegionMode.Polite
-                                            },
+                                            modifier = Modifier.testTag("busy-status"),
                                         )
                                     }
-                                    if (state.preparingResponse) OutlinedButton(
-                                        onClick = onCancel,
-                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                            .testTag("cancel-turn"),
-                                    ) { Text("Cancel response") }
+                                    if (state.preparingResponse) key(ResponseCancelIdentity(state.responseOwner ?: state)) {
+                                        OutlinedButton(
+                                            onClick = onCancel,
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                                .testTag("cancel-turn"),
+                                        ) { Text("Cancel response") }
+                                    }
                                 }
                             }
-                            Button(
-                                onClick = { onAction(DemoAction.GIVE_POTION) },
-                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                    .testTag("give-potion"),
-                            ) { Text("Give potion to Mira") }
-                            OutlinedButton(
-                                onClick = { onAction(DemoAction.TRY_ABILITY) },
-                                enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired && (!state.persistent || state.selectedStory != null),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                    .testTag("try-ability"),
-                            ) { Text("Try unlearned ability") }
+                            // Recreate button controllers on a logical scope change. Retained
+                            // semantics actions still check current scope and action availability.
+                            key(renderedActionPersistent, actionScope) {
+                                Button(
+                                    onClick = {
+                                        if (!currentActionBlocked && currentActionPersistent == renderedActionPersistent &&
+                                            currentActionScope == actionScope) onAction(DemoAction.GIVE_POTION)
+                                    },
+                                    enabled = !actionBlocked,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .testTag("give-potion"),
+                                ) { Text("Give potion to Mira") }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (!currentActionBlocked && currentActionPersistent == renderedActionPersistent &&
+                                            currentActionScope == actionScope) onAction(DemoAction.TRY_ABILITY)
+                                    },
+                                    enabled = !actionBlocked,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .testTag("try-ability"),
+                                ) { Text("Try unlearned ability") }
+                            }
                         }
                     }
                     if (onStoryRecord != null) item(key = "story-record") {
@@ -487,3 +611,17 @@ private fun DemoMode.label(): String = when (this) {
     DemoMode.DELAYED -> "Delayed"
     DemoMode.FAILED -> "Failure"
 }
+
+/** Retire only the response Cancel node; keep the composer and transcript intact. */
+private class ResponseCancelIdentity(private val value: Any) {
+    override fun equals(other: Any?) = other is ResponseCancelIdentity && other.value === value
+    override fun hashCode() = System.identityHashCode(value)
+}
+
+private class StorageActionIdentity(val value: Any) {
+    override fun equals(other: Any?) = other is StorageActionIdentity && other.value === value
+    override fun hashCode() = System.identityHashCode(value)
+}
+
+/** Event callbacks from a disposed Screen must not borrow a surviving ViewModel. */
+private class StorageActionLifetime { var active = true }

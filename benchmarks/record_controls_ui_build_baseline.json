@@ -1,0 +1,362 @@
+{
+  "version": 1,
+  "scope": "fixed-b66-byte-attestation-v1",
+  "product": {
+    "root": "D:\\Worktrees\\locallore-record-actions-core-v1",
+    "capture": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1",
+    "recovery": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-promise-status-browse-v1",
+    "manifest": "D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-harness-v1/record-controls-ui-build-v1.json",
+    "head": "97d07f8923337f7e215d77f2f169ffd5cd4d2c1e",
+    "tested_head": "62e9a50ab8a3734aa88bfebc220615a5241dfefe",
+    "native_tested_head": "fa2ef2eb04b4e61626656e0c1993704b7fff520c",
+    "previous_head": "0c5c7c7ba2048575248a7e7151043db03e43b901",
+    "source_count": 2570,
+    "tested_count": 2569,
+    "certificate": "17ed497138b20dc1657d54039802305cfe0e3b782c73feaad20359c954707564",
+    "apks": {
+      "product_apk": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\outputs\\apk\\debug\\app-debug.apk",
+        "bytes": 28329835,
+        "sha256": "05813d21eb261fc694bd48485d5a5cb656206334577e4cdd543f703b558d66ad"
+      },
+      "test_apk": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\outputs\\apk\\androidTest\\debug\\app-debug-androidTest.apk",
+        "bytes": 2456353,
+        "sha256": "07d29a26ecf49060b7affc18b72d656559533fd947fffc42f88c53de71a3050a"
+      }
+    }
+  },
+  "refs": {
+    "build": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\closed-evidence-v1.json",
+      "bytes": 108299,
+      "sha256": "d4207a55f3a0245a5ff5044033c47ff39b88c6dc35f5273c1ac2fd061a4e51c7"
+    },
+    "before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\source-before-v1.json",
+      "bytes": 487422,
+      "sha256": "f71469e57d9623b8ec0630048032c1df448707effdca6a025b7b05da03896cbb"
+    },
+    "after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\source-after-v1.json",
+      "bytes": 487422,
+      "sha256": "f71469e57d9623b8ec0630048032c1df448707effdca6a025b7b05da03896cbb"
+    },
+    "native_before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\native-v2\\source-before-v1.json",
+      "bytes": 487422,
+      "sha256": "a61e76ba633bdb1464ebeb2888a6fd7c94b06d04c01edc8ad80ac1fb2e52e29f"
+    },
+    "native_after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\native-v2\\source-after-v1.json",
+      "bytes": 487422,
+      "sha256": "a61e76ba633bdb1464ebeb2888a6fd7c94b06d04c01edc8ad80ac1fb2e52e29f"
+    },
+    "tested_archive": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\source-tested-v1.zip",
+      "bytes": 11353727,
+      "sha256": "a27591012811f09803b42969e0372a7a2a8f2f03b6f0e60f8810f23e2617ab3d"
+    },
+    "native_archive": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\native-v2\\source-tested-v1.zip",
+      "bytes": 11353802,
+      "sha256": "ebd8673b1ed3a025e7c503b1271a69528ed57b6b2fcdb9999ee0afcd42797ddb"
+    },
+    "final_source": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\source-final-v2.json",
+      "bytes": 488991,
+      "sha256": "e6d8f8277c94615ae74ea74502f92828843b7878f0573d820d0c4fa1d116c144"
+    },
+    "previous_source": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\source-final-v1.json",
+      "bytes": 489057,
+      "sha256": "e89436a163cf45079fd3244ec71fc7604ffb15ab7f75a3dcc74e5508274c2d89"
+    },
+    "preservation": {
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-promise-status-browse-v1\\recovery-receipt-v1.json",
+      "bytes": 45108,
+      "sha256": "80caad5a1c58d19c2b4fe93c5d26ce097017756fb8692f9fd1c79aa80d16dda5"
+    },
+    "reviews": {
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-promise-status-browse-v1\\independent-final-readback-v1.json",
+      "bytes": 2578,
+      "sha256": "01a470829f387a2414bfeb3ca3ff1591b5d56d91d93be66a7e7ef07af96fab2e"
+    },
+    "addendum": {
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-promise-status-browse-v1\\preservation-addendum-v1.json",
+      "bytes": 3465,
+      "sha256": "115df9606aa476dd972bb8e992206e99ef40626c51ddc8a9e6f425bf3941aaf3"
+    },
+    "addendum_review": {
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-promise-status-browse-v1\\independent-addendum-readback-v1.json",
+      "bytes": 1634,
+      "sha256": "6e6acac4366c7a032e69da80c1ae3122295899a82d6cb23e535ab3bbc31daa63"
+    },
+    "build_review": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\independent-evidence-readback-v1.json",
+      "bytes": 4662,
+      "sha256": "a7e5133f41aa7e79a05a83679b7e4bfc975d22fe6b55fe96c27bd415adad9c5d"
+    },
+    "request": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\request-v1.json",
+      "bytes": 1583,
+      "sha256": "728c7ee4b78de7658a820038a8c78fd2538ae8f179199480ed851d7c8b78f7ee"
+    },
+    "actual_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\actual-child-v1.json",
+      "bytes": 300,
+      "sha256": "a26d2a5ae2b67a51ac8183f60e0bd61b75409f8082978eab8f61ea70ea176d3d"
+    },
+    "command_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\command-child-v1.json",
+      "bytes": 366,
+      "sha256": "eec269d29604ef196415375ed92f1f04ceeece518c7557f17867a9221919e0ae"
+    },
+    "command_terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\command-terminal-v1.json",
+      "bytes": 45,
+      "sha256": "f82c1e302844d8bc3803d75fd24d28f803b7b1d2f6de65e0395ccbb66d4e6827"
+    },
+    "owner": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\owner-result-v1.json",
+      "bytes": 190,
+      "sha256": "b94657d3265024dffe992de72888a49a29d499e011706a7f1ca9a4b79f6286da"
+    },
+    "terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\terminal-v1.json",
+      "bytes": 2191,
+      "sha256": "4feb6a57fac29197fa7e5c08fe6143a1ae0fa5d27a3e572628caa32a08955759"
+    },
+    "helper": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\run-check-v1.py",
+      "bytes": 6651,
+      "sha256": "70848a1e0d913393dd2a4a2228e7b55ec5d0867c381e4f23f48d8ba08e2e1aa0"
+    },
+    "stdout": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\owner-stdout-v1.bin",
+      "bytes": 7849,
+      "sha256": "5ac81f7b1a5e0210934ff4051798407df2192397606a48eb5ff82b7163fb66ea"
+    },
+    "stderr": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\android-v1\\owner-stderr-v1.bin",
+      "bytes": 354,
+      "sha256": "0dd7b6194cc6b6b43377320ba62be3c9faf92baff4f7fe227c7e74b31b457250"
+    },
+    "prior_limitation": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-promise-status-browse-v1\\prior-generated-evidence-continuity-v1.json",
+      "bytes": 25015,
+      "sha256": "0634a4b37914188587b83d8088a94b14b989dbb77bc3ecba30cb6e2d96aa7109"
+    },
+    "current": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-record-controls-ui-harness-v1\\current-nineteen-artifact-readback-v2.json",
+      "bytes": 21673,
+      "sha256": "1a4f856d9c74627ee870c0a65eb6562cb43d8f4f7039338f7d7bbb41ad216e97"
+    }
+  },
+  "roster": [
+    [
+      "chat_ime_latest",
+      "org.locallore.app.ui.ChatImeInsetsTest",
+      "injectedImeKeepsLatestAboveOcclusionWithoutDoublePaddingSystemBars"
+    ],
+    [
+      "chat_ime_composer",
+      "org.locallore.app.ui.ChatImeInsetsTest",
+      "doubleFontComposerKeepsSendReachableAndDraftScopedAcrossInjectedImeChanges"
+    ],
+    [
+      "chat_status_history",
+      "org.locallore.app.ui.ChatStatusAnnouncementTest",
+      "historyReaderKeepsItsAnchorWhileCurrentBusyAndOutcomeAnnouncementsStayAvailable"
+    ],
+    [
+      "chat_status_draft",
+      "org.locallore.app.ui.ChatStatusAnnouncementTest",
+      "unicodeDialogueAndScopeStaySafeWhileEllipsizedNoticeKeepsFullSemantics"
+    ],
+    [
+      "chat_heading_selection",
+      "org.locallore.app.ui.StoryHeadingScreenTest",
+      "selectedAuthoredTitlesStayInsideTheIntroWhileDemoAndUnresolvedControlsRemainExact"
+    ],
+    [
+      "chat_heading_draft",
+      "org.locallore.app.ui.StoryHeadingScreenTest",
+      "titleRefreshRetainsDialogueButStoryAndBranchChangesFenceDraftsAndRetainedEdits"
+    ],
+    [
+      "chat_action_scope",
+      "org.locallore.app.ui.QuickActionScopeScreenTest",
+      "retainedStoryAndBranchClicksStayQuietWhileFreshControlsPreserveTheUnsentDialogue"
+    ],
+    [
+      "chat_action_availability",
+      "org.locallore.app.ui.QuickActionScopeScreenTest",
+      "persistentDemoAndWorkflowFencesDoNotTurnTextUnavailabilityIntoAnActionBlock"
+    ],
+    [
+      "inventory_entries",
+      "org.locallore.app.ui.PlayerInventoryScreenTest",
+      "savedRowsKnownEmptyAndUnavailableStayDistinctWhileDemoKeepsItsOriginalPotionRow"
+    ],
+    [
+      "inventory_scope",
+      "org.locallore.app.ui.PlayerInventoryScreenTest",
+      "scopeChangesFenceRetainedOpenAndCloseWhileAcceptedRefreshesKeepTheUnsentDialogue"
+    ],
+    [
+      "inventory_accessibility",
+      "org.locallore.app.ui.PlayerInventoryScreenTest",
+      "doubledFontKeepsLongExactIdentifiersAllQuantitiesAndCloseReachableWithoutGameActions"
+    ],
+    [
+      "profile_fields",
+      "org.locallore.app.ui.PlayerSelfProfileScreenTest",
+      "acceptedFieldsEmptyUnavailableAndNarrativeApplicabilityStaySeparateFromDemo"
+    ],
+    [
+      "profile_scope",
+      "org.locallore.app.ui.PlayerSelfProfileScreenTest",
+      "retainedInspectorCallbacksRespectScopesWorkflowClosureAndAcceptedRefreshWithoutSendingDraft"
+    ],
+    [
+      "profile_accessibility",
+      "org.locallore.app.ui.PlayerSelfProfileScreenTest",
+      "doubledFontKeepsFullUnicodeCollectionsAndCloseReachableWithoutCanonicalCallbacks"
+    ],
+    [
+      "record_scope_story",
+      "org.locallore.app.ui.StoryRecordActionScopeScreenTest",
+      "retainedSearchNextAndCloseCannotRetargetAnotherStoryOrBranchAndFreshControlsStillWork"
+    ],
+    [
+      "record_scope_reopen",
+      "org.locallore.app.ui.StoryRecordActionScopeScreenTest",
+      "equalValuedReopenAndLaterPagesRejectOldButtonsWithoutResettingTheCurrentDialogue"
+    ],
+    [
+      "record_scope_detail",
+      "org.locallore.app.ui.StoryRecordActionScopeScreenTest",
+      "retainedListAndEventRetryBackAndSourceActionsCannotAffectFreshDetailsOrReopenedRecords"
+    ],
+    [
+      "promise_status_browse",
+      "org.locallore.app.ui.PromiseStatusScreenTest",
+      "statusPagingAndEvidenceBackKeepTheNativePresetWhileTextSearchReturnsToAll"
+    ],
+    [
+      "promise_status_scope",
+      "org.locallore.app.ui.PromiseStatusScreenTest",
+      "retainedPresetCannotRetargetLaterStatusEqualReopenOrAnotherStory"
+    ]
+  ],
+  "facts": {
+    "android_runtime_executed": false,
+    "model_material": false,
+    "deep_semantic_review_repeated": false,
+    "full_tool_binary_provenance": false,
+    "full_cache_or_TEMP_meter": false,
+    "jvm_cases": 479,
+    "jvm_suites": 58,
+    "jvm_failures": 0,
+    "jvm_errors": 0,
+    "jvm_skips": 0,
+    "selected_runtime_methods": 19,
+    "recorded_current_roster_junit_definitions": 19,
+    "new_compiled_journeys": 5,
+    "prior_exact_generated_xml_unrecoverable": 57
+  },
+  "native": [
+    {
+      "abi": "x86_64",
+      "release": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\rust-target\\x86_64-linux-android\\release\\liblocallore_android.so",
+        "bytes": 11561064,
+        "sha256": "ab62d5d7f57e99fed5c9ce29fdf381c927e8ccbe9f2c96a198baefdf5fd6f93e"
+      },
+      "cargo_alias": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\rust-target\\x86_64-linux-android\\release\\deps\\liblocallore_android.so",
+        "bytes": 11561064,
+        "sha256": "ab62d5d7f57e99fed5c9ce29fdf381c927e8ccbe9f2c96a198baefdf5fd6f93e"
+      },
+      "generated": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\generated\\rustJniLibs\\x86_64\\liblocallore_android.so",
+        "bytes": 11561064,
+        "sha256": "ab62d5d7f57e99fed5c9ce29fdf381c927e8ccbe9f2c96a198baefdf5fd6f93e"
+      },
+      "merged": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\intermediates\\merged_native_libs\\debug\\mergeDebugNativeLibs\\out\\lib\\x86_64\\liblocallore_android.so",
+        "bytes": 11561064,
+        "sha256": "ab62d5d7f57e99fed5c9ce29fdf381c927e8ccbe9f2c96a198baefdf5fd6f93e"
+      },
+      "stripped": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\intermediates\\stripped_native_libs\\debug\\stripDebugDebugSymbols\\out\\lib\\x86_64\\liblocallore_android.so",
+        "bytes": 9544280,
+        "sha256": "953bd1c52590a99a3814ca4d37d8f2099ac8f6e65048daef9812f0b1c701f6b0"
+      },
+      "apk_sha256": "953bd1c52590a99a3814ca4d37d8f2099ac8f6e65048daef9812f0b1c701f6b0"
+    },
+    {
+      "abi": "arm64-v8a",
+      "release": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\rust-target\\aarch64-linux-android\\release\\liblocallore_android.so",
+        "bytes": 11229904,
+        "sha256": "e82ad4a686967d772f9c472e6d031a4f0d2c0cafe64910245e3026368ff28460"
+      },
+      "cargo_alias": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\rust-target\\aarch64-linux-android\\release\\deps\\liblocallore_android.so",
+        "bytes": 11229904,
+        "sha256": "e82ad4a686967d772f9c472e6d031a4f0d2c0cafe64910245e3026368ff28460"
+      },
+      "generated": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\generated\\rustJniLibs\\arm64-v8a\\liblocallore_android.so",
+        "bytes": 11229904,
+        "sha256": "e82ad4a686967d772f9c472e6d031a4f0d2c0cafe64910245e3026368ff28460"
+      },
+      "merged": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\intermediates\\merged_native_libs\\debug\\mergeDebugNativeLibs\\out\\lib\\arm64-v8a\\liblocallore_android.so",
+        "bytes": 11229904,
+        "sha256": "e82ad4a686967d772f9c472e6d031a4f0d2c0cafe64910245e3026368ff28460"
+      },
+      "stripped": {
+        "path": "D:\\Worktrees\\locallore-record-actions-core-v1\\apps\\android\\app\\build\\intermediates\\stripped_native_libs\\debug\\stripDebugDebugSymbols\\out\\lib\\arm64-v8a\\liblocallore_android.so",
+        "bytes": 8539032,
+        "sha256": "29d2cfb31b8c91f49524a7016db09c348d2de3fd4c42761958f5ff8adb5c9808"
+      },
+      "apk_sha256": "29d2cfb31b8c91f49524a7016db09c348d2de3fd4c42761958f5ff8adb5c9808"
+    }
+  ],
+  "documentation_only_delta": [
+    "README.md",
+    "docs/android/PROMISE_STATUS_BROWSING_2026-11-01.md",
+    "docs/android/RECORD_QUERY2_CONTRACT_2026-10-31.md"
+  ],
+  "preserved_controls": {
+    "controls": {
+      "count": 109,
+      "bytes": 37801220
+    },
+    "addendum": {
+      "count": 8,
+      "bytes": 581330
+    }
+  },
+  "source_encoding": "Exact recorded raw worktree bytes; Git commit identity does not authorize newline normalization",
+  "dex_inputs": {
+    "contract": {
+      "path": "D:\\Worktrees\\locallore-record-controls-ui-core-v1\\benchmarks\\owned_record_controls_ui_contract.py",
+      "bytes": 6149,
+      "sha256": "54a377184d8307c072677f96d0922143a1cd8d0b6ac2e6f3aa13bc3727c99555"
+    },
+    "reader": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-record-controls-ui-harness-v1\\read-current-artifacts-v2.py",
+      "bytes": 7040,
+      "sha256": "6eaebb03ec932a006b591712f77e944c9e188c1ae33e240ba4b6eff75256cb00"
+    },
+    "dex_parser": {
+      "path": "D:\\Worktrees\\locallore-record-controls-ui-core-v1\\scripts\\audit_physical_model_apk.py",
+      "bytes": 22713,
+      "sha256": "27a26f4872a2beffae356aef57fe0e0036250d4c581127cfbc18cd9a2d9b8219"
+    }
+  }
+}

@@ -11,6 +11,7 @@ import type { NativeCloseController } from "./native-close-controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import { sameReaderObserver } from "./comparison-reader-model";
 import { ArchivePanel } from "./ArchivePanel";
+import { archiveContextKey } from "./archive-model";
 import type { ArchiveController } from "./archive-controller";
 import { TimelinePanel } from "./TimelinePanel";
 import { ForkPanel } from "./ForkPanel";
@@ -163,6 +164,12 @@ function SelectedExperiment({
             sourceProtocolVersion={
                 supportedSourceProtocol ? sourceProtocolVersion : undefined
             }
+            nativeSceneSelected={
+                source !== null &&
+                sourceProtocolVersion === 4 &&
+                snapshot.status?.binding === source.binding &&
+                snapshot.source?.selected_native_format === 4
+            }
         />
     );
 }
@@ -252,6 +259,7 @@ export function App({
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
         receipt = c.receipt();
+    const storageReady = s.workspace !== null || s.ephemeral;
     const syntheticFreeText = s.freeTextProvider?.kind === "synthetic_fixture";
     const scoped = useSyncExternalStore<V2PlayState | null>(
         v2?.subscribe ?? noScopedSubscription,
@@ -493,7 +501,7 @@ export function App({
                         disabled={
                             s.sessions.length >= 4 ||
                             s.starting ||
-                            (!s.workspace && !s.ephemeral)
+                            !storageReady
                         }
                         onClick={() => void c.create()}
                     >
@@ -543,7 +551,7 @@ export function App({
                             </p>
                         </details>
                     )}
-                    {!s.workspace && !s.ephemeral && !s.starting && (
+                    {!storageReady && !s.starting && (
                         <button onClick={() => void c.start()}>
                             Retry opening saved workspace
                         </button>
@@ -608,12 +616,21 @@ export function App({
                         <div className="topline">
                             <div>
                                 <h1>
-                                    {selected?.name ?? "Open an original scene"}
+                                    {selected?.name ??
+                                        (s.starting
+                                            ? "Opening workspace…"
+                                            : storageReady
+                                              ? "Open an original scene"
+                                              : "Saved workspace unavailable")}
                                 </h1>
                                 <small>
                                     {selected
                                         ? `${selected.scope.story} / ${selected.scope.branch}`
-                                        : "Choose New Lantern Quay to begin."}
+                                        : s.starting
+                                          ? "Checking storage before opening a story."
+                                          : storageReady
+                                            ? "Choose New Lantern Quay to begin."
+                                            : "Use Retry opening saved workspace to try again."}
                                 </small>
                             </div>
                             {!s.playV2 && (
@@ -707,20 +724,26 @@ export function App({
                         maintenance &&
                         maintenanceContext &&
                         selected && (
-                            <MemoryMaintenancePanel
-                                maintenance={maintenance}
-                                context={maintenanceContext()}
-                                receipt={
-                                    receipt
-                                        ? {
-                                              turn: receipt.request.turn,
-                                              revision:
-                                                  receipt.events.at(-1)
-                                                      ?.sequence ?? 0,
-                                          }
-                                        : undefined
-                                }
-                            />
+                            <details
+                                className="workspace-tool"
+                                open={s.view === "lab"}
+                            >
+                                <summary>Memory maintenance</summary>
+                                <MemoryMaintenancePanel
+                                    maintenance={maintenance}
+                                    context={maintenanceContext()}
+                                    receipt={
+                                        receipt
+                                            ? {
+                                                  turn: receipt.request.turn,
+                                                  revision:
+                                                      receipt.events.at(-1)
+                                                          ?.sequence ?? 0,
+                                              }
+                                            : undefined
+                                    }
+                                />
+                            </details>
                         )}
                     {timeline && selected && (
                         <TimelinePanel
@@ -810,17 +833,29 @@ export function App({
                         <ComparisonReaderPanel controller={comparison} />
                     )}
                     {comparison && selectedEvaluation && (
-                        <SelectedExperiment
-                            comparison={comparison}
-                            selected={selectedEvaluation}
-                        />
+                        <details
+                            className="workspace-tool"
+                            open={s.view === "lab"}
+                        >
+                            <summary>
+                                Selected experiments and worker cleanup
+                            </summary>
+                            <SelectedExperiment
+                                comparison={comparison}
+                                selected={selectedEvaluation}
+                            />
+                        </details>
                     )}
                     {archive && (
                         <ArchivePanel
                             archive={archive}
                             controller={c}
-                            context={`${s.selectedId}|${s.view}|${s.observer}`}
-                            allowed={s.view === "lab"}
+                            context={archiveContextKey(
+                                selected,
+                                s.view,
+                                s.observer,
+                            )}
+                            allowed={s.view === "lab" && !s.disposed}
                         />
                     )}
                     {s.playV2 && v2 ? (

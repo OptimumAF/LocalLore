@@ -24,7 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -106,7 +106,7 @@ open class LocalModelSetupActivity : ComponentActivity() {
         }
         model = ViewModelProvider(this, factory)[LocalModelSetupViewModel::class.java]
         setContent {
-            val state by model.state.collectAsStateWithLifecycle()
+            val state = model.state.collectAsStateWithLifecycle().value
             MaterialTheme(colorScheme = lightColorScheme(
                 primary = Color(0xFF18584E), onPrimary = Color.White,
                 surface = Color(0xFFF8F5EC), background = Color(0xFFF8F5EC),
@@ -137,29 +137,32 @@ open class LocalModelSetupActivity : ComponentActivity() {
                                 .semantics { liveRegion = LiveRegionMode.Polite })
                             if (state.busy) {
                                 CircularProgressIndicator(Modifier.testTag("model-setup-progress"))
-                                OutlinedButton(onClick = model::cancel,
-                                    enabled = state.phase != LocalModelSetupPhase.STOPPING,
-                                    modifier = Modifier.testTag("model-import-cancel")) { Text("Cancel file operation") }
                             }
-                            Button(onClick = {
-                                if (model.beginPicker()) {
-                                    try { picker.launch(arrayOf("*/*")) }
-                                    catch (_: Exception) { model.pickerFailed() }
+                            key(state) {
+                                if (state.busy) {
+                                    OutlinedButton(onClick = { model.cancel(state) },
+                                        enabled = state.canCancel,
+                                        modifier = Modifier.testTag("model-import-cancel")) { Text("Cancel file operation") }
                                 }
-                            }, enabled = state.canChoose, modifier = Modifier.fillMaxWidth().testTag("model-choose")) {
-                                Text("Choose local model file")
-                            }
-                            OutlinedButton(onClick = { model.recheck() }, enabled = !state.busy && state.phase !in
-                                setOf(LocalModelSetupPhase.PICKING, LocalModelSetupPhase.OPENING, LocalModelSetupPhase.SESSION_HELD),
-                                modifier = Modifier.fillMaxWidth().testTag("model-recheck")) { Text("Check local copy") }
-                            Button(onClick = {
-                                if (model.beginPlay()) {
-                                    try {
-                                        dependencies.openPlay()
-                                    } catch (_: Exception) { model.playLaunchFailed() }
+                                Button(onClick = {
+                                    if (model.beginPicker(state)) {
+                                        try { picker.launch(arrayOf("*/*")) }
+                                        catch (_: Exception) { model.pickerFailed() }
+                                    }
+                                }, enabled = state.canChoose, modifier = Modifier.fillMaxWidth().testTag("model-choose")) {
+                                    Text("Choose local model file")
                                 }
-                            }, enabled = state.ready, modifier = Modifier.fillMaxWidth().testTag("model-start")) {
-                                Text("Start local story")
+                                OutlinedButton(onClick = { model.recheck(state) }, enabled = state.canRecheck,
+                                    modifier = Modifier.fillMaxWidth().testTag("model-recheck")) { Text("Check local copy") }
+                                Button(onClick = {
+                                    if (model.beginPlay(state)) {
+                                        try {
+                                            dependencies.openPlay()
+                                        } catch (_: Exception) { model.playLaunchFailed() }
+                                    }
+                                }, enabled = state.ready, modifier = Modifier.fillMaxWidth().testTag("model-start")) {
+                                    Text("Start local story")
+                                }
                             }
                             TextButton(onClick = { finish() }) { Text("Close") }
                         }

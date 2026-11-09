@@ -55,6 +55,48 @@ This lets successful synthetic imports use production wiring without changing
 the actual model identity or pretending that tiny data is a runnable model.
 No weights, account, downloader, Internet permission or inference is added.
 
+## Setup action regression
+
+Select
+`org.locallore.app.ModelPickerActionScopeTest#retiredChooseAndCheckCannotActOnReplacementStatus`
+on an admitted target with the fixture root absent, before any test populates
+that root. The regression retains the real Compose Choose and Check actions,
+uses Check to publish the same visible missing status, and exercises the retired
+actions against the replacement state. The current Choose action must issue one
+openable, local-only document request. An Android instrumentation activity
+monitor returns a canceled result before DocumentsUI opens, and the fixture
+root must remain absent.
+
+This selector covers control ownership and the app's canceled-result handling.
+The separate provider cohort covers actual DocumentsUI, URI delivery and
+descriptor release.
+
+The [host binding policy](../../benchmarks/model_picker_action_binding.py)
+pins this selector to the audited APP and TEST pair and reuses the shared
+AndroidJUnitRunner evidence parser for one complete start/pass pair. The
+policy produces command arguments and checks files and output. The
+[owned controller](../../benchmarks/model_picker_action_controller.py) consumes
+an independently owned API 35 x86_64 guest. It checks user 0 and both package
+names before staging, then verifies the installed APK paths, UIDs and hashes
+before and after the single test. Its result can be replayed from qualified
+command captures. The [prepared-guest handoff](../../benchmarks/model_picker_action_handoff.py)
+joins the exact approval, consumed attempt, prepared guest and its v2 storage
+reservation before the owner can start a private service or boot the guest.
+The owner rechecks the enclosing supervisor, launch window, and pinned approval
+and preparation files. It converts the matching prepared reservation to
+retained through the shared guard. The [supervised operation](../../benchmarks/model_picker_action_operation.py)
+consumes one exact approval, prepares the guest within the shared storage
+budget, and supervises the owner and controller with finite Windows Jobs.
+It verifies the command result and independently replays guest and private
+ADB closure before reporting success. A preparation failure, refusal or
+uncertain closure retains the attempt evidence and blocks a retry.
+
+The [readiness inspector](../../benchmarks/model_picker_action_readiness.py)
+checks the fixed plan and current v2 ledger by their SHA-256 pins. It reports
+advisory storage, host capacity and port facts while authority, attempt and
+guest paths are absent. Preparation and boot still require a separate approval
+and fresh guarded admission.
+
 ## Real document provider and ownership
 
 The conditional TEST APK alone declares `ModelPickerDocumentsProvider` and its

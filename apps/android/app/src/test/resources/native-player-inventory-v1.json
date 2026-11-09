@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "status": "ok",
+  "data": {
+    "version": 2,
+    "domain_version": 2,
+    "scope": { "story": "inventory-native", "branch": "corrected" },
+    "revision": 1,
+    "rules": "fantasy_v1",
+    "player": {
+      "observer": "a-inventory-native-player",
+      "self_state": {
+        "name": "Lio",
+        "location": "quay",
+        "alive": true,
+        "energy": 0,
+        "abilities": {},
+        "attributes": {},
+        "injuries": [],
+        "affiliations": [],
+        "goals": []
+      }
+    },
+    "inventory": {
+      "carry-azure": { "owner": "a-inventory-native-player", "quantity": 7, "return_to": null, "healing": false },
+      "carry-zinc": { "owner": "a-inventory-native-player", "quantity": 3, "return_to": "oren", "healing": true }
+    },
+    "turns": [],
+    "window": { "total": 0, "start": 0, "end": 0 }
+  }
+}

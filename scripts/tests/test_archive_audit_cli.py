@@ -18,14 +18,21 @@ from scripts.tests import test_check as check_fixture
 
 
 APP = "org.locallore.app.archiveverify"
-MODEL_FLAGS = ("--litert-verification", "--model-provisioning", "--model-picker-fixture",
-               "--model-volume-verification", "--model-receipt-verification",
-               "--input-draft-verification", "--input-process-verification")
+CONFLICTING_PROFILE_FLAGS = ("--litert-verification", "--model-provisioning", "--model-picker-fixture",
+                             "--model-volume-verification", "--model-receipt-verification",
+                             "--input-draft-verification", "--input-process-verification",
+                             "--presentation-process-verification")
 
 
 def metadata(package):
-    return tuple(text.replace("org.locallore.app", package)
-                 for text in (f.BADGING, backup.manifest(), backup.RESOURCE))
+    base = "org.locallore.app"
+    permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    badging = f.BADGING.replace(f"'{base}'", f"'{package}'").replace(f.audit.PERMISSION, permission)
+    tree = (backup.manifest().replace(f'"{base}"', f'"{package}"')
+            .replace(f.audit.PERMISSION, permission)
+            .replace(base + ".androidx-startup", package + ".androidx-startup"))
+    resources = backup.RESOURCE.replace("Package name=" + base + " ", "Package name=" + package + " ")
+    return badging, tree, resources
 
 
 def invoke(main, argv):
@@ -115,7 +122,7 @@ class ArchiveAuditCliTests(unittest.TestCase):
         self.assertEqual(calls, [])
 
     def test_archive_conflicts_with_every_existing_model_and_input_flag_before_artifact_work(self):
-        for flag in MODEL_FLAGS:
+        for flag in CONFLICTING_PROFILE_FLAGS:
             with self.subTest(flag=flag):
                 (code, text, _), spies, calls = self.audit(("--archive-verification", flag))
                 self.assertIn(code, (1, 2))
@@ -130,6 +137,8 @@ class ArchiveAuditCliTests(unittest.TestCase):
             badging, tree, resources = metadata(package)
             cases.append(("package:" + package, dict(badging=badging, tree=tree, resources=resources)))
         cases.extend((
+            ("activity_namespace", dict(tree=good_tree.replace("org.locallore.app.MainActivity",
+                                                               APP + ".MainActivity"))),
             ("permission_owner", dict(tree=good_tree.replace(APP + ".DYNAMIC", "org.foreign.app.DYNAMIC"))),
             ("internet", dict(badging=good_badging + "uses-permission: name='android.permission.INTERNET'\n")),
             ("backup_enabled", dict(tree=good_tree.replace("allowBackup(0x01010280)=false", "allowBackup(0x01010280)=true"))),

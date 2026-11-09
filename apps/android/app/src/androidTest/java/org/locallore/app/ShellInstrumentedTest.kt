@@ -35,11 +35,11 @@ class ShellInstrumentedTest {
     }
     private fun give() { tag("give-potion").performClick() }
     private fun assertInitial() {
-        tag("potion-owner").assertTextEquals("Healing potion · You")
+        compose.assertPlayerPotionQuantity(1) { ViewModelProvider(compose.activity)[ShellViewModel::class.java].state.value }
         tag("revision").assertTextEquals("Accepted revision · 0")
     }
     private fun assertAccepted() {
-        tag("potion-owner").assertTextEquals("Healing potion · Not in your inventory")
+        compose.assertPlayerPotionQuantity(null) { ViewModelProvider(compose.activity)[ShellViewModel::class.java].state.value }
         tag("revision").assertTextEquals("Accepted revision · 1")
         val state = ViewModelProvider(compose.activity)[ShellViewModel::class.java].state.value
         assertEquals(2, state.messages.size)

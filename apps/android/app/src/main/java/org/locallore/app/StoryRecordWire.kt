@@ -11,12 +11,15 @@ internal object StoryRecordWire {
         if (!validVersion(query)) throw StoryRecordFailure(StoryRecordProblem.INVALID_RESPONSE)
         if (query.version == 2 && query.cursor != null && !cursorPattern(query).matches(query.cursor))
             throw StoryRecordFailure(StoryRecordProblem.INVALID_RESPONSE)
-        return JSONObject().put("op", "inspection_query").put("session", session).put("query",
+        val command = JSONObject().put("op", if (query.relationshipTarget == null)
+            "inspection_query" else "inspection_relationship_focus").put("session", session).put("query",
             JSONObject().put("version", query.version).put("scope", JSONObject().put("story", query.context.story.story)
                 .put("branch", query.context.story.branch)).put("expected_head", query.context.revision)
                 .put("at_revision", JSONObject.NULL).put("observer", JSONObject().put("kind", "player"))
                 .put("view", query.section.wire).put("limit", STORY_RECORD_PAGE_ROWS)
-                .put("search", query.search).put("cursor", query.cursor ?: JSONObject.NULL))
+                .put("search", nativeSearch(query)).put("cursor", query.cursor ?: JSONObject.NULL))
+        query.relationshipTarget?.let { command.put("target", it.id) }
+        return command
     }
 
     fun decode(data: JSONObject, query: StoryRecordQuery, player: String = "player"): StoryRecordPage = try {
@@ -89,13 +92,16 @@ internal object StoryRecordWire {
                 require(row.text("from") == player)
                 val dimension = row.text("dimension").also { require(it in setOf("respect", "trust", "obligation")) }
                 val value = row.number("value").also { require(it in -32768..32767) }
+                val target = StoryRecordRelationshipTarget(row.text("to", 64).also { require(validStoryRecordTurn(it)) })
+                require(query.relationshipTarget == null || query.relationshipTarget == target)
                 val evidence = row.getJSONObject("source")
                 val (labels, events, scoped) = sources(listOf(evidence), query)
-                StoryRecordEntry(key, "${row.text("to")} · $dimension", value.toString(), origin,
-                    labels, events, scopedEventSources = scoped)
+                StoryRecordEntry(key, "${target.id} · $dimension", value.toString(), origin,
+                    labels, events, scopedEventSources = scoped, relationshipTarget = target)
             }
             "knowledge" -> {
                 require(query.section == StoryRecordSection.KNOWLEDGE)
+                require(query.knowledgeFilter.origin == null || origin == query.knowledgeFilter.origin)
                 require(origin in setOf(StoryRecordOrigin.RECORDED_STATEMENT,
                     StoryRecordOrigin.SUBJECTIVE_BELIEF, StoryRecordOrigin.RECORDED_DISCOVERY) ||
                     (query.version == 1 && origin == StoryRecordOrigin.CANONICAL_TRUTH) ||
@@ -123,12 +129,8 @@ internal object StoryRecordWire {
                 val to = row.text("to", 512)
                 require(from == player || to == player)
                 val deadline = deadline(row.get("deadline"), query.version)
-                val status = when (row.text("status")) {
-                    "open" -> "Open"
-                    "overdue" -> "Overdue"
-                    "fulfilled" -> "Fulfilled"
-                    else -> error("Unknown promise status")
-                }
+                val status = StoryRecordPromiseStatus.entries.single { it.wire == row.text("status") }
+                require(query.promiseFilter.status == null || query.promiseFilter.status == status)
                 require(row.has("return_item"))
                 val item = if (row.isNull("return_item")) null else row.text("return_item", 512)
                 val evidence = row.getJSONArray("sources").also { require(it.length() in 1..64) }
@@ -136,9 +138,9 @@ internal object StoryRecordWire {
                 val labels = sources.map { scopedSourceLabel(it, query) }
                 val references = sources.mapNotNull { scopedEventSource(it, query) }.distinct()
                 StoryRecordEntry(key, "Promise · $id",
-                    "From · $from\nTo · $to\nStatus · $status\nDue at story time · $deadline\n${row.text("terms")}" +
+                    "From · $from\nTo · $to\nStatus · ${status.label}\nDue at story time · $deadline\n${row.text("terms")}" +
                         (item?.let { "\nReturn item · $it" } ?: ""),
-                    origin, labels, scopedEventSources = references)
+                    origin, labels, scopedEventSources = references, promiseStatus = status)
             }
             "message", "scoped_message" -> {
                 require(if (kind == "message") query.version == 1 else query.version == 2)
@@ -180,10 +182,25 @@ internal object StoryRecordWire {
         }
     }
 
-    private fun validVersion(query: StoryRecordQuery) = when (query.version) {
-        1 -> query.section != StoryRecordSection.PROMISES
-        2 -> true
-        else -> false
+    private fun nativeSearch(query: StoryRecordQuery) = query.promiseFilter.status?.let {
+        "\"status\":\"${it.wire}\""
+    } ?: query.knowledgeFilter.origin?.let { "\"origin\":\"${it.wire}\"" } ?: query.search
+
+    private fun validVersion(query: StoryRecordQuery): Boolean {
+        if (query.knowledgeFilter != StoryRecordKnowledgeFilter.ALL &&
+            (query.version != 2 || query.section != StoryRecordSection.KNOWLEDGE || query.search.isNotEmpty() ||
+                query.promiseFilter != StoryRecordPromiseFilter.ALL || query.relationshipTarget != null)) return false
+        if (query.relationshipTarget != null &&
+            (query.version != 2 || query.section != StoryRecordSection.RELATIONSHIPS ||
+                query.search.isNotEmpty() || query.promiseFilter != StoryRecordPromiseFilter.ALL ||
+                !validStoryRecordTurn(query.relationshipTarget.id))) return false
+        if (query.promiseFilter != StoryRecordPromiseFilter.ALL &&
+            (query.version != 2 || query.section != StoryRecordSection.PROMISES || query.search.isNotEmpty())) return false
+        return when (query.version) {
+            1 -> query.section != StoryRecordSection.PROMISES
+            2 -> true
+            else -> false
+        }
     }
     private fun cursorPattern(query: StoryRecordQuery) = Regex("${query.version}:[1-9][0-9]{0,4}:[0-9a-f]{64}")
     private fun readScope(scope: JSONObject, query: StoryRecordQuery): StoryRecordScope {

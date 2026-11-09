@@ -21,6 +21,269 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [fresh SDK16 bridge](docs/native/KNOWLEDGE_FRESH_BRIDGE_V1.md) connects
+separately approved preparation to the existing owned Knowledge UI runner.
+[Host verification](docs/native/KNOWLEDGE_FRESH_BRIDGE_VERIFICATION_2026-11-02.md)
+records 219 distinct passing tests and real file-only startup checks. Actual
+preparation, boot and the four Android methods remain unrun; retirement approval
+and a separate bounded run proposal are still required.
+
+The [SDK16 preparation inspector](docs/native/KNOWLEDGE_PREPARE_INPUTS_V1.md)
+verifies frozen source, installed tools and the original APK pair, then emits five
+nonexecutable planning records. [Verification](docs/native/KNOWLEDGE_PREPARE_INPUTS_VERIFICATION_2026-11-02.md)
+records a genuine completed inspection and 173 unique passing host tests. Capacity
+remains blocked; no guest, preparation, admission, boot or actual retirement is
+authorized. The current operator also recognizes the existing SDK15 retirement
+closure protocol while retaining every consent/cleanup/identity/storage guard.
+
+The [fresh SDK16 guest and capacity preview](docs/native/KNOWLEDGE_FRESH_CAPACITY_V1.md)
+reject the used SDK15 guest and report shared-ledger capacity without granting
+admission. [Verification](docs/native/KNOWLEDGE_FRESH_CAPACITY_VERIFICATION_2026-11-02.md)
+records 12 new checks, 44 storage regressions and 39 SDK16 profile checks passing.
+At that inspection the fixed target parent was absent; a representative preview confirmed
+both the retained-root and byte limits block a fresh guest. No boot, shared-ledger
+write or real guest-image deletion occurred; the Knowledge journeys remain unrun.
+The ordinary project parent was subsequently created before inspection; the
+inspector leaves the guest itself absent.
+
+The [checked Windows host cleanup](docs/native/WINDOWS_JOB_CLOSE_VERIFICATION_2026-11-02.md)
+keeps failed handle, constructor and capture closure unqualified across five
+development-tool callers. All 28 new fault tests, 221 regressions and 39 SDK16
+host checks pass; original failures remain preserved. This host work does not
+qualify an Android or model run.
+
+The [fixed SDK16 Knowledge profile](docs/native/KNOWLEDGE_UI_PROFILE_V1.md)
+connects the verified Knowledge APK pair to the existing guarded owner, finite
+client, complete proof replay and joined cancellation/cleanup controller. It
+selects only four model-free journeys. [Host verification](docs/native/KNOWLEDGE_UI_PROFILE_VERIFICATION_2026-11-02.md)
+passes 39 new and 97 regression tests; the initial oracle error is retained.
+The four Android journeys remain unrun. No guest or shared-ledger change occurred.
+
+The [Knowledge UI build contract](docs/native/KNOWLEDGE_UI_BUILD_VERIFICATION_2026-11-02.md)
+binds the current frozen APK pair and four compiled journeys without granting
+device execution. A forced 579-case JVM run, 25 host contract checks and genuine
+manifest creation/readback pass. The four Android journeys remain unrun.
+
+The [bounded SDK15 recovery operator](docs/runtime/android/SDK15_RECOVERY_OPERATOR_2026-11-02.md)
+joins verified preparation recovery to fresh run inputs and the four-method UI
+runner. All 39 host checks pass, including a real owned-host-job capture test
+and refusal before recovery when the running Python does not match its pins.
+One [explicitly approved SDK15 run](docs/runtime/android/SDK15_APPROVED_RUN_VERIFICATION_2026-11-02.md)
+completed guarded recovery and passed all four model-free Library UI tests.
+The guest closed with its images preserved. The grant is spent. Further
+operations need separate approval and admission. Device/model and full
+journey acceptance remain open.
+
+The [SDK15 recovery input inspection](docs/runtime/android/SDK15_RECOVERY_READINESS_2026-11-02.md)
+creates a source-bound, file-only plan for the original charged reservation.
+Seventeen host tests and the original inspection pass. It creates no execution
+authority and cannot authorize another recovery or boot after the completed run.
+
+The [current library/recovery UI profile](docs/native/LIBRARY_UI_V1.md)
+selects four fixed PR #351 journeys through the current guarded owner and
+recovery source. It has separate SDK15 authority and exact frozen-build
+attestation. Host qualification and actual Android execution are separate;
+spent SDK14 grants do not authorize the current product or selectors.
+The [host verification report](docs/native/LIBRARY_UI_VERIFICATION_2026-11-02.md)
+records 46 new checks, 173 existing regressions and genuine byte replay, with
+the original failed permission expectation preserved. Its original frozen
+four-method Android run now passed as reported separately above; that result
+does not retroactively qualify changed tool sources or SDK16 Knowledge tests.
+
+The [current Story Record UI harness](docs/native/RECORD_CONTROLS_UI_V1.md)
+binds nineteen chat, inventory, profile, retained-control and promise journeys
+to PR #337's exact APK pair. [Host verification](docs/native/RECORD_CONTROLS_UI_VERIFICATION_2026-11-01.md)
+passes 56 new checks and 79 existing regressions; actual Android execution
+remains unrun and needs matching execution authority.
+The [authorized preparation failure and parent preflight correction](docs/native/PREPARE_PARENT_PREFLIGHT_2026-11-01.md)
+record the successful exact retirement, the subsequent charged preparation
+failure and the nineteen UI methods that remain unrun.
+The [guarded preparation recovery contract](docs/runtime/android/PREPARE_RECOVERY.md)
+retains the reservation and failed history through a one-use, owned preparation;
+live recovery and later UI execution require their own verified gates.
+The [current owner handoff](docs/runtime/android/RECOVERED_OWNER_HANDOFF.md)
+admits the recovery dependency before live dispatch and uses separately
+preserved activation inputs. The subsequently authorized B77 recovery attempt
+refused the host commit-capacity gate before intent or ledger migration;
+all nineteen UI methods remain unrun. The retained report distinguishes the
+refusal from a later passing read-only resource sample.
+
+The [Player state UI qualification harness](docs/native/PLAYER_PROFILE_UI_V1.md)
+binds fourteen fixed chat, inventory and self-profile tests to PR #333's exact
+APK pair. [Host verification](docs/native/PLAYER_PROFILE_UI_VERIFICATION_2026-11-01.md)
+passes 47 new checks and 26 existing regressions in separate cohorts; actual
+Android execution remains unrun and requires matching execution authority.
+
+The [SDK12 inventory and chat UI profile](docs/native/PLAYER_INVENTORY_UI_V1.md)
+binds eleven methods to the separately frozen B59 inventory APK pair, with
+a fixed byte-attestation guard, separate ownership records and joined cleanup.
+Host verification and Android execution are separate gates; all eleven
+Android methods remain unrun. Earlier SDK11 inputs retain their own authority.
+The [host evidence report](docs/native/PLAYER_INVENTORY_UI_VERIFICATION_2026-11-01.md)
+records 41 new checks, 16 existing regressions and the separate artifact replay.
+
+The [SDK11 current-chat harness](docs/runtime/android/CURRENT_CHAT_UI_SDK11_CONTRACT_2026-11-01.md)
+binds eight keyboard/status/heading/action methods to the audited B55 APK pair.
+Its [host verification](docs/native/CURRENT_CHAT_UI_HARNESS_VERIFICATION_2026-11-01.md)
+records separate passing cohorts, the original fixture and storage failures,
+and genuine build replay. Android execution remains unrun; the older SDK10
+proposal and its different APKs remain unchanged.
+
+The [transcript navigation UI harness](docs/native/TRANSCRIPT_UI_COHORT_V1.md)
+adds a separate, model-free SDK10 profile for six ordinary-app Compose tests,
+including fixed-window transcript rollover. It checks the preserved PR #317
+build without rebuilding it or borrowing another cohort's authority. The
+[host verification report](docs/native/TRANSCRIPT_UI_COHORT_VERIFICATION_2026-11-01.md)
+separates host checks from the six Android executions, which remain unrun.
+The [fixed activation coordinator](docs/native/TRANSCRIPT_UI_ACTIVATION_V1.md)
+adds the caller-start barrier and joined cleanup needed to run that cohort.
+Its host checks pass; a concrete bounded operation still requires fresh approval.
+
+The [presentation-process runner](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_V1.md)
+adds a distinct guarded three-APK host profile for the
+[V3 saved-task proof](docs/native/PLAYER_PRESENTATION_PROCESS_V3.md). It revalidates
+the separately frozen product build, limits the external controller to one
+claim, and replays original SDK/raw evidence. Host checks and closed build
+qualification do not establish Android process-restoration execution, which
+remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
+records the tests, original failures and remaining device gates.
+
+The [native Knowledge corpus gate](docs/android/KNOWLEDGE_CORPUS_GATE_2026-11-02.md)
+detects engine/fixture drift during host checks. Real copied-source row and
+line-ending mutations are rejected; 620 Core tests and 18 orchestration tests
+pass after restoring one missing generated schema entry. No Android run follows.
+
+The [Knowledge record filters](docs/android/KNOWLEDGE_FILTERS_VERIFICATION_2026-11-02.md)
+separate observations, statements, beliefs and discoveries using the existing
+native player query. The actual Core corpus and all 579 JVM checks pass;
+four new Compose journeys compile but remain unrun on Android.
+
+The [record-search Unicode fix](docs/android/RECORD_SEARCH_UNICODE_2026-11-02.md)
+rejects malformed text before reader/JSON dispatch while preserving valid text
+and existing byte limits. 566 JVM tests and the offline build/lint/APK audits
+pass; no device or model result follows from these host checks.
+
+The [fork-control scope fix](docs/android/FORK_ACTION_SCOPE_2026-11-02.md) keeps
+retained dialog actions from affecting a replacement recovery request.
+557 JVM tests and the offline build/lint/APK audits pass. Five new Compose
+cases compile and remain unrun; existing recovery-run inputs stay frozen.
+
+The [library and recovery control fix](docs/android/LIBRARY_ACTION_SCOPE_2026-11-02.md)
+keeps old views and disposed screens from retargeting current storage navigation.
+Twelve independent regressions pass after eleven reproduced failures; the full
+offline Android gate passes 550 JVM checks and APK audits. Four UI journeys compile
+but remain unrun on Android. The earlier failed build remains recorded separately.
+
+The [chat cancellation fix](docs/android/CHAT_CANCEL_SCOPE_2026-11-01.md)
+binds Cancel to its displayed response while preserving acknowledgement and
+commit-wins reconciliation. Ten independent regressions pass after six reproduced
+failures; the full offline Android gate passes 538 JVM checks and APK audits.
+Two Compose journeys compile but remain unrun on Android.
+
+The [new-story dismissal fix](docs/android/CREATION_DISMISS_SCOPE_2026-11-01.md)
+binds Close to its displayed review and preserves joined cancellation. Nine
+independent JVM regressions pass after six reproduced failures; the full offline
+Android gate passes 528 JVM checks and APK audits. Two Compose journeys compile
+but remain unrun on Android; full milestone acceptance stays pending.
+
+The [deletion control fix](docs/android/DELETION_ACTION_SCOPE_2026-11-01.md)
+binds story/timeline consent and cancellation to the displayed view, with fresh
+frames after busy reopen. Eleven original assertion failures become green with
+unchanged tests; the full offline Android gate passes 519 JVM cases and APK
+audits. Two new UI journeys compile but remain unrun on Android.
+
+The [archive control fix](docs/android/ARCHIVE_ACTION_SCOPE_2026-11-01.md)
+binds consent controls to the exact displayed view and delivers fresh frames
+after equal-valued reopen. Nine original assertion failures become green with
+unchanged tests; the full offline Android gate passes 505 JVM cases and APK
+audits. Three new UI journeys compile but remain unrun on Android.
+
+The [archive opening clarification](docs/android/ARCHIVE_CORRECTED_OPEN_2026-11-01.md)
+replaces a stale warning: explicit Open resumes the original root, then the
+library can select a playable corrected timeline. Thirteen native tests and
+the full 494-case JVM/offline Android gate pass; two new UI tests compile only.
+
+The [focused relationship view](docs/android/RELATIONSHIP_FOCUS_2026-11-01.md)
+shows the native dimensions for one visible target, with exact case-sensitive
+IDs and scoped evidence. The offline Android gate passes 492 JVM cases and
+both APK audits; 39 Core and 18 workspace tests pass. Two new Compose
+journeys compile but remain unrun on Android.
+
+The [promise status controls](docs/android/PROMISE_STATUS_BROWSING_2026-11-01.md)
+offer All, Open and Overdue views using Rust's existing player-visible query.
+The offline Android build passes 479 JVM cases and both APK audits; four
+native query regressions pass. Two new Compose journeys compile but remain
+unrun on Android.
+
+The [Story Record control fix](docs/android/STORY_RECORD_ACTION_SCOPE_2026-11-01.md)
+binds controls to the exact rendered view and preserves fresh frame delivery
+when record values repeat. Thirteen original JVM regressions pass within the
+full 467-case Android build gate. Three new Compose journeys compile but remain
+unrun; the pending SDK13 proposal retains its older frozen APK pair.
+
+The [cached Player state view](docs/android/PLAYER_SELF_PROFILE_2026-11-01.md)
+retains the native self profile and renders a scoped read-only overview.
+The full offline build passes 454 JVM cases and APK audits; three new UI
+journeys compile but remain unrun. Existing progression provenance stays
+in Story Record; no gameplay rules or native schema were added.
+
+The [inventory APK verification](docs/android/PLAYER_INVENTORY_APKS_2026-11-01.md)
+builds both Rust Android targets and the ordinary app/test pair from the inventory
+change. All439 JVM cases, lint and public APK audits pass; eleven concrete JUnit
+test definitions and bounded bodies are verified in the test APK. Android UI
+execution remains unrun. The pending SDK11 proposal retains its older APKs.
+
+The [player inventory view](docs/android/PLAYER_INVENTORY_2026-11-01.md)
+preserves all validated native item IDs and quantities for saved stories instead
+of showing a healing-potion row in every world. A scoped read-only dialog keeps
+empty and unavailable inventory distinct. Native host11 and JVM439 pass;
+Android-test compilation and lint pass. Its three new Compose journeys remain
+unrun, and the pending SDK11 operation keeps its older frozen APK pair.
+
+The [current chat APK verification](docs/android/CURRENT_CHAT_APKS_2026-11-01.md)
+builds both Rust Android ABIs and the ordinary app/test packages. The 428 JVM
+tests, lint and package audits pass; all eight new UI methods are defined in the
+test APK. Android execution remains unrun, and the frozen SDK10 proposal retains
+its separate source and APK bindings.
+
+The [quick-action scope fix](docs/android/QUICK_ACTION_SCOPE_2026-11-01.md)
+binds rendered buttons to their story and branch before starting work. Four
+stale-target regression failures are preserved; all 428 JVM tests, Android-test
+compilation and lint pass after the fix. The two retained-button Compose
+journeys remain unrun on Android.
+
+The [saved-story heading fix](docs/android/SAVED_STORY_HEADING_2026-11-01.md)
+uses the selected saved title and a neutral introduction instead of describing
+Lantern Quay in every saved world. Five regression methods went from three
+assertion failures to passing; all 420 JVM tests, Android-test compilation and
+lint pass. The two new Compose journeys remain unrun on Android.
+
+The [chat status announcement fix](docs/android/CHAT_STATUS_ANNOUNCEMENT_2026-11-01.md)
+keeps a compact Polite status outside the scrolling transcript. Host regressions,
+Android-test compilation and lint pass; the new Compose journeys and actual
+screen-reader behavior remain unrun.
+
+The [chat keyboard inset fix](docs/android/CHAT_IME_INSETS_2026-11-01.md)
+handles keyboard space around both the scrolling chat and Latest control.
+Host tests, Android-test compilation and lint pass; the two new injected-inset
+journeys and real keyboard/accessibility behavior still require Android execution.
+
+The [fixed SDK17 parent](docs/native/DIAGNOSTIC_OPERATION_PARENT_V1.md)
+puts the entire frozen fresh-helper invocation, including expensive preflight,
+inside an owned job deadline. Its small bootstrap remains cooperative; it grants
+no retirement, guest admission, preparation or boot authority.
+
+The [fixed SDK17 fresh handoff](docs/native/DIAGNOSTIC_UI_FRESH_HANDOFF_V1.md)
+joins separately approved guarded preparation to the existing six-test
+diagnostic runner. It adds no execution authority, capacity exception or model
+operation. Actual preparation and Android qualification remain separately gated.
+
+The [fixed diagnostic UI profile](docs/native/DIAGNOSTIC_UI_PROFILE_V1.md) binds
+six compiled diagnostic journeys to guarded ownership, complete replay and
+sticky cancellation/cleanup. Its [host verification report](docs/native/DIAGNOSTIC_UI_PROFILE_VERIFICATION_2026-11-03.md)
+separates synthetic and saved-artifact evidence from Android execution. No new
+guest or run grant is created; the six Android journeys remain unrun here.
+
 The [buffered restart qualification](docs/native/BUFFERED_RESTART_RUN_2026-10-29.md)
 completes one newly approved API 35/x86_64 run using PR #270's frozen build:
 verified local model transfer/import, real AUTHOR creation, idempotent retry,

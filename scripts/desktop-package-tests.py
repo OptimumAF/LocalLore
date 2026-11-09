@@ -5,10 +5,12 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
 import zipfile
+from zlib import crc32
 
 spec = importlib.util.spec_from_file_location("desktop_package", Path(__file__).with_name("desktop-package.py"))
 package = importlib.util.module_from_spec(spec)
@@ -79,6 +81,30 @@ class PackageTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Unexpected package member"):
                     package.validate_files(files)
 
+    def test_windows_member_aliases_fail_even_when_resealed(self):
+        for names in [
+            ("NOTICES/License.txt", "NOTICES/license.txt"),
+            ("NOTICES/license.txt", "NOTICES/license.txt."),
+            ("NOTICES/Scope /license.txt",),
+            ("NOTICES/NUL.txt",),
+            ("NOTICES/Scope", "NOTICES/scope/license.txt"),
+        ]:
+            with self.subTest(names=names):
+                files = self.files()
+                files.update({name: b"synthetic notice" for name in names})
+                with self.assertRaisesRegex(ValueError, "Windows package member"):
+                    package.inspect_archive(self.archive(self.seal(files)))
+
+    def test_distinct_windows_notice_paths_are_allowed(self):
+        files = self.files()
+        files.update({
+            "NOTICES/Scope": b"synthetic notice",
+            "NOTICES/Scope extra/license.txt": b"synthetic nested notice",
+            "NOTICES/Scope extra/NOTICE.txt": b"synthetic sibling notice",
+        })
+        result = package.inspect_archive(self.archive(self.seal(files)))
+        self.assertEqual(result["members"], 9)
+
     def test_duplicate_zip_member_and_symlink_fail(self):
         path = self.archive(self.files())
         with zipfile.ZipFile(path, "a") as archive:
@@ -96,6 +122,63 @@ class PackageTests(unittest.TestCase):
             archive.writestr(info, "../private")
         with self.assertRaisesRegex(ValueError, "member type"):
             package.inspect_archive(path)
+
+    def test_raw_zip_member_name_must_match_canonical_name(self):
+        canonical = "NOTICES/notice.txt"
+        for placeholder, raw_name in [
+            ("NOTICES/notice.txt-junk", b"NOTICES/notice.txt\x00junk"),
+            ("NOTICESXnotice.txt", b"NOTICES\\notice.txt"),
+        ]:
+            with self.subTest(raw_name=raw_name):
+                files = self.files()
+                files[canonical] = b"synthetic notice"
+                self.seal(files)
+                files[placeholder] = files.pop(canonical)
+                path = self.archive(files)
+                encoded_placeholder = placeholder.encode("ascii")
+                raw_zip = path.read_bytes()
+                self.assertEqual(len(encoded_placeholder), len(raw_name))
+                self.assertEqual(raw_zip.count(encoded_placeholder), 2)
+                path.write_bytes(raw_zip.replace(encoded_placeholder, raw_name))
+                with self.assertRaisesRegex(ValueError, "Noncanonical ZIP member name"):
+                    package.inspect_archive(path)
+
+    def test_local_and_central_alternate_names_are_refused(self):
+        canonical = "NOTICES/notice.txt"
+        for header, raw_name, alternate in [
+            ("local", canonical, "../outside.txt"),
+            ("central", "../outside.txt", canonical),
+        ]:
+            with self.subTest(header=header):
+                files = self.files()
+                files[canonical] = b"synthetic notice"
+                self.seal(files)
+                notice = files.pop(canonical)
+                path = self.archive(files)
+                unicode_path = struct.pack("<BI", 1, crc32(raw_name.encode("ascii"))) + alternate.encode("utf-8")
+                extra = struct.pack("<HH", 0x7075, len(unicode_path)) + unicode_path
+                info = zipfile.ZipInfo(raw_name)
+                with zipfile.ZipFile(path, "a") as archive:
+                    if header == "local":
+                        info.extra = extra
+                    archive.writestr(info, notice)
+                    info.extra = extra if header == "central" else b""
+                with self.assertRaisesRegex(ValueError, "Unexpected ZIP member extra field"):
+                    package.inspect_archive(path)
+
+    def test_report_hash_covers_the_bytes_actually_inspected(self):
+        path = self.archive(self.files())
+        original = path.read_bytes()
+        validate_files = package.validate_files
+
+        def validate_then_replace(files):
+            validate_files(files)
+            path.write_bytes(b"replacement after payload validation")
+
+        with patch.object(package, "validate_files", side_effect=validate_then_replace):
+            result = package.inspect_archive(path)
+        self.assertEqual(result["sha256"], package.sha(original))
+        self.assertEqual(result["bytes"], len(original))
 
     def test_unapproved_compression_and_metadata_budget_fail(self):
         path = self.directory / "package.zip"

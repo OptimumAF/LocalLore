@@ -26,7 +26,7 @@ import org.locallore.app.ui.ArchiveDialog
 import org.locallore.app.ui.StoryDeletionDialog
 import org.locallore.app.ui.BranchDeletionDialog
 import org.locallore.app.ui.BranchForkPanel
-import org.locallore.app.ui.StoryRecordDialog
+import org.locallore.app.ui.StoryRecordHost
 import org.locallore.app.ui.StoryCreationDialog
 
 internal class WorkspaceConstructionUnavailable : IllegalStateException("Workspace unavailable")
@@ -41,7 +41,10 @@ open class MainActivity : ComponentActivity() {
     // Selected by application construction, never by story text or a model response.
     internal open fun createWorkspaceTransport(): NativeWorkspaceTransport =
         NativeWorkspaceTransport(applicationContext, operationObserver =
-            if (BuildConfig.INPUT_PROCESS_VERIFICATION) ProcessVerificationProbe::operation else null)
+            if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) PresentationProcessVerificationProbe::operation
+            else if (BuildConfig.INPUT_PROCESS_VERIFICATION) ProcessVerificationProbe::operation else null)
+    private val processVerificationEnabled: Boolean
+        get() = BuildConfig.INPUT_PROCESS_VERIFICATION || BuildConfig.PRESENTATION_PROCESS_VERIFICATION
     private lateinit var model: ShellViewModel
     private var pendingNavigationHint: PlayDraftScope? = null
     private var processVerificationRun: String? = null
@@ -76,12 +79,14 @@ open class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingNavigationHint = readNavigationHint(savedInstanceState)
-        processVerificationRun = if (BuildConfig.INPUT_PROCESS_VERIFICATION) try {
-            (savedInstanceState?.getString(ProcessVerificationProbe.RUN_STATE)
-                ?: intent.getStringExtra(ProcessVerificationProbe.RUN_EXTRA))
+        val runState = if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) PresentationProcessVerificationProbe.RUN_STATE else ProcessVerificationProbe.RUN_STATE
+        val runExtra = if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) PresentationProcessVerificationProbe.RUN_EXTRA else ProcessVerificationProbe.RUN_EXTRA
+        processVerificationRun = if (processVerificationEnabled) try {
+            (savedInstanceState?.getString(runState) ?: intent.getStringExtra(runExtra))
                 ?.takeIf { Regex("[0-9a-f]{16}").matches(it) }
         } catch (_: RuntimeException) { null } else null
         ProcessVerificationProbe.configure(applicationContext, processVerificationRun, taskId, savedInstanceState != null)
+        PresentationProcessVerificationProbe.configure(applicationContext, processVerificationRun, taskId, savedInstanceState != null)
         enableEdgeToEdge()
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -89,19 +94,24 @@ open class MainActivity : ComponentActivity() {
                 require(modelClass == ShellViewModel::class.java)
                 val transport = createWorkspaceTransport()
                 ProcessVerificationProbe.factoryCreated()
+                PresentationProcessVerificationProbe.factoryCreated()
                 transportObservation = WeakReference(transport)
+                val navigationStore = AtomicSavedNavigationStore(applicationContext)
                 val durable = DurableGateway(transport, autoCreateIfEmpty = false,
-                    initialScopeHint = pendingNavigationHint)
+                    initialScopeHint = pendingNavigationHint, navigationStore = navigationStore)
                 return ShellViewModel(durable,
                     archiveGateway = NativeArchiveGateway(applicationContext),
                     deletionGateway = NativeArchiveGateway(applicationContext),
                     branchDeletionGateway = NativeArchiveGateway(applicationContext),
                     forkGateway = NativeForkGateway(transport::forkHandle,
-                        mutationObserver = if (BuildConfig.INPUT_PROCESS_VERIFICATION) {
+                        mutationObserver = if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) {
+                            { PresentationProcessVerificationProbe.operation("fork_mutation") }
+                        } else if (BuildConfig.INPUT_PROCESS_VERIFICATION) {
                             { ProcessVerificationProbe.operation("fork_mutation") }
                         } else null),
                     forkContextProvider = durable::forkContext,
-                    forkRecoveryStore = AtomicForkRecoveryStore(applicationContext)) as T
+                    forkRecoveryStore = AtomicForkRecoveryStore(applicationContext),
+                    navigationStore = navigationStore) as T
             }
         }
         model = try {
@@ -121,42 +131,55 @@ open class MainActivity : ComponentActivity() {
             return
         }
         setContent {
-            val state by model.state.collectAsStateWithLifecycle()
+            val shellFrame by model.frames.collectAsStateWithLifecycle()
+            val state = shellFrame.state
             val diagnostics by model.diagnostics.collectAsStateWithLifecycle()
-            val archive by model.archive.collectAsStateWithLifecycle()
-            val deletion by model.deletion.collectAsStateWithLifecycle()
-            val branchDeletion by model.branchDeletion.collectAsStateWithLifecycle()
-            val creation by model.creation.collectAsStateWithLifecycle()
-            val record by model.storyRecord.collectAsStateWithLifecycle()
+            val archiveFrame by model.archiveFrames.collectAsStateWithLifecycle()
+            val deletionFrame by model.deletionFrames.collectAsStateWithLifecycle()
+            val branchDeletionFrame by model.branchDeletionFrames.collectAsStateWithLifecycle()
+            val creationFrame by model.creationFrames.collectAsStateWithLifecycle()
+            val renderedCreation = creationFrame.state
             val fork by model.fork.collectAsStateWithLifecycle()
             val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
-            val renderedRecordContext = record.context
-            LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::startNewStory,
-                onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
+            val renderedArchive = archiveFrame.state
+            val renderedDeletion = deletionFrame.state
+            val renderedBranchDeletion = branchDeletionFrame.state
+            val renderedActionStory = state.selectedStory
+            val renderedChatState = state
+            LocalLoreScreen(renderedChatState, { action -> model.submit(action, renderedActionStory) }, model::setMode,
+                { model.cancel(renderedChatState) }, model::startNewStory,
+                onDiagnostics = model::openDiagnostics, onResume = { model.resume(it, renderedChatState) },
+                onRecover = { model.recover(renderedChatState) },
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
                 onText = model::submitText,
                 archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
                 deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
-                onTimeline = model::resumeTimeline,
+                onTimeline = { model.resumeTimeline(it, renderedChatState) },
                 branchDeletionAvailable = model.branchDeletionController != null,
                 onDeleteTimeline = model::openBranchDeletion,
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
-                exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION,
+                exposeTestTags = processVerificationEnabled,
                 draftInteractionAllowed = model::canEditPlayDraft,
-                onFork = model::openFork) {
-                BranchForkPanel(forkVisible, fork, forkProblem, forkRecoveryPending,
-                    onBoundary = model::prepareForkBoundary, onConfirm = model::confirmFork,
-                    onRetry = model::retryFork, onLookup = model::lookupFork, onForget = model::forgetFork,
-                    onCancel = model::cancelFork, onClose = model::closeFork, onResume = model::resumeFork,
-                    exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION)
+                onFork = { model.openFork(renderedChatState) }) {
+                // Plain values bind each callback to what this composition displayed.
+                val renderedFork = fork
+                BranchForkPanel(forkVisible, renderedFork, forkProblem, forkRecoveryPending,
+                    onBoundary = { input, revision -> model.prepareForkBoundary(input, revision, renderedFork) },
+                    onConfirm = { input, consent -> model.confirmFork(input, consent, renderedFork) },
+                    onRetry = { model.retryFork(it, renderedFork) }, onLookup = { model.lookupFork(renderedFork) },
+                    onForget = { model.forgetFork(it, renderedFork) }, onCancel = { model.cancelFork(renderedFork) },
+                    onClose = { model.closeFork(renderedFork) }, onResume = { model.resumeFork(it, renderedFork) },
+                    exposeTestTags = processVerificationEnabled)
                 model.branchDeletionController?.let { controller ->
-                    BranchDeletionDialog(branchDeletion, controller::dismiss, controller::cancel, controller::confirm)
+                    BranchDeletionDialog(renderedBranchDeletion,
+                        { controller.dismiss(renderedBranchDeletion) }, { controller.cancel(renderedBranchDeletion) },
+                        { expected -> controller.confirm(expected, renderedBranchDeletion) })
                 }
                 model.creationController?.let { controller ->
-                    StoryCreationDialog(creation, controller::dismiss, controller::editTitle, controller::confirm,
-                        exposeTestTags = BuildConfig.INPUT_PROCESS_VERIFICATION, onTemplate = controller::chooseTemplate,
+                    StoryCreationDialog(renderedCreation, { controller.dismiss(renderedCreation) }, controller::editTitle, controller::confirm,
+                        exposeTestTags = processVerificationEnabled, onTemplate = controller::chooseTemplate,
                         onPlayerName = controller::editPlayerName, onPlayerReview = controller::reviewChanges,
                         onTone = controller::editTone, onExcludedPhrases = controller::editExcludedPhrases,
                         onOriginal=controller::chooseOriginal,onOriginalEdit={s,e -> controller.editOriginal(s,e); Unit},
@@ -164,38 +187,38 @@ open class MainActivity : ComponentActivity() {
                         onOriginalCreate={s,r -> controller.confirmOriginal(s,r); Unit})
                 }
                 model.deletionController?.let { controller ->
-                    StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
+                    StoryDeletionDialog(renderedDeletion,
+                        { controller.dismiss(renderedDeletion) }, { controller.cancel(renderedDeletion) },
+                        { expected -> controller.confirm(expected, renderedDeletion) })
                 }
-                StoryRecordDialog(record, model::closeStoryRecord, model::recordSection, model::recordSearch,
-                    model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
-                    onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) },
-                    onScopedEvent = { reference -> model.openScopedRecordEvent(reference, renderedRecordContext) },
-                    onEventBack = model::backToStoryRecord,
-                    onEventRetry = model::retryRecordEvent)
-                DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
-                    if (model.beginDiagnosticExport()) {
+                StoryRecordHost(model)
+                DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) { review ->
+                    if (model.beginDiagnosticExport(review)) {
                         try { documentPicker.launch("locallore-diagnostics.json") }
                         catch (_: Exception) { model.diagnosticPickerFailed() }
                     }
                 }
                 model.archiveController?.let { controller ->
-                    ArchiveDialog(archive, controller::dismiss, controller::cancel, controller::prepareExport,
+                    ArchiveDialog(renderedArchive, { controller.dismiss(renderedArchive) },
+                        { controller.cancel(renderedArchive) }, { controller.prepareExport(renderedArchive) },
                         onImportPicker = {
-                            if (model.beginArchiveImportPicker()) {
+                            if (model.beginArchiveImportPicker(renderedArchive)) {
                                 try { archiveImportPicker.launch("*/*") }
                                 catch (_: Exception) { model.archiveImportPickerFailed() }
                             }
                         },
                         onExportPicker = { expected ->
-                            if (model.beginArchiveExportPicker(expected)) {
+                            if (model.beginArchiveExportPicker(expected, renderedArchive)) {
                                 try { archiveExportPicker.launch("locallore-private-story.json") }
                                 catch (_: Exception) { model.archiveExportPickerFailed() }
                             }
-                        }, onConfirmImport = controller::confirmImport, onOpenImported = controller::openImported)
+                        }, onConfirmImport = { expected -> controller.confirmImport(expected, renderedArchive) },
+                        onOpenImported = { expected -> controller.openImported(expected, renderedArchive) })
                 }
             }
         }
         ProcessVerificationProbe.created(pendingNavigationHint)
+        PresentationProcessVerificationProbe.created(pendingNavigationHint)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -208,8 +231,11 @@ open class MainActivity : ComponentActivity() {
                 putString("branch", value[2] as String)
             })
         }
-        processVerificationRun?.let { outState.putString(ProcessVerificationProbe.RUN_STATE, it) }
+        processVerificationRun?.let {
+            outState.putString(if (BuildConfig.PRESENTATION_PROCESS_VERIFICATION) PresentationProcessVerificationProbe.RUN_STATE else ProcessVerificationProbe.RUN_STATE, it)
+        }
         ProcessVerificationProbe.saved(pendingNavigationHint)
+        PresentationProcessVerificationProbe.saved(pendingNavigationHint)
     }
 
     private fun readNavigationHint(state: Bundle?): PlayDraftScope? = try {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <package android:name="org.locallore.app.presentationprocessverify" />
+    </queries>
+    <application android:allowBackup="false" android:fullBackupContent="false"
+        android:testOnly="true" android:label="LocalLore presentation process verification" />
+    <instrumentation android:name="org.locallore.presentationprocessverify.PresentationProcessRestoreInstrumentation"
+        android:targetPackage="org.locallore.app.presentationprocesscontroller"
+        android:functionalTest="true" android:handleProfiling="false" />
+</manifest>

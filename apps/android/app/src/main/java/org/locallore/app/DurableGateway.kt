@@ -3,6 +3,7 @@ package org.locallore.app
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.util.UUID
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
@@ -22,11 +23,13 @@ internal class DurableGateway(
     private val transport: WorkspaceTransport,
     autoCreateIfEmpty: Boolean = true,
     initialScopeHint: PlayDraftScope? = null,
+    private val navigationStore: SavedNavigationStore? = null,
 ) : DemoGateway, StoryCreationGateway, OriginalStoryGateway {
     private var mayAutoCreate = autoCreateIfEmpty
     // Navigation IDs are an unresolved UI hint, never a saved engine/session.
     // Keep them through initialization failures, including failures after attach.
     private var pendingInitialScopeHint = initialScopeHint
+    private var startupNavigationRead = initialScopeHint != null || navigationStore == null
     private var initialSelectionUnavailable = false
     override val durable = true
     override val storyRecords = true
@@ -38,6 +41,7 @@ internal class DurableGateway(
     private var textProvider = TextProvider.UNAVAILABLE
     private val playerMetadataLock = Any()
     private var playerAttachment: Any = Any()
+    private var latestSnapshotRead: Any = Any()
     private var coherentPlayerSnapshot = false
     private var playerBinding: PlayerSnapshotBinding? = null
     private data class PlayerReadOwner(val attachment: Any,val session: String,val scopeObject: JSONObject,val scope: PlayDraftScope)
@@ -50,8 +54,6 @@ internal class DurableGateway(
     }
     private fun playerCommand(op: String,owner: PlayerReadOwner) = command(op).put("session",owner.session)
         .put("scope",JSONObject().put("story",owner.scope.story).put("branch",owner.scope.branch))
-    private fun playerScopeMatches(value: JSONObject,owner: PlayerReadOwner) =
-        value.opt("story")==owner.scope.story && value.opt("branch")==owner.scope.branch
     // Order cancellation after a finite native submit, never after generation/prepare.
     private val submissionGate = Mutex()
     private val closed = AtomicBoolean(false)
@@ -75,7 +77,18 @@ internal class DurableGateway(
         check(!closed.get())
         val reply = transport.exchange(command)
         check(reply.getInt("version") == 1)
-        if (reply.getString("status") != "ok") throw WorkspaceFailure(reply.optString("error", "Storage"))
+        val status = reply.getString("status")
+        if (status != "ok") {
+            val problem = if (command.opt("op") == "authoring_review" &&
+                status == "rejected" && reply.opt("error") == "InvalidProposal") {
+                when (reply.opt("review_problem")) {
+                    "RouteReachability" -> OriginalReviewProblem.ROUTE_REACHABILITY
+                    "CharacterSelfKnowledge" -> OriginalReviewProblem.CHARACTER_SELF_KNOWLEDGE
+                    else -> null
+                }
+            } else null
+            throw WorkspaceFailure(reply.optString("error", "Storage"), originalReviewProblem = problem)
+        }
         return reply.getJSONObject("data")
     }
     private fun command(op: String) = JSONObject().put("op", op)
@@ -114,7 +127,23 @@ internal class DurableGateway(
 
     override suspend fun initialize(): SavedSnapshot {
         if (session != null) return snapshot()
-        return openLibrary(mayAutoCreate)
+        val (attachment, loadNavigation) = synchronized(playerMetadataLock) {
+            playerAttachment to !startupNavigationRead
+        }
+        if (loadNavigation) {
+            val hint = try { navigationStore?.load() }
+                catch (_: IOException) { null }
+                catch (_: SecurityException) { null }
+            synchronized(playerMetadataLock) {
+                if (closed.get()) throw WorkspaceFailure("Closed")
+                if (playerAttachment !== attachment) throw WorkspaceFailure("Stale")
+                if (!startupNavigationRead) {
+                    pendingInitialScopeHint = hint?.takeIf { encodeNavigationHint(it) != null }
+                    startupNavigationRead = true
+                }
+            }
+        }
+        return openLibrary(mayAutoCreate, attachment)
     }
     private suspend fun workspace(): JSONObject = call(command("workspace"))
     /** The existing native catalog wire, shared by initial selection and snapshots. */
@@ -151,7 +180,10 @@ internal class DurableGateway(
     } catch (_: Exception) {
         throw WorkspaceFailure("Malformed")
     }
-    private suspend fun openLibrary(allowCreate: Boolean): SavedSnapshot {
+    private suspend fun openLibrary(
+        allowCreate: Boolean,
+        attachment: Any = synchronized(playerMetadataLock) { playerAttachment },
+    ): SavedSnapshot {
         val workspace = workspace()
         val stories = workspaceStories(workspace)
         val hint = pendingInitialScopeHint
@@ -161,20 +193,24 @@ internal class DurableGateway(
             decodeTimelines(call(command("branches").put("story", hintedRoot.story)), hintedRoot)
                 .singleOrNull { it.branch == hint?.branch }
         } else null
-        initialSelectionUnavailable = hint != null && hintedTimeline == null
-        // Automatic bootstrap is a one-time compatibility option. Never repeat an uncertain create.
-        // The hint neither enables nor retries this independently configured compatibility path.
-        mayAutoCreate = false
+        synchronized(playerMetadataLock) {
+            if (playerAttachment !== attachment) throw WorkspaceFailure("Stale")
+            initialSelectionUnavailable = hint != null && hintedTimeline == null
+            // Automatic bootstrap is one-time. The hint does not enable or retry it.
+            mayAutoCreate = false
+        }
         if (stories.isEmpty() && !allowCreate) return emptySnapshot(workspace)
-        attach(if (stories.isEmpty()) call(command("create").put("seed", "lantern-quay-v1")) else {
+        if (stories.isEmpty()) {
+            attach(call(command("create").put("seed", "lantern-quay-v1")), expectedAttachment = attachment)
+        } else {
             val selected = if (hintedTimeline != null) {
-                JSONObject().put("story", hintedTimeline.story).put("branch", hintedTimeline.branch)
+                PlayDraftScope(hintedTimeline.story, hintedTimeline.branch)
             } else {
                 val first = stories.first()
-                JSONObject().put("story", first.story).put("branch", first.branch)
+                PlayDraftScope(first.story, first.branch)
             }
-            call(command("resume").put("scope", selected))
-        })
+            resumeSelection(selected, attachment)
+        }
         return snapshot()
     }
     private fun emptySnapshot(workspace: JSONObject): SavedSnapshot {
@@ -193,19 +229,50 @@ internal class DurableGateway(
         mayAutoCreate = false
         operation?.cancelled = true
         operation = null
-        closeSession()
-        return openLibrary(allowCreate = false)
+        val attachment = closeSession() ?: throw WorkspaceFailure("Stale")
+        return openLibrary(allowCreate = false, attachment = attachment)
     }
-    private fun attach(data: JSONObject) {
+    private fun sessionHead(data: JSONObject, expected: PlayDraftScope, session: String? = null): Long {
+        val selected = data.optJSONObject("scope")
+        val story = selected?.opt("story") as? String
+        val branch = selected?.opt("branch") as? String
+        val token = data.opt("session") as? String
+        val head = data.opt("revision")
+        try {
+            check(data.keys().asSequence().toSet() == setOf("session", "scope", "revision"))
+            check(selected?.keys()?.asSequence()?.toSet() == setOf("story", "branch"))
+            check(story != null && branch != null && timelineId.matches(story) && timelineId.matches(branch))
+            check(token != null && localUtf8(token).size in 1..128)
+            check((head is Int || head is Long) && (head as Number).toLong() >= 0)
+        } catch (_: Exception) {
+            throw WorkspaceFailure("Malformed")
+        }
+        if (story != expected.story || branch != expected.branch || (session != null && token != session))
+            throw WorkspaceFailure("Stale")
+        return (head as Number).toLong()
+    }
+    private suspend fun resumeSelection(expected: PlayDraftScope, attachment: Any) {
+        synchronized(playerMetadataLock) {
+            if (playerAttachment !== attachment) throw WorkspaceFailure("Stale")
+        }
+        val selected = JSONObject().put("story", expected.story).put("branch", expected.branch)
+        val reply = call(command("resume").put("scope", selected))
+        sessionHead(reply, expected)
+        attach(reply, expectedAttachment = attachment)
+    }
+    private fun attach(data: JSONObject, expectedAttachment: Any? = null) {
         val attachedSession=data.getString("session"); val attachedScope=data.getJSONObject("scope"); val head=data.getLong("revision")
         synchronized(playerMetadataLock) {
             if(closed.get())throw WorkspaceFailure("Closed")
+            if (expectedAttachment != null && playerAttachment !== expectedAttachment) throw WorkspaceFailure("Stale")
             playerAttachment=Any(); coherentPlayerSnapshot=false; playerBinding=null
             session=attachedSession; scope=attachedScope; revision=head; operation=null
         }
     }
     override suspend fun snapshot(): SavedSnapshot {
+        val read = Any()
         val owner=synchronized(playerMetadataLock) {
+            latestSnapshotRead = read
             coherentPlayerSnapshot=false
             val selectedSession=session
             if(selectedSession==null)null else {
@@ -215,17 +282,18 @@ internal class DurableGateway(
             }
         }
         if(owner==null)return openLibrary(allowCreate=false)
-        fun currentPlayerScope() = synchronized(playerMetadataLock) { requirePlayerOwner(owner) }
-        // Open refreshes revision from validated persisted canon before coherent player inspection.
+        fun requireCurrentRead() {
+            requirePlayerOwner(owner)
+            if (latestSnapshotRead !== read) throw WorkspaceFailure("Stale")
+        }
+        // Open refreshes the native head. Publish the head only with its coherent player view.
         val opened = call(playerCommand("open",owner))
-        check(playerScopeMatches(opened.getJSONObject("scope"),owner))
-        val playerRevision=opened.getLong("revision")
-        synchronized(playerMetadataLock) { requirePlayerOwner(owner); revision=playerRevision }
+        val playerRevision = sessionHead(opened, owner.scope, session = owner.session)
+        synchronized(playerMetadataLock) { requireCurrentRead() }
         val view = call(PlayerPresentationWire.command(owner.session, owner.scope, playerRevision))
-        currentPlayerScope()
+        synchronized(playerMetadataLock) { requireCurrentRead() }
         val presentation = PlayerPresentationWire.decode(view, owner.scope, playerRevision)
         val nativeObserver = presentation.observer
-        synchronized(playerMetadataLock) { requirePlayerOwner(owner); bindPlayerSnapshot(owner.session,owner.scope,nativeObserver,playerBinding) }
         val workspace = workspace()
         // Host-v1's workspace contract and the SQLite implementation have separate versions.
         val databaseSchema = workspace.getInt("database_schema_version")
@@ -237,17 +305,18 @@ internal class DurableGateway(
         // A concurrent owner can advance between calls. Fail closed and recover a new
         // coherent snapshot rather than attaching a different head's catalog metadata.
         if (current.revision != playerRevision) throw WorkspaceFailure("Stale")
-        textProvider = readTextProvider()
+        val provider = readTextProvider()
         val saved = SavedSnapshot(playerRevision, if (presentation.hasPotion) "You" else "Not in your inventory",
             presentation.messages, workspace.getString("location"), 1, stories,
             SavedStory(current.story, current.branch, root.title, current.revision), current.uncommittedDrafts,
-            presentation.rules, textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines)
+            presentation.rules, provider, databaseSchemaVersion = databaseSchema, timelines = timelines,
+            inventory = presentation.inventory, playerProfile = presentation.playerProfile)
         synchronized(playerMetadataLock) {
-            requirePlayerOwner(owner)
-            if(revision!=playerRevision)throw WorkspaceFailure("Stale")
-            // Another read may have published while this read awaited catalogs/provider metadata.
-            playerBinding=bindPlayerSnapshot(owner.session,owner.scope,nativeObserver,playerBinding)
-            coherentPlayerSnapshot=true
+            requireCurrentRead()
+            playerBinding = bindPlayerSnapshot(owner.session, owner.scope, nativeObserver, playerBinding)
+            revision = playerRevision
+            textProvider = provider
+            coherentPlayerSnapshot = true
         }
         return resolvedInitialSelection(saved)
     }
@@ -299,8 +368,8 @@ internal class DurableGateway(
         try {
             val submitted = submitOriginal(pending) ?: return DemoResult.Rejected("Cancelled")
             if (pending.cancelled) return DemoResult.Rejected("Cancelled")
-            val prepared = if (submitted.getString("phase") == "queued") call(scoped("prepare", pending)) else submitted
-            return result(prepared, pending)
+            val prepared = if (turnPhase(submitted, pending) == "queued") advanceTurn("prepare", pending) else submitted
+            return result(prepared, pending, allowReady = true)
         } catch (failure: WorkspaceFailure) {
             // An explicit rejection before acceptance cannot create canon; transport uncertainty stays pending.
             if (failure.category in setOf("Full", "Busy", "Database", "Integrity", "Io", "Internal")) throw failure
@@ -310,41 +379,54 @@ internal class DurableGateway(
     }
     private suspend fun submitOriginal(pending: Pending): JSONObject? = withContext(NonCancellable) {
         submissionGate.withLock {
-            if (pending.cancelled) null else call(submitCommand(pending))
+            if (pending.cancelled) return@withLock null
+            check(operation === pending)
+            call(submitCommand(pending))
         }
     }
-    private fun result(data: JSONObject, pending: Pending): DemoResult {
-        check(data.getString("turn") == pending.turn && sameScope(data.getJSONObject("scope"), pending.scope))
-        check(data.getLong("expected_revision") == pending.request.getLong("expected_revision"))
-        val resolved = when (data.getString("phase")) {
-        "ready" -> DemoResult.Prepared(0, pending.serial)
-        "committed" -> {
-            val receipt = data.getJSONObject("receipt")
-            check(sameJson(receipt.getJSONObject("request"), pending.request))
-            DemoResult.Accepted(pending.request.getLong("expected_revision") + 1, "", receipt.getString("narration"))
-        }
-        "cancelled", "failed", "stale" -> {
-            DemoResult.Rejected(data.optString("error").takeUnless { it.isBlank() || it == "null" } ?: "Cancelled")
-        }
-        else -> error("Unfinished")
+    /** Bind native phase evidence before using it to advance the original request. */
+    private fun turnPhase(data: JSONObject, pending: Pending): String {
+        val head = data.opt("expected_revision")
+        check(data.opt("turn") == pending.turn && sameJson(data.optJSONObject("scope"), pending.scope) &&
+            (head is Int || head is Long) &&
+            (head as Number).toLong() == pending.request.getLong("expected_revision")) { "Invalid turn reply" }
+        return data.opt("phase") as? String ?: error("Invalid turn reply")
+    }
+    private suspend fun advanceTurn(op: String, pending: Pending): JSONObject {
+        check(operation === pending && !pending.cancelled) { "Obsolete turn reply" }
+        return call(scoped(op, pending))
+    }
+    private fun result(data: JSONObject, pending: Pending, allowReady: Boolean = false): DemoResult {
+        val resolved = when (turnPhase(data, pending)) {
+            "ready" -> {
+                check(allowReady) { "Unfinished" }
+                DemoResult.Prepared(0, pending.serial)
+            }
+            "committed" -> {
+                val receipt = data.getJSONObject("receipt")
+                check(sameJson(receipt.getJSONObject("request"), pending.request))
+                DemoResult.Accepted(pending.request.getLong("expected_revision") + 1, "", receipt.getString("narration"))
+            }
+            "cancelled", "failed", "stale" -> {
+                DemoResult.Rejected(data.optString("error").takeUnless { it.isBlank() || it == "null" } ?: "Cancelled")
+            }
+            else -> error("Unfinished")
         }
         // Decode the entire authoritative result before releasing its recovery key.
         if (resolved !is DemoResult.Prepared && operation === pending) operation = null
         return resolved
-    }
-    private fun acknowledgeCancellation(data: JSONObject, pending: Pending) {
-        // An unfinished or foreign reply cannot release the original recovery key.
-        check(data.getString("phase") in setOf("committed", "cancelled", "failed", "stale"))
-        result(data, pending) // Validate the complete original binding before releasing it.
     }
     override suspend fun commitAsync(result: DemoResult): DemoResult {
         if (result !is DemoResult.Prepared) return result
         val pending = operation ?: return DemoResult.Rejected("Cancelled")
         if (pending.cancelled || result.operation != pending.serial) return DemoResult.Rejected("Cancelled")
         val data = try { call(scoped("commit", pending)) }
+            catch (retired: LocalInferenceUncertain) { throw retired }
             catch (failure: Exception) {
                 // The original key is the only authority after a lost commit acknowledgement.
-                val status = try { call(scoped("turn_status", pending)) } catch (_: Exception) { throw failure }
+                val status = try { call(scoped("turn_status", pending)) }
+                    catch (retired: LocalInferenceUncertain) { throw retired }
+                    catch (_: Exception) { throw failure }
                 if (status.optString("phase") !in setOf("committed", "cancelled", "failed", "stale")) throw failure
                 // Ready/queued work is still uncertain. Even a terminal-looking malformed
                 // reply cannot discard the key or hide the primary storage error.
@@ -357,7 +439,7 @@ internal class DurableGateway(
         if (session == null) return initialize()
         operation?.let { pending ->
             if (pending.cancelled) {
-                try { submissionGate.withLock { acknowledgeCancellation(call(scoped("cancel", pending)), pending) } }
+                try { submissionGate.withLock { result(call(scoped("cancel", pending)), pending) } }
                 catch (failure: WorkspaceFailure) {
                     if (failure.category != "UnknownTurn") throw failure
                     if (operation === pending) operation = null
@@ -369,8 +451,12 @@ internal class DurableGateway(
                     if (failure.category != "UnknownTurn") throw failure
                     submitOriginal(pending) ?: return snapshot()
                 }
-            if (status.getString("phase") == "queued") status = call(scoped("prepare", pending))
-            if (status.getString("phase") == "ready") status = call(scoped("commit", pending))
+            var phase = turnPhase(status, pending)
+            if (phase == "queued") {
+                status = advanceTurn("prepare", pending)
+                phase = turnPhase(status, pending)
+            }
+            if (phase == "ready") status = advanceTurn("commit", pending)
             result(status, pending)
         }
         return snapshot()
@@ -389,12 +475,13 @@ internal class DurableGateway(
                     if (operation === pending) operation = null
                     return@let
                 }
-            acknowledgeCancellation(status, pending)
+            result(status, pending)
         }
         return snapshot()
     }
-    private suspend fun closeSession() {
+    private suspend fun closeSession(expectedAttachment: Any? = null): Any? {
         val detached=synchronized(playerMetadataLock) {
+            if (expectedAttachment != null && playerAttachment !== expectedAttachment) throw WorkspaceFailure("Stale")
             playerAttachment=Any(); coherentPlayerSnapshot=false; playerBinding=null
             Triple(playerAttachment,session,scope?.let { PlayDraftScope(it.getString("story"),it.getString("branch")) })
         }
@@ -406,25 +493,25 @@ internal class DurableGateway(
                 if (failure.category != "Closed") throw failure
             }
         }
-        synchronized(playerMetadataLock) {
-            if(playerAttachment === detached.first) {
-                playerAttachment=Any(); session=null; scope=null; revision=0; playerBinding=null; coherentPlayerSnapshot=false
-            }
+        return synchronized(playerMetadataLock) {
+            if (playerAttachment !== detached.first) return@synchronized null
+            playerAttachment=Any(); session=null; scope=null; revision=0; playerBinding=null; coherentPlayerSnapshot=false
+            playerAttachment
         }
     }
-    private suspend fun release() {
+    private suspend fun release(expectedAttachment: Any? = null): Any? {
         invalidatePlayerSnapshot()
         operation?.let { pending ->
             pending.cancelled = true
             try {
                 val status = submissionGate.withLock { call(scoped("cancel", pending)) }
-                acknowledgeCancellation(status, pending)
+                result(status, pending)
             } catch (failure: WorkspaceFailure) {
                 if (failure.category !in setOf("Closed", "UnknownTurn")) throw failure
                 if (operation === pending) operation = null
             }
         }
-        closeSession()
+        return closeSession(expectedAttachment)
     }
     override fun originalStories(): OriginalStoryGateway = this
     private fun authoringReady() {
@@ -548,8 +635,9 @@ internal class DurableGateway(
         return snapshot()
     }
     override suspend fun resumeSaved(story: SavedStory): SavedSnapshot {
-        release()
-        attach(call(command("resume").put("scope", JSONObject().put("story", story.story).put("branch", story.branch))))
+        val currentAttachment = synchronized(playerMetadataLock) { playerAttachment }
+        val attachment = release(expectedAttachment = currentAttachment) ?: throw WorkspaceFailure("Stale")
+        resumeSelection(PlayDraftScope(story.story, story.branch), attachment)
         return snapshot()
     }
     override fun close() {
@@ -559,7 +647,10 @@ internal class DurableGateway(
         }
     }
 }
-internal class WorkspaceFailure(val category: String) : Exception("Workspace operation failed")
+internal class WorkspaceFailure(
+    val category: String,
+    val originalReviewProblem: OriginalReviewProblem? = null,
+) : Exception("Workspace operation failed")
 private val timelineId = Regex("[A-Za-z0-9_-]{1,64}")
 
 /** Metadata validation only. Replay, history eligibility and gameplay remain Rust-owned. */
@@ -621,8 +712,6 @@ private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimel
 } catch (_: Exception) {
     throw WorkspaceFailure("Malformed")
 }
-private fun sameScope(left: JSONObject, right: JSONObject) =
-    left.getString("story") == right.getString("story") && left.getString("branch") == right.getString("branch")
 private fun sameJson(left: Any?, right: Any?): Boolean = when {
     left is JSONObject && right is JSONObject -> {
         val keys = left.keys().asSequence().toSet()

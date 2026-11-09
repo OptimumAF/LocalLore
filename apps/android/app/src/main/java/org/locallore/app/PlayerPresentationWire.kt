@@ -15,6 +15,8 @@ internal data class PlayerPresentation(
     val rules: String,
     val hasPotion: Boolean,
     val messages: List<SceneMessage>,
+    val inventory: List<PlayerInventoryItem>,
+    val playerProfile: PlayerSelfProfile,
 )
 
 internal object PlayerPresentationWire {
@@ -43,15 +45,17 @@ internal object PlayerPresentationWire {
         val rules = data.text("rules").also { require(it in setOf("fantasy_v1", "narrative_v1")) }
         val player = data.getJSONObject("player").also { it.fields("observer", "self_state") }
         val observer = player.id("observer")
-        actor(player.getJSONObject("self_state"))
+        val playerProfile = actor(player.getJSONObject("self_state"), observer)
         val inventory = data.getJSONObject("inventory")
+        val inventoryItems = mutableListOf<PlayerInventoryItem>()
         for (key in inventory.keys().asSequence()) {
             require(identifier.matches(key))
             val item = inventory.getJSONObject(key).also { it.fields("owner", "quantity", "return_to", "healing") }
             require(item.id("owner") == observer)
-            item.unsigned16("quantity")
+            val quantity = item.unsigned16("quantity")
             if (!item.isNull("return_to")) item.id("return_to")
             item.boolean("healing")
+            inventoryItems += PlayerInventoryItem(key, quantity.toInt())
         }
         val window = data.getJSONObject("window").also { it.fields("total", "start", "end") }
         val total = window.integer("total").also { require(it in 0..4096) }
@@ -82,23 +86,32 @@ internal object PlayerPresentationWire {
             messages += SceneMessage(ordinal * 2 + 2, narration, false)
         }
         PlayerPresentation(domain, selectedScope, expectedRevision, observer, rules, inventory.has("potion"),
-            Collections.unmodifiableList(ArrayList(messages)))
+            Collections.unmodifiableList(ArrayList(messages)),
+            Collections.unmodifiableList(ArrayList(inventoryItems.sortedBy { it.id })), playerProfile)
     } catch (failure: WorkspaceFailure) { throw failure }
     catch (_: Exception) { throw WorkspaceFailure("Malformed") }
 
-    private fun actor(value: JSONObject) {
+    private fun actor(value: JSONObject, observer: String): PlayerSelfProfile {
         value.fields("name", "location", "alive", "energy", "abilities", "attributes", "injuries", "affiliations", "goals")
-        value.text("name"); value.text("location"); value.boolean("alive"); value.unsigned16("energy")
+        val name = value.text("name")
+        val location = value.text("location")
+        val alive = value.boolean("alive")
+        val energy = value.unsigned16("energy").toInt()
         val abilities = value.getJSONObject("abilities")
-        for (key in abilities.keys().asSequence()) {
-            require(identifier.matches(key)); abilities.unsigned16(key)
-        }
+        val abilityRows = abilities.keys().asSequence().map { key ->
+            require(identifier.matches(key))
+            PlayerAbility(key, abilities.unsigned16(key).toInt())
+        }.sortedBy { it.id }.toList()
         val attributes = value.getJSONObject("attributes")
-        for (key in attributes.keys().asSequence()) {
+        val attributeRows = attributes.keys().asSequence().map { key ->
             localUtf8(key)
-            require(attributes.integer(key) in -32768..32767)
-        }
-        for (key in listOf("injuries", "affiliations", "goals")) strings(value.getJSONArray(key), ids = false)
+            val number = attributes.integer(key).also { require(it in -32768..32767) }
+            PlayerAttribute(key, number.toInt())
+        }.sortedBy { it.name }.toList()
+        return PlayerSelfProfile(observer, name, location, alive, energy, abilityRows, attributeRows,
+            strings(value.getJSONArray("injuries"), ids = false),
+            strings(value.getJSONArray("affiliations"), ids = false),
+            strings(value.getJSONArray("goals"), ids = false)).detachedCopy()
     }
 
     private fun intent(value: JSONObject): String {
@@ -156,13 +169,16 @@ internal object PlayerPresentationWire {
         value.fields("story", "branch")
         return PlayDraftScope(value.id("story"), value.id("branch"))
     }
-    private fun strings(values: JSONArray, ids: Boolean) {
+    private fun strings(values: JSONArray, ids: Boolean): List<String> {
         val seen = mutableSetOf<String>()
+        val result = mutableListOf<String>()
         for (index in 0 until values.length()) {
             val text = values.get(index) as String
             localUtf8(text)
             require(seen.add(text) && (!ids || identifier.matches(text)))
+            result += text
         }
+        return result
     }
     private fun JSONObject.fields(vararg keys: String) = require(this.keys().asSequence().toSet() == keys.toSet())
     private fun JSONObject.text(key: String, cap: Int = MAX_BYTES): String = (get(key) as String).also {

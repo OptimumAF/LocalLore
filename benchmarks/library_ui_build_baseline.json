@@ -1,0 +1,581 @@
+{
+  "version": 1,
+  "scope": "fixed-b80-byte-attestation-v1",
+  "product": {
+    "root": "D:\\Worktrees\\locallore-player-profile-ui-v1",
+    "capture": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1",
+    "recovery": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-library-action-scope-v1",
+    "manifest": "D:/Dev/Experiments/LocalLore/2026-11-02-library-ui-harness-v1/library-ui-build-v1.json",
+    "head": "7ab4918fa1044d960edcb1172fe7684474eb3a89",
+    "tested_head": "8516871469f769c9363fc9189200c88a8e3a6931",
+    "first_count": 2595,
+    "tested_count": 2596,
+    "source_count": 2597,
+    "native_capture": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1",
+    "native_compiled_head": "7e69107ed48239393a880bb318211c15d6422a8a",
+    "native_source_count": 2589,
+    "preservation_pairs": 225,
+    "inherited_count": 151,
+    "reused_count": 81,
+    "new_inherited_count": 70,
+    "inherited_bytes": 54318045,
+    "new_inherited_bytes": 342537,
+    "certificate": "17ed497138b20dc1657d54039802305cfe0e3b782c73feaad20359c954707564",
+    "apks": {
+      "product_apk": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\outputs\\apk\\debug\\app-debug.apk",
+        "bytes": 28365001,
+        "sha256": "3c355ec7568e8a6468790c417d986d413f5414f43cde2719f77a9041ea15abb6"
+      },
+      "test_apk": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\outputs\\apk\\androidTest\\debug\\app-debug-androidTest.apk",
+        "bytes": 2541802,
+        "sha256": "5a96cfd007e42a5eb7e739375316c2ba43263490c2cca784b35d91b83712b698"
+      }
+    }
+  },
+  "refs": {
+    "closed": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\closed-evidence-v1.json",
+      "bytes": 12667,
+      "sha256": "a94272386147b8761e9e0a9d875cb01028041a3d5f3d07761519b2f7987c189a"
+    },
+    "review": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\closed-review-v1.json",
+      "bytes": 5777,
+      "sha256": "0122299abf2337081ffd13bd5e2e3b4d42f106367d0862644451a956eb7dfa39"
+    },
+    "source_review": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\source-review-v2.json",
+      "bytes": 3673,
+      "sha256": "b7d9153ee271e1a0d7dccbc47d240bf8b0b946b7a62577babe9722013c24c1bc"
+    },
+    "source_review_prior": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\source-review-v1.json",
+      "bytes": 4554,
+      "sha256": "2e2b7826eaec53bc6182745655c32953964890131ec4b9cb36c6f754603259f3"
+    },
+    "preservation": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\final-preservation-v1.json",
+      "bytes": 135053,
+      "sha256": "4ab3a284e47292a55c9813ede936ec4c14079d8865b2860e02ae8962bdbfb68e"
+    },
+    "preservation_review": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\final-preservation-review-v1.json",
+      "bytes": 3262,
+      "sha256": "2f1dccd401f8343233758d07c27fe3a85191aab92475880040740e67c25f550b"
+    },
+    "final_source": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\final-source-map-v1.json",
+      "bytes": 506097,
+      "sha256": "6717a40e1fe9a9deeded4ce0234ea5adc7cc9a1fa7a8b4bb46480e6de09ecd1a"
+    },
+    "inherited": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\inherited-build-preservation-v1.json",
+      "bytes": 105352,
+      "sha256": "37013c96d667c0f0ad9fcd08d6bf56f3475559a63d0bfde3bf61445262334881"
+    },
+    "helper": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\run-check-v1.py",
+      "bytes": 6219,
+      "sha256": "f86c1a64c8e504d4080eb961a19549d5ebbf8377619d90fee224b7f339bc554a"
+    },
+    "first-v1/before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\source-before-v1.json",
+      "bytes": 492701,
+      "sha256": "c370aedb27f2a18085a83f8ca5c08a8b13291273abbbfb63de7d5bf01755a5b3"
+    },
+    "first-v1/after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\source-after-v1.json",
+      "bytes": 492701,
+      "sha256": "c370aedb27f2a18085a83f8ca5c08a8b13291273abbbfb63de7d5bf01755a5b3"
+    },
+    "first-v1/request": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\request-v1.json",
+      "bytes": 1948,
+      "sha256": "f833f24394a6dd26b257a94ab8bb341e377378969f77f9307c6721a248d9746e"
+    },
+    "first-v1/actual_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\actual-child-v1.json",
+      "bytes": 300,
+      "sha256": "693b5c1f95374902f74c0162832524997cb119e5e6d4cb6193b3c1c782940104"
+    },
+    "first-v1/command_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\command-child-v1.json",
+      "bytes": 425,
+      "sha256": "affb375d51a3f44189bc1a2250c7866e1eda979a4033679d13b0cc96f1df90f5"
+    },
+    "first-v1/command_terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\command-terminal-v1.json",
+      "bytes": 45,
+      "sha256": "a61604f82e573b684fc46ae8b74d1c66fe41a8323acaecfab8e62ab790ed2f0d"
+    },
+    "first-v1/owner": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\owner-result-v1.json",
+      "bytes": 190,
+      "sha256": "ac03875a5c7f9b9f80ce00c1a58e74f38baf57e0920ece00b7212126d255d645"
+    },
+    "first-v1/terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\terminal-v1.json",
+      "bytes": 1171,
+      "sha256": "d5cadfc30d465f77922794c0da1806c1b301c5381dcf5865a181e567cd37fecb"
+    },
+    "first-v1/stdout": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\owner-stdout-v1.bin",
+      "bytes": 3785,
+      "sha256": "6a4534e2492ecd6373282e8979146084cb0df58fa16e852913dc9a6227ac1047"
+    },
+    "first-v1/stderr": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\owner-stderr-v1.bin",
+      "bytes": 746,
+      "sha256": "ff95a6fc4e9ff751c89e56381a1c6623219824a37d930c9c5cc9ddff8a6316b7"
+    },
+    "first-v1/reports": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\first-v1\\report-preservation-v1.json",
+      "bytes": 4121,
+      "sha256": "4672a23b0705c97d9f0f1956cafd973e4f9c9b8292d0c2d84faa5f81aa31b381"
+    },
+    "zip/e3322589328ca64fde3bda417eab3b743fb730c5": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\source-e3322589328ca64fde3bda417eab3b743fb730c5.zip",
+      "bytes": 11457372,
+      "sha256": "f2305701f9012152d0787952a7f255cf417b643ac1221877b7d170f9b79cbbc6"
+    },
+    "green-v1/before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\source-before-v1.json",
+      "bytes": 492926,
+      "sha256": "263da80f3e3ae2aa8967cccc912714f6989b33fceb5495c96633722f2d9069d2"
+    },
+    "green-v1/after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\source-after-v1.json",
+      "bytes": 492926,
+      "sha256": "263da80f3e3ae2aa8967cccc912714f6989b33fceb5495c96633722f2d9069d2"
+    },
+    "green-v1/request": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\request-v1.json",
+      "bytes": 1948,
+      "sha256": "f64ec334769ec7d2d948faa099493311a8d550d2a52abc4b9c7fed19dfcb1555"
+    },
+    "green-v1/actual_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\actual-child-v1.json",
+      "bytes": 300,
+      "sha256": "a39b8e674f055ee4d8aece5a21a8410a15301c361f8b0cf0319fddcb19a525bd"
+    },
+    "green-v1/command_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\command-child-v1.json",
+      "bytes": 425,
+      "sha256": "de3442bb8833924225f7478cda05918356431c0d7f2836be7f638c462897d61c"
+    },
+    "green-v1/command_terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\command-terminal-v1.json",
+      "bytes": 45,
+      "sha256": "da6b2e9fb2685beef966771d4dbd63e2bfa1986f3565c71549eece1681f33cd0"
+    },
+    "green-v1/owner": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\owner-result-v1.json",
+      "bytes": 190,
+      "sha256": "f8b7c92b2a564938ebdc6bb2f7e4d78633769f04cce47eed3215ce44e1fd7871"
+    },
+    "green-v1/terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\terminal-v1.json",
+      "bytes": 1580,
+      "sha256": "c3eba43c268f2c9e3f3255e9ce57f7200e2cc75f248ee1a526d50c597e5eb063"
+    },
+    "green-v1/stdout": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\owner-stdout-v1.bin",
+      "bytes": 1750,
+      "sha256": "561d95b2eae9c0973f168ecf99cc5589599f4b4b11fcb0337c4de4bf2e3a8f94"
+    },
+    "green-v1/stderr": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\owner-stderr-v1.bin",
+      "bytes": 354,
+      "sha256": "0dd7b6194cc6b6b43377320ba62be3c9faf92baff4f7fe227c7e74b31b457250"
+    },
+    "green-v1/reports": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v1\\report-preservation-v1.json",
+      "bytes": 3632,
+      "sha256": "cee600d6c8dde3481d219f73e428c0ffdca5a714cf32ce0f17ed591aa4cfe244"
+    },
+    "zip/1e308da3fc56357f69c93c71dc2045e7e2412b29": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\source-1e308da3fc56357f69c93c71dc2045e7e2412b29.zip",
+      "bytes": 11460324,
+      "sha256": "a6135021f9e4e10404051d5d544470db479635bfc8c66aefddbb3b89255f9306"
+    },
+    "green-v2/before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\source-before-v1.json",
+      "bytes": 492926,
+      "sha256": "5f89910103162b5cf84b286aa65e61bf31f835de8cb0f5f5a83414e5c93eabc7"
+    },
+    "green-v2/after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\source-after-v1.json",
+      "bytes": 492926,
+      "sha256": "5f89910103162b5cf84b286aa65e61bf31f835de8cb0f5f5a83414e5c93eabc7"
+    },
+    "green-v2/request": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\request-v1.json",
+      "bytes": 1948,
+      "sha256": "fd7330017b4f3f064c4386dc1d2441fc75a164231ffb72b6f3d6e573bb89425b"
+    },
+    "green-v2/actual_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\actual-child-v1.json",
+      "bytes": 300,
+      "sha256": "dda3c3a768fbca19ae41949c9dd7181dd3731a199d018689e6873df0ae20aea5"
+    },
+    "green-v2/command_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\command-child-v1.json",
+      "bytes": 425,
+      "sha256": "5df142fbb49b9cb17dd7384682b0b66a880920ab5dbc3a0680bbb38d71c665fd"
+    },
+    "green-v2/command_terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\command-terminal-v1.json",
+      "bytes": 45,
+      "sha256": "d45916cc0b3c002a9b04247dda3007a2e4e520f7a02144dd1537f17a97678dbf"
+    },
+    "green-v2/owner": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\owner-result-v1.json",
+      "bytes": 190,
+      "sha256": "5a7eb9e54588af0b605418bf4642cff4f7917a23513656610c6b378961bccd9a"
+    },
+    "green-v2/terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\terminal-v1.json",
+      "bytes": 1252,
+      "sha256": "51777dbe7808d41899382ea82914e25f38f703fc4869312b3b6843aa3e83dbe8"
+    },
+    "green-v2/stdout": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\owner-stdout-v1.bin",
+      "bytes": 1750,
+      "sha256": "7a168c4fb77f3443fb5678641c032f11a1f072a6c34bc51465db998cec7e3f30"
+    },
+    "green-v2/stderr": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\owner-stderr-v1.bin",
+      "bytes": 354,
+      "sha256": "0dd7b6194cc6b6b43377320ba62be3c9faf92baff4f7fe227c7e74b31b457250"
+    },
+    "green-v2/reports": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v2\\report-preservation-v1.json",
+      "bytes": 3632,
+      "sha256": "a26acce4f91a9217ec8d052763e122485f2339507da0d2bf54ac0ba420ceb0e9"
+    },
+    "zip/10daaf039da6ce46a8d608ca3f3259579abad528": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\source-10daaf039da6ce46a8d608ca3f3259579abad528.zip",
+      "bytes": 11460583,
+      "sha256": "070c256fef342423740330a6a8e18bdf71cf46f321aa202abea542398d803aa5"
+    },
+    "android-v1/before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\source-before-v1.json",
+      "bytes": 492926,
+      "sha256": "5f89910103162b5cf84b286aa65e61bf31f835de8cb0f5f5a83414e5c93eabc7"
+    },
+    "android-v1/after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\source-after-v1.json",
+      "bytes": 492926,
+      "sha256": "5f89910103162b5cf84b286aa65e61bf31f835de8cb0f5f5a83414e5c93eabc7"
+    },
+    "android-v1/request": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\request-v1.json",
+      "bytes": 1847,
+      "sha256": "8f526918cb83b6350032198c723a8a52d1027185b6409327db08ada05345096f"
+    },
+    "android-v1/actual_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\actual-child-v1.json",
+      "bytes": 300,
+      "sha256": "c5d41a60b90c048a9612627c08e009c3290e53e9ea0c33aa3c40d78ae35bdf10"
+    },
+    "android-v1/command_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\command-child-v1.json",
+      "bytes": 367,
+      "sha256": "df4e11ba39f1e4c4f078a589f0c96dc4b3dd9c9bfde694fcce019f62263dd578"
+    },
+    "android-v1/command_terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\command-terminal-v1.json",
+      "bytes": 45,
+      "sha256": "914e80f4fe517315394430556034ba3bf9082fe2229332750a280d5d87ad54a5"
+    },
+    "android-v1/owner": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\owner-result-v1.json",
+      "bytes": 191,
+      "sha256": "5f63007a4715ef983aae8472839290b8c583126319a392cc0785f985f7551749"
+    },
+    "android-v1/terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\terminal-v1.json",
+      "bytes": 2156,
+      "sha256": "1aab01609a61fd6a61511fff3a693a7d3852304e27946fccd2a372e48bee7347"
+    },
+    "android-v1/stdout": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\owner-stdout-v1.bin",
+      "bytes": 4913,
+      "sha256": "b269a845a84d1cc8e435cc896be529c5dc304b72da3ce7f2f563b2c01ac38819"
+    },
+    "android-v1/stderr": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\owner-stderr-v1.bin",
+      "bytes": 1470,
+      "sha256": "9bcc5f3b5a646ed502c01b7120ee6d1a6cbf2c5eb64dff2e568751a790068be5"
+    },
+    "android-v1/reports": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v1\\partial-preservation-v1.json",
+      "bytes": 44802,
+      "sha256": "741fa7a539cd0b36b86812b4f6c734c587e36eccc68fde9ca978fb56b5f64a54"
+    },
+    "green-v3/before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\source-before-v1.json",
+      "bytes": 492926,
+      "sha256": "af24ccc991876a5c36aaa23f4f8c2fe8ea527bd54ea37c906a3ba1d1103e066f"
+    },
+    "green-v3/after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\source-after-v1.json",
+      "bytes": 492926,
+      "sha256": "af24ccc991876a5c36aaa23f4f8c2fe8ea527bd54ea37c906a3ba1d1103e066f"
+    },
+    "green-v3/request": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\request-v1.json",
+      "bytes": 1948,
+      "sha256": "5620131f458c051cdfe5f48b06eb36d7dc896bc1d38794c3c31c12c7979234b5"
+    },
+    "green-v3/actual_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\actual-child-v1.json",
+      "bytes": 300,
+      "sha256": "70ee151c5e62fd6cb86864402c70eeabd5f917a59246f869f0ae693ac83b256e"
+    },
+    "green-v3/command_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\command-child-v1.json",
+      "bytes": 424,
+      "sha256": "54b0800269e89c26e1c3e5cd6e6917a99f8121d90bab98b7cadb4ab66e4a85bb"
+    },
+    "green-v3/command_terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\command-terminal-v1.json",
+      "bytes": 44,
+      "sha256": "0666d9541b93c299dfab6f0be33532745cf3d31d3f1991bf37c854568c593ee1"
+    },
+    "green-v3/owner": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\owner-result-v1.json",
+      "bytes": 189,
+      "sha256": "849bb55dd424bbe987b49b4e131cbf8c2c197cb4ce9529b36e4516c753c4a1d2"
+    },
+    "green-v3/terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\terminal-v1.json",
+      "bytes": 1005,
+      "sha256": "91e15701911205982a88d4108533f3c0731fdca442dc767f6dc995ed82832c8a"
+    },
+    "green-v3/stdout": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\owner-stdout-v1.bin",
+      "bytes": 1793,
+      "sha256": "9dc9e35a9d06f9ba6c9e797eddafe3af30339ae555eadc4932838d5ec9fd94d6"
+    },
+    "green-v3/stderr": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\owner-stderr-v1.bin",
+      "bytes": 354,
+      "sha256": "0dd7b6194cc6b6b43377320ba62be3c9faf92baff4f7fe227c7e74b31b457250"
+    },
+    "green-v3/reports": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\green-v3\\report-preservation-v1.json",
+      "bytes": 3632,
+      "sha256": "99cb4eb9dd6fd27f9ffd4759812059bebfcbf67c5ba7cfa013a4b4eed58b9b3f"
+    },
+    "zip/8516871469f769c9363fc9189200c88a8e3a6931": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\source-8516871469f769c9363fc9189200c88a8e3a6931.zip",
+      "bytes": 11460654,
+      "sha256": "b6bc4ece69eb5201b16c4ad05e4f56b94a9e2a756e1dd1ffa59a210a32ca1e38"
+    },
+    "android-v2/before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\source-before-v1.json",
+      "bytes": 492926,
+      "sha256": "af24ccc991876a5c36aaa23f4f8c2fe8ea527bd54ea37c906a3ba1d1103e066f"
+    },
+    "android-v2/after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\source-after-v1.json",
+      "bytes": 492926,
+      "sha256": "af24ccc991876a5c36aaa23f4f8c2fe8ea527bd54ea37c906a3ba1d1103e066f"
+    },
+    "android-v2/request": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\request-v1.json",
+      "bytes": 1847,
+      "sha256": "c11c84628215fc52a4b65c3e89c434dad4e3ac5247d4860369a71241f6fdeebd"
+    },
+    "android-v2/actual_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\actual-child-v1.json",
+      "bytes": 300,
+      "sha256": "ab14f26f0b9c7b9339e812e2ac7872dd9913f19d8bb3e361348235c9d2a0c9ce"
+    },
+    "android-v2/command_child": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\command-child-v1.json",
+      "bytes": 367,
+      "sha256": "027c23a31b3ab9f44b5c59cfadf6e06cc85701b3d86b50f547d52ea31cbf43b2"
+    },
+    "android-v2/command_terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\command-terminal-v1.json",
+      "bytes": 45,
+      "sha256": "58eb961ce2cc353877241d015353b3d5e34bbf5b95e6eb5117dd90d281969889"
+    },
+    "android-v2/owner": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\owner-result-v1.json",
+      "bytes": 190,
+      "sha256": "896106558f70b45501afb2554e03fcd207e1f1d5380b132d17cda912336d1b6e"
+    },
+    "android-v2/terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\terminal-v1.json",
+      "bytes": 2236,
+      "sha256": "81c6dbf2d4ea44825ae22e73580a4616a93c6e4d149bc3df68fe28bce168c806"
+    },
+    "android-v2/stdout": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\owner-stdout-v1.bin",
+      "bytes": 7756,
+      "sha256": "145234b8cac311b4d6c39294f654c94f84a72feaf631589dfc1b667de5b156dc"
+    },
+    "android-v2/stderr": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\owner-stderr-v1.bin",
+      "bytes": 354,
+      "sha256": "0dd7b6194cc6b6b43377320ba62be3c9faf92baff4f7fe227c7e74b31b457250"
+    },
+    "android-v2/reports": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-library-action-scope-v1\\android-v2\\report-preservation-v1.json",
+      "bytes": 167466,
+      "sha256": "76e7ba9e4fb18e7d37a8f0231ba1e5c7c4b3151bf77066c5ad1d15ae4da38b52"
+    },
+    "native/before": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1\\first-v1\\source-before-v1.json",
+      "bytes": 491465,
+      "sha256": "305fe72010f0e4b5b0a907f6c14a26e297430534116847d9693f0224734bab1b"
+    },
+    "native/after": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1\\first-v1\\source-after-v1.json",
+      "bytes": 491465,
+      "sha256": "305fe72010f0e4b5b0a907f6c14a26e297430534116847d9693f0224734bab1b"
+    },
+    "native/owner": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1\\first-v1\\owner-result-v1.json",
+      "bytes": 191,
+      "sha256": "98d3d8620f73e9128e6a9b32c1e22689315f9b7cf80a7c0da5b6f573928a4483"
+    },
+    "native/terminal": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1\\first-v1\\terminal-v1.json",
+      "bytes": 7734,
+      "sha256": "d6a6eee97ad381bc273d81802a9e9820de93f35647595fa6b4cd9781d99d2c28"
+    },
+    "native/request": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1\\first-v1\\request-v1.json",
+      "bytes": 1954,
+      "sha256": "85ceeaf666fee45fe1b3d13fe91fe375352ef5e585c5c41825a0b20b8794f4fc"
+    },
+    "native/stdout": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1\\first-v1\\owner-stdout-v1.bin",
+      "bytes": 3964,
+      "sha256": "a22fe6a0c0e047287a47c0baf02b1f2e01937232c46190c5dae47337578bd380"
+    },
+    "native/stderr": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1\\first-v1\\owner-stderr-v1.bin",
+      "bytes": 747,
+      "sha256": "76d01080e3e2ce1445eaaf8fb20968f20306545e06f58c687e27330fe6bbc2ef"
+    },
+    "native/zip": {
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-creation-dismiss-scope-v1\\source-7e69107ed48239393a880bb318211c15d6422a8a.zip",
+      "bytes": 11435126,
+      "sha256": "3bf2b11966802244f2424d735b5617289b8b6de0f8a6f14a54702c13dff9cf85"
+    }
+  },
+  "roster": [
+    [
+      "library_recovery_equal",
+      "org.locallore.app.ui.LibraryActionScopeScreenTest",
+      "oldRecoverCannotBorrowAnEqualFailedRetryAndFreshUnselectedRecoveryWorks"
+    ],
+    [
+      "library_story_popup",
+      "org.locallore.app.ui.LibraryActionScopeScreenTest",
+      "oldStoryRowsAndOpenerCannotActOnReopenedOrEqualRefreshedLibrary"
+    ],
+    [
+      "library_timeline_popup",
+      "org.locallore.app.ui.LibraryActionScopeScreenTest",
+      "oldTimelineRowCannotActOnReopenedMenuAndFreshChoiceWorks"
+    ],
+    [
+      "library_screen_remount",
+      "org.locallore.app.ui.LibraryActionScopeScreenTest",
+      "disposedScreenRowCannotBorrowSameViewModelAfterRemount"
+    ]
+  ],
+  "facts": {
+    "android_runtime_executed": false,
+    "model_material": false,
+    "deep_semantic_review_repeated": false,
+    "full_tool_binary_provenance": false,
+    "full_cache_or_TEMP_meter": false,
+    "jvm_cases": 550,
+    "jvm_suites": 67,
+    "jvm_failures": 0,
+    "jvm_errors": 0,
+    "jvm_skips": 0,
+    "selected_runtime_methods": 4,
+    "compiled_ui_methods": 4,
+    "intermediate_cohorts_additive": false,
+    "failed_whole_gate_passed": false,
+    "failed_old_test_apk_qualified": false,
+    "fresh_native_compilation": false
+  },
+  "native": [
+    {
+      "abi": "x86_64",
+      "release": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\rust-target\\x86_64-linux-android\\release\\liblocallore_android.so",
+        "bytes": 11574528,
+        "sha256": "1b7fc490ad69e3edea660869a7446330a11ad35c90b070255c4e6ed7d11111d3"
+      },
+      "cargo_alias": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\rust-target\\x86_64-linux-android\\release\\deps\\liblocallore_android.so",
+        "bytes": 11574528,
+        "sha256": "1b7fc490ad69e3edea660869a7446330a11ad35c90b070255c4e6ed7d11111d3"
+      },
+      "release_alias_links": 2,
+      "generated": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\generated\\rustJniLibs\\x86_64\\liblocallore_android.so",
+        "bytes": 11574528,
+        "sha256": "1b7fc490ad69e3edea660869a7446330a11ad35c90b070255c4e6ed7d11111d3"
+      },
+      "merged": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\intermediates\\merged_native_libs\\debug\\mergeDebugNativeLibs\\out\\lib\\x86_64\\liblocallore_android.so",
+        "bytes": 11574528,
+        "sha256": "1b7fc490ad69e3edea660869a7446330a11ad35c90b070255c4e6ed7d11111d3"
+      },
+      "stripped": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\intermediates\\stripped_native_libs\\debug\\stripDebugDebugSymbols\\out\\lib\\x86_64\\liblocallore_android.so",
+        "bytes": 9554216,
+        "sha256": "92ad40b2de75f3b396a057e71554d22c3f019ae5afb7e8ccefa8b5f5774aaa0a"
+      },
+      "apk_sha256": "92ad40b2de75f3b396a057e71554d22c3f019ae5afb7e8ccefa8b5f5774aaa0a"
+    },
+    {
+      "abi": "arm64-v8a",
+      "release": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\rust-target\\aarch64-linux-android\\release\\liblocallore_android.so",
+        "bytes": 11244368,
+        "sha256": "057669ea127c40ce82a93e7818897c5b718342881477f34f096beda8c8815e55"
+      },
+      "cargo_alias": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\rust-target\\aarch64-linux-android\\release\\deps\\liblocallore_android.so",
+        "bytes": 11244368,
+        "sha256": "057669ea127c40ce82a93e7818897c5b718342881477f34f096beda8c8815e55"
+      },
+      "release_alias_links": 2,
+      "generated": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\generated\\rustJniLibs\\arm64-v8a\\liblocallore_android.so",
+        "bytes": 11244368,
+        "sha256": "057669ea127c40ce82a93e7818897c5b718342881477f34f096beda8c8815e55"
+      },
+      "merged": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\intermediates\\merged_native_libs\\debug\\mergeDebugNativeLibs\\out\\lib\\arm64-v8a\\liblocallore_android.so",
+        "bytes": 11244368,
+        "sha256": "057669ea127c40ce82a93e7818897c5b718342881477f34f096beda8c8815e55"
+      },
+      "stripped": {
+        "path": "D:\\Worktrees\\locallore-player-profile-ui-v1\\apps\\android\\app\\build\\intermediates\\stripped_native_libs\\debug\\stripDebugDebugSymbols\\out\\lib\\arm64-v8a\\liblocallore_android.so",
+        "bytes": 8549536,
+        "sha256": "4a813662e09e0791c700189a090e31bb167a69c712c771f92caaf85ce22610e0"
+      },
+      "apk_sha256": "4a813662e09e0791c700189a090e31bb167a69c712c771f92caaf85ce22610e0"
+    }
+  ],
+  "documentation_only_delta": [
+    "README.md",
+    "docs/android/LIBRARY_ACTION_SCOPE_2026-11-02.md"
+  ],
+  "source_encoding": "Exact recorded raw worktree bytes; Git identity never authorizes newline normalization"
+}

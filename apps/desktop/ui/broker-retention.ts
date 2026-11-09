@@ -367,6 +367,14 @@ export class BrokerRetention {
         // External status/cancel replies can only update an already known ID.
         // Only this reservation's awaited admission reply may establish it.
         if (r.operation === null && !admission) return;
+        // An earlier cancel snapshot can arrive after a verified archive result.
+        if (
+            !admission &&
+            r.identity.surface === "archive" &&
+            r.terminal &&
+            !r.unknown
+        )
+            return;
         if (!value || typeof value !== "object") {
             this.patch({ unknown: true });
             return;
@@ -421,6 +429,7 @@ export class BrokerRetention {
                             status,
                             r.identity.action as ArchiveCommand,
                             r.identity.archive,
+                            r.identity,
                         );
                 } else if (
                     incoming.error !== null &&

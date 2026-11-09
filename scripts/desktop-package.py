@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from io import BytesIO
+from itertools import pairwise
 import json
+from ntpath import isreserved
 import os
 from pathlib import Path
 import re
@@ -392,12 +395,19 @@ def validate_files(files: dict[str, bytes], *, require_license_audit: bool = Fal
             for p in parts
         ):
             raise ValueError("Unexpected package member")
+        if any(isreserved(part) for part in parts):
+            raise ValueError("Reserved Windows package member")
         if name.startswith("NOTICES/") and (len(data) > 1024 * 1024 or b"\0" in data):
             raise ValueError("Invalid notice")
         if name in source_names:
             source_total += len(data)
             if len(data) > source_catalog["source_archives_each_byte_cap"] or source_total > source_catalog["source_archives_byte_cap"]:
                 raise ValueError("MPL source archive budget")
+    # Component order puts a file directly before any member that uses it as a directory.
+    windows_members = sorted(tuple(name.lower().split("/")) for name in files)
+    for parent, child in pairwise(windows_members):
+        if child[:len(parent)] == parent:
+            raise ValueError("Conflicting Windows package member")
     for name, cap in {"build-manifest.json": 2 * 1024 * 1024,
                       "runtime/profile-v1.json": 32768, "README.txt": 65536, "LICENSE": 65536}.items():
         if len(files[name]) > cap:
@@ -422,20 +432,38 @@ def validate_files(files: dict[str, bytes], *, require_license_audit: bool = Fal
 
 
 def inspect_archive(path: Path) -> dict:
-    if path.stat().st_size > 260 * 1024 * 1024:
+    byte_limit = 260 * 1024 * 1024
+    with path.open("rb") as archive_file:
+        if os.fstat(archive_file.fileno()).st_size > byte_limit:
+            raise ValueError("Archive byte budget")
+        archive_bytes = archive_file.read(byte_limit + 1)
+    if len(archive_bytes) > byte_limit:
         raise ValueError("Archive byte budget")
-    with zipfile.ZipFile(path) as archive:
+    with BytesIO(archive_bytes) as source, zipfile.ZipFile(source) as archive:
         entries = archive.infolist()
         if len(entries) > 2048 or sum(e.file_size for e in entries) > 256 * 1024 * 1024:
             raise ValueError("Archive budget")
+        if any(e.extra for e in entries):
+            raise ValueError("Unexpected ZIP member extra field")
+        if any(e.orig_filename != e.filename or "\\" in e.orig_filename for e in entries):
+            raise ValueError("Noncanonical ZIP member name")
         if len({e.filename for e in entries}) != len(entries):
             raise ValueError("Duplicate package member")
         if any(stat.S_ISLNK(e.external_attr >> 16) or e.flag_bits & 1 or
                e.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED} for e in entries):
             raise ValueError("Invalid archive member type")
+        # Developer ZIPs omit extra fields. Check the local header as well as
+        # the central directory before ZipFile checks each name and reads its payload.
+        for entry in entries:
+            source.seek(entry.header_offset)
+            local_header = source.read(30)
+            if len(local_header) != 30 or not local_header.startswith(b"PK\x03\x04"):
+                raise zipfile.BadZipFile("Invalid local ZIP member header")
+            if local_header[28:] != b"\0\0":
+                raise ValueError("Unexpected ZIP member extra field")
         files = {e.filename: archive.read(e) for e in entries}
     validate_files(files)
-    return {"sha256": sha(path.read_bytes()), "bytes": path.stat().st_size,
+    return {"sha256": sha(archive_bytes), "bytes": len(archive_bytes),
             "members": len(files), "worker_sha256": WORKER_SHA,
             "source_commit": json.loads(files["build-manifest.json"])["source_commit"],
             "license_scope_status": validate_scope_audit(files, json.loads(files["build-manifest.json"]))}
@@ -457,10 +485,15 @@ def build(args: argparse.Namespace) -> None:
     worker = validate_worker(args.worker.absolute())  # Before build or output creation.
     commit, inputs = source_inventory()
     env = os.environ.copy()
+    cargo_home = (ROOT / (env.get("CARGO_HOME") or Path.home() / ".cargo")).resolve()
     env.update({"PATH": str(args.node.absolute().parent) + os.pathsep + env["PATH"],
                 "CARGO_PROFILE_DEV_DEBUG": "0", "CARGO_PROFILE_TEST_DEBUG": "0",
                 "CARGO_INCREMENTAL": "0", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1",
-                "CARGO_ENCODED_RUSTFLAGS": f"--remap-path-prefix={ROOT}=/locallore-source",
+                "CARGO_HOME": str(cargo_home),
+                "CARGO_ENCODED_RUSTFLAGS": "\x1f".join((
+                    f"--remap-path-prefix={ROOT}=/locallore-source",
+                    f"--remap-path-prefix={cargo_home / 'registry' / 'src'}=/locallore-registry",
+                )),
                 "CARGO_TARGET_DIR": str(target)})
     # This script is not a dependency provisioner: npm dependencies and Cargo cache
     # must already be available. All subprocesses have argv vectors, never a shell.
@@ -497,7 +530,7 @@ def build(args: argparse.Namespace) -> None:
                 "node_options": env.get("NODE_OPTIONS", ""),
                 "rust": rust,
                 "cargo_profile": "dev; debug=0; incremental=0; no-default-features; final-link=/Brepro",
-                "source_path_mapping": "all-rustc; source-root=/locallore-source",
+                "source_path_mapping": "all-rustc; source-root=/locallore-source; registry-src=/locallore-registry",
                 "target": "x86_64-pc-windows-msvc", "dev_harness": False,
                 "model_weights_included": False, "worker_sha256": WORKER_SHA,
                 "runtime_commit": RUNTIME_COMMIT, "installer_qualified": False,

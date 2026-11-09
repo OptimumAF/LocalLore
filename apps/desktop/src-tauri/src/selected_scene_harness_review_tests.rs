@@ -188,6 +188,40 @@ fn discriminator_preserves_legacy_and_admits_scene3_only_in_scene_mode() {
 }
 
 #[test]
+fn native_scene_preparation_can_be_observed_but_never_affirmed() {
+    let metadata = json!({
+        "version": 4,
+        "source_protocol_version": 4,
+        "lane": "native_selected_case",
+        "kind": "selected_prepared",
+    });
+    let policy = metadata_kind_for_mode(&metadata, true).unwrap();
+    assert!(matches!(policy, ConsentPolicy::DenyNativeScene));
+    assert!(metadata_kind_for_mode(&metadata, false).is_err());
+
+    let state = SelectedHarness::default();
+    assert!(!consent_decision(&state, policy));
+    apply(&state, Scenario::DenyConsent);
+    assert!(!consent_decision(&state, policy));
+    assert!(!consent_decision(&state, ConsentPolicy::Fixture));
+    assert!(consent_decision(&state, ConsentPolicy::Fixture));
+
+    for (key, value) in [
+        ("kind", json!("selected_read")),
+        ("source_protocol_version", json!(3)),
+        ("lane", json!("scripted_selected_case")),
+        ("version", json!(3)),
+    ] {
+        let mut invalid = metadata.clone();
+        invalid[key] = value;
+        assert!(metadata_kind_for_mode(&invalid, true).is_err(), "{key}");
+    }
+    let mut oversized = metadata;
+    oversized["padding"] = json!("x".repeat(16 * 1024));
+    assert!(metadata_kind_for_mode(&oversized, true).is_err());
+}
+
+#[test]
 fn all_flag_combinations_are_pure_and_only_exact_scene_mode_is_admitted() {
     let before: BTreeMap<_, _> = std::env::vars_os().collect();
     for mask in 0u8..32 {

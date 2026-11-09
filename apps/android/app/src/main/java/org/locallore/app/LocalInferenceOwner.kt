@@ -16,7 +16,9 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -97,7 +99,8 @@ internal class LocalInferenceOwner(
     private val lock = Any()
     private var port: LocalInferenceNativePort? = null
     private var transport: Any? = null
-    private var active: Run? = null
+    private var active: Run<*>? = null
+    private var generationBlockingCommands = 0
     private var authorResponseCapture: AuthorResponseCapture? = null
     private var invalidation: Deferred<Unit>? = null
     private val closed = AtomicBoolean()
@@ -134,7 +137,7 @@ internal class LocalInferenceOwner(
         var close: Deferred<Boolean>? = null
         var await: Deferred<LocalRoleResult>? = null
     }
-    private inner class Run(val native: Deferred<ByteArray>, val cancelInput: ByteArray, val author: Boolean) {
+    private inner class Run<T : Any>(val native: Deferred<T>, val cancelInput: ByteArray, val author: Boolean) {
         // Native cancellation acknowledgement alone does not release an active SDK owner.
         val finished = CompletableDeferred<Boolean>()
         var opening: Deferred<Engine>? = null
@@ -184,43 +187,72 @@ internal class LocalInferenceOwner(
         try { bounded(invalidate(value)) } catch (_: Throwable) { /* Unknown remains quarantined. */ }
     }
 
-    /** All commands, including commit, share this guard; no unsafe work follows an uncertain cleanup. */
     suspend fun execute(
         value: LocalInferenceNativePort, operation: String, input: ByteArray, cancelInput: ByteArray? = null,
-    ): ByteArray {
+    ): ByteArray = executeDecoded(value, operation, input, cancelInput) { bytes ->
+        localText(bytes, 262_144)
+        bytes
+    }
+
+    /** Decode the reply before releasing the command reservation or declaring cleanup known. */
+    suspend fun <T : Any> executeDecoded(
+        value: LocalInferenceNativePort, operation: String, input: ByteArray, cancelInput: ByteArray?,
+        decode: (ByteArray) -> T,
+    ): T {
+        val discardableRead = operation == "inspection_query" || operation == "play_presentation_v2"
+        if (discardableRead) currentCoroutineContext().ensureActive()
         bound(value)
         val command = input.copyOf()
         try { localText(command, 24_576) } catch (_: Throwable) { throw IllegalArgumentException("Invalid local input") }
         if (operation !in setOf("prepare", "authoring_generate")) {
+            val blocksGeneration = operation !in setOf(
+                "cancel", "authoring_cancel", "authoring_status", "authoring_capabilities", "turn_status",
+                "close", "workspace", "play_snapshot", "model_status", "capabilities",
+            )
+            val isCancellation = operation == "cancel" || operation == "authoring_cancel"
             val cancelling = synchronized(lock) {
                 admit()
-                if (operation !in setOf("cancel", "authoring_cancel", "authoring_status", "authoring_capabilities", "turn_status", "close", "workspace", "play_snapshot", "model_status", "capabilities") && active != null)
-                    throw LocalInferenceBusy()
-                if (operation == "cancel" || operation == "authoring_cancel") active else null
-            }
-            return try {
-                // One unchanged deadline covers both native ACK and the captured run's cleanup.
-                // Refreshing open/branches remains forbidden until that SDK ownership is settled.
-                withTimeout(limits.cleanupMs) {
-                    val reply = task { value.call(command).copyOf() }.await().also { localText(it, 262_144) }
-                    if (cancelling != null) check(cancelling.finished.await())
-                    if (operation == "cancel" || operation == "authoring_cancel") synchronized(lock) { admit() }
-                    reply
+                if (blocksGeneration) {
+                    if (active != null) throw LocalInferenceBusy()
+                    generationBlockingCommands++
                 }
+                if (isCancellation) active else null
+            }
+            // One unchanged deadline covers native ACK and any captured run cleanup.
+            suspend fun finiteReply(): T = withTimeout(limits.cleanupMs) {
+                val reply = task { decode(value.call(command).copyOf()) }.await()
+                if (cancelling != null) check(cancelling.finished.await())
+                if (isCancellation) synchronized(lock) { admit() }
+                reply
+            }
+            val reply = try {
+                if (discardableRead) {
+                    // The caller may retire its view while a read is already running.
+                    // Observe native completion within the same deadline before discarding it.
+                    withContext(NonCancellable) { finiteReply() }
+                } else finiteReply()
             } catch (_: Throwable) {
                 withContext(NonCancellable) { quarantine(value) }
                 throw LocalInferenceUncertain()
+            } finally {
+                // Release only after a bounded native reply or fail-closed quarantine.
+                if (blocksGeneration) synchronized(lock) { generationBlockingCommands-- }
             }
+            if (discardableRead) {
+                currentCoroutineContext().ensureActive()
+                synchronized(lock) { admit() }
+            }
+            return reply
         }
         val cancellation = cancelInput?.copyOf() ?: throw IllegalArgumentException("Invalid local input")
         try { localText(cancellation, 24_576) } catch (_: Throwable) { throw IllegalArgumentException("Invalid local input") }
         val run = synchronized(lock) {
             admit()
-            if (active != null) throw LocalInferenceBusy()
-            Run(task { value.call(command).copyOf().also { localText(it, 262_144) } }, cancellation,
+            if (active != null || generationBlockingCommands != 0) throw LocalInferenceBusy()
+            Run(task { decode(value.call(command).copyOf()) }, cancellation,
                 operation=="authoring_generate").also { active = it }
         }
-        var reply: ByteArray? = null
+        var reply: T? = null
         var failure: Throwable? = null
         var nativeCancelled = false
         try {
@@ -234,7 +266,7 @@ internal class LocalInferenceOwner(
                 withTimeout(limits.cleanupMs) {
                     val uncertain = failure != null && failure !is CancellationException || failure is TimeoutCancellationException
                     if (uncertain) { poisoned.set(true); invalidate(value); retainedUnknownOwners.add(run) }
-                    cleaned = finish(value, run, nativeCancelled || failure != null || closed.get())
+                    cleaned = finish(value, run, nativeCancelled || failure != null || closed.get(), decode)
                     if (cleaned && reply == null) {
                         try { reply = bounded(run.native) } catch (_: Throwable) { cleaned = false }
                     }
@@ -254,18 +286,18 @@ internal class LocalInferenceOwner(
         return checkNotNull(reply)
     }
 
-    private suspend fun current(value: LocalInferenceNativePort, run: Run, pending: LocalInferencePending) {
+    private suspend fun current(value: LocalInferenceNativePort, run: Run<*>, pending: LocalInferencePending) {
         if (closed.get() || run.native.isCompleted) throw NativeCancelled()
         val observed = bounded(task { value.poll() })
         if (observed != pending) throw NativeCancelled()
     }
     private suspend fun <T> awaitCurrent(
-        job: Deferred<T>, value: LocalInferenceNativePort, run: Run, pending: LocalInferencePending,
+        job: Deferred<T>, value: LocalInferenceNativePort, run: Run<*>, pending: LocalInferencePending,
     ): T {
         while (!job.isCompleted) { current(value, run, pending); delay(limits.pollMs) }
         return job.await()
     }
-    private suspend fun pump(value: LocalInferenceNativePort, run: Run): ByteArray {
+    private suspend fun <T : Any> pump(value: LocalInferenceNativePort, run: Run<T>): T {
         while (!run.native.isCompleted) {
             if (closed.get()) throw NativeCancelled()
             val pending = bounded(task { value.poll() })
@@ -330,10 +362,12 @@ internal class LocalInferenceOwner(
         bounded(job) == true
     } catch (_: Throwable) { false }
 
-    private suspend fun finish(value: LocalInferenceNativePort, run: Run, cancel: Boolean): Boolean {
+    private suspend fun finish(
+        value: LocalInferenceNativePort, run: Run<*>, cancel: Boolean, decode: (ByteArray) -> Any,
+    ): Boolean {
         run.abandoned.set(true)
         var known = true
-        if (cancel) try { bounded(task { value.call(run.cancelInput.copyOf()) }).also { localText(it, 262_144) } }
+        if (cancel) try { bounded(task { decode(value.call(run.cancelInput.copyOf()).copyOf()) }) }
         catch (_: Throwable) { known = false }
         var engine = run.engine
         var role = run.role

@@ -60,24 +60,32 @@ pub(super) fn pin_directory(path: &Path) -> Result<Vec<File>> {
     let mut pins = vec![];
     for parent in parents {
         #[cfg(windows)]
-        {
-            use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
-            let file = OpenOptions::new()
+        let file = {
+            use std::os::windows::fs::OpenOptionsExt;
+            OpenOptions::new()
                 .read(true)
                 .share_mode(3)
                 .custom_flags(0x0220_0000)
                 .open(parent)
-                .map_err(|_| "Io")?;
-            if file.metadata().map_err(|_| "Io")?.file_attributes() & 0x400 != 0 {
+                .map_err(|_| "Io")?
+        };
+        #[cfg(not(windows))]
+        let file = {
+            ordinary(parent)?;
+            File::open(parent).map_err(|_| "Io")?
+        };
+        let metadata = file.metadata().map_err(|_| "Io")?;
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if metadata.file_attributes() & 0x400 != 0 {
                 return Err("Reparse".into());
             }
-            pins.push(file);
         }
-        #[cfg(not(windows))]
-        {
-            ordinary(parent)?;
-            pins.push(File::open(parent).map_err(|_| "Io")?);
+        if !metadata.is_dir() {
+            return Err("Io".into());
         }
+        pins.push(file);
     }
     Ok(pins)
 }

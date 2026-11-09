@@ -25,6 +25,7 @@ MODEL_BYTES=2588147712
 MODEL_SHA256='181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c'
 SOURCE_NAMES=base.SOURCE_NAMES|{'owned_target_contract.py','owned_target_owner.py','receipt_avd_storage.py',
  'android_process_client_v4.py','android_process_verification_v4.py'}
+CURRENT_STORAGE_SOURCES = frozenset({'prepare_recovery_contract.py'})
 ADMISSION_KEYS={'version','protocol','run_id','root','seconds','server','guest','artifacts','sources','python','compatibility'}
 GUEST_KEYS={'root','proposal','authorization','emulator','qemu','refuser','refuser_source',
  'console_port','adb_port','serial','memory_mib','cores','max_seconds','api','abi'}
@@ -108,13 +109,18 @@ class _Contract:
         _need('.android' not in (part.casefold() for part in PureWindowsPath(value['path']).parts), 'auth')
 
     def _sources(self, value):
-        _need(type(value) is list and len(value) in (len(self.profile.SOURCE_NAMES), len(self.profile.SOURCE_NAMES) + 1), 'source')
+        # Frozen lists remain structurally readable. Live authority is stricter:
+        # revalidate_inputs compares against source_bindings' complete current set.
+        historical = self.profile.SOURCE_NAMES
+        current = historical | CURRENT_STORAGE_SOURCES
+        accepted = (historical, historical | {'__init__.py'}, current, current | {'__init__.py'})
+        _need(type(value) is list and len(value) in {len(names) for names in accepted}, 'source')
         for pin in value:
             self.binding(pin)
         paths = [p['path'] for p in value]
         parsed = [PureWindowsPath(p) for p in paths]
         _need(paths == sorted(set(paths)) and len({p.parent for p in parsed}) == 1 and (parsed[0].parent.name == 'benchmarks'), 'source')
-        _need({p.name for p in parsed} in (self.profile.SOURCE_NAMES, self.profile.SOURCE_NAMES | {'__init__.py'}), 'source')
+        _need({p.name for p in parsed} in accepted, 'source')
 
     def validate_admission(self, value):
         _obj(value, ADMISSION_KEYS)
@@ -239,11 +245,11 @@ class _Contract:
         elif argv[:3] == ['am', 'force-stop', '--user']:
             ok = len(argv) == 5 and argv[3] == '0' and (argv[4] in (self.profile.APP, self.profile.TEST))
         elif argv[:1] == ['am']:
-            ok = any((argv == ['am', 'instrument', '-w', '-r', '-e', 'class', cl + '#' + m, self.profile.TEST + '/androidx.test.runner.AndroidJUnitRunner'] for _, cl, m in self.profile.INSTRUMENTATIONS))
+            ok = any(argv == self._instrumentation_argv(cl, method) for _, cl, method in self.profile.INSTRUMENTATIONS)
         elif argv[:1] == ['cmd']:
             ok = any((argv == ['cmd', 'package', 'list', 'packages', '-U', '--user', '0', p] or argv == ['cmd', 'package', 'path', '--user', '0', p] for p in (self.profile.APP, self.profile.TEST)))
         elif argv[:1] == ['pm']:
-            ok = any((argv == ['pm', 'install', '-r', '-t', '--user', '0', p] for p in apk_paths))
+            ok = any(argv == self._install_argv(path) for path in apk_paths)
         elif argv[:1] == ['sha256sum']:
             ok = len(argv) == 2 and (argv[1] in apk_paths or re.fullmatch('/data/app/[A-Za-z0-9_~=/.-]+/base\\.apk', argv[1]) is not None)
             if ok:
@@ -579,7 +585,7 @@ class _Contract:
         from benchmarks import receipt_avd_environment as env
         root = Path(__file__).resolve().parents[1]
         _need(root.drive.upper() == 'D:' and root.resolve(strict=True) == root, 'source')
-        names = self.profile.SOURCE_NAMES | ({'__init__.py'} if (root / 'benchmarks/__init__.py').exists() else set())
+        names = self.profile.SOURCE_NAMES | CURRENT_STORAGE_SOURCES | ({'__init__.py'} if (root / 'benchmarks/__init__.py').exists() else set())
         return [env.binding(root / 'benchmarks' / name) for name in sorted(names)]
 
     def revalidate_inputs(self, admission):
@@ -598,9 +604,16 @@ class _Contract:
             _need(_same(a['artifacts']['process_probe_source'], env.binding(root / 'benchmarks/native/android_author_process_probe.c')), 'source')
         return None
 
+    def _install_argv(self, path):
+        return ['pm', 'install', '-r', '-t', '--user', '0', path]
+
+    def _instrumentation_argv(self, class_name, method):
+        return ['am', 'instrument', '-w', '-r', '-e', 'class', class_name + '#' + method,
+                self.profile.TEST + '/androidx.test.runner.AndroidJUnitRunner']
+
     def instrumentation_kind(self, argv):
         for kind, cl, method in self.profile.INSTRUMENTATIONS:
-            if argv == ['am', 'instrument', '-w', '-r', '-e', 'class', cl + '#' + method, self.profile.TEST + '/androidx.test.runner.AndroidJUnitRunner']:
+            if argv == self._instrumentation_argv(cl, method):
                 return kind
         raise TargetRefused('command')
 

@@ -35,6 +35,9 @@ data class StoryDeletionUiState(
     val deleted: StoryDeleted? = null,
     val notice: String? = null,
 )
+/** Transient rendered identity, never native deletion authority. */
+internal class StoryDeletionFrame(val state: StoryDeletionUiState)
+
 internal interface StoryDeletionGateway {
     suspend fun prepare(story: SavedStory): StoryDeletionPrepared
     suspend fun commit(token: Long): StoryDeleted
@@ -50,25 +53,40 @@ internal class StoryDeletionController(
     private val onClosed: (StoryDeleted?) -> Unit,
 ) {
     private val mutable = MutableStateFlow(StoryDeletionUiState())
+    private val publishedFrames = MutableStateFlow(StoryDeletionFrame(mutable.value))
     val state = mutable.asStateFlow()
+    val frames = publishedFrames.asStateFlow()
     private var generation = 0L
     private var active: Job? = null
     private var disposed = false
     private var commitAttempted = false
 
+    private fun publish(value: StoryDeletionUiState) {
+        mutable.value = value
+        publishedFrames.value = StoryDeletionFrame(mutable.value)
+    }
+    private fun renderedCurrent(rendered: StoryDeletionUiState) =
+        !disposed && rendered.visible && mutable.value === rendered
+
+    fun dismiss(rendered: StoryDeletionUiState) { if (renderedCurrent(rendered)) dismiss() }
+    fun cancel(rendered: StoryDeletionUiState) { if (renderedCurrent(rendered)) cancel() }
+    fun confirm(expected: StoryDeletionPrepared, rendered: StoryDeletionUiState) {
+        if (renderedCurrent(rendered)) confirm(expected)
+    }
+
     /** Opening starts one preview, never a deletion. Errors require close and a fresh open. */
     fun open(story: SavedStory) {
         if (disposed || mutable.value.visible || active != null) return
         commitAttempted = false
-        mutable.value = StoryDeletionUiState(visible = true, selected = story)
+        publish(StoryDeletionUiState(visible = true, selected = story))
         work(commit = false) { ticket ->
             val prepared = gateway.prepare(story)
             val preview = prepared.preview.copy(
                 branchHeads = Collections.unmodifiableMap(LinkedHashMap(prepared.preview.branchHeads)),
                 rows = Collections.unmodifiableMap(LinkedHashMap(prepared.preview.rows)),
             )
-            if (current(ticket)) mutable.value = mutable.value.copy(prepared = prepared.copy(preview = preview),
-                notice = "Review the complete native deletion preview. Nothing is deleted until you confirm.")
+            if (current(ticket)) publish(mutable.value.copy(prepared = prepared.copy(preview = preview),
+                notice = "Review the complete native deletion preview. Nothing is deleted until you confirm."))
         }
     }
 
@@ -77,12 +95,12 @@ internal class StoryDeletionController(
         val prepared = mutable.value.prepared ?: return
         if (prepared !== expected) return // A retained old dialog cannot borrow a newer story's consent.
         // Consume consent before starting IO, including failures and uncertain acknowledgements.
-        mutable.value = mutable.value.copy(prepared = null)
+        publish(mutable.value.copy(prepared = null))
         commitAttempted = true
         work(commit = true) { ticket ->
             val deleted = gateway.commit(prepared.token)
-            if (current(ticket)) mutable.value = mutable.value.copy(deleted = deleted,
-                notice = "Story deletion completed. Close to refresh the saved-story library.")
+            if (current(ticket)) publish(mutable.value.copy(deleted = deleted,
+                notice = "Story deletion completed. Close to refresh the saved-story library."))
         }
     }
 
@@ -93,10 +111,10 @@ internal class StoryDeletionController(
         val ticket = ++generation
         val previous = active
         val accepted = mutable.value.deleted
-        mutable.value = mutable.value.copy(prepared = null, closing = true, busy = previous != null,
+        publish(mutable.value.copy(prepared = null, closing = true, busy = previous != null,
             notice = if (commitAttempted && accepted == null)
                 "Deletion may already have completed. Waiting for work to finish before refreshing the library."
-            else "Closing and waiting for local work to finish before refreshing the library.")
+            else "Closing and waiting for local work to finish before refreshing the library."))
         gateway.cancel()
         previous?.cancel()
         scope.launch {
@@ -105,7 +123,7 @@ internal class StoryDeletionController(
             active = null
             // Revoke any capability returned by a noncooperative preview after the first cancel.
             gateway.cancel()
-            mutable.value = StoryDeletionUiState()
+            publish(StoryDeletionUiState())
             // Null means no accepted acknowledgement, not proof that deletion did not occur.
             onClosed(accepted)
         }
@@ -118,22 +136,22 @@ internal class StoryDeletionController(
         gateway.cancel()
         active?.cancel()
         gateway.close()
-        mutable.value = StoryDeletionUiState()
+        publish(StoryDeletionUiState())
     }
     private fun current(ticket: Long) = !disposed && generation == ticket && mutable.value.visible && !mutable.value.closing
     private fun work(commit: Boolean, block: suspend (Long) -> Unit) {
         val ticket = ++generation
-        mutable.value = mutable.value.copy(busy = true, notice = null)
+        publish(mutable.value.copy(busy = true, notice = null))
         val job = scope.launch(start = CoroutineStart.LAZY) {
             try { block(ticket) }
             catch (cancelled: CancellationException) {
-                if (current(ticket)) mutable.value = mutable.value.copy(notice = deletionNotice(cancelled, commit))
+                if (current(ticket)) publish(mutable.value.copy(notice = deletionNotice(cancelled, commit)))
                 throw cancelled
             } catch (failure: Exception) {
-                if (current(ticket)) mutable.value = mutable.value.copy(notice = deletionNotice(failure, commit))
+                if (current(ticket)) publish(mutable.value.copy(notice = deletionNotice(failure, commit)))
             } finally {
                 if (active === currentCoroutineContext()[Job]) active = null
-                if (current(ticket)) mutable.value = mutable.value.copy(busy = false)
+                if (current(ticket)) publish(mutable.value.copy(busy = false))
             }
         }
         active = job

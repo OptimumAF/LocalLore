@@ -100,8 +100,8 @@ assert.equal(c.get().playMode, "local");
 await c.dispose();
 let operationId = 10,
     phase = "unloaded",
-    releaseLoad,
-    cancelledId = null;
+    releaseLoad;
+const cancelledIds = [];
 const lifecycle = {
     ...gateway,
     async native(command, args) {
@@ -124,7 +124,7 @@ const lifecycle = {
             });
         }
         if (command === "model_cancel") {
-            cancelledId = args.operationId;
+            cancelledIds.push(args.operationId);
             throw new Error("StaleModelOperation");
         }
         throw new Error("Unsupported");
@@ -136,13 +136,19 @@ await c2.refreshModel();
 const loading = c2.modelAction("model_load");
 await c2.cancelModel();
 assert.equal(c2.get().visibleError, "ModelOperationUnknown");
-assert.equal(cancelledId, null);
+assert.deepEqual(cancelledIds, []);
 await c2.refreshModel();
 assert.equal(c2.get().modelCancelReady, true);
 operationId = 12;
-await c2.refreshModel();
+// The still-published operation can race native state. Send only its own ID.
 await c2.cancelModel();
-assert.equal(cancelledId, 11);
+assert.deepEqual(cancelledIds, [11]);
+assert.equal(c2.get().visibleError, "StaleModelOperation");
+await c2.refreshModel();
+assert.equal(c2.get().model.operation_id, 12);
+assert.equal(c2.get().modelCancelReady, false);
+await c2.cancelModel();
+assert.deepEqual(cancelledIds, [11], "foreign status cannot dispatch Cancel");
 phase = "unloaded";
 releaseLoad({});
 await loading;

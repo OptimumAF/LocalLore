@@ -1,0 +1,258 @@
+{
+  "documentation_only_delta": [
+    "README.md",
+    "docs/android/PLAYER_INVENTORY_APKS_2026-11-01.md"
+  ],
+  "facts": {
+    "aligned_libraries": 4,
+    "android_runtime_executed": false,
+    "common_recorded_certificate": "17ed497138b20dc1657d54039802305cfe0e3b782c73feaad20359c954707564",
+    "deep_semantic_review_repeated": false,
+    "defined_junit_methods": 11,
+    "full_tool_binary_provenance": false,
+    "inner_aapt_raw_retained": false,
+    "jvm_cases": 439,
+    "jvm_errors": 0,
+    "jvm_failures": 0,
+    "jvm_skips": 0,
+    "jvm_suites": 52,
+    "model_material": false,
+    "native_chains": 2,
+    "ordinary_profile": true
+  },
+  "native": [
+    {
+      "abi": "x86_64",
+      "apk_bytes": 9544280,
+      "apk_entry": "lib/x86_64/liblocallore_android.so",
+      "apk_sha256": "953bd1c52590a99a3814ca4d37d8f2099ac8f6e65048daef9812f0b1c701f6b0",
+      "cargo_alias": {
+        "bytes": 11561064,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\rust-target\\x86_64-linux-android\\release\\deps\\liblocallore_android.so",
+        "sha256": "ab62d5d7f57e99fed5c9ce29fdf381c927e8ccbe9f2c96a198baefdf5fd6f93e"
+      },
+      "elf_load_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "generated": {
+        "bytes": 11561064,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\generated\\rustJniLibs\\x86_64\\liblocallore_android.so",
+        "sha256": "ab62d5d7f57e99fed5c9ce29fdf381c927e8ccbe9f2c96a198baefdf5fd6f93e"
+      },
+      "merged": {
+        "bytes": 11561064,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\intermediates\\merged_native_libs\\debug\\mergeDebugNativeLibs\\out\\lib\\x86_64\\liblocallore_android.so",
+        "sha256": "ab62d5d7f57e99fed5c9ce29fdf381c927e8ccbe9f2c96a198baefdf5fd6f93e"
+      },
+      "release": {
+        "bytes": 11561064,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\rust-target\\x86_64-linux-android\\release\\liblocallore_android.so",
+        "sha256": "ab62d5d7f57e99fed5c9ce29fdf381c927e8ccbe9f2c96a198baefdf5fd6f93e"
+      },
+      "release_alias_links": 2,
+      "strip_stage_different": true,
+      "stripped": {
+        "bytes": 9544280,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\intermediates\\stripped_native_libs\\debug\\stripDebugDebugSymbols\\out\\lib\\x86_64\\liblocallore_android.so",
+        "sha256": "953bd1c52590a99a3814ca4d37d8f2099ac8f6e65048daef9812f0b1c701f6b0"
+      },
+      "zip_data_offset": 17973248
+    },
+    {
+      "abi": "arm64-v8a",
+      "apk_bytes": 8539032,
+      "apk_entry": "lib/arm64-v8a/liblocallore_android.so",
+      "apk_sha256": "29d2cfb31b8c91f49524a7016db09c348d2de3fd4c42761958f5ff8adb5c9808",
+      "cargo_alias": {
+        "bytes": 11229904,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\rust-target\\aarch64-linux-android\\release\\deps\\liblocallore_android.so",
+        "sha256": "e82ad4a686967d772f9c472e6d031a4f0d2c0cafe64910245e3026368ff28460"
+      },
+      "elf_load_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "generated": {
+        "bytes": 11229904,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\generated\\rustJniLibs\\arm64-v8a\\liblocallore_android.so",
+        "sha256": "e82ad4a686967d772f9c472e6d031a4f0d2c0cafe64910245e3026368ff28460"
+      },
+      "merged": {
+        "bytes": 11229904,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\intermediates\\merged_native_libs\\debug\\mergeDebugNativeLibs\\out\\lib\\arm64-v8a\\liblocallore_android.so",
+        "sha256": "e82ad4a686967d772f9c472e6d031a4f0d2c0cafe64910245e3026368ff28460"
+      },
+      "release": {
+        "bytes": 11229904,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\rust-target\\aarch64-linux-android\\release\\liblocallore_android.so",
+        "sha256": "e82ad4a686967d772f9c472e6d031a4f0d2c0cafe64910245e3026368ff28460"
+      },
+      "release_alias_links": 2,
+      "strip_stage_different": true,
+      "stripped": {
+        "bytes": 8539032,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\intermediates\\stripped_native_libs\\debug\\stripDebugDebugSymbols\\out\\lib\\arm64-v8a\\liblocallore_android.so",
+        "sha256": "29d2cfb31b8c91f49524a7016db09c348d2de3fd4c42761958f5ff8adb5c9808"
+      },
+      "zip_data_offset": 9404416
+    }
+  ],
+  "preserved_controls": {
+    "bytes": 55583233,
+    "count": 89
+  },
+  "producer_files": 76,
+  "product": {
+    "apks": {
+      "product_apk": {
+        "bytes": 28029072,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\outputs\\apk\\debug\\app-debug.apk",
+        "sha256": "1806fd2594c09cccd8a79bb9c9608f55991f8f79bfe3f6d3f6a0f2660dab3683"
+      },
+      "test_apk": {
+        "bytes": 2321082,
+        "path": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review\\apps\\android\\app\\build\\outputs\\apk\\androidTest\\debug\\app-debug-androidTest.apk",
+        "sha256": "6934df9326aa52353d7a15c5be0823c5227d916a3dcfcc2444feeade3ccece9d"
+      }
+    },
+    "capture": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-inventory-apks-v1",
+    "certificate": "17ed497138b20dc1657d54039802305cfe0e3b782c73feaad20359c954707564",
+    "head": "ba548cbf6982c58d8a221aea2ed3606232d013d9",
+    "manifest": "D:/Dev/Experiments/LocalLore/2026-11-01-inventory-ui-cohort-v1/inventory-ui-build-v1.json",
+    "recovery": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-inventory-apks-v1",
+    "root": "D:\\Dev\\Projects\\The Hero's Journey\\LocalLore-spike-review",
+    "source_count": 2549,
+    "tested_count": 2548,
+    "tested_head": "b8dbbcbb1b3ea67552d7449f94286187a31166ad"
+  },
+  "raw_canonical_eol_paths": [
+    "apps/android/app/src/androidTest/java/org/locallore/app/CancelControlsTest.kt",
+    "apps/android/app/src/androidTest/java/org/locallore/app/DurableRestartTest.kt",
+    "apps/android/app/src/androidTest/java/org/locallore/app/NativeCancelControlsTest.kt",
+    "apps/android/app/src/androidTest/java/org/locallore/app/NativeTextRecoveryTest.kt",
+    "apps/android/app/src/androidTest/java/org/locallore/app/ShellInstrumentedTest.kt",
+    "apps/android/app/src/androidTest/java/org/locallore/app/SqliteContentionInstrumentedTest.kt",
+    "apps/android/app/src/androidTest/java/org/locallore/app/StorageRecoveryInstrumentedTest.kt",
+    "apps/android/app/src/androidTest/java/org/locallore/app/TimelineActivityTest.kt",
+    "docs/runtime/spike/SOURCE_REVIEW_2026-10-22.json"
+  ],
+  "refs": {
+    "after": {
+      "bytes": 483044,
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-inventory-apks-v1\\source-after-v1.json",
+      "sha256": "66900a0df358b4a0fd6716cc9a0965869d582176f24854223bddc5bd5f0677c2"
+    },
+    "before": {
+      "bytes": 483044,
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-inventory-apks-v1\\source-before-v1.json",
+      "sha256": "66900a0df358b4a0fd6716cc9a0965869d582176f24854223bddc5bd5f0677c2"
+    },
+    "build": {
+      "bytes": 48134,
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-inventory-apks-v1\\closed-build-evidence-v1.json",
+      "sha256": "08006b5daa7f0f55f04366a87febbf36970028936c411a730a0ac86478fda5f2"
+    },
+    "canonical_archive": {
+      "bytes": 11399174,
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-inventory-apks-v1\\source-canonical-v1.zip",
+      "sha256": "d9d1caf74cee98dd519b483ae96dec2122a485b47e851e5c935583cbcde477c1"
+    },
+    "final_source": {
+      "bytes": 3556,
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-inventory-apks-v1\\final-source-verification-v1.json",
+      "sha256": "81d3268444eda2ad8c16abac91a609c562676f0ef3bd68ff299cf7438e703ed2"
+    },
+    "preservation": {
+      "bytes": 53023,
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-inventory-apks-v1\\preservation-receipt-v1.json",
+      "sha256": "00138ce23894d7e2bf474e5af342501673398ef8037c388e12b34a54f796167b"
+    },
+    "producer": {
+      "bytes": 20006,
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-inventory-apks-v1\\producer-closure-v1.json",
+      "sha256": "5037e2d0218faf19ea1e8550839a920ca2d81e78da3aa3713430e2df9f3680cf"
+    },
+    "raw_archive": {
+      "bytes": 11295061,
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-inventory-apks-v1\\source-raw-v1.zip",
+      "sha256": "b191405b0bd67c552565d59bbb7c56a65ddf04666356591897423a332cb8ff29"
+    },
+    "raw_pins": {
+      "bytes": 775177,
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-inventory-apks-v1\\raw-source-pins-v1.json",
+      "sha256": "97c286576d3ccf7fab0fb8661274f763f8400e4a5885df2fa30c26c5099b273a"
+    },
+    "reviews": {
+      "bytes": 1905,
+      "path": "D:\\Dev\\Recovery\\LocalLore\\2026-11-01-inventory-apks-v1\\independent-readback-v1.json",
+      "sha256": "7a20f4bd61dc5d15c277e94dfc62da44b9ee1856d50bb24979c2a8c70305a8b9"
+    },
+    "tested_archive": {
+      "bytes": 11290109,
+      "path": "D:\\Dev\\Experiments\\LocalLore\\2026-11-01-inventory-apks-v1\\source-b8dbbcbb-v1.zip",
+      "sha256": "a99f1fc41523513dbf655235a7a8c8d894ee74004e93fcf4c4e35d8d1e666412"
+    }
+  },
+  "roster": [
+    [
+      "chat_ime_latest",
+      "org.locallore.app.ui.ChatImeInsetsTest",
+      "injectedImeKeepsLatestAboveOcclusionWithoutDoublePaddingSystemBars"
+    ],
+    [
+      "chat_ime_composer",
+      "org.locallore.app.ui.ChatImeInsetsTest",
+      "doubleFontComposerKeepsSendReachableAndDraftScopedAcrossInjectedImeChanges"
+    ],
+    [
+      "chat_status_history",
+      "org.locallore.app.ui.ChatStatusAnnouncementTest",
+      "historyReaderKeepsItsAnchorWhileCurrentBusyAndOutcomeAnnouncementsStayAvailable"
+    ],
+    [
+      "chat_status_draft",
+      "org.locallore.app.ui.ChatStatusAnnouncementTest",
+      "unicodeDialogueAndScopeStaySafeWhileEllipsizedNoticeKeepsFullSemantics"
+    ],
+    [
+      "chat_heading_selection",
+      "org.locallore.app.ui.StoryHeadingScreenTest",
+      "selectedAuthoredTitlesStayInsideTheIntroWhileDemoAndUnresolvedControlsRemainExact"
+    ],
+    [
+      "chat_heading_draft",
+      "org.locallore.app.ui.StoryHeadingScreenTest",
+      "titleRefreshRetainsDialogueButStoryAndBranchChangesFenceDraftsAndRetainedEdits"
+    ],
+    [
+      "chat_action_scope",
+      "org.locallore.app.ui.QuickActionScopeScreenTest",
+      "retainedStoryAndBranchClicksStayQuietWhileFreshControlsPreserveTheUnsentDialogue"
+    ],
+    [
+      "chat_action_availability",
+      "org.locallore.app.ui.QuickActionScopeScreenTest",
+      "persistentDemoAndWorkflowFencesDoNotTurnTextUnavailabilityIntoAnActionBlock"
+    ],
+    [
+      "inventory_entries",
+      "org.locallore.app.ui.PlayerInventoryScreenTest",
+      "savedRowsKnownEmptyAndUnavailableStayDistinctWhileDemoKeepsItsOriginalPotionRow"
+    ],
+    [
+      "inventory_scope",
+      "org.locallore.app.ui.PlayerInventoryScreenTest",
+      "scopeChangesFenceRetainedOpenAndCloseWhileAcceptedRefreshesKeepTheUnsentDialogue"
+    ],
+    [
+      "inventory_accessibility",
+      "org.locallore.app.ui.PlayerInventoryScreenTest",
+      "doubledFontKeepsLongExactIdentifiersAllQuantitiesAndCloseReachableWithoutGameActions"
+    ]
+  ],
+  "scope": "fixed-b59-byte-attestation-v1",
+  "version": 1
+}

@@ -3,14 +3,20 @@ package org.locallore.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import java.io.IOException
+import java.util.Collections
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+
+/** Transient current-view identity, never storage or gameplay authority. */
+internal class ShellFrame(val state: ShellState)
 
 class ShellViewModel internal constructor(
     private val gateway: DemoGateway,
@@ -22,9 +28,34 @@ class ShellViewModel internal constructor(
     private val forkContextProvider: ((SavedStory, Long, Long) -> BranchForkContext?)? = null,
     private val forkRecoveryStore: ForkRecoveryPersistence? = null,
     creationGateway: StoryCreationGateway? = gateway as? StoryCreationGateway,
+    navigationStore: SavedNavigationStore? = null,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(ShellState())
+    private val publishedFrames = MutableStateFlow(ShellFrame(mutable.value))
     val state: StateFlow<ShellState> = mutable.asStateFlow()
+    internal val frames = publishedFrames.asStateFlow()
+    private val navigationUpdates = navigationStore?.let { store ->
+        Channel<PlayDraftScope?>(Channel.CONFLATED).also { updates ->
+            // One writer prevents a slow earlier selection from overwriting a later one.
+            viewModelScope.launch {
+                var hasWritten = false
+                var lastWritten: PlayDraftScope? = null
+                for (selection in updates) {
+                    if (hasWritten && lastWritten == selection) continue
+                    hasWritten = false // An I/O failure can leave either value on disk.
+                    try {
+                        store.save(selection)
+                        lastWritten = selection
+                        hasWritten = true
+                    } catch (_: IOException) {
+                        // The selection hint is optional; a later snapshot can retry it.
+                    } catch (_: SecurityException) {
+                        // Keep the confirmed native snapshot when local hint storage is unavailable.
+                    }
+                }
+            }
+        }
+    }
     private var generation = 0L
     private var messageId = 0L
     private var pending: Job? = null
@@ -32,20 +63,34 @@ class ShellViewModel internal constructor(
     val diagnostics = diagnosticController.state
     private val recordController = StoryRecordController(StoryRecordReader(gateway::readStoryRecord), viewModelScope)
     val storyRecord = recordController.state
+    internal val storyRecordFrames = recordController.frames
     val hasStoryRecords: Boolean get() = gateway.storyRecords
     private var disposed = false
+    private fun publish(value: ShellState) {
+        mutable.value = value
+        publishedFrames.value = ShellFrame(mutable.value)
+    }
+
+    private fun currentLibraryView(rendered: ShellState) = !disposed && mutable.value === rendered &&
+        rendered.persistent && gateway.durable && !rendered.busy && !workflowBlocksActions() &&
+        !rendered.archiveActive && !rendered.deletionActive
+
     internal val creationController = creationGateway?.let { StoryCreationController(it, viewModelScope, ::creationClosed) }
     internal val creation = creationController?.state ?: MutableStateFlow(StoryCreationUiState()).asStateFlow()
+    internal val creationFrames = creationController?.frames ?: MutableStateFlow(StoryCreationFrame(creation.value)).asStateFlow()
     internal val archiveController = archiveGateway?.let { ArchiveController(it, viewModelScope, ::archiveClosed) }
     val archive = archiveController?.state ?: MutableStateFlow(ArchiveUiState()).asStateFlow()
+    internal val archiveFrames = archiveController?.frames ?: MutableStateFlow(ArchiveFrame(archive.value)).asStateFlow()
     private var archiveImportPicker: Long? = null
     private var archiveExportPicker: Long? = null
     internal val deletionController = deletionGateway?.let { StoryDeletionController(viewModelScope, it, ::deletionClosed) }
     internal val deletion = deletionController?.state ?: MutableStateFlow(StoryDeletionUiState()).asStateFlow()
+    internal val deletionFrames = deletionController?.frames ?: MutableStateFlow(StoryDeletionFrame(deletion.value)).asStateFlow()
     internal val branchDeletionController = branchDeletionGateway?.let {
         BranchDeletionController(viewModelScope, it, ::branchDeletionClosed)
     }
     internal val branchDeletion = branchDeletionController?.state ?: MutableStateFlow(BranchDeletionUiState()).asStateFlow()
+    internal val branchDeletionFrames = branchDeletionController?.frames ?: MutableStateFlow(BranchDeletionFrame(branchDeletion.value)).asStateFlow()
 
     private var forkEpoch = 0L
     private var forkRecoveryIdentity: BranchForkRecovery? = null
@@ -72,7 +117,7 @@ class ShellViewModel internal constructor(
         forkEpoch++
         mutableForkVisible.value = false
         forkController?.contextChanged(null)
-        mutable.value = mutable.value.copy(forkActive = fork.value.busy)
+        publish(mutable.value.copy(forkActive = fork.value.busy))
     }
     private fun synchronizeForkContext(next: ShellState = mutable.value): BranchForkContext? {
         val selected = next.selectedStory
@@ -83,7 +128,11 @@ class ShellViewModel internal constructor(
         forkController?.contextChanged(context)
         return context
     }
-    internal fun openFork() {
+    private fun currentForkView(view: BranchForkUiState) =
+        !disposed && mutableForkVisible.value && fork.value === view
+
+    internal fun openFork(view: ShellState = mutable.value) {
+        if (!currentLibraryView(view)) return
         val before = mutable.value
         val controller = forkController ?: return
         if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive ||
@@ -94,64 +143,67 @@ class ShellViewModel internal constructor(
         if (saved != null) controller.restore(saved)
         else if (mutableForkProblem.value == null) {
             if (context == null) {
-                mutable.value = mutable.value.copy(notice = "A coherent saved timeline is required before preparing a fork.")
+                publish(mutable.value.copy(notice = "A coherent saved timeline is required before preparing a fork."))
                 return
             }
             controller.prepare(context.head)
         }
         mutableForkVisible.value = true
-        mutable.value = mutable.value.copy(forkActive = true)
+        publish(mutable.value.copy(forkActive = true))
     }
-    internal fun prepareForkBoundary(rendered: BranchForkInput?, atRevision: Long) {
-        if (disposed || !mutableForkVisible.value || fork.value.busy || forkRecoveryIdentity != null || mutableForkProblem.value != null ||
+    internal fun prepareForkBoundary(rendered: BranchForkInput?, atRevision: Long, view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || fork.value.busy || forkRecoveryIdentity != null || mutableForkProblem.value != null ||
             fork.value.input !== rendered) return
         val context = synchronizeForkContext() ?: return
-        if (fork.value.input !== rendered || context.head != mutable.value.revision) return
+        if (!currentForkView(view) || fork.value.input !== rendered || context.head != mutable.value.revision) return
         if (rendered != null && (fork.value.uncertain || fork.value.outcome != null || fork.value.lookupOnly ||
                 rendered.parent != context.parent || rendered.expectedParentRevision != context.head)) return
         // Editing an unsubmitted boundary keeps its fixed child ID; never reroll a retry.
         if (rendered == null) forkController?.prepare(atRevision)
         else forkController?.prepare(atRevision, rendered.childBranch)
     }
-    internal fun confirmFork(rendered: BranchForkInput, consent: Boolean) {
-        if (disposed || !mutableForkVisible.value || mutableForkProblem.value != null) return
+    internal fun confirmFork(rendered: BranchForkInput, consent: Boolean, view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || mutableForkProblem.value != null) return
         synchronizeForkContext()
+        if (!currentForkView(view)) return
         forkController?.confirm(rendered, consent)
     }
-    internal fun retryFork(consent: Boolean) {
-        if (disposed || !mutableForkVisible.value || mutable.value.busy) return
+    internal fun retryFork(consent: Boolean, view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || mutable.value.busy) return
         synchronizeForkContext()
+        if (!currentForkView(view)) return
         forkController?.retryExact(consent)
     }
-    internal fun lookupFork() {
-        if (disposed || !mutableForkVisible.value || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive) return
+    internal fun lookupFork(view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive) return
         synchronizeForkContext()
+        if (!currentForkView(view)) return
         forkController?.lookup()
     }
-    internal fun forgetFork(consent: Boolean) {
-        if (disposed || !mutableForkVisible.value || mutable.value.busy) return
+    internal fun forgetFork(consent: Boolean, view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || mutable.value.busy) return
         forkController?.forgetRecovery(consent)
     }
-    internal fun cancelFork() { if (!disposed && mutableForkVisible.value) forkController?.cancel() }
-    internal fun closeFork() {
-        if (disposed || !mutableForkVisible.value) return
+    internal fun cancelFork(view: BranchForkUiState = fork.value) { if (currentForkView(view)) forkController?.cancel() }
+    internal fun closeFork(view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view)) return
         if (fork.value.busy) { forkController?.cancel(); return }
         forkController?.dismiss()
         mutableForkVisible.value = false
-        mutable.value = mutable.value.copy(forkActive = false)
+        publish(mutable.value.copy(forkActive = false))
         if (forkRecoveryIdentity != null && !mutable.value.busy)
             savedOperation("Timeline request closed. The original selection is retained; recovery remains explicit.") { gateway.snapshot() }
         else synchronizeForkContext()
     }
-    internal fun resumeFork(rendered: BranchForkOutcome) {
+    internal fun resumeFork(rendered: BranchForkOutcome, view: BranchForkUiState = fork.value) {
         val before = mutable.value
         val current = fork.value
-        if (disposed || !mutableForkVisible.value || current.busy || before.busy || current.outcome !== rendered) return
+        if (!currentForkView(view) || current.busy || before.busy || current.outcome !== rendered) return
         val input = current.input ?: return
         if (!matchesForkOutcome(rendered, input)) return
         forkController?.dismiss()
         mutableForkVisible.value = false
-        mutable.value = before.copy(forkActive = false)
+        publish(before.copy(forkActive = false))
         savedOperation("New timeline resumed. Original history and downstream choices remain unchanged.") {
             // A lookup can observe a story restored by another owner after this UI's catalog.
             // Refresh only on this explicit resume action; never create/select on lookup alone.
@@ -173,12 +225,12 @@ class ShellViewModel internal constructor(
         diagnosticController.dismiss()
         recordController.dismiss()
         invalidateForkContext()
-        mutable.value = before.copy(deletionActive = true)
+        publish(before.copy(deletionActive = true))
         controller.open(selected.copy(title = root.title, revision = before.revision), root.branch)
     }
     private fun branchDeletionClosed(deleted: BranchDeleted?, uncertain: Boolean) {
         if (disposed) return
-        mutable.value = mutable.value.copy(deletionActive = false)
+        publish(mutable.value.copy(deletionActive = false))
         val notice = when {
             uncertain -> "Deletion could not be confirmed and may already have completed. Saved timelines refreshed from local storage."
             deleted != null -> "Timeline removed. Showing the retained saved history."
@@ -196,12 +248,12 @@ class ShellViewModel internal constructor(
         diagnosticController.dismiss()
         recordController.dismiss()
         invalidateForkContext()
-        mutable.value = before.copy(deletionActive = true)
+        publish(before.copy(deletionActive = true))
         controller.open(root)
     }
     private fun deletionClosed(deleted: StoryDeleted?) {
         if (disposed) return
-        mutable.value = mutable.value.copy(deletionActive = false)
+        publish(mutable.value.copy(deletionActive = false))
         savedOperation(if (deleted == null) "Saved-story library refreshed." else "Story and all its timelines deleted.") {
             gateway.reconcileSaved()
         }
@@ -215,12 +267,12 @@ class ShellViewModel internal constructor(
         diagnosticController.dismiss()
         recordController.dismiss()
         invalidateForkContext()
-        mutable.value = before.copy(archiveActive = true)
+        publish(before.copy(archiveActive = true))
         controller.open(story)
     }
     private fun archiveClosed(imported: ArchiveImported?) {
         if (disposed) return
-        mutable.value = mutable.value.copy(archiveActive = false)
+        publish(mutable.value.copy(archiveActive = false))
         savedOperation(if (imported == null) "Saved-story library refreshed." else "Imported story opened from accepted history.") {
             val saved = gateway.snapshot() ?: return@savedOperation null
             if (imported == null) saved else {
@@ -229,6 +281,18 @@ class ShellViewModel internal constructor(
                 gateway.resumeSaved(selected)
             }
         }
+    }
+    internal fun beginArchiveImportPicker(rendered: ArchiveUiState): Boolean {
+        if (disposed) return false
+        val ticket = archiveController?.beginImportPicker(rendered) ?: return false
+        archiveImportPicker = ticket
+        return true
+    }
+    internal fun beginArchiveExportPicker(expected: ArchivePrepared, rendered: ArchiveUiState): Boolean {
+        if (disposed) return false
+        val ticket = archiveController?.beginExportPicker(expected, rendered) ?: return false
+        archiveExportPicker = ticket
+        return true
     }
     internal fun beginArchiveImportPicker(): Boolean {
         val ticket = archiveController?.beginImportPicker() ?: return false
@@ -279,32 +343,37 @@ class ShellViewModel internal constructor(
                 controller.state.collect { current ->
                     if (!disposed) {
                         val active = mutableForkVisible.value || current.busy
-                        if (mutable.value.forkActive != active) mutable.value = mutable.value.copy(forkActive = active)
+                        if (mutable.value.forkActive != active) publish(mutable.value.copy(forkActive = active))
                     }
                 }
             }
         }
         if (gateway.durable) {
-            mutable.value = ShellState(busy = true, persistent = true, notice = "Opening local saved stories…")
-            savedOperation("Saved story resumed. Uncommitted responses remain outside accepted history.") { gateway.initialize() }
+            publish(ShellState(busy = true, persistent = true, notice = "Opening local saved stories…"))
+            savedOperation("Local saved library opened.") { checkNotNull(gateway.initialize()) }
         }
     }
 
     private fun publishSaved(saved: SavedSnapshot, notice: String): ShellState {
         val next = mutable.value.copy(
-            busy = false, preparingResponse = false, revision = saved.revision, potionOwner = saved.potionOwner,
+            busy = false, preparingResponse = false, responseOwner = null, revision = saved.revision, potionOwner = saved.potionOwner,
             messages = saved.messages, persistent = true, storageLocation = saved.location,
             schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
             uncommittedDrafts = saved.uncommittedDrafts,
             rulesProfile = saved.rulesProfile,
             databaseSchemaVersion = saved.databaseSchemaVersion,
             timelines = saved.timelines,
+            inventory = saved.inventory?.let { Collections.unmodifiableList(ArrayList(it)) },
+            playerProfile = saved.playerProfile?.detachedCopy(),
             textProvider = saved.textProvider,
-            recoveryRequired = false, checkingCancellation = false,
+            recoveryRequired = false, checkingCancellation = false, localRestartRequired = false,
             notice = if (saved.selectionRestoreUnavailable)
                 "Previously selected timeline is unavailable. Review the library before sending." else notice,
         )
         synchronizeForkContext(next)
+        if (!saved.selectionRestoreUnavailable) {
+            navigationUpdates?.trySend(saved.selected?.let { PlayDraftScope(it.story, it.branch) })
+        }
         return next
     }
 
@@ -312,27 +381,45 @@ class ShellViewModel internal constructor(
         invalidateForkContext()
         recordController.dismiss()
         val ticket = ++generation
-        mutable.value = mutable.value.copy(busy = true, preparingResponse = false,
-            checkingCancellation = checkingCancellation, notice = null)
+        publish(mutable.value.copy(busy = true, preparingResponse = false, responseOwner = null,
+            checkingCancellation = checkingCancellation, notice = null))
         pending = viewModelScope.launch {
             try {
                 val saved = operation()
-                if (!disposed && ticket == generation && saved != null) mutable.value = publishSaved(saved, notice)
+                if (!disposed && ticket == generation && saved != null) publish(publishSaved(saved, notice))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
-                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(
-                    recoveryRequired = true, notice = recoveryNotice(failure,
-                        "Saved progress could not be confirmed. Retry recovery; existing saves are retained."),
-                )
+                if (!disposed && ticket == generation) publish(mutable.value.savedRecoveryFailure(
+                    failure, "Saved progress could not be confirmed. Retry recovery; existing saves are retained.",
+                ))
             } finally {
-                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false, checkingCancellation = false)
+                if (!disposed && ticket == generation) publish(mutable.value.copy(busy = false, checkingCancellation = false, responseOwner = null))
             }
         }
     }
 
+    /** A storage control may act only on its current displayed view and actual menu row. */
+    fun recover(rendered: ShellState) {
+        if (currentLibraryView(rendered) && rendered.recoveryRequired) recover()
+    }
+
+    fun resume(story: SavedStory, rendered: ShellState) {
+        if (currentLibraryView(rendered) && !rendered.recoveryRequired &&
+            rendered.stories.any { it === story }) resume(story)
+    }
+
+    fun resumeTimeline(timeline: SavedTimeline, rendered: ShellState) {
+        if (currentLibraryView(rendered) && !rendered.recoveryRequired) resumeTimeline(timeline)
+    }
+
     fun recover() {
-        if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved progress recovered.") {
-            if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+        val before = mutable.value
+        if (!disposed && !workflowBlocksActions() && !before.busy && !before.archiveActive &&
+            !before.deletionActive && !before.localRestartRequired && gateway.durable) {
+            savedOperation("Saved progress recovered.") {
+                val saved = if (before.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+                checkNotNull(saved)
+            }
         }
     }
     fun resume(story: SavedStory) {
@@ -366,6 +453,10 @@ class ShellViewModel internal constructor(
     fun closeStoryRecord() { recordController.dismiss(); synchronizeForkContext() }
     fun recordSection(section: StoryRecordSection) = recordController.select(section)
     fun recordSearch(text: String) = recordController.search(text)
+    fun recordPromiseFilter(filter: StoryRecordPromiseFilter) = recordController.promiseFilter(filter)
+    fun recordKnowledgeFilter(filter: StoryRecordKnowledgeFilter) = recordController.knowledgeFilter(filter)
+    fun focusRecordRelationship(entry: StoryRecordEntry) = recordController.focusRelationship(entry)
+    fun allRecordRelationships() = recordController.allRelationships()
     fun nextRecordPage() = recordController.next()
     fun firstRecordPage() = recordController.first()
     fun retryStoryRecord() = recordController.retry()
@@ -380,18 +471,84 @@ class ShellViewModel internal constructor(
     }
     fun backToStoryRecord() = recordController.back()
     fun retryRecordEvent() = recordController.retryEvent()
+
+    internal fun backToStoryRecord(expected: StoryRecordEventDetail) = recordController.back(expected)
+    internal fun retryRecordEvent(expected: StoryRecordEventDetail) = recordController.retryEvent(expected)
+
+    private fun isCurrentRecordView(rendered: StoryRecordState) =
+        !disposed && rendered.visible && storyRecord.value === rendered
+
+    private fun isCurrentRecordPage(rendered: StoryRecordState) =
+        rendered.eventDetail == null && isCurrentRecordView(rendered)
+
+    fun closeStoryRecord(rendered: StoryRecordState) {
+        if (isCurrentRecordView(rendered)) closeStoryRecord()
+    }
+
+    fun recordSection(section: StoryRecordSection, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordSection(section)
+    }
+
+    fun recordSearch(text: String, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordSearch(text)
+    }
+
+    fun recordPromiseFilter(filter: StoryRecordPromiseFilter, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordPromiseFilter(filter)
+    }
+    fun recordKnowledgeFilter(filter: StoryRecordKnowledgeFilter, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordKnowledgeFilter(filter)
+    }
+    fun focusRecordRelationship(entry: StoryRecordEntry, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) focusRecordRelationship(entry)
+    }
+    fun allRecordRelationships(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) allRecordRelationships()
+    }
+
+    fun nextRecordPage(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) nextRecordPage()
+    }
+
+    fun firstRecordPage(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) firstRecordPage()
+    }
+
+    fun retryStoryRecord(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) retryStoryRecord()
+    }
+
+    fun openRecordEvent(sequence: Long, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) openRecordEvent(sequence, rendered.context)
+    }
+
+    fun openScopedRecordEvent(reference: StoryRecordScopedEvent, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) openScopedRecordEvent(reference, rendered.context)
+    }
     fun closeDiagnostics() { diagnosticController.dismiss(); synchronizeForkContext() }
+    fun closeDiagnostics(review: DiagnosticsReview) {
+        if (diagnosticController.dismiss(review)) synchronizeForkContext()
+    }
     fun clearDiagnostics() = diagnosticController.clear()
+    fun clearDiagnostics(review: DiagnosticsReview) { diagnosticController.clear(review) }
     fun beginDiagnosticExport() = diagnosticController.beginExport()
+    fun beginDiagnosticExport(review: DiagnosticsReview) = diagnosticController.beginExport(review)
     fun diagnosticPickerFailed() = diagnosticController.pickerFailed()
     fun completeDiagnosticExport(writer: (suspend (ByteArray) -> Unit)?) = diagnosticController.completeExport(writer)
 
     fun setMode(mode: DemoMode) {
-        if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
+        if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired) publish(mutable.value.copy(mode = mode, notice = null))
     }
 
-    fun submit(action: DemoAction) = submitResponse(action.description()) { before ->
+    fun submit(action: DemoAction) = submitResponse(action.description(), shortcut = action) { before ->
         gateway.respond(action, before.revision, before.mode)
+    }
+
+    /** A retained quick action cannot attach to a different rendered story or timeline. */
+    fun submit(action: DemoAction, expectedStory: SavedStory?) {
+        val selected = mutable.value.selectedStory
+        if (expectedStory?.story != selected?.story || expectedStory?.branch != selected?.branch) return
+        submit(action)
     }
 
     /** A retained UI callback cannot retarget its text after selecting another timeline. */
@@ -405,20 +562,24 @@ class ShellViewModel internal constructor(
         if (disposed || workflowBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
             (gateway.durable && mutable.value.selectedStory == null)) return
         if (mutable.value.textProvider == TextProvider.UNAVAILABLE || !validPlayInput(input)) {
-            mutable.value = mutable.value.copy(notice = "Text input is unavailable or invalid. Nothing changed.")
+            publish(mutable.value.copy(notice = "Text input is unavailable or invalid. Nothing changed."))
             return
         }
         submitResponse(input.text) { before -> gateway.respondText(input, before.revision) }
     }
 
-    private fun submitResponse(playerText: String, prepare: suspend (ShellState) -> DemoResult) {
+    private fun submitResponse(
+        playerText: String,
+        shortcut: DemoAction? = null,
+        prepare: suspend (ShellState) -> DemoResult,
+    ) {
         if (disposed || workflowBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
             (gateway.durable && mutable.value.selectedStory == null)) return
         invalidateForkContext()
         recordController.dismiss()
         val before = mutable.value
         val ticket = ++generation
-        mutable.value = before.copy(busy = true, preparingResponse = true, notice = null)
+        publish(before.copy(busy = true, preparingResponse = true, responseOwner = Any(), notice = null))
         pending = viewModelScope.launch {
             var committing = false
             var start = System.nanoTime()
@@ -438,7 +599,8 @@ class ShellViewModel internal constructor(
                 if (disposed || ticket != generation) return@launch
                 val saved = if (gateway.durable) gateway.snapshot() else null
                 if (disposed || ticket != generation) return@launch
-                mutable.value = when (result) {
+                if (gateway.durable) checkNotNull(saved) { "Missing saved turn snapshot" }
+                publish(when (result) {
                     is DemoResult.Accepted -> if (saved != null) publishSaved(saved, "Outcome accepted and saved by the local engine.") else before.copy(
                         revision = result.revision,
                         potionOwner = result.potionOwner,
@@ -448,10 +610,12 @@ class ShellViewModel internal constructor(
                         )).takeLast(40),
                         notice = "Outcome accepted by the local engine.",
                     )
-                    is DemoResult.Rejected -> if (saved != null) publishSaved(saved, rejectionNotice(result.category))
-                        else before.copy(notice = rejectionNotice(result.category))
+                    is DemoResult.Rejected -> {
+                        val notice = rejectionNotice(result.category, shortcut)
+                        if (saved != null) publishSaved(saved, notice) else before.copy(notice = notice)
+                    }
                     is DemoResult.Prepared -> error("Commit returned an unfinished operation")
-                }
+                })
                 if (committing) diagnosticLog.record(DiagnosticPhase.COMMIT,
                     if (result is DemoResult.Accepted) DiagnosticOutcome.ACCEPTED else DiagnosticOutcome.REJECTED,
                     elapsedMillis(start), if (result is DemoResult.Rejected) DiagnosticError.fromNative(result.category) else DiagnosticError.NONE)
@@ -463,16 +627,26 @@ class ShellViewModel internal constructor(
                     if (committing) DiagnosticOutcome.UNKNOWN else DiagnosticOutcome.FAILED,
                     elapsedMillis(start), if (failure is WorkspaceFailure) DiagnosticError.fromNative(failure.category)
                         else DiagnosticError.TRANSPORT)
-                if (ticket == generation) mutable.value = if (committing || gateway.durable) before.copy(
-                    recoveryRequired = true,
-                    notice = if (gateway.durable) recoveryNotice(failure,
+                if (ticket == generation) publish(when {
+                    gateway.durable -> before.savedRecoveryFailure(failure,
                         "Unable to confirm the outcome. Retry recovery using the original response key; saves are retained.")
-                        else "Unable to confirm the outcome. Reset this in-memory demo to continue.",
-                ) else before.copy(notice = "Response failed. Nothing changed; try again.")
+                    committing -> before.copy(recoveryRequired = true,
+                        notice = "Unable to confirm the outcome. Reset this in-memory demo to continue.")
+                    else -> before.copy(notice = "Response failed. Nothing changed; try again.")
+                })
             } finally {
-                if (ticket == generation) mutable.value = mutable.value.copy(busy = false, preparingResponse = false)
+                if (ticket == generation) publish(mutable.value.copy(busy = false, preparingResponse = false, responseOwner = null))
             }
         }
+    }
+
+    /** Retained chat controls cannot cancel another response or a non-chat workflow. */
+    fun cancel(rendered: ShellState) {
+        val current = mutable.value
+        if (disposed || current !== rendered || current.responseOwner == null ||
+            !current.busy || !current.preparingResponse || workflowBlocksActions() ||
+            current.archiveActive || current.deletionActive || current.recoveryRequired) return
+        cancel()
     }
 
     fun cancel() {
@@ -490,7 +664,7 @@ class ShellViewModel internal constructor(
         if (gateway.durable) {
             savedOperation("Cancellation checked. Showing the accepted saved history.", checkingCancellation = true) {
                 try {
-                    gateway.cancelSaved().also {
+                    checkNotNull(gateway.cancelSaved()) { "Missing saved cancellation snapshot" }.also {
                         if (!disposed) diagnosticLog.record(DiagnosticPhase.CANCEL,
                             DiagnosticOutcome.COMPLETED, elapsedMillis(start))
                     }
@@ -505,7 +679,7 @@ class ShellViewModel internal constructor(
             }
             return
         }
-        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, notice = "Response cancelled. Nothing changed.")
+        publish(mutable.value.copy(busy = false, preparingResponse = false, responseOwner = null, notice = "Response cancelled. Nothing changed."))
         diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
     }
 
@@ -525,18 +699,18 @@ class ShellViewModel internal constructor(
         if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired) return
         val controller = creationController
         if (controller == null) {
-            mutable.value = before.copy(notice = "Story setup review is unavailable. Existing stories are unchanged.")
+            publish(before.copy(notice = "Story setup review is unavailable. Existing stories are unchanged."))
             return
         }
         diagnosticController.dismiss(); recordController.dismiss(); invalidateForkContext()
-        mutable.value = mutable.value.copy(creationActive = true)
+        publish(mutable.value.copy(creationActive = true))
         controller.open()
     }
     private fun creationClosed(result: StoryCreationClose) {
         if (disposed || !mutable.value.creationActive) return
-        mutable.value = mutable.value.copy(creationActive = false)
+        publish(mutable.value.copy(creationActive = false))
         if (result.saved != null) {
-            mutable.value = publishSaved(result.saved, "Saved story opened. Previous stories remain in the library.")
+            publish(publishSaved(result.saved, "Saved story opened. Previous stories remain in the library."))
         } else if (result.refreshRequired) {
             savedOperation("Creation may have completed. Review the refreshed library before creating another story.") { gateway.reconcileSaved() }
         } else { synchronizeForkContext() }
@@ -554,7 +728,7 @@ class ShellViewModel internal constructor(
         pending?.cancel()
         pending = null
         if (gateway.durable) savedOperation("New saved story created. Previous stories remain in the library.") { gateway.createSaved() }
-        else { gateway.reset(); mutable.value = ShellState() }
+        else { gateway.reset(); publish(ShellState()) }
         diagnosticLog.record(DiagnosticPhase.RESET, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
     }
 
@@ -574,15 +748,22 @@ class ShellViewModel internal constructor(
         gateway.close()
         pending?.cancel()
         pending = null
-        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, forkActive = false, checkingCancellation = false, creationActive = false)
+        publish(mutable.value.copy(busy = false, preparingResponse = false, responseOwner = null, forkActive = false, checkingCancellation = false, creationActive = false))
         super.onCleared()
     }
 }
 
-private fun recoveryNotice(failure: Exception, fallback: String): String = when ((failure as? WorkspaceFailure)?.category) {
-    "Full" -> "Local storage is full. Free space, then retry recovery. Saved progress is retained."
-    "Busy" -> "The local engine is busy. Wait briefly, then retry recovery. Saved progress is retained."
-    else -> fallback
+private fun ShellState.savedRecoveryFailure(failure: Exception, fallback: String): ShellState {
+    val restart = failure is LocalInferenceUncertain
+    val notice = when {
+        restart -> "The outcome could not be confirmed. Restart LocalLore completely, then open the same story and timeline and check saved history before sending again."
+        failure is WorkspaceFailure && failure.category == "Full" ->
+            "Local storage is full. Free space, then retry recovery. Saved progress is retained."
+        failure is WorkspaceFailure && failure.category == "Busy" ->
+            "The local engine is busy. Wait briefly, then retry recovery. Saved progress is retained."
+        else -> fallback
+    }
+    return copy(recoveryRequired = true, localRestartRequired = restart, notice = notice)
 }
 
 private fun DemoAction.description(): String = when (this) {
@@ -590,9 +771,12 @@ private fun DemoAction.description(): String = when (this) {
     DemoAction.TRY_ABILITY -> "Try the unlearned blink ability."
 }
 
-private fun rejectionNotice(category: String): String = when (category) {
-    "Inventory" -> "You no longer hold the potion. Nothing changed."
-    "Ability" -> "Blink is not learned. Nothing changed."
+private fun rejectionNotice(category: String, shortcut: DemoAction?): String = when (category) {
+    "Inventory" -> if (shortcut == DemoAction.GIVE_POTION) "You no longer hold the potion. Nothing changed."
+        else "The inventory rules blocked this action. Check your items and try again."
+    "Ability" -> if (shortcut == DemoAction.TRY_ABILITY) "Blink is not learned. Nothing changed."
+        else "The ability rules blocked this action. Check the abilities available to your character."
+    "ClarificationRequired" -> "The engine needs a clearer request. Rephrase and try again."
     "Agency" -> "The proposal did not match your action. Nothing changed."
     "Malformed" -> "The response was malformed. Nothing changed; try again."
     "Provider" -> "The response failed. Nothing changed; try again."

@@ -625,7 +625,14 @@ impl OwnedChild {
                 .open(root.join(format!("{phase}-{suffix}.bin")))
                 .unwrap()
         };
-        let mut child = ProcessCommand::new(std::env::current_exe().unwrap())
+        let mut command = ProcessCommand::new(std::env::current_exe().unwrap());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+        let mut child = command
             .args([
                 "--exact",
                 "original_author_process_child_entry",

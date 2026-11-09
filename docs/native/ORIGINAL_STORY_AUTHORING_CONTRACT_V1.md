@@ -53,6 +53,16 @@ rapid edits returning to the rendered value and repeated toggles. Structural
 row edits retire that epoch; generation, review, creation and cancellation also
 fence retained callbacks. Native review and Create retain exact consent checks.
 
+When native `authoring_review` rejects an edited proposal with `InvalidProposal`,
+the v1 reply may carry one text-free `review_problem` code. `RouteReachability`
+means the player cannot reach every location by following directed routes.
+`CharacterSelfKnowledge` means a character is missing from the knowledge list
+for their own description. The Android editor explains the matching problem
+beside Review, keeps the draft editable and requires a new successful native
+review before Create. Unknown or absent detail uses the general failure
+message. A stale or cancelled review cannot publish guidance. Rejection
+revokes prior consent and leaves canonical storage untouched.
+
 Creation scope is `original-{creation_id}/main`. Root seed/entity identity is
 derived by Rust from the full reviewed origin. A complete exact retry retains
 accepted history. Different hidden content, visibility, beliefs, configuration
@@ -70,6 +80,20 @@ literal `player` constant. The gateway binds that bounded ID to its attachment,
 session and scope, with atomic publication checks after suspended reads. The
 record/fork contracts' semantic `player` lens labels retain their meaning.
 
+In the Compose editor, an exclusive choice is one labelled radio row. Each
+knowledge assignment and directed route is one labelled checkbox row. The
+whole row handles input and exposes its selection or checked state. Its visual
+indicator has no separate action. All rows have a 48 dp minimum touch height,
+and disabled controls keep their state visible. These rows send the existing
+typed draft edits through the same authoring controller. Rust still validates
+and reviews the starting world before Create can save it.
+
+The separate `OriginalStoryChoiceAccessibilityTest` instrumentation fixture
+uses synthetic draft state. It checks selection roles, checked states, touch on
+labels, disabled behavior and the exact typed edits. The fixture is separate
+from the fixed phase below. Actual Android and screen-reader verification
+require their own run evidence.
+
 The fixed emulator phase `original-story` runs exactly8 methods across
 OriginalStoryWireTest (3), OriginalStoryDialogTest (2) and
 OriginalStoryMainActivityTest (3). It requires a new owned API35/x86_64 guest,
@@ -78,3 +102,24 @@ It retains the existing180s class/850s SDK/900s phase bounds and measured SDK2
 capture protocol. Exact source rosters, original JUnit/client raw bytes,
 known owners/closures and server observations must validate. This phase does
 not qualify real inference, OS-death, physical/ARM64, accessibility or full M09.
+
+## Current controller cancellation status
+
+The current original-story coroutine may end with `CancellationException` before
+the gateway returns a result. Only its still-current, nonclosing ticket may
+replace progress text with a finite stopped notice and clear review consent.
+The same cancellation is rethrown; the existing finalizer clears busy/creating.
+An obsolete, closing or disposed operation cannot publish that notice.
+
+Before Create starts, the exact input, proposal and title remain visible and no
+story has been created by this attempt. The new current-cancellation notice path
+adds no retry or gateway call; existing regenerate/dismiss cleanup is unchanged.
+Once Create starts, its request remains consumed: a
+story may already exist, and Close still requires a library refresh. The UI must
+not claim rollback, release a creation key or restore consent from an old review.
+
+This is a controller contract, not proof of native-provider cancellation or
+resource drain. Unknown native cleanup still uses the existing owner quarantine.
+[Kotlin cancellation documentation](https://kotlinlang.org/docs/exception-handling.html)
+distinguishes cancellation from ordinary exception propagation. No gateway,
+engine, inference, persistence or lifecycle protocol changes are introduced.

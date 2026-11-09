@@ -43,11 +43,13 @@ class DiagnosticsIntegrationTest {
     @Test fun reviewedSnapshotAndPendingConsentSurviveActivityRecreation() {
         gift(); preview()
         val reviewed = model().diagnostics.value.preview
+        val review = model().diagnostics.value.review
         // Controlled picker callback/sink here; actual ContentResolver ownership has separate tests.
-        compose.runOnIdle { assertTrue(model().beginDiagnosticExport()) }
+        compose.runOnIdle { assertTrue(model().beginDiagnosticExport(review)) }
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("diagnostics-dialog").assertIsDisplayed()
         assertEquals(reviewed, model().diagnostics.value.preview)
+        assertSame(review, model().diagnostics.value.review)
         var written = ""
         compose.runOnIdle { model().completeDiagnosticExport { written = it.toString(Charsets.UTF_8) } }
         compose.waitUntil(3_000) { !model().diagnostics.value.exporting }
@@ -85,5 +87,69 @@ class DiagnosticsIntegrationTest {
         assertTrue(json.contains("MALFORMED"))
         assertFalse(json.contains("potion"))
         assertEquals(0L, model().state.value.revision)
+    }
+
+    @Test fun retiredReviewCannotClearOrCloseTheReplacementNativePreview() {
+        gift(); preview()
+        val retired = model().diagnostics.value.review
+        compose.onNodeWithTag("diagnostics-close").performClick()
+        tag("try-ability").performClick(); idle(); preview()
+        val current = model().diagnostics.value
+        val native = model().state.value
+        compose.runOnIdle {
+            model().clearDiagnostics(retired)
+            assertEquals(current, model().diagnostics.value)
+            model().closeDiagnostics(retired)
+            assertEquals(current, model().diagnostics.value)
+        }
+        compose.onNodeWithTag("diagnostics-dialog").assertIsDisplayed()
+        assertEquals(native, model().state.value)
+        assertEquals(1L, native.revision)
+        assertEquals("Not in your inventory", native.potionOwner)
+        // Current controls still clear only metadata and close their own review.
+        compose.onNodeWithTag("diagnostics-clear").performClick()
+        assertEquals(0, JSONObject(model().diagnostics.value.preview).getInt("count"))
+        assertNotSame(current.review, model().diagnostics.value.review)
+        compose.onNodeWithTag("diagnostics-close").performClick()
+        assertEquals(native.revision, model().state.value.revision)
+        assertEquals(native.potionOwner, model().state.value.potionOwner)
+        assertEquals(native.messages, model().state.value.messages)
+    }
+
+    @Test fun staleScopedExportCannotBorrowTheCurrentReviewAcrossRecreation() {
+        gift(); preview()
+        val retired = model().diagnostics.value.review
+        compose.onNodeWithTag("diagnostics-close").performClick()
+        preview()
+        val current = model().diagnostics.value
+        val native = model().state.value
+        assertNotSame(retired, current.review)
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithTag("diagnostics-dialog").assertIsDisplayed()
+        assertSame(current.review, model().diagnostics.value.review)
+        var writes = 0
+        var exported: ByteArray? = null
+        compose.runOnIdle {
+            assertFalse(model().beginDiagnosticExport(retired))
+            // A synthetic late picker result cannot open even our controlled sink.
+            model().completeDiagnosticExport { writes++; exported = it }
+        }
+        compose.waitForIdle()
+        assertEquals(0, writes)
+        assertEquals(current, model().diagnostics.value)
+        compose.runOnIdle {
+            assertTrue(model().beginDiagnosticExport(current.review))
+            model().completeDiagnosticExport { writes++; exported = it }
+        }
+        compose.waitUntil(3_000) { !model().diagnostics.value.exporting }
+        assertEquals(1, writes)
+        assertArrayEquals(current.preview.toByteArray(Charsets.UTF_8), exported)
+        for (privateField in listOf("Mira", "potion", "quay", "SECRET", "narration", "scope", "turn", "handle")) {
+            assertFalse(current.preview.contains(privateField))
+        }
+        compose.onNodeWithTag("diagnostics-close").performClick()
+        assertEquals(native.revision, model().state.value.revision)
+        assertEquals(native.potionOwner, model().state.value.potionOwner)
+        assertEquals(native.messages, model().state.value.messages)
     }
 }

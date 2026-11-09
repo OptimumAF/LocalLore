@@ -69,6 +69,14 @@ result, including a terminal empty result when cancellation discards generation.
 Late allocation tasks remain tracked, and an undrained child prevents claiming
 its parent engine safely closed.
 
+An admitted Android `inspection_query` or `play_presentation_v2` read can
+finish after the caller retires its view. The owner observes the native reply
+within the original finite command deadline, then propagates caller
+cancellation and discards the result. A read that exceeds that deadline or
+fails the UTF-8 or reply-size check still quarantines the workspace. These two read-only
+operations keep the existing active-run admission checks. Mutating commands
+retain the existing conservative handling of uncertain cancellation.
+
 The injected worker contract makes these states testable without an SDK. A
 future SDK adapter must establish them from actual callbacks and resource joins;
 returning a Boolean in a fake test is no real-model ownership measurement.

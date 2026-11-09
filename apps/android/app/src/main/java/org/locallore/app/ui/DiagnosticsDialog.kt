@@ -17,6 +17,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -103,24 +104,26 @@ fun DiagnosticsDialog(
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(
-                        onClick = actions.export,
-                        enabled = !state.exporting,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .testTag("diagnostics-export"),
-                    ) { Text(if (state.exporting) "Exporting…" else "Export JSON") }
-                    OutlinedButton(
-                        onClick = actions.clear,
-                        enabled = !state.exporting,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .testTag("diagnostics-clear"),
-                    ) { Text("Clear diagnostics") }
-                    TextButton(
-                        onClick = actions.dismiss,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .testTag("diagnostics-close"),
-                    ) { Text(if (state.exporting) "Cancel export / close" else "Close") }
+                key(state.review) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Button(
+                            onClick = actions.export,
+                            enabled = !state.exporting,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("diagnostics-export"),
+                        ) { Text(if (state.exporting) "Exporting…" else "Export JSON") }
+                        OutlinedButton(
+                            onClick = actions.clear,
+                            enabled = !state.exporting,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("diagnostics-clear"),
+                        ) { Text("Clear diagnostics") }
+                        TextButton(
+                            onClick = actions.dismiss,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("diagnostics-close"),
+                        ) { Text(if (state.exporting) "Cancel export / close" else "Close") }
+                    }
                 }
             }
         }

@@ -140,7 +140,7 @@ class StoryRecordPageScrollTest {
 
     private companion object {
         const val PAGE_TWO = "synthetic-next-page"
-        val STORY = SavedStory("fixture-story", "root", "Lantern Quay", 4)
+        val STORY = SavedStory("fixture-story", "root", "Lantern Quay", 8)
 
         fun firstPage() = StoryRecordState(
             visible = true,

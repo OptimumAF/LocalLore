@@ -38,7 +38,7 @@ ARTIFACT_KEYS = frozenset(artifacts.artifact_bindings())
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | core.CURRENT_STORAGE_SOURCES | {
     OWNER_SCRIPT, "cross_owner_deletion_ui_binding.py", "cross_owner_deletion_ui_capture.py",
     "cross_owner_deletion_ui_replay.py", "cross_owner_deletion_ui_controller.py",
-    "saved_library_status_binding.py",
+    "cross_owner_deletion_ui_boot.py", "saved_library_status_binding.py",
     "archive_ui_build.py", "android_instrumentation_evidence.py",
 })
 _AUDIT_SOURCES = ("audit_apk.py", "audit_physical_model_apk.py")

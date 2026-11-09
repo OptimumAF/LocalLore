@@ -73,9 +73,15 @@ Its host replay requires a zero exit code, empty stderr and a complete
 start/pass pair for the one selected method. A skip or an incomplete
 instrumentation record fails replay.
 
-These are file and command checks. The cold profile still needs a concrete
-guarded owner and controller that bind the live captures to an approved
-one-use preparation and launch.
+The v4 adapter in `benchmarks/owned_cold_navigation_ui_client.py` attaches
+to an already owned target and checks the retained APKs before observing it.
+It uses a fixed 120-second test command and requires the existing v4 client,
+socket and one-use claim proofs before replaying the test output. It compares
+the retained stdout with the bytes returned by the live client.
+
+The adapter has no target-launch entry point. A controller still needs to
+bind the exact preparation, installation, test and teardown to a separately
+approved one-use run.
 
 ## Guarded device selector
 

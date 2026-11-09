@@ -24,6 +24,7 @@ DISPOSABLE = frozenset(CONTENT + name for name in (
     "snapshots/default_boot/ram.img"))
 STATES = frozenset(("preparing", "prepared", "retained", "closed", "retired"))
 ADAPTER_PROOFS = ("admission", "owner_result", "worker_result", "after")
+FAILED_SDK24_CLOSURE_SCOPE = "sdk24-failed-registration-storage-closure-v1"
 
 
 class StorageRefused(RuntimeError):
@@ -383,22 +384,32 @@ def _closed(closure, proposal_sha256):
 def record_closed(root, closure_path, registry=DEFAULT_REGISTRY):
     registry = safe_path(registry)
     with _locked(registry) as ledger:
-        entry = _entry(ledger, root)
-        require(entry["state"] != "retired", "invalid_transition")
-        from benchmarks import prepare_recovery_contract as recovery
-        recovery.require_cleanup(entry)
-        safe_path(root, exists=True, directory=True)
-        closure = binding(closure_path)
-        proofs = _closed(read_json(closure_path), entry["proposal_sha256"])
-        check_binding(closure)
-        measured = _logical_bytes(list(_files(Path(root)).values()) + proofs + [Path(closure_path)] +
-                                  recovery.history_paths(entry))
-        # Only the first verified closure releases the live reservation. Replaying
-        # closure after external truncation is not evidence of retirement.
-        if entry["state"] == "closed":
-            measured = max(entry["reserved_bytes"], measured)
-        entry.update(state="closed", reserved_bytes=measured, closure=closure, retirement=None)
-        _atomic_write(registry / "ledger-v1.json", ledger)
+        _record_closed_locked(root, closure_path, registry, ledger)
+
+
+def _record_closed_locked(root, closure_path, registry, ledger, *, failed_sdk24=False, expected_ledger=None):
+    """Record verified closure while the caller holds the shared lock."""
+    entry = _entry(ledger, root)
+    require(entry["state"] != "retired", "invalid_transition")
+    from benchmarks import prepare_recovery_contract as recovery
+    recovery.require_cleanup(entry)
+    safe_path(root, exists=True, directory=True)
+    closure = binding(closure_path)
+    record = read_json(closure_path)
+    require(type(record) is dict and (record.get("scope") == FAILED_SDK24_CLOSURE_SCOPE) is failed_sdk24,
+            "closure_operation_required")
+    proofs = _closed(record, entry["proposal_sha256"])
+    check_binding(closure)
+    measured = _logical_bytes(list(_files(Path(root)).values()) + proofs + [Path(closure_path)] +
+                              recovery.history_paths(entry))
+    # Only the first verified closure releases the live reservation. Replaying
+    # closure after external truncation is not evidence of retirement.
+    if entry["state"] == "closed":
+        measured = max(entry["reserved_bytes"], measured)
+    if expected_ledger is not None:
+        check_binding(expected_ledger)
+    entry.update(state="closed", reserved_bytes=measured, closure=closure, retirement=None)
+    _atomic_write(registry / "ledger-v1.json", ledger)
 
 
 def _files(root):

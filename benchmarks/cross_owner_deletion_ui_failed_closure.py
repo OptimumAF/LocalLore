@@ -69,13 +69,17 @@ def _retain_entry(ledger_pin, proposal_pin):
     lock = storage.safe_path(h.LEDGER.parent / "admission.lock")
     _need(not os.path.lexists(lock), "registry_locked")
     _, entry = h.ledger_entry(ledger_pin)
+    _check_retained(entry, proposal_pin)
+    _need(not os.path.lexists(lock), "registry_locked")
+    return entry
+
+
+def _check_retained(entry, proposal_pin):
     _need(entry["root"] == str(h.GUEST) and entry["state"] == "retained"
           and _same(entry["reserved_bytes"], storage.RESERVATION_BYTES)
           and entry["proposal_sha256"] == proposal_pin["sha256"]
           and all(entry.get(key) is None for key in ("closure", "recovery", "retirement", "retirement_receipt")),
           "retained")
-    _need(not os.path.lexists(lock), "registry_locked")
-    return entry
 
 
 def _without_success():
@@ -117,7 +121,7 @@ def _registration(worker, admission_pin):
     return registration_pin
 
 
-def _snapshot(operation_pin, observation_pin, ledger_pin):
+def _snapshot(operation_pin, observation_pin, ledger_pin, *, locked_entry=None):
     result = h.at(operation_pin, operation.RESULT)
     owned._obj(result, ("version", "scope", "authority", "attempt", "request", "supervisor",
                         "completion", "passed", "reason", "feature_acceptance"), "operation")
@@ -147,7 +151,10 @@ def _snapshot(operation_pin, observation_pin, ledger_pin):
           and Path(run["sdk"]) / "emulator/emulator.exe" == Path(guest["emulator"]["path"]), "admission")
     env.check_authorization(h.at(guest["authorization"], h.RUN_AUTHORITY, 4096), "run",
                             guest["proposal"]["sha256"], run_scope=owned.RUN_SCOPE)
-    _retain_entry(ledger_pin, guest["proposal"])
+    if locked_entry is None:
+        _retain_entry(ledger_pin, guest["proposal"])
+    else:
+        _check_retained(locked_entry, guest["proposal"])
     _without_success()
 
     supervisor = result["supervisor"]
@@ -225,7 +232,14 @@ def _snapshot(operation_pin, observation_pin, ledger_pin):
 
 def inspect(operation_pin, observation_pin, ledger_pin):
     """Read one failed attempt without writing closure or altering its storage charge."""
-    evidence, identities = _snapshot(operation_pin, observation_pin, ledger_pin)
+    return _inspect(operation_pin, observation_pin, ledger_pin)
+
+
+def _inspect(operation_pin, observation_pin, ledger_pin, *, locked_entry=None):
+    if locked_entry is None:
+        evidence, identities = _snapshot(operation_pin, observation_pin, ledger_pin)
+    else:
+        evidence, identities = _snapshot(operation_pin, observation_pin, ledger_pin, locked_entry=locked_entry)
     for pin in evidence.values():
         env.check_binding(pin)
     processes = native.closed_processes(identities, time.monotonic() + 5)
@@ -236,7 +250,10 @@ def inspect(operation_pin, observation_pin, ledger_pin):
               and observed["status"] in ("pid_absent", "pid_reused", "exited"), "process_status")
     for pin in evidence.values():
         env.check_binding(pin)
-    _retain_entry(ledger_pin, evidence["run"])
+    if locked_entry is None:
+        _retain_entry(ledger_pin, evidence["run"])
+    else:
+        _check_retained(locked_entry, evidence["run"])
     _without_success()
     return dict(version=1, scope=SCOPE, disposition="guarded_closure_review_required",
                 existing_retirement_eligible=False, execution_authorized=False, evidence=evidence,

@@ -144,10 +144,33 @@ python -I -S -B benchmarks/cross_owner_deletion_ui_failed_closure.py --operation
 ```
 
 The JSON output is private. It records eligibility for a guarded closure
-review while the guest remains retained. A separate reviewed operation and
-owner approval are required to record a closure or to retire any images.
-This review starts no device or service and leaves the failed Android run
-at zero executed test methods.
+review while the guest remains retained.
+
+### Guarded SDK24 storage closure
+
+`benchmarks/cross_owner_deletion_ui_failed_close.py` can seal a fixed private
+plan from the review digest, exact current ledger, current verifier sources
+and the guest's file roster and sizes. The plan is create-only and grants no
+authority.
+
+```powershell
+python -I -S -B benchmarks/cross_owner_deletion_ui_failed_close.py --review-sha256 <review-digest>
+```
+
+Execution requires a separate closure-only approval binding that exact
+plan. While holding the shared admission lock, it replays the reviewed
+evidence, queries the seven recorded process identities again, and checks
+the file roster. It creates a one-use claim, preserves the exact prior ledger,
+and records a typed teardown proof and closure. The shared accounting path
+then measures and replaces the reservation under the same lock. A failure
+before ledger replacement retains the original charge and any partial
+records for review.
+
+The closure records verified teardown for a failed run with zero executed
+Android methods. The old failed result stays intact. Closed accounting still
+occupies one guest slot. The updated exact-image retirement reader can
+verify this separate proof kind and recheck the process identities. That
+operation requires its own reviewed plan and approval.
 
 ## Evidence-aware retirement planning
 

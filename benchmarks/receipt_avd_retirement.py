@@ -88,6 +88,12 @@ def _source_bindings():
         ROOT / 'benchmarks/receipt_avd_retirement_windows.py')]
 
 
+def _failed_sdk24_source_bindings():
+    from benchmarks import cross_owner_deletion_ui_failed_close as failed_close
+    pins = {pin['path']: pin for pin in _source_bindings() + failed_close._sources()}
+    return [pins[path] for path in sorted(pins)]
+
+
 def _identity(value):
     _need(type(value) is dict and set(value) == {'pid', 'creation_filetime', 'executable'}, 'identity')
     _need(type(value['pid']) is int and 1 <= value['pid'] <= 0xffffffff and
@@ -100,6 +106,9 @@ def _identity(value):
 
 def _closure(entry):
     closure = _json(entry['closure'])
+    if closure.get('scope') == storage.FAILED_SDK24_CLOSURE_SCOPE:
+        from benchmarks import cross_owner_deletion_ui_failed_close as failed_close
+        return failed_close.retirement_identities(entry, closure)
     _need(closure.get('proposal_sha256') == entry['proposal_sha256'] and
           closure.get('closure_verified') is True and closure.get('cleanup_complete') is True and
           all(key in closure for key in storage.ADAPTER_PROOFS), 'closure')
@@ -219,7 +228,10 @@ def _execute(plan_binding, output_root, registry, *, execute_reviewed_plan=False
     registry = storage.safe_path(registry, exists=True, directory=True)
     storage.safe_path(registry / 'ledger-v1.json', exists=True)
     output, output_identity = _output(Path(output_root), root, registry)
-    sources = _source_bindings()
+    closure = _json(plan['closure'])
+    source_bindings = (_failed_sdk24_source_bindings
+                       if closure.get('scope') == storage.FAILED_SDK24_CLOSURE_SCOPE else _source_bindings)
+    sources = source_bindings()
     request = _write(output, output_identity, 'request-v1.json', dict(
         version=1, scope=REQUEST_SCOPE, plan=copy.deepcopy(plan_binding), registry=str(registry),
         root=str(root), sources=sources, seconds=SECONDS, execute_reviewed_plan=True))
@@ -235,7 +247,7 @@ def _execute(plan_binding, output_root, registry, *, execute_reviewed_plan=False
 
     def conserved(entry, ledger_pin, lock_pin):
         tick()
-        _need(_same(_source_bindings(), sources), 'source')
+        _need(_same(source_bindings(), sources), 'source')
         _pin(plan_binding)
         _pin(ledger_pin)
         _pin(lock_pin)

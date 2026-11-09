@@ -1,0 +1,13 @@
+# SDK18 readiness preflight
+
+The fixed Windows preflight checks whether the frozen record-cancellation test can be proposed for a fresh run. It reuses the genuine SDK18 loaders and does not invoke either operator's execution path. SDK18 is the repository's owner protocol label; the intended guest runs Android API 35.
+
+From the physical D: source tree, with process-local temporary files on D:, invoke `python -I -S -B scripts/inspect_record_refusal_readiness.py inspect` using the Python pinned by the frozen handoff. This is a fixed, local development tool for the PR #398 experiment layout; it is not an Android application command or a portable installer. Import performs no observation. The CLI accepts only `inspect`.
+
+The preflight verifies the frozen parent, contracts, source catalog, preparation and handoff records, installed inputs, Python and APK pair using the frozen loader contracts. It checks the existing resource policy, obtains a separate Windows commit-capacity observation, previews the same shared storage ledger, and checks that the guest ports (5592/5593) and private ADB port (15937) can be bound on loopback. The port checks close their sockets; they do not connect or start a listener or service. The script verifies the frozen inputs and ledger binding again before reporting readiness. These checks are sequential observations and do not reserve a port or guarantee that a later run will pass.
+
+The existing 8 GiB guest, four cores, 12 GiB host physical-memory floor, and 2 GiB commit margin remain in effect. The resulting 10 GiB commit requirement is distinct from available physical RAM. Storage remains subject to two unretired roots, the 64 GiB shared budget and a 40 GiB preparation reservation; a passing preview is not admission.
+
+The fixed report is create-only and bounded to 16 KiB. An existing report is refused before the frozen loaders or resource checks run. Ordinary failures use bounded reason categories and allow independent checks to finish; interruption or late identity drift prevents readiness. The report omits arbitrary exception text, credentials and device identifiers. Keep raw host observations local. Exit 0 means all advisory checks passed, exit 1 means a refusal or inability to write a report, and exit 2 means invalid invocation. Every report sets execution authorization and feature acceptance to false.
+
+A proposed run still needs fresh exact authorization and guarded admission. This tool performs no SDK/ADB operation, guest preparation, boot, inference or canonical gameplay mutation. See [verification](RECORD_REFUSAL_READINESS_VERIFICATION_2026-11-03.md).

@@ -196,7 +196,7 @@ pub(super) struct SelectedState {
     cleanup_error: Option<String>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Index {
     version: u16,
@@ -1602,11 +1602,14 @@ impl EvaluationManager {
                 consent,
             } => {
                 let ReadCap { opened, _grant } = *cap;
-                drop(opened);
                 let source_version = source.protocol_version();
                 let (origin, source_binding) = (*source).into_origin();
                 let setup = (|| {
                     let index = self.selected_index(&run_id)?;
+                    opened
+                        .verify_resume_index(&index)
+                        .map_err(|error| failure(&error))?;
+                    drop(opened);
                     let protocol = versioned::prepared_protocol(&index.prepared)
                         .ok_or("EvaluationIntegrity")?;
                     let (path, pins) = self.selected_work_path(&run_id)?;

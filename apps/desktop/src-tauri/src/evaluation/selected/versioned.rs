@@ -162,7 +162,10 @@ pub(super) enum Opened {
     V1(Box<shared::OpenedSelected>),
     V2(Box<literal::desktop_read::OpenedSelected>),
     V3(Box<scene::desktop_read::OpenedSelected>),
-    V4(Box<native_scene::desktop_read::OpenedSelected>),
+    V4 {
+        opened: Box<native_scene::desktop_read::OpenedSelected>,
+        index: Box<Index>,
+    },
 }
 impl Opened {
     pub(super) fn open(protocol: Protocol, path: &Path, index: &Index) -> Result<Self> {
@@ -179,7 +182,24 @@ impl Opened {
                 &index.client_id,
                 &index.prepared,
             )
-            .map(|opened| Self::V4(Box::new(opened))),
+            .map(|opened| Self::V4 {
+                opened: Box::new(opened),
+                index: Box::new(index.clone()),
+            }),
+        }
+    }
+    pub(super) fn verify_resume_index(&self, current: &Index) -> Result<()> {
+        // A renderer run token covers the snapshot originally opened. Check
+        // that exact V4 index and the still-held read before re-preparing it.
+        match self {
+            Self::V4 { opened, index } if index.as_ref() == current => {
+                native_scene::desktop_read::summary(opened, true).map(|_| ())
+            }
+            Self::V4 { .. } => Err("EvaluationSourceMismatch".into()),
+            _ if current.version == Protocol::V4.selected_version() => {
+                Err("EvaluationSourceMismatch".into())
+            }
+            _ => Ok(()),
         }
     }
     pub(super) fn summary(&self) -> Result<Value> {
@@ -187,7 +207,7 @@ impl Opened {
             Self::V1(opened) => shared::summary(opened, true),
             Self::V2(opened) => literal::desktop_read::summary(opened, true),
             Self::V3(opened) => scene::desktop_read::summary(opened, true),
-            Self::V4(opened) => native_scene::desktop_read::summary(opened, true),
+            Self::V4 { opened, .. } => native_scene::desktop_read::summary(opened, true),
         }
     }
     pub(super) fn evidence(
@@ -202,7 +222,7 @@ impl Opened {
                 literal::desktop_read::evidence(opened, binding, arm, request, true)
             }
             Self::V3(opened) => scene::desktop_read::evidence(opened, binding, arm, request, true),
-            Self::V4(opened) => {
+            Self::V4 { opened, .. } => {
                 native_scene::desktop_read::evidence(opened, binding, arm, request, true)
             }
         }
@@ -212,7 +232,7 @@ impl Opened {
             Self::V1(opened) => shared::diagnostics(opened, binding, observer, true),
             Self::V2(opened) => literal::desktop_read::diagnostics(opened, binding, observer, true),
             Self::V3(opened) => scene::desktop_read::diagnostics(opened, binding, observer, true),
-            Self::V4(opened) => {
+            Self::V4 { opened, .. } => {
                 native_scene::desktop_read::diagnostics(opened, binding, observer, true)
             }
         }

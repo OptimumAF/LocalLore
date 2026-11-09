@@ -190,7 +190,11 @@ const unsubscribe = c.subscribe(() => {
 });
 c.setView("lab");
 await c.inspect();
-assert.deepEqual(c.get().inspection, { scope, observer: "omniscient", revision: 0 });
+assert.deepEqual(c.get().inspection, {
+    scope,
+    observer: "omniscient",
+    revision: 0,
+});
 
 c.setObserver("mira");
 assert.deepEqual(mismatches, [], "lens change must clear in the same update");

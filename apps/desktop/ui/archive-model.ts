@@ -273,9 +273,14 @@ export function decodeStatus(v: unknown): ArchiveStatus {
     if (
         !object(v) ||
         Object.keys(v).length !== 6 ||
-        !["version", "operation_id", "running", "phase", "error", "result"].every(
-            (key) => Object.hasOwn(v, key),
-        ) ||
+        ![
+            "version",
+            "operation_id",
+            "running",
+            "phase",
+            "error",
+            "result",
+        ].every((key) => Object.hasOwn(v, key)) ||
         v.version !== 1 ||
         !integer(v.operation_id) ||
         v.operation_id === 0 ||

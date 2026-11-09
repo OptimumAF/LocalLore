@@ -342,7 +342,9 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             binding: SELECTED,
             ...(version >= 3 ? { source_binding: SOURCE } : {}),
             lane:
-                version === 4 ? "native_selected_case" : "scripted_selected_case",
+                version === 4
+                    ? "native_selected_case"
+                    : "scripted_selected_case",
             selection: clone(selection),
             arms: ["left", "right"].map((arm, i) => ({
                 arm,
@@ -360,7 +362,9 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             kind: "selected_read",
             binding: READ,
             lane:
-                version === 4 ? "native_selected_case" : "scripted_selected_case",
+                version === 4
+                    ? "native_selected_case"
+                    : "scripted_selected_case",
             selection: clone(selection),
             arms: ["left", "right"].map((arm, i) => ({
                 arm,
@@ -434,7 +438,9 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             kind: "selected_diagnostics",
             binding: READ,
             lane:
-                version === 4 ? "native_selected_case" : "scripted_selected_case",
+                version === 4
+                    ? "native_selected_case"
+                    : "scripted_selected_case",
             completed: true,
             rows: [
                 diagnosticRow(version, "left"),
@@ -2454,62 +2460,77 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             },
         );
 
-    await check("native Scene 4 DTOs preserve the closed format-4 shape", () => {
-        for (const kind of ["prepared", "summary", "diagnostics"]) {
-            const value = factories[kind](4);
-            assert.deepEqual(decode[kind](value), value);
+    await check(
+        "native Scene 4 DTOs preserve the closed format-4 shape",
+        () => {
+            for (const kind of ["prepared", "summary", "diagnostics"]) {
+                const value = factories[kind](4);
+                assert.deepEqual(decode[kind](value), value);
+                finiteWire(() =>
+                    decode[kind]({ ...value, lane: "scripted_selected_case" }),
+                );
+                finiteWire(() =>
+                    decode[kind]({ ...value, source_protocol_version: 5 }),
+                );
+                finiteWire(() =>
+                    decode[kind]({ ...value, selected_native_format: 4 }),
+                );
+            }
+            const { source_binding: omitted, ...unbound } = prepared(4);
+            assert.equal(omitted, SOURCE);
+            finiteWire(() => decode.prepared(unbound));
             finiteWire(() =>
-                decode[kind]({ ...value, lane: "scripted_selected_case" }),
+                m.checkedSelectedStatus(
+                    status(CLIENT, "prepared", 4, {
+                        lane: "scripted_baseline",
+                    }),
+                ),
             );
-            finiteWire(() =>
-                decode[kind]({ ...value, source_protocol_version: 5 }),
-            );
-            finiteWire(() =>
-                decode[kind]({ ...value, selected_native_format: 4 }),
-            );
-        }
-        const { source_binding: omitted, ...unbound } = prepared(4);
-        assert.equal(omitted, SOURCE);
-        finiteWire(() => decode.prepared(unbound));
-        finiteWire(() =>
-            m.checkedSelectedStatus(status(CLIENT, "prepared", 4, {
-                lane: "scripted_baseline",
-            })),
-        );
-        const measured = {
-            ...diagnostics(4),
-            physical_setups: 1,
-            physical_setup_ms: 37,
-            unavailable: [],
-        };
-        assert.deepEqual(decode.diagnostics(measured), measured);
-        for (const patch of [
-            { physical_setups: 0 },
-            { physical_setup_ms: null },
-            { native_load: {} },
-            { quality_accepted: true },
-            { human_rubric: "accepted" },
-        ])
-            finiteWire(() => decode.diagnostics({ ...measured, ...patch }));
-    });
+            const measured = {
+                ...diagnostics(4),
+                physical_setups: 1,
+                physical_setup_ms: 37,
+                unavailable: [],
+            };
+            assert.deepEqual(decode.diagnostics(measured), measured);
+            for (const patch of [
+                { physical_setups: 0 },
+                { physical_setup_ms: null },
+                { native_load: {} },
+                { quality_accepted: true },
+                { human_rubric: "accepted" },
+            ])
+                finiteWire(() => decode.diagnostics({ ...measured, ...patch }));
+        },
+    );
     await check(
         "only a ready protocol-4 source can advertise the native route",
         () => {
             const state = readerState();
-            const checked = (v) => m.checkedReaderSource(
-                wrap("comparison_reader", "source", v, SOURCE_TOKEN),
-                SOURCE_TOKEN,
-                SOURCE,
+            const checked = (v) =>
+                m.checkedReaderSource(
+                    wrap("comparison_reader", "source", v, SOURCE_TOKEN),
+                    SOURCE_TOKEN,
+                    SOURCE,
+                );
+            assert.equal(
+                checked(state.source).selected_native_format,
+                undefined,
             );
-            assert.equal(checked(state.source).selected_native_format, undefined);
-            state.source = checked({ ...state.source, selected_native_format: 4 });
+            state.source = checked({
+                ...state.source,
+                selected_native_format: 4,
+            });
             assert.equal(state.source.execution_available, false);
             const f = fixture(4);
             const ready = appSelection(f, state);
             assert.equal(ready.props.nativeSceneSelected, true);
             assert.deepEqual(ready.props.source, source);
             state.status.binding = PREFIX;
-            assert.equal(appSelection(f, state).props.nativeSceneSelected, false);
+            assert.equal(
+                appSelection(f, state).props.nativeSceneSelected,
+                false,
+            );
             state.status.binding = SOURCE;
             state.status.phase = "opening";
             const waiting = appSelection(f, state);
@@ -2517,7 +2538,11 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             assert.equal(waiting.props.source, null);
             for (const value of [null, undefined, "4", 3, 5])
                 assert.throws(
-                    () => checked({ ...state.source, selected_native_format: value }),
+                    () =>
+                        checked({
+                            ...state.source,
+                            selected_native_format: value,
+                        }),
                     /ComparisonReaderWire/,
                 );
             assert.throws(
@@ -2534,7 +2559,9 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             assert.match(view.draw(), /fake inference/);
             view.effects();
             assert.equal(laneSelect().props.value, "scripted_baseline");
-            laneSelect().props.onChange({ target: { value: "approved_native" } });
+            laneSelect().props.onChange({
+                target: { value: "approved_native" },
+            });
             view.draw({ nativeSceneSelected: false });
             const unavailable = button("Prepare selected case");
             assert(unavailable.props.disabled);
@@ -2547,7 +2574,10 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             const actions = f.calls.filter(
                 (v) => v.action === "prepare" || v.action === "start",
             );
-            assert.deepEqual(actions.map((v) => v.action), ["prepare"]);
+            assert.deepEqual(
+                actions.map((v) => v.action),
+                ["prepare"],
+            );
             assert.equal(actions[0].body.lane, "approved_native");
             assert.equal(f.c.get().status.prepared.version, 4);
             for (const value of [
@@ -2574,7 +2604,10 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             assert.match(visible, /Recorded results · Installed native model/i);
             assert.match(visible, /Literal scene/);
             assert.match(visible, /Relevant memory scene/);
-            assert.doesNotMatch(render(f, { observer: mira }), /Recorded results/);
+            assert.doesNotMatch(
+                render(f, { observer: mira }),
+                /Recorded results/,
+            );
             const stale = button("Resume / verify with linked source");
             assert(stale.props.disabled);
             stale.props.onClick();
@@ -2583,13 +2616,18 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             button("Resume / verify with linked source").props.onClick();
             await flush();
             const resumes = f.calls.filter((v) => v.action === "resume");
-            assert.deepEqual(resumes.map((v) => v.body), [{
-                clientId: f.c.get().clientId,
-                readerClientId: READER,
-                runToken: READ_TOKEN,
-                sourceBinding: SOURCE,
-                sourceToken: SOURCE_TOKEN,
-            }]);
+            assert.deepEqual(
+                resumes.map((v) => v.body),
+                [
+                    {
+                        clientId: f.c.get().clientId,
+                        readerClientId: READER,
+                        runToken: READ_TOKEN,
+                        sourceBinding: SOURCE,
+                        sourceToken: SOURCE_TOKEN,
+                    },
+                ],
+            );
             assert.equal(f.c.get().error, null);
             assert.equal(f.c.get().status.prepared.version, 4);
 
@@ -2621,7 +2659,10 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
                 assert.equal(f.c.get().status.prepared, null);
                 assert.equal(f.c.get().summary, null);
                 f.hooks.set("resume", ({ clientId }) =>
-                    status(clientId, "completed", 4, { prepared: metadata, lane }),
+                    status(clientId, "completed", 4, {
+                        prepared: metadata,
+                        lane,
+                    }),
                 );
                 render(f, { nativeSceneSelected: true });
                 const resume = button("Resume / verify with linked source");
@@ -2664,7 +2705,10 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             assert.match(render(scripted), historical);
             const advertised = render(scripted, { nativeSceneSelected: true });
             assert.doesNotMatch(advertised, historical);
-            assert.match(advertised, /scripted_lane_no_native_setup_measurement/);
+            assert.match(
+                advertised,
+                /scripted_lane_no_native_setup_measurement/,
+            );
             assert.match(advertised, /quality acceptance: not established/);
         },
     );

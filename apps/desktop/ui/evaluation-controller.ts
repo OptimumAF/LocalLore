@@ -393,7 +393,8 @@ export class EvaluationController {
         });
         if (epoch !== this.epoch) return;
         try {
-            const client = action === "start" ? (query.clientId as string) : null;
+            const client =
+                action === "start" ? (query.clientId as string) : null;
             const priorClient = this.state.pendingClient;
             // Save the recovery identity before dispatch, but only publish it
             // to listeners once the command has actually been offered.

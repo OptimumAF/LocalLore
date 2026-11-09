@@ -1865,7 +1865,8 @@ export class Controller {
     }
     refreshModel(): Promise<void> {
         return (
-            this.modelTerminalRefresh ?? this.readModel(++this.modelReadSequence)
+            this.modelTerminalRefresh ??
+            this.readModel(++this.modelReadSequence)
         );
     }
     private async readModel(sequence: number) {
@@ -1954,7 +1955,10 @@ export class Controller {
                 if (this.modelOperation === operation) {
                     this.modelOperation = null;
                     if (!this.state.disposed)
-                        this.patch({ modelBusy: false, modelCancelReady: false });
+                        this.patch({
+                            modelBusy: false,
+                            modelCancelReady: false,
+                        });
                 }
             }
         }
@@ -2325,10 +2329,7 @@ export class Controller {
             )
                 this.patch({ draft: "" });
         }
-        if (
-            terminalTurnPhases.includes(status.phase) &&
-            this.unresolved === op
-        )
+        if (terminalTurnPhases.includes(status.phase) && this.unresolved === op)
             this.unresolved = null;
         if (op.request.intent.kind === "free_text") await this.refreshModel();
         await this.refresh();

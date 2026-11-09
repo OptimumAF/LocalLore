@@ -181,7 +181,6 @@ console.log(
     "PASS: early cancel/context switch wait for admission; rejection and unknown acknowledgement keep truthful original-key recovery.",
 );
 
-
 for (const scenario of [
     "foreign-submit",
     "foreign-prepare",
@@ -263,7 +262,11 @@ for (const scenario of [
             if (command.op === "inspect" || command.op === "close") return {};
             turnCalls.push(command.op);
             if (command.op === "submit") {
-                assert.equal(request, undefined, "recovery keeps the first key");
+                assert.equal(
+                    request,
+                    undefined,
+                    "recovery keeps the first key",
+                );
                 request = command.request;
                 receipt = {
                     request,
@@ -368,7 +371,10 @@ for (const scenario of [
         releaseCommit();
     }
     await sending;
-    if (scenario === "foreign-submit" || scenario === "cancelled-lost-ack-committed") {
+    if (
+        scenario === "foreign-submit" ||
+        scenario === "cancelled-lost-ack-committed"
+    ) {
         assert.deepEqual(turnCalls, ["submit"]);
         assert.equal(controller.get().visibleError, "TransportUnknown");
         await controller.retry();

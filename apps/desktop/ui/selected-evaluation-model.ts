@@ -125,7 +125,9 @@ export type SelectedSummary =
     | SelectedSummaryV2
     | SelectedSummaryV3
     | SelectedSummaryV4;
-export function sourceProtocolOf(value: SelectedPrepared | SelectedSummary): 2 | 3 | 4 {
+export function sourceProtocolOf(
+    value: SelectedPrepared | SelectedSummary,
+): 2 | 3 | 4 {
     return value.version === 1 ? 2 : value.source_protocol_version;
 }
 export type SelectedStatus = {
@@ -945,7 +947,9 @@ export function checkedSelectedDiagnostics(
     if (version === 3)
         requireWire(o.physical_setups === 0 && o.physical_setup_ms === null);
     if (version === 4)
-        requireWire((o.physical_setups === 0) === (o.physical_setup_ms === null));
+        requireWire(
+            (o.physical_setups === 0) === (o.physical_setup_ms === null),
+        );
     array(o.unavailable, text);
     return o as SelectedDiagnostics;
 }

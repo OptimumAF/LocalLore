@@ -395,14 +395,19 @@ test("retained consent and confirm controls cannot authorize a replacement previ
         answer: (name) => {
             assert.equal(name, "archive_export_preview");
             return terminal(
-                ++exported === 1 ? preview() : { ...preview(), token: nextToken },
+                ++exported === 1
+                    ? preview()
+                    : { ...preview(), token: nextToken },
             );
         },
     });
     await f.archive.previewExport(f.session.id, scope, 7);
-    const oldCheckbox = f.render().elements.find(
-        (element) => element.type === "input" && element.props.type === "checkbox",
-    );
+    const oldCheckbox = f
+        .render()
+        .elements.find(
+            (element) =>
+                element.type === "input" && element.props.type === "checkbox",
+        );
     assert.ok(oldCheckbox);
     oldCheckbox.props.onChange({ target: { checked: true } });
     const oldConfirm = button(

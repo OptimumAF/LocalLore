@@ -596,8 +596,7 @@ const ownership = new EvaluationController(async (name, { action, query }) => {
 ownership.contextChanged("lab|omniscient", true);
 let firstRecoveryNotice;
 const beforeStartNotice = ownership.subscribe(() => {
-    if (ownership.get().pendingClient)
-        firstRecoveryNotice ??= startOffered;
+    if (ownership.get().pendingClient) firstRecoveryNotice ??= startOffered;
 });
 await ownership.curatedStart("scripted");
 beforeStartNotice();

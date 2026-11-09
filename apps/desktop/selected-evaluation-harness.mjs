@@ -1202,11 +1202,22 @@ try {
                 assert.equal(status.error, "Cancelled");
                 assert(guid(status.client_id), "ActualNativeDenialClient");
                 assert(
-                    Number.isSafeInteger(status.operation_id) && status.operation_id >= 0,
+                    Number.isSafeInteger(status.operation_id) &&
+                        status.operation_id >= 0,
                     "ActualNativeDenialOperation",
                 );
-                for (const key of ["plan_token", "run_id", "run_token", "binding", "prepared"])
-                    assert.equal(status[key], null, `NativeDenialNoCapability:${key}`);
+                for (const key of [
+                    "plan_token",
+                    "run_id",
+                    "run_token",
+                    "binding",
+                    "prepared",
+                ])
+                    assert.equal(
+                        status[key],
+                        null,
+                        `NativeDenialNoCapability:${key}`,
+                    );
                 assert.equal(status.cleanup_required, false);
                 assert.equal(snapshot.visibleError, "Cancelled");
                 assert.equal(snapshot.pendingOperation, null);

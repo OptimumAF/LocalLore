@@ -412,7 +412,11 @@ export class SelectedEvaluationController {
                 const lane = expected.lane ?? (scene ? value.lane : null);
                 if (resumed && sourceProtocol === 4 && !scene)
                     throw new Error("SelectedEvaluationWire");
-                if (scene && value.error !== null && sourceBinding === undefined)
+                if (
+                    scene &&
+                    value.error !== null &&
+                    sourceBinding === undefined
+                )
                     throw new Error("SelectedEvaluationWire");
                 if (
                     (expected.lane &&
@@ -458,7 +462,8 @@ export class SelectedEvaluationController {
                 if (value.error === null && !value.running && scene) {
                     expected.sourceBinding ??= scene.source_binding;
                     expected.sourceProtocol ??= scene.source_protocol_version;
-                    if (scene.version === 4) expected.lane ??= "approved_native";
+                    if (scene.version === 4)
+                        expected.lane ??= "approved_native";
                 }
                 // A recorded Open has a read token and lane, but no prepared DTO.
                 if (

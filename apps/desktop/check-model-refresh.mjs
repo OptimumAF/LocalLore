@@ -209,7 +209,11 @@ async function cancelPublication() {
         operation = c.modelAction("model_load");
         idle.reject(new Error("Timeout"));
         await previous;
-        assert.equal(c.get().visibleError, null, "pre-action read error is stale");
+        assert.equal(
+            c.get().visibleError,
+            null,
+            "pre-action read error is stale",
+        );
 
         status = { ...state("loading", false), operation_id: 8 };
         await c.refreshModel();
@@ -228,7 +232,11 @@ async function cancelPublication() {
 
         cancelReply.reject(new Error("StaleModelOperation"));
         await cancellation;
-        assert.equal(c.get().visibleError, null, "late cancel failure is stale");
+        assert.equal(
+            c.get().visibleError,
+            null,
+            "late cancel failure is stale",
+        );
 
         status = { ...state("loaded", true), operation_id: 9 };
         load.resolve(status);

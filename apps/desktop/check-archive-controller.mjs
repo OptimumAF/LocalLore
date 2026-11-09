@@ -228,7 +228,12 @@ const running = {
 assert.throws(() => decodeStatus({ ...running, extra: "synthetic" }), /Wire/);
 for (const result of [
     { version: 1, status: "cancelled" },
-    { version: 1, status: "failed", error: "ArchiveIo", cleanup_complete: false },
+    {
+        version: 1,
+        status: "failed",
+        error: "ArchiveIo",
+        cleanup_complete: false,
+    },
     {
         version: 1,
         status: "failed",
@@ -318,7 +323,10 @@ for (const [reply, valid] of [
     const exporting = new ArchiveController(
         async (name, args) => {
             commands.push(name);
-            assert.deepEqual(args.scope, { story: "synthetic", branch: "child" });
+            assert.deepEqual(args.scope, {
+                story: "synthetic",
+                branch: "child",
+            });
             return complete(8, reply);
         },
         async () => {},
@@ -417,7 +425,9 @@ assert(
         .every((x) => x.args.operationId === 3),
 );
 assert(
-    heldCalls.some((x) => x.name === "archive_discard" && x.args.token === token),
+    heldCalls.some(
+        (x) => x.name === "archive_discard" && x.args.token === token,
+    ),
     "a late result for the polled operation still revokes its own token",
 );
 
@@ -441,7 +451,9 @@ let wrongPollOffers = 0;
 const wrongPoll = new ArchiveController(
     async (name, args) => {
         if (name === "archive_import_preview")
-            return ++wrongPollOffers === 1 ? running : complete(9, newerPreview);
+            return ++wrongPollOffers === 1
+                ? running
+                : complete(9, newerPreview);
         if (name === "archive_status") {
             wrongPollStarted.resolve();
             return wrongPollReply.promise;
@@ -500,7 +512,11 @@ await cancelling.cancel();
 assert.equal(cancelling.get().error, "Wire");
 assert.equal(cancelling.get().busy, true);
 await cancelling.previewImport();
-assert.equal(archiveOffers, 1, "cancel failure cannot release the active offer");
+assert.equal(
+    archiveOffers,
+    1,
+    "cancel failure cannot release the active offer",
+);
 await cancelling.cancel();
 assert.match(cancelling.get().notice, /^Cancellation requested/);
 assert.equal(cancelling.get().busy, true);

@@ -60,7 +60,8 @@ export function TurnDebugger({
                 selected.identity.observer !== play.player.observer ||
                 selected.identity.scope.story !== pendingQuery.scope.story ||
                 selected.identity.scope.branch !== pendingQuery.scope.branch ||
-                pendingQuery.base_revision !== selected.identity.base_revision ||
+                pendingQuery.base_revision !==
+                    selected.identity.base_revision ||
                 pendingQuery.turn !== selected.identity.turn ||
                 pendingQuery.attempt !== selected.identity.attempt),
         query = diagnosticStale ? null : pendingQuery,
@@ -71,14 +72,13 @@ export function TurnDebugger({
             (privateLens && diagnostic.error === "Stale"),
         result = privateLens && !stale && query ? diagnostic.reply : null,
         validation = result?.status === "recorded" ? result.decision : null;
-    const lens =
-        !currentState
-            ? "Unavailable"
-            : s.view === "play"
-              ? "Player"
-              : s.observer === "omniscient"
-                ? "Story Lab · omniscient"
-                : `Story Lab · character ${s.observer}`;
+    const lens = !currentState
+        ? "Unavailable"
+        : s.view === "play"
+          ? "Player"
+          : s.observer === "omniscient"
+            ? "Story Lab · omniscient"
+            : `Story Lab · character ${s.observer}`;
     return (
         <section className="turn-debugger" aria-labelledby="debugger-title">
             <div className="topline">
@@ -197,7 +197,9 @@ export function TurnDebugger({
                 </h3>
                 <div className="trace-controls">
                     <button
-                        disabled={!privateLens || !reply || !eligibility.allowed}
+                        disabled={
+                            !privateLens || !reply || !eligibility.allowed
+                        }
                         onClick={() => void c.readTraceNarrationValidation()}
                     >
                         Read selected narration validation

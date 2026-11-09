@@ -21,6 +21,10 @@ require = base.require
 COLD_NAVIGATION_CLASS = "ColdNavigationFreshTaskTest"
 COLD_NAVIGATION_METHOD = "reopensConfirmedChildFromPrivateHintWithoutSavedTaskState"
 COLD_NAVIGATION_SCOPE = "cold-navigation-apk-pair-v1"
+STORAGE_OPENER_TESTS = (
+    ("ArchiveOpenScopeScreenTest", "retainedArchiveOpenerCannotBorrowAReplacementRenderedFrame"),
+    ("DeletionOpenScopeScreenTest", "retainedDeletionOpenersCannotBorrowTheReplacementStoryOrTimeline"),
+)
 
 
 def _package(archive_verification, cold_navigation_verification, presentation_process_verification):
@@ -72,8 +76,29 @@ def audit_cold_navigation_selector(app_classes, test_classes):
             "-e", "cold_navigation_v1", "true", f"{physical.INPUT_PROCESS_APP}.test/{physical.RUNNER}"]
 
 
+def audit_storage_opener_selectors(app_classes, test_classes):
+    selectors = []
+    for name, method in STORAGE_OPENER_TESTS:
+        descriptor = physical.descriptor("ui/" + name)
+        require(descriptor not in app_classes and descriptor in test_classes,
+                "Storage opener test must be defined in the test APK only")
+        flags, methods = test_classes[descriptor]
+        require(flags & 1 and not flags & (0x200 | 0x400), "Storage opener test is not concrete/public")
+        expected = method.encode("ascii")
+        candidates = [row for row in methods if row[3] or row[0] == expected]
+        require(len(candidates) == 1, "Wrong storage opener test method inventory")
+        method_name, prototype, access, annotated, units = candidates[0]
+        require(method_name == expected and prototype == (b"V", 0) and access in (1, 17)
+                and annotated is True and type(units) is int and units > 0,
+                "Storage opener test is not an executable public JUnit method")
+        selectors.append(f"org.locallore.app.ui.{name}#{method}")
+    return selectors
+
+
 def audit_pair(app, test, *, archive_verification=False, cold_navigation_verification=False,
-                    presentation_process_verification=False):
+                    presentation_process_verification=False, storage_opener_selectors=False):
+    require(type(storage_opener_selectors) is bool and (not storage_opener_selectors or archive_verification),
+            "Storage opener selectors require the isolated archive profile")
     _package(archive_verification, cold_navigation_verification, presentation_process_verification)
     app, test = Path(app), Path(test)
     require(app.resolve() != test.resolve() and app.is_file() and test.is_file(), "Invalid APK pair")
@@ -97,6 +122,10 @@ def audit_pair(app, test, *, archive_verification=False, cold_navigation_verific
         profile = {"scope": COLD_NAVIGATION_SCOPE,
                    "instrumentation_args": audit_cold_navigation_selector(
                        physical.dex_classes(app), physical.dex_classes(test))}
+    if storage_opener_selectors:
+        profile = {"scope": "storage-opener-apk-pair-v1", "runner": physical.RUNNER,
+                   "selectors": audit_storage_opener_selectors(
+                       physical.dex_classes(app), physical.dex_classes(test, with_code=True))}
     require(physical.apk_identity(app) == app_before and physical.apk_identity(test) == test_before,
             "APK pair changed during audit")
     return {"status": "passed", **manifests, **profile, "certificate_sha256": signer,
@@ -114,11 +143,14 @@ def main(argv=None):
                          help="Audit the isolated input-process pair and bind the cold-navigation test selector")
     profile.add_argument("--presentation-process-verification", action="store_true",
                          help="Audit only the isolated v3 presentation process app/test pair")
+    parser.add_argument("--storage-opener-selectors", action="store_true",
+                        help="Bind the two storage opener selectors for the isolated archive pair")
     args = parser.parse_args(argv)
     try:
         print(json.dumps(audit_pair(args.app, args.test, archive_verification=args.archive_verification,
                                     cold_navigation_verification=args.cold_navigation_verification,
-                                   presentation_process_verification=args.presentation_process_verification),
+                                   presentation_process_verification=args.presentation_process_verification,
+                                   storage_opener_selectors=args.storage_opener_selectors),
                          sort_keys=True))
         return 0
     except AuditError as error:

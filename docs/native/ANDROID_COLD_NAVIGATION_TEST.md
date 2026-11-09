@@ -130,6 +130,21 @@ parent checks the remaining time and replays the preparation receipts
 and successful activation evidence. An exact reviewed approval and
 current readiness are required for a live attempt.
 
+Assign the reviewed candidate plan and current ledger digests to
+`$planDigest` and `$ledgerDigest`, then run the read-only check from the
+pinned source checkout.
+
+```powershell
+python -I -S -B benchmarks/cold_navigation_ui_readiness.py --plan-sha256 $planDigest --ledger-sha256 $ledgerDigest
+```
+
+The check requires the guest, attempt and authority record to be absent.
+It reuses the operator's installed-input, host capacity, storage preview
+and port checks, then rechecks the plan and ledger bytes. It reports
+aggregate readiness and leaves reservation and authorization to the
+separate approved operator. Run the check again if the host or ledger
+changes before approval.
+
 ## Guarded device selector
 
 After separate approval and normal storage, process ownership and device

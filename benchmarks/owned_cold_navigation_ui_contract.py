@@ -22,7 +22,7 @@ SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     "owned_cold_navigation_ui_contract.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
     "owned_cold_navigation_ui_client.py", "cold_navigation_ui_controller.py",
     "owned_cold_navigation_ui_owner.py", "cold_navigation_ui_activation.py", "cold_navigation_ui_closure.py",
-    "cold_navigation_ui_operation.py", "cold_navigation_ui_preparation.py",
+    "cold_navigation_ui_operation.py", "cold_navigation_ui_preparation.py", "cold_navigation_ui_readiness.py",
 })
 
 _EVIDENCE = PureWindowsPath("D:/Dev/Experiments/LocalLore/2026-11-09-cold-navigation-artifact-v1")

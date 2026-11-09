@@ -934,7 +934,11 @@ fn separate_actual_scripted_scene_source_prepares_scripted_and_honors_native_con
                     assert_eq!(metadata["source_protocol_version"], 4);
                     assert_eq!(
                         metadata["lane"],
-                        if scripted { "scripted_selected_case" } else { "native_selected_case" }
+                        if scripted {
+                            "scripted_selected_case"
+                        } else {
+                            "native_selected_case"
+                        }
                     );
                     Ok(scripted)
                 },

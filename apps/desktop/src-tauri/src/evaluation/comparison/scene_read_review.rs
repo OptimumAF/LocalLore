@@ -726,7 +726,11 @@ fn v4_selected_lanes_prepare_exact_artifacts_without_model_reservation() {
                     assert_eq!(metadata["source_protocol_version"], 4);
                     assert_eq!(
                         metadata["lane"],
-                        if scripted { "scripted_selected_case" } else { "native_selected_case" }
+                        if scripted {
+                            "scripted_selected_case"
+                        } else {
+                            "native_selected_case"
+                        }
                     );
                     Ok(true)
                 },
@@ -751,7 +755,10 @@ fn v4_selected_lanes_prepare_exact_artifacts_without_model_reservation() {
         assert!(terminal["error"].is_null());
         assert!(terminal["plan_token"].as_str().is_some());
         assert!(terminal["run_token"].is_null() && terminal["run_id"].is_null());
-        assert_eq!(terminal["prepared"]["version"], if scripted { 3 } else { 4 });
+        assert_eq!(
+            terminal["prepared"]["version"],
+            if scripted { 3 } else { 4 }
+        );
         assert_eq!(terminal["prepared"]["source_protocol_version"], 4);
         assert_eq!(terminal["prepared"]["source_binding"], ready["binding"]);
         assert_eq!(terminal["cleanup_required"], false);

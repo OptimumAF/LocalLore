@@ -90,6 +90,35 @@ class TranscriptFollowScreenTest {
         }
     }
 
+    @Test fun latestReachesTheBottomOfATallAcceptedReply() {
+        val original = initial(history(24))
+        val state = mutableStateOf(original)
+        val calls = Calls()
+        show(state, calls)
+        scrollTo("message-body-1").assertIsDisplayed()
+        compose.waitForIdle()
+
+        val reply = SceneMessage(101, (1..120).joinToString("\n") {
+            "SCRIPTED newly accepted reply paragraph $it."
+        }, false)
+        val updated = original.copy(messages = original.messages + reply)
+        compose.runOnIdle { state.value = updated }
+        compose.waitForIdle()
+        compose.onNodeWithTag("message-body-1").assertIsDisplayed()
+        compose.onNodeWithTag("message-body-101").assertIsNotDisplayed()
+
+        compose.onNodeWithTag("transcript-latest").assertIsDisplayed().performClick()
+        awaitVisible("message-body-101")
+        compose.waitForIdle()
+        // Seeing the row's head alone leaves Latest visible. Its removal requires a
+        // fresh measurement that acknowledges the bottom of this exact reply.
+        compose.onNodeWithTag("transcript-latest").assertDoesNotExist()
+        compose.runOnIdle {
+            assertSame(updated, state.value)
+            calls.assertQuiet()
+        }
+    }
+
     @Test fun seeingOnlyTheHeadOfALongTailDoesNotAuthorizeFollowingAnAppend() {
         val longReply = SceneMessage(1, (1..150).joinToString("\n") {
             "SCRIPTED long reply paragraph $it: read every line before following."

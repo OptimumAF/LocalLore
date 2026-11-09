@@ -38,6 +38,21 @@ Implementation follows the official [list-state and scrolling guidance](https://
 The screen tests use the public [isDisplayed API](https://developer.android.com/reference/kotlin/androidx/compose/ui/test/package-summary#isDisplayed(androidx.compose.ui.test.SemanticsNodeInteraction)),
 available since Compose 1.6.0, within the existing pinned Compose dependencies.
 
+## Explicit Latest and tall replies
+
+In the follow-up, a Latest tap measures the newest row after its initial jump.
+It then moves the clipped remainder into view if the same history and request
+are still active. The normal viewport measurement still determines whether
+the end was reached. Automatic follow continues to present the start of a new
+reply so it can be read in order.
+
+The follow-up uses the existing Compose list state and its
+[pixel scroll operation](https://developer.android.com/reference/kotlin/androidx/compose/foundation/gestures/package-summary#(androidx.compose.foundation.gestures.ScrollableState).scrollBy(kotlin.Float)).
+The Android regression appends a reply taller than the viewport and requires
+one Latest tap to hide the control through measured end-of-transcript
+acknowledgement. The verification below describes the original navigation
+implementation.
+
 ## Checks actually performed
 
 Executed source: `7dd9ea3bcbb3efa162d2639f6807208b3da238c0`, 2,312 tracked raw

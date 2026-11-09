@@ -51,6 +51,11 @@ revalidates installed tools and APKs, and probes host capacity and ports.
 It reports advisory evidence. A live run requires separate approval and
 a fresh locked storage admission.
 
+The [prepared guest review](../../benchmarks/saved_library_status_prepared_review.py)
+can check the SDK23 pre-boot refusal against its verified archive, the
+current prepared reservation and the original AVD files. A matching
+result supports review for reuse under separate approval.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

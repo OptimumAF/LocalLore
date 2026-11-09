@@ -362,7 +362,8 @@ struct Quarantine {
 template <typename Cancelled, typename Ready>
 Result launch_owned(const std::wstring& executable, std::wstring cmd, std::wstring env,
                     const std::wstring& cwd, Clock::time_point started, Clock::time_point deadline,
-                    const Cancelled& cancelled, const Ready& ready, Quarantine* quarantine = nullptr) {
+                    const Cancelled& cancelled, const Ready& ready, Quarantine* quarantine = nullptr,
+                    std::optional<Clock::time_point>* cleanup_cutoff = nullptr) {
     Result result;
     Handle job, in, stdin_writer, out, stdout_writer, err, stderr_writer, process, thread;
     const auto start = [&]() {
@@ -459,6 +460,7 @@ Result launch_owned(const std::wstring& executable, std::wstring cmd, std::wstri
     std::optional<Clock::time_point> drain_deadline;
     if (process.valid()) {
         drain_deadline = settle(process, job, out, err, cancelled, deadline, result);
+        if (cleanup_cutoff) *cleanup_cutoff = drain_deadline;
         if (quarantine && !(result.signaled && result.exit.has_value())) {
             quarantine->process.value = std::exchange(process.value, nullptr);
             result.handles_closed = false;

@@ -79,9 +79,17 @@ It uses a fixed 120-second test command and requires the existing v4 client,
 socket and one-use claim proofs before replaying the test output. It compares
 the retained stdout with the bytes returned by the live client.
 
-The adapter has no target-launch entry point. A controller still needs to
-bind the exact preparation, installation, test and teardown to a separately
-approved one-use run.
+The controller in `benchmarks/cold_navigation_ui_controller.py` consumes
+an already owned target. It checks the booted API, ABI and user, then
+requires both package queries to be empty before staging either APK.
+Installation uses `pm install -R` because Android 15 permits replacement
+by default. [Android 15 package-manager source](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-15.0.0_r1/services/core/java/com/android/server/pm/PackageManagerShellCommand.java)
+
+The controller checks the installed UID, path and APK hash before and after
+the one test. It retains command records on refusal and replays the full
+ordered client roster before recording a completed result. Observer handle
+closure has its own result field. A separately approved outer operation
+still owns guest preparation, boot, and guest and private service teardown.
 
 ## Guarded device selector
 

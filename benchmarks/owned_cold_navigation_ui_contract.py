@@ -19,7 +19,7 @@ KIND = "cold_navigation"
 GUEST_ROOT = PureWindowsPath("D:/Dev/Experiments/LocalLore/2026-11-09-cold-navigation-ui-v1/avd-v1")
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     "owned_cold_navigation_ui_contract.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
-    "owned_cold_navigation_ui_client.py",
+    "owned_cold_navigation_ui_client.py", "cold_navigation_ui_controller.py",
 })
 
 _EVIDENCE = PureWindowsPath("D:/Dev/Experiments/LocalLore/2026-11-09-cold-navigation-artifact-v1")
@@ -93,6 +93,9 @@ def verify_artifacts(pins):
 
 
 class _ColdNavigationContract(core._Contract):
+    def _install_argv(self, path):
+        return ["pm", "install", "-R", "-t", "--user", "0", path]
+
     def _instrumentation_argv(self, class_name, method):
         core._need((class_name, method) == (CLASS, METHOD), "command")
         return instrumentation_argv()

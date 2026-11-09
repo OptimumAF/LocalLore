@@ -103,6 +103,21 @@ story, branch and revision for an export preview.
 Root freezes all story mutation/switch/recovery while archive UI owns its guard,
 then refreshes the actual Host library; explicit open creates a fresh session.
 
+The archive and deletion opener regressions share the isolated
+`org.locallore.app.archiveverify` debug profile. Audit the built app and test
+APK with the existing package audit and the two-selector pair audit.
+
+```console
+python scripts/audit_apk.py APP_APK --archive-verification
+python scripts/audit_instrumentation_apk.py APP_APK TEST_APK --archive-verification --storage-opener-selectors
+```
+
+The pair audit reports both compiled JUnit selectors, the runner, the shared
+signing identity, and the digests of the exact app and test APKs. The two
+regression classes must occur only in the test APK, with one executable
+JUnit method per class. This is host artifact evidence. Android execution
+and result capture require a separately approved guest run.
+
 Document helpers: readArchiveDocument(ContentResolver,Uri):ByteArray,
 writeArchiveDocument(ContentResolver,Uri,ByteArray). OpenDocument reads at most
 32MiB plus an overflow probe on IO; no filename/path parsing. CreateDocument

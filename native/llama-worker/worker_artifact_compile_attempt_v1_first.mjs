@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { verifyWorkerArtifactCompileParentReadyV1 as verify,
   workerArtifactCompileAttemptScopeV1 as scope } from './worker_artifact_compile_attempt_v1.mjs';
+import { workerArtifactCompileInputCatalogV1 as inputCatalog } from './worker_artifact_compile_checks_v1.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const id = (n, volume = 7) => volume + ':' + n.toString(16).padStart(32, '0');
@@ -20,12 +21,14 @@ const profile = {
   helper: { path: 'D:/Helper fixture/locallore-compile-host-v1.exe', bytes: 421, sha256: hash('helper fixture bytes') },
   entry: 'D:/Entry fixture/worker_artifact_compile_attempt_v1.mjs', evidenceRoot: 'D:/evidence fixture',
   outputParentIdentity: '7:33', outputMaxBytes: 67108864,
-  spend: hash('spent grant'), writerPolicy: hash('writer policy'), namespace: hash('namespace')
+  spend: hash('spent grant'), writerPolicy: hash('writer policy'), namespace: hash('namespace'),
+  inputCatalog: hash('fixed input catalog')
 };
 const observed = { pid: 103, ppid: 101, entryBytes: 2048, entrySha256: hash('entry fixture bytes') };
 const ready = {
   version: 1, kind: 'compile_parent_ready_v1', scope: scope(profile), spend: profile.spend,
-  writerPolicy: profile.writerPolicy, namespace: profile.namespace,
+  writerPolicy: profile.writerPolicy, namespace: profile.namespace, inputCatalog: profile.inputCatalog,
+  inputSeal: hash('actual native seal'), inputFiles: 4, absenceSlots: 1,
   evidenceId: id(1), tempId: id(2), parentPid: observed.ppid, nodePid: observed.pid,
   jobFlags: 0x2000, parentInJob: false, activeProcesses: 1,
   pins: [
@@ -61,8 +64,16 @@ const cases = [
       assert.notEqual(scope({ ...profile, ...patch }), ready.scope);
   }],
   ['replaced READY authorization', () => {
-    for (const field of ['scope', 'spend', 'writerPolicy', 'namespace'])
+    for (const field of ['scope', 'spend', 'writerPolicy', 'namespace', 'inputCatalog'])
       refuseReady({ [field]: hash('stale ' + field) });
+  }],
+  ['native input seal and bounds', () => {
+    refuseReady({ inputSeal: '0'.repeat(64) });
+    refuseReady({ inputFiles: 3 });
+    refuseReady({ inputFiles: 1025 });
+    refuseReady({ absenceSlots: 0 });
+    refuseReady({ absenceSlots: 2049 });
+    assert.notEqual(scope({ ...profile, inputCatalog: hash('different input catalog') }), ready.scope);
   }],
   ['wrong and ambiguous pids', () => {
     refuseReady({ parentPid: 102 });
@@ -107,6 +118,30 @@ const cases = [
     refuseProfile({ environment: { ...profile.environment, path: 'C:/Build Tools;' } });
     refuseProfile({ evidenceRoot: 'D:/CONIN$/evidence' });
     refuseProfile({ evidenceRoot: 'D:/bad\uD800/evidence' });
+  }],
+  ['canonical UTF-8 input catalog', () => {
+    const bounds = identity => ({ identity, maxBytes: 8192, maxEntries: 20,
+      maxDepth: 2, pending: { admit: 4096, before: 4096, after: 0 } });
+    const manifest = {
+      topology: 'a'.repeat(64),
+      pins: [
+        { role: 'source', path: 'D:/worker source/main.cpp', identity: '7:11', bytes: 1, sha256: 'b'.repeat(64) },
+        { role: 'headers', path: 'C:/SDK/include/café.hpp', identity: '8:12', bytes: 2, sha256: 'c'.repeat(64) },
+        { role: 'tool', path: 'C:/Build Tools/cl.exe', identity: '8:13', bytes: 3, sha256: 'd'.repeat(64) },
+        { role: 'normal', path: 'D:/normal fixture/normal.exe', identity: '7:14', bytes: 4, sha256: 'e'.repeat(64) }
+      ],
+      absent: [{ path: 'C:/Build Tools/cl.exe.extra', parentIdentity: '8:15' }],
+      roots: { temp: bounds('7:1'), target: bounds('7:2'), evidence: bounds('7:3') },
+      diskFloor: 1048576
+    };
+    const fixed = '05438523f3bd48325c9a85c557641abf30aacc5eb10543d2345dba1e28d3c838';
+    assert.equal(inputCatalog(manifest, 'D:/outputs'), fixed);
+    assert.notEqual(inputCatalog({ ...manifest, pins: [...manifest.pins].reverse() }, 'D:/outputs'), fixed);
+    assert.notEqual(inputCatalog(manifest, 'D:/other outputs'), fixed);
+    const header = manifest.pins[1];
+    assert.notEqual(inputCatalog({ ...manifest, pins: [manifest.pins[0],
+      { ...header, path: 'C:/SDK/include/cafe.hpp' }, ...manifest.pins.slice(2)] }, 'D:/outputs'), fixed);
+    assert.throws(() => inputCatalog({ ...manifest, absent: [{ ...manifest.absent[0], path: 'C:/SDK/x.lib' }] }, 'D:/outputs'));
   }],
   ['budget limits and Node output-parent identity', () => {
     refuseProfile({ outputMaxBytes: 333 });

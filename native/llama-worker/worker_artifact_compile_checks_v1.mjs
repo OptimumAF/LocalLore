@@ -58,7 +58,7 @@ function array(value, maximum) {
 
 function leaf(value) {
   return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 255 &&
-    Buffer.from(value).toString('utf8') === value && !/[\x00-\x1f\x7f:\\/"*?<>|]/.test(value) &&
+    Buffer.from(value).toString('utf8') === value && !/[\x00-\x1f\x7f:\\/"*?<>|;,=&#\x60]/.test(value) &&
     !/[ .]$/.test(value) &&
     !/^(?:con|prn|aux|nul|conin\$|conout\$|(?:com|lpt)[1-9¹²³])$/i.test(value.split('.')[0].trimEnd());
 }
@@ -82,7 +82,7 @@ function setup(manifest) {
   let readBytes = 0;
   const pins = array(spec.pins, 1024).map(value => {
     const pin = data(value, ['role', 'path', 'identity', 'bytes', 'sha256']);
-    requireCheck(ROLES.includes(pin.role) && !seen.has(norm(path(pin.path))) &&
+    requireCheck(ROLES.includes(pin.role) && path(pin.path).slice(3).includes('/') && !seen.has(norm(pin.path)) &&
       !identities.has(identity(pin.identity)) && int(pin.bytes, 1, 128 * 1024 ** 2) && digest(pin.sha256) &&
       !/\.(?:lib|gguf)$/i.test(pin.path));
     seen.add(norm(pin.path));
@@ -93,7 +93,8 @@ function setup(manifest) {
   });
   const absent = array(spec.absent, 2048).map(value => {
     const slot = data(value, ['path', 'parentIdentity']);
-    requireCheck(path(slot.path).slice(3).includes('/') && !seen.has(norm(slot.path)));
+    requireCheck(path(slot.path).slice(3).includes('/') && !seen.has(norm(slot.path)) &&
+      !/\.(?:lib|gguf)$/i.test(slot.path));
     identity(slot.parentIdentity);
     seen.add(norm(slot.path));
     return Object.freeze(slot);
@@ -113,6 +114,21 @@ function setup(manifest) {
     roots.every(root => root.identity.split(':')[0] === roots[0].identity.split(':')[0]));
   return Object.freeze({ pins: Object.freeze(pins), absent: Object.freeze(absent), roots: Object.freeze(roots),
     topology: spec.topology, diskFloor: spec.diskFloor });
+}
+
+function catalog(spec, target) {
+  requireCheck(path(target).startsWith('D:/'));
+  const sha = createHash('sha256');
+  sha.update('compile-input-catalog-v1\t' + spec.topology + '\n' + 'target\t' + target + '\n');
+  for (const pin of spec.pins)
+    sha.update('file\t' + pin.role + '\t' + pin.path + '\t' + pin.bytes + '\t' + pin.sha256 + '\n');
+  for (const slot of spec.absent) sha.update('absent\t' + slot.path + '\n');
+  return sha.digest('hex');
+}
+
+// The owner uses this exact digest in the sealed profile and native Plan.
+export function workerArtifactCompileInputCatalogV1(manifest, target) {
+  return catalog(setup(manifest), target);
 }
 
 function ioFor(sourceSignal) {
@@ -293,6 +309,10 @@ export function createWorkerArtifactCompileChecksV1(manifest) {
       scope ??= admitted.scope;
       const { config, environment, evidenceRoot, outputParentIdentity, outputMaxBytes } = admitted.profile;
       const recipe = planWorkerArtifactComparisonV1(config);
+      const inputCatalog = catalog(spec, config.targetRoot);
+      requireCheck(inputCatalog === admitted.profile.inputCatalog && inputCatalog === admitted.ready.inputCatalog &&
+        digest(admitted.ready.inputSeal) && admitted.ready.inputFiles === spec.pins.length &&
+        admitted.ready.absenceSlots === spec.absent.length);
       const includeRoots = [config.workerRoot, config.upstreamA, ...environment.include.split(';')];
       const toolRoot = parent(config.compiler);
       const inIncludes = file => includeRoots.some(root => inside(file, root));
@@ -328,7 +348,7 @@ export function createWorkerArtifactCompileChecksV1(manifest) {
       io.live();
       next++;
       return JSON.stringify({ version: 1, kind: 'worker_artifact_compile_check_v1', context, when: phase,
-        roster: request.roster, source: hash(facts.source), headers: hash({ facts: facts.headers, absent, topology: spec.topology }),
+        roster: request.roster, source: hash(facts.source), headers: hash({ facts: facts.headers, absent, topology: spec.topology, inputCatalog, inputSeal: admitted.ready.inputSeal }),
         tool: hash(facts.tool), environment: hash(environment), normal: hash(facts.normal),
         temp: hash({ namespace: admitted.profile.namespace, policy: roots[0] }),
         storage: hash(inventories), reserve: hash({ phase, free: free.toString(), reserved: reserved.toString() }) });

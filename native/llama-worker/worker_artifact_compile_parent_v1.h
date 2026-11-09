@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <deque>
 #include <iterator>
+#include <set>
 
 namespace locallore::compile_parent_v1 {
 
@@ -16,10 +17,17 @@ struct Pin {
     std::string sha256;
 };
 
+struct CompilePin {
+    std::string role;
+    Pin file;
+};
+
 struct Plan {
     Pin node, entry, helper;
-    std::wstring evidence, temp;
-    std::string scope, spend, writer_policy, namespace_proof;
+    std::vector<CompilePin> inputs;
+    std::vector<std::wstring> absent;
+    std::wstring evidence, temp, target;
+    std::string scope, spend, writer_policy, namespace_proof, topology, input_catalog;
 };
 
 struct Report {
@@ -41,6 +49,11 @@ constexpr auto parent_window = 180s;
 constexpr std::uint64_t node_max = 128 * 1024 * 1024;
 constexpr std::uint64_t entry_max = 2 * 1024 * 1024;
 constexpr std::uint64_t helper_max = 8 * 1024 * 1024;
+constexpr std::uint64_t file_max = 128 * 1024 * 1024;
+constexpr std::uint64_t input_max = 512 * 1024 * 1024;
+constexpr std::size_t input_count_max = 1024;
+constexpr std::size_t absence_count_max = 2048;
+constexpr std::size_t dir_count_max = 256;
 constexpr DWORD expected_flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 
 inline bool digest(std::string_view text) {
@@ -65,26 +78,67 @@ inline bool pin_shape(const Pin& pin, std::wstring_view leaf, std::uint64_t cap)
            pin.bytes > 0 && pin.bytes <= cap && digest(pin.sha256);
 }
 
+struct InsensitivePath {
+    bool operator()(std::wstring_view a, std::wstring_view b) const {
+        return CompareStringOrdinal(a.data(), static_cast<int>(a.size()), b.data(),
+                                    static_cast<int>(b.size()), TRUE) == CSTR_LESS_THAN;
+    }
+};
+
+inline bool payload_path(std::wstring_view value, bool project) {
+    if (!job::path(value, project) || value.rfind(L'/') <= 2) return false;
+    const auto dot = value.rfind(L'.');
+    if (dot == value.npos) return true;
+    const auto ext = value.substr(dot);
+    return !same(ext, L".lib") && !same(ext, L".gguf");
+}
+
 inline bool valid(const Plan& plan) {
     if (!pin_shape(plan.node, L"/node.exe", node_max) ||
         !pin_shape(plan.entry, L"/worker_artifact_compile_attempt_v1.mjs", entry_max) ||
         !pin_shape(plan.helper, L"/locallore-compile-host-v1.exe", helper_max) ||
-        !job::path(plan.evidence, true) || !job::path(plan.temp, true) ||
+        !job::path(plan.evidence, true) || !job::path(plan.temp, true) || !job::path(plan.target, true) ||
         !digest(plan.scope) || !digest(plan.spend) || !digest(plan.writer_policy) ||
-        !digest(plan.namespace_proof) || below(plan.evidence, plan.temp) || below(plan.temp, plan.evidence))
+        !digest(plan.namespace_proof) || !digest(plan.topology) || !digest(plan.input_catalog) ||
+        plan.inputs.empty() || plan.inputs.size() > input_count_max ||
+        plan.absent.empty() || plan.absent.size() > absence_count_max)
         return false;
-    for (const auto* pin : {&plan.node, &plan.entry, &plan.helper}) {
-        const auto dir = std::wstring_view(pin->path).substr(0, pin->path.rfind(L'/'));
-        for (const auto* writable : {&plan.evidence, &plan.temp}) {
-            if (below(*writable, dir) || below(dir, *writable)) return false;
-        }
+    const std::array writable{&plan.evidence, &plan.temp, &plan.target};
+    for (std::size_t i = 0; i < writable.size(); ++i)
+        for (std::size_t j = i + 1; j < writable.size(); ++j)
+            if (below(*writable[i], *writable[j]) || below(*writable[j], *writable[i])) return false;
+
+    std::set<std::wstring, InsensitivePath> names;
+    const auto input_name = [&](const std::wstring& path) {
+        const auto dir = std::wstring_view(path).substr(0, path.rfind(L'/'));
+        return std::none_of(writable.begin(), writable.end(), [&](const auto* root) {
+            return below(path, *root) || below(*root, dir);
+        }) && names.insert(path).second;
+    };
+    for (const auto* pin : {&plan.node, &plan.entry, &plan.helper})
+        if (!input_name(pin->path)) return false;
+
+    constexpr std::array<std::string_view, 4> roles{"source", "headers", "tool", "normal"};
+    std::array<std::size_t, roles.size()> counts{};
+    std::uint64_t charged = 0;
+    for (const auto& row : plan.inputs) {
+        const auto role = std::find(roles.begin(), roles.end(), std::string_view(row.role));
+        const auto& pin = row.file;
+        if (role == roles.end() || !payload_path(pin.path, row.role == "source" || row.role == "normal") ||
+            !input_name(pin.path) || !pin.bytes || pin.bytes > file_max || !digest(pin.sha256)) return false;
+        ++counts[static_cast<std::size_t>(role - roles.begin())];
+        charged += pin.bytes + 1;
+        if (charged > input_max) return false;
     }
-    return true;
+    return counts.back() == 1 && std::all_of(counts.begin(), counts.end(), [](auto n) { return n != 0; }) &&
+           std::all_of(plan.absent.begin(), plan.absent.end(), [&](const auto& path) {
+               return payload_path(path, false) && input_name(path);
+           });
 }
 
-inline bool mounted_volume(HANDLE root) {
+inline bool mounted_volume(HANDLE root, const std::wstring& drive) {
     std::array<wchar_t, 80> mounted{}, resolved{};
-    if (!GetVolumeNameForVolumeMountPointW(L"D:\\", mounted.data(), static_cast<DWORD>(mounted.size())))
+    if (!GetVolumeNameForVolumeMountPointW(drive.c_str(), mounted.data(), static_cast<DWORD>(mounted.size())))
         return false;
     const DWORD size = GetFinalPathNameByHandleW(root, resolved.data(), static_cast<DWORD>(resolved.size()),
                                                  FILE_NAME_NORMALIZED | VOLUME_NAME_GUID);
@@ -158,6 +212,9 @@ struct Sha256 {
                BCryptCreateHash(algorithm, &hash, nullptr, 0, nullptr, 0, 0) >= 0;
     }
     bool add(unsigned char* bytes, DWORD count) { return BCryptHashData(hash, bytes, count, 0) >= 0; }
+    bool text(std::string row) {
+        return add(reinterpret_cast<unsigned char*>(row.data()), static_cast<DWORD>(row.size()));
+    }
     std::string finish() {
         std::array<unsigned char, 32> bytes{};
         return BCryptFinishHash(hash, bytes.data(), static_cast<ULONG>(bytes.size()), 0) >= 0
@@ -168,6 +225,34 @@ struct Sha256 {
         if (algorithm) BCryptCloseAlgorithmProvider(algorithm, 0);
     }
 };
+
+inline std::string utf8_path(const std::wstring& path) {
+    const auto units = static_cast<int>(path.size());
+    const int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.data(), units,
+                                           nullptr, 0, nullptr, nullptr);
+    if (length <= 0 || length > 1024) return {};
+    std::string result(static_cast<std::size_t>(length), '\0');
+    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.data(), units,
+                            result.data(), length, nullptr, nullptr) != length) return {};
+    return result;
+}
+
+inline std::string catalog_digest(const Plan& plan) {
+    Sha256 sha;
+    const auto target = utf8_path(plan.target);
+    if (target.empty() || !sha.init() ||
+        !sha.text("compile-input-catalog-v1\t" + plan.topology + "\n" + "target\t" + target + "\n")) return {};
+    for (const auto& row : plan.inputs) {
+        const auto path = utf8_path(row.file.path);
+        if (path.empty() || !sha.text("file\t" + row.role + "\t" + path + "\t" +
+             std::to_string(row.file.bytes) + "\t" + row.file.sha256 + "\n")) return {};
+    }
+    for (const auto& slot : plan.absent) {
+        const auto path = utf8_path(slot);
+        if (path.empty() || !sha.text("absent\t" + path + "\n")) return {};
+    }
+    return sha.finish();
+}
 
 struct Held {
     std::wstring path;
@@ -182,17 +267,21 @@ public:
     bool add_directory(const std::wstring& path) {
         for (const auto& entry : files_)
             if (entry.directory && entry.path == path) return true;
-        if (files_.size() >= 80) return false;
+        if (directory_count_ >= dir_count_max) return false;
+        ++directory_count_;
         auto& entry = files_.emplace_back(path, true);
         entry.file.value = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
                                       FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
                                       FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
         if (!entry.file.valid() || !observe(entry.file.value, path, true, entry.fact)) return false;
-        if (path == L"D:\\") {
-            if (!mounted_volume(entry.file.value)) return false;
-            volume_ = entry.fact.id.VolumeSerialNumber;
+        const auto index = volume_index(path);
+        auto& volume = volumes_[index];
+        if (path.size() == 3) {
+            if (GetDriveTypeW(path.c_str()) != DRIVE_FIXED || !mounted_volume(entry.file.value, path) ||
+                volumes_[1 - index] == entry.fact.id.VolumeSerialNumber) return false;
+            volume = entry.fact.id.VolumeSerialNumber;
         }
-        return volume_ && entry.fact.id.VolumeSerialNumber == *volume_;
+        return volume && entry.fact.id.VolumeSerialNumber == *volume;
     }
 
     bool directories(const std::wstring& path) {
@@ -203,12 +292,13 @@ public:
     }
 
     Held* add_file(const std::wstring& path) {
-        if (files_.size() >= 80) return nullptr;
+        if (files_.size() - directory_count_ >= input_count_max + 4) return nullptr;
+        const auto& volume = volumes_[volume_index(path)];
         auto& entry = files_.emplace_back(path, false);
         entry.file.value = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
                                       OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
         if (!entry.file.valid() || !observe(entry.file.value, path, false, entry.fact) ||
-            !volume_ || entry.fact.id.VolumeSerialNumber != *volume_) return nullptr;
+            !volume || entry.fact.id.VolumeSerialNumber != *volume) return nullptr;
         return &entry;
     }
 
@@ -218,13 +308,14 @@ public:
         return nullptr;
     }
 
-    bool current() const {
+    template <typename Live>
+    bool current(const Live& live) const {
         for (const auto& entry : files_) {
             Fact now;
-            if (!entry.file.valid() || !observe(entry.file.value, entry.path, entry.directory, now) ||
+            if (!live() || !entry.file.valid() || !observe(entry.file.value, entry.path, entry.directory, now) ||
                 !(entry.directory ? same_id(entry.fact, now) : same_file(entry.fact, now))) return false;
         }
-        return true;
+        return live();
     }
 
     bool close() {
@@ -236,7 +327,9 @@ public:
 
 private:
     std::deque<Held> files_;
-    std::optional<ULONGLONG> volume_;
+    static std::size_t volume_index(const std::wstring& path) { return path.front() == L'C' ? 0 : 1; }
+    std::array<std::optional<ULONGLONG>, 2> volumes_{};
+    std::size_t directory_count_ = 0;
 };
 
 template <typename Live>
@@ -367,7 +460,7 @@ public:
         const auto abort = [&]() { return cancelled.load(); };
         const auto live = [&]() { return !abort() && Clock::now() < deadline; };
         const auto run_fixed = [&]() {
-            if (!valid(plan) || GetDriveTypeW(L"D:\\") != DRIVE_FIXED || !live()) {
+            if (!live() || !valid(plan) || catalog_digest(plan) != plan.input_catalog || !live()) {
                 report.child.stop = abort() ? Stop::cancelled : Clock::now() >= deadline ? Stop::deadline : Stop::request;
                 return;
             }
@@ -375,9 +468,10 @@ public:
             const auto entry = job::slash_to_windows(plan.entry.path);
             const auto helper = job::slash_to_windows(plan.helper.path);
             const auto evidence = job::slash_to_windows(plan.evidence), temp = job::slash_to_windows(plan.temp);
+            const auto target = job::slash_to_windows(plan.target);
             const auto ready_path = evidence + L"\\parent-ready.json";
             auto env = environment(ready_path, temp);
-            if (env.empty() || !lease_.directories(evidence) || !lease_.directories(temp)) {
+            if (env.empty() || !lease_.directories(evidence) || !lease_.directories(temp) || !lease_.directories(target)) {
                 report.child.stop = Stop::setup;
                 return;
             }
@@ -385,17 +479,54 @@ public:
             const std::array paths{node, entry, helper};
             const std::array pins{&plan.node, &plan.entry, &plan.helper};
             std::array<Held*, 3> held{};
+            std::set<std::string> identities;
             for (std::size_t i = 0; i < paths.size(); ++i) {
                 const auto parent = paths[i].substr(0, paths[i].rfind(L'\\'));
                 if (!live() || !lease_.directories(parent) || !(held[i] = lease_.add_file(paths[i])) ||
-                    !verify_pin(*held[i], *pins[i], live)) {
+                    !verify_pin(*held[i], *pins[i], live) || !identities.insert(id_text(held[i]->fact)).second) {
                     report.child.stop = abort() ? Stop::cancelled :
                         Clock::now() >= deadline ? Stop::deadline : Stop::setup;
                     return;
                 }
             }
-            if (!lease_.current() || !missing(helper + L".com") || !missing(helper + L".exe") ||
-                !missing(ready_path)) {
+            const auto* target_fact = lease_.directory_fact(target);
+            Sha256 seal;
+            if (!target_fact || !seal.init() || !seal.text("compile-input-seal-v1\t" + plan.input_catalog +
+                "\n" + "target\t" + id_text(*target_fact) + "\n")) {
+                report.child.stop = Stop::setup;
+                return;
+            }
+            for (const auto& row : plan.inputs) {
+                const auto input = job::slash_to_windows(row.file.path);
+                const auto folder = input.substr(0, input.rfind(L'\\'));
+                auto* handle = live() && lease_.directories(folder) ? lease_.add_file(input) : nullptr;
+                if (!handle || !verify_pin(*handle, row.file, live) ||
+                    !identities.insert(id_text(handle->fact)).second ||
+                    !seal.text("file\t" + id_text(handle->fact) + "\n")) {
+                    report.child.stop = abort() ? Stop::cancelled :
+                        Clock::now() >= deadline ? Stop::deadline : Stop::setup;
+                    return;
+                }
+            }
+            std::vector<std::wstring> absent;
+            absent.reserve(plan.absent.size());
+            for (const auto& slot : plan.absent) {
+                auto leaf = job::slash_to_windows(slot);
+                const auto folder = leaf.substr(0, leaf.rfind(L'\\'));
+                const auto* fact = live() && lease_.directories(folder) ? lease_.directory_fact(folder) : nullptr;
+                if (!fact || !missing(leaf) || !seal.text("absent\t" + id_text(*fact) + "\n")) {
+                    report.child.stop = abort() ? Stop::cancelled :
+                        Clock::now() >= deadline ? Stop::deadline : Stop::setup;
+                    return;
+                }
+                absent.push_back(std::move(leaf));
+            }
+            const auto input_seal = seal.finish();
+            const auto absence_current = [&](const auto& gate) {
+                return std::all_of(absent.begin(), absent.end(), [&](const auto& leaf) { return gate() && missing(leaf); });
+            };
+            if (!digest(input_seal) || !live() || !lease_.current(live) ||
+                !missing(helper + L".com") || !missing(helper + L".exe") || !missing(ready_path)) {
                 report.child.stop = Stop::setup;
                 return;
             }
@@ -417,11 +548,14 @@ public:
                                                &accounting, sizeof(accounting), nullptr) ||
                     accounting.ActiveProcesses != 1 || !exact_process(process, node) ||
                     !IsProcessInJob(GetCurrentProcess(), nullptr, &parent_in_job) ||
-                    !lease_.current() || !missing(helper + L".com") || !missing(helper + L".exe")) return false;
+                    !lease_.current(live) || !absence_current(live) ||
+                    !missing(helper + L".com") || !missing(helper + L".exe")) return false;
 
                 std::string record = "{\"version\":1,\"kind\":\"compile_parent_ready_v1\",\"scope\":\"" +
                     plan.scope + "\",\"spend\":\"" + plan.spend + "\",\"writerPolicy\":\"" + plan.writer_policy +
-                    "\",\"namespace\":\"" + plan.namespace_proof + "\",\"evidenceId\":\"" + id_text(*evidence_fact) +
+                    "\",\"namespace\":\"" + plan.namespace_proof + "\",\"inputCatalog\":\"" + plan.input_catalog +
+                    "\",\"inputSeal\":\"" + input_seal + "\",\"inputFiles\":" + std::to_string(plan.inputs.size()) +
+                    ",\"absenceSlots\":" + std::to_string(plan.absent.size()) + ",\"evidenceId\":\"" + id_text(*evidence_fact) +
                     "\",\"tempId\":\"" + id_text(*temp_fact) + "\",\"parentPid\":" +
                     std::to_string(GetCurrentProcessId()) + ",\"nodePid\":" + std::to_string(pid) +
                     ",\"jobFlags\":" + std::to_string(limits.BasicLimitInformation.LimitFlags) +
@@ -433,12 +567,14 @@ public:
                 }
                 record += "]}";
                 return retain_ready(lease_, ready_path, record, report.ready_sha256,
-                                    report.ready_writer_close_known) && lease_.current();
+                                    report.ready_writer_close_known) && lease_.current(live) && absence_current(live);
             };
             const auto cmd = L"\"" + node + L"\" \"" + entry + L"\"";
             report.child = job::launch_owned(node, cmd, std::move(env), entry.substr(0, entry.rfind(L'\\')),
                                              started, deadline, abort, ready, &quarantine_);
-            if (!lease_.current() || !missing(helper + L".com") || !missing(helper + L".exe"))
+            const auto postflight = [&]() { return Clock::now() < deadline + job::drain_window; };
+            if (!lease_.current(postflight) || !absence_current(postflight) ||
+                !missing(helper + L".com") || !missing(helper + L".exe"))
                 job::stop(report.child, Stop::io, ERROR_INVALID_DATA);
         };
 

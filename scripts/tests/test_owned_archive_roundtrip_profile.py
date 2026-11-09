@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from benchmarks import archive_roundtrip_build as build
+from benchmarks import archive_roundtrip_handoff as handoff
 from benchmarks import owned_archive_roundtrip_client as client
 from benchmarks import owned_archive_roundtrip_contract as contract
 from benchmarks import owned_archive_roundtrip_owner as owner
@@ -181,18 +182,20 @@ class ArchiveProfileTests(unittest.TestCase):
 
 
 class OwnerWireTests(unittest.TestCase):
-    def test_worker_and_live_lease_verify_exact_artifacts_before_shared_process_code(self):
+    def test_worker_and_live_lease_verify_handoff_or_artifacts_before_shared_process_code(self):
         a = admission()
         refusal = build.BuildRefused("digest")
         with (patch.object(owner.build, "verify_current", side_effect=refusal) as check,
+              patch.object(handoff, "verify_boot", side_effect=refusal) as boot,
               patch.object(owner.shared._TargetRuntimeCore, "__init__") as runtime,
               patch.object(owner.shared._LiveOwnedTarget, "__init__") as live,
               patch.object(owner.shared, "_read_json", return_value=a)):
             with self.assertRaises(build.BuildRefused):
-                owner._ArchiveRuntime({"validated_admission": a}, {}, None)
+                owner._ArchiveRuntime({"validated_admission": a, "admission": {}, "owner": {}}, {}, None)
             with self.assertRaises(build.BuildRefused):
                 owner.LiveOwnedArchiveRoundtripTarget({}, {})
-        self.assertEqual(check.call_count, 2)
+        check.assert_called_once_with(a)
+        boot.assert_called_once_with({}, a, parent={})
         runtime.assert_not_called()
         live.assert_not_called()
 
@@ -213,14 +216,19 @@ class OwnerWireTests(unittest.TestCase):
             with self.assertRaises(contract.TargetRefused):
                 contract.validate_client_record({}, {})
 
-    def test_worker_only_entry_uses_fixed_profile_and_shared_replay(self):
+    def test_owner_entry_requires_handoff_environment_and_exact_argv(self):
         with patch.object(owner.shared, "_main_profile", return_value=0) as entry:
-            self.assertEqual(owner.main(["--admission", "D:/Synthetic/plan.json", "--admission-sha256", "a" * 64]), 1)
-            self.assertEqual(owner.main(["_worker", "other"]), 1)
-            entry.assert_not_called()
-            self.assertEqual(owner.main(["_worker"]), 0)
-        entry.assert_called_once_with(["_worker"], _contract=contract,
-                                      _verification=owner.VERIFIER, _runtime_type=owner._ArchiveRuntime)
+            with patch.dict(owner.os.environ, {handoff.HANDOFF_ENV: ""}):
+                self.assertEqual(owner.main(["_worker"]), 1)
+            with patch.dict(owner.os.environ, {handoff.HANDOFF_ENV: "a" * 64}):
+                self.assertEqual(owner.main(["--admission", "D:/Synthetic/plan.json", "--admission-sha256", "a" * 64]), 1)
+                self.assertEqual(owner.main(["_worker", "other"]), 1)
+                entry.assert_not_called()
+                self.assertEqual(owner.main(["_worker"]), 0)
+        self.assertEqual(entry.call_args.args, (["_worker"],))
+        self.assertIs(entry.call_args.kwargs["_contract"], contract)
+        self.assertIs(entry.call_args.kwargs["_verification"], owner.VERIFIER)
+        self.assertIs(entry.call_args.kwargs["_runtime_type"], owner._ArchiveRuntime)
         self.assertIs(owner.VERIFIER.c, contract)
 
     def test_client_chooses_exact_lease_and_bounds_capture_before_wire(self):

@@ -300,6 +300,7 @@ function fixture(create, maxBytes = CAP, actualHelpers = false) {
       eq(step, recipe.steps[index]);
       launched.push({ index, signal });
       trace.push(['launch', index]);
+      f.onLaunch?.(request);
       if (step.stage === 'compile') addFile(candidate, 'object');
       else if (step.stage === 'link') f.link(candidate);
       else {
@@ -560,6 +561,10 @@ export async function runWorkerArtifactManifestPortSelfchecksV1(api) {
       proof => ({ ...proof, candidate: 'B' }),
       proof => ({ ...proof, copy: { ...proof.copy, sha256: 'd'.repeat(64) } }),
       proof => ({ ...proof, ioUncertain: 'false' }),
+      proof => { delete proof.io; return proof; },
+      proof => { delete proof.linkQualification; return proof; },
+      proof => ({ ...proof, io: { ...proof.io, verifiedScans: 5 } }),
+      proof => ({ ...proof, io: { ...proof.io, closed: 2, unknownClosures: 1 } }),
       () => null
     ]) {
       const f = fixture(create);
@@ -635,7 +640,15 @@ export async function runWorkerArtifactManifestPortSelfchecksV1(api) {
 
   add('M10', async () => {
     const f = fixture(create), hold = deferred();
-    let entered = false;
+    let entered = false, blocked = 0, sharedLater = 0;
+    f.onLaunch = ({ index, signal }) => {
+      if (index !== 0) return;
+      signal.addEventListener('abort', event => {
+        blocked++;
+        event.stopImmediatePropagation();
+      }, { once: true });
+      signal.addEventListener('abort', () => { sharedLater++; }, { once: true });
+    };
     f.copyHook = async (normal, request) => {
       entered = true;
       await hold.promise;
@@ -648,6 +661,10 @@ export async function runWorkerArtifactManifestPortSelfchecksV1(api) {
       snapshot(f.port, { pending: 'copy' });
       eq([...f.clock.live.values()].map(entry => entry.ms), [5000]);
       f.clock.fire(5000);
+      assert.equal(blocked, 1);
+      assert.equal(sharedLater, 0);
+      eq(actions(f, 'cancel-roots'), [['cancel-roots']]);
+      eq(actions(f, 'cancel-copy'), [['cancel-copy']]);
       const outcome = await running;
       assert.equal(outcome.retained, true);
       assert.equal(outcome.report.status, 'failed');
@@ -718,6 +735,23 @@ export async function runWorkerArtifactManifestPortSelfchecksV1(api) {
       assert.equal(state.completed, 0);
       eq(actions(f, 'copy'), []);
     }
+    for (const edit of [
+      value => { delete value.stop; },
+      value => { value.state = 'Unknown'; },
+      value => { value.roots[1].directoryClosure = 'open'; },
+      value => { delete value.roots[0].files[0]; }
+    ]) {
+      const invalid = fixture(create);
+      invalid.link(0);
+      invalid.recheckHook = normal => {
+        const value = closeStop(normal(), false);
+        edit(value);
+        return value;
+      };
+      await refused(invalid.port, invalid.port.prepareManifest(invalid.request(), new AbortController().signal),
+        { stop: 'UNCERTAIN', uncertain: true });
+      eq(actions(invalid, 'copy'), []);
+    }
     const f = fixture(create), controller = new AbortController(), hold = deferred();
     f.link(0);
     let entered = false;
@@ -738,6 +772,32 @@ export async function runWorkerArtifactManifestPortSelfchecksV1(api) {
       hold.resolve();
     }
     eq(actions(f, 'copy'), []);
+
+    const late = fixture(create), lateController = new AbortController(), lateHold = deferred();
+    late.link(0);
+    let afterEntered = false;
+    late.recheckHook = async (normal, number) => {
+      if (number === 1) return normal();
+      afterEntered = true;
+      await lateHold.promise;
+      const value = closeStop(normal(), false);
+      delete value.stop;
+      return value;
+    };
+    const lateStopped = assert.rejects(late.port.prepareManifest(late.request(), lateController.signal),
+      { message: STOPPED });
+    lateStopped.catch(() => {});
+    try {
+      await until(() => afterEntered);
+      lateController.abort();
+      snapshot(late.port, { next: null, pending: 'after', stop: 'CANCELLED' });
+      lateHold.resolve();
+      await lateStopped;
+      eq(await late.port.drain(), snapshot(late.port, { next: null, stop: 'CANCELLED', uncertain: true }));
+    } finally {
+      lateHold.resolve();
+    }
+    eq(actions(late, 'copy'), [['copy', 'A', 'copy']]);
   });
 
   eq(cases.map(([id]) => id), Array.from({ length: 12 }, (_, index) => 'M' + String(index + 1).padStart(2, '0')));

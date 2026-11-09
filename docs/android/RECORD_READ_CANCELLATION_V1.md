@@ -84,8 +84,9 @@ The cancellation fixtures from [PR #386](https://github.com/OptimumAF/LocalLore/
 exercise the current UI path using synthetic read ports. The large-text and
 page-scroll fixtures exercise the dialog directly with synthetic view states.
 
-Build the combined cohort using the existing isolated archive verification
-profile (`-PlocalLoreArchiveVerification=true --project-cache-dir .gradle-archive-verification`).
+Build the combined cohort with the existing isolated archive verification
+profile (`-PlocalLoreArchiveVerification=true`). On Windows, use
+`--project-cache-dir` with an absolute D: experiment path outside the checkout.
 The four test classes are `StoryRecordCancellationScreenTest`,
 `StoryRecordActionScopeScreenTest`, `StoryRecordLargeTextTest`, and
 `StoryRecordPageScrollTest`. The signed APK pair and the exact methods need

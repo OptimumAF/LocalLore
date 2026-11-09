@@ -107,7 +107,9 @@ async function scenario(succeeds, staleRejects) {
             "older loading response cannot replace the newer final read",
         );
         let manualSettled = false;
-        manual = c.refreshModel().then(() => { manualSettled = true; });
+        manual = c.refreshModel().then(() => {
+            manualSettled = true;
+        });
         tick();
         await drain();
         assert.equal(reads.length, 2, "manual refresh joins the terminal read");
@@ -164,11 +166,15 @@ async function scenario(succeeds, staleRejects) {
     }
 }
 async function cancelPublication() {
-    const setInterval = globalThis.setInterval, clearInterval = globalThis.clearInterval;
+    const setInterval = globalThis.setInterval,
+        clearInterval = globalThis.clearInterval;
     globalThis.setInterval = () => 1;
     globalThis.clearInterval = () => {};
-    const idle = deferred(), load = deferred(), cancelReply = deferred();
-    const sent = [], readyStates = [];
+    const idle = deferred(),
+        load = deferred(),
+        cancelReply = deferred();
+    const sent = [],
+        readyStates = [];
     let status = state("unloaded", false);
     const c = new Controller({
         async native(command, args) {
@@ -189,7 +195,11 @@ async function cancelPublication() {
     const unsubscribe = c.subscribe(() => {
         const view = c.get();
         if (!view.modelCancelReady) return;
-        readyStates.push([view.model.operation_id, view.model.phase, view.modelBusy]);
+        readyStates.push([
+            view.model.operation_id,
+            view.model.phase,
+            view.modelBusy,
+        ]);
         if (!cancellation) cancellation = c.cancelModel();
     });
     try {
@@ -210,7 +220,11 @@ async function cancelPublication() {
         await c.refreshModel();
         assert.equal(c.get().modelCancelReady, false);
         await c.cancelModel();
-        assert.deepEqual(sent, [{ operationId: 8 }], "foreign status cannot offer Cancel");
+        assert.deepEqual(
+            sent,
+            [{ operationId: 8 }],
+            "foreign status cannot offer Cancel",
+        );
 
         cancelReply.reject(new Error("StaleModelOperation"));
         await cancellation;

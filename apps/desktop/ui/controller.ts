@@ -115,6 +115,7 @@ export class Controller {
     private modelOperation: { baseline: number; id: number | null } | null =
         null;
     private modelReadSequence = 0;
+    private modelTerminalRefresh: Promise<void> | null = null;
     private providerReadSequence = 0;
     private providerClosing = false;
     private listeners = new Set<() => void>();
@@ -1783,8 +1784,13 @@ export class Controller {
     setInputKind(inputKind: State["inputKind"]) {
         if (!this.state.pending) this.patch({ inputKind });
     }
-    async refreshModel() {
-        const sequence = ++this.modelReadSequence;
+    refreshModel(): Promise<void> {
+        return (
+            this.modelTerminalRefresh ?? this.readModel(++this.modelReadSequence)
+        );
+    }
+    private async readModel(sequence: number) {
+        if (this.state.disposed || sequence !== this.modelReadSequence) return;
         try {
             const model = (await this.native("model_status")) as ModelState;
             if (
@@ -1793,24 +1799,34 @@ export class Controller {
                 typeof model.phase !== "string"
             )
                 throw new Error("Wire");
-            if (!this.state.disposed && sequence === this.modelReadSequence) {
-                const op = this.modelOperation;
-                if (
-                    op &&
-                    op.id === null &&
-                    Number.isSafeInteger(model.operation_id) &&
-                    model.operation_id > op.baseline &&
-                    ["choosing", "checking", "copying", "loading"].includes(
-                        model.phase,
-                    )
-                ) {
-                    op.id = model.operation_id;
-                    this.patch({ modelCancelReady: true });
-                }
-                this.patch({ model });
-            }
+            if (this.state.disposed || sequence !== this.modelReadSequence)
+                return;
+            const op = this.modelTerminalRefresh ? null : this.modelOperation;
+            const cancellable = [
+                "choosing",
+                "checking",
+                "copying",
+                "loading",
+            ].includes(model.phase);
+            if (
+                op &&
+                op.id === null &&
+                cancellable &&
+                Number.isSafeInteger(model.operation_id) &&
+                model.operation_id > op.baseline
+            )
+                op.id = model.operation_id;
+            this.patch({
+                model,
+                modelCancelReady:
+                    cancellable &&
+                    op !== null &&
+                    op.id !== null &&
+                    op.id === model.operation_id,
+            });
         } catch (error) {
-            if (!this.state.disposed) this.fail(error);
+            if (!this.state.disposed && sequence === this.modelReadSequence)
+                this.fail(error);
         }
     }
     async modelAction(command: "model_import" | "model_load" | "model_unload") {
@@ -1819,6 +1835,7 @@ export class Controller {
             baseline: this.state.model?.operation_id ?? 0,
             id: null as number | null,
         };
+        ++this.modelReadSequence;
         this.modelOperation = operation;
         this.patch({
             modelBusy: true,
@@ -1833,38 +1850,54 @@ export class Controller {
                 polling = false;
             });
         }, 150);
+        let failure: { error: unknown } | undefined;
         try {
             await this.native(command);
-            // A periodic status read must not supersede the definitive post-action
-            // refresh and let the action resolve with the previous loaded state.
-            clearInterval(timer);
-            await this.refreshModel();
         } catch (error) {
-            clearInterval(timer);
-            if (!this.state.disposed) {
-                this.fail(error);
-                await this.refreshModel();
-            }
+            failure = { error };
         } finally {
             clearInterval(timer);
-            if (this.modelOperation === operation) {
-                this.modelOperation = null;
-                if (!this.state.disposed)
-                    this.patch({ modelBusy: false, modelCancelReady: false });
+            try {
+                if (!this.state.disposed) {
+                    // Reserve the final read before notifying subscribers, so a
+                    // manual Refresh joins it and cannot supersede settlement.
+                    const sequence = ++this.modelReadSequence;
+                    const refresh = Promise.resolve().then(() =>
+                        this.readModel(sequence),
+                    );
+                    this.modelTerminalRefresh = refresh;
+                    this.patch({ modelCancelReady: false });
+                    if (failure) this.fail(failure.error);
+                    await refresh;
+                }
+            } finally {
+                this.modelTerminalRefresh = null;
+                if (this.modelOperation === operation) {
+                    this.modelOperation = null;
+                    if (!this.state.disposed)
+                        this.patch({ modelBusy: false, modelCancelReady: false });
+                }
             }
         }
     }
     async cancelModel() {
+        if (this.state.disposed || this.modelTerminalRefresh) return;
         const operation = this.modelOperation;
         const operationId = operation?.id;
         if (!operationId) {
             this.fail("ModelOperationUnknown");
             return;
         }
+        if (!this.state.modelCancelReady) return;
         try {
             await this.native("model_cancel", { operationId });
         } catch (error) {
-            if (this.modelOperation === operation) this.fail(error);
+            if (
+                !this.state.disposed &&
+                this.modelOperation === operation &&
+                this.state.modelCancelReady
+            )
+                this.fail(error);
         }
     }
     requestLab() {

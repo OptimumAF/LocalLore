@@ -21,6 +21,13 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [SDK11 current-chat harness](docs/runtime/android/CURRENT_CHAT_UI_SDK11_CONTRACT_2026-11-01.md)
+binds eight keyboard/status/heading/action methods to the audited B55 APK pair.
+Its [host verification](docs/native/CURRENT_CHAT_UI_HARNESS_VERIFICATION_2026-11-01.md)
+records separate passing cohorts, the original fixture and storage failures,
+and genuine build replay. Android execution remains unrun; the older SDK10
+proposal and its different APKs remain unchanged.
+
 The [transcript navigation UI harness](docs/native/TRANSCRIPT_UI_COHORT_V1.md)
 adds a separate, model-free SDK10 profile for six ordinary-app Compose tests,
 including fixed-window transcript rollover. It checks the preserved PR #317

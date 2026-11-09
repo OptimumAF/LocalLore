@@ -69,37 +69,96 @@ class WindowsJob:
         for name, (args, result) in signatures.items():
             function = getattr(k, name); function.argtypes = args; function.restype = result
         self.kernel = k
-        self.handle = k.CreateJobObjectW(None, None)
+        self._close_lock = threading.Lock()
+        self._closing = False
+        self._close_reentered = False
+        self._close_result = None
+        self.handle = None
+        try:
+            self.handle = k.CreateJobObjectW(None, None)
+        except Exception:
+            raise OSError("job_create_failed") from None
         if not self.handle:
             raise OSError("job_create_failed")
-        info = Extended(); info.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
         process = None
+        assigned = False
+        stage = "job_configure_failed"
         try:
+            info = Extended(); info.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
             if not k.SetInformationJobObject(self.handle, 9, ctypes.byref(info), ctypes.sizeof(info)):
-                raise OSError("job_configure_failed")
+                raise OSError(stage)
+            stage = "job_assign_failed"
             process = k.OpenProcess(0x0100 | 0x0001, False, pid)  # SET_QUOTA | TERMINATE
             if not process or not k.AssignProcessToJobObject(self.handle, process):
-                raise OSError("job_assign_failed")
-        except BaseException:
-            k.CloseHandle(self.handle); self.handle = None
-            raise
+                raise OSError(stage)
+            assigned = True
+        except Exception:
+            # Native failures cannot expose arbitrary private error text.
+            raise OSError(stage) from None
         finally:
-            if process: k.CloseHandle(process)
+            process_closed = True
+            if process:
+                try:
+                    process_closed = bool(k.CloseHandle(process))
+                except BaseException:
+                    process_closed = False
+            job_closed = True
+            if not assigned or not process_closed:
+                self._close_result = False
+                try:
+                    job_closed = bool(k.CloseHandle(self.handle))
+                except BaseException:
+                    job_closed = False
+                if job_closed:
+                    self.handle = None
+            # Independent tails: a failed process close never skips job close.
+            # A failed temporary release is unknown and is never retried.
+            # Only a failed job release retains its original diagnostic handle.
+            if not process_closed or not job_closed:
+                raise OSError("job_cleanup_failed") from None
 
     def close(self):
-        if not self.handle: return True
+        """One close attempt; overlapping failure cannot become later success."""
+        # Claim/finalize only: no native call or polling wait holds this lock.
+        with self._close_lock:
+            if self._close_result is not None:
+                if self._closing:
+                    self._close_reentered = True
+                return self._close_result
+            self._close_result = False
+            self._closing = True
+            handle = self.handle
+            if not handle:
+                self._closing = False
+                return False
+        stopped = released = False
         try:
-            if not self.kernel.TerminateJobObject(self.handle, 1): return False
-            until = time.monotonic() + 5
-            while time.monotonic() < until:
-                counts = self.accounting()
-                if not self.kernel.QueryInformationJobObject(self.handle, 1, ctypes.byref(counts), ctypes.sizeof(counts), None):
-                    return False
-                if counts.active == 0: return True
-                time.sleep(.01)
-            return False
+            if self.kernel.TerminateJobObject(handle, 1):
+                until = time.monotonic() + 5
+                while time.monotonic() < until:
+                    counts = self.accounting()
+                    if not self.kernel.QueryInformationJobObject(handle, 1, ctypes.byref(counts), ctypes.sizeof(counts), None):
+                        break
+                    if counts.active == 0:
+                        stopped = True
+                        break
+                    time.sleep(.01)
+        except BaseException:
+            # Includes cancellation during native calls, accounting or waits.
+            stopped = False
         finally:
-            self.kernel.CloseHandle(self.handle); self.handle = None
+            try:
+                released = bool(self.kernel.CloseHandle(handle))
+            except BaseException:
+                released = False
+        with self._close_lock:
+            if released:
+                self.handle = None
+            # An uncertain release retains only a diagnostic number, not retry
+            # authority. A False already returned in flight stays False forever.
+            self._closing = False
+            self._close_result = stopped and released and not self._close_reentered
+            return self._close_result
 
 
 @dataclass
@@ -189,23 +248,35 @@ def _run_process(command, request=b"", deadline=60, cancel=None, max_output=131_
     finally:
         if process is not None:
             if job is not None:
-                cleaned = job.close()
+                try: cleaned = job.close() is True
+                except BaseException: cleaned = False
             elif os.name != "nt":
                 try: os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError: pass
                 cleaned = True
             else:
                 # Before the stdin barrier, the trusted worker cannot launch descendants.
-                process.kill()
-                cleaned = True
+                # No returned job can certify constructor-handle cleanup.
+                try: process.kill()
+                except BaseException: pass
+                cleaned = False
             try: process.wait(timeout=5)
-            except subprocess.TimeoutExpired: cleaned = False
-            for thread in readers + ([writer] if writer else []): thread.join(timeout=2)
-            cleaned = cleaned and not any(t.is_alive() for t in readers) and (writer is None or not writer.is_alive())
+            except BaseException: cleaned = False
+            workers = readers + ([writer] if writer else [])
+            for thread in workers:
+                try: thread.join(timeout=2)
+                except BaseException: cleaned = False
+            stopped = True
+            for thread in workers:
+                try: stopped = not thread.is_alive() and stopped
+                except BaseException: stopped = False
+            cleaned = cleaned and stopped
             # Never take a buffered pipe lock from a reader which failed to exit.
             # Failed cleanup is reported; do not turn a deadline into a blocking close.
-            if cleaned:
-                for stream in (process.stdin,process.stdout,process.stderr): stream.close()
+            if stopped:
+                for stream in (process.stdin,process.stdout,process.stderr):
+                    try: stream.close()
+                    except BaseException: cleaned = False
         if not cleaned and process is not None: status = "cleanup_failed"
     return ProcessResult(status, round((time.monotonic()-start)*1000), bytes(output), counts[1],
                          process.returncode if process else None, cleaned)

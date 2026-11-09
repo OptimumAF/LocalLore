@@ -76,13 +76,19 @@ internal data class TranscriptViewport(
     val tailSize: Int? = null,
 )
 
+/** Forward scroll needed to bring the measured tail's bottom into the viewport. */
+internal fun transcriptTailOverflow(viewport: TranscriptViewport): Long? {
+    if (viewport.viewportEndOffset <= viewport.viewportStartOffset) return null
+    val offset = viewport.tailOffset ?: return null
+    val size = viewport.tailSize ?: return null
+    if (size <= 0) return null
+    return (offset.toLong() + size.toLong() - viewport.viewportEndOffset.toLong()).coerceAtLeast(0L)
+}
+
 internal fun transcriptEndReached(tailIndex: Int, viewport: TranscriptViewport): Boolean {
     if (tailIndex < 0 || tailIndex >= viewport.totalItemsCount ||
         viewport.firstVisibleItemIndex < 0 || viewport.firstVisibleItemIndex >= viewport.totalItemsCount ||
         viewport.viewportEndOffset <= viewport.viewportStartOffset) return false
     if (viewport.firstVisibleItemIndex > tailIndex) return true
-    val offset = viewport.tailOffset ?: return false
-    val size = viewport.tailSize ?: return false
-    if (size <= 0) return false
-    return offset.toLong() + size.toLong() <= viewport.viewportEndOffset.toLong()
+    return transcriptTailOverflow(viewport) == 0L
 }

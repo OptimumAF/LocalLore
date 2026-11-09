@@ -32,6 +32,7 @@ class ShellViewModel internal constructor(
     val diagnostics = diagnosticController.state
     private val recordController = StoryRecordController(StoryRecordReader(gateway::readStoryRecord), viewModelScope)
     val storyRecord = recordController.state
+    internal val storyRecordFrames = recordController.frames
     val hasStoryRecords: Boolean get() = gateway.storyRecords
     private var disposed = false
     internal val creationController = creationGateway?.let { StoryCreationController(it, viewModelScope, ::creationClosed) }
@@ -382,6 +383,44 @@ class ShellViewModel internal constructor(
     fun retryRecordEvent() = recordController.retryEvent()
     internal fun backToStoryRecord(expected: StoryRecordEventDetail) = recordController.back(expected)
     internal fun retryRecordEvent(expected: StoryRecordEventDetail) = recordController.retryEvent(expected)
+
+    private fun isCurrentRecordView(rendered: StoryRecordState) =
+        !disposed && rendered.visible && storyRecord.value === rendered
+
+    private fun isCurrentRecordPage(rendered: StoryRecordState) =
+        rendered.eventDetail == null && isCurrentRecordView(rendered)
+
+    fun closeStoryRecord(rendered: StoryRecordState) {
+        if (isCurrentRecordView(rendered)) closeStoryRecord()
+    }
+
+    fun recordSection(section: StoryRecordSection, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordSection(section)
+    }
+
+    fun recordSearch(text: String, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordSearch(text)
+    }
+
+    fun nextRecordPage(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) nextRecordPage()
+    }
+
+    fun firstRecordPage(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) firstRecordPage()
+    }
+
+    fun retryStoryRecord(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) retryStoryRecord()
+    }
+
+    fun openRecordEvent(sequence: Long, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) openRecordEvent(sequence, rendered.context)
+    }
+
+    fun openScopedRecordEvent(reference: StoryRecordScopedEvent, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) openScopedRecordEvent(reference, rendered.context)
+    }
     fun closeDiagnostics() { diagnosticController.dismiss(); synchronizeForkContext() }
     fun clearDiagnostics() = diagnosticController.clear()
     fun beginDiagnosticExport() = diagnosticController.beginExport()

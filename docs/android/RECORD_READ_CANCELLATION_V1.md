@@ -49,3 +49,17 @@ currently rendered failure. If a retry immediately returns the same error,
 the new result still reaches the screen so the player can retry it again.
 The existing cancellation path preserves both identities when settling the
 current read. The request continues to use the existing player-visible lens.
+
+## Rendered page actions
+
+The page controls use the exact published record state. Search, paging, section
+selection, page Retry, and source links apply to the page that displayed them.
+Close also requires the current rendered state. The activity collects a
+transient render frame so closing and reopening the same page still delivers a
+fresh callback target when the visible values match.
+
+This integrates the page action and clickable-node lifetime checks from
+[PR #336](https://github.com/OptimumAF/LocalLore/pull/336) with the owned
+cancellation path and event action rules above. Search draft and list scroll
+state keep their existing lifetimes. The historical verification on the
+separate branch remains attributed to that build.

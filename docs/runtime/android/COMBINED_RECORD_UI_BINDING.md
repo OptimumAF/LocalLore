@@ -78,6 +78,17 @@ observer. Qualification requires the controller's twelve results and the
 replayed owner, process and ledger closure. Refused and interrupted attempts
 retain their claim and any charged reservation.
 
-A fresh readiness check and exact approval are required before running the
-operator. Earlier frozen profiles keep their own source, artifact and
-authority bindings.
+## Advisory readiness
+
+From the exact physical D: checkout, inspect the frozen plan and current
+ledger before asking for approval:
+
+```powershell
+python -I -S -B benchmarks/combined_record_ui_readiness.py --plan-sha256 <plan-digest> --ledger-sha256 <ledger-digest>
+```
+
+The inspector requires the guest, authority and attempt paths to be absent.
+It checks the APKs, installed tool bindings, current storage preview, host
+memory, commit headroom and the fixed unused ports. Its output is a
+point-in-time observation. The operation still needs exact approval and
+fresh admission. Earlier frozen profiles retain their own bindings.

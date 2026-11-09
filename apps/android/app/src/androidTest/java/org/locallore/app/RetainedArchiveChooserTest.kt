@@ -56,7 +56,7 @@ class RetainedArchiveChooserTest {
         const val UNSUPPORTED = "This archive version or feature is unsupported. Nothing was imported."
         const val INVALID = "The archive is invalid or failed its integrity checks. Nothing was imported."
         const val CONFLICT = "A story with this ID already exists. Nothing was overwritten."
-        const val INVENTORY = "You no longer hold the potion. Nothing changed."
+        const val INVENTORY = "The inventory rules blocked this action. Check your items and try again."
     }
     private data class World(val root: SavedStory, val parent: SavedStory, val child: SavedStory,
         val rootView: String, val childView: String, val archive: ByteArray)

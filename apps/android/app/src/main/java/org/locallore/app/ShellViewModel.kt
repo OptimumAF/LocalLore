@@ -390,7 +390,7 @@ class ShellViewModel internal constructor(
         if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && !mutable.value.recoveryRequired) mutable.value = mutable.value.copy(mode = mode, notice = null)
     }
 
-    fun submit(action: DemoAction) = submitResponse(action.description()) { before ->
+    fun submit(action: DemoAction) = submitResponse(action.description(), shortcut = action) { before ->
         gateway.respond(action, before.revision, before.mode)
     }
 
@@ -411,7 +411,11 @@ class ShellViewModel internal constructor(
         submitResponse(input.text) { before -> gateway.respondText(input, before.revision) }
     }
 
-    private fun submitResponse(playerText: String, prepare: suspend (ShellState) -> DemoResult) {
+    private fun submitResponse(
+        playerText: String,
+        shortcut: DemoAction? = null,
+        prepare: suspend (ShellState) -> DemoResult,
+    ) {
         if (disposed || workflowBlocksActions() || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive || mutable.value.recoveryRequired ||
             (gateway.durable && mutable.value.selectedStory == null)) return
         invalidateForkContext()
@@ -448,8 +452,10 @@ class ShellViewModel internal constructor(
                         )).takeLast(40),
                         notice = "Outcome accepted by the local engine.",
                     )
-                    is DemoResult.Rejected -> if (saved != null) publishSaved(saved, rejectionNotice(result.category))
-                        else before.copy(notice = rejectionNotice(result.category))
+                    is DemoResult.Rejected -> {
+                        val notice = rejectionNotice(result.category, shortcut)
+                        if (saved != null) publishSaved(saved, notice) else before.copy(notice = notice)
+                    }
                     is DemoResult.Prepared -> error("Commit returned an unfinished operation")
                 }
                 if (committing) diagnosticLog.record(DiagnosticPhase.COMMIT,
@@ -590,9 +596,12 @@ private fun DemoAction.description(): String = when (this) {
     DemoAction.TRY_ABILITY -> "Try the unlearned blink ability."
 }
 
-private fun rejectionNotice(category: String): String = when (category) {
-    "Inventory" -> "You no longer hold the potion. Nothing changed."
-    "Ability" -> "Blink is not learned. Nothing changed."
+private fun rejectionNotice(category: String, shortcut: DemoAction?): String = when (category) {
+    "Inventory" -> if (shortcut == DemoAction.GIVE_POTION) "You no longer hold the potion. Nothing changed."
+        else "The inventory rules blocked this action. Check your items and try again."
+    "Ability" -> if (shortcut == DemoAction.TRY_ABILITY) "Blink is not learned. Nothing changed."
+        else "The ability rules blocked this action. Check the abilities available to your character."
+    "ClarificationRequired" -> "The engine needs a clearer request. Rephrase and try again."
     "Agency" -> "The proposal did not match your action. Nothing changed."
     "Malformed" -> "The response was malformed. Nothing changed; try again."
     "Provider" -> "The response failed. Nothing changed; try again."

@@ -198,10 +198,10 @@ class PhysicalModelDialogueTest : PhysicalModelUiHarness() {
         val truths = knowledge(deadline).filter { it.origin == StoryRecordOrigin.CANONICAL_TRUTH }
         check(truths.isNotEmpty())
         submit(PlayInputKind.ACTION, "I use ability blink.", deadline)
-        node("notice").assertTextEquals("Blink is not learned. Nothing changed.")
+        node("notice").assertTextEquals("The ability rules blocked this action. Check the abilities available to your character.")
         check(io(deadline) { phoneHash(view()) == phoneHash(initial) })
         submit(PlayInputKind.ACTION, PHONE_GIFT, deadline)
-        node("notice").assertTextEquals("You no longer hold the potion. Nothing changed.")
+        node("notice").assertTextEquals("The inventory rules blocked this action. Check your items and try again.")
         check(io(deadline) { phoneHash(view()) == phoneHash(initial) })
         val guards = trace()
         checked(checks, "invalid_actions_no_sdk", phoneWorkerZero(guards))

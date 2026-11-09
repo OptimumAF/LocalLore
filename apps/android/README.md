@@ -479,6 +479,11 @@ other actions may be rejected by the existing Rust intent guard/mechanical rules
 Dialogue records words as a statement, not world truth. There is no text-to-command
 compiler in Kotlin and no cloud fallback.
 
+Free-text inventory and ability refusals use the engine's rejection category
+to explain what to check before retrying. A clarification refusal asks for a
+clearer turn. The named potion and Blink messages belong to the corresponding
+typed demo shortcuts.
+
 Input is bounded to 2048 UTF-8 bytes with valid Unicode. Text remains unchanged
 across the native request and exact-key recovery. Pending work disables editing;
 **Cancel** stops preparation. Drafts remain after rejection or an accepted head

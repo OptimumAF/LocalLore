@@ -344,6 +344,11 @@ export function createWorkerArtifactCompileObservationV1(options) {
     function recordLease(value) {
       const view = leaseView(value);
       requireData(view.state === 'Ready' || view.state === 'Stopped');
+      const ready = view.state === 'Ready';
+      requireData(view.withinBudget === ready && (view.stop === null) === ready);
+      if (ready) requireData(view.roots.every(root => root.creation === 'created' &&
+        root.marker === 'created' && root.identity !== null && root.markerClosure === 'open' &&
+        root.directoryClosure === 'closed' && root.complete));
       minRechecks = Math.max(minRechecks, view.rechecks);
       for (const [index, root] of view.roots.entries()) {
         if (root.creation !== 'created' || root.marker !== 'created' || root.identity === null) continue;

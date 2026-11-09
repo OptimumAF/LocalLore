@@ -46,6 +46,14 @@ def _unused(*, staging=False):
         env.require(not os.path.lexists(path), "already_used")
 
 
+def _recheck_preparation(plan_pin, preparation_pin, plan, proof, current):
+    proposal = prep._read_authority(proof["authority"])["proposal"]
+    for pin in (preparation_pin, plan_pin, plan["prepare"], proof["authority"], proposal,
+                proof["claim"], proof["authorization"], proof["prepared"], proof["result"],
+                current, *proof["evidence"].values()):
+        env.check_binding(pin)
+
+
 def verify_preparation(plan_pin, preparation_pin):
     """Read the exact preparation proof and observe the current prepared charge."""
     proof = env.decode_json(prep._bound(preparation_pin, prep.RESULT))
@@ -68,9 +76,7 @@ def verify_preparation(plan_pin, preparation_pin):
     owned.binding(proof["ledger"], max_bytes=16 * 1024**2)
     env.require(proof["ledger"]["path"] == str(prep.LEDGER), "ledger")
     current = prep._prepared_ledger(plan["prepare"])
-    for pin in (preparation_pin, plan_pin, plan["prepare"], proof["authority"], authority["proposal"],
-                proof["claim"], proof["authorization"], prepared, result, current, *evidence.values()):
-        env.check_binding(pin)
+    _recheck_preparation(plan_pin, preparation_pin, plan, proof, current)
     return plan, proposal, proof, current
 
 
@@ -156,7 +162,8 @@ def create_candidate(plan_pin, preparation_pin, installed):
     run_pin = _pin_for_bytes(RUN, env.encoded(run))
     admission = _admission(plan, run_pin, installed, uuid.uuid4().hex)
     _check_inputs(admission, run)
-    env.check_binding(ledger)
+    env.verify_prepared(run, initial=True)
+    _recheck_preparation(plan_pin, preparation_pin, plan, proof, ledger)
     _unused(staging=True)
     OUT.mkdir(exist_ok=False)
     env.require(owned._same(prep._save(RUN, run), run_pin), "publication")
@@ -198,8 +205,9 @@ def verify_candidate(candidate_pin, ledger_pin):
     env.require(prep._bound(candidate["proposal"], PROPOSAL, 65_536)
                 == _review_bytes(candidate["admission"], ledger_pin), "proposal")
     _check_inputs(admission, run)
-    for pin in (candidate_pin, candidate["plan"], candidate["preparation"], current,
-                candidate["admission"], candidate["proposal"], run_pin):
+    env.verify_prepared(run, initial=True)
+    _recheck_preparation(candidate["plan"], candidate["preparation"], plan, proof, current)
+    for pin in (candidate_pin, candidate["admission"], candidate["proposal"], run_pin):
         env.check_binding(pin)
     _unused()
     return admission

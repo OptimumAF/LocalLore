@@ -28,9 +28,9 @@ internal class DurableGateway(
     private var mayAutoCreate = autoCreateIfEmpty
     // Navigation IDs are an unresolved UI hint, never a saved engine/session.
     // Keep them through initialization failures, including failures after attach.
-    private var pendingInitialScopeHint = initialScopeHint
+    private var pendingSelectionHint = initialScopeHint
     private var startupNavigationRead = initialScopeHint != null || navigationStore == null
-    private var initialSelectionUnavailable = false
+    private var selectionHintUnavailable = false
     override val durable = true
     override val storyRecords = true
     private var session: String? = null
@@ -138,7 +138,7 @@ internal class DurableGateway(
                 if (closed.get()) throw WorkspaceFailure("Closed")
                 if (playerAttachment !== attachment) throw WorkspaceFailure("Stale")
                 if (!startupNavigationRead) {
-                    pendingInitialScopeHint = hint?.takeIf { encodeNavigationHint(it) != null }
+                    pendingSelectionHint = hint?.takeIf { encodeNavigationHint(it) != null }
                     startupNavigationRead = true
                 }
             }
@@ -186,7 +186,7 @@ internal class DurableGateway(
     ): SavedSnapshot {
         val workspace = workspace()
         val stories = workspaceStories(workspace)
-        val hint = pendingInitialScopeHint
+        val hint = pendingSelectionHint
         val hintedRoot = hint?.let { candidate -> stories.singleOrNull { it.story == candidate.story } }
         val hintedTimeline = if (hintedRoot != null) {
             // Only native, strictly decoded active branch metadata can authorize resume.
@@ -195,7 +195,7 @@ internal class DurableGateway(
         } else null
         synchronized(playerMetadataLock) {
             if (playerAttachment !== attachment) throw WorkspaceFailure("Stale")
-            initialSelectionUnavailable = hint != null && hintedTimeline == null
+            selectionHintUnavailable = hint != null && hintedTimeline == null
             // Automatic bootstrap is one-time. The hint does not enable or retry it.
             mayAutoCreate = false
         }
@@ -215,13 +215,13 @@ internal class DurableGateway(
     }
     private fun emptySnapshot(workspace: JSONObject): SavedSnapshot {
         check(workspace.getJSONArray("stories").length() == 0)
-        return resolvedInitialSelection(SavedSnapshot(0, "", emptyList(), workspace.getString("location"), 1,
+        return resolvedSelectionHint(SavedSnapshot(0, "", emptyList(), workspace.getString("location"), 1,
             emptyList(), null, databaseSchemaVersion = workspace.getInt("database_schema_version")))
     }
-    private fun resolvedInitialSelection(saved: SavedSnapshot): SavedSnapshot {
-        val unavailable = pendingInitialScopeHint != null && initialSelectionUnavailable
-        pendingInitialScopeHint = null
-        initialSelectionUnavailable = false
+    private fun resolvedSelectionHint(saved: SavedSnapshot): SavedSnapshot {
+        val unavailable = pendingSelectionHint != null && selectionHintUnavailable
+        pendingSelectionHint = null
+        selectionHintUnavailable = false
         return saved.copy(selectionRestoreUnavailable = unavailable)
     }
     override suspend fun reconcileSaved(): SavedSnapshot {
@@ -318,7 +318,7 @@ internal class DurableGateway(
             textProvider = provider
             coherentPlayerSnapshot = true
         }
-        return resolvedInitialSelection(saved)
+        return resolvedSelectionHint(saved)
     }
     private suspend fun readTextProvider(): TextProvider {
         val capabilities = call(command("capabilities"))
@@ -458,8 +458,27 @@ internal class DurableGateway(
             }
             if (phase == "ready") status = advanceTurn("commit", pending)
             result(status, pending)
+            return snapshot()
         }
-        return snapshot()
+        val (expectedAttachment, previousScope) = synchronized(playerMetadataLock) {
+            playerAttachment to scope?.let { PlayDraftScope(it.getString("story"), it.getString("branch")) }
+        }
+        return try {
+            snapshot()
+        } catch (failure: WorkspaceFailure) {
+            // Deletion by another owner can close this session while its workspace remains live.
+            if (failure.category != "Closed" || operation != null || previousScope == null) throw failure
+            val attachment = closeSession(expectedAttachment) ?: throw WorkspaceFailure("Stale")
+            synchronized(playerMetadataLock) {
+                if (closed.get()) throw WorkspaceFailure("Closed")
+                if (playerAttachment !== attachment) throw WorkspaceFailure("Stale")
+                // Keep the prior scope until a validated catalog or selected snapshot is available.
+                pendingSelectionHint = previousScope
+                startupNavigationRead = true
+                mayAutoCreate = false
+            }
+            openLibrary(allowCreate = false, attachment = attachment)
+        }
     }
     override fun cancel() { operation?.cancelled = true }
     override suspend fun cancelSaved(): SavedSnapshot {

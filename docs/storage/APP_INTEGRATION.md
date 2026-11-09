@@ -96,6 +96,11 @@ force-stop or a cold launch. See [Android draft lifecycle evidence](../native/AN
 Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.
+If another local owner closes the selected session by deleting its story or
+timeline, explicit Android recovery can reopen the existing catalog without
+creating a story once no turn key is pending. The prior selection remains the
+recovery hint across transient read failures. If the selection is unavailable,
+the app asks the player to review the library.
 
 On Android, a queued or ready reply must match the pending turn, exact story
 and timeline, and integer expected revision before it can advance preparation

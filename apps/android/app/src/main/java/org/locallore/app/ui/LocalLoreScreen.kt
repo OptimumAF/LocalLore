@@ -541,13 +541,18 @@ internal fun LocalLoreScreen(
                         }
                     }
                     if (onStoryRecord != null) item(key = "story-record") {
-                        OutlinedButton(
-                            onClick = onStoryRecord,
-                            enabled = state.persistent && state.selectedStory != null &&
-                                !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .testTag("story-record-open"),
-                        ) { Text("Story record") }
+                        val recordEnabled = state.persistent && !actionBlocked
+                        key(renderedControlKey) {
+                            OutlinedButton(
+                                onClick = {
+                                    if (recordEnabled && renderedControls.active && currentRenderedState.value === state)
+                                        onStoryRecord()
+                                },
+                                enabled = recordEnabled,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("story-record-open"),
+                            ) { Text("Story record") }
+                        }
                     }
                     item(key = "diagnostics") {
                         TextButton(onClick = onDiagnostics, enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,

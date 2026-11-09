@@ -252,16 +252,14 @@ fn actual_v4_source_and_lossless_summary_render_actual_store_observer_edges_and_
         .comparison_summary(&f.lease, f.epoch, true, token)
         .unwrap();
     assert_eq!(source["source"]["protocol_version"], 4);
+    assert_eq!(source["source"]["selected_native_format"], 4);
     assert_eq!(source["source"]["binding"], binding);
     assert_eq!(source["source"]["rows"], summary["snapshot"]["rows"]);
     assert_eq!(source["source"]["read_only"], true);
     assert_eq!(source["source"]["execution_available"], false);
     assert_eq!(summary["snapshot"]["report"], report);
     assert_eq!(summary["snapshot"]["protocol_version"], 4);
-    assert_eq!(
-        summary["snapshot"]["unavailable"],
-        json!(["selected_protocol4_native_rerun_unavailable"])
-    );
+    assert_eq!(summary["snapshot"]["unavailable"], json!([]));
     let suite = frozen_suite().unwrap();
     let mut store = Store::open_read_only(&path.join("left/synthetic.sqlite")).unwrap();
     let full = store.resume(&suite.seed().scope).unwrap().engine;

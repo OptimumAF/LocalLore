@@ -403,12 +403,47 @@ impl EvaluationManager {
             return Err("InvalidEvaluationInput".into());
         }
         self.comparison_expire(lease, epoch)?;
-        lease.dispatch(epoch,||{let mut state=self.comparison_lock()?;
-            let r=state.records.values_mut().find(|r|r.owns(lease,epoch)&&!r.expired&&r.granted&&r.token.as_deref()==Some(token)).ok_or("UnknownEvaluationRun")?;
-            r.touched=Instant::now();let snapshot=r.snapshot.as_ref().ok_or("UnknownEvaluationRun")?;
-            if source {bounded(json!({"version":1,"kind":"comparison_reader","run_token":token,
-                "source":{"binding":snapshot["binding"],"protocol_version":snapshot["protocol_version"],"rows":snapshot["rows"],"read_only":true,"execution_available":false}}),65536)}
-            else {bounded(json!({"version":1,"kind":"comparison_reader","run_token":token,"snapshot":snapshot}),2*1024*1024+4096)}
+        lease.dispatch(epoch, || {
+            let mut state = self.comparison_lock()?;
+            let r = state
+                .records
+                .values_mut()
+                .find(|r| {
+                    r.owns(lease, epoch) && !r.expired && r.granted && r.token.as_deref() == Some(token)
+                })
+                .ok_or("UnknownEvaluationRun")?;
+            r.touched = Instant::now();
+            let snapshot = r.snapshot.as_ref().ok_or("UnknownEvaluationRun")?;
+            let scene = snapshot["protocol_version"] == 4;
+            if source {
+                let mut projection = json!({
+                    "binding": snapshot["binding"],
+                    "protocol_version": snapshot["protocol_version"],
+                    "rows": snapshot["rows"],
+                    "read_only": true,
+                    "execution_available": false,
+                });
+                if scene {
+                    // This desktop routes selected format 4 through native consent.
+                    projection["selected_native_format"] = json!(4);
+                }
+                bounded(
+                    json!({"version":1,"kind":"comparison_reader","run_token":token,"source":projection}),
+                    65536,
+                )
+            } else {
+                let mut projection =
+                    json!({"version":1,"kind":"comparison_reader","run_token":token,"snapshot":snapshot});
+                if scene {
+                    // Preserve the shared snapshot and its binding for selected preparation.
+                    if let Some(notes) = projection["snapshot"]["unavailable"].as_array_mut() {
+                        notes.retain(|note| {
+                            note.as_str() != Some("selected_protocol4_native_rerun_unavailable")
+                        });
+                    }
+                }
+                bounded(projection, 2 * 1024 * 1024 + 4096)
+            }
         })
     }
     pub fn comparison_source(

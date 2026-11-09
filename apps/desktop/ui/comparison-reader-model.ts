@@ -78,6 +78,7 @@ export type ReaderSource = {
     rows: RowAvailability[];
     read_only: true;
     execution_available: false;
+    selected_native_format?: 4;
 };
 export type ForwardedEstimate = {
     version: 1;
@@ -270,7 +271,7 @@ export type ComparisonReportV4 = Omit<
 };
 export type ComparisonReport =
     ComparisonReportV2 | ComparisonReportV3 | ComparisonReportV4;
-export type ReaderSummary = ReaderSource & {
+export type ReaderSummary = Omit<ReaderSource, "selected_native_format"> & {
     version: 1;
     report: ComparisonReport;
     unavailable: string[];
@@ -426,6 +427,7 @@ export function readerRowKey(v: RowId): string {
     return `${v.arm}:${v.turn}`;
 }
 export function sameReaderSource(a: ReaderSource, b: ReaderSource): boolean {
+    // Compare report identity. The selected route advertisement is source-only.
     return (
         a.binding === b.binding &&
         a.protocol_version === b.protocol_version &&
@@ -666,13 +668,17 @@ function rows(v: unknown): RowAvailability[] {
     return values;
 }
 function sourceValue(v: unknown, binding: string): ReaderSource {
-    const o = exact(v, [
-        "binding",
-        "protocol_version",
-        "rows",
-        "read_only",
-        "execution_available",
-    ]);
+    const o = exact(
+        v,
+        [
+            "binding",
+            "protocol_version",
+            "rows",
+            "read_only",
+            "execution_available",
+        ],
+        ["selected_native_format"],
+    );
     hash(o.binding);
     wire(
         o.binding === binding &&
@@ -680,6 +686,8 @@ function sourceValue(v: unknown, binding: string): ReaderSource {
                 o.protocol_version === 3 ||
                 o.protocol_version === 4),
     );
+    if (Object.hasOwn(o, "selected_native_format"))
+        wire(o.protocol_version === 4 && o.selected_native_format === 4);
     readonly(o);
     rows(o.rows);
     return o as ReaderSource;

@@ -354,7 +354,8 @@ class CombinedRecordUiControllerResultTests(unittest.TestCase):
         with TemporaryDirectory(prefix="record-controller-", dir=Path.cwd()) as directory:
             root = Path(directory)
             output = root / "controller-v1"
-            capture = Mock(count=0, directory=output / "clients", session_binding={"path": "synthetic-session"})
+            capture = Mock(count=0, until=float("inf"), directory=output / "clients",
+                           session_binding={"path": "synthetic-session"})
             live = Mock(caller={"pid": 7})
             live.close.return_value = True
             reader = Mock()
@@ -390,7 +391,8 @@ class CombinedRecordUiControllerResultTests(unittest.TestCase):
     def test_unknown_observer_close_refuses_otherwise_complete_journey(self):
         with TemporaryDirectory(prefix="record-controller-", dir=Path.cwd()) as directory:
             root = Path(directory)
-            capture = Mock(count=0, clean=True, session_binding={"path": "synthetic-session"})
+            capture = Mock(count=0, until=float("inf"), clean=True,
+                           session_binding={"path": "synthetic-session"})
             live = Mock(caller={"pid": 7})
             live.close.return_value = False
             journey = {"installed": {}, "tests": []}
@@ -409,3 +411,43 @@ class CombinedRecordUiControllerResultTests(unittest.TestCase):
             self.assertEqual(json.loads((root / "controller-v1" / "controller-result-v1.json").read_bytes()), result)
             capture.close.assert_called_once_with()
             live.close.assert_called_once_with()
+
+    def test_live_wire_deadline_includes_boot_proof_and_overall_command_proof(self):
+        with TemporaryDirectory(prefix="record-controller-", dir=Path.cwd()) as directory:
+            root = Path(directory)
+            output = root / "controller-v1"
+            capture = Mock(count=0, until=2000.0, directory=output / "clients",
+                           session_binding={"path": "synthetic-session"})
+            live = Mock(caller={"pid": 7})
+            live.close.return_value = True
+            reader = Mock()
+            reader._pin.return_value = {"path": "synthetic-first-command", "bytes": 4, "sha256": "f" * 64}
+            reader._json.return_value = dict(index=1, effective_deadline_ms=15000,
+                                             label="boot", operation=dict(argv=BOOT, stdin=None),
+                                             client_qualified=True, status="completed", returncode=0,
+                                             stdout="boot-stdout", stderr="boot-stderr")
+            reader._raw.side_effect = lambda pin, cap: {"boot-stdout": b"1\n", "boot-stderr": b""}[pin]
+            seen_deadlines = []
+
+            def reply(argv, label, **_kwargs):
+                seen_deadlines.append((argv, label, capture.until))
+                if label != "boot":
+                    raise RuntimeError("stop after observing the property deadline")
+                capture.directory.mkdir()
+                (capture.directory / "command-0001.json").write_bytes(b"held")
+                capture.count = 1
+                return b"1\n"
+
+            capture.shell.side_effect = reply
+            admission = {"root": str(root), "artifacts": binding.artifact_bindings()}
+            with patch.object(controller, "_admission", return_value=admission), \
+                    patch.object(controller.client, "LiveOwnedCombinedRecordUiTarget", return_value=live), \
+                    patch.object(controller.client, "OwnedCombinedRecordUiSdkCapture", return_value=capture), \
+                    patch.object(controller.client, "REPLAY", reader), \
+                    patch.object(controller.time, "monotonic", return_value=10.0):
+                result = controller.run({"path": "synthetic-admission"}, {"path": "synthetic-running"})
+            self.assertEqual(result["outcome"], "refused")
+            self.assertEqual(seen_deadlines, [
+                (BOOT, "boot", 130.0),
+                (["getprop", "ro.build.version.sdk"], "property", 1210.0),
+            ])

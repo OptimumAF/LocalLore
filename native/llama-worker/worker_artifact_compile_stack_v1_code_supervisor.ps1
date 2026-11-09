@@ -21,7 +21,7 @@ $nodeHash = 'd702daa815eabbff763c7d3808e235cf031cf2ca70211b56847bc72f51e240e5'
 $normalHash = '7a68992bc35d2e778d71e8db80ef4050a281d65d785a054e77abb569aadaf192'
 $prepared = @('owner.json','source-review.json','supervisor.ps1','collector.mjs')
 $runLimits = [ordered]@{ 'START.json'=1024; 'stdout.bin'=4096; 'stderr.bin'=4096; 'process.json'=4096; 'result.json'=2048; 'STOP.json'=2048 }
-$prepLimits = [ordered]@{ 'owner.json'=2048; 'source-review.json'=2048; 'supervisor.ps1'=16384; 'collector.mjs'=4096 }
+$prepLimits = [ordered]@{ 'owner.json'=2048; 'source-review.json'=2048; 'supervisor.ps1'=20480; 'collector.mjs'=4096 }
 $sourcePins = [ordered]@{
     'library_inputs.mjs' = @(17906, 'c6bd3309db944bf431838fd1e98670a6e8ed937f104e66a31735c5cc1372c5dc')
     'worker_artifact_recipe_v1.mjs' = @(6477, '93269f12448f4539c8b1e1ec035cd0d8da522740eff979b38b525db02fbb622b')
@@ -182,9 +182,9 @@ function Capture {
     $info.Environment['TEMP'] = $env:TEMP
     $info.Environment['TMP'] = $env:TMP
     $info.ArgumentList.Add('--permission')
-    $info.ArgumentList.Add('--allow-fs-read=' + $collector)
-    foreach ($name in $sourcePins.Keys) { $info.ArgumentList.Add('--allow-fs-read=' + (Join-Path $source $name)) }
-    $info.ArgumentList.Add($collector)
+    $info.ArgumentList.Add('--allow-fs-read=' + [IO.Path]::GetFullPath($collector))
+    foreach ($name in $sourcePins.Keys) { $info.ArgumentList.Add('--allow-fs-read=' + [IO.Path]::GetFullPath((Join-Path $source $name))) }
+    $info.ArgumentList.Add([IO.Path]::GetFullPath($collector))
 
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $info
@@ -312,7 +312,13 @@ try {
         process=(HashFile (Join-Path $packet ($stem+'process.json')));groups=@(14,11,12);passed=37
         before=$before;after=$after;nativeQualified=$false})
 } catch {
+    $failure = $_
+    $reason = $failure.Exception.Message
+    if ($reason -cnotin @('PhysicalD','Reparse','EvidenceReparse','OwnLeaf','OwnLimit','PriorDirectory',
+        'PriorRoster','TreeBoundary','StorageBoundary','PinnedSource','RecordLimit','Readback','StartChanged','CodeGate')) {
+        $reason = 'Unhandled'
+    }
     try { SaveJson 'STOP.json' ([ordered]@{version=1;kind='compile_stack_code_stop_v1';start=$startHash
-        offerAttempted=$launched;review=$reviewHash;parentPid=$PID}) } catch { }
-    throw
+        offerAttempted=$launched;review=$reviewHash;parentPid=$PID;reason=$reason}) } catch { }
+    throw $failure
 }

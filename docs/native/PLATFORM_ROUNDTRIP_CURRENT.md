@@ -190,13 +190,62 @@ python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_lifecy
 The lifecycle tests use synthetic owner and ledger records. The fixed
 operator launcher and real guest admission remain separate.
 
+## Prepare the fixed guest through the shared storage owner
+
+The preparation profile uses API 35 x86_64, 8 GiB RAM and four cores.
+Use the shared planner for the fixed SDK25 guest root after the ledger can
+admit a new 40 GiB reservation. It needs an existing physical D: parent.
+The shared planner's `--real-model-candidate --four-core-candidate` flags
+select the existing 8 GiB and four-core resource profile. This cohort
+uses fixed synthetic archive fixtures. Plan the 180-second preparation
+child separately from the later boot and archive exchange. Keep the prepared root, initial SD image and every
+failure receipt under the shared storage lifecycle.
+
+The operator control directory holds the fixed
+`prepare-proposal-v1.json`, `prepare-authorization-v1.json` and
+`prepare-authority-v1.json`. The last record binds the exact prepare
+proposal, the scoped shared authorization, current v2 ledger, the eight
+artifact pins, and the SHA-256 of the canonical SDK25 source-pin list.
+It also carries the external approval reference with prepare allowed and
+boot disallowed. The shared authorization uses prepare scope
+`sdk25-archive-roundtrip-prepare-once-v1`. Only a separately approved
+operator can provide those two authority inputs.
+
+After preparation approval and a fresh capacity preview, use the exact
+authority file digest:
+
+```powershell
+python -B -m benchmarks.archive_roundtrip_prepare --authority-sha256 <approved-sha256>
+```
+
+The wrapper checks the proposal, scoped authorization, installed
+environment, host resources, artifact bytes, source pins and ledger before
+creating the one-use prepare attempt. It passes the same proposal and
+expected ledger digests to the shared prepare API, which reserves
+capacity under its lock before creating the guest root. A failure keeps
+the attempt and any shared reservation. The receipt binds the scoped
+child start and claim, the client terminal and output bytes, and the
+prepared records and ledger observed at completion.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_prepare.py
+```
+
+These tests use synthetic authority, preparation and ledger records.
+The retained APK and Windows artifact check is read-only. No SDK25
+preparation or boot is evidenced by these checks.
+
 ## Verify the operator's prepared-run admission
 
 The host gate accepts one externally approved authority record at the fixed
 SDK25 operation root. That record binds the exact admission and the current
-prepared v2 snapshot of the shared storage ledger. The admission binds the
-reviewed source, retained APKs and fixture executable, and scoped run
-proposal and authorization. The target must already be prepared by the
+fresh prepared v2 snapshot of the shared storage ledger. It also pins the
+exact SDK25 prepare receipt. The gate replays its scoped child records
+and matches its prepared and result pins to the run proposal. The
+historical preparation ledger pin stays separate from the fresh run
+ledger, so an unrelated ledger entry can change between the two approvals.
+The admission binds the reviewed source, retained APKs and fixture
+executable, and scoped run proposal and authorization. The target must already be prepared by the
 shared workflow. The gate allows one boot, with a 1,700-second owner lease
 and 1,800-second guest ceiling. Preparation, model work and retirement
 require separate authority.

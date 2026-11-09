@@ -68,7 +68,20 @@ async function ordinary(path, directory) {
   return entry;
 }
 
+async function requireAbsent(path) {
+  try {
+    await lstat(path);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  requireSupervisor(false);
+}
+
 async function checkImage(path, expectedHash) {
+  // Pinned libuv can append these suffixes if the absolute image is absent.
+  await requireAbsent(path + '.com');
+  await requireAbsent(path + '.exe');
   const named = await ordinary(path, false);
   requireSupervisor(named.size > 0n && named.size <= BigInt(IMAGE));
   const file = await open(path, 'r');
@@ -330,6 +343,8 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
   const context = Object.freeze(data(spec.context, CONTEXT));
   const admitted = Object.freeze(data(spec.admission, ['job', 'spend', 'writerPolicy', 'namespace', 'hostLease']));
   requireSupervisor(process.platform === 'win32' && process.arch === 'x64' &&
+    process.versions.node === '24.22.1' && process.execArgv.length === 0 &&
+    !process.env.NODE_OPTIONS && !process.env.NODE_V8_COVERAGE &&
     [...Object.values(context), ...Object.values(admitted), spec.hostHash].every(hash));
   const host = win32.join(nativePath(spec.hostDirectory, true), EXECUTABLE);
   const root = nativePath(spec.evidenceRoot, true);
@@ -444,7 +459,7 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
         sentBytes === request.length && sentHash === scope.requestHash;
       const facts = { image, pid, closed, stdinClosed, stdoutClosed, stderrClosed, exitCode, sentBytes, sentHash, accepted };
       const record = { kind: 'compile_supervisor_transport_v1', scope, authorization: offer.authorization,
-        admitted, facts, lifecycle, before, after, requestBytes: request.length,
+        admitted, facts, lifecycle, before, after, environment: rawHash(json(env)), requestBytes: request.length,
         responseBytes: response.length, responseHash: rawHash(response), stderrBytes: stderr.length, stderrHash: rawHash(stderr) };
       const transportBytes = json(record);
       const observation = await save('transport.json', transportBytes);

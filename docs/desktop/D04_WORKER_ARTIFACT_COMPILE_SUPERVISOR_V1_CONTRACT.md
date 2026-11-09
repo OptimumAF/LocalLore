@@ -31,14 +31,15 @@ nonzero digests for actual already-retained observations.
   must already exist. The supervisor never creates a directory.
 - `hostLease` binds the external held protection against replacement
   or modification of the selected helper during process creation,
-  including its admitted dependency search. Node's named and held
+  including its admitted dependency search and the absence of both
+  fallback siblings for the duration of the attempt. Node's named and held
   reads check local identity and drift. They do not enforce Windows
   sharing denial against concurrent replacement.
 
 The exact proof digests are carried in transport evidence. Constructing
 the factory does not establish or verify any external proof by itself.
-The admission owner enforces the pinned Windows x64 Node binary and
-environment and must verify the actual evidence, including relevant
+The admission owner enforces the pinned Windows x64 Node 24.22.1 binary and
+clean environment and must verify the actual evidence, including relevant
 ancestor Jobs, before invoking this source. Do not rely on libuv's
 optional Job for descendant coverage. It allows breakaway and can
 continue after assignment failure. [Pinned libuv Windows launcher](https://github.com/nodejs/node/blob/v24.22.1/deps/uv/src/win/process.c#L1016)
@@ -48,13 +49,17 @@ continue after assignment failure. [Pinned libuv Windows launcher](https://githu
 Persist a verified START from #408, then one create-only OFFER bound to
 that exact START, scope and spent grant. Retain the exact authorized
 request before the helper offer. A failure is terminal for the offered
-slot. No alternate path or executable is tried.
+slot. The supervisor offers no alternate path. Because pinned libuv may
+append an extension, both fixed siblings ending in .exe.com and
+.exe.exe must be absent before and after the helper attempt. The
+admitted directory remains sealed across launch.
 
 The supervisor calls the fixed helper directly with zero arguments, no
 shell, three private pipes and no window or detachment. Cwd is the
 admitted helper directory. The fixed environment covers the Windows
 values normally copied by libuv and sets the Node coverage/options
-values explicitly. The compiler still receives its own separate
+values explicitly. The transport record binds the derived environment
+hash. The compiler still receives its own separate
 environment from the native launcher. Preflight and postflight each
 read at most one complete 8 MiB helper image through a checked file
 handle, with an EOF probe. The outer lease remains necessary.

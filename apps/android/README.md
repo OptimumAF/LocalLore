@@ -221,6 +221,21 @@ independent replay of the test, qualified owner cleanup and the closed ledger
 entry. An uncertain controller leaves the full reservation charged. A live
 run requires an approved preparation and a separately authorized activation.
 
+The preparation module can generate and inspect a fixed plan using the
+installed SDK and the pinned APKs. The inspection checks the shared ledger,
+host resources and ports. Its records grant no execution authority. The
+preparation command requires an exact preparation-only approval and uses the
+shared guarded SDK preparation path.
+
+After qualified preparation, the admission module stages the prospective
+run and an activation proposal. The derived run authorization is still
+absent at this stage. The activation supervisor consumes a separate exact
+approval once, creates that authorization inside its bounded worker and
+launches the guarded owner. Its result requires replay of the owner, test and
+cleanup evidence from the same activation. Partial records remain available
+for diagnosis.
+
+
 
 Parent-retirement verification has its own debug identity and project cache:
 

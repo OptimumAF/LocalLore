@@ -13,6 +13,12 @@ or replacing the production registry is an operator recovery action.
 
 ## Admission and retention
 
+For an explicitly observed legacy pre-SDK mkdir failure, the separate
+[one-use recovery contract](PREPARE_RECOVERY.md) can retain the same reservation
+and journal a guarded preparation. It is never automatic missing-root repair
+or reservation cancellation. Its explicit ledger-v2 migration makes old helpers
+fail closed and keeps immutable recovery history in subsequent accounting.
+
 Planning and preparation require the selected guest root's parent to be an
 existing ordinary directory. The path validator rejects files, symlinks and
 Windows reparse points, including in ancestors. Planning refuses before SDK

@@ -215,7 +215,7 @@ def tree_files(root):
 def installation_files(sdk, java):
     sdk, java = Path(sdk), Path(java)
     files = [Path(__file__).resolve(), Path(host.__file__).resolve(), Path(commit_capacity.__file__).resolve(),
-             Path(guest_storage.__file__).resolve()]
+             Path(guest_storage.__file__).resolve(), Path(__file__).with_name("prepare_recovery_contract.py").resolve()]
     for folder in (sdk / "emulator", sdk / "cmdline-tools/latest",
                    sdk / "system-images/android-35/google_apis/x86_64", java,
                    sdk / "licenses", sdk / "platform-tools"):
@@ -247,6 +247,21 @@ def plan_prepare(root, sdk, java_home, output, real_candidate=False, four_core_c
     require(not Path(root).exists(), "target_exists")
     # The experiment parent is an operator precondition, never created implicitly.
     safe_path(Path(p["root"]).parent, directory=True)
+    proposal = _prepare_proposal_value(root, sdk, java_home, real_candidate, four_core_candidate)
+    create_json(output, proposal)
+    return proposal
+
+
+def _prepare_proposal_value(root, sdk, java_home, real_candidate=False, four_core_candidate=False):
+    """Build current inputs after the caller establishes its root ownership fence.
+
+    Ordinary planning checks absence/parent first. Recovery calls this only after
+    its durable one-use claim and atomic, held directory creation. Not a CLI.
+    """
+    require(type(real_candidate) is bool and type(four_core_candidate) is bool and
+            (not four_core_candidate or real_candidate), "invalid_profile")
+    require(os.name == "nt", "windows_required")
+    floors, p = root_free_min(root), paths(root)
     sdk = safe_path(sdk, directory=True)
     java = safe_path(java_home, directory=True)
     image = sdk / "system-images/android-35/google_apis/x86_64"
@@ -264,7 +279,6 @@ def plan_prepare(root, sdk, java_home, output, real_candidate=False, four_core_c
                 "host_free_min": floors,
                 "host_available_memory_min": (12 if real_candidate else 4) * GIB,
                 "allow_environment_calls": False, "root_go_pending": True}
-    create_json(output, proposal)
     return proposal
 
 
@@ -294,6 +308,7 @@ def validate_proposal(proposal, phase):
     require(isinstance(items, list) and len({x["path"] for x in items}) == len(items), "invalid_proposal")
     required = {str(Path(__file__).resolve()), str(Path(host.__file__).resolve()),
                 str(Path(commit_capacity.__file__).resolve()), str(Path(guest_storage.__file__).resolve()), proposal["adb_path"],
+                str(Path(__file__).with_name("prepare_recovery_contract.py").resolve()),
                 str(Path(proposal["sdk"]) / "emulator/emulator.exe"),
                 str(Path(proposal["sdk"]) / "cmdline-tools/latest/bin/avdmanager.bat"),
                 str(Path(proposal["sdk"]) / "system-images/android-35/google_apis/x86_64/data/empty_data_disk")}
@@ -447,6 +462,12 @@ def prepare(proposal_path, authorization_path):
     storage_transition(guest_storage.reserve_prepare, root, admitted_sha)
     # Every path below belongs exclusively to this newly created target.
     root.mkdir()
+    return _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha, facts)
+
+
+def _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha, facts, registry=None):
+    """Shared post-admission body; recovery retains its directory fence around it."""
+    root = Path(proposal["paths"]["root"])
     create_json(root / "prepare-start-v1.json", {"proposal_sha256": admitted_sha, "facts": facts,
                                                "owner": process_identity(os.getpid())})
     pending = None; failure = None; closure = False
@@ -471,7 +492,10 @@ def prepare(proposal_path, authorization_path):
                 "child_cleanup_complete": known, "prepared_created": failure is None})
     if failure is not None:
         raise failure
-    storage_transition(guest_storage.record_state, root, "prepared")
+    if registry is None:
+        storage_transition(guest_storage.record_state, root, "prepared")
+    else:
+        storage_transition(guest_storage.record_state, root, "prepared", registry=registry)
     return pending
 
 

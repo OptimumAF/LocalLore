@@ -40,6 +40,11 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [chat status announcement fix](docs/android/CHAT_STATUS_ANNOUNCEMENT_2026-11-01.md)
+keeps a compact Polite status outside the scrolling transcript. Host regressions,
+Android-test compilation and lint pass; the new Compose journeys and actual
+screen-reader behavior remain unrun.
+
 The [chat keyboard inset fix](docs/android/CHAT_IME_INSETS_2026-11-01.md)
 handles keyboard space around both the scrolling chat and Latest control.
 Host tests, Android-test compilation and lint pass; the two new injected-inset

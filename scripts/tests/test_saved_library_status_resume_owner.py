@@ -234,8 +234,9 @@ class SavedLibraryStatusResumeOwnerTests(unittest.TestCase):
 
             sequence.reset_mock()
             sequence.retain.side_effect = storage.StorageRefused("ledger_changed")
-            with self.assertRaisesRegex(env.EnvironmentRefused, "^storage_ledger_changed$"):
+            with self.assertRaisesRegex(env.EnvironmentRefused, "^storage_ledger_changed$") as refusal:
                 runtime._retain_guest()
+            self.assertEqual(owner.mechanisms._reason(refusal.exception), "storage_ledger_changed")
             self.assertEqual(sequence.mock_calls, [self._live_call(runtime), claim])
 
     def test_resume_worker_checks_ancestry_and_closes_process_handles_on_refusal(self):

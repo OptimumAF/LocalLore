@@ -1291,7 +1291,7 @@ def _reason(error, default="owner"):
         "startup", "readiness", "proof", "framing", "deadline", "stop", "capture", "cleanup", "output",
         "stop_requested", "expired", "guest", "timer", "ancestry", "registration", "job", "target", "binding",
         "authority", "attempt", "handoff", "plan", "profile", "installed", "proposal", "prepared",
-        "ledger", "already_used", "not_authorized", "storage_prepared_changed"}
+        "ledger", "already_used", "not_authorized", "storage_prepared_changed", "storage_ledger_changed"}
     return value if value in allowed else default
 
 

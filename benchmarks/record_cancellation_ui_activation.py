@@ -14,10 +14,10 @@ import sys
 import time
 from types import SimpleNamespace
 
-SOURCE_ROOT = Path("D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1/frozen-profile-source-v1")
+SOURCE_ROOT = Path("D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-freeze-v1/frozen-profile-source-v1")
 HELPER = SOURCE_ROOT / 'benchmarks/record_cancellation_ui_activation.py'
-CONTROLS = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1/run-controls-v1')
-RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-runtime-v1')
+CONTROLS = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-freeze-v1/run-controls-v1')
+RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-ui-runtime-v1')
 CONTROL = RUNTIME / 'control-v1'
 INPUT = CONTROLS / 'run-input-v1.json'
 BARRIER = b'record-cancellation-ui-activation-worker-v1\n'

@@ -12,11 +12,11 @@ from scripts import run_record_cancellation_operation as operation
 from scripts import run_record_cancellation_ui_fresh as bridge
 from scripts import record_cancellation_ui_prepare_inputs as inspection
 
-NEW = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1')
+NEW = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-freeze-v1')
 FROZEN = NEW / 'frozen-profile-source-v1'
 OLD = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-fresh-v1')
-HEAD = 'c89b9e4f73a5481a1ba5afd9808821e023d1cd0c'
-TREE = 'd29c520f60c2f21204fef0972d25f7d322ca368a'
+HEAD = 'dbcafb0070734cbccbd420a159f6305bc6f9090d'
+TREE = '53c47a25b00f2ca868150f76d408c3789a6fcc3c'
 OLD_HEAD = '287b158e72ed5c0811a2e7e433e73ada4f4d6c52'
 OLD_TREE = '81dae478d06f2da8be5f14a693f276318fe0c4ac'
 OLD_HANDOFF = dict(path=str(OLD / 'inspection-v1/frozen-inputs-v1.json'), bytes=9074,
@@ -76,11 +76,11 @@ class RecordCancellationCurrentGenerationTests(unittest.TestCase):
         self.assertEqual(outer.FRESH_HEAD, HEAD)
         self.assertEqual(PureWindowsPath(str(fresh.SOURCE)), FROZEN)
         self.assertEqual(PureWindowsPath(str(outer.SOURCE)), FROZEN)
-        self.assertEqual(inspection._SOURCE_FILE_COUNT, 2664)
-        self.assertEqual(bridge._SOURCE_FILE_COUNT, 2664)
+        self.assertEqual(inspection._SOURCE_FILE_COUNT, 2671)
+        self.assertEqual(bridge._SOURCE_FILE_COUNT, 2671)
         self.assertEqual(PureWindowsPath(fresh.SOURCE_PUBLICATION['path']), NEW / 'profile-source-publication-v1.json')
-        self.assertEqual(fresh.SOURCE_PUBLICATION['bytes'], 753002)
-        self.assertEqual(fresh.SOURCE_PUBLICATION['sha256'], 'cab63a069e95ecc2fed25e4064bc67030d06cf4b744df39a1441100de659870d')
+        self.assertEqual(fresh.SOURCE_PUBLICATION['bytes'], 755007)
+        self.assertEqual(fresh.SOURCE_PUBLICATION['sha256'], 'aa58a83cd42933165f659b454d768b3b6c4cbc4458efabf300704e09fd50de31')
         self.assertEqual(fresh.BUILD_PIN['bytes'], 32140)
         self.assertEqual(fresh.BUILD_PIN['sha256'], '4d39b74ad5aee455ce9060c01d760204022101e4b6b8ce58d12f666450d2894e')
         for rules, value in ((fresh, inner_authority()), (outer, parent_authority())):

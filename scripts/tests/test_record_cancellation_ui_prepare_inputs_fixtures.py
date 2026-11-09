@@ -1,7 +1,7 @@
 """Independent finite metadata construction for SDK18 inspection oracles.
 
 No fixture opens the frozen profile, installed tools, credentials or a device.
-The catalog graph has all 2664 rows; only its explicit reader port returns bytes.
+The catalog graph has all 2671 rows; only its explicit reader port returns bytes.
 """
 import copy
 from contextlib import ExitStack
@@ -12,12 +12,12 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-PROFILE_HEAD = 'c89b9e4f73a5481a1ba5afd9808821e023d1cd0c'
-PROFILE_TREE = 'd29c520f60c2f21204fef0972d25f7d322ca368a'
-PROFILE_SOURCE = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1/frozen-profile-source-v1')
-GUEST = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-v1/avd-v1')
-RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-runtime-v1')
-CONTROLS = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1/run-controls-v1')
+PROFILE_HEAD = 'dbcafb0070734cbccbd420a159f6305bc6f9090d'
+PROFILE_TREE = '53c47a25b00f2ca868150f76d408c3789a6fcc3c'
+PROFILE_SOURCE = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-freeze-v1/frozen-profile-source-v1')
+GUEST = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-ui-v1/avd-v1')
+RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-ui-runtime-v1')
+CONTROLS = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-freeze-v1/run-controls-v1')
 EMPTY_BLOB = 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391'
 HELLO_BLOB = 'ce013625030ba8dba906f756967f9e9ca394464a'
 
@@ -33,7 +33,7 @@ class CatalogGraph:
         self.calls = []
         self.bodies = {}
         rows = []
-        for index in range(2664):
+        for index in range(2671):
             name = 'source-%04d.txt' % index
             body = b'hello\n' if index == 1 else b''
             self.bodies[name] = body

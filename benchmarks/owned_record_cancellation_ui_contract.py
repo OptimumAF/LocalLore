@@ -17,7 +17,7 @@ APP = 'org.locallore.app'
 TEST = APP + '.test'
 MODEL_MATERIAL = False
 CERTIFICATE_SHA256 = '17ed497138b20dc1657d54039802305cfe0e3b782c73feaad20359c954707564'
-GUEST_ROOT = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-v1/avd-v1')
+GUEST_ROOT = PureWindowsPath('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-ui-v1/avd-v1')
 INSTRUMENTATIONS = (('record_cancel_1', 'org.locallore.app.StoryRecordCancellationScreenTest', 'cancelledCurrentPageShowsSafeRetryAndReusesTheExactFrozenCursor'), ('record_cancel_2', 'org.locallore.app.StoryRecordCancellationScreenTest', 'cancelledScopedDetailRendersSafeProblemAndRetriesTheSamePlayerLens'), ('record_cancel_3', 'org.locallore.app.StoryRecordCancellationScreenTest', 'obsoletePageCancellationCannotReplaceSectionSelectionOrClosedAndReopenedRecords'), ('record_cancel_4', 'org.locallore.app.StoryRecordCancellationScreenTest', 'oldDetailCancellationAfterBackCannotFinishTheReplacementDetail'), ('record_cancel_5', 'org.locallore.app.StoryRecordCancellationScreenTest', 'disposedOwnerAndRemountedScreenCannotBorrowOldReadsOrRetainedCallbacks'))
 
 CLAIM_KINDS = tuple(row[0] for row in INSTRUMENTATIONS)

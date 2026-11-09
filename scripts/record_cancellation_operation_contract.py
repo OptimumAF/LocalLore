@@ -9,7 +9,7 @@ import json
 from pathlib import Path, PureWindowsPath
 import re
 
-OUT = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1')
+OUT = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-freeze-v1')
 OPERATOR_ROOT=OUT/'candidate-source-v1'
 OPERATOR=OPERATOR_ROOT/'scripts/run_record_cancellation_operation.py'
 CONTRACT=OPERATOR_ROOT/'scripts/record_cancellation_operation_contract.py'
@@ -19,15 +19,15 @@ ATTEMPT=LIVE/'attempt-v1.json'
 SOURCE = OUT/'frozen-profile-source-v1'
 FRESH_ROOT=OUT
 FRESH_SOURCE=OPERATOR_ROOT
-FRESH_HEAD = 'c89b9e4f73a5481a1ba5afd9808821e023d1cd0c'
-FRESH_OPERATOR = {'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\candidate-source-v1\\scripts\\run_record_cancellation_ui_fresh.py', 'bytes': 29986, 'sha256': '0a1f9feb5276fd96ac691b0757f264fe88f2aee158a91dc907c0d08f2e0fd198'}
-FRESH_CONTRACT = {'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\candidate-source-v1\\scripts\\record_cancellation_ui_fresh_contract.py', 'bytes': 7647, 'sha256': '1762385e5bb660cc475cfde7af2040886061e6f057d6734cc6e01cdbcff93bab'}
-HANDOFF = {'bytes': 9255, 'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\inspection-v1\\frozen-inputs-v1.json', 'sha256': '50e86854bcb5aeb3eb4c5c002e42c40bcf86285e869d8b99a51f95b8b73a0b7b'}
+FRESH_HEAD = 'dbcafb0070734cbccbd420a159f6305bc6f9090d'
+FRESH_OPERATOR = {'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-refusal-freeze-v1\\candidate-source-v1\\scripts\\run_record_cancellation_ui_fresh.py', 'bytes': 31655, 'sha256': '5a6b8968bb4f40b9488d16da520f6659963d90c6d74836b3f2578544bc97268e'}
+FRESH_CONTRACT = {'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-refusal-freeze-v1\\candidate-source-v1\\scripts\\record_cancellation_ui_fresh_contract.py', 'bytes': 7602, 'sha256': '15f19a69be0696816dce8f395915b78f94607a7b0323807b21b481653de576d0'}
+HANDOFF = {'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-refusal-freeze-v1\\inspection-v1\\frozen-inputs-v1.json', 'bytes': 9021, 'sha256': '23e13dc8ef2a9a7dc169dc88bb3ef013767c6e223a126f75ba8d2423c151e041'}
 FRESH_AUTHORITY=FRESH_ROOT/'human-authority-v1.json'
 FRESH_LIVE=FRESH_ROOT/'live-operation-v1'
 PROPOSAL=FRESH_ROOT/'PROPOSED_OPERATION.md'
 REGISTRY=Path('D:/Dev/_Migration/LocalLore-AVD-Storage')
-GUEST=Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-v1/avd-v1')
+GUEST = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-refusal-ui-v1/avd-v1')
 MAX_SECONDS=2400
 AUTHORITY_KEYS=frozenset(('version','scope','profile_source_head','operator','contract','proposal',
     'fresh_authority','allow_one_operation','allow_model','allow_retirement','max_operation_seconds','approval_reference'))

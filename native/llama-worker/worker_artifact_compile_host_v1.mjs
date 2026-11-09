@@ -14,6 +14,8 @@ const STOP = ['none', 'request', 'cancelled', 'deadline', 'setup', 'io', 'overfl
 const FLAG = ['exitKnown', 'jobKnown', 'member', 'resumed', 'signaled', 'killAttempted', 'killFailed',
   'ioError', 'processHandleClosed', 'handlesClosed', 'outOverflow', 'errOverflow', 'outEof', 'errEof'];
 
+const aborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted').get;
+
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const digest = value => typeof value === 'string' && value.length === 64 && !/[^0-9a-f]/.test(value) && value !== '0'.repeat(64);
 const jsonHash = value => sha(JSON.stringify(value));
@@ -158,7 +160,7 @@ export function createWorkerArtifactCompileHostV1(options) {
     requireHost(offer.version === 1 && offer.index === 0 && equal(offer.context, context) &&
       stepMatches(offer.step, step) && equal(offer.policy, POLICY));
     const signal = AbortSignal.any([offer.signal]);
-    const isAborted = () => signal.aborted;
+    const isAborted = () => aborted.call(signal);
     const alreadyAborted = isAborted();
     requireHost(!used);
     used = true;

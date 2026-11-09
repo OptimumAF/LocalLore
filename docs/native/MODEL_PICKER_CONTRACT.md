@@ -71,6 +71,12 @@ This selector covers control ownership and the app's canceled-result handling.
 The separate provider cohort covers actual DocumentsUI, URI delivery and
 descriptor release.
 
+The [host binding policy](../../benchmarks/model_picker_action_binding.py)
+pins this selector to the audited APP and TEST pair and reuses the shared
+AndroidJUnitRunner evidence parser for one complete start/pass pair. The
+policy produces command arguments and checks files and output. The owned
+runner still supplies device admission, installed identity and execution.
+
 ## Real document provider and ownership
 
 The conditional TEST APK alone declares `ModelPickerDocumentsProvider` and its

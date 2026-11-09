@@ -94,3 +94,37 @@ process qualification; this archive-profile packet does not claim it.
 Implementation, executed checks and limitations are recorded separately in the
 packet verification report and tickets. This contract alone is not emulator,
 physical-phone, model, accessibility, lifecycle or release qualification.
+
+## Android cached self profile
+
+The B62 Android consumer retains the already validated `player.self_state` in
+an immutable `PlayerSelfProfile`, together with the native observer ID. It adds
+no Host operation, actor selector, wire field, eligibility rule or persistence
+format. Actor ownership still comes from native `seed.player`; an Actor has no
+embedded ID from which Kotlin could independently infer ownership.
+
+`PlayerPresentation.playerProfile` is nonnull after strict decode. Nullable
+`SavedSnapshot.playerProfile` and `ShellState.playerProfile` distinguish unavailable
+data from known empty collections. Decoder and ViewModel publication detach all
+five collections: ability/rank rows, attribute/value rows, injuries, affiliations
+and goals. Native UTF-8 strings and numeric bounds remain unchanged. Sorting
+ability and attribute rows is display ordering, not a canonical state rewrite.
+
+The cached Player state dialog reads that accepted snapshot without another
+native request. It shows accepted revision, exact name/location/life state and
+recorded progression. Narrative rules do not use energy, ability ranks or
+attributes; the dialog labels them inapplicable rather than depleted. It applies
+no inferred costs, maxima, names, prerequisites or gameplay restrictions. Native
+actor location is distinct from workspace storageLocation.
+
+Existing attachment/session/observer/scope/head/cancellation/disposal fences
+remain. Nullable replacement clears prior data; mutable caller collections are
+detached before publication. Modal visibility is keyed by logical story/branch,
+with current-eligibility guards for retained callbacks. Inventory and profile
+modals are exclusive, close on recovery/workflows/unavailable data, and preserve
+the chat draft. Same-scope accepted refreshes update the displayed values. The
+existing Story Record Progression inspector and source-event navigation remain
+available for provenance; this cached overview does not replace them.
+
+[Executed host/build evidence and remaining UI gates](../android/PLAYER_SELF_PROFILE_2026-11-01.md)
+separate native fixtures, JVM checks, compilation and actual device execution.

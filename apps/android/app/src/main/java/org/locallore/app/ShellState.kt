@@ -22,6 +22,7 @@ data class SavedSnapshot(
     val timelines: List<SavedTimeline> = emptyList(),
     val selectionRestoreUnavailable: Boolean = false,
     val inventory: List<PlayerInventoryItem>? = null,
+    val playerProfile: PlayerSelfProfile? = null,
 )
 data class ShellState(
     val busy: Boolean = false,
@@ -48,6 +49,7 @@ data class ShellState(
     val checkingCancellation: Boolean = false,
     val creationActive: Boolean = false,
     val inventory: List<PlayerInventoryItem>? = null,
+    val playerProfile: PlayerSelfProfile? = null,
 )
 
 sealed interface DemoResult {

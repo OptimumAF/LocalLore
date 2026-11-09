@@ -17,6 +17,7 @@ from unittest.mock import patch
 from benchmarks import owned_diagnostic_ui_contract as contract
 from benchmarks import owned_target_contract as core
 from benchmarks import diagnostic_ui_profile_build as build
+from scripts.tests.frozen_apk_checker_fixtures import frozen_checker_scope
 from benchmarks import diagnostic_ui_controller as controller
 from benchmarks import owned_diagnostic_ui_owner as owner
 from benchmarks import receipt_avd_environment as env
@@ -173,7 +174,7 @@ class ControllerGraph(accepted.ControllerGraph):
 
     @contextlib.contextmanager
     def inputs(self):
-        with self.modules(), super().inputs():
+        with self.modules(), super().inputs(), frozen_checker_scope(build, self.g.base):
             yield
 
     def response(self, argv):

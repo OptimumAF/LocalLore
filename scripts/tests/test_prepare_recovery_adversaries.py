@@ -100,9 +100,9 @@ class PrepareRecoveryAdversaries(unittest.TestCase):
         self.builder = self.patch(env, "_prepare_proposal_value", side_effect=self.current_proposal)
         self.worker = self.patch(env, "prepare_contents", side_effect=self.synthetic_worker)
         self.real_locked = storage._locked
-        def isolated_locked(registry):
+        def isolated_locked(registry, *, expected_ledger=None):
             self.assertEqual(Path(registry), self.registry, "No production registry may be accessed")
-            return self.real_locked(registry)
+            return self.real_locked(registry, expected_ledger=expected_ledger)
         self.patch(storage, "_locked", side_effect=isolated_locked)
         self.patch(env.host, "run_process", side_effect=AssertionError("No SDK process"))
         self.patch(env.subprocess, "run", side_effect=AssertionError("No subprocess"))

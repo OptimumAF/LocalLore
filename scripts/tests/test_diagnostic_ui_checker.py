@@ -19,6 +19,7 @@ from unittest.mock import patch
 
 from benchmarks import archive_ui_build as files
 from benchmarks import diagnostic_ui_profile_build as adapter
+from scripts.tests.frozen_apk_checker_fixtures import frozen_checker_bytes
 
 
 EXPECTED_CHECKERS = (
@@ -32,7 +33,6 @@ EXPECTED_CHECKERS = (
 @unittest.skipUnless(os.name == 'nt', 'Physical D: checker source tests')
 class DiagnosticUiCheckerTests(unittest.TestCase):
     def setUp(self):
-        self.live_root = Path(adapter.__file__).parents[1]
         # Retained after success/failure. The bounded host owner sets TEMP on D:.
         self.root = Path(tempfile.mkdtemp(prefix='diagnostic-ui-checker-'))
         self.assertEqual('D:', self.root.drive.upper())
@@ -41,7 +41,7 @@ class DiagnosticUiCheckerTests(unittest.TestCase):
         (self.root / 'scripts').mkdir()
         self.originals = {}
         for relative, size, digest in EXPECTED_CHECKERS:
-            raw = (self.live_root / relative).read_bytes()
+            raw = frozen_checker_bytes(relative)
             self.assertEqual(size, len(raw), 'Fixture must use the frozen parent checker bytes')
             self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
             (self.root / relative).write_bytes(raw)

@@ -180,3 +180,165 @@ for (const schedule of [
 console.log(
     "PASS: early cancel/context switch wait for admission; rejection and unknown acknowledgement keep truthful original-key recovery.",
 );
+
+
+for (const scenario of [
+    "foreign-submit",
+    "foreign-prepare",
+    "coercible-recovery",
+    "nonterminal-commit",
+    "ready-listener-cancel",
+]) {
+    const session = {
+        id: "binding",
+        name: "Synthetic binding story",
+        scope: { story: "binding-story", branch: "main" },
+        revision: 0,
+    };
+    const turnCalls = [];
+    let request;
+    let saved = false;
+    let receipt;
+    let lookups = 0;
+    const status = (phase, patch = {}) => ({
+        scope: session.scope,
+        turn: request.turn,
+        expected_revision: request.expected_revision,
+        phase,
+        error: null,
+        receipt: phase === "committed" ? receipt : null,
+        ...patch,
+    });
+    const committed = () => {
+        saved = true;
+        return status("committed");
+    };
+    const gateway = {
+        async call(command) {
+            if (command.op === "open") return { revision: saved ? 1 : 0 };
+            if (command.op === "play_snapshot") {
+                const revision = saved ? 1 : 0;
+                return {
+                    scope: session.scope,
+                    revision,
+                    inventory: {},
+                    receipts: saved ? [receipt] : [],
+                    player: {
+                        scope: session.scope,
+                        revision,
+                        observer: "player",
+                        self_state: { name: "Rowan", location: "quay" },
+                        facts: {},
+                        beliefs: [],
+                        observations: [],
+                    },
+                };
+            }
+            if (command.op === "inspect" || command.op === "close") return {};
+            turnCalls.push(command.op);
+            if (command.op === "submit") {
+                assert.equal(request, undefined, "recovery keeps the first key");
+                request = command.request;
+                receipt = {
+                    request,
+                    events: [{ sequence: 1, scope: session.scope }],
+                    narration: "Synthetic committed receipt.",
+                };
+                if (scenario === "coercible-recovery")
+                    throw new Error("Transport");
+                return scenario === "foreign-submit"
+                    ? status("queued", {
+                          scope: { ...session.scope, branch: "sibling" },
+                      })
+                    : status("queued");
+            }
+            assert.equal(command.session, session.id);
+            assert.deepEqual(command.scope, session.scope);
+            assert.equal(command.turn, request.turn);
+            if (command.op === "prepare")
+                return scenario === "foreign-prepare"
+                    ? status("ready", { turn: "unrelated-turn" })
+                    : status("ready");
+            if (command.op === "commit") {
+                const accepted = committed();
+                return scenario === "nonterminal-commit"
+                    ? status("ready")
+                    : accepted;
+            }
+            if (command.op === "cancel") return status("cancelled");
+            assert.equal(command.op, "turn_status");
+            lookups++;
+            if (scenario === "foreign-submit" || saved) return committed();
+            if (scenario === "coercible-recovery" && lookups === 1)
+                return status("ready", { expected_revision: "0" });
+            return status("ready");
+        },
+    };
+    const controller = new Controller(gateway);
+    await controller.attach(session);
+    controller.setAction("wait");
+    let cancellation;
+    let requested = false;
+    const unsubscribe = controller.subscribe(() => {
+        if (
+            scenario === "ready-listener-cancel" &&
+            !requested &&
+            controller.get().turnStatus?.phase === "ready"
+        ) {
+            requested = true;
+            cancellation = controller.cancel();
+        }
+    });
+    await controller.send();
+    if (scenario === "foreign-submit") {
+        assert.deepEqual(turnCalls, ["submit"]);
+        assert.equal(controller.get().visibleError, "TransportUnknown");
+        await controller.retry();
+        assert.deepEqual(turnCalls, ["submit", "turn_status"]);
+    } else if (scenario === "foreign-prepare") {
+        assert.deepEqual(turnCalls, ["submit", "prepare"]);
+        assert.equal(controller.get().visibleError, "TransportUnknown");
+        await controller.retry();
+        assert.deepEqual(turnCalls, [
+            "submit",
+            "prepare",
+            "turn_status",
+            "commit",
+        ]);
+    } else if (scenario === "coercible-recovery") {
+        await controller.retry();
+        assert.deepEqual(turnCalls, ["submit", "turn_status"]);
+        assert.equal(controller.get().visibleError, "TransportUnknown");
+        await controller.retry();
+        assert.deepEqual(turnCalls, [
+            "submit",
+            "turn_status",
+            "turn_status",
+            "commit",
+        ]);
+    } else if (scenario === "nonterminal-commit") {
+        assert.deepEqual(turnCalls, [
+            "submit",
+            "prepare",
+            "commit",
+            "turn_status",
+        ]);
+    } else {
+        assert(cancellation, "subscriber cancels before a commit offer");
+        await cancellation;
+        assert.deepEqual(turnCalls, ["submit", "prepare", "cancel"]);
+        assert.equal(controller.get().turnStatus.phase, "cancelled");
+        assert.equal(controller.get().play.revision, 0);
+    }
+    if (scenario !== "ready-listener-cancel") {
+        assert.equal(controller.get().turnStatus.phase, "committed");
+        assert.equal(controller.get().visibleError, null);
+        assert.equal(controller.get().play.revision, 1);
+        assert.deepEqual(controller.receipt(), receipt);
+    }
+    unsubscribe();
+    await controller.dispose();
+}
+console.log(
+    "PASS: mismatched turn replies cannot advance a turn; recovery uses the original key and checks terminal acknowledgements.",
+);

@@ -6,6 +6,7 @@ from pathlib import PureWindowsPath
 import unittest
 from unittest.mock import patch
 
+from benchmarks import android_process_verification_v4 as verification
 from benchmarks import cross_owner_deletion_ui_binding as binding
 from benchmarks import cross_owner_deletion_ui_capture as capture
 from benchmarks import owned_cross_owner_deletion_ui as owned
@@ -118,6 +119,14 @@ class CrossOwnerDeletionUiProfileTests(unittest.TestCase):
         ):
             with self.subTest(argv=argv):
                 self.assert_operation_refused(argv)
+
+    def test_shared_verifier_rejects_invalid_capture_count_before_reading(self):
+        reader = verification._Verifier(owned)
+        with patch.object(reader, "_json") as read:
+            for count in (0, True, 10_001):
+                with self.subTest(count=count), self.assertRaises(core.TargetRefused):
+                    reader.require_current_clients(self.admission["root"], count, None, self.admission)
+        read.assert_not_called()
 
     def test_capture_facade_always_uses_the_fixed_contract(self):
         args = tuple(object() for _ in range(4))

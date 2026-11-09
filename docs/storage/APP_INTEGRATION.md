@@ -100,6 +100,11 @@ Draft edits belong to the mounted composer. Its callbacks lose access when
 that composer leaves the screen, including when the same story and timeline
 later return. Edits within the current composer and saved-draft restoration
 retain their existing scope.
+The isolated draft-verification APK pair binds the composer regression and its
+ten restoration controls to the exact built source. Replay the private build
+record and packaged method roster with
+`benchmarks.composer_draft_apk_binding.verify_artifacts`. This file check
+provides inputs for a separately approved Android run.
 Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.

@@ -159,6 +159,7 @@ class CrossOwnerDeletionUiReplayTests(unittest.TestCase):
 
         self.assert_row_refusals((
             (16, {"stdout": f"package:{TEST} uid:10003\n".encode()}),
+            (16, {"stdout": f"package:{APP} uid:10001\npackage:{TEST} uid:10002\n".encode()}),
             (20, {"stdout": f"package:{APP} uid:10003\npackage:{TEST} uid:10002\n".encode()}),
             (13, {"stdout": f"package:{APP} uid:10001\npackage:{TEST} uid:10001\n".encode()}),
         ))

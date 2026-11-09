@@ -47,6 +47,13 @@ It verifies the single Compose test definition in the signed TEST bytes and
 accepts only a complete result for that method. The eventual Android run needs
 a separately approved target.
 
+The [owned-guest controller](../../benchmarks/saved_library_status_controller.py)
+requires both ordinary packages to be absent before staging either APK.
+Installation uses Android's explicit no-replacement option (`-R`). The controller checks both installed UIDs,
+APK paths and hashes before and after the selected test and replays the
+captured commands and result. It takes an already owned guest. Preparation,
+boot and storage admission are separate.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

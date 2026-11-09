@@ -85,6 +85,19 @@ export type ArchiveCommand =
     | "archive_import_preview"
     | "archive_export"
     | "archive_import";
+export function archiveContextKey(
+    selected: { id: string; scope: Scope } | null | undefined,
+    view: string,
+    observer: string,
+) {
+    return JSON.stringify([
+        selected?.id,
+        selected?.scope.story,
+        selected?.scope.branch,
+        view,
+        observer,
+    ]);
+}
 // Retain identifiers only, never the private story preview or filesystem path.
 export interface ArchiveBinding {
     token: string;
@@ -122,6 +135,7 @@ export function decodeArchiveCompletion(
     status: ArchiveStatus,
     command: ArchiveCommand,
     binding?: ArchiveBinding,
+    exportBasis?: { story?: string; branch?: string; head?: number },
 ): ArchiveResult {
     if (status.running || status.error || !status.result) wire();
     const result = status.result;
@@ -130,6 +144,15 @@ export function decodeArchiveCompletion(
     if (result.token) {
         const p = decodePreview(result);
         if (!isPreview || p.kind !== kind) wire();
+        if (
+            command === "archive_export_preview" &&
+            exportBasis &&
+            (!exportBasis.branch ||
+                p.preview.story_id !== exportBasis.story ||
+                !Object.hasOwn(p.preview.branch_heads, exportBasis.branch) ||
+                p.preview.branch_heads[exportBasis.branch] !== exportBasis.head)
+        )
+            wire();
     } else if (result.status === "exported" || result.status === "imported") {
         if (isPreview || !binding || binding.kind !== kind) wire();
         if (result.status === "exported") {
@@ -270,7 +293,7 @@ export function decodeStatus(v: unknown): ArchiveStatus {
     if (object(v.result)) {
         const r = v.result;
         if (r.version !== 1) wire();
-        if (r.token !== undefined) decodePreview(r);
+        if (Object.hasOwn(r, "token")) decodePreview(r);
         else if (
             typeof r.status !== "string" ||
             !["cancelled", "exported", "imported", "failed"].includes(
@@ -278,16 +301,20 @@ export function decodeStatus(v: unknown): ArchiveStatus {
             )
         )
             wire();
+        if (r.status === "cancelled" && Object.keys(r).length !== 2) wire();
         if (
             r.status === "exported" &&
-            (typeof r.location !== "string" ||
+            (Object.keys(r).length !== 4 ||
+                typeof r.location !== "string" ||
                 r.location.length > 30000 ||
                 !hash(r.payload_sha256))
         )
             wire();
         if (
             r.status === "imported" &&
-            (!object(r.root) ||
+            (Object.keys(r).length !== 8 ||
+                !object(r.root) ||
+                Object.keys(r.root).length !== 2 ||
                 !id(r.root.story) ||
                 !id(r.root.branch) ||
                 !integer(r.branches, 32) ||
@@ -299,19 +326,15 @@ export function decodeStatus(v: unknown): ArchiveStatus {
             wire();
         if (
             r.status === "failed" &&
-            (typeof r.error !== "string" || !archiveErrors.has(r.error))
+            (Object.keys(r).length !== 4 ||
+                typeof r.error !== "string" ||
+                !archiveErrors.has(r.error) ||
+                !(
+                    typeof r.staging_cleanup_complete === "boolean" ||
+                    typeof r.cleanup_complete === "boolean"
+                ))
         )
             wire();
-        if (
-            r.status === "failed" &&
-            !(
-                typeof r.staging_cleanup_complete === "boolean" ||
-                typeof r.cleanup_complete === "boolean"
-            )
-        )
-            wire();
-        for (const key of ["staging_cleanup_complete", "cleanup_complete"])
-            if (r[key] !== undefined && typeof r[key] !== "boolean") wire();
     }
     if (v.running && (v.result !== null || v.error !== null)) wire();
     if (v.running && ["completed", "error"].includes(String(v.phase))) wire();

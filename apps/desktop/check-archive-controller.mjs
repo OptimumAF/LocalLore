@@ -14,7 +14,7 @@ const file = path.join(output, `archive-${randomUUID()}.cjs`),
     result = await build({
         stdin: {
             contents:
-                'export {ArchiveController} from "./ui/archive-controller";export {ArchivePanel} from "./ui/ArchivePanel";export {decodePreview,decodeStatus} from "./ui/archive-model";export {createElement} from "react";export {renderToStaticMarkup} from "react-dom/server";',
+                'export {ArchiveController} from "./ui/archive-controller";export {ArchivePanel} from "./ui/ArchivePanel";export {decodePreview,decodeStatus} from "./ui/archive-model";export {BrokerRetention} from "./ui/broker-retention";export {createElement} from "react";export {renderToStaticMarkup} from "react-dom/server";',
             resolveDir: root,
             loader: "tsx",
         },
@@ -29,6 +29,7 @@ const {
     ArchivePanel,
     decodePreview,
     decodeStatus,
+    BrokerRetention,
     createElement,
     renderToStaticMarkup,
 } = (await import(pathToFileURL(file).href)).default;
@@ -223,6 +224,27 @@ const running = {
     error: null,
     result: null,
 };
+for (const result of [
+    { version: 1, status: "cancelled" },
+    { version: 1, status: "failed", error: "ArchiveIo", cleanup_complete: false },
+    {
+        version: 1,
+        status: "failed",
+        error: "Integrity",
+        staging_cleanup_complete: true,
+    },
+]) {
+    assert.deepEqual(decodeStatus(complete(7, result)).result, result);
+    for (const extra of [
+        { root: { story: "foreign", branch: "main" } },
+        { location: "synthetic.locallore-story.json" },
+    ]) {
+        assert.throws(
+            () => decodeStatus(complete(7, { ...result, ...extra })),
+            /Wire/,
+        );
+    }
+}
 
 const offers = [];
 const retiredDuringDispatch = new ArchiveController(
@@ -305,6 +327,22 @@ for (const [reply, valid] of [
     assert.equal(exposed.length > 0, valid);
     assert.equal(exporting.get().preview?.token, valid ? token : undefined);
     assert.equal(exporting.get().error, valid ? null : "Wire");
+
+    const retained = new BrokerRetention(() => false);
+    await retained.start(
+        {
+            surface: "archive",
+            action: "archive_export_preview",
+            session: "session",
+            story: "synthetic",
+            branch: "child",
+            head: 2,
+        },
+        async () => complete(8, reply),
+    );
+    assert.equal(retained.get().unknown, !valid);
+    assert.equal(retained.get().terminal, valid);
+    assert.equal(retained.get().consumed, valid);
 }
 
 let statusRelease,

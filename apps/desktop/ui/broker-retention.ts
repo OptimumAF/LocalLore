@@ -421,6 +421,7 @@ export class BrokerRetention {
                             status,
                             r.identity.action as ArchiveCommand,
                             r.identity.archive,
+                            r.identity,
                         );
                 } else if (
                     incoming.error !== null &&

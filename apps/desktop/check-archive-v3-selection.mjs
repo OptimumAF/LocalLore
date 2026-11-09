@@ -25,7 +25,7 @@ const panelSha256 = createHash("sha256").update(panelSource).digest("hex");
 const built = await build({
     stdin: {
         contents:
-            'export {ArchivePanel} from "./ui/ArchivePanel";export {ArchiveController} from "./ui/archive-controller";export {createElement} from "react";export {renderToStaticMarkup} from "react-dom/server";export {created} from "selection-review-elements";',
+            'export {ArchivePanel} from "./ui/ArchivePanel";export {ArchiveController} from "./ui/archive-controller";export {archiveContextKey} from "./ui/archive-model";export {createElement} from "react";export {renderToStaticMarkup} from "react-dom/server";export {created} from "selection-review-elements";',
         resolveDir: root,
         loader: "tsx",
     },
@@ -79,6 +79,7 @@ await writeFile(bundle, built.outputFiles[0].contents);
 const {
     ArchivePanel,
     ArchiveController,
+    archiveContextKey,
     createElement,
     renderToStaticMarkup,
     created,
@@ -358,6 +359,68 @@ for (const retirement of ["selection", "lens", "dispose"]) {
         } else assert.equal(f.render().html, "");
     });
 }
+test("same session ID with a different branch retires the held preview and old controls", async () => {
+    const pending = deferred();
+    const f = fixture({ answer: () => pending.promise });
+    const before = archiveContextKey(f.session, "lab", "omniscient");
+    f.archive.contextChanged(before, true);
+    f.archive.show();
+    const oldImport = button(
+        f.render({ key: before }),
+        "Choose playable archive to review",
+    );
+    const work = f.archive.previewExport(f.session.id, scope, 7);
+    f.session.scope = { ...scope, branch: "main" };
+    const after = archiveContextKey(f.session, "lab", "omniscient");
+    assert.notEqual(before, after);
+    f.archive.contextChanged(after, true);
+    f.archive.show();
+    oldImport.onClick();
+    pending.resolve(terminal(preview()));
+    await work;
+    assert.deepEqual(
+        f.calls.map(({ name }) => name),
+        ["archive_export_preview", "archive_discard"],
+    );
+    assert.equal(f.archive.get().preview, null);
+    assert.doesNotMatch(
+        f.render({ key: after }).html,
+        /Synthetic corrected story/,
+    );
+});
+test("retained consent and confirm controls cannot authorize a replacement preview", async () => {
+    const nextToken = "22222222-2222-2222-2222-222222222222";
+    let exported = 0;
+    const f = fixture({
+        answer: (name) => {
+            assert.equal(name, "archive_export_preview");
+            return terminal(
+                ++exported === 1 ? preview() : { ...preview(), token: nextToken },
+            );
+        },
+    });
+    await f.archive.previewExport(f.session.id, scope, 7);
+    const oldCheckbox = f.render().elements.find(
+        (element) => element.type === "input" && element.props.type === "checkbox",
+    );
+    assert.ok(oldCheckbox);
+    oldCheckbox.props.onChange({ target: { checked: true } });
+    const oldConfirm = button(
+        f.render(),
+        "Choose folder and export exact snapshot",
+    );
+    assert.equal(oldConfirm.disabled, false);
+    await f.archive.previewExport(f.session.id, scope, 7);
+    assert.equal(f.archive.get().preview.token, nextToken);
+    oldCheckbox.props.onChange({ target: { checked: true } });
+    assert.equal(f.archive.get().consent, false);
+    f.archive.consent(true);
+    oldConfirm.onClick();
+    assert.equal(
+        f.calls.some(({ name }) => name === "archive_export"),
+        false,
+    );
+});
 test("V3 actual preview labels canonical records and actual second-consent handler confirms token only", async () => {
     const f = fixture({
         answer: (name) => {

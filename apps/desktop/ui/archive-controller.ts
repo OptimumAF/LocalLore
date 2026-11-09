@@ -112,24 +112,19 @@ export class ArchiveController {
                 ? "Reading one private archive snapshot..."
                 : "Explicit private transfer in progress. Native dialog cancellation uses its Cancel button.",
         });
-        const completion = (status: ArchiveStatus) => {
-            const result = decodeArchiveCompletion(
+        const completion = (status: ArchiveStatus) =>
+            decodeArchiveCompletion(
                 status,
                 command,
                 !isPreview && preview ? archiveBinding(preview) : undefined,
+                basis
+                    ? {
+                          story: basis.scope.story,
+                          branch: basis.scope.branch,
+                          head: basis.expectedRevision,
+                      }
+                    : undefined,
             );
-            if (result.token && basis) {
-                const { preview: captured } = decodePreview(result);
-                if (
-                    captured.story_id !== basis.scope.story ||
-                    !Object.hasOwn(captured.branch_heads, basis.scope.branch) ||
-                    captured.branch_heads[basis.scope.branch] !==
-                        basis.expectedRevision
-                )
-                    throw Error("Wire");
-            }
-            return result;
-        };
         const discardRetiredPreview = (status: ArchiveStatus) => {
             if (!status.result?.token) return;
             const { token } = completion(status);

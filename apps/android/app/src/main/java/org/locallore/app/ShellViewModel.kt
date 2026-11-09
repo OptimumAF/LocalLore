@@ -310,7 +310,7 @@ class ShellViewModel internal constructor(
 
     private fun publishSaved(saved: SavedSnapshot, notice: String): ShellState {
         val next = mutable.value.copy(
-            busy = false, preparingResponse = false, revision = saved.revision, potionOwner = saved.potionOwner,
+            busy = false, preparingResponse = false, responseOwner = null, revision = saved.revision, potionOwner = saved.potionOwner,
             messages = saved.messages, persistent = true, storageLocation = saved.location,
             schemaVersion = saved.schemaVersion, stories = saved.stories, selectedStory = saved.selected,
             uncommittedDrafts = saved.uncommittedDrafts,
@@ -332,7 +332,7 @@ class ShellViewModel internal constructor(
         invalidateForkContext()
         recordController.dismiss()
         val ticket = ++generation
-        mutable.value = mutable.value.copy(busy = true, preparingResponse = false,
+        mutable.value = mutable.value.copy(busy = true, preparingResponse = false, responseOwner = null,
             checkingCancellation = checkingCancellation, notice = null)
         pending = viewModelScope.launch {
             try {
@@ -345,7 +345,7 @@ class ShellViewModel internal constructor(
                         "Saved progress could not be confirmed. Retry recovery; existing saves are retained."),
                 )
             } finally {
-                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false, checkingCancellation = false)
+                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false, checkingCancellation = false, responseOwner = null)
             }
         }
     }
@@ -494,7 +494,7 @@ class ShellViewModel internal constructor(
         recordController.dismiss()
         val before = mutable.value
         val ticket = ++generation
-        mutable.value = before.copy(busy = true, preparingResponse = true, notice = null)
+        mutable.value = before.copy(busy = true, preparingResponse = true, responseOwner = Any(), notice = null)
         pending = viewModelScope.launch {
             var committing = false
             var start = System.nanoTime()
@@ -546,9 +546,18 @@ class ShellViewModel internal constructor(
                         else "Unable to confirm the outcome. Reset this in-memory demo to continue.",
                 ) else before.copy(notice = "Response failed. Nothing changed; try again.")
             } finally {
-                if (ticket == generation) mutable.value = mutable.value.copy(busy = false, preparingResponse = false)
+                if (ticket == generation) mutable.value = mutable.value.copy(busy = false, preparingResponse = false, responseOwner = null)
             }
         }
+    }
+
+    /** Retained chat controls cannot cancel another response or a non-chat workflow. */
+    fun cancel(rendered: ShellState) {
+        val current = mutable.value
+        if (disposed || current !== rendered || current.responseOwner == null ||
+            !current.busy || !current.preparingResponse || workflowBlocksActions() ||
+            current.archiveActive || current.deletionActive || current.recoveryRequired) return
+        cancel()
     }
 
     fun cancel() {
@@ -581,7 +590,7 @@ class ShellViewModel internal constructor(
             }
             return
         }
-        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, notice = "Response cancelled. Nothing changed.")
+        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, responseOwner = null, notice = "Response cancelled. Nothing changed.")
         diagnosticLog.record(DiagnosticPhase.CANCEL, DiagnosticOutcome.COMPLETED, elapsedMillis(start))
     }
 
@@ -650,7 +659,7 @@ class ShellViewModel internal constructor(
         gateway.close()
         pending?.cancel()
         pending = null
-        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, forkActive = false, checkingCancellation = false, creationActive = false)
+        mutable.value = mutable.value.copy(busy = false, preparingResponse = false, responseOwner = null, forkActive = false, checkingCancellation = false, creationActive = false)
         super.onCleared()
     }
 }

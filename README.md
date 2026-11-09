@@ -79,6 +79,12 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [chat cancellation fix](docs/android/CHAT_CANCEL_SCOPE_2026-11-01.md)
+binds Cancel to its displayed response while preserving acknowledgement and
+commit-wins reconciliation. Ten independent regressions pass after six reproduced
+failures; the full offline Android gate passes 538 JVM checks and APK audits.
+Two Compose journeys compile but remain unrun on Android.
+
 The [new-story dismissal fix](docs/android/CREATION_DISMISS_SCOPE_2026-11-01.md)
 binds Close to its displayed review and preserves joined cancellation. Nine
 independent JVM regressions pass after six reproduced failures; the full offline

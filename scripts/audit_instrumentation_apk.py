@@ -20,9 +20,13 @@ AuditError = base.AuditError
 require = base.require
 
 
-def audit_manifests(app_badging, app_tree, test_badging, test_tree, *, archive_verification=False):
+def audit_manifests(app_badging, app_tree, test_badging, test_tree, *, archive_verification=False,
+                    presentation_process_verification=False):
     require(type(archive_verification) is bool, "Invalid archive verification selection")
-    app = "org.locallore.app.archiveverify" if archive_verification else "org.locallore.app"
+    require(type(presentation_process_verification) is bool and not (archive_verification and presentation_process_verification),
+            "Invalid presentation verification selection")
+    app = ("org.locallore.app.presentationprocessverify" if presentation_process_verification else
+           "org.locallore.app.archiveverify" if archive_verification else "org.locallore.app")
     test = app + ".test"
     app_badging, app_tree, test_badging, test_tree = (
         base.aapt_text(value) for value in (app_badging, app_tree, test_badging, test_tree))
@@ -44,8 +48,10 @@ def audit_manifests(app_badging, app_tree, test_badging, test_tree, *, archive_v
     return {"package": app, "test_package": test, "test_permissions": permissions}
 
 
-def audit_pair(app, test, *, archive_verification=False):
+def audit_pair(app, test, *, archive_verification=False, presentation_process_verification=False):
     require(type(archive_verification) is bool, "Invalid archive verification selection")
+    require(type(presentation_process_verification) is bool and not (archive_verification and presentation_process_verification),
+            "Invalid presentation verification selection")
     app, test = Path(app), Path(test)
     require(app.resolve() != test.resolve() and app.is_file() and test.is_file(), "Invalid APK pair")
     app_before, test_before = physical.apk_identity(app), physical.apk_identity(test)
@@ -58,7 +64,8 @@ def audit_pair(app, test, *, archive_verification=False):
     app_tree = physical.tool([aapt, "dump", "xmltree", app, "--file", "AndroidManifest.xml"])
     test_tree = physical.tool([aapt, "dump", "xmltree", test, "--file", "AndroidManifest.xml"])
     manifests = audit_manifests(app_badging, app_tree, test_badging, test_tree,
-                               archive_verification=archive_verification)
+                               archive_verification=archive_verification,
+                               presentation_process_verification=presentation_process_verification)
     signer = physical.certificate(app, aapt, java=java)
     require(physical.certificate(test, aapt, java=java) == signer, "APK signing identities differ")
     require(physical.apk_identity(app) == app_before and physical.apk_identity(test) == test_before,
@@ -73,9 +80,12 @@ def main(argv=None):
     parser.add_argument("test", type=Path)
     parser.add_argument("--archive-verification", action="store_true",
                         help="Audit only the isolated archive verification app/test pair")
+    parser.add_argument("--presentation-process-verification", action="store_true",
+                        help="Audit only the isolated v3 presentation process app/test pair")
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(audit_pair(args.app, args.test, archive_verification=args.archive_verification), sort_keys=True))
+        print(json.dumps(audit_pair(args.app, args.test, archive_verification=args.archive_verification,
+                                   presentation_process_verification=args.presentation_process_verification), sort_keys=True))
         return 0
     except AuditError as error:
         print(json.dumps({"status": "failed", "error": str(error)[:256]}))

@@ -229,7 +229,8 @@ def one(header, name, expected):
 
 def audit_test_manifest(test_badging, test_tree, app):
     """Shared closed test-APK boundary; no package discovery or tool execution."""
-    require(type(app) is str and app in ("org.locallore.app", "org.locallore.app.archiveverify", APP),
+    require(type(app) is str and app in ("org.locallore.app", "org.locallore.app.archiveverify", APP,
+                                       "org.locallore.app.presentationprocessverify"),
             "Unreviewed instrumentation app package")
     test_package = app + ".test"
     test_badging, test_tree = (base.aapt_text(value) for value in (test_badging, test_tree))

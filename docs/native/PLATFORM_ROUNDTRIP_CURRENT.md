@@ -65,10 +65,8 @@ python -B -m unittest discover -s scripts/tests -p test_owned_archive_roundtrip_
 
 These host checks exercise admission, command policy, one-shot claim and
 live/replay wiring with synthetic inputs. The worker entry requires the
-shared parent barrier. The operator launcher and return phase are still
-pending, including ordered package identity checks, verified Windows
-continuation, the single return write, final Rust replay and separately
-approved guest admission.
+shared parent barrier. The operator launcher and separately approved guest
+admission remain pending.
 
 ## Check the ordered outbound transfer evidence
 
@@ -143,5 +141,27 @@ python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_return
 ```
 
 Host tests exercise the 18-command return sequence using synthetic records.
-The final Windows Rust replay and separately approved guest admission are
-still required for end-to-end acceptance.
+End-to-end acceptance requires the final Windows replay on a real admitted
+guest's returned archive.
+
+## Check the final Windows archive replay
+
+The final step replays the complete Android return evidence and binds its
+session, bridge receipt, write claim and exact command records. It writes
+only the verified final archive into a fresh input directory. Before the
+one-shot child, it bounds and reads back the complete request. The retained
+Rust executable runs with the owned-stdin barrier and fixed `check-final`
+arguments, a 120-second deadline and 4 KiB combined capture. The create-only
+receipt requires known process closure, the exact terminal and the two
+expected output files. Closed verification checks the receipt without
+running a child.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_final.py
+```
+
+The actual Windows smoke checked the independently continued synthetic final
+archive retained by the earlier Rust test. Its Android return evidence was
+simulated. The typed exchange entry now calls the four transfer legs over an
+already-admitted SDK25 lease. The operator admission and stop/ledger
+closure remain separate from this exchange.

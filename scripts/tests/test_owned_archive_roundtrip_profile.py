@@ -52,7 +52,7 @@ class ArchiveProfileTests(unittest.TestCase):
         self.assertFalse(contract.PROFILE.profile.MODEL_MATERIAL)
         self.assertEqual(contract.CLIENT_VERSION, 25)
         self.assertEqual(contract.RUN_SCOPE, "owned-emulator-archive-roundtrip-v1")
-        self.assertEqual(contract.CLAIM_KINDS, ("archive_outbound",))
+        self.assertEqual(contract.CLAIM_KINDS, ("archive_outbound", "archive_return_write", "archive_return"))
         self.assertEqual(contract.ARTIFACT_KEYS, build.ARTIFACT_KEYS)
 
     def test_old_or_retagged_profile_and_altered_inputs_refuse(self):
@@ -94,7 +94,7 @@ class ArchiveProfileTests(unittest.TestCase):
         self.assertEqual(contract.instrumentation_kind(argv), "archive_outbound")
         self.check(argv)
         self.refuse(argv, self.value["artifacts"]["build"])
-        for index, change in ((6, "other.Test#run"), (9, "return"),
+        for index, change in ((6, "other.Test#run"), (9, "invalid"),
                               (12, "transfer-" + "f" * 32), (12, "../escape"), (13, "foreign/runner")):
             bad = list(argv)
             bad[index] = change
@@ -137,7 +137,7 @@ class ArchiveProfileTests(unittest.TestCase):
             self.check(argv)
             self.refuse(argv, self.value["artifacts"]["build"])
             self.refuse(argv[:-1] + [script + "; cat files/story"])
-        for leaf in ("android-return.json", "android-final.json", "../files/story", "", None):
+        for leaf in ("android-other.json", "../files/story", "", None):
             with self.assertRaises(contract.TargetRefused):
                 contract.read_argv(self.value, leaf)
 

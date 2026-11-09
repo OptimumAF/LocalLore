@@ -1,6 +1,7 @@
 import { initialTrace, checkedTrace, attemptKey } from "./trace-model";
 import type {
     TraceQuery,
+    TraceReply,
     TraceNarrationValidationEligibility,
 } from "./trace-model";
 import { checkedNarrationValidationDataV1 } from "./narration-diagnostic-model";
@@ -125,6 +126,7 @@ export class Controller {
     private inspectionEpoch = 0;
     private queryEpoch = 0;
     private traceEpoch = 0;
+    private traceBinding: { key: string; reply: TraceReply } | null = null;
     private traceControlPending = false;
     private traceNarrationEpoch = 0;
     private traceGameplayFence: TraceGameplayFence | null = null;
@@ -991,6 +993,7 @@ export class Controller {
         this.patch({ trace: { ...this.state.trace, ...value } });
     }
     private clearTrace(reset = false) {
+        this.traceBinding = null;
         this.traceEpoch++;
         this.traceNarrationEpoch++;
         this.tracePatch({
@@ -1006,7 +1009,13 @@ export class Controller {
     private traceContext(): TraceQuery | null {
         const session = this.selected(),
             play = this.state.play ?? this.state.playV2;
-        if (!session || !play || this.state.disposed) return null;
+        if (
+            !session ||
+            !play ||
+            this.state.disposed ||
+            !sameScope(session.scope, play.scope)
+        )
+            return null;
         const lens =
             this.state.view === "play" ? "player" : this.state.observer;
         return {
@@ -1032,6 +1041,26 @@ export class Controller {
             current !== null &&
             structural(current) === structural(query)
         );
+    }
+    private currentTraceReplyKey() {
+        const query = this.traceContext(),
+            play = this.state.play ?? this.state.playV2;
+        return this.state.trace.shown && query && play
+            ? structural({
+                  query,
+                  player: play.player.observer,
+                  view: this.state.view,
+              })
+            : null;
+    }
+    traceReply(state: State = this.state) {
+        const binding = this.traceBinding;
+        return state === this.state &&
+            binding &&
+            binding.reply === state.trace.reply &&
+            binding.key === this.currentTraceReplyKey()
+            ? binding.reply
+            : null;
     }
     async showTrace(shown = true) {
         this.clearTrace();
@@ -1059,7 +1088,11 @@ export class Controller {
         if (!query || !this.state.trace.shown) return;
         const sequence = ++this.traceEpoch,
             selected = this.state.trace.selected,
-            player = (this.state.play ?? this.state.playV2)!.player.observer;
+            player = (this.state.play ?? this.state.playV2)!.player.observer,
+            key = structural({ query, player, view: this.state.view });
+        const current = () =>
+            sequence === this.traceEpoch && key === this.currentTraceReplyKey();
+        this.traceBinding = null;
         this.traceNarrationEpoch++;
         this.tracePatch({
             narrationValidation: this.emptyTraceNarrationValidation(),
@@ -1069,14 +1102,15 @@ export class Controller {
             error: null,
             notice: "",
         });
+        if (!current()) return;
         try {
             const value = checkedTrace(
                 checkedJsonV2(await this.gateway.call(query), 65_536),
                 query,
                 player,
             );
-            if (sequence !== this.traceEpoch || !this.sameTraceContext(query))
-                return;
+            if (!current()) return;
+            this.traceBinding = { key, reply: value };
             const attempts = value.snapshot.attempts;
             this.tracePatch({
                 busy: false,
@@ -1089,7 +1123,7 @@ export class Controller {
                       : null,
             });
         } catch (error) {
-            if (sequence === this.traceEpoch && this.sameTraceContext(query))
+            if (current())
                 this.tracePatch({ busy: false, error: category(error) });
         }
     }
@@ -1146,7 +1180,7 @@ export class Controller {
     }
     selectTrace(selected: string) {
         if (
-            this.state.trace.reply?.snapshot.attempts.some(
+            this.traceReply()?.snapshot.attempts.some(
                 (a) => attemptKey(a) === selected,
             )
         ) {
@@ -1254,6 +1288,7 @@ export class Controller {
             return denied("busy");
         if (!t.reply || t.reply.snapshot.status === "disabled")
             return denied("trace_unavailable");
+        if (!this.traceReply()) return denied("context_changed");
         const query = this.traceContext();
         if (!query) return denied("source_unavailable");
         // Recheck the retained metadata's complete tuple; external transport
@@ -1368,7 +1403,7 @@ export class Controller {
     }
     traceAttempt() {
         return (
-            this.state.trace.reply?.snapshot.attempts.find(
+            this.traceReply()?.snapshot.attempts.find(
                 (a) => attemptKey(a) === this.state.trace.selected,
             ) ?? null
         );
@@ -2404,7 +2439,16 @@ export class Controller {
         return {
             version: s.playV2 ? 2 : 1,
             query: s.query,
-            trace: s.trace,
+            trace:
+                s.trace.reply && !this.traceReply(s)
+                    ? {
+                          ...s.trace,
+                          reply: null,
+                          selected: null,
+                          narrationValidation:
+                              this.emptyTraceNarrationValidation(),
+                      }
+                    : s.trace,
             model: s.model,
             playMode: s.playMode,
             inputKind: s.inputKind,

@@ -61,6 +61,13 @@ def at(pin, path, cap=RECORD_CAP):
     return env.decode_json(files._bound(pin, cap=cap))
 
 
+def save(path, value):
+    env.create_json(path, value)
+    pin, actual = read(path)
+    _need(_same(actual, value), "publication")
+    return pin
+
+
 def ledger_entry(root):
     _need(Path(root) == GUEST, "ledger")
     pin, ledger = read(LEDGER, STORAGE_CAP)

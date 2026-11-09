@@ -39,13 +39,16 @@ are part of the packet.
    It runs A01–A12 and emits one exact summary on success. This exercises
    profile and READY validation only. It does not invoke the entry runner.
 
-The parent requires direct process exit zero, known stdin/process handle
-closure, both output EOFs and closed handles, no timeout/overflow/kill/I/O
-uncertainty, exact ordered stdout and empty stderr. Run allowance is
+The parent requires direct process exit zero, known stdin closure and managed process disposal,
+both output EOFs and closed managed streams, no timeout/overflow/kill/I/O
+uncertainty or expired drain, exact ordered stdout and empty stderr. Run allowance is
 30 seconds plus at most five seconds of bounded direct closure observation.
 Capture at most 4,096 raw bytes per stream with a one-byte overflow probe.
-Retain raw prefixes and STOP on refusal, including any earlier passing
-groups. No Base64 mirror is retained. No automatic retry. A pass means
+Attempt both raw prefixes and the process record independently before
+strict postflight, including on refusal. Retain STOP when the namespace
+and actual cap are still demonstrable. If the prior top-level roster
+changes, the previous decoded charge is no longer established and even
+raw writes must stop. Preserve earlier on-disk records. No Base64 mirror is retained. No automatic retry. A pass means
 37 code groups only. This packet cannot qualify native Job, filesystem,
 loader, worker, compiler, app or desktop behavior.
 
@@ -78,7 +81,7 @@ hashes are below.
 | Packet source | Bytes | SHA-256 |
 | --- | ---: | --- |
 | `worker_artifact_compile_stack_v1_code_first.mjs` | 2,680 | `e7ca4f7bebff4fd455e6b4b6d4dd32def518b20e73769adb992517c72a40347f` |
-| `worker_artifact_compile_stack_v1_code_supervisor.ps1` | 18,849 | `3438a2745cd14ecc90d20ed6704bbf244894326b735be8945b3d0ac8d7e35bef` |
+| `worker_artifact_compile_stack_v1_code_supervisor.ps1` | 19,934 | `efae5563fc4632d6ec5be595381eb3143584c243b8d0d1a4661f492064cd94a3` |
 
 Retain the four preparation files under the fixed prefix
 `b2-worker-artifact-compile-stack-v1-code-`, using the suffixes
@@ -91,7 +94,8 @@ collector and supervisor hashes, testRevision, release (exact reviewed PR
 head), independent true and retained true. A locally written envelope is
 not authority without the actual approval and retained-source review.
 Invoke the exact retained supervisor once, with no arguments, from the
-physical D: source checkout. It verifies scope, exact source bytes, current
+physical D: source checkout. The supervisor pins the full normalized
+evidence root by SHA-256 and refuses any relocated copy. It verifies scope, exact source bytes, current
 envelopes and roster and writes its own START before offering the child.
 
 Installed Node image SHA-256 is

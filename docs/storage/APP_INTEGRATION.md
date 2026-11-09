@@ -56,6 +56,14 @@ Closing a session preserves its story. Android exposes separately previewed,
 explicitly confirmed whole-story deletion and nonroot timeline retirement; see
 the [retention contract](../native/PARENT_RETENTION_CONTRACT.md).
 
+Android binds each Resume reply to the selected story and timeline before
+attaching its session. Navigation retains its ownership across release and
+resume, so a delayed Close or Resume cannot replace a newer attachment. Open
+refresh checks the active session, exact scope and integer revision before
+reading player history. The latest read publishes its head, observer and
+provider together with the matching native presentation and timeline catalog.
+The native head can advance beyond the earlier catalog row.
+
 `Host::with_persistence` accepts a trusted storage port; wire requests cannot
 choose file paths, issue SQL or install providers. Submitted requests and
 committed receipts use the existing atomic/idempotent store operations.

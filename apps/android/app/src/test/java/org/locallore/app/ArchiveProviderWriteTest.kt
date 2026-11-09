@@ -14,6 +14,7 @@ import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
@@ -132,6 +133,10 @@ class ArchiveProviderWriteTest {
             withTimeout(5_000) { queued.join() }
             assertTrue(queued.isCancelled)
             assertEquals(0, queuedCalls.get())
+            val imported = withTimeout(5_000) {
+                readArchiveFromProvider({ ByteArrayInputStream(byteArrayOf(6)) }, {})
+            }
+            assertArrayEquals(byteArrayOf(6), imported)
         } finally {
             release.countDown()
         }

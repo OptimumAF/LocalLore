@@ -29,10 +29,20 @@ class CancelDiagnosticsShellTest {
     private val saved = SavedSnapshot(0, "You", emptyList(), "/synthetic/local", 1, listOf(story), story)
     private inner class Gateway : DemoGateway {
         override val durable = true
-        val acknowledgement = CompletableDeferred<SavedSnapshot>()
+        val acknowledgement = CompletableDeferred<SavedSnapshot?>()
+        var responses = 0
+        var recoveries = 0
+        var recoverySnapshot = saved
         override suspend fun initialize() = saved
-        override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult = awaitCancellation()
+        override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult {
+            responses++
+            awaitCancellation()
+        }
         override suspend fun cancelSaved() = acknowledgement.await()
+        override suspend fun recoverSaved(): SavedSnapshot {
+            recoveries++
+            return recoverySnapshot
+        }
     }
     private fun start(gateway: Gateway, log: DiagnosticLog): ShellViewModel =
         ShellViewModel(gateway, log).also { store.put("model", it) }
@@ -64,6 +74,50 @@ class CancelDiagnosticsShellTest {
         assertTrue(diagnostic.contains("\"error\":\"TRANSPORT\""))
         assertFalse(diagnostic.contains("PRIVATE"))
         assertFalse(model.state.value.notice!!.contains("PRIVATE"))
+    }
+
+    @Test fun missingAcknowledgementRequiresRecoveryBeforeAnotherSend() = runTest(dispatcher) {
+        val gateway = Gateway()
+        val log = DiagnosticLog()
+        val model = start(gateway, log)
+        runCurrent()
+        val before = model.state.value
+        model.submit(DemoAction.GIVE_POTION)
+        runCurrent()
+        model.cancel()
+        runCurrent()
+        assertTrue(model.state.value.checkingCancellation)
+        gateway.acknowledgement.complete(null)
+        advanceUntilIdle()
+
+        val uncertain = model.state.value
+        assertTrue(uncertain.recoveryRequired)
+        assertEquals(before, uncertain.copy(notice = before.notice, recoveryRequired = before.recoveryRequired))
+        assertTrue(uncertain.notice.orEmpty().contains("Retry recovery"))
+        val diagnostic = log.snapshot().json
+        assertTrue(diagnostic.contains("\"phase\":\"CANCEL\",\"outcome\":\"UNKNOWN\""))
+        assertFalse(diagnostic.contains("\"phase\":\"CANCEL\",\"outcome\":\"COMPLETED\""))
+        model.submit(DemoAction.GIVE_POTION)
+        advanceUntilIdle()
+        assertEquals(1, gateway.responses)
+        assertEquals(0, gateway.recoveries)
+
+        val selected = story.copy(revision = 1)
+        val messages = listOf(SceneMessage(1, "Recorded before cancellation", false))
+        gateway.recoverySnapshot = saved.copy(
+            revision = selected.revision,
+            messages = messages,
+            stories = listOf(selected),
+            selected = selected,
+        )
+        model.recover()
+        advanceUntilIdle()
+        assertFalse(model.state.value.recoveryRequired)
+        assertEquals(selected.revision, model.state.value.revision)
+        assertEquals(selected, model.state.value.selectedStory)
+        assertEquals(messages, model.state.value.messages)
+        assertEquals(1, gateway.responses)
+        assertEquals(1, gateway.recoveries)
     }
 
     @Test fun disposalWhileAcknowledgementIsPendingCannotReportCompletion() = runTest(dispatcher) {

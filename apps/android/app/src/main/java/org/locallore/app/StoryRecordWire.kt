@@ -101,6 +101,7 @@ internal object StoryRecordWire {
             }
             "knowledge" -> {
                 require(query.section == StoryRecordSection.KNOWLEDGE)
+                require(query.knowledgeFilter.origin == null || origin == query.knowledgeFilter.origin)
                 require(origin in setOf(StoryRecordOrigin.RECORDED_STATEMENT,
                     StoryRecordOrigin.SUBJECTIVE_BELIEF, StoryRecordOrigin.RECORDED_DISCOVERY) ||
                     (query.version == 1 && origin == StoryRecordOrigin.CANONICAL_TRUTH) ||
@@ -183,9 +184,12 @@ internal object StoryRecordWire {
 
     private fun nativeSearch(query: StoryRecordQuery) = query.promiseFilter.status?.let {
         "\"status\":\"${it.wire}\""
-    } ?: query.search
+    } ?: query.knowledgeFilter.origin?.let { "\"origin\":\"${it.wire}\"" } ?: query.search
 
     private fun validVersion(query: StoryRecordQuery): Boolean {
+        if (query.knowledgeFilter != StoryRecordKnowledgeFilter.ALL &&
+            (query.version != 2 || query.section != StoryRecordSection.KNOWLEDGE || query.search.isNotEmpty() ||
+                query.promiseFilter != StoryRecordPromiseFilter.ALL || query.relationshipTarget != null)) return false
         if (query.relationshipTarget != null &&
             (query.version != 2 || query.section != StoryRecordSection.RELATIONSHIPS ||
                 query.search.isNotEmpty() || query.promiseFilter != StoryRecordPromiseFilter.ALL ||

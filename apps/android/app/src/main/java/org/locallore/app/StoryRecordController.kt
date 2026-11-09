@@ -44,6 +44,13 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         if (!disposed && current.visible && !current.loading && current.section == StoryRecordSection.PROMISES)
             load(StoryRecordQuery(context, current.section, promiseFilter = filter))
     }
+    fun knowledgeFilter(filter: StoryRecordKnowledgeFilter) {
+        val current = mutable.value
+        val context = current.context ?: return
+        if (!disposed && current.visible && !current.loading && current.eventDetail == null &&
+            current.section == StoryRecordSection.KNOWLEDGE)
+            load(StoryRecordQuery(context, current.section, knowledgeFilter = filter))
+    }
     fun focusRelationship(entry: StoryRecordEntry) {
         val current = mutable.value
         val context = current.context ?: return
@@ -65,19 +72,22 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         val context = current.context ?: return
         if (!disposed && !current.loading && current.nextCursor != null)
             load(StoryRecordQuery(context, current.section, current.search, current.nextCursor,
-                promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget))
+                promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget,
+                knowledgeFilter = current.knowledgeFilter))
     }
     fun first() {
         val current = mutable.value
         val context = current.context ?: return
         if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search,
-            promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget))
+            promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget,
+            knowledgeFilter = current.knowledgeFilter))
     }
     fun retry() {
         val current = mutable.value
         val context = current.context ?: return
         if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search, current.cursor,
-            promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget))
+            promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget,
+            knowledgeFilter = current.knowledgeFilter))
     }
     fun openEvent(sequence: Long) {
         val current = mutable.value
@@ -149,7 +159,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         pending?.cancel()
         publish(StoryRecordState(visible = true, loading = true, context = query.context,
             section = query.section, search = query.search, cursor = query.cursor, promiseFilter = query.promiseFilter,
-            relationshipTarget = query.relationshipTarget))
+            relationshipTarget = query.relationshipTarget, knowledgeFilter = query.knowledgeFilter))
         if (!validStoryRecordSearch(query.search)) {
             publish(mutable.value.copy(loading = false, problem = StoryRecordProblem.BAD_SEARCH))
             return
@@ -191,6 +201,7 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         eventSources = entry.eventSources.toList(), scopedEventSources = entry.scopedEventSources.toList())
 
     private fun validateEntry(entry: StoryRecordEntry, query: StoryRecordQuery, time: Long) {
+        query.knowledgeFilter.origin?.let { check(query.section == StoryRecordSection.KNOWLEDGE && entry.origin == it) }
         if (entry.relationshipTarget != null) check(query.section == StoryRecordSection.RELATIONSHIPS &&
             entry.origin == StoryRecordOrigin.CANONICAL_FIELD && validStoryRecordTurn(entry.relationshipTarget.id))
         if (query.relationshipTarget != null) check(entry.relationshipTarget == query.relationshipTarget)

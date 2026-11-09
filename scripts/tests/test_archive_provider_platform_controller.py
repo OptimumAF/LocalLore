@@ -221,6 +221,35 @@ class ArchiveProviderReplayTests(unittest.TestCase):
         with self.assertRaises(REFUSALS):
             self.replay()
 
+    def test_public_verifier_requires_the_observed_caller_and_known_closure(self):
+        admission_pin = self.pin(self.output.parent / "admission-v1.json")
+        running_pin = self.pin(self.output.parent / "running-v1.json")
+        result_pin = self.pin(self.output / controller.RESULT_FILE)
+        caller = {"pid": 7123, "creation_filetime": 107123, "executable": "C:/Synthetic/python.exe"}
+        journey = expected_journey(self.admission["artifacts"])
+        result = dict(version=1, scope=controller.SCOPE, admission=admission_pin, running=running_pin,
+                      session=self.session_pin, caller=caller, client_count=len(self.trace),
+                      clients=self.trace, journey=journey, outcome="completed", reason=None,
+                      observer_handles_closed=True, feature_acceptance=False, elapsed_ms=5000)
+        session = dict(admission=admission_pin, running=running_pin, caller=caller, seconds=controller.SECONDS)
+        with (patch.object(controller, "_admission", return_value=self.admission),
+              patch.object(owned, "revalidate_inputs"),
+              patch.object(binding, "verify_artifacts"),
+              patch.object(owned.REPLAY, "_at", return_value=result),
+              patch.object(owned.REPLAY, "_pin", return_value=self.session_pin),
+              patch.object(owned.REPLAY, "_json", return_value=session),
+              patch.object(owned, "validate_session", return_value=session),
+              patch.object(controller, "_replay", return_value=journey) as replay):
+            verify = controller.verify_controller_result
+            self.assertEqual(verify(result_pin, admission_pin, running_pin, caller), result)
+            with self.assertRaises(REFUSALS):
+                verify(result_pin, admission_pin, running_pin, dict(caller, pid=7124))
+            result["observer_handles_closed"] = False
+            with self.assertRaises(REFUSALS):
+                verify(result_pin, admission_pin, running_pin, caller)
+        replay.assert_called_once_with(self.output, len(self.trace), self.trace,
+                                       self.session_pin, self.admission)
+
 
 class ArchiveProviderControllerOwnershipTests(unittest.TestCase):
     def test_failed_journey_closes_both_handles_and_retains_refusal_once(self):

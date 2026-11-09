@@ -456,6 +456,23 @@ export async function runWorkerArtifactCompileObservationSelfchecksV1(api) {
     malformed.readerHook = proof => ({ ...proof, candidate: 'B' });
     outcome(malformed, await malformed.entry.run(), { ...writerSeen(malformed), code: 'OBJECT', objectUnknown: true });
     assert(!malformed.trace.includes('lease:close'));
+
+    const asRefusal = (proof, code) => ({ ...proof, ok: false, code, file: null, metadata: null });
+    for (const [invalidObject, edit] of [
+      [false, proof => asRefusal(proof, 'CLOSE')],
+      [true, proof => ({ ...proof, io: { ...proof.io, verifiedScans: 1 } })],
+      [false, proof => asRefusal(proof, 'REQUEST')],
+      [false, proof => ({ ...asRefusal(proof, 'IDENTITY'),
+        io: { ...proof.io, opened: 0, closed: 0, verifiedScans: 0 } })]
+    ]) {
+      const contradiction = fixture(create);
+      contradiction.invalidObject = invalidObject;
+      contradiction.readerHook = edit;
+      outcome(contradiction, await contradiction.entry.run(),
+        { ...writerSeen(contradiction), code: 'OBJECT', objectUnknown: true });
+      assert(!contradiction.trace.includes('lease:close'));
+      assert(!contradiction.trace.includes('check:after'));
+    }
   });
 
   add('C08', async () => {
@@ -588,6 +605,38 @@ export async function runWorkerArtifactCompileObservationSelfchecksV1(api) {
     assert.equal(closure.trace.filter(value => value === 'lease:close').length, 1);
     await used(closure);
     assert.equal(closure.journals.length, 2);
+
+    for (const edit of [
+      view => {
+        view.observedBytes = '0';
+        view.rechecks = 0;
+        view.roots = view.roots.map(root => ({ ...root, creation: 'unattempted', identity: null,
+          marker: 'unattempted', markerClosure: 'none', directoryClosure: 'none', complete: false, files: [] }));
+      },
+      view => { view.roots[1].identity = '11:92'; },
+      view => { view.rechecks = 0; }
+    ]) {
+      const contradiction = fixture(create);
+      contradiction.closeHook = view => {
+        const changed = clone(view);
+        edit(changed);
+        return changed;
+      };
+      const result = await contradiction.entry.run();
+      outcome(contradiction, result, { ...objectSeen(contradiction), code: 'CLOSURE',
+        checks: contradiction.issued });
+      assert.equal(contradiction.trace.filter(value => value === 'lease:close').length, 1);
+    }
+
+    const malformed = fixture(create);
+    malformed.rosterHook = view => {
+      const changed = clone(view);
+      delete changed.observedBytes;
+      return changed;
+    };
+    outcome(malformed, await malformed.entry.run(), { ...writerSeen(malformed), code: 'ROSTER' });
+    assert.equal(malformed.trace.filter(value => value === 'lease:close').length, 1);
+    assert(!malformed.trace.includes('reader'));
   });
 
   eq(cases.map(([id]) => id), Array.from({ length: 11 }, (_, index) => 'C' + String(index + 1).padStart(2, '0')));

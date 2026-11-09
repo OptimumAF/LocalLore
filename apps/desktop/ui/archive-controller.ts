@@ -6,6 +6,7 @@ import {
     decodeStatus,
 } from "./archive-model";
 import type {
+    ArchiveCommand,
     ArchiveResult,
     ArchiveStatus,
     PreviewToken,
@@ -15,6 +16,7 @@ type Invoke = (
     name: string,
     args?: Record<string, unknown>,
 ) => Promise<unknown>;
+type ExportBasis = { session: string; scope: Scope; expectedRevision: number };
 export class ArchiveController {
     private state = {
         shown: false,
@@ -48,11 +50,15 @@ export class ArchiveController {
         this.state = { ...this.state, ...v };
         for (const f of this.listeners) f();
     }
+    private discard(token: string) {
+        void this.invoke("archive_discard", { token }).catch(() => {});
+    }
     private invalidate() {
         const preview = this.state.preview,
             operation = this.state.status;
         this.epoch++;
         this.patch({
+            shown: false,
             busy: false,
             preview: null,
             status: null,
@@ -61,10 +67,7 @@ export class ArchiveController {
             error: null,
             notice: "",
         });
-        if (preview)
-            void this.invoke("archive_discard", { token: preview.token }).catch(
-                () => {},
-            );
+        if (preview) this.discard(preview.token);
         if (operation?.running)
             void this.invoke("archive_cancel", {
                 operationId: operation.operation_id,
@@ -75,47 +78,33 @@ export class ArchiveController {
         this.context = context;
         this.allowed = allowed;
         this.invalidate();
-        this.patch({ shown: false });
     }
     dispose() {
         this.allowed = false;
         this.invalidate();
-        this.patch({ shown: false });
     }
     show() {
         if (this.allowed) this.patch({ shown: true });
     }
     hide() {
         this.invalidate();
-        this.patch({ shown: false });
     }
     consent(value: boolean) {
         this.patch({ consent: value });
     }
-    private failure(e: unknown) {
+    private errorCode(e: unknown) {
         const n = e instanceof Error ? e.message : String(e);
-        this.patch({
-            error: archiveErrors.has(n) ? n : "Wire",
-            busy: false,
-            notice: "No automatic retry. If acknowledgement was lost, check saved stories before trying this identity again.",
-        });
+        return archiveErrors.has(n) ? n : "Wire";
     }
-    async action(
-        command:
-            | "archive_export_preview"
-            | "archive_import_preview"
-            | "archive_export"
-            | "archive_import",
-        args: Record<string, unknown> = {},
-    ) {
+    private async action(command: ArchiveCommand, basis?: ExportBasis) {
         if (!this.allowed || this.state.busy) return;
         const isPreview = command.endsWith("preview"),
             preview = this.state.preview;
         if (!isPreview && (!preview || !this.state.consent)) return;
-        if (isPreview) this.invalidate();
         const epoch = ++this.epoch;
         this.patch({
             busy: true,
+            ...(isPreview ? { preview: null, consent: false } : {}),
             error: null,
             status: null,
             result: null,
@@ -123,30 +112,59 @@ export class ArchiveController {
                 ? "Reading one private archive snapshot..."
                 : "Explicit private transfer in progress. Native dialog cancellation uses its Cancel button.",
         });
+        const completion = (status: ArchiveStatus) => {
+            const result = decodeArchiveCompletion(
+                status,
+                command,
+                !isPreview && preview ? archiveBinding(preview) : undefined,
+            );
+            if (result.token && basis) {
+                const { preview: captured } = decodePreview(result);
+                if (
+                    captured.story_id !== basis.scope.story ||
+                    !Object.hasOwn(captured.branch_heads, basis.scope.branch) ||
+                    captured.branch_heads[basis.scope.branch] !==
+                        basis.expectedRevision
+                )
+                    throw Error("Wire");
+            }
+            return result;
+        };
+        const discardRetiredPreview = (status: ArchiveStatus) => {
+            if (!status.result?.token) return;
+            const { token } = completion(status);
+            if (token && token !== this.state.preview?.token)
+                this.discard(token);
+        };
         try {
+            if (isPreview && preview) this.discard(preview.token);
+            if (epoch !== this.epoch) return;
             let status = decodeStatus(
                 await this.invoke(
                     command,
-                    isPreview ? args : { token: preview!.token, consent: true },
+                    isPreview
+                        ? (basis ?? {})
+                        : { token: preview!.token, consent: true },
                 ),
             );
             const operation = status.operation_id;
             if (epoch !== this.epoch) {
-                if (status.result?.token)
-                    void this.invoke("archive_discard", {
-                        token: status.result.token,
-                    }).catch(() => {});
-                if (status.running)
-                    void this.invoke("archive_cancel", {
-                        operationId: operation,
-                    }).catch(() => {});
+                if (status.running) {
+                    if (this.state.status?.operation_id !== operation)
+                        void this.invoke("archive_cancel", {
+                            operationId: operation,
+                        }).catch(() => {});
+                } else discardRetiredPreview(status);
                 return;
             }
             for (;;) {
-                if (epoch !== this.epoch) return;
                 if (status.operation_id !== operation) throw Error("Wire");
-                this.patch({ status });
+                if (epoch !== this.epoch) {
+                    discardRetiredPreview(status);
+                    return;
+                }
                 if (!status.running) break;
+                this.patch({ status });
                 await new Promise((r) => setTimeout(r, 25));
                 if (epoch !== this.epoch) return;
                 status = decodeStatus(
@@ -154,27 +172,25 @@ export class ArchiveController {
                         operationId: operation,
                     }),
                 );
-                if (epoch !== this.epoch && status.result?.token)
-                    void this.invoke("archive_discard", {
-                        token: status.result.token,
-                    }).catch(() => {});
             }
-            if (status.error) throw Error(status.error);
-            const result = decodeArchiveCompletion(
-                status,
-                command,
-                preview ? archiveBinding(preview) : undefined,
-            );
+            if (status.error) {
+                this.patch({ status });
+                throw Error(status.error);
+            }
+            const result = completion(status);
             if (result.token) {
                 const p = decodePreview(result);
                 this.patch({
+                    status,
                     preview: p,
                     consent: false,
                     result: null,
+                    error: null,
                     notice: "Review this exact captured snapshot before confirming. Preview expires ten minutes after creation.",
                 });
             } else {
                 this.patch({
+                    status,
                     preview: null,
                     consent: false,
                     result,
@@ -195,10 +211,12 @@ export class ArchiveController {
                     await this.refreshLibrary();
             }
         } catch (e) {
-            if (epoch === this.epoch) {
-                if (!isPreview) this.patch({ preview: null, consent: false });
-                this.failure(e);
-            }
+            if (epoch === this.epoch)
+                this.patch({
+                    ...(isPreview ? {} : { preview: null, consent: false }),
+                    error: this.errorCode(e),
+                    notice: "No automatic retry. If acknowledgement was lost, check saved stories before trying this identity again.",
+                });
         } finally {
             if (epoch === this.epoch) this.patch({ busy: false });
         }
@@ -206,7 +224,7 @@ export class ArchiveController {
     previewExport(session: string, scope: Scope, expectedRevision: number) {
         return this.action("archive_export_preview", {
             session,
-            scope,
+            scope: { ...scope },
             expectedRevision,
         });
     }
@@ -224,16 +242,28 @@ export class ArchiveController {
         const s = this.state.status;
         if (!s?.running) return;
         const epoch = this.epoch;
+        const ownsRunningStatus = () =>
+            epoch === this.epoch &&
+            this.state.status?.running &&
+            this.state.status.operation_id === s.operation_id;
         try {
-            await this.invoke("archive_cancel", {
-                operationId: s.operation_id,
-            });
-            if (epoch === this.epoch)
+            const reply = decodeStatus(
+                await this.invoke("archive_cancel", {
+                    operationId: s.operation_id,
+                }),
+            );
+            if (reply.operation_id !== s.operation_id) throw Error("Wire");
+            if (reply.running && ownsRunningStatus())
                 this.patch({
+                    error: null,
                     notice: "Cancellation requested. A transaction that already committed wins; check the final result. Native picker dialogs must be cancelled in the dialog.",
                 });
         } catch (e) {
-            if (epoch === this.epoch) this.failure(e);
+            if (ownsRunningStatus())
+                this.patch({
+                    error: this.errorCode(e),
+                    notice: "Cancellation could not be confirmed. Check the final transfer status before trying again.",
+                });
         }
     }
 }

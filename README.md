@@ -40,6 +40,12 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [quick-action scope fix](docs/android/QUICK_ACTION_SCOPE_2026-11-01.md)
+binds rendered buttons to their story and branch before starting work. Four
+stale-target regression failures are preserved; all 428 JVM tests, Android-test
+compilation and lint pass after the fix. The two retained-button Compose
+journeys remain unrun on Android.
+
 The [saved-story heading fix](docs/android/SAVED_STORY_HEADING_2026-11-01.md)
 uses the selected saved title and a neutral introduction instead of describing
 Lantern Quay in every saved world. Five regression methods went from three

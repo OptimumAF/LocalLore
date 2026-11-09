@@ -116,7 +116,9 @@ exact scoped proof, complete
 two-scan accounting and known closure. A known strict COFF refusal is
 retained evidence and stops the attempt. A COFF refusal follows two complete
 scans, and a CLOSE refusal always carries closure uncertainty. A contradictory
-proof cannot clear objectUnknown. After a positive object result,
+proof cannot clear objectUnknown. Scoped results cannot claim the reader's
+unbound REQUEST code. Any actual bytes or verified scans imply a known
+acquired handle. After a positive object result,
 check after using the post-compile roster digest.
 
 On a stopped attempt, preserve the first cause and any valid observations.

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from io import BytesIO
 from itertools import pairwise
 import json
 from ntpath import isreserved
@@ -431,20 +432,38 @@ def validate_files(files: dict[str, bytes], *, require_license_audit: bool = Fal
 
 
 def inspect_archive(path: Path) -> dict:
-    if path.stat().st_size > 260 * 1024 * 1024:
+    byte_limit = 260 * 1024 * 1024
+    with path.open("rb") as archive_file:
+        if os.fstat(archive_file.fileno()).st_size > byte_limit:
+            raise ValueError("Archive byte budget")
+        archive_bytes = archive_file.read(byte_limit + 1)
+    if len(archive_bytes) > byte_limit:
         raise ValueError("Archive byte budget")
-    with zipfile.ZipFile(path) as archive:
+    with BytesIO(archive_bytes) as source, zipfile.ZipFile(source) as archive:
         entries = archive.infolist()
         if len(entries) > 2048 or sum(e.file_size for e in entries) > 256 * 1024 * 1024:
             raise ValueError("Archive budget")
+        if any(e.extra for e in entries):
+            raise ValueError("Unexpected ZIP member extra field")
+        if any(e.orig_filename != e.filename or "\\" in e.orig_filename for e in entries):
+            raise ValueError("Noncanonical ZIP member name")
         if len({e.filename for e in entries}) != len(entries):
             raise ValueError("Duplicate package member")
         if any(stat.S_ISLNK(e.external_attr >> 16) or e.flag_bits & 1 or
                e.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED} for e in entries):
             raise ValueError("Invalid archive member type")
+        # Developer ZIPs omit extra fields. Check the local header as well as
+        # the central directory before ZipFile checks each name and reads its payload.
+        for entry in entries:
+            source.seek(entry.header_offset)
+            local_header = source.read(30)
+            if len(local_header) != 30 or not local_header.startswith(b"PK\x03\x04"):
+                raise zipfile.BadZipFile("Invalid local ZIP member header")
+            if local_header[28:] != b"\0\0":
+                raise ValueError("Unexpected ZIP member extra field")
         files = {e.filename: archive.read(e) for e in entries}
     validate_files(files)
-    return {"sha256": sha(path.read_bytes()), "bytes": path.stat().st_size,
+    return {"sha256": sha(archive_bytes), "bytes": len(archive_bytes),
             "members": len(files), "worker_sha256": WORKER_SHA,
             "source_commit": json.loads(files["build-manifest.json"])["source_commit"],
             "license_scope_status": validate_scope_audit(files, json.loads(files["build-manifest.json"]))}

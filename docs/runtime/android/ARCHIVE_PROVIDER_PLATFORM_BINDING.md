@@ -37,6 +37,19 @@ an existing app. The profile admits no model, arbitrary selectors,
 app-process commands, or `run-as` access. See the
 [Android package manager implementation](https://android.googlesource.com/platform/frameworks/base.git/+/3b88497957c0c6c8645d35bdf55099d0bb98b4ec/services/core/java/com/android/server/pm/PackageManagerShellCommand.java).
 
-The profile has no preparation, boot or service entry point. A controller
-and a separately authorized guest handoff are required before any Android
-execution. The [shared storage contract](RECEIPT_AVD_STORAGE.md) still applies.
+## Bounded controller and replay
+
+`benchmarks/archive_provider_platform_controller.py` takes the pinned admission
+and running records of an already-owned guest. It waits up to 120 seconds for
+boot, checks Android API 35, x86_64 and user 0, then requires both packages to
+be absent. It stages and checks each APK before a non-replacing install.
+
+The controller captures the import test, verifies both installed package
+identities again, then captures export and repeats the identity checks.
+Each test has a 90-second limit within the 20-minute controller budget.
+The controller keeps the command records in order, refuses any mismatch or
+uncertain observer closure, and replays the same checks from the saved bytes.
+
+The profile has no preparation, boot or service entry point. Android execution
+requires a separately authorized guest handoff under the
+[shared storage contract](RECEIPT_AVD_STORAGE.md).

@@ -19,6 +19,7 @@ KIND = "cold_navigation"
 GUEST_ROOT = PureWindowsPath("D:/Dev/Experiments/LocalLore/2026-11-09-cold-navigation-ui-v1/avd-v1")
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     "owned_cold_navigation_ui_contract.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
+    "owned_cold_navigation_ui_client.py",
 })
 
 _EVIDENCE = PureWindowsPath("D:/Dev/Experiments/LocalLore/2026-11-09-cold-navigation-artifact-v1")
@@ -115,6 +116,25 @@ PROFILE = _ColdNavigationContract(core.ContractProfile(
     ((KIND, CLASS, METHOD),), frozenset(_ARTIFACTS), (KIND,),
     APP=APP, TEST=TEST, MODEL_MATERIAL=False,
 ))
+
+# The v4 owner, client and verifier consume the same module interface as the
+# other closed profiles. They cannot select it from an admission record.
+for _name in ("PORT", "REQUEST_KEYS", "WORKER_KEYS", "CLEANUP_KEYS",
+              "TargetRefused", "_need", "_obj", "_int", "_path", "_process", "_same"):
+    globals()[_name] = getattr(core, _name)
+for _name in ("SDK_PROTOCOL", "PROOF_PROTOCOL", "CLIENT_VERSION", "SESSION_FILE",
+              "OWNER_SCRIPT", "BOOT_CLAIM_FILE", "CLAIM_KINDS"):
+    globals()[_name] = getattr(PROFILE.profile, _name)
+for _name in (
+    "binding", "_rows", "check_stop", "validate_admission", "validate_running",
+    "validate_session", "validate_operation", "operation_digest", "validate_observation",
+    "validate_guest_job", "validate_guest_observation", "validate_guest_prefix",
+    "validate_proof", "validate_query_bundle", "validate_ready", "validate_claim",
+    "validate_client_record", "source_bindings", "revalidate_inputs", "device_transport",
+    "instrumentation_kind", "claim_record",
+):
+    globals()[_name] = getattr(PROFILE, _name)
+del _name
 
 
 def replay_instrumentation(operation, admission, returncode, stdout, stderr):

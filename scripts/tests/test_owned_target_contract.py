@@ -779,7 +779,8 @@ class ActualOwnerMockTests(unittest.TestCase):
 
 class ClosedLifecycleFixture:
     """Every write is contained in a new synthetic D tree, never the prepared AVD."""
-    def __init__(self,*,resource_floors=None,observed_free=None,commit_snapshot=None,host_memory_min=None):
+    def __init__(self,*,resource_floors=None,observed_free=None,commit_snapshot=None,host_memory_min=None,
+                 authorization_scope=None):
         from benchmarks import receipt_avd_environment as env
         self.env=env;self.base=Path(tempfile.mkdtemp(prefix='locallore-target-lifecycle-',dir='D:/Dev/_Temp')).resolve(strict=True)
         self.root=self.base/'owner';self.guest_root=self.base/'synthetic-guest';self.writes=[]
@@ -797,8 +798,11 @@ class ClosedLifecycleFixture:
           host_free_min={'C:':16*1024**3,'D:':40*1024**3}if resource_floors is None else resource_floors)
         proposal['host_available_memory_min']=12*1024**3 if host_memory_min is None else host_memory_min
         self.a['guest']['proposal']=self.save(self.base/'run-proposal.json',proposal)
-        self.a['guest']['authorization']=self.save(self.base/'run-authorization.json',dict(version=1,phase='run',
-          proposal_sha256=self.a['guest']['proposal']['sha256'],allow_environment_calls=True,root_go_pending=False))
+        authorization = dict(version=1, phase='run', proposal_sha256=self.a['guest']['proposal']['sha256'],
+                             allow_environment_calls=True, root_go_pending=False)
+        if authorization_scope is not None:
+            authorization['run_scope'] = authorization_scope
+        self.a['guest']['authorization'] = self.save(self.base/'run-authorization.json', authorization)
         self.admission=self.save(self.base/'admission-v1.json',self.a);self.d=running(self.a);self.d['admission']=self.admission
         script=next(p for p in self.a['sources']if PureWindowsPath(p['path']).name=='owned_target_owner.py')
         self.request=self.save(self.root/'request-v1.json',dict(version=1,protocol=PROTOCOL,admission=self.admission,validated_admission=self.a,
@@ -886,6 +890,26 @@ class ClosedLifecycleReaderTests(unittest.TestCase):
         original=n.GUEST_ROOT;f=ClosedLifecycleFixture();self.assertEqual(f.validate(),f.result)
         self.assertEqual(n.GUEST_ROOT,original);self.assertTrue(all(p.is_relative_to(f.base)for p in f.writes))
         self.assertNotEqual(PureWindowsPath(str(f.guest_root)),original);self.assertEqual(f.result['server_returncode'],7)
+
+    def test_complete_lifecycle_replays_with_matching_run_scope(self):
+        scope = 'synthetic-scoped-owned-guest-v1'
+        fixture = ClosedLifecycleFixture(authorization_scope=scope)
+        with patch.object(n, 'RUN_SCOPE', scope, create=True):
+            self.assertEqual(fixture.validate(), fixture.result)
+
+    def test_guest_authorization_scope_must_match_the_selected_contract(self):
+        from benchmarks.receipt_avd_environment import EnvironmentRefused
+
+        scope = 'synthetic-scoped-owned-guest-v1'
+        with patch.object(n, 'RUN_SCOPE', scope, create=True):
+            for authorized in (None, 'foreign-scope'):
+                with self.subTest(authorized=authorized):
+                    fixture = ClosedLifecycleFixture(authorization_scope=authorized)
+                    with self.assertRaisesRegex(EnvironmentRefused, '^not_authorized$'):
+                        fixture.validate()
+
+        with self.assertRaisesRegex(EnvironmentRefused, '^not_authorized$'):
+            ClosedLifecycleFixture(authorization_scope=scope).validate()
 
     def test_every_failed_cleanup_flag_and_missing_required_stage_refuses(self):
         f=ClosedLifecycleFixture()

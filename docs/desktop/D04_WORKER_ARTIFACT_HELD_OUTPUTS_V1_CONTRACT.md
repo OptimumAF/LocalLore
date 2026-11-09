@@ -18,6 +18,18 @@ only ordinary identity, held read and monotonic clock operations. Both
 return a single-use reader with `readNext(request, signal)` and
 `snapshot()`.
 
+The injected adapter contains exactly four own data functions.
+`identifyRoot(path)` returns `{identity,ordinary,real}`.
+`identifyFile(path)` returns
+`{identity,ordinary,real,bytes,links,modified,changed}`.
+`openRead(path)` returns an owned handle with own data methods
+`stat()`, `read(buffer,offset,length,position)` and `close()`.
+The held stat returns the file identity record without `real`. Length and
+link count are integers. The two timestamp fields are canonical signed
+decimal nanoseconds. Read returns a byte count and close returns undefined.
+`now()` returns finite nonnegative monotonic milliseconds. The native
+adapter uses guarded `lstat`, `realpath` and positional FileHandle reads.
+
 The private stage owner must already have a known-closed writer, a current
 complete and in-budget roster from the admitted output lease, and reserved
 time and read bytes. It supplies exact own data
@@ -45,6 +57,11 @@ facts in reports, and has no retry or alternate file path. The owner enforces
 stage-specific freshness and checks all ordinary output and temporary files.
 The reader does not confer permission to spawn or release anything.
 
+Invalid construction throws `WorkerArtifactHeldOutputsV1Input`. Busy or
+already terminal offers reject with the fixed Busy or Stopped suffix.
+Wrong request shape, sequence or signal produces one terminal REQUEST
+result before file I/O. Capture the same genuine signal for the attempt.
+
 ## Held read and evidence
 
 Resolve the known root and selected ordinary one-link file without following
@@ -65,7 +82,7 @@ or substitute output.
 The file limit is 64 MiB and manifests additionally have a 64 KiB limit.
 Reserve both complete payload scans and the two probe bytes before each
 offer. The fixed sequence provides an overall upper bound of 20 such
-reservations. At most one 64 MiB object buffer and one 64 KiB scratch buffer
+reservations and 2,684,354,600 read bytes. At most one 64 MiB object buffer and one 64 KiB scratch buffer
 may be held for parsing. Other roles stream through the scratch buffer.
 Never return raw file bytes. The owner must record the actual smaller
 per-stage forecast before any native offer.
@@ -81,15 +98,24 @@ stage owner separately retains a terminal coordinator report and drains
 any pending output observation before releasing its lease. This boundary
 also applies to future positional abort wiring for the inspector port.
 
+Check cancellation first, then clock and elapsed time. The deadline is
+inclusive at 4,000 ms. Capture a returned handle or known count before the
+post-await check. An opaque rejected operation is IO, with read or closure
+uncertainty recorded as applicable. On cleanup, check liveness before and
+after the one close attempt. Keep the first latched cause. A known close
+after timeout cannot turn the stopped read into a positive result.
+
 ## Reuse the accepted COFF parser
 
 At index 0 or 3, pass only the matched object bytes to the accepted
 `inspectLibraryInputs` parser. Reject an archive container, import object,
 unsupported machine, nonordinary or malformed object. A successful parse
-must describe exactly one bare x64 object and zero imports. Its bounded
-directive and default-library lists stay in the private owner journal.
-Emit at most 64 distinct entries and 8 KiB of encoded metadata per
-compile object. Refuse oversize output. Later object reads verify bytes
+must describe exactly one bare x64 object and zero imports. Check and refuse
+`!<arch>\n` before parsing because a one-member archive can return the
+same object count. Permit bare x64 BigObj accepted by the strict parser.
+The private metadata is exactly `{directives,defaultLibraries}`, with at
+most 64 entries across both lists and 8,192 UTF-8 JSON bytes. A strict parse
+refusal stays a refusal. Later object reads verify bytes
 and hashes and reuse the original compile proof.
 
 The parser supplies structure and the default-library names it found.
@@ -100,10 +126,22 @@ a historical name catalog cannot stand in for that proof. Bind the new
 object hash and resolved directive proof in the stage journal before
 offering LINK. Leave the pre-admission closure policy digest stable.
 
-The reader's positive result contains only the fixed index, candidate,
-role, exact SHA-256 and byte length, and the bounded compile metadata when
-applicable. It reports no qualification flag that the caller can use as
-authority. The owner separately checks expected stage roles, unchanged
+Each result is frozen
+`{version:1,kind:'worker_artifact_held_output_v1',index,candidate,role,ok,
+code,file,metadata,io,unknownClosure,ioUncertain}`. A successful file fact
+is exactly `{sha256,bytes}`, with null metadata outside a compile row.
+A refusal has null file and metadata and one fixed code from REQUEST,
+CANCELLED, DEADLINE, CLOCK, IDENTITY, CONTENT, COFF, IO or CLOSE. An
+unbound REQUEST has null index, candidate and role. Counters are
+`{reservedReadBytes,actualReadBytes,opened,closed,verifiedScans}` with
+canonical unsigned decimal strings for byte totals and integers for counts.
+The snapshot is frozen
+`{version:1,kind:'worker_artifact_held_outputs_snapshot_v1',next,pending,
+completed,stop,io,unknownClosure,ioUncertain}`. The next and pending values
+are null or the fixed row ordinal from 0 through 19. A latched stop makes
+next null while any actual pending operation remains visible.
+
+The owner separately checks expected stage roles, unchanged
 object and manifest hashes, verified pre-embed copy, final executable
 hashes, and A/B equality before producing the coordinator receipts.
 

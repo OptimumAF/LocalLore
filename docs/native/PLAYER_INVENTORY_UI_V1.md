@@ -59,8 +59,9 @@ The fixed activation helper runs from
 `D:/Worktrees/locallore-inventory-ui-core-v1`. Its prospective paths are:
 
 - Guest: `D:/Dev/Experiments/LocalLore/2026-11-01-inventory-ui-v1/avd-v1`.
-- Runtime: `D:/Dev/Experiments/LocalLore/2026-11-01-inventory-ui-run-v1`.
+- Runtime: `D:/Dev/Experiments/LocalLore/2026-11-01-current-inventory-ui-run-v1`.
 - Controls: `D:/Dev/Experiments/LocalLore/2026-11-01-inventory-ui-harness-v1/run-controls-v1`.
+- Helper: `D:/Worktrees/locallore-inventory-ui-core-v1/benchmarks/inventory_ui_activation.py`.
 
 The helper accepts only a hash-bound fixed input and source-bound admission.
 It creates no proposal, authorization or admission. Prepared-guest validation

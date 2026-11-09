@@ -177,6 +177,10 @@ class CrossOwnerDeletionRetirementPreservationTests(unittest.TestCase):
         entry = storage._entry(storage.read_json(self.ledger), self.guest)
         self.assertEqual(storage._evidence(self.guest, preservation.MANIFEST, preserved, entry["closure"]),
                          storage.binding(preservation.MANIFEST))
+        preview = storage.preview_retirement(self.guest, preservation.MANIFEST, self.registry)
+        self.assertEqual(preview["plan"]["remove"], [storage.binding(files[self.image])])
+        self.assertIs(preview["registry_written"], False)
+        self.assertIs(preview["deletes_images"], False)
         self.assertEqual(storage.binding(self.ledger), ledger)
         self.assert_originals_intact()
 

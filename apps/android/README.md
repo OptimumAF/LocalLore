@@ -159,6 +159,21 @@ modes. Install its two APKs only on authorized targets, then select
 the Activity tests require this isolated package. Ordinary builds keep their
 usual identity/output directory.
 
+The production Activity recovery test uses the isolated story-deletion debug
+profile. Run this command from the Android project directory.
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug -PlocalLoreStoryDeletionVerification=true --project-cache-dir .gradle-story-deletion -Pkotlin.incremental=false --offline --no-daemon
+```
+
+The profile selects `org.locallore.app.storydelete` and `app/build-story-deletion`.
+Use a separately authorized target with a confirmed-empty library in that package
+and select exactly
+`org.locallore.app.CrossOwnerDeletionRecoveryMainActivityTest#recoversRetainedStoryAfterAnotherOwnerDeletesSelection`.
+The test creates two synthetic stories, then deletes its selected fixture through
+a second native owner and checks that the Activity recovers the retained story.
+The APK build and host checks leave Android execution pending.
+
 Parent-retirement verification has its own debug identity and project cache:
 
 ```powershell

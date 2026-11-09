@@ -61,6 +61,12 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [Story Record control fix](docs/android/STORY_RECORD_ACTION_SCOPE_2026-11-01.md)
+binds controls to the exact rendered view and preserves fresh frame delivery
+when record values repeat. Thirteen original JVM regressions pass within the
+full 467-case Android build gate. Three new Compose journeys compile but remain
+unrun; the pending SDK13 proposal retains its older frozen APK pair.
+
 The [cached Player state view](docs/android/PLAYER_SELF_PROFILE_2026-11-01.md)
 retains the native self profile and renders a scoped read-only overview.
 The full offline build passes 454 JVM cases and APK audits; three new UI

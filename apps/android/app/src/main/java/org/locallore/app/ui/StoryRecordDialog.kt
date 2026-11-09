@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,6 +62,7 @@ fun StoryRecordDialog(
     onScopedEvent: (StoryRecordScopedEvent) -> Unit = {},
 ) {
     if (!state.visible) return
+    val actionKey = RecordActionKey(state)
     // A new story/head or applied query must never inherit another context's edited search.
     var searchDraft by remember(state.context, state.search) { mutableStateOf(state.search) }
     val recordScrollState = rememberScrollState()
@@ -92,13 +94,16 @@ fun StoryRecordDialog(
                         detail = eventDetail,
                         context = state.context,
                         onRetry = onEventRetry,
+                        actionKey = actionKey,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
-                    OutlinedButton(
-                        onClick = onEventBack,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .testTag("story-event-back"),
-                    ) { Text("Back to records") }
+                    key(actionKey) {
+                        OutlinedButton(
+                            onClick = onEventBack,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("story-event-back"),
+                        ) { Text("Back to records") }
+                    }
                 } else Column(
                     modifier = Modifier.weight(1f).fillMaxWidth()
                         .verticalScroll(recordScrollState).testTag("story-record-content"),
@@ -127,17 +132,19 @@ fun StoryRecordDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    StoryRecordSection.entries.chunked(2).forEach { sections ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            sections.forEach { section ->
-                                FilterChip(
-                                    selected = state.section == section,
-                                    onClick = { onSection(section) },
-                                    enabled = state.context != null,
-                                    label = { Text(section.label) },
-                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                                        .testTag("story-record-section-${section.wire}"),
-                                )
+                    key(actionKey) {
+                        StoryRecordSection.entries.chunked(2).forEach { sections ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                sections.forEach { section ->
+                                    FilterChip(
+                                        selected = state.section == section,
+                                        onClick = { onSection(section) },
+                                        enabled = state.context != null,
+                                        label = { Text(section.label) },
+                                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                            .testTag("story-record-section-${section.wire}"),
+                                    )
+                                }
                             }
                         }
                     }
@@ -149,12 +156,14 @@ fun StoryRecordDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("story-record-search"),
                     )
-                    Button(
-                        onClick = { onSearch(searchDraft) },
-                        enabled = canQuery,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .testTag("story-record-search-submit"),
-                    ) { Text("Search") }
+                    key(actionKey) {
+                        Button(
+                            onClick = { onSearch(searchDraft) },
+                            enabled = canQuery,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("story-record-search-submit"),
+                        ) { Text("Search") }
+                    }
                     HorizontalDivider()
                     when {
                         state.loading -> {
@@ -178,12 +187,14 @@ fun StoryRecordDialog(
                                 modifier = Modifier.testTag("story-record-problem")
                                     .semantics { liveRegion = LiveRegionMode.Polite },
                             )
-                            OutlinedButton(
-                                onClick = onRetry,
-                                enabled = canQuery,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                    .testTag("story-record-retry"),
-                            ) { Text("Try again") }
+                            key(actionKey) {
+                                OutlinedButton(
+                                    onClick = onRetry,
+                                    enabled = canQuery,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .testTag("story-record-retry"),
+                                ) { Text("Try again") }
+                            }
                         }
                         state.context != null -> {
                             Text(
@@ -206,7 +217,9 @@ fun StoryRecordDialog(
                                 )
                             }
                             state.entries.forEachIndexed { index, entry ->
-                                StoryRecordRow(entry, index, onEvent, onScopedEvent)
+                                key(actionKey, entry.key) {
+                                    StoryRecordRow(entry, index, onEvent, onScopedEvent)
+                                }
                             }
                         }
                         else -> Text("No saved story is selected.")
@@ -221,30 +234,40 @@ fun StoryRecordDialog(
                             Text(limitation, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = onFirst,
-                            enabled = canQuery && state.cursor != null,
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                                .testTag("story-record-first"),
-                        ) { Text("First page") }
-                        OutlinedButton(
-                            onClick = onNext,
-                            enabled = canQuery && state.problem == null && state.nextCursor != null,
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                                .testTag("story-record-next"),
-                        ) { Text("Next page") }
+                    key(actionKey) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = onFirst,
+                                enabled = canQuery && state.cursor != null,
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                    .testTag("story-record-first"),
+                            ) { Text("First page") }
+                            OutlinedButton(
+                                onClick = onNext,
+                                enabled = canQuery && state.problem == null && state.nextCursor != null,
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                    .testTag("story-record-next"),
+                            ) { Text("Next page") }
+                        }
                     }
                 }
                 // Dismissal remains reachable even when enlarged text fills a small window.
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .testTag("story-record-close"),
-                ) { Text("Close") }
+                key(actionKey) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .testTag("story-record-close"),
+                    ) { Text("Close") }
+                }
             }
         }
     }
+}
+
+/** Retire clickable nodes when their exact record view changes, including equal-valued views. */
+private class RecordActionKey(private val state: StoryRecordState) {
+    override fun equals(other: Any?) = other is RecordActionKey && state === other.state
+    override fun hashCode() = System.identityHashCode(state)
 }
 
 @Composable

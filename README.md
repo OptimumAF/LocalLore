@@ -47,6 +47,12 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [inventory APK verification](docs/android/PLAYER_INVENTORY_APKS_2026-11-01.md)
+builds both Rust Android targets and the ordinary app/test pair from the inventory
+change. All439 JVM cases, lint and public APK audits pass; eleven concrete JUnit
+test definitions and bounded bodies are verified in the test APK. Android UI
+execution remains unrun. The pending SDK11 proposal retains its older APKs.
+
 The [player inventory view](docs/android/PLAYER_INVENTORY_2026-11-01.md)
 preserves all validated native item IDs and quantities for saved stories instead
 of showing a healing-potion row in every world. A scoped read-only dialog keeps

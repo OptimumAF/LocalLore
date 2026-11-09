@@ -45,7 +45,7 @@ const state = (phase, loaded, error = null) => ({
     profile: null,
 });
 
-async function scenario(succeeds) {
+async function scenario(succeeds, staleRejects) {
     const realSetInterval = globalThis.setInterval,
         realClearInterval = globalThis.clearInterval;
     const intervals = new Map();
@@ -79,7 +79,7 @@ async function scenario(succeeds) {
         },
     };
     const c = new Controller(gateway);
-    let operation;
+    let operation, manual;
     try {
         await c.refreshModel();
         initializing = false;
@@ -99,17 +99,20 @@ async function scenario(succeeds) {
             2,
             "native settlement must request definitive terminal status",
         );
-        reads[0].resolve(state("loading", false));
+        if (!staleRejects) reads[0].resolve(state("loading", false));
         await drain();
         assert.equal(
             c.get().model.phase,
             "unloaded",
             "older loading response cannot replace the newer final read",
         );
+        let manualSettled = false;
+        manual = c.refreshModel().then(() => { manualSettled = true; });
         tick();
         await drain();
-        // With the bug, this tick starts a third read that supersedes the final read.
-        // A correct controller stops polling before requesting its terminal status.
+        assert.equal(reads.length, 2, "manual refresh joins the terminal read");
+        assert.equal(manualSettled, false);
+        assert.equal(c.get().modelBusy, true);
         reads[1].resolve(
             state(
                 succeeds ? "loaded" : "failed",
@@ -117,7 +120,9 @@ async function scenario(succeeds) {
                 succeeds ? null : "Runtime",
             ),
         );
-        await operation;
+        await Promise.all([operation, manual]);
+        if (staleRejects) reads[0].reject(new Error("Timeout"));
+        await drain();
         assert.equal(c.get().modelBusy, false);
         assert.equal(
             c.get().model.phase,
@@ -152,20 +157,99 @@ async function scenario(succeeds) {
             );
         await drain();
         await operation?.catch(() => {});
+        await manual?.catch(() => {});
         await c.dispose();
         globalThis.setInterval = realSetInterval;
         globalThis.clearInterval = realClearInterval;
     }
 }
+async function cancelPublication() {
+    const setInterval = globalThis.setInterval, clearInterval = globalThis.clearInterval;
+    globalThis.setInterval = () => 1;
+    globalThis.clearInterval = () => {};
+    const idle = deferred(), load = deferred(), cancelReply = deferred();
+    const sent = [], readyStates = [];
+    let status = state("unloaded", false);
+    const c = new Controller({
+        async native(command, args) {
+            if (command === "model_load") return load.promise;
+            if (command === "model_cancel") {
+                sent.push(args);
+                return cancelReply.promise;
+            }
+            assert.equal(command, "model_status");
+            return status;
+        },
+        async call(command) {
+            assert.equal(command.op, "close");
+            return {};
+        },
+    });
+    let cancellation, operation;
+    const unsubscribe = c.subscribe(() => {
+        const view = c.get();
+        if (!view.modelCancelReady) return;
+        readyStates.push([view.model.operation_id, view.model.phase, view.modelBusy]);
+        if (!cancellation) cancellation = c.cancelModel();
+    });
+    try {
+        await c.refreshModel();
+        status = idle.promise;
+        const previous = c.refreshModel();
+        operation = c.modelAction("model_load");
+        idle.reject(new Error("Timeout"));
+        await previous;
+        assert.equal(c.get().visibleError, null, "pre-action read error is stale");
+
+        status = { ...state("loading", false), operation_id: 8 };
+        await c.refreshModel();
+        assert.deepEqual(readyStates, [[8, "loading", true]]);
+        assert.deepEqual(sent, [{ operationId: 8 }]);
+
+        status = { ...state("loading", false), operation_id: 9 };
+        await c.refreshModel();
+        assert.equal(c.get().modelCancelReady, false);
+        await c.cancelModel();
+        assert.deepEqual(sent, [{ operationId: 8 }], "foreign status cannot offer Cancel");
+
+        cancelReply.reject(new Error("StaleModelOperation"));
+        await cancellation;
+        assert.equal(c.get().visibleError, null, "late cancel failure is stale");
+
+        status = { ...state("loaded", true), operation_id: 9 };
+        load.resolve(status);
+        await operation;
+        assert.equal(c.get().model.phase, "loaded");
+        assert.equal(c.get().modelCancelReady, false);
+    } finally {
+        idle.resolve(state("unloaded", false));
+        cancelReply.resolve({ status: "finished" });
+        status = state("loaded", true);
+        load.resolve(status);
+        await Promise.allSettled([operation, cancellation]);
+        unsubscribe();
+        await c.dispose();
+        globalThis.setInterval = setInterval;
+        globalThis.clearInterval = clearInterval;
+    }
+}
+
 const failures = [];
 for (const succeeds of [true, false]) {
-    try {
-        await scenario(succeeds);
-    } catch (error) {
-        failures.push(
-            `${succeeds ? "success" : "error"} settlement: ${error.message}`,
-        );
+    for (const staleRejects of [true, false]) {
+        try {
+            await scenario(succeeds, staleRejects);
+        } catch (error) {
+            failures.push(
+                `${succeeds ? "success" : "error"} settlement, stale ${staleRejects ? "error" : "reply"}: ${error.message}`,
+            );
+        }
     }
+}
+try {
+    await cancelPublication();
+} catch (error) {
+    failures.push(`cancel publication: ${error.message}`);
 }
 assert.deepEqual(
     failures,
@@ -173,5 +257,5 @@ assert.deepEqual(
     "terminal model refresh must be authoritative on both native success and failure",
 );
 console.log(
-    "PASS: native success/error stops interval polling before final refresh; older polls cannot overwrite or preempt terminal state.",
+    "PASS: model settlement owns the final read, stale success/errors are ignored, and Cancel follows the published operation.",
 );

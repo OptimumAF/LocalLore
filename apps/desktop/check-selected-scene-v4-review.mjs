@@ -2669,6 +2669,50 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
         },
     );
 
+    await check(
+        "Resume refuses a mismatched linked protocol and preserves the opened scripted lane",
+        async () => {
+            const old = fixture(2);
+            old.hooks.set("open", ({ clientId }) =>
+                status(clientId, "completed", 2, {
+                    lane: "approved_native",
+                    prepared: null,
+                    plan_token: null,
+                }),
+            );
+            old.hooks.set("summary", () =>
+                wrap("selected_summary", "summary", {
+                    ...summary(2),
+                    lane: "native_selected_case",
+                }),
+            );
+            await opened(old);
+            render(old, { nativeSceneSelected: true });
+            const mismatch = button("Resume / verify with linked source");
+            assert(mismatch.props.disabled);
+            mismatch.props.onClick();
+            await old.c.resume(source, 4);
+            assert.equal(old.c.get().error, "SelectedEvaluationWire");
+            assert(!old.calls.some((v) => v.action === "resume"));
+
+            const scripted = fixture();
+            scripted.hooks.set("open", ({ clientId }) =>
+                status(clientId, "completed", 3, {
+                    prepared: null,
+                    plan_token: null,
+                }),
+            );
+            scripted.hooks.set("resume", ({ clientId }) =>
+                status(clientId, "completed", 4),
+            );
+            await scripted.c.open(RUN);
+            assert.equal(scripted.c.get().status.prepared, null);
+            await scripted.c.resume(source, 4);
+            assert.equal(scripted.c.get().error, "SelectedEvaluationWire");
+            assert.equal(scripted.c.get().status.prepared, null);
+        },
+    );
+
     for (const c of controllers) c.dispose();
     controllers.clear();
     await flush();

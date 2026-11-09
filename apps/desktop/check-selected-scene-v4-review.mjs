@@ -2710,6 +2710,15 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
             await scripted.c.resume(source, 4);
             assert.equal(scripted.c.get().error, "SelectedEvaluationWire");
             assert.equal(scripted.c.get().status.prepared, null);
+
+            const substituted = fixture(4);
+            await substituted.c.open(RUN);
+            substituted.hooks.set("summary", () =>
+                wrap("selected_summary", "summary", summary(3)),
+            );
+            await substituted.c.loadSummary();
+            assert.equal(substituted.c.get().error, "SelectedEvaluationWire");
+            assert.equal(substituted.c.get().summary, null);
         },
     );
 

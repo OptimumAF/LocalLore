@@ -203,7 +203,7 @@ class SyntheticOperation(BootRecords):
             return operation._run_stages(self.authority_pin, self.attempt_pin, self.began_ns, self.worker)
 
 
-class CombinedRecordUiOperationTests(unittest.TestCase):
+class SavedLibraryStatusOperationTests(unittest.TestCase):
     def test_missing_human_authority_refuses_before_allocating_attempt(self):
         graph = SyntheticOperation(claimed=False)
         graph.records.pop(handoff.AUTHORITY)

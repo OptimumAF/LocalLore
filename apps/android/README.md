@@ -184,6 +184,13 @@ The read-only report binds the exact archived bytes and annotated method to
 the story-deletion package. A later device run requires its own guarded
 admission and approval.
 
+The host replay in `benchmarks/cross_owner_deletion_ui_replay.py` checks the
+26-command sequence from a ready API 35 x86_64 emulator through one exact test.
+It checks both package absences, install flags, artifact hashes, and matching
+installed identities before and after the test. The caller must separately
+qualify the owner, transport, and command records before treating a replay as
+device evidence.
+
 Parent-retirement verification has its own debug identity and project cache:
 
 ```powershell

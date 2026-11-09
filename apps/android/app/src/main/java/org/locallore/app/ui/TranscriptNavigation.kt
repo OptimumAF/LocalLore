@@ -1,6 +1,7 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app.ui
 
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
@@ -24,6 +25,7 @@ import org.locallore.app.TranscriptViewport
 import org.locallore.app.latestTranscriptRequest
 import org.locallore.app.transcriptEndReached
 import org.locallore.app.transcriptRequestMatches
+import org.locallore.app.transcriptTailOverflow
 import org.locallore.app.updateTranscriptFollow
 
 // LocalLoreScreen emits brand, scene and state before an active transcript.
@@ -51,14 +53,12 @@ private fun LazyListLayoutInfo.matches(snapshot: TranscriptSnapshot, followingIt
     }
 }
 
-private fun LazyListState.readPosition(snapshot: TranscriptSnapshot): TranscriptReadPosition {
-    val tailIndex = TranscriptPrefixItems + snapshot.messages.lastIndex
-    val layout = layoutInfo
+private fun LazyListState.transcriptViewport(tailIndex: Int, layout: LazyListLayoutInfo): TranscriptViewport {
     val tail = layout.visibleItemsInfo.firstOrNull { it.index == tailIndex }
-    return TranscriptReadPosition(snapshot, transcriptEndReached(tailIndex, TranscriptViewport(
+    return TranscriptViewport(
         firstVisibleItemIndex, layout.totalItemsCount, layout.viewportStartOffset,
         layout.viewportEndOffset, tail?.offset, tail?.size,
-    )))
+    )
 }
 
 @Composable
@@ -102,9 +102,12 @@ internal fun rememberTranscriptNavigation(
                 }
                 // A remeasure must follow a history change. Same IDs alone cannot bind an
                 // old row height to rewritten text, and an empty first layout is not a read.
-                if (current != null && layout !== layoutBeforeHistory &&
+                if (current != null && layout !== layoutBeforeHistory && layout === listState.layoutInfo &&
                     layout.matches(current, currentFollowingItems)) {
-                    readPosition = listState.readPosition(current)
+                    val tailIndex = TranscriptPrefixItems + current.messages.lastIndex
+                    readPosition = TranscriptReadPosition(
+                        current, transcriptEndReached(tailIndex, listState.transcriptViewport(tailIndex, layout)),
+                    )
                     val update = updateTranscriptFollow(previous, current, readPosition)
                     previous = update.state
                     unread = update.state.unread
@@ -115,14 +118,24 @@ internal fun rememberTranscriptNavigation(
     LaunchedEffect(pending, snapshot, gesture) {
         val navigation = pending ?: return@LaunchedEffect
         val request = navigation.request
-        fun current(): Boolean = navigation.gesture == gesture &&
+        fun current(): Boolean = pending == navigation && navigation.gesture == gesture &&
             transcriptRequestMatches(request, currentSnapshot)
         if (!current()) return@LaunchedEffect
         snapshotFlow { listState.layoutInfo }.first {
             !current() || it.matches(request.snapshot, currentFollowingItems)
         }
         if (!current() || (navigation.automatic && listState.isScrollInProgress)) return@LaunchedEffect
-        listState.scrollToItem(TranscriptPrefixItems + request.snapshot.messages.lastIndex)
+        val tailIndex = TranscriptPrefixItems + request.snapshot.messages.lastIndex
+        listState.scrollToItem(tailIndex)
+        // Explicit Latest reaches the bottom of a tall reply. Automatic follow
+        // leaves the start of a new reply visible for reading.
+        if (!navigation.automatic && current()) {
+            val layout = listState.layoutInfo
+            if (layout.matches(request.snapshot, currentFollowingItems)) {
+                val overflow = transcriptTailOverflow(listState.transcriptViewport(tailIndex, layout))
+                if (overflow != null && overflow > 0) listState.scrollBy(overflow.toFloat())
+            }
+        }
         // Scrolling is not a read acknowledgement: only measured current-tail geometry
         // can clear unread. A long new message may still extend below the viewport.
         if (pending == navigation) pending = null

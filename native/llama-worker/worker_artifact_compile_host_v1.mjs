@@ -125,10 +125,11 @@ function parseReply(bytes, binding) {
 }
 
 function transportRecord(result) {
-  const { response, stderr, ...facts } = data(result, ['image', 'observation', 'closed',
+  const { response, stderr, ...facts } = data(result, ['image', 'observation', 'pid', 'closed', 'stdinClosed',
     'stdoutClosed', 'stderrClosed', 'exitCode', 'response', 'stderr']);
   requireHost((facts.image === null || digest(facts.image)) && digest(facts.observation) &&
-    [facts.closed, facts.stdoutClosed, facts.stderrClosed].every(boolean) &&
+    (facts.pid === null || int(facts.pid, 1, 2147483647)) &&
+    [facts.closed, facts.stdinClosed, facts.stdoutClosed, facts.stderrClosed].every(boolean) &&
     (facts.exitCode === null || int(facts.exitCode, -2147483648, 2147483647)) &&
     Buffer.isBuffer(response) && response.length <= REPLY_CAP &&
     Buffer.isBuffer(stderr) && stderr.length <= POLICY.stderrCap);
@@ -175,10 +176,10 @@ export function createWorkerArtifactCompileHostV1(options) {
     const kept = wire(await retain(Object.freeze({ record, request: Buffer.from(request),
       response: Buffer.from(response), stderr: Buffer.from(stderr) })), ['kind', 'recordHash', 'stored']);
     requireHost(kept.kind === 'compile_host_retained_v1' && kept.stored === true && kept.recordHash === recordHash);
-    requireHost(facts.image === scope.hostHash && facts.closed && facts.stdoutClosed && facts.stderrClosed &&
-      facts.exitCode === 0 && !stderr.length);
+    requireHost(facts.image === scope.hostHash && facts.pid !== null && facts.closed && facts.stdinClosed &&
+      facts.stdoutClosed && facts.stderrClosed && facts.exitCode === 0 && !stderr.length);
     const native = parseReply(response, binding);
-    requireHost(int(native.pid, 1, 2147483647) && native.elapsedMs <= BigInt(POLICY.timeoutMs + POLICY.drainMs));
+    requireHost(int(native.pid, 1, 2147483647) && native.pid !== facts.pid && native.elapsedMs <= BigInt(POLICY.timeoutMs + POLICY.drainMs));
 
     let writerProof = null;
     const stoppedWithoutProcessFlag = ['request', 'setup', 'io'].includes(native.stop) ||

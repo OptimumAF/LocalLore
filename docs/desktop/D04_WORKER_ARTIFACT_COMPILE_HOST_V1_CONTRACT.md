@@ -26,9 +26,10 @@ authenticate a caller. The dedicated outer owner controls the private pipe.
 The helper reads the request in at most 5,000 ms, polling pipe availability
 on its single thread. Once the frame is complete, an extra byte, disconnect
 or pipe error requests cancellation. Keep the input pipe open and quiet
-during ordinary execution. The native Job launcher polls the same stop
+during ordinary execution. Cancel an incomplete frame by closing input,
+without inserting bytes into the unfinished request. The native Job launcher polls the same stop
 condition through setup, execution and cleanup. The outer owner must
-drain output, positively observe helper exit and both pipe closures,
+drain output, positively observe helper exit and closure of its three parent pipe handles,
 and retain partial evidence if the helper is interrupted. The whole
 outer attempt has its own bounded allowance before it may be admitted.
 
@@ -63,19 +64,20 @@ The enclosing owner must establish the behavior of each port.
 
 - Authorize receives the frozen scope `{context,requestHash,hostHash}`.
   Return exactly `{kind:'compile_host_authorized_v1',scope,spend,start,writerPolicy}`.
-  Spend binds the durable, atomically consumed authorization for this
-  one call. Start binds #408's durably acknowledged START and writerPolicy
+  Spend binds the already durably spent grant and the atomically consumed
+  launch offer for this one call. The adapter does not spend a new grant. Start binds #408's durably acknowledged START and writerPolicy
   binds the fresh external-writer exclusion policy and preflight.
 - Transport receives `{scope,authorization,request,signal}`, where
   authorization is the hash of the accepted authorize record. Use only
   the already pinned helper. Preserve one attempt, bounded output,
   and observed process/pipe closure. Return exact own data
-  `{image,observation,closed,stdoutClosed,stderrClosed,exitCode,response,stderr}`.
+  `{image,observation,pid,closed,stdinClosed,stdoutClosed,stderrClosed,exitCode,response,stderr}`.
   Image and observation bind the actual launch and retained owner
   observations, response and stderr are raw buffers, each bounded
   before return. Preserve transport partials even when this call
   throws. A successful frame requires pinned image, positive helper
-  and pipe closure, exit zero and empty stderr.
+  and three pipe closures, an actual helper PID distinct from the compiler,
+  exit zero and empty stderr.
 - Retain receives `{record,request,response,stderr}`. The record
   binds hashes, lengths, helper facts, authorization and scope.
   Exclusively retain and read back the exact bytes of all three

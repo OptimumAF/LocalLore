@@ -244,7 +244,9 @@ class CombinedRecordUiReplayTests(unittest.TestCase):
         guest = SyntheticGuest()
         self.journey = guest.run()
         self.admission = {"artifacts": guest.artifacts}
-        self.output = Path("D:/Dev/Experiments/LocalLore/synthetic-combined-record-controller-v1")
+        root = Path("D:/Dev/Experiments/LocalLore/synthetic-combined-record-controller-v1")
+        self.admission["root"] = str(root)
+        self.output = root / "controller-v1"
         self.session_binding = self.pin(self.output / "sdk-session-v21.json")
         self.trace = [self.pin(self.output / "clients" / f"command-{index:04d}.json")
                       for index in range(1, len(guest.calls) + 1)]
@@ -347,6 +349,71 @@ class CombinedRecordUiReplayTests(unittest.TestCase):
                 row["effective_deadline_ms"] = value
                 with self.assertRaises(core.TargetRefused):
                     self.replay()
+
+    def completed_result(self):
+        return dict(
+            version=1, scope="combined-record-ui-controller-v1", outcome="completed", reason=None,
+            observer_handles_closed=True, feature_acceptance=False, elapsed_ms=42,
+            admission=self.pin(self.output.parent / "admission-v1.json"),
+            running=self.pin(self.output.parent / "running-v1.json"),
+            caller={"pid": 13}, session=deepcopy(self.session_binding),
+            client_count=len(self.trace), clients=deepcopy(self.trace), journey=deepcopy(self.journey),
+        )
+
+    def verify(self, result, *, caller=None, session=None):
+        caller = {"pid": 13} if caller is None else caller
+        if session is None:
+            session = dict(caller={"pid": 13}, admission=result["admission"], running=result["running"], seconds=1200)
+        self.reader._at.return_value = result
+        self.reader._json.return_value = session
+        result_binding = self.pin(self.output / "controller-result-v1.json")
+        with patch.object(controller.client, "REPLAY", self.reader), \
+                patch.object(controller, "_admission", return_value=self.admission), \
+                patch.object(controller.contract, "revalidate_inputs"), \
+                patch.object(controller.contract, "validate_session", return_value=session), \
+                patch.object(controller.binding, "verify_artifacts"):
+            return controller.verify_controller_result(result_binding, result["admission"], result["running"], caller)
+
+    def test_public_verifier_recomputes_complete_result_from_captured_rows(self):
+        result = self.completed_result()
+        self.assertEqual(self.verify(result), result)
+        self.reader._at.assert_called_once_with(
+            self.pin(self.output / "controller-result-v1.json"), self.output / "controller-result-v1.json")
+        self.reader.require_current_clients.assert_called_once_with(
+            self.output, len(self.trace), self.session_binding, self.admission)
+
+    def test_public_verifier_refuses_wrong_caller_or_session_binding(self):
+        result = self.completed_result()
+        with self.assertRaises(env.EnvironmentRefused):
+            self.verify(result, caller={"pid": 14})
+        with self.assertRaises(env.EnvironmentRefused):
+            self.verify(result, session=dict(caller={"pid": 14}, admission=result["admission"],
+                                             running=result["running"], seconds=1200))
+        result["session"]["sha256"] = "b" * 64
+        with self.assertRaises(env.EnvironmentRefused):
+            self.verify(result)
+        self.reader.require_current_clients.assert_not_called()
+
+    def test_public_verifier_refuses_unclosed_incomplete_or_expired_result(self):
+        for key, value in (("observer_handles_closed", False), ("outcome", "refused"),
+                           ("feature_acceptance", True), ("elapsed_ms", 1200000)):
+            with self.subTest(key=key):
+                result = self.completed_result()
+                result[key] = value
+                with self.assertRaises(REFUSALS):
+                    self.verify(result)
+        result = self.completed_result()
+        with self.assertRaises(env.EnvironmentRefused):
+            self.verify(result, session=dict(caller=result["caller"], admission=result["admission"],
+                                             running=result["running"], seconds=1201))
+        self.reader.require_current_clients.assert_not_called()
+
+    def test_public_verifier_refuses_stored_journey_drift_after_replay(self):
+        result = self.completed_result()
+        result["journey"]["tests"][0]["stdout_sha256"] = "b" * 64
+        with self.assertRaises(env.EnvironmentRefused):
+            self.verify(result)
+        self.reader.require_current_clients.assert_called_once()
 
 
 class CombinedRecordUiControllerResultTests(unittest.TestCase):

@@ -70,7 +70,7 @@ def check_window(began_ns, until_ns, *, minimum_seconds=0):
                 and until_ns - now > minimum_seconds * NS, "deadline")
 
 
-def _approval(authority_pin, attempt_pin, admission_pin):
+def read_approval(authority_pin, admission_pin):
     approved = at(authority_pin, AUTHORITY, 16_384)
     owned._obj(approved, ("version", "scope", "proposal", "admission", "ledger", "approval_reference",
                           "allow_sdk_prepare", "allow_one_boot", "allow_model", "allow_retirement"), "auth")
@@ -87,6 +87,11 @@ def _approval(authority_pin, attempt_pin, admission_pin):
     for label, role in (("Admission SHA-256", "admission"), ("Ledger SHA-256", "ledger")):
         env.require([line for line in lines if line.startswith(label)]
                     == [label + " " + approved[role]["sha256"]], "authority")
+    return approved
+
+
+def _approval(authority_pin, attempt_pin, admission_pin):
+    approved = read_approval(authority_pin, admission_pin)
     env.require(owned._same(at(attempt_pin, ATTEMPT, 16_384),
                            dict(version=1, scope=AUTHORITY_SCOPE, authority=authority_pin, no_retry=True)), "attempt")
     return approved

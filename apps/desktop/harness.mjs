@@ -7,6 +7,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
 import { createInterface } from "node:readline";
+import { nativeHarnessEnvironment } from "./d02-native-environment.mjs";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const mode = process.argv[2];
 if (!["native", "headless"].includes(mode))
@@ -26,7 +27,9 @@ const parent =
 await mkdir(parent, { recursive: true });
 const directory = path.join(parent, `${mode}-${randomUUID()}`);
 const git = async (...args) =>
-    (await promisify(execFile)("git", args, { cwd: root })).stdout.trim();
+    (
+        await promisify(execFile)("git", args, { cwd: root, windowsHide: true })
+    ).stdout.trim();
 const sourceRevision = await git("rev-parse", "HEAD");
 const sourceDirty = (await git("status", "--porcelain")).length > 0;
 async function run(command, args, options = {}) {
@@ -35,6 +38,7 @@ async function run(command, args, options = {}) {
             cwd: root,
             stdio: "inherit",
             shell: false,
+            windowsHide: true,
             ...options,
         });
         const timer = setTimeout(() => child.kill(), 210_000);
@@ -59,16 +63,7 @@ await run("cargo", [
 ]);
 if (mode === "native") {
     await run(executable, [], {
-        env: {
-            ...process.env,
-            LOCALLORE_D02_HARNESS: "1",
-            LOCALLORE_TEST_MEMORY: "1",
-            LOCALLORE_TEST_WORKSPACE: path.join(
-                directory,
-                "legacy-unused.sqlite",
-            ),
-            LOCALLORE_D02_ARTIFACT_DIR: directory,
-        },
+        env: nativeHarnessEnvironment(process.env, directory),
     });
 } else {
     await mkdir(directory);
@@ -371,6 +366,7 @@ const inputs = [
     "src-tauri/Cargo.toml",
     "build.mjs",
     "harness.mjs",
+    "d02-native-environment.mjs",
     "dist/app.js",
     executable,
     "../../crates/locallore/src/host.rs",

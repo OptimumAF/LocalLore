@@ -230,3 +230,26 @@ class ArchiveProviderAdmissionTests(unittest.TestCase):
         with self.assertRaises(REFUSALS):
             admission.verify_candidate(candidate, self.ledger)
         self.assertEqual(prep.env.read_json(admission.RUN_AUTHORITY), {"synthetic": "already exists"})
+
+    def change_worker_during_tool_checks(self, *_):
+        path = Path(self.proof["evidence"]["worker"]["path"])
+        worker = prep.env.read_json(path)
+        self.write(path, dict(worker, worker=dict(worker["worker"], pid=7103)))
+
+    def test_staging_refuses_worker_drift_during_tool_checks(self):
+        self.check_inputs.side_effect = self.change_worker_during_tool_checks
+        with self.assertRaises(REFUSALS):
+            self.stage()
+        self.check_inputs.assert_called_once()
+        self.assertFalse(admission.CANDIDATE.exists())
+        self.assertFalse(admission.RUN_AUTHORITY.exists())
+
+    def test_verification_refuses_worker_drift_during_tool_checks(self):
+        candidate = self.stage()
+        self.check_inputs.reset_mock()
+        self.check_inputs.side_effect = self.change_worker_during_tool_checks
+        with self.assertRaises(REFUSALS):
+            admission.verify_candidate(candidate, self.ledger)
+        self.check_inputs.assert_called_once()
+        self.assertEqual(prep.env.binding(admission.CANDIDATE), candidate)
+        self.assertFalse(admission.RUN_AUTHORITY.exists())

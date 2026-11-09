@@ -140,14 +140,13 @@ impl EvaluationManager {
     }
     pub(super) fn curated_snapshot(&self, epoch: u64, id: &str, token: &str) -> Result<Value> {
         let state = self.state()?;
-        let job = state
-            .job
-            .as_ref()
-            .filter(|j| j.epoch == epoch && j.run == id);
+        let job = state.job.as_ref().filter(|j| {
+            j.kind == JobKind::Curated && j.epoch == epoch && j.run == id && j.worker_active
+        });
         let curated = self.curated_lock()?;
         let run = curated.runs.get(id).ok_or("UnknownEvaluationRun")?;
         Ok(
-            json!({"version":1,"run_token":token,"run_id":id,"operation_id":job.map(|j|j.id),"running":job.is_some_and(|j|j.worker_active),"phase":run.phase,"error":run.error,
+            json!({"version":1,"run_token":token,"run_id":id,"operation_id":job.map(|j|j.id),"running":job.is_some(),"phase":run.phase,"error":run.error,
             "completed_cases":run.snapshot.as_ref().map(|s|&s["checkpointed_stories"]).cloned().unwrap_or(json!(0)),"completed":run.snapshot.as_ref().is_some_and(|s|s["completed"]==true),
             "lane":run.metadata["lane"],"client_id":run.metadata["client_id"],"source_binding":run.metadata["source_binding"],"snapshot":run.snapshot}),
         )
@@ -498,25 +497,24 @@ impl EvaluationManager {
                 let uncertain = native_failure
                     .as_ref()
                     .is_some_and(|error| error.cleanup_uncertain());
-                let retained = native_failure.and_then(|error| error.into_retained().ok());
-                {
+                let mut retained = native_failure.and_then(|error| error.into_retained().ok());
+                let mut settle = |publish: bool| {
                     let mut state = manager.state.lock().unwrap_or_else(|p| p.into_inner());
-                    // Retirement/drain cannot replace this job before actual
-                    // completion. The ownership payload precedes the terminal flag.
-                    if let Some(job) = state.job.as_mut().filter(|j| {
+                    let Some(job) = state.job.as_mut().filter(|j| {
                         j.kind == JobKind::Curated && j.id == operation && j.epoch == epoch
-                    }) {
-                        if let Some(ownership) = job.selected.as_mut() {
-                            ownership.retained = retained;
-                        }
-                        job.worker_active = false;
+                    }) else {
+                        return;
+                    };
+                    if let Some(ownership) = job.selected.as_mut() {
+                        ownership.retained = retained.take();
                     }
-                }
-                let _ = owner.dispatch(epoch, || {
-                    let mut runs = manager.curated_lock()?;
+                    // Keep the same state -> curated lock order as snapshot and
+                    // cancel. They must see either an active operation or its
+                    // settled result, even when native cleanup retains ownership.
+                    let mut runs = manager.curated.lock().unwrap_or_else(|p| p.into_inner());
                     if let Some(run) = runs.runs.get_mut(&run_id) {
-                        match &result {
-                            Ok(snapshot) => {
+                        match (publish && owner.valid(epoch), &result) {
+                            (true, Ok(snapshot)) => {
                                 run.phase = if snapshot["completed"] == true {
                                     "completed"
                                 } else {
@@ -526,35 +524,28 @@ impl EvaluationManager {
                                 run.snapshot = Some(snapshot.clone());
                                 run.error = None;
                             }
-                            Err(e) => {
+                            (true, Err(e)) => {
                                 run.phase = "error".into();
                                 run.error = Some(e.clone());
                             }
+                            (false, _) => run.phase = "retained".into(),
                         }
                     }
-                    Ok(())
-                });
-                manager.clear_cancellation(epoch, operation);
-                let mut state = manager.state.lock().unwrap_or_else(|p| p.into_inner());
-                if state
-                    .job
-                    .as_ref()
-                    .is_some_and(|j| j.id == operation && j.epoch == epoch)
-                    && !uncertain
-                {
-                    state.job = None;
-                }
-                if !owner.valid(epoch) {
-                    if let Some(run) = manager
-                        .curated
-                        .lock()
-                        .unwrap_or_else(|p| p.into_inner())
-                        .runs
-                        .get_mut(&run_id)
-                    {
-                        run.phase = "retained".into();
+                    job.worker_active = false;
+                    if !uncertain {
+                        state.job = None;
                     }
+                };
+                if owner
+                    .dispatch(epoch, || {
+                        settle(true);
+                        Ok(())
+                    })
+                    .is_err()
+                {
+                    settle(false);
                 }
+                manager.clear_cancellation(epoch, operation);
             };
             #[cfg(test)]
             let failed = self

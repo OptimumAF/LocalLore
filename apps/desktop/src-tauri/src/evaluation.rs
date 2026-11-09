@@ -823,6 +823,7 @@ impl EvaluationManager {
                     j.epoch == epoch
                         && j.id == operation
                         && j.run == run
+                        && j.worker_active
                         && matches!(j.kind, JobKind::Builtin | JobKind::Curated)
                 })
                 .ok_or("StaleEvaluationOperation")?;

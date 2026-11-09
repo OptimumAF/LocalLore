@@ -1,19 +1,26 @@
-"""Fixed observer and capture for an independently owned saved-library status guest.
+"""Observe or start one approved, prepared saved-library status guest.
 
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import copy
+import os
 from pathlib import Path, PureWindowsPath
 import sys
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from benchmarks import android_process_client_v4 as wire
 from benchmarks import android_process_verification_v4 as verification
+from benchmarks import isolated_adb_owner as process
 from benchmarks import owned_target_contract as core
 from benchmarks import owned_target_owner as mechanisms
 from benchmarks import receipt_avd_environment as environment
+from benchmarks import receipt_avd_storage as storage
 from benchmarks import saved_library_status_binding as artifacts
 
 PROTOCOL = "owned-emulator-saved-library-status-v1"
+RUN_SCOPE = PROTOCOL
 SDK_PROTOCOL = "sdk-saved-library-status-v1"
 PROOF_PROTOCOL = "saved-library-status-socket-proof-v1"
 CLIENT_VERSION = 23
@@ -29,7 +36,8 @@ CLAIM_KINDS = tuple(kind for kind, _, _ in INSTRUMENTATIONS)
 ARTIFACT_KEYS = frozenset(("build", "product_apk", "test_apk"))
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     OWNER_SCRIPT, "saved_library_status_binding.py", "saved_library_status_controller.py",
-    "archive_ui_build.py", "android_instrumentation_evidence.py",
+    "saved_library_status_handoff.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
+    "prepare_recovery_contract.py",
 })
 _DEX_AUDIT_SOURCES = ("audit_apk.py", "audit_physical_model_apk.py")
 OwnerRefused = mechanisms.OwnerRefused
@@ -153,3 +161,96 @@ class OwnedSavedLibraryStatusSdkCapture(wire._OwnedTargetSdkCapture):
     def _expected_lease_class(self):
         wire._need(type(self) is OwnedSavedLibraryStatusSdkCapture, "client_type")
         return LiveOwnedSavedLibraryStatusTarget
+
+
+def _live_boot(pin, approved, launch_inputs, parent=None):
+    """Recheck the pinned handoff and the actual enclosing process identities."""
+    from benchmarks import saved_library_status_handoff as handoff
+
+    current_pin, current = handoff.read(handoff.HANDOFF)
+    environment.require(
+        pin["sha256"] == os.environ.get(handoff.HANDOFF_ENV)
+        and _same(current_pin, pin) and _same(current, approved), "handoff",
+    )
+    supervisor = approved["supervisor"]
+    api = mechanisms._ProcessApi()
+    handles = process.ProcessHandles(api)
+    try:
+        handles.add(supervisor["pid"], supervisor)
+        if parent is None:
+            environment.require(os.getppid() == supervisor["pid"]
+                        and {supervisor["pid"], os.getpid()} <= set(api.current_job_pids()), "identity")
+        else:
+            parent_handle, _ = handles.add(parent["pid"], parent)
+            environment.require(os.getppid() == parent["pid"] and api.parent_pid(parent_handle) == supervisor["pid"]
+                        and os.getpid() in api.current_job_pids(), "identity")
+        handles.guard()
+    finally:
+        environment.require(handles.close() is True, "identity")
+    for binding in (pin, approved["authority"], approved["attempt"], approved["admission"], *launch_inputs):
+        environment.check_binding(binding)
+    handoff.check_launch_window(approved["began_ns"], approved["until_ns"])
+
+
+class _SavedLibraryStatusRuntime(mechanisms._TargetRuntimeCore):
+    def __init__(self, request, request_binding, root):
+        from benchmarks import saved_library_status_handoff as handoff
+
+        mechanisms._need(type(self) is _SavedLibraryStatusRuntime, "owner_type")
+        self._handoff_pin, self._handoff, self._launch_inputs = handoff.verify_boot_handoff(
+            request["admission"], request["validated_admission"])
+        _live_boot(self._handoff_pin, self._handoff, self._launch_inputs, request["owner"])
+        super().__init__(request, request_binding, root)
+
+    def start_server(self):
+        _live_boot(self._handoff_pin, self._handoff, self._launch_inputs, self.request["owner"])
+        super().start_server()
+
+    def guard(self):
+        from benchmarks import saved_library_status_handoff as handoff
+
+        super().guard()
+        window = handoff.check_launch_window if self.guest_child is None else handoff.check_window
+        window(self._handoff["began_ns"], self._handoff["until_ns"])
+
+    def _retain_guest(self):
+        _live_boot(self._handoff_pin, self._handoff, self._launch_inputs, self.request["owner"])
+        guest = self.admission["guest"]
+        environment.storage_transition(
+            storage.record_state, Path(guest["root"]), "retained",
+            proposal_sha256=guest["proposal"]["sha256"],
+            expected_prepare_sha256=self.proposal["prepare_proposal"]["sha256"],
+        )
+        _live_boot(self._handoff_pin, self._handoff, self._launch_inputs, self.request["owner"])
+
+    @property
+    def _contract(self):
+        return _CONTRACT
+
+    @property
+    def _verification(self):
+        return REPLAY
+
+
+def main(argv=None):
+    from benchmarks import saved_library_status_handoff as handoff
+
+    args = sys.argv[1:] if argv is None else argv
+    if type(args) is not list or (args != ["_worker"] and not (
+        len(args) == 4 and args[:3] == ["--admission", str(handoff.ADMISSION), "--admission-sha256"]
+    )):
+        return 1
+
+    def check_admission(admission):
+        pin, current = handoff.read(handoff.ADMISSION)
+        environment.require(pin["sha256"] == args[3] and _same(current, admission), "admission")
+        environment.require(not os.path.lexists(handoff.OWNED_ROOT), "already_used")
+        _live_boot(*handoff.verify_boot_handoff(pin, admission))
+
+    return mechanisms._main_profile(args, _contract=_CONTRACT, _verification=REPLAY,
+                                    _runtime_type=_SavedLibraryStatusRuntime,
+                                    _admission_check=check_admission)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

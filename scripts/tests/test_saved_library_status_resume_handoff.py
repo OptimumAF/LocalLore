@@ -279,6 +279,8 @@ class SavedLibraryStatusResumeHandoffTests(unittest.TestCase):
             original.GUEST / contract.BOOT_CLAIM_FILE,
             original.GUEST / "guest-storage-closure-v1.json",
             original.GUEST / "content/userdata-qemu.img",
+            original.OWNED_ROOT / "running-v1.json",
+            original.OWNED_ROOT / "guest-output-v1",
         ):
             with self.subTest(path=path):
                 graph = ResumeRecords()

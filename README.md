@@ -21,6 +21,15 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [current library/recovery UI profile](docs/native/LIBRARY_UI_V1.md)
+selects four fixed PR #351 journeys through the current guarded owner and
+recovery source. It has separate SDK15 authority and exact frozen-build
+attestation. Host qualification and actual Android execution are separate;
+spent SDK14 grants do not authorize the current product or selectors.
+The [host verification report](docs/native/LIBRARY_UI_VERIFICATION_2026-11-02.md)
+records 46 new checks, 173 existing regressions and genuine byte replay, with
+the original failed permission expectation preserved. Android remains unrun.
+
 The [current Story Record UI harness](docs/native/RECORD_CONTROLS_UI_V1.md)
 binds nineteen chat, inventory, profile, retained-control and promise journeys
 to PR #337's exact APK pair. [Host verification](docs/native/RECORD_CONTROLS_UI_VERIFICATION_2026-11-01.md)

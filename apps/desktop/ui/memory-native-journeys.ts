@@ -67,7 +67,17 @@ export async function memoryNativeJourneys({
         await new Promise((r) => setTimeout(r, 100));
         const root = document.getElementById("root")!,
             panel = root.querySelector(".memory-maintenance-panel")!;
-        check(!!panel, `${label}-panel-visible`);
+        const disclosure = panel?.closest<HTMLDetailsElement>(
+            "details.workspace-tool",
+        );
+        if (disclosure && !disclosure.open) {
+            disclosure.open = true;
+            await pause();
+        }
+        check(
+            !!panel && panel.getBoundingClientRect().height > 0,
+            `${label}-panel-visible`,
+        );
         const context = m.get().context!;
         check(
             panel.textContent?.includes(context.scope.story) &&

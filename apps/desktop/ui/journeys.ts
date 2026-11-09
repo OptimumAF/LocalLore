@@ -355,6 +355,29 @@ export async function journeys({
             "details.workspace-tool",
         ),
     ];
+    const checkCompactToolLayout = async (label: string) => {
+        const tools = workspaceTools();
+        check(
+            tools.length === 2 &&
+                tools.every(
+                    (tool) =>
+                        !tool.open &&
+                        (tool.querySelector("summary")?.getBoundingClientRect()
+                            .height ?? 0) > 0,
+                ),
+            `${label}:tool-disclosures-reachable`,
+        );
+        const row = document.querySelector(".transcript .turn");
+        const previousY = scrollY;
+        row?.scrollIntoView({ block: "start", behavior: "instant" });
+        await pause();
+        const top = row?.getBoundingClientRect().top;
+        scrollTo({ top: previousY, behavior: "instant" });
+        check(
+            top !== undefined && top >= -2 && top < innerHeight,
+            `${label}:accepted-transcript-scroll-reachable`,
+        );
+    };
     const checkpoint = async (label: string) => {
         await pause();
         const root = document.getElementById("root")!;
@@ -870,12 +893,14 @@ export async function journeys({
             document.documentElement.scrollWidth <= innerWidth + 2,
             "native-narrow-no-horizontal-overflow",
         );
+        await checkCompactToolLayout("narrow");
         c.layout(2, 2, 200);
         await checkpoint("enlarged");
         check(
             document.documentElement.scrollWidth <= innerWidth + 2,
             "enlarged-no-horizontal-overflow",
         );
+        await checkCompactToolLayout("enlarged");
         c.layout(1, 1, 100);
         await invoke("harness_viewport", { preset: "wide" });
         c.setDraft("Synthetic draft in first story");

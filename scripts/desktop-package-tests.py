@@ -79,6 +79,30 @@ class PackageTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Unexpected package member"):
                     package.validate_files(files)
 
+    def test_windows_member_aliases_fail_even_when_resealed(self):
+        for names in [
+            ("NOTICES/License.txt", "NOTICES/license.txt"),
+            ("NOTICES/license.txt", "NOTICES/license.txt."),
+            ("NOTICES/Scope /license.txt",),
+            ("NOTICES/NUL.txt",),
+            ("NOTICES/Scope", "NOTICES/scope/license.txt"),
+        ]:
+            with self.subTest(names=names):
+                files = self.files()
+                files.update({name: b"synthetic notice" for name in names})
+                with self.assertRaisesRegex(ValueError, "Windows package member"):
+                    package.inspect_archive(self.archive(self.seal(files)))
+
+    def test_distinct_windows_notice_paths_are_allowed(self):
+        files = self.files()
+        files.update({
+            "NOTICES/Scope": b"synthetic notice",
+            "NOTICES/Scope extra/license.txt": b"synthetic nested notice",
+            "NOTICES/Scope extra/NOTICE.txt": b"synthetic sibling notice",
+        })
+        result = package.inspect_archive(self.archive(self.seal(files)))
+        self.assertEqual(result["members"], 9)
+
     def test_duplicate_zip_member_and_symlink_fail(self):
         path = self.archive(self.files())
         with zipfile.ZipFile(path, "a") as archive:

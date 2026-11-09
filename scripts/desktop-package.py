@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from itertools import pairwise
 import json
+from ntpath import isreserved
 import os
 from pathlib import Path
 import re
@@ -392,12 +394,19 @@ def validate_files(files: dict[str, bytes], *, require_license_audit: bool = Fal
             for p in parts
         ):
             raise ValueError("Unexpected package member")
+        if any(isreserved(part) for part in parts):
+            raise ValueError("Reserved Windows package member")
         if name.startswith("NOTICES/") and (len(data) > 1024 * 1024 or b"\0" in data):
             raise ValueError("Invalid notice")
         if name in source_names:
             source_total += len(data)
             if len(data) > source_catalog["source_archives_each_byte_cap"] or source_total > source_catalog["source_archives_byte_cap"]:
                 raise ValueError("MPL source archive budget")
+    # Component order puts a file directly before any member that uses it as a directory.
+    windows_members = sorted(tuple(name.lower().split("/")) for name in files)
+    for parent, child in pairwise(windows_members):
+        if child[:len(parent)] == parent:
+            raise ValueError("Conflicting Windows package member")
     for name, cap in {"build-manifest.json": 2 * 1024 * 1024,
                       "runtime/profile-v1.json": 32768, "README.txt": 65536, "LICENSE": 65536}.items():
         if len(files[name]) > cap:

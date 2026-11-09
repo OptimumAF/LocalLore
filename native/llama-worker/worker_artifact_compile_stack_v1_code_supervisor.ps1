@@ -61,18 +61,22 @@ function TreeBytes([string]$Root) {
     $full = Physical $Root
     $count = 0
     $total = 0L
-    foreach ($entry in Get-ChildItem -LiteralPath $full -Force -Recurse) {
+    Get-ChildItem -LiteralPath $full -Force -Recurse | ForEach-Object {
+        $entry = $_
         if (++$count -gt 200000 -or ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'TreeBoundary' }
         if (-not $entry.PSIsContainer) { $total += $entry.Length }
     }
     return $total
 }
 
-function Audit([bool]$Active, [int]$Reserve) {
+function Audit([bool]$Active, [int]$Reserve, [bool]$Strict=$true) {
     $old = [Collections.Generic.List[string]]::new()
     $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     $own = 0L
-    foreach ($entry in Get-ChildItem -LiteralPath (Physical $packet) -Force) {
+    $count = 0
+    Get-ChildItem -LiteralPath (Physical $packet) -Force | ForEach-Object {
+        $entry = $_
+        if (++$count -gt 1000) { throw 'PriorRoster' }
         if ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'EvidenceReparse' }
         if ($entry.Name.StartsWith($stem, [StringComparison]::OrdinalIgnoreCase)) {
             if ($entry.PSIsContainer -or -not $entry.Name.StartsWith($stem, [StringComparison]::Ordinal)) { throw 'OwnLeaf' }
@@ -115,9 +119,13 @@ function Audit([bool]$Active, [int]$Reserve) {
         }
     }
     $joint = $group + $browser + 560014573 + 79500962 + $oldBytes + 671744 + $runtime
-    if ($metadata -ne 3060788 + $own -or $group -ne 55230062 + $own -or $joint -ne 737551587 + $own -or
-        $oldBytes -ne 549989 -or $browser -ne 41584016 -or $targetBytes -ne 12356228504 -or $runtime -ne 241 -or
-        $metadata + $Reserve -gt 3125248 -or $group + 31791 + $Reserve -gt 67108864 -or
+    if ($Strict -and ($metadata -ne 3060788 + $own -or $group -ne 55230062 + $own -or
+        $joint -ne 737551587 + $own -or $targetBytes -ne 12356228504 -or $runtime -ne 241)) {
+        throw 'StorageDrift'
+    }
+    if ($oldBytes -ne 549989 -or $browser -ne 41584016 -or $targetBytes -gt 12554947872 -or
+        $runtime + 671744 -gt 8388608 -or $metadata + $Reserve -gt 3125248 -or
+        $group + 31791 + $Reserve -gt 67108864 -or
         $joint + 31791 + $Reserve -gt 759169024 -or [IO.DriveInfo]::new('D').AvailableFreeSpace -lt 1048576) {
         throw 'StorageBoundary'
     }
@@ -138,7 +146,7 @@ function ExactKeys($Value, [string[]]$Expected) {
 
 function Save([string]$Leaf,[byte[]]$Bytes) {
     if (-not $runLimits.Contains($Leaf) -or $Bytes.Length -gt $runLimits[$Leaf]) { throw 'RecordLimit' }
-    $null = Audit $true $Bytes.Length
+    $null = Audit $true $Bytes.Length $false
     $path = Join-Path $packet ($stem + $Leaf)
     $file = [IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     try { $file.Write($Bytes,0,$Bytes.Length); $file.Flush($true) } finally { $file.Dispose() }
@@ -212,7 +220,7 @@ function Capture {
                 $take=[Math]::Min($n,4096-[int]$captures[$i].Length)
                 if ($take -gt 0) { $captures[$i].Write($buffers[$i],0,$take) }
                 if ($take -ne $n) { $overflow=$true;$done[$i]=$true;continue }
-                $reads[$i]=$streams[$i].ReadAsync($buffers[$i],0,$buffers[$i].Length)
+                $reads[$i]=$streams[$i].ReadAsync($buffers[$i],0,4097-[int]$captures[$i].Length)
             }
             if (-not $exited -and $process.HasExited) { $code=$process.ExitCode;$exited=$true }
             $now = $timer.ElapsedMilliseconds
@@ -257,7 +265,9 @@ function Capture {
     }
 }
 
-if ((Split-Path -Leaf $packet) -cne 'd08-fork-native-20261030-v1' -or
+if ((HashBytes ($utf8.GetBytes($packet.ToLowerInvariant()))) -cne
+    '69f29a054f4de350feb726a085c1ca5dbe5a69d493c3f2d2323f008b55b1f632' -or
+    (Split-Path -Leaf $packet) -cne 'd08-fork-native-20261030-v1' -or
     (Split-Path -Leaf $artifacts) -cne 'author-integration-artifacts' -or
     [IO.Path]::GetFullPath($PSCommandPath) -cne (Join-Path $packet ($stem+'supervisor.ps1')) -or
     $PSVersionTable.PSVersion.ToString() -ne '7.6.9' -or [Environment]::Version.ToString() -ne '10.0.14' -or
@@ -291,12 +301,16 @@ try {
 
     $launched = $true
     $capture = Capture
-    Save 'stdout.bin' $capture.stdout
-    Save 'stderr.bin' $capture.stderr
+    $rawSaved = $true
+    try { Save 'stdout.bin' $capture.stdout } catch { $rawSaved = $false }
+    try { Save 'stderr.bin' $capture.stderr } catch { $rawSaved = $false }
     $facts = $capture.facts
-    SaveJson 'process.json' ([ordered]@{version=1;kind='compile_stack_code_process_v1';start=$startHash
-        facts=$facts;stdoutBytes=$capture.stdout.Length;stderrBytes=$capture.stderr.Length
-        stdoutHash=(HashBytes $capture.stdout);stderrHash=(HashBytes $capture.stderr)})
+    try {
+        SaveJson 'process.json' ([ordered]@{version=1;kind='compile_stack_code_process_v1';start=$startHash
+            facts=$facts;stdoutBytes=$capture.stdout.Length;stderrBytes=$capture.stderr.Length
+            stdoutHash=(HashBytes $capture.stdout);stderrHash=(HashBytes $capture.stderr);rawSaved=$rawSaved})
+    } catch { $rawSaved = $false }
+    if (-not $rawSaved) { throw 'RawRetention' }
     $expected = @(
         '{"version":1,"kind":"worker_artifact_held_outputs_first_v1","executed":14,"passed":14,"failed":0,"failed_case_ids":[]}',
         '{"version":1,"kind":"worker_artifact_compile_observation_first_v1","executed":11,"passed":11,"failed":0,"failed_case_ids":[]}',
@@ -315,7 +329,7 @@ try {
     $failure = $_
     $reason = $failure.Exception.Message
     if ($reason -cnotin @('PhysicalD','Reparse','EvidenceReparse','OwnLeaf','OwnLimit','PriorDirectory',
-        'PriorRoster','TreeBoundary','StorageBoundary','PinnedSource','RecordLimit','Readback','StartChanged','CodeGate')) {
+        'PriorRoster','TreeBoundary','StorageBoundary','StorageDrift','RawRetention','PinnedSource','RecordLimit','Readback','StartChanged','CodeGate')) {
         $reason = 'Unhandled'
     }
     try { SaveJson 'STOP.json' ([ordered]@{version=1;kind='compile_stack_code_stop_v1';start=$startHash

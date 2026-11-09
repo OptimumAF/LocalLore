@@ -19,6 +19,7 @@ $entry = Join-Path $desktop 'check-inspection-controller.mjs'
 $tools = Join-Path $base 'd09-build-security'
 $node = Join-Path $tools 'node-v24.22.1-win-x64/node.exe'
 $esbuild = Join-Path $tools 'node_modules/esbuild/lib/main.js'
+$service = Join-Path $tools 'node_modules/@esbuild/win32-x64/esbuild.exe'
 $bundle = Join-Path $packet 'bundle'
 $scratch = Join-Path $packet '_tmp'
 $utf8 = [Text.UTF8Encoding]::new($false, $true)
@@ -31,6 +32,10 @@ function Assert-PhysicalD([string] $Path) {
         if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'ReparseBoundary' }
         $current = [IO.Path]::GetDirectoryName($current)
     }
+}
+
+function Bytes-Sha([byte[]] $Bytes) {
+    [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($Bytes)).ToLowerInvariant()
 }
 
 function File-Sha([string] $Path) {
@@ -99,12 +104,17 @@ function Assert-Source {
         (Test-Path -LiteralPath (Join-Path $desktop 'node_modules'))) { throw 'EntryBoundary' }
 }
 
-if ((Split-Path -Leaf $packet) -cne 'd05-inspection-controller-431-v1' -or
+if ((Bytes-Sha ($utf8.GetBytes([IO.Path]::GetFullPath($base).ToLowerInvariant()))) -cne
+    '49d8c83a7c6766fd0a5817481ddeb9a701d9c39cc578b806660f860eb593c713' -or
+    (Split-Path -Leaf $packet) -cne 'd05-inspection-controller-431-v1' -or
     (Split-Path -Leaf $group) -cne 'd09-frontend-evidence-admission-20261030-v1' -or
     (Split-Path -Leaf $artifacts) -cne 'author-integration-artifacts' -or
     (Split-Path -Leaf $PSCommandPath) -cne 'inspection-controller-431-packet.ps1' -or
     (Get-Location).ProviderPath -ine $repo) { throw 'PacketLocation' }
-Assert-PhysicalD $packet
+foreach ($directory in $packet, $bundle, $scratch) {
+    Assert-PhysicalD $directory
+    if (-not (Get-Item -LiteralPath $directory).PSIsContainer) { throw 'PacketDirectory' }
+}
 $expectedLeaves = @('inspection-controller-431-packet.ps1', 'owner.json', 'stage.json', '_tmp', 'bundle')
 $leaves = @(Get-ChildItem -LiteralPath $packet -Force)
 if ($leaves.Count -ne $expectedLeaves.Count -or
@@ -134,7 +144,7 @@ Assert-Input $node 93915464 'd702daa815eabbff763c7d3808e235cf031cf2ca70211b56847
 Assert-Input $esbuild 97463 '61ec0ba144ff93f4bf0e96ad6fab6f430ede0aa13e27ace8063ed63ba416b3cd'
 Assert-Input (Join-Path $tools 'node_modules/esbuild/package.json') 3980 '9d0bc453f4e791553c4cc2298ba023b409241fd9801e494741666eb0f6051490'
 Assert-Input (Join-Path $tools 'node_modules/@esbuild/win32-x64/package.json') 374 '89382df45735edcd917c492a810ab514920fa07d36c653cdc122bdfd8f526964'
-Assert-Input (Join-Path $tools 'node_modules/@esbuild/win32-x64/esbuild.exe') 11694592 'c7bee37877d0aa6a046e52783fa0a2cf1a9ce5579d68bb3083bda99d4bff18ef'
+Assert-Input $service 11694592 'c7bee37877d0aa6a046e52783fa0a2cf1a9ce5579d68bb3083bda99d4bff18ef'
 
 $startingBytes = Measure-Tree $packet 256
 $d09Before = (Measure-Tree $group 4096) - $startingBytes
@@ -148,15 +158,58 @@ if ($startingBytes -gt 32KB -or $d09Before -ne $stage.d09BaseBytes -or
 # A fixed resolver changes one import edge, then delegates to Node's normal resolver.
 $entryUrl = ([uri]::new($entry)).AbsoluteUri | ConvertTo-Json -Compress
 $moduleUrl = ([uri]::new($esbuild)).AbsoluteUri | ConvertTo-Json -Compress
+$servicePath = $service | ConvertTo-Json -Compress
 $hook = @"
 import { registerHooks } from 'node:module';
-registerHooks({
+import childProcess from 'node:child_process';
+import { win32 } from 'node:path';
+
+const hook = registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === 'esbuild' && context.parentURL === $entryUrl)
       return nextResolve($moduleUrl, context);
     return nextResolve(specifier, context);
   }
 });
+const spawn = childProcess.spawn;
+let service;
+let serviceClosed;
+childProcess.spawn = function (file, args, options) {
+  if (service || typeof file !== 'string' ||
+      win32.normalize(file).toLowerCase() !== win32.normalize($servicePath).toLowerCase() ||
+      !Array.isArray(args) || args.length !== 2 || args[0] !== '--service=0.28.2' || args[1] !== '--ping' ||
+      options?.windowsHide !== true || options.stdio?.join(',') !== 'pipe,pipe,inherit' ||
+      options.cwd !== process.cwd()) {
+    throw Error('UnexpectedBuildToolOffer');
+  }
+  service = spawn.call(this, file, args, options);
+  serviceClosed = new Promise(resolve => service.once('close', () => resolve(service.pid)));
+  return service;
+};
+try {
+  const esbuild = await import($moduleUrl);
+  try {
+    await import($entryUrl);
+  } finally {
+    if (service) {
+      await esbuild.stop();
+      let timer;
+      try {
+        const pid = await Promise.race([
+          serviceClosed,
+          new Promise(resolve => { timer = setTimeout(resolve, 3000); }),
+        ]);
+        if (!Number.isSafeInteger(pid) || pid < 1) throw Error('BuildToolClosureUnknown');
+        console.log('ESBUILD_CLOSED ' + pid);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  }
+} finally {
+  childProcess.spawn = spawn;
+  hook.deregister();
+}
 "@
 $preload = 'data:text/javascript;base64,' + [Convert]::ToBase64String($utf8.GetBytes($hook))
 $startInfo = [Diagnostics.ProcessStartInfo]::new()
@@ -164,10 +217,13 @@ $startInfo.FileName = $node
 $startInfo.WorkingDirectory = $desktop
 $startInfo.UseShellExecute = $false
 $startInfo.CreateNoWindow = $true
+$startInfo.RedirectStandardInput = $true
 $startInfo.RedirectStandardOutput = $true
 $startInfo.RedirectStandardError = $true
 $startInfo.ArgumentList.Add("--import=$preload")
-$startInfo.ArgumentList.Add($entry)
+$startInfo.ArgumentList.Add('--input-type=module')
+$startInfo.ArgumentList.Add('--eval')
+$startInfo.ArgumentList.Add('')
 $startInfo.Environment.Clear()
 $startInfo.Environment['SystemRoot'] = $env:SystemRoot
 $startInfo.Environment['TEMP'] = $scratch
@@ -186,7 +242,7 @@ Write-Record 'start.json' ([ordered]@{
     launcherSha256 = $self
     ownerSha256 = $ownerHash
     stageSha256 = $stageHash
-    preloadSha256 = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($utf8.GetBytes($hook))).ToLowerInvariant()
+    preloadSha256 = Bytes-Sha ($utf8.GetBytes($hook))
     beganUtc = [DateTimeOffset]::UtcNow.ToString('o')
 })
 
@@ -196,6 +252,8 @@ $buffers = [byte[][]]@([byte[]]::new($streamLimit + 1), [byte[]]::new($streamLim
 $counts = [int[]]@(0, 0)
 $eof = [bool[]]@($false, $false)
 $reads = [Threading.Tasks.Task[int][]]::new(2)
+$processStarted = $false
+$disposed = $false
 $pidObserved = $null
 $exitCode = $null
 $reason = $null
@@ -203,13 +261,16 @@ $stopAt = $null
 $killRequested = $false
 $clock = [Diagnostics.Stopwatch]::StartNew()
 try {
-    if (-not $child.Start()) { throw 'StartRefused' }
+    $processStarted = $child.Start()
+    if (-not $processStarted) { throw 'StartRefused' }
     $pidObserved = $child.Id
+    $child.StandardInput.Close()
     $streams = @($child.StandardOutput.BaseStream, $child.StandardError.BaseStream)
     for ($i = 0; $i -lt 2; $i++) {
         $reads[$i] = $streams[$i].ReadAsync($buffers[$i], 0, $buffers[$i].Length)
     }
     while ($true) {
+        if ($null -ne $stopAt -and $clock.ElapsedMilliseconds -ge $stopAt + 5000) { break }
         for ($i = 0; $i -lt 2; $i++) {
             if ($null -eq $reads[$i] -or -not $reads[$i].IsCompleted) { continue }
             try {
@@ -239,7 +300,7 @@ try {
             $stopAt = [Math]::Min($clock.ElapsedMilliseconds, 30000)
             if (-not $child.HasExited) {
                 $killRequested = $true
-                try { $child.Kill() } catch { $reason = 'StopUnconfirmed' }
+                try { $child.Kill($true) } catch { $reason = 'StopUnconfirmed' }
             }
         }
         if ($null -ne $stopAt -and $clock.ElapsedMilliseconds -ge $stopAt + 5000) { break }
@@ -247,42 +308,67 @@ try {
     }
 } catch {
     $reason ??= 'ProcessObservationFailed'
-    if ($null -ne $pidObserved) {
+    if ($processStarted) {
+        $stopAt ??= [Math]::Min($clock.ElapsedMilliseconds, 30000)
         try {
             if (-not $child.HasExited -and -not $killRequested) {
                 $killRequested = $true
-                $child.Kill()
+                $child.Kill($true)
             }
+            $remaining = [int][Math]::Max(0, $stopAt + 5000 - $clock.ElapsedMilliseconds)
+            if ($child.WaitForExit($remaining)) { $exitCode = $child.ExitCode }
         } catch { $reason = 'StopUnconfirmed' }
     }
 } finally {
-    try { $child.Dispose() } catch { $reason ??= 'ProcessCloseFailed' }
+    try {
+        $child.Dispose()
+        $disposed = $true
+    } catch { $reason ??= 'ProcessCloseFailed' }
+    $clock.Stop()
 }
+if ($clock.ElapsedMilliseconds -ge 30000) { $reason ??= 'Deadline' }
 
-$closed = $null -ne $exitCode -and $eof[0] -and $eof[1]
+$closed = $disposed -and $null -ne $exitCode -and $eof[0] -and $eof[1]
 $logs = [ordered]@{}
 foreach ($i in 0..1) {
     $name = @('stdout.bin', 'stderr.bin')[$i]
     $bytes = [byte[]]::new([Math]::Min($streamLimit, $counts[$i]))
     [Array]::Copy($buffers[$i], $bytes, $bytes.Length)
-    Write-Bytes $name $bytes
-    $logs[$name] = @{ bytes = $bytes.Length; sha256 = File-Sha (Join-Path $packet $name) }
+    $hash = Bytes-Sha $bytes
+    $retained = $false
+    try {
+        Write-Bytes $name $bytes
+        $retained = (File-Sha (Join-Path $packet $name)) -ceq $hash
+    } catch { $reason ??= 'StreamRetentionRefused' }
+    if (-not $retained) { $reason ??= 'StreamRetentionRefused' }
+    $logs[$name] = @{ bytes = $bytes.Length; sha256 = $hash; retained = $retained }
 }
 $reason ??= if (-not $closed) { 'UnknownClosure' }
     elseif ($exitCode -ne 0 -or $counts[1] -ne 0) { 'ControllerCheckFailed' }
     else { $null }
 
+$lines = @()
+$servicePid = $null
+if ($eof[0] -and $counts[0] -le $streamLimit) {
+    try {
+        $lines = $utf8.GetString($buffers[0], 0, $counts[0]).Replace([string][char]13, '').TrimEnd().Split([char]10)
+        if ($lines[-1] -cmatch '^ESBUILD_CLOSED ([1-9][0-9]{0,9})$' -and [long]$Matches[1] -ne $pidObserved) {
+            $servicePid = [long]$Matches[1]
+        }
+    } catch { $reason ??= 'InvalidControllerOutput' }
+}
+if ($null -eq $servicePid) { $reason ??= 'BuildToolClosureUnknown' }
 $bundleFact = $null
 if (-not $reason) {
     try {
         Assert-Source
+        Assert-PhysicalD $bundle
         $resultFiles = @(Get-ChildItem -LiteralPath $bundle -Force)
         if ($resultFiles.Count -ne 1 -or $resultFiles[0].Name -cnotmatch '^inspection-controller-[a-f0-9-]{36}\.mjs$' -or
             $resultFiles[0].PSIsContainer -or $resultFiles[0].Length -gt 256KB -or
             (Measure-Tree $scratch 128) -gt 64KB -or
             (Measure-Tree $group 4096) - (Measure-Tree $packet 256) -ne $d09Before) { throw 'Postflight' }
-        $lines = $utf8.GetString($buffers[0], 0, $counts[0]).Replace([string][char]13, '').TrimEnd().Split([char]10)
-        if ($lines.Count -ne 2 -or
+        if ($lines.Count -ne 3 -or
             $lines[0] -cne 'PASS: inspection context is atomic across observer, revision, story and Play changes; delayed and wrong-privacy replies are fenced.' -or
             $lines[1] -cne 'PASS: removed-field prior provenance and permitted turn sources; event/message routing; hidden-cause refusal; Return to Play and story/lens parameter clearing.') {
             throw 'UnexpectedCheckOutput'
@@ -301,6 +387,9 @@ Write-Record 'result.json' ([ordered]@{
     reason = $reason
     pid = $pidObserved
     directChildAndPipesClosed = $closed
+    esbuildPid = $servicePid
+    esbuildClosureReported = $null -ne $servicePid
+    quarantineRequired = -not $closed -or $null -eq $servicePid
     stdoutEof = $eof[0]
     stderrEof = $eof[1]
     killRequested = $killRequested

@@ -36,7 +36,9 @@ CLAIM_KINDS = tuple(kind for kind, _, _ in INSTRUMENTATIONS)
 ARTIFACT_KEYS = frozenset(("build", "product_apk", "test_apk"))
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     OWNER_SCRIPT, "saved_library_status_binding.py", "saved_library_status_controller.py",
-    "saved_library_status_handoff.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
+    "saved_library_status_handoff.py", "saved_library_status_preparation.py",
+    "saved_library_status_activation.py", "saved_library_status_closure.py",
+    "saved_library_status_operation.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
     "prepare_recovery_contract.py",
 })
 _DEX_AUDIT_SOURCES = ("audit_apk.py", "audit_physical_model_apk.py")

@@ -58,8 +58,11 @@ joins the fixed approval and one-use attempt to the preparation receipts,
 signed APKs and the shared v2 storage ledger. The owner rechecks the pinned
 handoff and supervisor process before starting its private ADB service. It
 must consume the exact prepared reservation before starting the guest.
-This handoff needs a separately approved operation to prepare the guest
-and supervise the run.
+The [one-use supervisor](../../benchmarks/saved_library_status_operation.py)
+runs preparation and activation in owned Windows jobs. It preserves the
+first attempt and requires replay of the test, process cleanup and storage
+closure before reporting a pass. A frozen preflight and separate approval
+are required for a live run.
 
 ## Build and run
 

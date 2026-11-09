@@ -71,7 +71,8 @@ class BootRecords:
                                  prepare_proposal=prepare_pin, prepared=prepared_pin,
                                  prepare_result=prepared_result_pin)
         run_pin = self.add("run", owner.RUN, self.run_proposal)
-        run_authority = dict(version=1, phase="run", proposal_sha256=run_pin["sha256"],
+        run_authority = dict(version=1, phase="run", run_scope=owner.contract.PROTOCOL,
+                             proposal_sha256=run_pin["sha256"],
                              allow_environment_calls=True, root_go_pending=False)
         guest.update(proposal=run_pin, authorization=self.add("run_authority", owner.RUN_AUTHORITY,
                                                               run_authority))
@@ -180,10 +181,21 @@ class ColdNavigationOwnerTests(unittest.TestCase):
             ("plan", lambda row: row["artifacts"]["test_apk"].update(sha256="0" * 64)),
             ("run", lambda row: row.update(max_seconds=1799)),
             ("run_authority", lambda row: row.update(proposal_sha256="0" * 64)),
+            ("run_authority", lambda row: row.pop("run_scope")),
+            ("run_authority", lambda row: row.update(run_scope="other-profile")),
             ("prepared_result", lambda row: row.update(closure_verified=1)),
         ):
             with self.subTest(role=role, mutation=mutation), self.assertRaises(REFUSED):
                 BootRecords((role, mutation)).check()
+
+    def test_scoped_run_authority_refuses_under_the_legacy_guard(self):
+        graph = BootRecords()
+        _, scoped = graph.read(owner.RUN_AUTHORITY)
+        run_digest = graph.admission["guest"]["proposal"]["sha256"]
+        with self.assertRaises(REFUSED):
+            owner.env.check_authorization(scoped, "run", run_digest)
+        legacy = {key: value for key, value in scoped.items() if key != "run_scope"}
+        owner.env.check_authorization(legacy, "run", run_digest)
 
     def test_changed_handoff_is_refused_after_prepared_verification(self):
         graph = BootRecords()
@@ -274,6 +286,19 @@ class ColdNavigationOwnerTests(unittest.TestCase):
                                                Path(graph.admission["root"]))
         gate.assert_called_once_with(graph.admission_pin, graph.admission)
         runtime.assert_not_called()
+
+    def test_runtime_retention_compares_the_prepared_digest_at_transition(self):
+        graph = BootRecords()
+        runtime = object.__new__(owner._ColdNavigationTargetRuntime)
+        runtime.admission = graph.admission
+        runtime.proposal = graph.run_proposal
+        with patch.object(owner.env, "storage_transition") as transition:
+            runtime._retain_guest()
+        transition.assert_called_once_with(
+            owner.storage.record_state, graph.guest, "retained",
+            proposal_sha256=graph.admission["guest"]["proposal"]["sha256"],
+            expected_prepare_sha256=graph.run_proposal["prepare_proposal"]["sha256"],
+        )
 
 
 if __name__ == "__main__":

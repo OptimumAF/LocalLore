@@ -1,4 +1,8 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
+#if defined(_M_ARM64EC)
+#error The compile helper requires native x64, not ARM64EC.
+#endif
+
 #if !defined(_MT) || defined(_DLL) || defined(_DEBUG)
 #error The compile helper requires the static MSVC release runtime.
 #endif

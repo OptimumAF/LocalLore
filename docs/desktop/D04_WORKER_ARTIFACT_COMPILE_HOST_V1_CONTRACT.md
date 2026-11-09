@@ -39,8 +39,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Compile helper configuration failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Compile helper build failed' }
 ```
 
-Verify the actual compiler and link arguments, the x64 PE and its exact
-bytes and hash before considering it for the helper pin. Inspect normal
+Verify the actual compiler and link arguments, the native x64 PE and
+its exact bytes and hash before considering it for the helper pin. The
+source rejects ARM64EC, and PE admission must also reject ARM64X or
+other hybrid images that can carry an x64 machine value. Inspect normal
 and delay imports with the admitted PE inspection tool. Retain the exact
 scope and report before any separate loader run. A PE import listing
 alone cannot prove which files the Windows loader actually resolves.

@@ -16,7 +16,9 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -188,6 +190,8 @@ internal class LocalInferenceOwner(
     suspend fun execute(
         value: LocalInferenceNativePort, operation: String, input: ByteArray, cancelInput: ByteArray? = null,
     ): ByteArray {
+        val discardableRead = operation == "inspection_query" || operation == "play_presentation_v2"
+        if (discardableRead) currentCoroutineContext().ensureActive()
         bound(value)
         val command = input.copyOf()
         try { localText(command, 24_576) } catch (_: Throwable) { throw IllegalArgumentException("Invalid local input") }
@@ -198,19 +202,28 @@ internal class LocalInferenceOwner(
                     throw LocalInferenceBusy()
                 if (operation == "cancel" || operation == "authoring_cancel") active else null
             }
-            return try {
-                // One unchanged deadline covers both native ACK and the captured run's cleanup.
-                // Refreshing open/branches remains forbidden until that SDK ownership is settled.
-                withTimeout(limits.cleanupMs) {
-                    val reply = task { value.call(command).copyOf() }.await().also { localText(it, 262_144) }
-                    if (cancelling != null) check(cancelling.finished.await())
-                    if (operation == "cancel" || operation == "authoring_cancel") synchronized(lock) { admit() }
-                    reply
-                }
+            // One unchanged deadline covers native ACK and any captured run cleanup.
+            suspend fun finiteReply(): ByteArray = withTimeout(limits.cleanupMs) {
+                val reply = task { value.call(command).copyOf() }.await().also { localText(it, 262_144) }
+                if (cancelling != null) check(cancelling.finished.await())
+                if (operation == "cancel" || operation == "authoring_cancel") synchronized(lock) { admit() }
+                reply
+            }
+            val reply = try {
+                if (discardableRead) {
+                    // The caller may retire its view while a read is already running.
+                    // Observe native completion within the same deadline before discarding it.
+                    withContext(NonCancellable) { finiteReply() }
+                } else finiteReply()
             } catch (_: Throwable) {
                 withContext(NonCancellable) { quarantine(value) }
                 throw LocalInferenceUncertain()
             }
+            if (discardableRead) {
+                currentCoroutineContext().ensureActive()
+                synchronized(lock) { admit() }
+            }
+            return reply
         }
         val cancellation = cancelInput?.copyOf() ?: throw IllegalArgumentException("Invalid local input")
         try { localText(cancellation, 24_576) } catch (_: Throwable) { throw IllegalArgumentException("Invalid local input") }

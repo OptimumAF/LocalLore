@@ -20,8 +20,9 @@ from benchmarks import receipt_avd_environment as env
 from benchmarks import receipt_avd_storage as storage
 
 GUEST = Path(owned.GUEST_ROOT)
-PLAN = GUEST.parent / "preparation-plan-sdk26-v1.json"
-PREPARE = GUEST.parent / "prepare-proposal-sdk26-v1.json"
+# The v1 slots preserve the earlier capacity refusal and pre-supervisor pins.
+PLAN = GUEST.parent / "preparation-plan-sdk26-v2.json"
+PREPARE = GUEST.parent / "prepare-proposal-sdk26-v2.json"
 PROPOSED_PREPARATION = GUEST.parent / "PROPOSED_PREPARATION.md"
 AUTHORITY = GUEST.parent / "human-authority-v1.json"
 CLAIM = GUEST.parent / "prepare-claim-v1.json"

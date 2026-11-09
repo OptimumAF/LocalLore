@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -127,7 +129,8 @@ internal fun LocalLoreScreen(
         overlay()
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { safePadding ->
             Box(
-                modifier = Modifier.fillMaxSize().padding(safePadding),
+                modifier = Modifier.fillMaxSize().padding(safePadding)
+                    .consumeWindowInsets(safePadding).imePadding(),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 Column(modifier = Modifier.widthIn(max = 760.dp).fillMaxSize()) {

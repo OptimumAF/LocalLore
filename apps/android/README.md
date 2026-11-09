@@ -41,6 +41,12 @@ story directs the player to Saved stories.
 If opening or recovering the local library returns no snapshot, the shell
 keeps the last confirmed view and offers recovery.
 
+The [library status test binding](../../benchmarks/saved_library_status_binding.py)
+replays the frozen ordinary APP and TEST files against the signed pair audit.
+It verifies the single Compose test definition in the signed TEST bytes and
+accepts only a complete result for that method. The eventual Android run needs
+a separately approved target.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

@@ -233,16 +233,9 @@ inline bool pipe(Handle& read, Handle& write, SECURITY_ATTRIBUTES& inherit) {
 
 template <std::size_t Capacity>
 bool poll_pipe(const Handle& pipe, Capture<Capacity>& stream, Result& result) {
-    if (stream.eof || !pipe.valid()) return false;
-    if (stream.overflow) {
-        // No more payload reads after the one-byte overflow probe.
-        if (!PeekNamedPipe(pipe.value, nullptr, 0, nullptr, nullptr, nullptr)) {
-            const DWORD error = GetLastError();
-            if (error == ERROR_BROKEN_PIPE) stream.eof = true;
-            else if (error != ERROR_NO_DATA) stop(result, Stop::io, error);
-        }
-        return false;
-    }
+    // Stop reading a stream after its one-byte overflow probe. This
+    // deliberately forfeits its EOF proof and forces writer quarantine.
+    if (stream.eof || stream.overflow || !pipe.valid()) return false;
     const auto room = Capacity - stream.size;
     unsigned char extra = 0;
     auto* buffer = room ? stream.bytes.data() + stream.size : &extra;
@@ -323,8 +316,9 @@ inline void settle(const Handle& process, const Handle& job, const Handle& out,
             drain_deadline = (std::min)(now, run_deadline) + drain_window;
         if (drain_deadline) {
             observe_job(job, result);
-            if (result.signaled && result.active_processes == 0 && result.out.eof && result.err.eof)
-                return;
+            const bool stdout_done = result.out.eof || result.out.overflow;
+            const bool stderr_done = result.err.eof || result.err.overflow;
+            if (result.signaled && result.active_processes == 0 && stdout_done && stderr_done) return;
         }
         if (!stdout_progress && !stderr_progress) Sleep(1);
     }
@@ -405,7 +399,7 @@ inline Result launch(const Request& request, const std::atomic_bool& cancelled) 
         BOOL member = FALSE;
         if (!IsProcessInJob(process.value, job.value, &member)) stop(result, Stop::setup, GetLastError());
         else if (!member) stop(result, Stop::setup, ERROR_INVALID_DATA);
-        result.member = member != FALSE;
+        else result.member = true;
         close(in, result);
         close(stdout_writer, result);
         close(stderr_writer, result);

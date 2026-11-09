@@ -20,8 +20,8 @@ source leaf, candidate and stage. There is no shell, response file,
 environment override switch, configurable timer, retry or alternate tool.
 
 The child receives a new sorted Unicode environment containing INCLUDE,
-PATH, SYSTEMROOT, TEMP, TMP and WINDIR only. The latter two Windows
-directory variables agree, and TEMP and TMP name the same private D:
+PATH, SYSTEMROOT, TEMP, TMP and WINDIR only. SYSTEMROOT and WINDIR
+agree, and TEMP and TMP name the same private D:
 directory. There is no inherited CL or _CL_ option injection. A future
 owner must prove that this exact environment, tool/DLL cohort, include
 search, source, headers and private output/temp identities are valid and
@@ -60,9 +60,9 @@ overflow or I/O failure, request termination of the owned Job. A failed
 membership check also permits terminating only the still-suspended
 direct process. An unexpectedly live Job at the end of drain is
 terminated and reported as unsettled. An unproven descendant, exit,
-pipe EOF or handle close keeps the receipt in quarantine. If overflow
-prevents observing EOF, closing the local read handle still cannot
-substitute for EOF proof. The native timings are measurements. The
+pipe EOF or handle close keeps the receipt in quarantine. Overflow ends reads on that stream and forfeits its EOF proof. Closing
+the local read handle cannot substitute for EOF proof. The other stream
+still drains within the shared window. The native timings are measurements. The
 outer deadline must account for OS calls and scheduler delay.
 
 ## Receipt binding
@@ -90,8 +90,9 @@ or infer positive closure from closing the kill-on-close Job.
 
 Source review and Git checks do not exercise Win32. Future separately
 admitted tests need actual creation-time membership, inheritable-handle
-isolation, binary stream fidelity, zero and nonzero exit, cancellation,
-timeout, overflow, pipe EOF, active descendants, close refusal, and a
-trusted native runner. A separate fresh admission is required for actual
+isolation, exact command/environment parity, binary stream fidelity,
+zero and nonzero exit (including 259), cancellation, timeout, exact-cap
+and cap-plus-one output, pipe EOF, active descendants, failed membership
+and unexpected resume count, close refusal, and a trusted native runner. A separate fresh admission is required for actual
 candidate A CL. LINK, MT, artifact adoption, worker/model launches and
 desktop qualification remain outside this slice.

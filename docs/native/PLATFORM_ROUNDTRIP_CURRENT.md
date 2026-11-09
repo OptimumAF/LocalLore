@@ -19,3 +19,27 @@ $fixtureExe = Join-Path $target 'debug/examples/platform_roundtrip.exe'
 Use the fresh generated directory for `scripts/platform_roundtrip.py --fixtures`. The runner separately verifies the test APK against the tracked historical assets. It runs the same bounded Rust fixture check before APK badging or device commands. Both archives must validate as archive v1. Only the source schema and its dependent payload digest may differ. The complete generated archive bytes must match the normalized compatibility record, and the expected snapshots must match byte for byte. Android's returned Windows archives still have to match the fresh current fixtures exactly.
 
 The isolated Android app and test APKs are produced by `python scripts/check.py android --archive-verification --offline` with the provisioned Android build environment. Build and fixture preflight evidence are separate from actual transfer. A current run still requires an exact isolated APK pair and a separately admitted target under the [shared guest storage procedure](../runtime/android/RECEIPT_AVD_STORAGE.md). The fixture preflight issues no device command.
+
+## Bind the verified APK and fixture inputs before guest admission
+
+The retained archive-verification APK pair and Windows fixture packet from
+[#30](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6747415942)
+have a host-only preflight. Supply the two existing physical D: evidence roots
+from the build and fixture checks.
+
+```powershell
+$env:TEMP = 'D:/Dev/_Temp'
+$env:TMP = $env:TEMP
+python -B -m benchmarks.archive_roundtrip_build --apk-root $apkEvidence --windows-root $windowsEvidence
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_build.py
+```
+
+The preflight returns the eight exact byte-count and SHA-256 bindings. It checks
+the exact bytes of the previously audited APKs and custody receipt, the Windows
+fixture executable, the three generated fixtures and the successful Rust
+compatibility receipt. It refuses missing or linked inputs, changes during
+the check, and any owner binding outside the fixed roster. The output contains local
+paths and belongs in local evidence. The build source in this record identifies
+where the APKs were built. A later owner must revalidate the artifact roster
+and live bytes, and must establish its own source, lease and shared-ledger
+admission. This command performs no SDK, device, or archive-transfer operation.

@@ -198,23 +198,33 @@ class ReproTests(unittest.TestCase):
             repro.write_new(path, {"second": True})
         self.assertEqual(json.loads(path.read_bytes()), {"first": True})
 
-    def test_packager_internal_source_mapping_is_one_argument_with_spaces(self):
+    def test_packager_maps_checkout_and_resolved_registry_sources(self):
         args = argparse.Namespace(target_dir=self.root / "target", output=self.root / "output",
             worker=self.root / "unused-worker.exe", node=self.root / "Node tools/node.exe",
             npm_cli=self.root / "npm-cli.js")
-        source = self.root / "source with ASCII spaces"
-        with patch.object(package.sys, "platform", "win32"), patch.object(package, "ROOT", source), \
-             patch.dict(os.environ, {"PATH": "trusted-path"}, clear=True), \
-             patch.object(package, "validate_worker", return_value=b"not executed"), \
-             patch.object(package, "source_inventory", return_value=("synthetic", {})), \
-             patch.object(package, "run", side_effect=RuntimeError("stop before tool")) as run:
-            with self.assertRaisesRegex(RuntimeError, "stop before tool"):
-                package.build(args)
-        env = run.call_args.kwargs["env"]
-        self.assertEqual(env["CARGO_ENCODED_RUSTFLAGS"].split("\x1f"),
-                         [f"--remap-path-prefix={source}=/locallore-source"])
-        self.assertNotIn("RUSTFLAGS", env)
-        self.assertFalse(args.output.exists())
+        source = self.root.resolve() / "source with ASCII spaces"
+        home = self.root.resolve() / "user home"
+        for configured, cargo_home in (({}, home / ".cargo"),
+                                       ({"CARGO_HOME": "private cache=local"},
+                                        source / "private cache=local")):
+            with self.subTest(configured=configured), \
+                 patch.object(package.sys, "platform", "win32"), patch.object(package, "ROOT", source), \
+                 patch.object(Path, "home", return_value=home), \
+                 patch.dict(os.environ, {"PATH": "trusted-path", **configured}, clear=True), \
+                 patch.object(package, "validate_worker", return_value=b"not executed"), \
+                 patch.object(package, "source_inventory", return_value=("synthetic", {})), \
+                 patch.object(package, "run", side_effect=RuntimeError("stop before tool")) as run:
+                with self.assertRaisesRegex(RuntimeError, "stop before tool"):
+                    package.build(args)
+            env = run.call_args.kwargs["env"]
+            self.assertEqual(env["CARGO_HOME"], str(cargo_home))
+            registry = cargo_home / "registry" / "src"
+            self.assertEqual(env["CARGO_ENCODED_RUSTFLAGS"].split("\x1f"), [
+                f"--remap-path-prefix={source}=/locallore-source",
+                f"--remap-path-prefix={registry}=/locallore-registry",
+            ])
+            self.assertNotIn("RUSTFLAGS", env)
+            self.assertFalse(args.output.exists())
 
     def test_packager_ambient_flags_refuse_before_worker_or_build(self):
         args = argparse.Namespace(target_dir=self.root / "target", output=self.root / "output",

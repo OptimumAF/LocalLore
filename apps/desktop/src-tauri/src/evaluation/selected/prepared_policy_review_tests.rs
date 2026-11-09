@@ -4,6 +4,31 @@
 //! literal and scene selected-service tests. Historical fixtures are untouched.
 use super::*;
 
+#[test]
+fn selected_protocol_routes_source_and_lane_without_reinterpreting_old_artifacts() {
+    use versioned::Protocol::{self, V1, V2, V3, V4};
+    for (source, lane, protocol, artifact) in [
+        (2, SelectedInputLane::ScriptedBaseline, V1, 1),
+        (2, SelectedInputLane::ApprovedNative, V1, 1),
+        (3, SelectedInputLane::ScriptedBaseline, V2, 2),
+        (3, SelectedInputLane::ApprovedNative, V2, 2),
+        (4, SelectedInputLane::ScriptedBaseline, V3, 3),
+        (4, SelectedInputLane::ApprovedNative, V4, 4),
+    ] {
+        assert!(Protocol::from_source(source, lane) == Some(protocol));
+        assert_eq!(protocol.source_version(), source);
+        assert_eq!(protocol.selected_version(), artifact);
+    }
+    for source in [0, 1, 5, u16::MAX] {
+        for lane in [
+            SelectedInputLane::ScriptedBaseline,
+            SelectedInputLane::ApprovedNative,
+        ] {
+            assert!(Protocol::from_source(source, lane).is_none(), "{source}");
+        }
+    }
+}
+
 fn prepared(version: u64, legacy: bool) -> Value {
     let arms = ["left", "right"].map(|arm| {
         json!({
@@ -26,8 +51,11 @@ fn prepared(version: u64, legacy: bool) -> Value {
             serde_json::to_value(locallore_eval::memory_comparison_v3::current_arm_descriptors())
         }
         .unwrap();
-    } else if version == 3 {
+    } else if matches!(version, 3 | 4) {
         value["source_protocol_version"] = json!(4);
+        if version == 4 {
+            value["lane"] = json!("native_selected_case");
+        }
         value["source_binding"] = json!("d".repeat(64));
         value["constructions"] = if legacy {
             serde_json::to_value(locallore_eval::memory_comparison_v4::arm_descriptors())
@@ -44,6 +72,7 @@ fn fresh_requires_current_whole_family_while_recorded_keeps_both_exact_families(
     for (version, policy) in [
         (2, "grounded-prose-v2.5-whole-evidence-words-v1"),
         (3, "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1"),
+        (4, "grounded-prose-v2.7-scene-frame-whole-evidence-words-v1"),
     ] {
         let current = prepared(version, false);
         let historical = prepared(version, true);
@@ -60,7 +89,7 @@ fn fresh_requires_current_whole_family_while_recorded_keeps_both_exact_families(
 
 #[test]
 fn individually_known_mixed_arms_and_descriptor_tuple_drift_never_form_a_family() {
-    for version in [2, 3] {
+    for version in [2, 3, 4] {
         let current = prepared(version, false);
         let historical = prepared(version, true);
         for replaced in 0..2 {
@@ -90,7 +119,7 @@ fn individually_known_mixed_arms_and_descriptor_tuple_drift_never_form_a_family(
 
 #[test]
 fn family_migration_retains_binding_protocol_selection_and_lane_guards() {
-    for version in [2, 3] {
+    for version in [2, 3, 4] {
         for fault in 0..6 {
             let mut value = prepared(version, false);
             match fault {
@@ -110,6 +139,18 @@ fn family_migration_retains_binding_protocol_selection_and_lane_guards() {
     scene["lane"] = json!("native_selected_case");
     assert!(!prepared_valid(&scene, PreparedUse::Fresh));
     assert!(!prepared_valid(&scene, PreparedUse::Recorded));
+
+    let mut native = prepared(4, false);
+    native["lane"] = json!("scripted_selected_case");
+    for usage in [PreparedUse::Fresh, PreparedUse::Recorded] {
+        assert!(!prepared_valid(&native, usage));
+        let mut source_drift = prepared(4, false);
+        source_drift["source_binding"] = json!("not-a-source-binding");
+        assert!(!prepared_valid(&source_drift, usage));
+        source_drift = prepared(4, false);
+        source_drift["source_protocol_version"] = json!(3);
+        assert!(!prepared_valid(&source_drift, usage));
+    }
 }
 
 #[test]
@@ -141,7 +182,12 @@ fn index_fixture(prepared: Value) -> (EvaluationManager, PathBuf, Vec<u8>) {
         run_id: RUN.into(),
         created: 1,
         client_id: "22222222-2222-2222-2222-222222222222".into(),
-        lane: "scripted_baseline".into(),
+        lane: if prepared["version"] == 4 {
+            "approved_native"
+        } else {
+            "scripted_baseline"
+        }
+        .into(),
         source_binding: "d".repeat(64),
         prepared,
     };
@@ -159,7 +205,7 @@ fn index_fixture(prepared: Value) -> (EvaluationManager, PathBuf, Vec<u8>) {
 
 #[test]
 fn reading_old_or_current_indices_preserves_exact_bytes_without_execution_ownership() {
-    for version in [2, 3] {
+    for version in [2, 3, 4] {
         for legacy in [true, false] {
             let metadata = prepared(version, legacy);
             let (manager, path, bytes) = index_fixture(metadata.clone());
@@ -176,25 +222,27 @@ fn reading_old_or_current_indices_preserves_exact_bytes_without_execution_owners
 
 #[test]
 fn recorded_family_acceptance_does_not_bypass_native_index_source_and_lane_joins() {
-    for legacy in [true, false] {
-        for fault in 0..4 {
-            let (manager, path, original) = index_fixture(prepared(3, legacy));
-            let mut index: Value = serde_json::from_slice(&original).unwrap();
-            match fault {
-                0 => index["source_binding"] = json!("e".repeat(64)),
-                1 => index["prepared"]["source_binding"] = json!("f".repeat(64)),
-                2 => index["lane"] = json!("approved_native"),
-                _ => index["version"] = json!(2),
+    for (version, wrong_lane) in [(3, "approved_native"), (4, "scripted_baseline")] {
+        for legacy in [true, false] {
+            for fault in 0..4 {
+                let (manager, path, original) = index_fixture(prepared(version, legacy));
+                let mut index: Value = serde_json::from_slice(&original).unwrap();
+                match fault {
+                    0 => index["source_binding"] = json!("e".repeat(64)),
+                    1 => index["prepared"]["source_binding"] = json!("f".repeat(64)),
+                    2 => index["lane"] = json!(wrong_lane),
+                    _ => index["version"] = json!(2),
+                }
+                let bytes = serde_json::to_vec(&index).unwrap();
+                fs::write(&path, &bytes).unwrap();
+                assert!(
+                    matches!(manager.selected_index(RUN), Err(error) if error == "EvaluationIntegrity")
+                );
+                assert_eq!(fs::read(&path).unwrap(), bytes);
+                assert!(manager.state().unwrap().job.is_none());
+                assert!(manager.worker.lock().unwrap().is_none());
+                assert!(!path.parent().unwrap().join("work").exists());
             }
-            let bytes = serde_json::to_vec(&index).unwrap();
-            fs::write(&path, &bytes).unwrap();
-            assert!(
-                matches!(manager.selected_index(RUN), Err(error) if error == "EvaluationIntegrity")
-            );
-            assert_eq!(fs::read(&path).unwrap(), bytes);
-            assert!(manager.state().unwrap().job.is_none());
-            assert!(manager.worker.lock().unwrap().is_none());
-            assert!(!path.parent().unwrap().join("work").exists());
         }
     }
 }

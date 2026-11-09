@@ -685,7 +685,7 @@ fn oversized_v4_source_is_bounded_failure_without_grant_or_file_repair() {
 }
 
 #[test]
-fn v4_selected_scripted_prepares_while_native_refuses_before_consent_or_model_reservation() {
+fn v4_selected_lanes_prepare_exact_artifacts_without_model_reservation() {
     for lane in [
         SelectedInputLane::ScriptedBaseline,
         SelectedInputLane::ApprovedNative,
@@ -722,8 +722,14 @@ fn v4_selected_scripted_prepares_while_native_refuses_before_consent_or_model_re
                     arm: shared::Arm::Left,
                     lane,
                 },
-                move |_| {
+                move |metadata| {
                     observed.fetch_add(1, Ordering::SeqCst);
+                    assert_eq!(metadata["version"], if scripted { 3 } else { 4 });
+                    assert_eq!(metadata["source_protocol_version"], 4);
+                    assert_eq!(
+                        metadata["lane"],
+                        if scripted { "scripted_selected_case" } else { "native_selected_case" }
+                    );
                     Ok(true)
                 },
             )
@@ -739,29 +745,19 @@ fn v4_selected_scripted_prepares_while_native_refuses_before_consent_or_model_re
             }
             assert!(
                 Instant::now() < deadline,
-                "bounded selected-refusal fixture"
+                "bounded selected-prepare fixture"
             );
             std::thread::sleep(Duration::from_millis(5));
         };
-        if scripted {
-            assert_eq!(terminal["phase"], "prepared", "{terminal}");
-            assert!(terminal["error"].is_null());
-            assert!(terminal["plan_token"].as_str().is_some());
-            assert!(terminal["run_token"].is_null() && terminal["run_id"].is_null());
-            assert_eq!(terminal["prepared"]["version"], 3);
-            assert_eq!(terminal["prepared"]["source_protocol_version"], 4);
-            assert_eq!(terminal["prepared"]["source_binding"], ready["binding"]);
-        } else {
-            assert_eq!(terminal["phase"], "failed");
-            assert_eq!(terminal["error"], "NativeUnavailable");
-            assert!(
-                terminal["plan_token"].is_null()
-                    && terminal["run_token"].is_null()
-                    && terminal["run_id"].is_null()
-            );
-        }
+        assert_eq!(terminal["phase"], "prepared", "{terminal}");
+        assert!(terminal["error"].is_null());
+        assert!(terminal["plan_token"].as_str().is_some());
+        assert!(terminal["run_token"].is_null() && terminal["run_id"].is_null());
+        assert_eq!(terminal["prepared"]["version"], if scripted { 3 } else { 4 });
+        assert_eq!(terminal["prepared"]["source_protocol_version"], 4);
+        assert_eq!(terminal["prepared"]["source_binding"], ready["binding"]);
         assert_eq!(terminal["cleanup_required"], false);
-        assert_eq!(calls.load(Ordering::SeqCst), usize::from(scripted));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
         f.manager
             .selected_close(&f.lease, f.epoch, &client)
             .unwrap();

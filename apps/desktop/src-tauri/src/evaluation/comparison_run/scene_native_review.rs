@@ -864,7 +864,7 @@ fn actual_denied_native4_managed_reader_is_empty_read_only_and_cannot_reconstruc
 }
 
 #[test]
-fn separate_actual_scripted_scene_source_prepares_scripted_but_native_refuses_before_consent() {
+fn separate_actual_scripted_scene_source_prepares_scripted_and_honors_native_consent_denial() {
     // Each prepare transfers its opaque reader capability. Use a fresh actual
     // fixture/reader per lane, and compare full file bytes only while unlocked.
     for lane in [
@@ -926,14 +926,14 @@ fn separate_actual_scripted_scene_source_prepares_scripted_but_native_refuses_be
                     lane,
                 },
                 move |metadata| {
-                    assert!(
-                        scripted,
-                        "native selected scene refusal must precede consent"
-                    );
                     observed.fetch_add(1, Ordering::SeqCst);
-                    assert_eq!(metadata["version"], 3);
+                    assert_eq!(metadata["version"], if scripted { 3 } else { 4 });
                     assert_eq!(metadata["source_protocol_version"], 4);
-                    Ok(true)
+                    assert_eq!(
+                        metadata["lane"],
+                        if scripted { "scripted_selected_case" } else { "native_selected_case" }
+                    );
+                    Ok(scripted)
                 },
             )
             .unwrap();
@@ -946,14 +946,15 @@ fn separate_actual_scripted_scene_source_prepares_scripted_but_native_refuses_be
             assert_eq!(terminal["prepared"]["source_binding"], ready["binding"]);
         } else {
             assert_eq!(terminal["phase"], "failed");
-            assert_eq!(terminal["error"], "NativeUnavailable");
+            assert_eq!(terminal["error"], "Cancelled");
+            assert!(terminal["prepared"].is_null());
             assert!(
                 terminal["plan_token"].is_null()
                     && terminal["run_token"].is_null()
                     && terminal["run_id"].is_null()
             );
         }
-        assert_eq!(calls.load(Ordering::SeqCst), usize::from(scripted));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
         assert_eq!(terminal["cleanup_required"], false);
         f.manager
             .selected_close(&f.lease, f.epoch, &client)

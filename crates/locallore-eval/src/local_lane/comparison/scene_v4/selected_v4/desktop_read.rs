@@ -73,7 +73,26 @@ fn snapshot(destination: &Destination) -> Result<ReadSnapshot> {
 }
 
 pub fn open_read_only(dir: &Path) -> Result<OpenedSelected> {
+    open_validated(open_destination(dir)?)
+}
+
+/// Match the retained manifest to a native caller's recorded index before
+/// reading the stored rows. The index supplies no execution authority.
+pub fn open_indexed_read_only(
+    dir: &Path,
+    expected_client_id: &str,
+    expected_prepared: &Value,
+) -> Result<OpenedSelected> {
     let destination = open_destination(dir)?;
+    if destination.manifest.client_id != expected_client_id
+        || prepared_from_manifest(&destination.manifest)? != *expected_prepared
+    {
+        return Err("SnapshotMismatch".into());
+    }
+    open_validated(destination)
+}
+
+fn open_validated(destination: Destination) -> Result<OpenedSelected> {
     let snapshot = snapshot(&destination)?;
     Ok(OpenedSelected {
         destination,

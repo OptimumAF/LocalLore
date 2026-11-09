@@ -280,7 +280,7 @@ fn prepared_valid(value: &Value, usage: PreparedUse) -> bool {
                 usage,
             )
         }
-        Some(versioned::Protocol::V3) => {
+        Some(protocol @ (versioned::Protocol::V3 | versioned::Protocol::V4)) => {
             keys(
                 value,
                 &[
@@ -294,8 +294,11 @@ fn prepared_valid(value: &Value, usage: PreparedUse) -> bool {
                     "source_protocol_version",
                     "constructions",
                 ],
-            ) && value["lane"] == "scripted_selected_case"
-                && value["source_binding"].as_str().is_some_and(hex)
+            ) && matches!(
+                (protocol, value["lane"].as_str()),
+                (versioned::Protocol::V3, Some("scripted_selected_case"))
+                    | (versioned::Protocol::V4, Some("native_selected_case"))
+            ) && value["source_binding"].as_str().is_some_and(hex)
                 && construction_family_matches(
                     &value["constructions"],
                     locallore_eval::memory_comparison_v4::current_arm_descriptors(),
@@ -637,8 +640,9 @@ impl EvaluationManager {
             return Err("EvaluationBudget".into());
         }
         let index: Index = serde_json::from_slice(&bytes).map_err(|_| "EvaluationIntegrity")?;
-        if versioned::prepared_protocol(&index.prepared)
-            .is_none_or(|protocol| index.version != protocol.selected_version())
+        let protocol =
+            versioned::prepared_protocol(&index.prepared).ok_or("EvaluationIntegrity")?;
+        if index.version != protocol.selected_version()
             || index.run_id != run
             || !id(&index.client_id)
             || index.created > SAFE
@@ -646,7 +650,7 @@ impl EvaluationManager {
             // Historical readability supplies no execution grant. Resume below
             // still requires an exact match to newly prepared current metadata.
             || !prepared_valid(&index.prepared, PreparedUse::Recorded)
-            || (versioned::prepared_protocol(&index.prepared) == Some(versioned::Protocol::V3)
+            || (protocol.requires_source_binding()
                 && index.prepared["source_binding"].as_str() != Some(index.source_binding.as_str()))
             || index.prepared["lane"].as_str()
                 != Some(SelectedInputLane::parse(&index.lane)?.stored())
@@ -665,9 +669,10 @@ impl EvaluationManager {
         Ok((path, pins))
     }
     fn selected_make_index(&self, client: &str, run: &str, prepared: &Prepared) -> Result<Index> {
+        let protocol = prepared.plan.protocol();
         if !prepared_valid(&prepared.metadata, PreparedUse::Fresh)
-            || versioned::prepared_protocol(&prepared.metadata) != Some(prepared.plan.protocol())
-            || (prepared.plan.protocol() == versioned::Protocol::V3
+            || versioned::prepared_protocol(&prepared.metadata) != Some(protocol)
+            || (protocol.requires_source_binding()
                 && prepared.metadata["source_binding"].as_str()
                     != Some(prepared.source_binding.as_str()))
         {
@@ -694,7 +699,7 @@ impl EvaluationManager {
             SelectedInputLane::ScriptedBaseline
         };
         let index = Index {
-            version: prepared.plan.protocol().selected_version(),
+            version: protocol.selected_version(),
             run_id: run.into(),
             created: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -1425,8 +1430,9 @@ impl EvaluationManager {
                 input,
                 consent,
             } => Outcome::plain((|| {
-                let protocol = versioned::Protocol::from_source(source.protocol_version())
-                    .ok_or("NativeUnavailable")?;
+                let protocol =
+                    versioned::Protocol::from_source(source.protocol_version(), input.lane)
+                        .ok_or("NativeUnavailable")?;
                 let (origin, source_binding) = (*source).into_origin();
                 let plan = versioned::Plan::prepare(
                     protocol,
@@ -1470,8 +1476,8 @@ impl EvaluationManager {
                     versioned::prepared_protocol(&index.prepared).ok_or("EvaluationIntegrity")?;
                 let (path, _pins) = self.selected_work_path(&run_id)?;
                 self.budget(Some(path.parent().ok_or("EvaluationIo")?))?;
-                let opened =
-                    versioned::Opened::open(protocol, &path).map_err(|error| failure(&error))?;
+                let opened = versioned::Opened::open(protocol, &path, &index)
+                    .map_err(|error| failure(&error))?;
                 let summary = opened.summary().map_err(|error| failure(&error))?;
                 if summary["version"] != index.prepared["version"]
                     || summary.get("source_protocol_version")
@@ -1574,7 +1580,7 @@ impl EvaluationManager {
                 };
                 Outcome::plain(result.and_then(|()| {
                     self.budget(Some(path.parent().ok_or("EvaluationIo")?))?;
-                    let cap = versioned::Opened::open(protocol, &path)
+                    let cap = versioned::Opened::open(protocol, &path, &index)
                         .map_err(|error| failure(&error))?;
                     let summary = cap.summary().map_err(|error| failure(&error))?;
                     let completed = summary["arms"]
@@ -1684,7 +1690,7 @@ impl EvaluationManager {
                 }
                 Outcome::plain((|| {
                     self.budget(Some(path.parent().ok_or("EvaluationIo")?))?;
-                    let opened = versioned::Opened::open(protocol, &path)
+                    let opened = versioned::Opened::open(protocol, &path, &index)
                         .map_err(|error| failure(&error))?;
                     let summary = opened.summary().map_err(|error| failure(&error))?;
                     let completed = summary["arms"]

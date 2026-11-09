@@ -189,7 +189,10 @@ impl PreparedSelectedPlan {
     }
 }
 pub fn prepared_metadata(plan: &PreparedSelectedPlan) -> Result<Value> {
-    let m = &plan.manifest;
+    prepared_from_manifest(&plan.manifest)
+}
+
+fn prepared_from_manifest(m: &SelectedManifest4) -> Result<Value> {
     let arms: Vec<Value> = m.source_inputs.iter().map(|i| {
         json!({"arm":i.arm,"scope":i.scope,"before_head":i.before_head,
             "prefix_sha256":i.prefix_sha256,"input_semantic_sha256":i.input_semantic_sha256})

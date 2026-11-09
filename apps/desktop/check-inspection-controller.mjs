@@ -25,19 +25,21 @@ const { Controller } = await import(output.href);
 const scope = { story: "synthetic-inspection", branch: "main" };
 let queries = [],
     held = null,
+    heldRawInspection = null,
+    head = 0,
     corrupt = false;
 const gateway = {
     async call(command) {
-        if (command.op === "open") return { revision: 0 };
+        if (command.op === "open") return { revision: head };
         if (command.op === "play_snapshot")
             return {
                 scope,
-                revision: 0,
+                revision: head,
                 inventory: {},
                 receipts: [],
                 player: {
                     scope,
-                    revision: 0,
+                    revision: head,
                     observer: "player",
                     self_state: { name: "Rowan", energy: 2, location: "quay" },
                     facts: {},
@@ -45,7 +47,16 @@ const gateway = {
                     observations: [],
                 },
             };
-        if (command.op === "inspect" || command.op === "close") return {};
+        if (command.op === "inspect") {
+            const wait = heldRawInspection;
+            heldRawInspection = null;
+            if (wait) await wait;
+            return {
+                observer: command.observer,
+                revision: command.expected_revision,
+            };
+        }
+        if (command.op === "close") return {};
         assert.equal(command.op, "inspection_query");
         const q = structuredClone(command.query);
         queries.push(q);
@@ -144,9 +155,55 @@ assert(
             q.limit === 12,
     ),
 );
+const mismatches = [];
+const unsubscribe = c.subscribe(() => {
+    const state = c.get();
+    if (
+        state.inspection !== null &&
+        (state.view !== "lab" ||
+            state.inspectionObserver !== state.observer ||
+            state.inspectionRevision !== state.play?.revision ||
+            state.inspection.observer !== state.observer ||
+            state.inspection.revision !== state.play?.revision)
+    ) {
+        mismatches.push({
+            view: state.view,
+            observer: state.observer,
+            revision: state.play?.revision,
+            inspection: state.inspection,
+        });
+    }
+});
+c.setView("lab");
+await c.inspect();
+assert.deepEqual(c.get().inspection, { observer: "omniscient", revision: 0 });
+
+c.setObserver("mira");
+assert.deepEqual(mismatches, [], "lens change must clear in the same update");
+await c.inspect();
+assert.deepEqual(c.get().inspection, { observer: "mira", revision: 0 });
+
+let releaseRawInspection;
+heldRawInspection = new Promise((resolve) => (releaseRawInspection = resolve));
+const staleRawInspection = c.inspect();
+c.setObserver("sable");
+await c.inspect();
+releaseRawInspection();
+await staleRawInspection;
+assert.deepEqual(c.get().inspection, { observer: "sable", revision: 0 });
+
+head = 1;
+await c.refresh();
+assert.deepEqual(mismatches, [], "head change must clear in the same update");
+assert.deepEqual(c.get().inspection, { observer: "sable", revision: 1 });
+
+c.setView("play");
+assert.deepEqual(mismatches, [], "Play must never publish a Lab payload");
+assert.equal(c.get().inspection, null);
+unsubscribe();
 await c.dispose();
 console.log(
-    "PASS: exact inspection context fences delayed replies; sorted observer JSON accepted; wrong privacy and closed views cleared.",
+    "PASS: inspection context is atomic across observer, revision and Play changes; delayed and wrong-privacy replies are fenced.",
 );
 
 // Removed fields must resolve their prior origin, not query a nonexistent after-field.

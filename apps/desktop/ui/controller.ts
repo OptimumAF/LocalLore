@@ -229,7 +229,22 @@ export class Controller {
                 },
             };
         }
-        this.state = { ...this.state, ...value };
+        const previous = this.state;
+        const next = { ...previous, ...value };
+        if (
+            next.selectedId !== previous.selectedId ||
+            next.view !== previous.view ||
+            next.observer !== previous.observer ||
+            next.play?.scope.story !== previous.play?.scope.story ||
+            next.play?.scope.branch !== previous.play?.scope.branch ||
+            next.play?.revision !== previous.play?.revision
+        ) {
+            this.inspectionEpoch++;
+            next.inspection = null;
+            next.inspectionRevision = null;
+            next.inspectionObserver = null;
+        }
+        this.state = next;
         this.listeners.forEach((listener) => listener());
     }
     selected() {

@@ -148,7 +148,7 @@ open class MainActivity : ComponentActivity() {
             val renderedBranchDeletion = branchDeletionFrame.state
             val renderedChatState = state
             LocalLoreScreen(renderedChatState, { action -> model.submit(action, renderedChatState) }, model::setMode,
-                { model.cancel(renderedChatState) }, model::startNewStory,
+                { model.cancel(renderedChatState) }, { model.startNewStory(renderedChatState) },
                 onDiagnostics = model::openDiagnostics, onResume = { model.resume(it, renderedChatState) },
                 onRecover = { model.recover(renderedChatState) },
                 onStoryRecord = if (model.hasStoryRecords) ({ model.openStoryRecord(renderedChatState) }) else null,

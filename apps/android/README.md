@@ -402,8 +402,10 @@ model/cache holds still apply. See the [dated verification](../../docs/native/LI
 
 Give the potion to Mira, then try giving it again and using the unlearned ability.
 Only finalized shared-engine receipts enter the transcript. **Demo responses**
-injects malformed, rejected, delayed and failing generation. **New story** creates
-a new independent saved story and retains earlier stories in **Saved stories**.
+injects malformed, rejected, delayed and failing generation. **New story** opens
+a review before creating an independent save and retains earlier stories in
+**Saved stories**. **Reset demo** restarts the in-memory scene. Both buttons
+apply to the view that displayed them and discard stale clicks after a refresh.
 Cancel reconciles against accepted history: a commit that already won remains
 visible. Simulated delay is not a performance measurement.
 

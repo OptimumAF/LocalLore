@@ -445,8 +445,8 @@ public:
             auto& watch = *item;
             if (!watch.pending) continue;
             ++report_.cancel_attempts;
-            watch.cancel_requested = true;
-            if (!CancelIoEx(watch.directory.value, &watch.operation) && GetLastError() != ERROR_NOT_FOUND)
+            watch.cancel_requested = CancelIoEx(watch.directory.value, &watch.operation) != 0;
+            if (!watch.cancel_requested && GetLastError() != ERROR_NOT_FOUND)
                 lose(watch);
         }
         while (report_.pending && Clock::now() < deadline) {
@@ -739,7 +739,11 @@ public:
             };
             report.child = job::launch_owned(node, cmd, std::move(env), entry.substr(0, entry.rfind(L'\\')),
                                              started, deadline, launch_cancelled, ready, &quarantine_, &cleanup_cutoff);
-            if (monitor_stop && report.child.stop == Stop::cancelled) report.child.stop = Stop::io;
+            if (monitor_stop && report.child.stop == Stop::cancelled) {
+                report.child.stop = Stop::io;
+                report.child.error = ERROR_INVALID_DATA;
+                report.child.io_error = true;
+            }
             const auto postflight = [&]() {
                 return Clock::now() < cleanup_cutoff.value_or(deadline + job::drain_window);
             };

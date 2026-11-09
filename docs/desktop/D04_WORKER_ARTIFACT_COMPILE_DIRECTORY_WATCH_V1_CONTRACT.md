@@ -44,8 +44,9 @@ cancellation once per still-pending exact operation, then observe
 actual completion. CancelIoEx success or ERROR_NOT_FOUND alone
 does not prove completion. A normal completion racing cancellation
 still refuses. A canceled completion is expected only after the
-parent's own request. Pending, failed or ambiguous observation
-cannot produce success. There is one shared cleanup cutoff for the
+parent's own cancellation request returned success. ERROR_NOT_FOUND
+does not authorize accepting an aborted result. Pending, failed or
+ambiguous observation cannot produce success. One cleanup cutoff covers the
 Job, pipe, postflight and watch evidence. If no process was created,
 use one bounded cleanup window within the absolute parent limit.
 Never start a separate five-second clock per watch.

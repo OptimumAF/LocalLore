@@ -8,6 +8,7 @@ from contextlib import ExitStack
 import hashlib
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 import warnings
@@ -322,6 +323,26 @@ class SavedLibraryStatusPreparedReviewIntegrationTests(unittest.TestCase):
         snapshot.verify_prepared.assert_not_called()
         snapshot.mutate.assert_not_called()
 
+    def test_inspect_refuses_ledger_lock_before_or_during_replay(self):
+        lock = handoff.LEDGER.with_name("admission.lock")
+        locked_before = ReviewSnapshot()
+        locked_before.present.add(lock)
+        with self.assertRaises(REFUSED):
+            locked_before.inspect()
+        locked_before.archive.assert_not_called()
+
+        locked_during = ReviewSnapshot()
+
+        def acquire_lock(*args):
+            locked_during.present.add(lock)
+            return locked_during.verify_prepared.return_value
+
+        locked_during.verify_prepared.side_effect = acquire_lock
+        with self.assertRaises(REFUSED):
+            locked_during.inspect()
+        locked_during.verify_prepared.assert_called_once()
+        locked_during.mutate.assert_not_called()
+
     def test_inspect_refuses_stale_ledger_before_replaying_failed_receipt(self):
         snapshot = ReviewSnapshot()
         stale = dict(snapshot.ledger, sha256="0" * 64)
@@ -356,3 +377,69 @@ class SavedLibraryStatusPreparedReviewIntegrationTests(unittest.TestCase):
         snapshot.verify_prepared.assert_called_once()
         snapshot.check_binding.assert_any_call(snapshot.ledger)
         snapshot.mutate.assert_not_called()
+
+
+
+class OriginalPreparationReplay:
+    """Intercept the pinned Python invocation before it reaches the host."""
+
+    def __init__(self):
+        self.source_name = Path("benchmarks/receipt_avd_environment.py")
+        self.source = pin(review.EXECUTED_ROOT / self.source_name)
+        self.python = {"executable": {"path": r"C:\Synthetic\Python\python.exe"}}
+        self.plan = dict(source_root=str(review.EXECUTED_ROOT), sources=[self.source], python=self.python)
+        self.proposal = {"prepared": pin(handoff.GUEST / "prepared-v1.json")}
+        self.prepared = {"immutable": []}
+        self.completed = SimpleNamespace(returncode=0, stderr=b"", stdout=handoff.env.encoded(self.prepared))
+        self.run = Mock(return_value=self.completed)
+        self.check = Mock()
+
+    def verify(self):
+        with (
+            patch.object(review.python_pins, "_python_bindings", return_value=self.python),
+            patch.object(contract, "source_bindings", return_value=[pin(handoff.ROOT / self.source_name)]),
+            patch.object(handoff.env, "check_binding", self.check),
+            patch.object(handoff, "at", return_value=self.prepared) as read,
+            patch.object(review.subprocess, "run", self.run),
+        ):
+            result = review._verify_original_preparation(self.proposal, self.plan)
+        read.assert_called_once_with(self.proposal["prepared"], handoff.GUEST / "prepared-v1.json")
+        return result
+
+
+class OriginalPreparationReplayTests(unittest.TestCase):
+    def test_replay_uses_pinned_python_and_the_original_checkout(self):
+        fixture = OriginalPreparationReplay()
+        self.assertEqual(fixture.verify(), fixture.prepared)
+        self.assertEqual(fixture.run.call_args.args[0][:5],
+                         [fixture.python["executable"]["path"], "-I", "-S", "-B", "-c"])
+        self.assertEqual(fixture.run.call_args.kwargs["cwd"], review.EXECUTED_ROOT)
+        self.assertEqual(fixture.run.call_args.kwargs["input"], handoff.env.encoded(fixture.proposal))
+        self.assertEqual(fixture.run.call_args.kwargs["timeout"], 120)
+        self.assertEqual(fixture.check.call_count, 2)
+        fixture.check.assert_called_with(fixture.source)
+
+    def test_replay_refuses_wrong_checkout_or_python_before_spawning(self):
+        for change in (
+            dict(source_root=str(review.EXECUTED_ROOT.with_name("foreign-source"))),
+            dict(python={"executable": {"path": r"C:\Synthetic\foreign-python.exe"}}),
+            dict(sources=[]),
+        ):
+            with self.subTest(change=change):
+                fixture = OriginalPreparationReplay()
+                fixture.plan.update(change)
+                with self.assertRaises(REFUSED):
+                    fixture.verify()
+                fixture.run.assert_not_called()
+
+    def test_replay_refuses_child_failure_or_unbound_prepared_output(self):
+        for field, value in (
+            ("returncode", 1), ("stderr", b"diagnostic output"),
+            ("stdout", handoff.env.encoded({"immutable": ["changed"]})),
+        ):
+            with self.subTest(field=field):
+                fixture = OriginalPreparationReplay()
+                setattr(fixture.completed, field, value)
+                with self.assertRaises(REFUSED):
+                    fixture.verify()
+                fixture.run.assert_called_once()

@@ -293,3 +293,25 @@ class CrossOwnerDeletionRetirementPreservationTests(unittest.TestCase):
         evidence.assert_called_once()
         self.assertFalse(preservation.MANIFEST.exists())
         self.assertEqual(storage.binding(self.ledger), ledger)
+
+    def test_guest_roster_drift_during_pending_verification_refuses_before_publication(self):
+        staged = self.stage()
+        ledger = self.close_guest()
+        credentials = self.credentials()
+        new_record = self.guest / "logs/new-failure.txt"
+        pending = preservation.MANIFEST.with_suffix(".pending.json")
+        verify = storage._evidence
+
+        def add_record(root, manifest_path, preserved, closure):
+            result = verify(root, manifest_path, preserved, closure)
+            if Path(manifest_path) == pending:
+                new_record.write_bytes(b"synthetic later failure record")
+            return result
+
+        with (patch.object(storage, "_evidence", side_effect=add_record),
+              self.assertRaisesRegex(env.EnvironmentRefused, "^guest_inventory$")):
+            self.complete(staged, credentials, ledger)
+        self.assertTrue(new_record.is_file())
+        self.assertTrue(pending.is_file())
+        self.assertFalse(preservation.MANIFEST.exists())
+        self.assertEqual(storage.binding(self.ledger), ledger)

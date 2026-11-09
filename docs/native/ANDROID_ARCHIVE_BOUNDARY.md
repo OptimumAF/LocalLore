@@ -115,8 +115,16 @@ python scripts/audit_instrumentation_apk.py APP_APK TEST_APK --archive-verificat
 The pair audit reports both compiled JUnit selectors, the runner, the shared
 signing identity, and the digests of the exact app and test APKs. The two
 regression classes must occur only in the test APK, with one executable
-JUnit method per class. This is host artifact evidence. Android execution
-and result capture require a separately approved guest run.
+JUnit method per class.
+
+The host adapter in `benchmarks/storage_opener_capture.py` re-reads the
+exact archived pair and its report. It requests one fixed 90-second
+AndroidJUnitRunner command per class through a qualified owned client.
+Both commands must return their own complete start and pass transcript.
+The owner supplies target admission, installation readback, command
+qualification, raw capture retention and teardown. The adapter does not
+grant guest authority. Actual Android execution requires a separately
+approved guest run.
 
 Document helpers: readArchiveDocument(ContentResolver,Uri):ByteArray,
 writeArchiveDocument(ContentResolver,Uri,ByteArray). OpenDocument reads at most

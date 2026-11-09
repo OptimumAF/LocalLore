@@ -154,6 +154,12 @@ export type HostCommand =
           session: string;
       }
     | {
+          op: "inspection_relationship_focus";
+          query: Query;
+          session: string;
+          target: string;
+      }
+    | {
           enabled: boolean;
           expected_head: number;
           op: "trace_configure";

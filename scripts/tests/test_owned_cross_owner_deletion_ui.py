@@ -11,6 +11,7 @@ from benchmarks import cross_owner_deletion_ui_binding as binding
 from benchmarks import cross_owner_deletion_ui_capture as capture
 from benchmarks import owned_cross_owner_deletion_ui as owned
 from benchmarks import owned_target_contract as core
+from benchmarks import owned_target_owner as mechanisms
 from scripts.tests import test_owned_target_contract as fixture
 from scripts.tests.test_cross_owner_deletion_ui_replay import (
     APP, CLASS, INSTRUMENT, KIND, TARGETS, TEST, command_tape,
@@ -88,6 +89,21 @@ class CrossOwnerDeletionUiProfileTests(unittest.TestCase):
             other = test if role == "product_apk" else app
             with self.subTest(role=role):
                 self.assert_operation_refused(["dd", "of=" + path, "bs=65536"], stdin=other)
+
+    def test_registration_facade_treats_the_owned_offline_reply_as_waiting(self):
+        raw = b"emulator-5592          offline transport_id:1\n"
+        self.assertIsNone(mechanisms._waiting_devices(raw, _contract=owned))
+        self.assertIsNone(mechanisms._waiting_devices(b"", _contract=owned))
+        self.assertEqual(mechanisms._waiting_devices(b"emulator-5592 device transport_id:1\n",
+                                                      _contract=owned), 1)
+
+    def test_registration_facade_refuses_a_foreign_or_malformed_transport(self):
+        for raw in (b"emulator-5594 offline transport_id:1\n",
+                    b"emulator-5592 device\n",
+                    b"emulator-5592 offline transport_id:0\n",
+                    b"emulator-5592 offline transport_id:1\nemulator-5594 device transport_id:2\n"):
+            with self.subTest(raw=raw), self.assertRaises(core.TargetRefused):
+                mechanisms._waiting_devices(raw, _contract=owned)
 
     def test_install_requires_the_exact_no_replacement_recipe(self):
         for _, _, path, _ in TARGETS:

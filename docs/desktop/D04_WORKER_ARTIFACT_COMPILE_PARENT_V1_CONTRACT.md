@@ -78,7 +78,9 @@ and reopen read-only with the same identity and exact bytes. The
 read-only ready handle stays held. The parent returns the ready SHA-256.
 An entry must verify the exact ready record and its own PID against the
 private plan before supplying the supervisor's admission bindings.
-A failed or partial ready file is preserved. There is no second offer.
+A failed or partial ready file is preserved. A write-handle close failure
+is recorded even after a failed write or readback and keeps the attempt
+in quarantine. There is no second offer.
 
 ## Completion and remaining evidence
 
@@ -90,7 +92,11 @@ outputs are a 4,096-byte ready record, 65,536-byte stdout and 4,096-byte
 stderr, before the runner's separate records and the child supervisor's
 reserves. Do not reuse a quarantined object or its directory. Retain the
 parent object and its held handles when group closure is unproven. The
-fallback kill-on-close policy never substitutes for observed Job zero.
+parent retains the Job and the direct process handle if direct exit is
+unknown, including a suspended process whose Job membership could not
+be verified. The object's destruction releases these handles, so the
+external owner must keep it alive until independently established
+shutdown. The fallback kill-on-close policy never substitutes for observed Job zero.
 A known lease close is recorded separately. External postflight still
 audits the actual directories and outside-writer exclusion.
 

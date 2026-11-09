@@ -355,10 +355,14 @@ inline Clock::time_point settle(const Handle& process, const Handle& job, const 
     return *drain_deadline;
 }
 
+struct Quarantine {
+    Handle job, process;
+};
+
 template <typename Cancelled, typename Ready>
 Result launch_owned(const std::wstring& executable, std::wstring cmd, std::wstring env,
                     const std::wstring& cwd, Clock::time_point started, Clock::time_point deadline,
-                    const Cancelled& cancelled, const Ready& ready, Handle* quarantine = nullptr) {
+                    const Cancelled& cancelled, const Ready& ready, Quarantine* quarantine = nullptr) {
     Result result;
     Handle job, in, stdin_writer, out, stdout_writer, err, stderr_writer, process, thread;
     const auto start = [&]() {
@@ -455,17 +459,22 @@ Result launch_owned(const std::wstring& executable, std::wstring cmd, std::wstri
     std::optional<Clock::time_point> drain_deadline;
     if (process.valid()) {
         drain_deadline = settle(process, job, out, err, cancelled, deadline, result);
-        result.process_handle_closed = process.close();
-        if (!result.process_handle_closed) {
+        if (quarantine && !(result.signaled && result.exit.has_value())) {
+            quarantine->process.value = std::exchange(process.value, nullptr);
             result.handles_closed = false;
-            stop(result, Stop::io, GetLastError());
+        } else {
+            result.process_handle_closed = process.close();
+            if (!result.process_handle_closed) {
+                result.handles_closed = false;
+                stop(result, Stop::io, GetLastError());
+            }
         }
     }
     for (Handle* handle : {&thread, &in, &stdin_writer, &stdout_writer, &stderr_writer, &out, &err})
         close(*handle, result);
     if (quarantine && result.pid &&
         !(result.closed() && result.job_and_pipes_closed() && !result.io_error)) {
-        quarantine->value = std::exchange(job.value, nullptr);
+        quarantine->job.value = std::exchange(job.value, nullptr);
         result.handles_closed = false;
     }
     close(job, result);

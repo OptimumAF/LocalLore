@@ -26,6 +26,7 @@ struct Report {
     compile_job_v1::Result child;
     std::string ready_sha256;
     long long elapsed_ms = 0;
+    bool ready_writer_close_known = true;
     bool lease_closed = false;
     bool quarantined = false;
 };
@@ -279,26 +280,39 @@ inline bool read_exact(HANDLE file, std::string_view expected) {
            std::string_view(bytes.data(), total) == expected;
 }
 
-inline bool retain_ready(Lease& lease, const std::wstring& path, const std::string& bytes, std::string& digest) {
+inline bool retain_ready(Lease& lease, const std::wstring& path, const std::string& bytes,
+                         std::string& digest, bool& writer_close_known) {
     if (bytes.empty() || bytes.size() > 4096) return false;
     Handle writer;
     writer.value = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
                                nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (!writer.valid()) return false;
     Fact initial, written;
-    if (!writer.valid() || !observe(writer.value, path, false, initial) || initial.standard.EndOfFile.QuadPart != 0)
-        return false;
-    DWORD sent = 0;
-    while (sent < bytes.size()) {
-        const auto want = static_cast<DWORD>(bytes.size() - sent);
-        DWORD wrote = 0;
-        if (!WriteFile(writer.value, bytes.data() + sent, want, &wrote, nullptr) || !wrote || wrote > want)
+    const auto write = [&]() {
+        if (!observe(writer.value, path, false, initial) || initial.standard.EndOfFile.QuadPart != 0)
             return false;
-        sent += wrote;
+        DWORD sent = 0;
+        while (sent < bytes.size()) {
+            const auto want = static_cast<DWORD>(bytes.size() - sent);
+            DWORD wrote = 0;
+            if (!WriteFile(writer.value, bytes.data() + sent, want, &wrote, nullptr) || !wrote || wrote > want)
+                return false;
+            sent += wrote;
+        }
+        LARGE_INTEGER zero{};
+        return FlushFileBuffers(writer.value) && SetFilePointerEx(writer.value, zero, nullptr, FILE_BEGIN) &&
+               read_exact(writer.value, bytes) && observe(writer.value, path, false, written) &&
+               same_id(initial, written);
+    };
+    bool exact = false;
+    try {
+        exact = write();
+    } catch (...) {
+        writer_close_known = writer.close();
+        throw;
     }
-    LARGE_INTEGER zero{};
-    if (!FlushFileBuffers(writer.value) || !SetFilePointerEx(writer.value, zero, nullptr, FILE_BEGIN) ||
-        !read_exact(writer.value, bytes) || !observe(writer.value, path, false, written) ||
-        !same_id(initial, written) || !writer.close()) return false;
+    writer_close_known = writer.close();
+    if (!exact || !writer_close_known) return false;
 
     const auto retained = lease.add_file(path);
     if (!retained || !same_id(initial, retained->fact) || !read_exact(retained->file.value, bytes)) return false;
@@ -418,11 +432,12 @@ public:
                         "\",\"bytes\":" + std::to_string(pins[i]->bytes) + "}";
                 }
                 record += "]}";
-                return retain_ready(lease_, ready_path, record, report.ready_sha256) && lease_.current();
+                return retain_ready(lease_, ready_path, record, report.ready_sha256,
+                                    report.ready_writer_close_known) && lease_.current();
             };
             const auto cmd = L"\"" + node + L"\" \"" + entry + L"\"";
             report.child = job::launch_owned(node, cmd, std::move(env), entry.substr(0, entry.rfind(L'\\')),
-                                             started, deadline, abort, ready, &quarantine_job_);
+                                             started, deadline, abort, ready, &quarantine_);
             if (!lease_.current() || !missing(helper + L".com") || !missing(helper + L".exe"))
                 job::stop(report.child, Stop::io, ERROR_INVALID_DATA);
         };
@@ -434,8 +449,9 @@ public:
         }
         const bool group_known = !report.child.pid ||
             (report.child.closed() && report.child.job_and_pipes_closed() && !report.child.io_error);
-        if (group_known) report.lease_closed = lease_.close();
+        if (group_known && report.ready_writer_close_known) report.lease_closed = lease_.close();
         report.quarantined = !group_known || !report.lease_closed;
+        if (!report.ready_writer_close_known) job::stop(report.child, Stop::io, ERROR_INVALID_DATA);
         if (abort()) job::stop(report.child, Stop::cancelled);
         const auto finished = Clock::now();
         if (finished >= deadline + job::drain_window) job::stop(report.child, Stop::drain);
@@ -446,7 +462,7 @@ public:
 private:
     std::atomic_bool used_{false};
     detail::Lease lease_;
-    detail::Handle quarantine_job_;
+    detail::job::Quarantine quarantine_;
 };
 
 } // namespace locallore::compile_parent_v1

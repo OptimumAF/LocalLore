@@ -18,6 +18,11 @@ replies cannot choose that recipe. Ordinary scripted construction and legacy
 Host defaults retain their behavior. Host/fake-provider, JVM and APK checks
 do not establish device/model execution or narrative quality.
 
+The saved-story screen shows the empty-library message after a confirmed
+empty catalog. While opening, recovering, or changing the library, it uses the
+existing workflow status. A confirmed catalog with stories and no selected
+story directs the player to Saved stories.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

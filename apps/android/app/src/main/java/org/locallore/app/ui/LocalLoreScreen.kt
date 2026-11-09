@@ -260,8 +260,12 @@ internal fun LocalLoreScreen(
                             }
                         }
                     }
-                    if (state.persistent && state.selectedStory == null) item(key = "empty-library") {
-                        Text("No saved stories. Choose New story to begin.", modifier = Modifier.testTag("empty-library"))
+                    savedLibraryStatus(state)?.let { status ->
+                        item(key = "empty-library") {
+                            Text(status.message, modifier = Modifier.testTag(status.tag).semantics {
+                                liveRegion = LiveRegionMode.Polite
+                            })
+                        }
                     }
                     if (!state.persistent || state.selectedStory != null) item(key = "scene") {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

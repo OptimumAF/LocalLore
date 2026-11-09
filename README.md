@@ -27,6 +27,9 @@ including fixed-window transcript rollover. It checks the preserved PR #317
 build without rebuilding it or borrowing another cohort's authority. The
 [host verification report](docs/native/TRANSCRIPT_UI_COHORT_VERIFICATION_2026-11-01.md)
 separates host checks from the six Android executions, which remain unrun.
+The [fixed activation coordinator](docs/native/TRANSCRIPT_UI_ACTIVATION_V1.md)
+adds the caller-start barrier and joined cleanup needed to run that cohort.
+Its host checks pass; a concrete bounded operation still requires fresh approval.
 
 The [presentation-process runner](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_V1.md)
 adds a distinct guarded three-APK host profile for the

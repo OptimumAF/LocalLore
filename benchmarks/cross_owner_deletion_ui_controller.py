@@ -7,24 +7,19 @@ from pathlib import Path
 import time
 
 from benchmarks import android_process_client_v4 as wire
+from benchmarks import cross_owner_deletion_ui_boot as boot
 from benchmarks import cross_owner_deletion_ui_capture as capture
 from benchmarks import cross_owner_deletion_ui_replay as journey
 from benchmarks import owned_cross_owner_deletion_ui as owned
 from benchmarks import owned_target_contract as core
 from benchmarks import receipt_avd_environment as env
 
-SCOPE = "cross-owner-deletion-ui-controller-v1"
-RESULT_FILE = "controller-result-v1.json"
+SCOPE = "cross-owner-deletion-ui-controller-v2"
+RESULT_FILE = "controller-result-v2.json"
 RESULT_KEYS = (
     "version", "scope", "admission", "running", "session", "caller", "client_count",
-    "journey", "outcome", "reason", "observer_handles_closed", "elapsed_ms",
+    "readiness", "journey", "outcome", "reason", "observer_handles_closed", "elapsed_ms",
 )
-
-
-def _remaining(until):
-    seconds = until - time.monotonic()
-    core._need(seconds > 0, "deadline")
-    return seconds
 
 
 def run(admission_binding, running_binding):
@@ -34,8 +29,8 @@ def run(admission_binding, running_binding):
     admission_binding, running_binding = copy.deepcopy((admission_binding, running_binding))
     live = owned.LiveOwnedCrossOwnerDeletionTarget(admission_binding, running_binding)
     output = identity = cap = None
-    result = dict(version=1, scope=SCOPE, admission=admission_binding, running=running_binding,
-                  session=None, caller=None, client_count=0, journey=None, outcome="refused",
+    result = dict(version=2, scope=SCOPE, admission=admission_binding, running=running_binding,
+                  session=None, caller=None, client_count=0, readiness=None, journey=None, outcome="refused",
                   reason="checks_failed", observer_handles_closed=False, elapsed_ms=None)
     try:
         admission = live.admission
@@ -43,20 +38,23 @@ def run(admission_binding, running_binding):
         candidate.mkdir(exist_ok=False)
         identity = wire._identity(candidate)
         output = candidate
+        result["caller"] = live.caller
+        result["readiness"] = boot.wait_for_android(output, live, admission_binding, running_binding, until)
         cap = owned.OwnedCrossOwnerDeletionSdkCapture(output / "clients", capture.SESSION_SECONDS, live)
-        result.update(session=cap.session_binding, caller=live.caller)
-        until = min(until, cap.until)
+        result["session"] = cap.session_binding
+        until = cap.until = min(until, cap.until)
+        core._need(result["readiness"]["completed_epoch"] <= cap.session["started_epoch"], "clock")
 
         def command(argv, label, *, source=None, limit=journey._MAX_REPLY):
             index = cap.count + 1
             core._int(index, 1, journey.COMMAND_COUNT, "binding")
             core._need(capture._LABELS[index - 1] == label, "capability")
-            budget = min(capture._DEADLINES_MS.get(label, 15_000) / 1000, _remaining(until))
+            budget = min(capture._DEADLINES_MS.get(label, 15_000) / 1000, boot._remaining(until))
             if source is None:
                 raw = cap.shell(argv, label, seconds=budget, cap=limit)
             else:
                 raw = cap.stream(argv, source, label, seconds=budget, cap=limit)
-            _remaining(until)
+            boot._remaining(until)
             core._need(cap.count == index, "binding")
             pin = owned.REPLAY._pin(cap.directory / f"command-{index:04d}.json")
             row = capture.read_command(owned.REPLAY, owned.REPLAY._json(pin), index, label)
@@ -68,12 +66,14 @@ def run(admission_binding, running_binding):
         core._need(cap.clean and cap.count == journey.COMMAND_COUNT, "binding")
         verified = owned.verify_capture(admission_binding, running_binding, result["session"], result["caller"])
         core._need(core._same(live_result, verified), "binding")
-        _remaining(until)
+        boot._remaining(until)
         result.update(journey=verified, outcome="completed", reason=None)
     except Exception as error:
         if output is None:
             raise
-        if isinstance(error, TimeoutError) or str(error) == "deadline":
+        if isinstance(error, boot.ReadinessCleanupError):
+            result["reason"] = "resource_uncertain"
+        elif isinstance(error, TimeoutError) or str(error) == "deadline":
             result["reason"] = "deadline"
     finally:
         if cap is not None:
@@ -106,7 +106,7 @@ def verify_controller_result(result_binding, admission_binding, running_binding,
     output = Path(admission["root"]) / "controller-v1"
     result = owned.REPLAY._at(result_binding, output / RESULT_FILE)
     core._obj(result, RESULT_KEYS, "binding")
-    core._int(result["version"], 1, 1, "binding")
+    core._int(result["version"], 2, 2, "binding")
     core._int(result["elapsed_ms"], 0, capture.SESSION_SECONDS * 1000 - 1, "budget")
     core._int(result["client_count"], journey.COMMAND_COUNT, journey.COMMAND_COUNT, "binding")
     core._need(result["scope"] == SCOPE and result["outcome"] == "completed"
@@ -115,6 +115,8 @@ def verify_controller_result(result_binding, admission_binding, running_binding,
     for field, expected in (("admission", admission_binding), ("running", running_binding),
                             ("caller", expected_caller), ("session", session)):
         core._need(core._same(result[field], expected), "binding")
+    readiness = boot.verify_readiness(output, result["readiness"], admission_binding, running_binding, expected_caller)
+    core._need(readiness["completed_epoch"] <= owned.REPLAY._json(session)["started_epoch"], "clock")
     replayed = owned.verify_capture(admission_binding, running_binding, session, expected_caller)
     core._need(core._same(result["journey"], replayed), "binding")
     env.check_binding(result_binding)

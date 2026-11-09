@@ -205,10 +205,12 @@ replacement disabled. The controller in
 against an already owned target. It verifies each recorded reply before the
 next command, replays the full capture and checks observer cleanup. A live
 owner and its operation still require a separately reviewed proposal and
-admission. The controller's first command requires `sys.boot_completed=1`.
-The verified SDK23 run observed two empty boot-property replies after transport
-readiness before the third returned `1`. A future operator needs a bounded,
-owned Android boot-readiness check before dispatching this fixed capture.
+admission. The controller first captures read-only `sys.boot_completed` polls
+under the same owned guest, transport, and caller. It waits up to 120 seconds
+and accepts at most 24 polls. Only a replayed, qualified `1` reply allows the
+fixed 26-command capture to begin. Boot records live in `boot-readiness-v1`
+and the version 2 controller result binds and replays them separately. The
+first command of the fixed capture still checks the property again.
 
 Parent-retirement verification has its own debug identity and project cache:
 

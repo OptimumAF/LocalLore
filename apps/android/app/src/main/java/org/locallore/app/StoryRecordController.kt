@@ -43,24 +43,40 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         if (!disposed && current.visible && !current.loading && current.section == StoryRecordSection.PROMISES)
             load(StoryRecordQuery(context, current.section, promiseFilter = filter))
     }
+    fun focusRelationship(entry: StoryRecordEntry) {
+        val current = mutable.value
+        val context = current.context ?: return
+        val target = entry.relationshipTarget ?: return
+        if (!disposed && current.visible && !current.loading && current.problem == null &&
+            current.eventDetail == null && current.section == StoryRecordSection.RELATIONSHIPS &&
+            current.entries.any { it === entry })
+            load(StoryRecordQuery(context, current.section, relationshipTarget = target))
+    }
+    fun allRelationships() {
+        val current = mutable.value
+        val context = current.context ?: return
+        if (!disposed && current.visible && !current.loading && current.eventDetail == null &&
+            current.section == StoryRecordSection.RELATIONSHIPS)
+            load(StoryRecordQuery(context, current.section))
+    }
     fun next() {
         val current = mutable.value
         val context = current.context ?: return
         if (!disposed && !current.loading && current.nextCursor != null)
             load(StoryRecordQuery(context, current.section, current.search, current.nextCursor,
-                promiseFilter = current.promiseFilter))
+                promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget))
     }
     fun first() {
         val current = mutable.value
         val context = current.context ?: return
         if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search,
-            promiseFilter = current.promiseFilter))
+            promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget))
     }
     fun retry() {
         val current = mutable.value
         val context = current.context ?: return
         if (!disposed && !current.loading) load(StoryRecordQuery(context, current.section, current.search, current.cursor,
-            promiseFilter = current.promiseFilter))
+            promiseFilter = current.promiseFilter, relationshipTarget = current.relationshipTarget))
     }
     fun openEvent(sequence: Long) {
         val current = mutable.value
@@ -131,7 +147,8 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         val ticket = ++generation
         pending?.cancel()
         publish(StoryRecordState(visible = true, loading = true, context = query.context,
-            section = query.section, search = query.search, cursor = query.cursor, promiseFilter = query.promiseFilter))
+            section = query.section, search = query.search, cursor = query.cursor, promiseFilter = query.promiseFilter,
+            relationshipTarget = query.relationshipTarget))
         if (!validStoryRecordSearch(query.search)) {
             publish(mutable.value.copy(loading = false, problem = StoryRecordProblem.BAD_SEARCH))
             return
@@ -173,6 +190,9 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         eventSources = entry.eventSources.toList(), scopedEventSources = entry.scopedEventSources.toList())
 
     private fun validateEntry(entry: StoryRecordEntry, query: StoryRecordQuery, time: Long) {
+        if (entry.relationshipTarget != null) check(query.section == StoryRecordSection.RELATIONSHIPS &&
+            entry.origin == StoryRecordOrigin.CANONICAL_FIELD && validStoryRecordTurn(entry.relationshipTarget.id))
+        if (query.relationshipTarget != null) check(entry.relationshipTarget == query.relationshipTarget)
         if (entry.promiseStatus != null) check(query.section == StoryRecordSection.PROMISES && query.version == 2 &&
             entry.origin == StoryRecordOrigin.DERIVED_COMPARISON)
         if (query.promiseFilter.status != null) check(entry.promiseStatus == query.promiseFilter.status)

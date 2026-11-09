@@ -38,6 +38,9 @@ enum class StoryRecordPromiseFilter(val label: String, val status: StoryRecordPr
     OVERDUE("Overdue", StoryRecordPromiseStatus.OVERDUE),
 }
 
+/** An eligible native relationship target ID, not an NPC name or profile grant. */
+data class StoryRecordRelationshipTarget(val id: String)
+
 data class StoryRecordQuery(
     val context: StoryRecordContext,
     val section: StoryRecordSection = StoryRecordSection.PROGRESSION,
@@ -45,6 +48,7 @@ data class StoryRecordQuery(
     val cursor: String? = null,
     val version: Int = 2,
     val promiseFilter: StoryRecordPromiseFilter = StoryRecordPromiseFilter.ALL,
+    val relationshipTarget: StoryRecordRelationshipTarget? = null,
 )
 data class StoryRecordEntry(
     val key: String,
@@ -56,6 +60,7 @@ data class StoryRecordEntry(
     val event: StoryRecordEvent? = null,
     val scopedEventSources: List<StoryRecordScopedEvent> = emptyList(),
     val promiseStatus: StoryRecordPromiseStatus? = null,
+    val relationshipTarget: StoryRecordRelationshipTarget? = null,
 )
 
 data class StoryRecordScope(val story: String, val branch: String)
@@ -105,6 +110,7 @@ data class StoryRecordState(
     val problem: StoryRecordProblem? = null,
     val eventDetail: StoryRecordEventDetail? = null,
     val promiseFilter: StoryRecordPromiseFilter = StoryRecordPromiseFilter.ALL,
+    val relationshipTarget: StoryRecordRelationshipTarget? = null,
 )
 
 internal const val STORY_RECORD_PAGE_ROWS = 8

@@ -62,11 +62,15 @@ fun StoryRecordDialog(
     onEventRetry: (() -> Unit)? = null,
     onScopedEvent: (StoryRecordScopedEvent) -> Unit = {},
     onPromiseFilter: (StoryRecordPromiseFilter) -> Unit = {},
+    onFocusRelationship: (StoryRecordEntry) -> Unit = {},
+    onAllRelationships: () -> Unit = {},
 ) {
     if (!state.visible) return
     val actionKey = RecordActionKey(state)
     // A new story/head or applied query must never inherit another context's edited search.
-    var searchDraft by remember(state.context, state.search, state.promiseFilter) { mutableStateOf(state.search) }
+    var searchDraft by remember(state.context, state.search, state.promiseFilter, state.relationshipTarget) {
+        mutableStateOf(state.search)
+    }
     val recordScrollState = rememberScrollState()
     val windowSize = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
@@ -170,12 +174,36 @@ fun StoryRecordDialog(
                         Text("Choose a status or search all promises.",
                             style = MaterialTheme.typography.bodySmall)
                     }
+                    if (state.section == StoryRecordSection.RELATIONSHIPS) {
+                        val target = state.relationshipTarget
+                        if (target != null) {
+                            Text("Focused relationship", style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.semantics { heading() })
+                            Text("Target · ${target.id}", style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.testTag("story-record-relationship-target"))
+                            key(actionKey) {
+                                OutlinedButton(
+                                    onClick = onAllRelationships,
+                                    enabled = canQuery,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .testTag("story-record-all-relationships"),
+                                ) { Text("All relationships") }
+                            }
+                        }
+                        Text("How your character relates to others. Their private thoughts are not shown.",
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Choose a visible target to focus, or search all relationships.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     OutlinedTextField(
                         value = searchDraft,
                         onValueChange = { searchDraft = it },
                         enabled = canQuery,
-                        label = { Text(if (state.section == StoryRecordSection.PROMISES)
-                            "Search all promises" else "Search visible records") },
+                        label = { Text(when (state.section) {
+                            StoryRecordSection.PROMISES -> "Search all promises"
+                            StoryRecordSection.RELATIONSHIPS -> "Search all relationships"
+                            else -> "Search visible records"
+                        }) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("story-record-search"),
                     )
@@ -241,7 +269,8 @@ fun StoryRecordDialog(
                             }
                             state.entries.forEachIndexed { index, entry ->
                                 key(actionKey, entry.key) {
-                                    StoryRecordRow(entry, index, onEvent, onScopedEvent)
+                                    StoryRecordRow(entry, index, onEvent, onScopedEvent,
+                                        onFocusRelationship.takeIf { state.relationshipTarget == null && canQuery })
                                 }
                             }
                         }
@@ -295,7 +324,8 @@ private class RecordActionKey(private val state: StoryRecordState) {
 
 @Composable
 private fun StoryRecordRow(entry: StoryRecordEntry, index: Int, onEvent: (Long) -> Unit,
-    onScopedEvent: (StoryRecordScopedEvent) -> Unit) {
+    onScopedEvent: (StoryRecordScopedEvent) -> Unit,
+    onFocusRelationship: ((StoryRecordEntry) -> Unit)?) {
     Column(
         modifier = Modifier.fillMaxWidth().testTag("story-record-entry-$index"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -314,6 +344,13 @@ private fun StoryRecordRow(entry: StoryRecordEntry, index: Int, onEvent: (Long) 
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        entry.relationshipTarget?.let { target ->
+            if (onFocusRelationship != null) OutlinedButton(
+                onClick = { onFocusRelationship(entry) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .testTag("story-record-focus-relationship-$index"),
+            ) { Text("Focus on ${target.id}") }
+        }
         // Only typed, eligible event references supplied by the coordinator become navigation.
         entry.eventSources.forEachIndexed { sourceIndex, reference ->
             OutlinedButton(

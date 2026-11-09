@@ -11,12 +11,15 @@ internal object StoryRecordWire {
         if (!validVersion(query)) throw StoryRecordFailure(StoryRecordProblem.INVALID_RESPONSE)
         if (query.version == 2 && query.cursor != null && !cursorPattern(query).matches(query.cursor))
             throw StoryRecordFailure(StoryRecordProblem.INVALID_RESPONSE)
-        return JSONObject().put("op", "inspection_query").put("session", session).put("query",
+        val command = JSONObject().put("op", if (query.relationshipTarget == null)
+            "inspection_query" else "inspection_relationship_focus").put("session", session).put("query",
             JSONObject().put("version", query.version).put("scope", JSONObject().put("story", query.context.story.story)
                 .put("branch", query.context.story.branch)).put("expected_head", query.context.revision)
                 .put("at_revision", JSONObject.NULL).put("observer", JSONObject().put("kind", "player"))
                 .put("view", query.section.wire).put("limit", STORY_RECORD_PAGE_ROWS)
                 .put("search", nativeSearch(query)).put("cursor", query.cursor ?: JSONObject.NULL))
+        query.relationshipTarget?.let { command.put("target", it.id) }
+        return command
     }
 
     fun decode(data: JSONObject, query: StoryRecordQuery, player: String = "player"): StoryRecordPage = try {
@@ -89,10 +92,12 @@ internal object StoryRecordWire {
                 require(row.text("from") == player)
                 val dimension = row.text("dimension").also { require(it in setOf("respect", "trust", "obligation")) }
                 val value = row.number("value").also { require(it in -32768..32767) }
+                val target = StoryRecordRelationshipTarget(row.text("to", 64).also { require(validStoryRecordTurn(it)) })
+                require(query.relationshipTarget == null || query.relationshipTarget == target)
                 val evidence = row.getJSONObject("source")
                 val (labels, events, scoped) = sources(listOf(evidence), query)
-                StoryRecordEntry(key, "${row.text("to")} · $dimension", value.toString(), origin,
-                    labels, events, scopedEventSources = scoped)
+                StoryRecordEntry(key, "${target.id} · $dimension", value.toString(), origin,
+                    labels, events, scopedEventSources = scoped, relationshipTarget = target)
             }
             "knowledge" -> {
                 require(query.section == StoryRecordSection.KNOWLEDGE)
@@ -181,6 +186,10 @@ internal object StoryRecordWire {
     } ?: query.search
 
     private fun validVersion(query: StoryRecordQuery): Boolean {
+        if (query.relationshipTarget != null &&
+            (query.version != 2 || query.section != StoryRecordSection.RELATIONSHIPS ||
+                query.search.isNotEmpty() || query.promiseFilter != StoryRecordPromiseFilter.ALL ||
+                !validStoryRecordTurn(query.relationshipTarget.id))) return false
         if (query.promiseFilter != StoryRecordPromiseFilter.ALL &&
             (query.version != 2 || query.section != StoryRecordSection.PROMISES || query.search.isNotEmpty())) return false
         return when (query.version) {

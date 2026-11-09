@@ -371,6 +371,8 @@ class ShellViewModel internal constructor(
     fun recordSection(section: StoryRecordSection) = recordController.select(section)
     fun recordSearch(text: String) = recordController.search(text)
     fun recordPromiseFilter(filter: StoryRecordPromiseFilter) = recordController.promiseFilter(filter)
+    fun focusRecordRelationship(entry: StoryRecordEntry) = recordController.focusRelationship(entry)
+    fun allRecordRelationships() = recordController.allRelationships()
     fun nextRecordPage() = recordController.next()
     fun firstRecordPage() = recordController.first()
     fun retryStoryRecord() = recordController.retry()
@@ -402,6 +404,12 @@ class ShellViewModel internal constructor(
     }
     fun recordPromiseFilter(filter: StoryRecordPromiseFilter, rendered: StoryRecordState) {
         if (isCurrentRecordView(rendered)) recordPromiseFilter(filter)
+    }
+    fun focusRecordRelationship(entry: StoryRecordEntry, rendered: StoryRecordState) {
+        if (isCurrentRecordView(rendered)) focusRecordRelationship(entry)
+    }
+    fun allRecordRelationships(rendered: StoryRecordState) {
+        if (isCurrentRecordView(rendered)) allRecordRelationships()
     }
     fun nextRecordPage(rendered: StoryRecordState) {
         if (isCurrentRecordView(rendered)) nextRecordPage()

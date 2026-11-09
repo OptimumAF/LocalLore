@@ -67,6 +67,12 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [focused relationship view](docs/android/RELATIONSHIP_FOCUS_2026-11-01.md)
+shows the native dimensions for one visible target, with exact case-sensitive
+IDs and scoped evidence. The offline Android gate passes 492 JVM cases and
+both APK audits; 39 Core and 18 workspace tests pass. Two new Compose
+journeys compile but remain unrun on Android.
+
 The [promise status controls](docs/android/PROMISE_STATUS_BROWSING_2026-11-01.md)
 offer All, Open and Overdue views using Rust's existing player-visible query.
 The offline Android build passes 479 JVM cases and both APK audits; four

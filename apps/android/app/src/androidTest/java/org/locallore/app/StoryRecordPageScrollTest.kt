@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.WindowInfo
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -18,7 +19,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
@@ -51,9 +53,14 @@ class StoryRecordPageScrollTest {
         compose.runOnIdle { assertEquals(StoryRecordSection.KNOWLEDGE, state.section) }
         assertAtTop()
 
-        scrolledControl("story-record-search").performTextReplacement("lantern")
+        val searchField = scrolledControl("story-record-search")
+        val beforeDraft = scrollOffset()
+        // Invoke the editable semantics without opening a real device keyboard.
+        searchField.performSemanticsAction(SemanticsActions.SetText) { setText ->
+            assertTrue(setText(AnnotatedString("lantern")))
+        }
         compose.runOnIdle { assertEquals("", state.search) }
-        assertTrue("Editing the draft must not reset the applied page", scrollOffset() > 0f)
+        assertEquals("Editing the draft must keep the applied page offset", beforeDraft, scrollOffset(), 0f)
         scrolledControl("story-record-search-submit").performClick()
         compose.runOnIdle { assertEquals("lantern", state.search) }
         assertAtTop()

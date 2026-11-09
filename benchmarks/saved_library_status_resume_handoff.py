@@ -164,7 +164,10 @@ def _admission_value(plan, run_pin, authorization_pin, run_id):
                      python=plan["python"], artifacts=plan["artifacts"])
     admission["server"].update(root=str(OWNED_ROOT / "server"), run_id=run_id,
                                sources=server.source_bindings(), python=plan["python"])
-    admission["guest"].update(proposal=run_pin, authorization=authorization_pin)
+    refuser_source = env.binding(h.ROOT / "benchmarks/native/deny_adb_client.c")
+    _need(all(refuser_source[key] == admission["guest"]["refuser_source"][key]
+              for key in ("bytes", "sha256")), "source")
+    admission["guest"].update(proposal=run_pin, authorization=authorization_pin, refuser_source=refuser_source)
     return owner.validate_admission(admission)
 
 

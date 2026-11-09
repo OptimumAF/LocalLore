@@ -3,10 +3,14 @@ package org.locallore.app.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
@@ -75,8 +79,11 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
                         Text("Travel routes (directed)",modifier=Modifier.semantics { heading() })
                         world.locations.indices.forEach { from -> world.locations.indices.filter { it!=from }.forEach { to ->
                             val route=OriginalRoute(from,to); val selected=route in world.routes
-                            OriginalAction("${if(selected)"✓ " else ""}${world.locations[from].name} → ${world.locations[to].name}",editable && (selected || world.routes.size<8)) {
-                                onEdit(state,OriginalStoryEdit.ToggleRoute(from,to)) }
+                            OriginalToggle(
+                                "${world.locations[from].name} → ${world.locations[to].name}",
+                                checked = selected,
+                                enabled = editable && (selected || world.routes.size < 8),
+                            ) { onEdit(state, OriginalStoryEdit.ToggleRoute(from, to)) }
                         } }
                         Text("World truth",modifier=Modifier.semantics { heading() })
                         world.facts.forEachIndexed { i,f ->
@@ -126,14 +133,62 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
 @Composable private fun OriginalAction(label: String,enabled: Boolean,tag: String="",action: ()->Unit) {
     OutlinedButton(onClick=action,enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).then(if(tag.isEmpty())Modifier else Modifier.testTag(tag))) { Text(label) }
 }
-@Composable private fun OriginalChoice(label: String,values: List<String>,selected: Int,enabled: Boolean,onValue: (Int)->Unit) {
+@Composable
+private fun OriginalChoice(
+    label: String,
+    values: List<String>,
+    selected: Int,
+    enabled: Boolean,
+    onValue: (Int) -> Unit,
+) {
     Text(label)
-    values.forEachIndexed { i,value -> OriginalAction("${if(i==selected)"✓ " else ""}$value",enabled) { onValue(i) } }
+    Column(Modifier.selectableGroup()) {
+        values.forEachIndexed { index, value ->
+            val isSelected = index == selected
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .selectable(selected = isSelected, enabled = enabled, role = Role.RadioButton,
+                        onClick = { onValue(index) })
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = isSelected, enabled = enabled, onClick = null)
+                Text(value)
+            }
+        }
+    }
 }
-@Composable private fun OriginalKnownChoices(label: String,actors: List<String>,selected: List<Int>,enabled: Boolean,onToggle: (Int)->Unit) {
+
+@Composable
+private fun OriginalKnownChoices(
+    label: String,
+    actors: List<String>,
+    selected: List<Int>,
+    enabled: Boolean,
+    onToggle: (Int) -> Unit,
+) {
     Text(label)
-    actors.forEachIndexed { i,name -> OriginalAction("${if(i in selected)"✓ " else ""}$name",enabled) { onToggle(i) } }
+    actors.forEachIndexed { index, name ->
+        OriginalToggle(name, checked = index in selected, enabled = enabled) { onToggle(index) }
+    }
 }
+
+@Composable
+private fun OriginalToggle(label: String, checked: Boolean, enabled: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .toggleable(value = checked, enabled = enabled, role = Role.Checkbox,
+                onValueChange = { onToggle() })
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, enabled = enabled, onCheckedChange = null)
+        Text(label)
+    }
+}
+
 private class OriginalConsent(private val value: Any) {
     override fun equals(other: Any?)=other is OriginalConsent && other.value===value
     override fun hashCode()=System.identityHashCode(value)

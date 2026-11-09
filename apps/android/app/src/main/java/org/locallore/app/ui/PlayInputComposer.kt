@@ -13,6 +13,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -36,6 +37,7 @@ internal fun PlayInputComposer(
     onKindChange: (PlayInputKind) -> Unit,
     onTextChange: (String) -> Unit,
     onInput: (PlayInput) -> Unit,
+    sendControlKey: Any,
     onSend: (PlayInput) -> Unit,
     draftNotRestored: Boolean = false,
 ) {
@@ -122,10 +124,12 @@ internal fun PlayInputComposer(
             enabled = enabled,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("play-example"),
         ) { Text("Potion example") }
-        Button(
-            onClick = { if (enabled && valid) onSend(input) },
-            enabled = enabled && valid,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("play-send"),
-        ) { Text("Send") }
+        key(sendControlKey) {
+            Button(
+                onClick = { if (enabled && valid) onSend(input) },
+                enabled = enabled && valid,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("play-send"),
+            ) { Text("Send") }
+        }
     }
 }

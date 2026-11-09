@@ -544,6 +544,16 @@ class ShellViewModel internal constructor(
         gateway.respond(action, before.revision, before.mode)
     }
 
+    /** Accept a quick action only from the frame that rendered it. */
+    internal fun submit(action: DemoAction, rendered: ShellState) {
+        if (mutable.value === rendered) submit(action)
+    }
+
+    /** Accept draft submission only from the frame that rendered it. */
+    internal fun submitText(input: PlayInput, rendered: ShellState) {
+        if (mutable.value === rendered) submitText(input)
+    }
+
     /** A retained quick action cannot attach to a different rendered story or timeline. */
     fun submit(action: DemoAction, expectedStory: SavedStory?) {
         val selected = mutable.value.selectedStory

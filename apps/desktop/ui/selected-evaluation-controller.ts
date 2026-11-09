@@ -463,6 +463,15 @@ export class SelectedEvaluationController {
                     expected.sourceProtocol ??= scene.source_protocol_version;
                     if (scene.version === 4) expected.lane ??= "approved_native";
                 }
+                // A recorded Open has a read token and lane, but no prepared DTO.
+                if (
+                    (action === "open" || action === "status") &&
+                    value.lane === "approved_native" &&
+                    value.error === null &&
+                    !value.running &&
+                    value.run_token !== null
+                )
+                    expected.lane ??= "approved_native";
                 if (!expected.runId && value.run_id !== null)
                     expected.runId = value.run_id;
                 if (!expected.planToken && value.plan_token !== null)
@@ -823,6 +832,7 @@ export class SelectedEvaluationController {
         action: "start" | "status" | "cancel" | "open" | "resume" | "close",
         body: Record<string, unknown>,
         interrupt = false,
+        resumeSourceProtocol?: 2 | 3 | 4,
     ): Promise<void> {
         const client = this.state.clientId;
         if (
@@ -857,7 +867,7 @@ export class SelectedEvaluationController {
                     sourceBinding: selectedHash(body.sourceBinding),
                     sourceProtocol: known
                         ? sourceProtocolOf(known)
-                        : expected.sourceProtocol,
+                        : (expected.sourceProtocol ?? resumeSourceProtocol),
                 };
         }
         if (action === "resume")
@@ -906,7 +916,10 @@ export class SelectedEvaluationController {
         if (this.lifecycleBusy && s.phase === "prepared") return; // start ACK has not identified its operation
         await this.existing("cancel", { operationId: s.operation_id }, true);
     }
-    async resume(source: SelectedSourceIdentity): Promise<void> {
+    async resume(
+        source: SelectedSourceIdentity,
+        expectedSourceProtocol?: 2 | 3 | 4,
+    ): Promise<void> {
         if (
             this.state.uncertain ||
             this.state.cleanup?.cleanup_required ||
@@ -917,12 +930,24 @@ export class SelectedEvaluationController {
             const s = checkedSelectedSource(source),
                 token = this.state.status?.run_token;
             if (!token) return;
-            await this.existing("resume", {
-                runToken: token,
-                readerClientId: s.readerClientId,
-                sourceToken: s.runToken,
-                sourceBinding: s.binding,
-            });
+            if (
+                expectedSourceProtocol !== undefined &&
+                expectedSourceProtocol !== 2 &&
+                expectedSourceProtocol !== 3 &&
+                expectedSourceProtocol !== 4
+            )
+                throw new Error("SelectedEvaluationWire");
+            await this.existing(
+                "resume",
+                {
+                    runToken: token,
+                    readerClientId: s.readerClientId,
+                    sourceToken: s.runToken,
+                    sourceBinding: s.binding,
+                },
+                false,
+                expectedSourceProtocol,
+            );
         } catch (error) {
             if (!this.disposed) this.failed(error);
         }

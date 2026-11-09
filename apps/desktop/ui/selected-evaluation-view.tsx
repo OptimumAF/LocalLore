@@ -195,6 +195,12 @@ export function SelectedEvaluationView({
             ? s.evidence
             : null;
     const diagnostics = s.allowed && omni ? s.diagnostics : null;
+    const diagnosticLimitations =
+        diagnostics?.unavailable.filter(
+            (note) =>
+                !nativeSceneSelected ||
+                note !== "selected_protocol4_native_rerun_unavailable",
+        ) ?? [];
     const saved = s.catalog?.runs.find((run) => run.run_id === savedId);
     const controlsIdle = () => {
         const now = c.get();
@@ -610,7 +616,8 @@ export function SelectedEvaluationView({
                         !resumeSource
                     }
                     onClick={() => {
-                        if (resumeSource) void c.resume(resumeSource);
+                        if (resumeSource)
+                            void c.resume(resumeSource, sourceProtocolVersion);
                     }}
                 >
                     Resume / verify with linked source
@@ -1064,14 +1071,14 @@ export function SelectedEvaluationView({
                     {diagnostics.rows.length === 0 && (
                         <p>No finished attempt rows are available.</p>
                     )}
-                    {diagnostics.unavailable.length > 0 && (
+                    {diagnosticLimitations.length > 0 && (
                         <details>
                             <summary>
                                 Unavailable measurements and limitations
                             </summary>
                             <BoundedList
                                 name="Unavailable selected measurements"
-                                values={diagnostics.unavailable}
+                                values={diagnosticLimitations}
                             />
                         </details>
                     )}

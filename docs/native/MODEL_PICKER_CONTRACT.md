@@ -84,8 +84,12 @@ joins the exact approval, consumed attempt, prepared guest and its v2 storage
 reservation before the owner can start a private service or boot the guest.
 The owner rechecks the enclosing supervisor, launch window, and pinned approval
 and preparation files. It converts the matching prepared reservation to
-retained through the shared guard. A separate
-operation must supply the approved preparation, supervision and closure.
+retained through the shared guard. The [supervised operation](../../benchmarks/model_picker_action_operation.py)
+consumes one exact approval, prepares the guest within the shared storage
+budget, and supervises the owner and controller with finite Windows Jobs.
+It verifies the command result and independently replays guest and private
+ADB closure before reporting success. A preparation failure, refusal or
+uncertain closure retains the attempt evidence and blocks a retry.
 
 ## Real document provider and ownership
 

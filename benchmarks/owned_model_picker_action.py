@@ -36,7 +36,9 @@ CLAIM_KINDS = tuple(kind for kind, _, _ in INSTRUMENTATIONS)
 ARTIFACT_KEYS = frozenset(("build", "product_apk", "test_apk"))
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     OWNER_SCRIPT, "model_picker_action_binding.py", "model_picker_action_controller.py",
-    "model_picker_action_handoff.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
+    "model_picker_action_handoff.py", "model_picker_action_preparation.py",
+    "model_picker_action_activation.py", "model_picker_action_closure.py",
+    "model_picker_action_operation.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
 })
 OwnerRefused = mechanisms.OwnerRefused
 ClientRefused = wire.ClientRefused

@@ -131,6 +131,14 @@ export function workerArtifactCompileInputCatalogV1(manifest, target) {
   return catalog(setup(manifest), target);
 }
 
+function manifestDigest(spec) {
+  return hash({ version: 1, kind: 'compile_check_manifest_v1', ...spec });
+}
+
+export function workerArtifactCompileCheckManifestV1(manifest) {
+  return manifestDigest(setup(manifest));
+}
+
 function ioFor(sourceSignal) {
   const signal = AbortSignal.any([sourceSignal]), start = performance.now();
   let last = start;
@@ -292,8 +300,9 @@ function checkEvidence(evidence, phase) {
   requireCheck(evidence.pending >= future.reduce((sum, [, maximum]) => sum + maximum, 0));
 }
 
-export function createWorkerArtifactCompileChecksV1(manifest) {
+export function createWorkerArtifactCompileChecksV1(manifest, targetRoot, inputCatalog, checkManifest) {
   const spec = setup(manifest);
+  requireCheck(catalog(spec, targetRoot) === inputCatalog && manifestDigest(spec) === checkManifest);
   let next = 0, pending = false, stopped = false, scope = null;
 
   return async function check(value, signal, admitted, lease) {
@@ -309,8 +318,8 @@ export function createWorkerArtifactCompileChecksV1(manifest) {
       scope ??= admitted.scope;
       const { config, environment, evidenceRoot, outputParentIdentity, outputMaxBytes } = admitted.profile;
       const recipe = planWorkerArtifactComparisonV1(config);
-      const inputCatalog = catalog(spec, config.targetRoot);
-      requireCheck(inputCatalog === admitted.profile.inputCatalog && inputCatalog === admitted.ready.inputCatalog &&
+      requireCheck(config.targetRoot === targetRoot && checkManifest === admitted.profile.checkManifest &&
+        inputCatalog === admitted.profile.inputCatalog && inputCatalog === admitted.ready.inputCatalog &&
         digest(admitted.ready.inputSeal) && admitted.ready.inputFiles === spec.pins.length &&
         admitted.ready.absenceSlots === spec.absent.length);
       const includeRoots = [config.workerRoot, config.upstreamA, ...environment.include.split(';')];

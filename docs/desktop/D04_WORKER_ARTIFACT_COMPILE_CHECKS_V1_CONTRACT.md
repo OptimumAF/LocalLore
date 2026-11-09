@@ -8,11 +8,13 @@ a compiler, creates candidate roots or attests writer closure.
 
 ## Sealed inputs and bounds
 
-The future sealed bootstrap supplies
-`createWorkerArtifactCompileChecksV1(manifest)` as its private check
-method. The exact manifest has pins, absent, topology, roots and
+The sealed attempt constructs the production check with
+`createWorkerArtifactCompileChecksV1(manifest, targetRoot, inputCatalog,
+checkManifest)`. The exact manifest has pins, absent, topology, roots and
 diskFloor. It is reviewed and bound before admission, and never loaded
-from a runtime user path. Each pin is an exact
+from a runtime user path. The constructor validates and freezes one copy,
+then compares both digests before the attempt performs any file I/O.
+Each pin is an exact
 `{role,path,identity,bytes,sha256}`. Roles are source, headers, tool
 and normal. Require the actual worker main.cpp, compiler cl.exe and
 one approved normal worker pin. Other source pins stay under the worker
@@ -45,6 +47,22 @@ never skips owned cleanup. Each phase allows at most ten seconds of
 observed guard time within the native parent's separate full deadline.
 A late filesystem return refuses. The parent remains responsible for
 a blocked OS call and for outside-writer exclusion.
+
+## Complete Node manifest binding
+
+`workerArtifactCompileCheckManifestV1(manifest)` hashes compact UTF-8
+JSON. Its top-level key order is version, kind, pins, absent, roots,
+topology and diskFloor. Version is 1 and kind is
+`compile_check_manifest_v1`. Setup canonicalizes field order, preserves
+the ordered pin and absence rows, and writes roots as a temp, target,
+evidence array with role first in each root. The digest covers Node file
+and parent identities, root identities and caps, per-phase reserves and
+the free-space floor. `checkManifest` is part of the profile used to
+compute the native READY scope. `inputCatalog` remains the separate
+cross-language catalog and already binds the target path. A change that
+leaves the native catalog unchanged still requires a different scope if
+it changes the Node manifest. This binding does not establish loader
+closure, prevent writes, or replace independent writer evidence.
 
 ## Measured phase storage
 

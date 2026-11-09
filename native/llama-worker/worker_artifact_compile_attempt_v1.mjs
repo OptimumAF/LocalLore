@@ -4,6 +4,7 @@ import { addAbortListener } from 'node:events';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createWorkerArtifactCompileChecksV1 } from './worker_artifact_compile_checks_v1.mjs';
 import { createWorkerArtifactCompileHostV1 } from './worker_artifact_compile_host_v1.mjs';
 import { createWorkerArtifactCompileObservationV1 } from './worker_artifact_compile_observation_v1.mjs';
 import { createWorkerArtifactCompileSupervisorV1 } from './worker_artifact_compile_supervisor_v1.mjs';
@@ -16,7 +17,7 @@ const CONFIG = ['compiler', 'linker', 'manifestTool', 'workerRoot', 'upstreamA',
 const AUTHORITY = ['attempt', 'baseline', 'closure', 'grant'];
 const ENV = ['windows', 'path', 'include', 'temp'];
 const PROFILE = ['config', 'authority', 'environment', 'node', 'helper', 'entry', 'evidenceRoot',
-  'outputParentIdentity', 'outputMaxBytes', 'spend', 'writerPolicy', 'namespace', 'inputCatalog'];
+  'outputParentIdentity', 'outputMaxBytes', 'spend', 'writerPolicy', 'namespace', 'inputCatalog', 'checkManifest'];
 const READY = ['version', 'kind', 'scope', 'spend', 'writerPolicy', 'namespace', 'inputCatalog', 'inputSeal',
   'inputFiles', 'absenceSlots', 'evidenceId',
   'tempId', 'parentPid', 'nodePid', 'jobFlags', 'parentInJob', 'activeProcesses', 'pins'];
@@ -96,7 +97,8 @@ function setup(value) {
   const authority = Object.freeze(data(input.authority, AUTHORITY));
   const environment = Object.freeze(data(input.environment, ENV));
   const recipe = planWorkerArtifactComparisonV1(config);
-  requireAttempt([...Object.values(authority), input.spend, input.writerPolicy, input.namespace, input.inputCatalog].every(digest));
+  requireAttempt([...Object.values(authority), input.spend, input.writerPolicy, input.namespace,
+    input.inputCatalog, input.checkManifest].every(digest));
   const node = pin(input.node, NODE, 128 * 1024 * 1024);
   const helper = pin(input.helper, HELPER, 8 * 1024 * 1024);
   const entry = path(input.entry, true), evidenceRoot = path(input.evidenceRoot, true);
@@ -113,7 +115,8 @@ function setup(value) {
       .every(file => disjoint(root, file.slice(0, file.lastIndexOf('/'))))));
   const profile = Object.freeze({ config, authority, environment, node, helper, entry, evidenceRoot,
     outputParentIdentity: input.outputParentIdentity, outputMaxBytes: input.outputMaxBytes,
-    spend: input.spend, writerPolicy: input.writerPolicy, namespace: input.namespace, inputCatalog: input.inputCatalog });
+    spend: input.spend, writerPolicy: input.writerPolicy, namespace: input.namespace,
+    inputCatalog: input.inputCatalog, checkManifest: input.checkManifest });
   const context = Object.freeze({ attempt: authority.attempt, recipe: jsonSha(recipe),
     baseline: authority.baseline, closure: authority.closure, grant: authority.grant });
   return { profile, context, scope: jsonSha({ version: 1, kind: 'compile_attempt_scope_v1', profile, context }) };
@@ -196,14 +199,15 @@ async function readPinned(file, maximum, signal) {
 let used = false;
 
 // Only the sealed bootstrap calls this entry. Importing it performs no I/O.
-export async function runWorkerArtifactCompileAttemptV1(profile, owner, sourceSignal) {
+export async function runWorkerArtifactCompileAttemptV1(profile, manifest, excludeWriters, sourceSignal) {
   requireAttempt(!used);
   used = true;
   const prepared = setup(profile);
   const { profile: pinned, context } = prepared;
-  const { check, excludeWriters } = data(owner, ['check', 'excludeWriters']);
+  const check = createWorkerArtifactCompileChecksV1(manifest, pinned.config.targetRoot,
+    pinned.inputCatalog, pinned.checkManifest);
   const signal = AbortSignal.any([sourceSignal]);
-  requireAttempt(typeof check === 'function' && typeof excludeWriters === 'function' &&
+  requireAttempt(typeof excludeWriters === 'function' && !signal.aborted &&
     process.platform === 'win32' && process.arch === 'x64' && process.versions.node === '24.22.1' &&
     process.argv.length === 2 && process.execArgv.length === 0 &&
     !process.env.NODE_OPTIONS && !process.env.NODE_V8_COVERAGE &&

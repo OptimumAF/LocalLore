@@ -750,6 +750,7 @@ export class Controller {
             diff: [],
             diffRevision: null,
             visibleError: null,
+            notice: "",
             page: 0,
         });
         await this.refresh();
@@ -784,6 +785,7 @@ export class Controller {
             diff: [],
             diffRevision: null,
             visibleError: null,
+            notice: "",
             page: 0,
         });
         if (sessions.length) await this.refresh();

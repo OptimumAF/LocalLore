@@ -198,15 +198,16 @@ function Capture {
     $process.StartInfo = $info
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $startedUtc = [DateTime]::UtcNow.ToString('o')
-    $id = $null; $code = $null; $exited = $false; $handleClosed = $false; $inputClosed = $false
+    $id = $null; $code = $null; $childStarted = $false; $exited = $false; $handleClosed = $false; $inputClosed = $false
     $timedOut = $false; $overflow = $false; $ioError = $false; $killAttempted = $false; $killAccepted = $false
-    $drainDeadline = 35000L
+    $draining = $false; $drainExpired = $false; $drainDeadline = 35000L
     $streams = @()
     $buffers = @([byte[]]::new(4097),[byte[]]::new(4097))
     $captures = @([IO.MemoryStream]::new(),[IO.MemoryStream]::new())
     $eof = @($false,$false); $done = @($false,$false); $closed = @($false,$false); $reads = @($null,$null)
     try {
         if (-not $process.Start()) { throw 'Spawn' }
+        $childStarted = $true
         $id = $process.Id
         $streams = @($process.StandardOutput.BaseStream,$process.StandardError.BaseStream)
         $process.StandardInput.Close()
@@ -225,18 +226,21 @@ function Capture {
             if (-not $exited -and $process.HasExited) { $code=$process.ExitCode;$exited=$true }
             $now = $timer.ElapsedMilliseconds
             if ($now -ge 30000) { $timedOut=$true }
-            if ($exited -and $done[0] -and $done[1]) { break }
+            if (-not $draining -and ($exited -or $timedOut -or $overflow -or $ioError)) {
+                $draining=$true
+                $drainDeadline=[Math]::Min($now,30000L)+5000
+            }
             if (($timedOut -or $overflow -or $ioError) -and -not $killAttempted -and -not $exited) {
                 $killAttempted=$true
-                $drainDeadline=[Math]::Min($now,30000L)+5000
                 try { $process.Kill();$killAccepted=$true } catch { $ioError=$true }
             }
-            if ($now -ge $drainDeadline) { break }
+            if ($now -ge $drainDeadline) { $drainExpired=$true;break }
+            if ($exited -and $done[0] -and $done[1]) { break }
             Start-Sleep -Milliseconds 10
         }
     } catch {
         $ioError = $true
-        if ($null -ne $id -and -not $exited -and -not $killAttempted) {
+        if ($childStarted -and -not $exited -and -not $killAttempted) {
             $killAttempted=$true
             try {
                 if (-not $process.HasExited) { $process.Kill();$killAccepted=$true }
@@ -253,14 +257,15 @@ function Capture {
     }
     $timer.Stop()
     if ($timer.ElapsedMilliseconds -ge 30000) { $timedOut=$true }
+    if ($draining -and $timer.ElapsedMilliseconds -ge $drainDeadline) { $drainExpired=$true }
     $out = $captures[0].ToArray();$err = $captures[1].ToArray()
     foreach ($capture in $captures) { $capture.Dispose() }
     return [ordered]@{
         stdout=$out;stderr=$err
         facts=[ordered]@{ pid=$id;exitCode=$code;exited=$exited;processHandleClosed=$handleClosed;stdinClosed=$inputClosed
             stdoutEof=$eof[0];stderrEof=$eof[1];stdoutClosed=$closed[0];stderrClosed=$closed[1]
-            knownClosed=($exited -and $handleClosed -and $inputClosed -and $eof[0] -and $eof[1] -and $closed[0] -and $closed[1] -and -not $ioError)
-            timedOut=$timedOut;overflow=$overflow;ioError=$ioError;killAttempted=$killAttempted;killAccepted=$killAccepted
+            knownClosed=($null -ne $id -and $exited -and $handleClosed -and $inputClosed -and $eof[0] -and $eof[1] -and $closed[0] -and $closed[1] -and -not $ioError)
+            timedOut=$timedOut;drainExpired=$drainExpired;overflow=$overflow;ioError=$ioError;killAttempted=$killAttempted;killAccepted=$killAccepted
             processTreeContained=$false;beganUtc=$startedUtc;endedUtc=[DateTime]::UtcNow.ToString('o');elapsedMs=$timer.ElapsedMilliseconds }
     }
 }
@@ -316,7 +321,7 @@ try {
         '{"version":1,"kind":"worker_artifact_compile_observation_first_v1","executed":11,"passed":11,"failed":0,"failed_case_ids":[]}',
         '{"kind":"compile_attempt_first_v1","groups":12}'
     ) -join [char]10
-    if (-not $facts.knownClosed -or $facts.timedOut -or $facts.overflow -or $facts.killAttempted -or
+    if (-not $facts.knownClosed -or $facts.timedOut -or $facts.drainExpired -or $facts.overflow -or $facts.killAttempted -or
         $facts.exitCode -ne 0 -or $capture.stderr.Length -ne 0 -or
         $utf8.GetString($capture.stdout) -cne ($expected+[char]10)) { throw 'CodeGate' }
     GuardSources

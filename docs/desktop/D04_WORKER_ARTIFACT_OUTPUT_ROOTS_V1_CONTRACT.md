@@ -133,8 +133,10 @@ return byte counts; sync/close fulfill without a value. The directory handle
 exposes own `read()` returning an exact own-data `{name,ordinary}` record
 or null (EOF), and `close()`.
 Handle methods use the captured handle as receiver and may be nonenumerable.
-Acquire and record a callable own close even when another method is malformed;
-missing close is unknown. Treat thrown adapter values as opaque I/O failure
+A fulfilled non-null object or callable from openMarker attests creation
+under this trusted port contract. A primitive fulfillment or rejection leaves
+the offered effect unknown. Acquire and record a callable own close even
+when another method is malformed; missing close is unknown. Treat thrown adapter values as opaque I/O failure
 (no error inspection or leaked paths). Only the native mkdir wrapper maps
 known EEXIST; all other operations use the normal failure path.
 
@@ -171,6 +173,8 @@ observed bytes even after a write; the owner must retain and charge its
 reserved bytes until complete external accounting, without assuming absence. Reset pass observations at prepare/recheck
 start, preserve them across failure and close. No result exposes the
 absolute paths, marker payload, raw exceptions, or process/run authority.
+Native dev:ino tokens may identify a local volume or file; keep actual
+snapshots local and publish only redacted facts or synthetic tokens.
 
 ## Verification boundary
 

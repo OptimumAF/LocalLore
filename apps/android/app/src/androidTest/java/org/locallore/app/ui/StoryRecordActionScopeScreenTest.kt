@@ -82,7 +82,14 @@ class StoryRecordActionScopeScreenTest {
         compose.onNodeWithTag("story-list").performScrollToNode(hasTestTag(tag))
         return compose.onNodeWithTag(tag)
     }
-    private fun record(tag: String) = compose.onNodeWithTag(tag).performScrollTo()
+    private fun record(tag: String): SemanticsNodeInteraction {
+        val node = compose.onNodeWithTag(tag)
+        // Back and Close are pinned below the scrollable content.
+        return when (tag) {
+            "story-event-back", "story-record-close" -> node
+            else -> node.performScrollTo()
+        }
+    }
     private fun click(tag: String): () -> Boolean = checkNotNull(
         record(tag).assertIsEnabled().fetchSemanticsNode().config[SemanticsActions.OnClick].action)
     private fun open(model: ShellViewModel) {

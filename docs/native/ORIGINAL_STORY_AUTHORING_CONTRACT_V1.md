@@ -53,6 +53,16 @@ rapid edits returning to the rendered value and repeated toggles. Structural
 row edits retire that epoch; generation, review, creation and cancellation also
 fence retained callbacks. Native review and Create retain exact consent checks.
 
+When native `authoring_review` rejects an edited proposal with `InvalidProposal`,
+the v1 reply may carry one text-free `review_problem` code. `RouteReachability`
+means the player cannot reach every location by following directed routes.
+`CharacterSelfKnowledge` means a character is missing from the knowledge list
+for their own description. The Android editor explains the matching problem
+beside Review, keeps the draft editable and requires a new successful native
+review before Create. Unknown or absent detail uses the general failure
+message. A stale or cancelled review cannot publish guidance. Rejection
+revokes prior consent and leaves canonical storage untouched.
+
 Creation scope is `original-{creation_id}/main`. Root seed/entity identity is
 derived by Rust from the full reviewed origin. A complete exact retry retains
 accepted history. Different hidden content, visibility, beliefs, configuration

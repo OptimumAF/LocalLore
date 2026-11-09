@@ -124,9 +124,13 @@ controller/TypeScript/schema/hook checks, and builds native code with
 -- -C link-arg=/Brepro`, dev debug info disabled and incremental compilation disabled.
 The extra link flag applies to the final binary, not every dependency; see
 [Cargo's command contract](https://doc.rust-lang.org/cargo/commands/cargo-rustc.html).
-It refuses common Rust/Tauri build overrides. It checks the
-source inventory again after building and records relative input SHA256s, source
-commit, packager SHA256, tool versions and artifact hashes. Repository/global Cargo
+It refuses common Rust/Tauri build overrides. It resolves Cargo home using
+`CARGO_HOME` or the default `~/.cargo` and remaps Rust source locations from the
+checkout and Cargo registry source tree to `/locallore-source` and
+`/locallore-registry`. The manifest records the mapping policy without the local
+roots. This compiler mapping does not cover paths emitted by other build tools.
+It checks the source inventory again after building and records relative input
+SHA256s, source commit, packager SHA256, tool versions and artifact hashes. Repository/global Cargo
 configuration, SDK/compiler installation and dependencies remain trusted developer
 inputs; this is not a hermetic build or publisher authentication.
 The native dev profile keeps debug assertions (and the source's console subsystem
@@ -134,8 +138,8 @@ choice); disabling debug information does not make it a release profile. Normal
 here means the normal embedded frontend/handler feature set, not signed/hardened
 release qualification. Any devtools/console behavior needs its own release review.
 
-It accepts only the fixed 6,030,336-byte worker artifact identified by SHA256
-`add98cf02249141942c88e2517c2f5a4c9a91dbe9638bf7d3cd30c26916bce87`.
+It accepts only the fixed 6,014,464-byte worker artifact identified by SHA256
+`b5dd124e484c67c9dda5aebb2cdff1878ccefd0fba99aba4788e00a166f68434`.
 There is no caller-provided expected-hash override. Its upstream source is pinned
 to `620d2225cc436ab0b001e3200e590e3b286ef9ab`; the profile is included as metadata.
 No model weights are read or copied by this script.

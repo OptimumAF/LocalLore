@@ -7,12 +7,15 @@ import hashlib
 import os
 from pathlib import Path
 import sys
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 if __package__ in (None, ""):
     sys.path.insert(0, str(ROOT))
 
 from benchmarks import archive_ui_build as files
+from benchmarks import cold_navigation_ui_controller as controller
+from benchmarks import isolated_adb_owner as process
 from benchmarks import owned_cold_navigation_ui_client as client
 from benchmarks import owned_cold_navigation_ui_contract as contract
 from benchmarks import owned_target_owner as mechanisms
@@ -26,7 +29,7 @@ AUTHORITY = OUT / "human-authority-v1.json"
 PREPARE = OUT / "prepare-proposal-v1.json"
 ATTEMPT_ROOT = OUT / "attempt-v1"
 ATTEMPT = ATTEMPT_ROOT / "claim-v1.json"
-HANDOFF = ATTEMPT_ROOT / "boot-handoff-v1.json"
+HANDOFF = ATTEMPT_ROOT / "boot-handoff-v2.json"
 ADMISSION = ATTEMPT_ROOT / "admission-v1.json"
 RUN = ATTEMPT_ROOT / "run-proposal-v1.json"
 RUN_AUTHORITY = ATTEMPT_ROOT / "run-authorization-v1.json"
@@ -35,8 +38,12 @@ LEDGER = storage.DEFAULT_REGISTRY / "ledger-v1.json"
 GUEST = Path(contract.GUEST_ROOT)
 OPERATION_SCOPE = "sdk20-prepare-and-one-cold-navigation-run-v1"
 PLAN_SCOPE = "sdk20-cold-navigation-plan-v1"
-HANDOFF_SCOPE = "cold-navigation-boot-handoff-v1"
+HANDOFF_SCOPE = "cold-navigation-boot-handoff-v2"
+HANDOFF_ENV = "LOCALLORE_COLD_NAVIGATION_HANDOFF_SHA256"
+NS = 1_000_000_000
 SECONDS = 2400
+ACTIVATION_SECONDS = 1800
+TAIL_SECONDS = 20
 OWNER_SECONDS = 1700
 _RECORD_CAP = 2 * 1024**2
 _STORAGE_CAP = 16 * 1024**2
@@ -116,22 +123,66 @@ def _check_plan(plan, admission):
     return proposal
 
 
-def _check_boot_handoff(admission_pin, admission):
+def check_window(began_ns, until_ns):
+    now = time.monotonic_ns()
+    _need(type(began_ns) is int and type(until_ns) is int
+          and 0 < began_ns <= now < until_ns <= began_ns + SECONDS * NS
+          and until_ns - now <= ACTIVATION_SECONDS * NS, "deadline")
+    return now
+
+
+def check_launch_window(began_ns, until_ns):
+    now = check_window(began_ns, until_ns)
+    _need(now + (controller.SECONDS + TAIL_SECONDS) * NS < until_ns, "deadline")
+    return now
+
+
+def _identity(pid, expected=None):
+    handles = process.ProcessHandles(mechanisms._ProcessApi())
+    try:
+        return handles.add(pid, expected)[1]
+    finally:
+        _need(handles.close() is True, "identity")
+
+
+def _live_supervisor(handoff, parent=None):
+    supervisor = handoff["supervisor"]
+    api = mechanisms._ProcessApi()
+    handles = process.ProcessHandles(api)
+    try:
+        handles.add(supervisor["pid"], supervisor)
+        if parent is None:
+            _need(os.getppid() == supervisor["pid"] and
+                  {supervisor["pid"], os.getpid()} <= set(api.current_job_pids()), "identity")
+        else:
+            handle, _ = handles.add(parent["pid"], parent)
+            _need(os.getppid() == parent["pid"] and api.parent_pid(handle) == supervisor["pid"], "identity")
+        handles.guard()
+    finally:
+        _need(handles.close() is True, "identity")
+    check_window(handoff["began_ns"], handoff["until_ns"])
+
+
+def _live_boot(handoff, parent=None):
+    pin, current = _read(HANDOFF)
+    _need(pin["sha256"] == os.environ.get(HANDOFF_ENV) and _same(current, handoff), "handoff")
+    _live_supervisor(handoff, parent)
+    env.check_binding(pin)
+    check_launch_window(handoff["began_ns"], handoff["until_ns"])
+
+
+def _check_boot_records(admission_pin, admission, authority_pin, attempt_pin, *, initial):
     """Join the operation's spent authority and preparation to the SDK admission."""
     _pin(admission_pin, ADMISSION, _RECORD_CAP)
     admission = contract.validate_admission(admission)
     _need(admission["root"] == str(OWNED_ROOT) and admission["seconds"] == OWNER_SECONDS, "admission")
-    handoff_pin, handoff = _read(HANDOFF)
-    contract._obj(handoff, ("version", "scope", "authority", "attempt", "admission"), "handoff")
-    _need(_same(handoff["version"], 1) and handoff["scope"] == HANDOFF_SCOPE
-          and _same(handoff["admission"], admission_pin), "handoff")
-    authority, plan = _approved_plan(handoff["authority"], handoff["attempt"])
+    authority, plan = _approved_plan(authority_pin, attempt_pin)
     proposal = _check_plan(plan, admission)
     prepared = _at(proposal["prepare_result"], GUEST / "prepare-result-v1.json")
     _need(_same(prepared, dict(version=1, proposal_sha256=plan["prepare"]["sha256"], status="completed",
                                closure_verified=True, child_cleanup_complete=True, prepared_created=True)), "prepared")
     contract.verify_artifacts(admission["artifacts"])
-    env.verify_prepared(proposal, initial=True)
+    env.verify_prepared(proposal, initial=initial)
     ledger_pin, entry = _ledger(GUEST)
     _need(entry["state"] == "prepared" and entry["reserved_bytes"] == storage.RESERVATION_BYTES
               and entry["proposal_sha256"] == plan["prepare"]["sha256"]
@@ -140,19 +191,49 @@ def _check_boot_handoff(admission_pin, admission):
     env.check_binding(ledger_pin)
     # The authority binds the historical ledger. Preparation must have changed
     # it, so the live ledger is checked separately above.
-    for pin in (admission_pin, handoff_pin, handoff["authority"], handoff["attempt"], authority["proposal"],
+    for pin in (admission_pin, authority_pin, attempt_pin, authority["proposal"],
                 authority["plan"], plan["prepare"], admission["guest"]["proposal"],
                 admission["guest"]["authorization"], proposal["prepare_result"]):
         env.check_binding(pin)
 
 
+def _read_handoff(admission_pin):
+    pin, handoff = _read(HANDOFF)
+    contract._obj(handoff, ("version", "scope", "authority", "attempt", "admission",
+                            "supervisor", "began_ns", "until_ns"), "handoff")
+    _need(_same(handoff["version"], 2) and handoff["scope"] == HANDOFF_SCOPE
+          and _same(handoff["admission"], admission_pin), "handoff")
+    contract._process(handoff["supervisor"])
+    check_window(handoff["began_ns"], handoff["until_ns"])
+    return pin, handoff
+
+
+def _check_boot_handoff(admission_pin, admission):
+    pin, handoff = _read_handoff(admission_pin)
+    _need(handoff["supervisor"]["executable"] == admission["python"]["executable"]["path"], "identity")
+    _check_boot_records(admission_pin, admission, handoff["authority"], handoff["attempt"], initial=True)
+    env.check_binding(pin)
+    return handoff
+
+
 class _ColdNavigationTargetRuntime(mechanisms._TargetRuntimeCore):
     def __init__(self, request, request_binding, root):
         _need(type(self) is _ColdNavigationTargetRuntime, "owner_type")
-        _check_boot_handoff(request["admission"], request["validated_admission"])
+        self._handoff = _check_boot_handoff(request["admission"], request["validated_admission"])
+        _live_boot(self._handoff, request["owner"])
         super().__init__(request, request_binding, root)
 
+    def start_server(self):
+        _live_boot(self._handoff, self.request["owner"])
+        super().start_server()
+
+    def guard(self):
+        super().guard()
+        window = check_launch_window if self.guest_child is None else check_window
+        window(self._handoff["began_ns"], self._handoff["until_ns"])
+
     def _retain_guest(self):
+        _live_boot(self._handoff, self.request["owner"])
         guest = self.admission["guest"]
         env.storage_transition(storage.record_state, Path(guest["root"]), "retained",
             proposal_sha256=guest["proposal"]["sha256"],
@@ -174,7 +255,7 @@ def main(argv=None):
         pin, value = _read(ADMISSION)
         _need(pin["sha256"] == args[3] and _same(value, admission), "admission")
         _need(not os.path.lexists(OWNED_ROOT), "already_used")
-        _check_boot_handoff(pin, value)
+        _live_boot(_check_boot_handoff(pin, value))
 
     if args != ["_worker"] and not (
         type(args) is list and len(args) == 4 and args[:3] == ["--admission", str(ADMISSION), "--admission-sha256"]

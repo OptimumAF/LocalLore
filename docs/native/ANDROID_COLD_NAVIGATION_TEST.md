@@ -103,10 +103,20 @@ inside the ledger lock, so a changed entry refuses before guest dispatch.
 The run authorization carries the cold-navigation scope. The generic
 receipt runner rejects that record.
 
-The owner uses the reviewed SDK19 shared preparation, recovery and cleanup
-guards. A separate outer operation still needs to prepare the guest,
-publish the handoff, enforce the full 40-minute operation deadline,
-supervise the controller and verify guest and private service closure.
+The activation supervisor in `benchmarks/cold_navigation_ui_activation.py`
+accepts an already prepared admission and the operation's start time. It
+uses the remaining 40-minute window and a 30-minute activation ceiling.
+The job-owned worker publishes the boot handoff with its process identity
+and deadline. The owner checks the published digest, supervisor and time
+remaining before dispatch. The
+activation worker replays the exact controller result, requested stop,
+process cleanup and closed ledger entry. A failed controller with known
+cleanup can still yield a verified guest closure.
+
+The outer preparation operator still needs to perform fresh admission,
+create the prepared records and invoke activation under its own watchdog.
+The activation checks use the reviewed SDK19 shared ownership and cleanup
+guards.
 
 ## Guarded device selector
 

@@ -6,6 +6,7 @@ import hashlib
 from io import StringIO
 import json
 from pathlib import Path
+import time
 import unittest
 from unittest.mock import Mock, patch
 
@@ -77,8 +78,12 @@ class BootRecords:
         guest.update(proposal=run_pin, authorization=self.add("run_authority", owner.RUN_AUTHORITY,
                                                               run_authority))
         self.admission_pin = self.add("admission", owner.ADMISSION, self.admission)
-        handoff = dict(version=1, scope=owner.HANDOFF_SCOPE, authority=authority_pin,
-                       attempt=attempt_pin, admission=self.admission_pin)
+        now = time.monotonic_ns()
+        handoff = dict(version=2, scope=owner.HANDOFF_SCOPE, authority=authority_pin,
+                       attempt=attempt_pin, admission=self.admission_pin,
+                       supervisor=dict(pid=800, creation_filetime=500,
+                                       executable=self.admission["python"]["executable"]["path"]),
+                       began_ns=now - owner.NS, until_ns=now + 60 * owner.NS)
         self.add("handoff", owner.HANDOFF, handoff)
 
         self.entry = dict(root=str(self.guest), proposal_sha256=prepare_pin["sha256"], state="prepared",
@@ -154,7 +159,7 @@ class BootRecords:
 class ColdNavigationOwnerTests(unittest.TestCase):
     def test_fresh_reviewed_graph_allows_only_the_guarded_handoff(self):
         graph = BootRecords()
-        self.assertIsNone(graph.check())
+        self.assertEqual(graph.check(), graph.read(owner.HANDOFF)[1])
         graph.verify_prepared.assert_called_once_with(graph.run_proposal, initial=True)
         graph.check_ledger.assert_called_once_with(graph.guest)
         graph.verify_artifacts.assert_called_once_with(graph.admission["artifacts"])
@@ -169,6 +174,10 @@ class ColdNavigationOwnerTests(unittest.TestCase):
     def test_coherently_rebound_but_invalid_authority_plan_or_proof_refuses(self):
         for role, mutation in (
             ("handoff", lambda row: row.update(scope="other-operation")),
+            ("handoff", lambda row: row.update(version=1)),
+            ("handoff", lambda row: row.update(until_ns=row["began_ns"])),
+            ("handoff", lambda row: row.update(until_ns=row["began_ns"] + (owner.SECONDS + 1) * owner.NS)),
+            ("handoff", lambda row: row["supervisor"].update(executable=r"D:\Synthetic\other.exe")),
             ("handoff", lambda row: row["admission"].update(sha256="0" * 64)),
             ("authority", lambda row: row.update(allow_one_boot=False)),
             ("authority", lambda row: row.update(allow_model=True)),
@@ -289,13 +298,24 @@ class ColdNavigationOwnerTests(unittest.TestCase):
         gate.assert_called_once_with(graph.admission_pin, graph.admission)
         runtime.assert_not_called()
 
+    def test_live_boot_refuses_an_unbound_inherited_handoff_digest(self):
+        graph = BootRecords()
+        _, handoff = graph.read(owner.HANDOFF)
+        with graph.ports(), patch.dict(owner.os.environ, {owner.HANDOFF_ENV: "0" * 64}), \
+             patch.object(owner, "_live_supervisor") as alive, self.assertRaises(REFUSED):
+            owner._live_boot(handoff)
+        alive.assert_not_called()
+
     def test_runtime_retention_compares_the_prepared_digest_at_transition(self):
         graph = BootRecords()
         runtime = object.__new__(owner._ColdNavigationTargetRuntime)
         runtime.admission = graph.admission
         runtime.proposal = graph.run_proposal
-        with patch.object(owner.env, "storage_transition") as transition:
+        runtime._handoff = graph.read(owner.HANDOFF)[1]
+        runtime.request = {"owner": dict(pid=801)}
+        with patch.object(owner, "_live_boot") as alive, patch.object(owner.env, "storage_transition") as transition:
             runtime._retain_guest()
+        alive.assert_called_once_with(runtime._handoff, runtime.request["owner"])
         transition.assert_called_once_with(
             owner.storage.record_state, graph.guest, "retained",
             proposal_sha256=graph.admission["guest"]["proposal"]["sha256"],

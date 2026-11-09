@@ -159,7 +159,7 @@ class SyntheticRun:
     def run(self):
         with self.ports():
             return activation._run_owned(self.admission_pin, self.admission, self.until_ns,
-                                         began_ns=self.began_ns)
+                                         began_ns=self.began_ns, handoff_pin=self.handoff_pin)
 
 
 class ColdNavigationActivationTests(unittest.TestCase):
@@ -248,7 +248,7 @@ class ColdNavigationActivationTests(unittest.TestCase):
         with run.ports():
             try:
                 result = activation._run_owned(run.admission_pin, run.admission, run.until_ns,
-                                               began_ns=run.began_ns)
+                                               began_ns=run.began_ns, handoff_pin=run.handoff_pin)
             except REFUSED:
                 pass
             else:
@@ -266,6 +266,27 @@ class ColdNavigationActivationTests(unittest.TestCase):
         self.assertEqual(result["reason"], "deadline")
         run.launch.assert_not_called()
         run.supervise.assert_not_called()
+
+    def test_replaced_handoff_refuses_before_owner_launch(self):
+        run = SyntheticRun()
+        _, handoff = run.read(owner.HANDOFF)
+        run.save(owner.HANDOFF, dict(handoff, began_ns=handoff["began_ns"] - 1))
+        result = run.run()
+        run.launch.assert_not_called()
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["reason"], "handoff")
+
+    def test_capture_reads_cannot_exceed_the_shared_output_budget(self):
+        root = activation.CONTROL / "owner-console-v1"
+        first = b"y" * 16
+        with patch.object(activation.files, "_read", side_effect=[first, b"z"]) as read:
+            pins = activation._capture_pins(root)
+        self.assertEqual(pins["stdout"]["bytes"], len(first))
+        self.assertEqual(pins["stderr"]["bytes"], 1)
+        self.assertEqual(read.call_args_list[0].args,
+                         (root / "owner-stdout-v1.bin", activation.process.CAP))
+        self.assertEqual(read.call_args_list[1].args,
+                         (root / "owner-stderr-v1.bin", activation.process.CAP - len(first)))
 
     def test_stop_uses_the_fixed_admission_and_checks_live_owner_before_publication(self):
         run = SyntheticRun()
@@ -351,10 +372,11 @@ class ColdNavigationActivationTests(unittest.TestCase):
                        running=None, began_ns=run.began_ns, until_ns=run.until_ns)
         request_pin = run.save(activation._request_path("runtime"), request)
 
-        def dispatch(admission_pin, admission, until_ns, *, began_ns):
+        def dispatch(admission_pin, admission, until_ns, *, began_ns, handoff_pin):
             self.assertEqual(admission_pin, run.admission_pin)
             self.assertEqual(admission, run.admission)
             self.assertEqual((began_ns, until_ns), (run.began_ns, run.until_ns))
+            self.assertEqual(handoff_pin, run.read(owner.HANDOFF)[0])
             self.assertEqual(run.read(owner.HANDOFF)[1], dict(
                 version=2, scope=owner.HANDOFF_SCOPE, supervisor=run.worker_identity,
                 **{key: value for key, value in request.items() if key != "running"},

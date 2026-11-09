@@ -943,6 +943,7 @@ class _TargetRuntimeCore:
         command = environment.emulator_command(self.proposal) + ["-adb-path", self.admission["guest"]["refuser"]["path"]]
         _need("-no-direct-adb" not in command and not any("quit-after-boot" in arg for arg in command), "guest")
         self.guest_capture = primitives.ServerCapture(self.root / "guest-output-v1")
+        self.guard()
         self.guest_child = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, bufsize=0, env=child_env, creationflags=subprocess.CREATE_NO_WINDOW)
         self.guest_capture.start(self.guest_child)

@@ -16,6 +16,7 @@ import {
     selectedHash,
     selectedLane,
     selectedUuid,
+    sourceProtocolOf,
 } from "./selected-evaluation-model";
 import { sameReaderObserver } from "./comparison-reader-model";
 import type {
@@ -29,7 +30,6 @@ import type {
     SelectedError,
     SelectedEvidence,
     SelectedLane,
-    SelectedPrepared,
     SelectedSourceIdentity,
     SelectedStatus,
     SelectedSummary,
@@ -99,9 +99,6 @@ type ExpectedIdentity = {
 };
 const POLL_MS = 300,
     MAX_STATUS_POLLS = 1000;
-function sourceProtocolOf(value: SelectedPrepared | SelectedSummary): 2 | 3 | 4 {
-    return value.version === 1 ? 2 : value.source_protocol_version;
-}
 function frozen<T>(value: T): T {
     if (
         value !== null &&
@@ -466,12 +463,12 @@ export class SelectedEvaluationController {
                 // A recorded Open has a read token and lane, but no prepared DTO.
                 if (
                     (action === "open" || action === "status") &&
-                    value.lane === "approved_native" &&
+                    value.lane !== null &&
                     value.error === null &&
                     !value.running &&
                     value.run_token !== null
                 )
-                    expected.lane ??= "approved_native";
+                    expected.lane ??= value.lane;
                 if (!expected.runId && value.run_id !== null)
                     expected.runId = value.run_id;
                 if (!expected.planToken && value.plan_token !== null)
@@ -858,16 +855,13 @@ export class SelectedEvaluationController {
         };
         if (action === "resume") {
             const expected = this.expected.get(client);
-            const known = this.state.summary ?? this.state.status?.prepared;
             if (expected)
                 expected.pendingResume = {
                     serial: t.serial,
                     previousOperation: this.state.status?.operation_id ?? null,
                     operation: null,
                     sourceBinding: selectedHash(body.sourceBinding),
-                    sourceProtocol: known
-                        ? sourceProtocolOf(known)
-                        : (expected.sourceProtocol ?? resumeSourceProtocol),
+                    sourceProtocol: resumeSourceProtocol,
                 };
         }
         if (action === "resume")
@@ -937,6 +931,19 @@ export class SelectedEvaluationController {
                 expectedSourceProtocol !== 4
             )
                 throw new Error("SelectedEvaluationWire");
+            const client = this.state.clientId;
+            const known = this.state.summary ?? this.state.status?.prepared;
+            const knownProtocol = known
+                ? sourceProtocolOf(known)
+                : client
+                  ? this.expected.get(client)?.sourceProtocol
+                  : undefined;
+            if (
+                knownProtocol !== undefined &&
+                expectedSourceProtocol !== undefined &&
+                knownProtocol !== expectedSourceProtocol
+            )
+                throw new Error("SelectedEvaluationWire");
             await this.existing(
                 "resume",
                 {
@@ -946,7 +953,7 @@ export class SelectedEvaluationController {
                     sourceBinding: s.binding,
                 },
                 false,
-                expectedSourceProtocol,
+                knownProtocol ?? expectedSourceProtocol,
             );
         } catch (error) {
             if (!this.disposed) this.failed(error);
@@ -1073,11 +1080,15 @@ export class SelectedEvaluationController {
                 const status = this.state.status;
                 const prepared = status?.prepared;
                 const expected = this.expected.get(t.client);
+                const lane = expected?.lane ?? status?.lane;
+                const protocol = sourceProtocolOf(next);
                 if (
-                    (next.version === 4 && status?.lane !== "approved_native") ||
-                    (expected?.sourceProtocol === 4 &&
-                        expected.lane === "approved_native" &&
-                        next.version !== 4)
+                    (next.version === 4 && lane !== "approved_native") ||
+                    (lane &&
+                        (next.lane === "native_selected_case") !==
+                            (lane === "approved_native")) ||
+                    (expected?.sourceProtocol !== undefined &&
+                        expected.sourceProtocol !== protocol)
                 )
                     throw new Error("SelectedEvaluationWire");
                 if (
@@ -1100,10 +1111,7 @@ export class SelectedEvaluationController {
                         }))
                 )
                     throw new Error("SelectedEvaluationWire");
-                if (expected && next.version === 4) {
-                    expected.lane ??= "approved_native";
-                    expected.sourceProtocol ??= sourceProtocolOf(next);
-                }
+                if (expected) expected.sourceProtocol ??= protocol;
                 this.patch({ summary: next });
             } else if (action === "evidence" && summary && request && arm)
                 this.patch({

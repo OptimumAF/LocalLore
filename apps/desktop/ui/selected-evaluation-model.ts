@@ -125,6 +125,9 @@ export type SelectedSummary =
     | SelectedSummaryV2
     | SelectedSummaryV3
     | SelectedSummaryV4;
+export function sourceProtocolOf(value: SelectedPrepared | SelectedSummary): 2 | 3 | 4 {
+    return value.version === 1 ? 2 : value.source_protocol_version;
+}
 export type SelectedStatus = {
     version: 1;
     kind: "selected_evaluation";

@@ -2,6 +2,7 @@
 // separate inspector. Root owns execution context, native grants and lifetime.
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { SelectedEvaluationController } from "./selected-evaluation-controller";
+import { sourceProtocolOf } from "./selected-evaluation-model";
 import type {
     ObserverV2,
     RowId,
@@ -176,10 +177,14 @@ export function SelectedEvaluationView({
         !!status.binding;
     const prepared = status?.prepared;
     const summary = s.allowed ? s.summary : null;
+    const recorded = summary ?? prepared;
+    const sourceMismatch =
+        recorded &&
+        (sourceProtocolVersion !== undefined || recorded.version === 4) &&
+        sourceProtocolOf(recorded) !== sourceProtocolVersion;
     const resumeSource =
-        (sceneNativeUnavailable && status?.lane === "approved_native") ||
-        ((summary?.version === 4 || prepared?.version === 4) &&
-            sourceProtocolVersion !== 4)
+        sourceMismatch ||
+        (sceneNativeUnavailable && status?.lane === "approved_native")
             ? null
             : source;
     // Render fence precedes effects: an actor prop never gets one render of an

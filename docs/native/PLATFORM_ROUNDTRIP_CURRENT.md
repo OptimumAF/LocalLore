@@ -95,3 +95,29 @@ The result carries the exact session, contiguous record pins, and verified
 archive bytes. A return controller must match those frozen pins when replaying
 the prefix, run the pinned Rust continuation, and verify the exclusive return
 write before dispatch. These host tests use no SDK, emulator, or device.
+
+## Verify the Windows continuation receipt
+
+The continuation replays the exact outbound record prefix and compares its
+session, ordered record pins and bytes before creating the fixed attempt
+directory. It materializes only the three verified outbound archives. The
+retained Rust executable runs with its owned-stdin barrier and fixed
+`verify` arguments, a 120-second deadline and 4 KiB combined process
+capture. Its executable and fixture bytes are checked before and after the
+child under exclusive artifact custody.
+
+The receipt is create-only. It binds the request, owned process terminal and
+the complete native output roster. Each retained SQLite file must be at
+most 1 MiB when inspected after the child closes. This check measures
+retained files after execution. Closed verification replays the prefix,
+rechecks the exact materialized input and output bytes, and returns only
+the two archive pins for the next phase.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_bridge.py
+```
+
+The actual Windows CLI smoke used the retained Rust test executable to
+generate a synthetic Android-origin archive. The Android capture records
+were simulated. The exclusive write back to Android, final transfer replay,
+and real guest admission are separate steps.

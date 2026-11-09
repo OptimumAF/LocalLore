@@ -67,6 +67,11 @@ rechecks resources and ports before it dispatches the same saved-library
 test. It requires scope-aware process and storage closure replay. A live run
 requires fresh approval.
 
+For the frozen SDK23 proposal, the [readiness audit](../../scripts/inspect_sdk23_resume_readiness.py)
+checks the full commit reference and sealed inputs before sampling free
+space. A disk refusal reports the current shortfall and skips the image,
+SDK and port checks. A ready result is advisory.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

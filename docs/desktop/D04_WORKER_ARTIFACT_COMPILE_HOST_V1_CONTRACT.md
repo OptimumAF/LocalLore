@@ -12,7 +12,7 @@ The helper is a Windows x64 development source behind the existing
 
 The helper accepts no arguments. Its standard input and output are
 private pipes. All integers are little endian. The request starts with
-eight ASCII bytes `LLCLV1\r\n` and a u32 body length of 32–65,536. The
+eight ASCII bytes `LLCLV1\r\n` and a u32 body length capped at 65,536. The
 body starts with the nonzero 32-byte binding, followed by 39 strings.
 Each string has a u16 UTF-8 byte length and strict UTF-8 bytes. Strings
 are compiler, worker directory, upstream directory, candidate A
@@ -32,6 +32,8 @@ condition through setup, execution and cleanup. The outer owner must
 drain output, positively observe helper exit and closure of its three parent pipe handles,
 and retain partial evidence if the helper is interrupted. The whole
 outer attempt has its own bounded allowance before it may be admitted.
+The helper relies on the owner to drain its synchronous reply writes.
+A reader that stops consuming is a transport failure.
 
 The reply is `LLCLR1\r\n`, the echoed 32-byte binding, u32 stop, PID,
 native error, exit bits, active Job count and flags, u64 elapsed ms,
@@ -68,14 +70,14 @@ The enclosing owner must establish the behavior of each port.
   launch offer for this one call. The adapter does not spend a new grant. Start binds #408's durably acknowledged START and writerPolicy
   binds the fresh external-writer exclusion policy and preflight.
 - Transport receives `{scope,authorization,request,signal}`, where
-  authorization is the hash of the accepted authorize record. Use only
+  authorization is the hash of the exact accepted authorize wire bytes. Use only
   the already pinned helper. Preserve one attempt, bounded output,
   and observed process/pipe closure. Return exact own data
   `{image,observation,pid,closed,stdinClosed,stdoutClosed,stderrClosed,exitCode,response,stderr}`.
   Image and observation bind the actual launch and retained owner
   observations, response and stderr are raw buffers, each bounded
-  before return. Preserve transport partials even when this call
-  throws. A successful frame requires pinned image, positive helper
+  before return. The transport owner preserves partials even if it
+  returns malformed data or throws. A successful frame requires pinned image, positive helper
   and three pipe closures, an actual helper PID distinct from the compiler,
   exit zero and empty stderr.
 - Retain receives `{record,request,response,stderr}`. The record

@@ -13,7 +13,6 @@ const ENVIRONMENT = ['windows', 'path', 'include', 'temp'];
 const STOP = ['none', 'request', 'cancelled', 'deadline', 'setup', 'io', 'overflow', 'drain'];
 const FLAG = ['exitKnown', 'jobKnown', 'member', 'resumed', 'signaled', 'killAttempted', 'killFailed',
   'ioError', 'processHandleClosed', 'handlesClosed', 'outOverflow', 'errOverflow', 'outEof', 'errEof'];
-const aborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted').get;
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const digest = value => typeof value === 'string' && value.length === 64 && !/[^0-9a-f]/.test(value) && value !== '0'.repeat(64);
@@ -154,18 +153,19 @@ export function createWorkerArtifactCompileHostV1(options) {
   async function launch(...args) {
     requireHost(!used && args.length === 1);
     const offer = data(args[0], ['version', 'context', 'index', 'step', 'policy', 'signal']);
-    const { signal } = offer;
     requireHost(offer.version === 1 && offer.index === 0 && equal(offer.context, context) &&
       stepMatches(offer.step, step) && equal(offer.policy, POLICY));
-    const isAborted = () => aborted.call(signal);
+    const signal = AbortSignal.any([offer.signal]);
+    const isAborted = () => signal.aborted;
     const alreadyAborted = isAborted();
     requireHost(!used);
     used = true;
     requireHost(!alreadyAborted);
-    const authorized = wire(await authorize(scope), ['kind', 'scope', 'spend', 'start', 'writerPolicy']);
+    const authorizationText = await authorize(scope);
+    const authorized = wire(authorizationText, ['kind', 'scope', 'spend', 'start', 'writerPolicy']);
     requireHost(authorized.kind === 'compile_host_authorized_v1' && sameScope(authorized.scope, scope) &&
       [authorized.spend, authorized.start, authorized.writerPolicy].every(digest) && !isAborted());
-    const authorization = jsonHash(authorized);
+    const authorization = sha(authorizationText);
 
     const { facts, response, stderr } = transportRecord(await transport(Object.freeze({
       scope, authorization, request: Buffer.from(request), signal
@@ -188,11 +188,12 @@ export function createWorkerArtifactCompileHostV1(options) {
     if (native.owned && !native.ioError && !stoppedWithoutProcessFlag) {
       const check = Object.freeze({ scope, authorization, writerPolicy: authorized.writerPolicy, recordHash });
       try {
-        const proof = wire(await excludeWriters(check),
+        const proofText = await excludeWriters(check);
+        const proof = wire(proofText,
           ['kind', 'scope', 'authorization', 'writerPolicy', 'recordHash', 'postflight']);
         if (proof.kind === 'compile_host_writers_excluded_v1' && sameScope(proof.scope, scope) &&
             proof.authorization === authorization && proof.writerPolicy === check.writerPolicy &&
-            proof.recordHash === recordHash && digest(proof.postflight)) writerProof = jsonHash(proof);
+            proof.recordHash === recordHash && digest(proof.postflight)) writerProof = sha(proofText);
       } catch { /* Keep the measured process receipt with writer closure unproven. */ }
     }
     const process = { version: 1, kind: 'worker_artifact_process_v1', attempt: context.attempt,

@@ -20,8 +20,8 @@ from benchmarks import receipt_avd_environment as env
 from benchmarks import receipt_avd_storage as storage
 
 GUEST = Path(owned.GUEST_ROOT)
-PLAN = GUEST.parent / "preparation-plan-v1.json"
-PREPARE = GUEST.parent / "prepare-proposal-v1.json"
+PLAN = GUEST.parent / "preparation-plan-sdk26-v1.json"
+PREPARE = GUEST.parent / "prepare-proposal-sdk26-v1.json"
 PROPOSED_PREPARATION = GUEST.parent / "PROPOSED_PREPARATION.md"
 AUTHORITY = GUEST.parent / "human-authority-v1.json"
 CLAIM = GUEST.parent / "prepare-claim-v1.json"
@@ -184,7 +184,9 @@ def _prepared_records(plan, proposal):
     env.require(client["status"] == "completed" and owned._same(client["returncode"], 0)
                 and client["cleanup_complete"] is True and client["stdout_sha256"] == evidence["stdout"]["sha256"],
                 "prepared")
-    owned._int(client["elapsed_ms"], 0, 180_000, "prepared")
+    # The shared worker enforces its execution deadline before joining resources.
+    # Its receipt measures elapsed time through cleanup.
+    owned._int(client["elapsed_ms"], 0, 2**31 - 1, "prepared")
     owned._int(client["stderr_bytes"], 0, env.MAX_OUTPUT - evidence["stdout"]["bytes"], "prepared")
     return prepared, result, evidence
 

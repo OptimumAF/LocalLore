@@ -196,3 +196,33 @@ class ArchiveProviderPreparationTests(unittest.TestCase):
             self.assertEqual(prep.main([]), 1)
             self.assertEqual(prep.main(["--authority-sha256", "a" * 64]), 1)
         self.assert_not_dispatched()
+
+    def test_prepared_worker_receipt_includes_cleanup_time(self):
+        plan, proposal = prep.load_plan(self.plan_pin)
+        prep.GUEST.mkdir()
+        prepared = self.save(prep.GUEST / "prepared-v1.json", {"synthetic": "prepared"})
+        result = self.save(prep.GUEST / "prepare-result-v1.json", {"synthetic": "completed"})
+        python = self.python["executable"]["path"]
+        self.save(prep.GUEST / "prepare-start-v1.json", dict(
+            proposal_sha256=self.prepare_pin["sha256"], facts={},
+            owner=dict(pid=7101, creation_filetime=107101, executable=python),
+            prepare_scope=prep.PREPARE_SCOPE))
+        self.save(prep.GUEST / "prepare-worker-claimed-v1.json", dict(
+            proposal_sha256=self.prepare_pin["sha256"],
+            worker=dict(pid=7102, creation_filetime=107102, executable=python),
+            prepare_scope=prep.PREPARE_SCOPE))
+        stdout = prep.GUEST / "prepare-stdout-v1.bin"
+        stdout.write_bytes(b"synthetic successful worker output")
+        client_path = prep.GUEST / "prepare-client-v1.json"
+        client = dict(status="completed", returncode=0, cleanup_complete=True, elapsed_ms=180_001,
+                      stdout_sha256=prep.env.binding(stdout)["sha256"], stderr_bytes=0)
+        self.save(client_path, client)
+        with patch.object(prep.env, "verify_prepared") as verify:
+            checked_prepared, checked_result, evidence = prep._prepared_records(plan, proposal)
+            verify.assert_called_once()
+            self.assertTrue(verify.call_args.kwargs["initial"])
+            self.assertEqual((checked_prepared, checked_result), (prepared, result))
+            self.assertEqual(evidence["stdout"], prep.env.binding(stdout))
+            client_path.write_bytes(prep.env.encoded(dict(client, cleanup_complete=False)))
+            with self.assertRaisesRegex(RuntimeError, "prepared"):
+                prep._prepared_records(plan, proposal)

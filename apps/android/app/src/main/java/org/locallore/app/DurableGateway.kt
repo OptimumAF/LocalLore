@@ -251,22 +251,30 @@ internal class DurableGateway(
             throw WorkspaceFailure("Stale")
         return (head as Number).toLong()
     }
-    private suspend fun resumeSelection(expected: PlayDraftScope, attachment: Any) {
+    private suspend fun resumeSelection(
+        expected: PlayDraftScope,
+        attachment: Any,
+        clearSelectionHint: Boolean = false,
+    ) {
         synchronized(playerMetadataLock) {
             if (playerAttachment !== attachment) throw WorkspaceFailure("Stale")
         }
         val selected = JSONObject().put("story", expected.story).put("branch", expected.branch)
         val reply = call(command("resume").put("scope", selected))
         sessionHead(reply, expected)
-        attach(reply, expectedAttachment = attachment)
+        attach(reply, expectedAttachment = attachment, clearSelectionHint = clearSelectionHint)
     }
-    private fun attach(data: JSONObject, expectedAttachment: Any? = null) {
+    private fun attach(data: JSONObject, expectedAttachment: Any? = null, clearSelectionHint: Boolean = false) {
         val attachedSession=data.getString("session"); val attachedScope=data.getJSONObject("scope"); val head=data.getLong("revision")
         synchronized(playerMetadataLock) {
             if(closed.get())throw WorkspaceFailure("Closed")
             if (expectedAttachment != null && playerAttachment !== expectedAttachment) throw WorkspaceFailure("Stale")
             playerAttachment=Any(); coherentPlayerSnapshot=false; playerBinding=null
             session=attachedSession; scope=attachedScope; revision=head; operation=null
+            if (clearSelectionHint) {
+                pendingSelectionHint = null
+                selectionHintUnavailable = false
+            }
         }
     }
     override suspend fun snapshot(): SavedSnapshot {
@@ -656,7 +664,7 @@ internal class DurableGateway(
     override suspend fun resumeSaved(story: SavedStory): SavedSnapshot {
         val currentAttachment = synchronized(playerMetadataLock) { playerAttachment }
         val attachment = release(expectedAttachment = currentAttachment) ?: throw WorkspaceFailure("Stale")
-        resumeSelection(PlayDraftScope(story.story, story.branch), attachment)
+        resumeSelection(PlayDraftScope(story.story, story.branch), attachment, clearSelectionHint = true)
         return snapshot()
     }
     override fun close() {

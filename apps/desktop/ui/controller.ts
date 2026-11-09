@@ -229,7 +229,22 @@ export class Controller {
                 },
             };
         }
-        this.state = { ...this.state, ...value };
+        const previous = this.state;
+        const next = { ...previous, ...value };
+        if (
+            next.selectedId !== previous.selectedId ||
+            next.view !== previous.view ||
+            next.observer !== previous.observer ||
+            next.play?.scope.story !== previous.play?.scope.story ||
+            next.play?.scope.branch !== previous.play?.scope.branch ||
+            next.play?.revision !== previous.play?.revision
+        ) {
+            this.inspectionEpoch++;
+            next.inspection = null;
+            next.inspectionRevision = null;
+            next.inspectionObserver = null;
+        }
+        this.state = next;
         this.listeners.forEach((listener) => listener());
     }
     selected() {
@@ -690,7 +705,27 @@ export class Controller {
     // Used by another application-owned view/test client; still opens the same Rust owner.
     async attach(session: Session) {
         await this.invalidate();
-        this.patch({ sessions: [session], selectedId: session.id });
+        const current = this.selected();
+        const changed =
+            !current ||
+            current.id !== session.id ||
+            !sameScope(current.scope, session.scope);
+        this.patch({
+            sessions: [session],
+            selectedId: session.id,
+            ...(changed
+                ? {
+                      play: null,
+                      playV2: null,
+                      draft: "",
+                      turnStatus: null,
+                      receiptTurn: null,
+                      diff: [],
+                      diffRevision: null,
+                      page: 0,
+                  }
+                : {}),
+        });
         await this.refresh();
     }
     async switchSession(id: string) {
@@ -917,7 +952,14 @@ export class Controller {
             inspectionRevision: null,
             inspectionObserver: null,
         });
-        if (!session || !play || this.state.view !== "lab") return;
+        if (
+            epoch !== this.inspectionEpoch ||
+            !session ||
+            !play ||
+            this.state.view !== "lab" ||
+            !sameScope(session.scope, play.scope)
+        )
+            return;
         try {
             const value = (await this.gateway.call({
                 op: "inspect",

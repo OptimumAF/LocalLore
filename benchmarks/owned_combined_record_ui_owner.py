@@ -63,7 +63,8 @@ def _live_boot(pin, approved, parent=None):
         handles.guard()
     finally:
         env.require(handles.close() is True, "identity")
-    env.check_binding(pin)
+    for binding in (pin, approved["authority"], approved["attempt"], approved["admission"]):
+        env.check_binding(binding)
     handoff.check_launch_window(approved["began_ns"], approved["until_ns"])
 
 

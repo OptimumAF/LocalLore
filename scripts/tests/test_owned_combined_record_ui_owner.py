@@ -3,7 +3,7 @@
 from contextlib import ExitStack
 from pathlib import Path
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from benchmarks import owned_combined_record_ui_owner as owner
 
@@ -14,7 +14,10 @@ class CombinedRecordBootOwnerTests(unittest.TestCase):
         executable = r"D:\Synthetic\python.exe"
         self.supervisor = dict(pid=101, creation_filetime=500, executable=executable)
         self.parent = dict(pid=102, creation_filetime=501, executable=executable)
-        self.approved = dict(supervisor=self.supervisor, began_ns=100, until_ns=200)
+        self.approved = dict(supervisor=self.supervisor, began_ns=100, until_ns=200,
+                             authority=dict(path=str(owner.handoff.AUTHORITY), bytes=250, sha256="b" * 64),
+                             attempt=dict(path=str(owner.handoff.ATTEMPT), bytes=150, sha256="c" * 64),
+                             admission=dict(path=str(owner.handoff.ADMISSION), bytes=350, sha256="d" * 64))
 
     def test_only_fixed_parent_arguments_and_exact_worker_route_reach_shared_owner(self):
         with patch.object(owner.mechanisms, "_main_profile", return_value=27) as profile:
@@ -106,7 +109,10 @@ class CombinedRecordBootOwnerTests(unittest.TestCase):
                     stack.enter_context(patch.dict(owner.os.environ, {owner.handoff.HANDOFF_ENV: "a" * 64}))
                     if accepted:
                         owner._live_boot(self.pin, self.approved, parent)
-                        owner.env.check_binding.assert_called_once_with(self.pin)
+                        self.assertEqual(owner.env.check_binding.call_args_list, [
+                            call(self.pin), call(self.approved["authority"]),
+                            call(self.approved["attempt"]), call(self.approved["admission"]),
+                        ])
                         owner.handoff.check_launch_window.assert_called_once_with(100, 200)
                     else:
                         with self.assertRaisesRegex(owner.env.EnvironmentRefused, "^identity$"):
@@ -116,6 +122,29 @@ class CombinedRecordBootOwnerTests(unittest.TestCase):
                     if parent is not None:
                         handles.add.assert_any_call(parent["pid"], parent)
                     handles.close.assert_called_once_with()
+
+    def test_late_authority_attempt_or_admission_drift_refuses_before_launch(self):
+        api, handles = Mock(), Mock()
+        api.current_job_pids.return_value = [101, 103]
+        handles.close.return_value = True
+        for field in ("authority", "attempt", "admission"):
+            with self.subTest(field=field):
+                def changed(pin):
+                    if pin == self.approved[field]:
+                        raise owner.env.EnvironmentRefused("binding_changed")
+
+                with patch.object(owner.handoff, "read", return_value=(self.pin, self.approved)), \
+                     patch.object(owner.os, "getpid", return_value=103), \
+                     patch.object(owner.os, "getppid", return_value=101), \
+                     patch.object(owner.mechanisms, "_ProcessApi", return_value=api), \
+                     patch.object(owner.process, "ProcessHandles", return_value=handles), \
+                     patch.object(owner.env, "check_binding", side_effect=changed) as check, \
+                     patch.object(owner.handoff, "check_launch_window") as launch, \
+                     patch.dict(owner.os.environ, {owner.handoff.HANDOFF_ENV: "a" * 64}):
+                    with self.assertRaisesRegex(owner.env.EnvironmentRefused, "^binding_changed$"):
+                        owner._live_boot(self.pin, self.approved)
+                    check.assert_any_call(self.approved[field])
+                    launch.assert_not_called()
 
     def test_server_and_storage_transition_recheck_handoff_and_bind_prepared_digest(self):
         runtime = object.__new__(owner._CombinedRecordUiTargetRuntime)

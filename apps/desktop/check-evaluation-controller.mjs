@@ -537,19 +537,25 @@ const retiredCuratedDispatch = new EvaluationController(async (name, args) => {
 });
 retiredCuratedDispatch.contextChanged("first|lab|omniscient", true);
 retiredCuratedDispatch.subscribe(() => {
+    if (retiredCuratedDispatch.get().curatedBusy)
+        retiredCuratedDispatch.contextChanged("second|lab|omniscient", true);
     if (retiredCuratedDispatch.get().pendingClient)
-        retiredCuratedDispatch.contextChanged("second|lab|player", true);
+        void retiredCuratedDispatch.curatedRecover();
 });
 await retiredCuratedDispatch.curatedStart("scripted");
+retiredCuratedDispatch.contextChanged("second|lab|player", true);
 await retiredCuratedDispatch.curatedShow();
 assert.deepEqual(curatedOffers, []);
 assert.equal(retiredCuratedDispatch.get().pendingClient, null);
 
 let bindMode = "wrong-start-client";
+let startOffered = false;
+let secondOfferedClient;
 const ownership = new EvaluationController(async (name, { action, query }) => {
     assert.equal(name, "evaluation_curated");
     if (bindMode === "wrong-start-client") {
         assert.equal(action, "start");
+        startOffered = true;
         return { ...curatedStatus, client_id: foreignRun };
     }
     if (bindMode === "wrong-lookup-client") {
@@ -562,6 +568,7 @@ const ownership = new EvaluationController(async (name, { action, query }) => {
     }
     if (bindMode === "wrong-start-lane") {
         assert.equal(action, "start");
+        secondOfferedClient = query.clientId;
         return {
             ...curatedStatus,
             client_id: query.clientId,
@@ -573,6 +580,10 @@ const ownership = new EvaluationController(async (name, { action, query }) => {
         assert.equal(action, "open");
         return { ...curatedStatus, run_id: foreignRun };
     }
+    if (bindMode === "open-with-pending") {
+        assert.equal(action, "open");
+        return { ...curatedStatus, client_id: secondOfferedClient };
+    }
     if (action === "open") return curatedStatus;
     assert.equal(action, "resume");
     assert.equal(query.runToken, token);
@@ -583,7 +594,14 @@ const ownership = new EvaluationController(async (name, { action, query }) => {
     };
 });
 ownership.contextChanged("lab|omniscient", true);
+let firstRecoveryNotice;
+const beforeStartNotice = ownership.subscribe(() => {
+    if (ownership.get().pendingClient)
+        firstRecoveryNotice ??= startOffered;
+});
 await ownership.curatedStart("scripted");
+beforeStartNotice();
+assert.equal(firstRecoveryNotice, true);
 const offeredClient = ownership.get().pendingClient;
 assert.ok(offeredClient);
 assert.equal(ownership.get().curatedStatus, null);
@@ -604,6 +622,11 @@ bindMode = "wrong-open";
 await ownership.curatedOpen(id);
 assert.equal(ownership.get().curatedStatus, null);
 assert.equal(ownership.get().curatedError, "EvaluationInvalidReply");
+assert.equal(ownership.get().pendingClient, secondOfferedClient);
+bindMode = "open-with-pending";
+await ownership.curatedOpen(id);
+assert.equal(ownership.get().curatedStatus.client_id, secondOfferedClient);
+assert.equal(ownership.get().pendingClient, null);
 bindMode = "wrong-resume";
 await ownership.curatedOpen(id);
 await ownership.curatedResume();

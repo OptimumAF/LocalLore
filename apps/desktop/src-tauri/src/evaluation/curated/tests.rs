@@ -63,6 +63,8 @@ fn done(m: &EvaluationManager, l: &WindowLease, e: u64, t: &str) -> Value {
     loop {
         let s = m.curated_status(l, e, t).unwrap();
         if s["running"] == false {
+            assert!(s["operation_id"].is_null(), "{s}");
+            assert_ne!(s["phase"], "running", "{s}");
             return s;
         }
         assert!(
@@ -71,6 +73,50 @@ fn done(m: &EvaluationManager, l: &WindowLease, e: u64, t: &str) -> Value {
         );
         std::thread::sleep(Duration::from_millis(5));
     }
+}
+#[test]
+fn inactive_curated_owner_keeps_terminal_error_and_refuses_late_cancel() {
+    let (_root, m, lease, epoch, model) = setup();
+    let run_id = uuid().unwrap();
+    m.curated_lock().unwrap().runs.insert(
+        run_id.clone(),
+        CuratedRun {
+            metadata: json!({"lane":"native","client_id":uuid().unwrap(),"source_binding":"a".repeat(64)}),
+            snapshot: None,
+            phase: "error".into(),
+            error: Some("EvaluationInternal".into()),
+        },
+    );
+    let token = {
+        let mut state = m.state().unwrap();
+        let token = EvaluationManager::mint(&mut state, epoch, run_id.clone()).unwrap();
+        state.job = Some(Job {
+            kind: JobKind::Curated,
+            epoch,
+            id: 7,
+            run: run_id,
+            cancel: Cancellation::default(),
+            selected: Some(selected::SelectedOwnership {
+                models: model,
+                witness: None,
+                retained: None,
+                cleanup_running: false,
+            }),
+            worker_active: false,
+        });
+        token
+    };
+    let settled = m.curated_status(&lease, epoch, &token).unwrap();
+    assert_eq!(settled["running"], false);
+    assert!(settled["operation_id"].is_null());
+    assert_eq!(settled["phase"], "error");
+    assert_eq!(settled["error"], "EvaluationInternal");
+    assert_eq!(
+        m.cancel(&lease, epoch, &token, 7).unwrap_err(),
+        "StaleEvaluationOperation"
+    );
+    assert_eq!(m.curated_status(&lease, epoch, &token).unwrap(), settled);
+    assert!(m.state().unwrap().job.as_ref().unwrap().selected.is_some());
 }
 fn bytes_at(path: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     let mut all = BTreeMap::new();

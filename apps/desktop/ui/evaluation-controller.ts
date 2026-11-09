@@ -316,19 +316,13 @@ export class EvaluationController {
             (c) => c.id === this.state.selectedCase,
         );
     }
-    private curated(action: string, query: Record<string, unknown> = {}) {
-        return this.invoke("evaluation_curated", { action, query }).catch(
-            (error) => {
-                const code =
-                    error instanceof Error ? error.message : String(error);
-                this.recordNativeError(
-                    evaluationErrors.has(code)
-                        ? code
-                        : "EvaluationInvalidReply",
-                );
-                throw error;
-            },
-        );
+    private async curated(action: string, query: Record<string, unknown> = {}) {
+        try {
+            return await this.invoke("evaluation_curated", { action, query });
+        } catch (error) {
+            this.recordNativeError(this.errorCode(error));
+            throw error;
+        }
     }
     private curatedFailure(error: unknown) {
         this.patch({
@@ -336,7 +330,7 @@ export class EvaluationController {
             curatedError: this.errorCode(error),
         });
     }
-    private recovery(client: string | null) {
+    private persistRecovery(client: string | null) {
         try {
             if (typeof localStorage !== "undefined") {
                 if (client)
@@ -349,6 +343,9 @@ export class EvaluationController {
         } catch {
             /* Native library/lookup remain available when browser storage is denied. */
         }
+    }
+    private recovery(client: string | null) {
+        this.persistRecovery(client);
         this.patch({ pendingClient: client });
     }
     async curatedShow() {
@@ -395,17 +392,16 @@ export class EvaluationController {
             curatedStatus: null,
         });
         if (epoch !== this.epoch) return;
-        if (action === "start") {
-            const priorClient = this.state.pendingClient;
-            this.recovery(query.clientId as string);
-            if (epoch !== this.epoch) {
-                if (this.state.pendingClient === query.clientId)
-                    this.recovery(priorClient);
-                return;
-            }
-        }
         try {
-            let status = decodeCuratedStatus(await this.curated(action, query));
+            const client = action === "start" ? (query.clientId as string) : null;
+            const priorClient = this.state.pendingClient;
+            // Save the recovery identity before dispatch, but only publish it
+            // to listeners once the command has actually been offered.
+            if (client) this.persistRecovery(client);
+            const reply = this.curated(action, query);
+            if (client && this.state.pendingClient === priorClient)
+                this.patch({ pendingClient: client });
+            let status = decodeCuratedStatus(await reply);
             const first = status;
             if (
                 ((action === "start" || action === "lookup") &&
@@ -433,10 +429,7 @@ export class EvaluationController {
                 });
                 if (epoch !== this.epoch) return;
                 if (!status.running) {
-                    if (
-                        (action === "start" || action === "lookup") &&
-                        status.client_id === this.state.pendingClient
-                    )
+                    if (status.client_id === this.state.pendingClient)
                         this.recovery(null);
                     if (epoch === this.epoch)
                         this.patch({

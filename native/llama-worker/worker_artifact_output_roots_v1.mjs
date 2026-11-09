@@ -1,6 +1,6 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, open, opendir, realpath } from 'node:fs/promises';
+import { lstat, mkdir as fsMkdir, open, opendir, realpath } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import { planWorkerArtifactComparisonV1 } from './worker_artifact_recipe_v1.mjs';
 
@@ -195,12 +195,16 @@ function construct(value, adapter, installGuard = () => {}) {
     root.marker = 'unknown';
     root.markerClosure = 'unknown';
     const acquired = await openMarker(root.markerPath);
-    root.marker = 'created';
-    const close = ownMethod(acquired, 'close');
-    root.markerClosure = close ? 'open' : 'unknown';
-    root.handle = { close };
+    const handleValue = acquired !== null && (typeof acquired === 'object' || typeof acquired === 'function');
+    if (handleValue) {
+      root.marker = 'created';
+      const close = ownMethod(acquired, 'close');
+      root.markerClosure = close ? 'open' : 'unknown';
+      root.handle = { close };
+    }
     guard();
-    requireFact(close, 'Closure');
+    requireFact(handleValue, 'IO');
+    requireFact(root.handle.close, 'Closure');
     for (const key of ['identity', 'read', 'write', 'sync']) {
       root.handle[key] = ownMethod(acquired, key);
       requireFact(root.handle[key], 'IO');
@@ -374,7 +378,7 @@ function windowsAdapter(guard) {
     async mkdir(path) {
       guard();
       try {
-        await mkdir(path, { recursive: false });
+        await fsMkdir(path, { recursive: false });
         return 'created';
       } catch (error) {
         // This is a native Node fs rejection, never a test adapter value.

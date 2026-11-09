@@ -29,6 +29,11 @@ TARGETS = (
     ("product_apk", APP, "/data/local/tmp/locallore-product-v1.apk", 10001),
     ("test_apk", TEST, "/data/local/tmp/locallore-test-v1.apk", 10002),
 )
+SOURCE_ROOT = PureWindowsPath("D:/Synthetic/LocalLore")
+AUDIT_SOURCES = (
+    SOURCE_ROOT / "scripts/audit_apk.py",
+    SOURCE_ROOT / "scripts/audit_physical_model_apk.py",
+)
 
 
 @dataclass(frozen=True)
@@ -80,7 +85,7 @@ def command_tape(pins):
         steps.extend((
             Step(["dd", "of=" + path, "bs=65536"], "apk-stage", b"", source=pin, seconds=120),
             Step(["sha256sum", path], "staged-hash", f"{pin['sha256']}  {path}\n".encode()),
-            Step(["pm", "install", "-t", "--user", "0", path],
+            Step(["pm", "install", "-R", "-t", "--user", "0", path],
                  "install", b"Success\n", seconds=120),
         ))
     steps.extend(installed_steps(pins))
@@ -248,8 +253,9 @@ class LibraryStatusOwnedContractTests(unittest.TestCase):
         self.value = fixture.admission()
         self.value.update(protocol=owned.PROTOCOL, artifacts=binding.artifact_bindings())
         self.value["guest"]["root"] = str(owned.GUEST_ROOT)
-        directory = PureWindowsPath("D:/Synthetic/LocalLore/benchmarks")
-        self.value["sources"] = [fixture.pin(directory / name) for name in sorted(owned.SOURCE_NAMES)]
+        paths = [*(SOURCE_ROOT / "benchmarks" / name for name in owned.SOURCE_NAMES),
+                 *AUDIT_SOURCES]
+        self.value["sources"] = sorted((fixture.pin(path) for path in paths), key=lambda pin: pin["path"])
 
     def test_contract_admits_the_exact_tape(self):
         self.assertEqual(owned.validate_admission(self.value), self.value)
@@ -260,11 +266,28 @@ class LibraryStatusOwnedContractTests(unittest.TestCase):
                 self.assertEqual(owned.validate_operation(operation, self.value), operation)
         self.assertEqual(owned.instrumentation_kind(INSTRUMENT), KIND)
 
+    def test_missing_foreign_or_extra_audit_sources_refuse_admission(self):
+        source = str(AUDIT_SOURCES[0])
+        full = self.value["sources"]
+        missing = [pin for pin in full if pin["path"] != source]
+        foreign = PureWindowsPath("D:/Synthetic/Foreign")
+        variants = (
+            missing,
+            [*missing, fixture.pin(foreign / "scripts" / AUDIT_SOURCES[0].name)],
+            [*full, fixture.pin(SOURCE_ROOT / "scripts/extra.py")],
+            [*full, fixture.pin(foreign / "benchmarks/__init__.py")],
+        )
+        for sources in variants:
+            with self.subTest(sources=sources), self.assertRaisesRegex(owned.TargetRefused, "^source$"):
+                value = dict(self.value, sources=sorted(sources, key=lambda pin: pin["path"]))
+                owned.validate_admission(value)
+
     def test_existing_package_cannot_be_replaced_by_an_install_recipe(self):
         for _, _, path, _ in TARGETS:
-            argv = ["pm", "install", "-r", "-t", "--user", "0", path]
-            with self.subTest(argv=argv), self.assertRaises(owned.TargetRefused):
-                owned.validate_operation({"argv": argv, "stdin": None}, self.value)
+            for options in ([], ["-r"]):
+                argv = ["pm", "install", *options, "-t", "--user", "0", path]
+                with self.subTest(argv=argv), self.assertRaises(owned.TargetRefused):
+                    owned.validate_operation({"argv": argv, "stdin": None}, self.value)
 
     def test_substituted_apk_refuses_at_admission_and_staging(self):
         app = self.value["artifacts"]["product_apk"]
@@ -341,10 +364,11 @@ class LibraryStatusReplayTests(unittest.TestCase):
     def test_replay_refuses_a_replacing_install_and_a_changed_post_test_hash(self):
         install = next(row for row in self.rows if row["label"] == "install")
         path = install["operation"]["argv"][-1]
-        replacing = {"argv": ["pm", "install", "-r", "-t", "--user", "0", path], "stdin": None}
-        with patch.dict(install, operation=replacing):
-            with self.assertRaises((env.EnvironmentRefused, owned.TargetRefused)):
-                self.replay()
+        for options in ([], ["-r"]):
+            replacing = {"argv": ["pm", "install", *options, "-t", "--user", "0", path], "stdin": None}
+            with self.subTest(options=options), patch.dict(install, operation=replacing):
+                with self.assertRaises((env.EnvironmentRefused, owned.TargetRefused)):
+                    self.replay()
         last = self.rows[-1]
         self.assertEqual(last["label"], "package-hash")
         with patch.dict(last, stdout=b"0" * 64 + last["stdout"][64:]):

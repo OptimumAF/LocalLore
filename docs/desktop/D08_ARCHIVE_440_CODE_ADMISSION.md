@@ -60,6 +60,9 @@ guarded normal products. The joint baseline carries the last verified D04
 joint charge including 31,791 B of conservative carry. The live D04 group
 was 55,230,062 B at this source inspection. Measure the actual current named
 inventories and charge all growth since the recorded baselines before use.
+The launcher refuses a measured group smaller than either reference and
+charges positive growth in both groups to its minimum joint count. Fresh
+outside review still accounts for changes in all other named roots and carry.
 These are advisory figures, not reusable admissions or authority to reclassify
 or erase previous evidence. There is no cap increase and no target or fixture
 growth reservation.

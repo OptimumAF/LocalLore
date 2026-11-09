@@ -191,12 +191,15 @@ Assert-Package 'scheduler' 15 '73b99ad79d09e447add3c0dc20bfff2549bba115b965180f4
 $startingBytes = Measure-Tree $packet 256
 $d09Before = (Measure-Tree $group 4096) - $startingBytes
 $workerBefore = Measure-Tree $workerEvidence 4096
+$d09ReferenceBytes = 40267990
+$jointFloor = $workerBefore + 682353316 + ($d09Before - $d09ReferenceBytes)
 if ($startingBytes -gt 40KB -or $d09Before -ne $stage.d09BaseBytes -or
+    $d09Before -lt $d09ReferenceBytes -or $workerBefore -lt 55230062 -or
     $d09Before + $packetLimit -gt 64MB -or
-    $stage.namedBaseBytes -lt $d09Before + 581145615 -or
+    $stage.namedBaseBytes -lt $d09Before + 581869182 -or
     $stage.namedBaseBytes -gt 640MB - $packetLimit -or
     $stage.crossTrackBaseBytes -lt $stage.namedBaseBytes -or
-    $stage.crossTrackBaseBytes -lt $workerBefore + 682353316 -or
+    $stage.crossTrackBaseBytes -lt $jointFloor -or
     $stage.crossTrackBaseBytes -gt 724MB - $packetLimit -or
     [IO.DriveInfo]::new('D').AvailableFreeSpace -lt $packetLimit) { throw 'FreshReserve' }
 

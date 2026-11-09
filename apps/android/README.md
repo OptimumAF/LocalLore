@@ -45,8 +45,11 @@ must consume the exact prepared reservation before starting the guest.
 The [one-use supervisor](../../benchmarks/saved_library_status_operation.py)
 runs preparation and activation in owned Windows jobs. It preserves the
 first attempt and requires replay of the test, process cleanup and storage
-closure before reporting a pass. A frozen preflight and separate approval
-are required for a live run.
+closure before reporting a pass. The [readiness check](../../benchmarks/saved_library_status_readiness.py)
+checks the fixed plan and shared ledger against the supplied digests,
+revalidates installed tools and APKs, and probes host capacity and ports.
+It reports advisory evidence. A live run requires separate approval and
+a fresh locked storage admission.
 
 ## Build and run
 

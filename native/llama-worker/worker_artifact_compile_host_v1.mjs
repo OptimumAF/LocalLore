@@ -127,10 +127,10 @@ function parseReply(bytes, binding) {
 
 function transportRecord(result) {
   const { response, stderr, ...facts } = data(result, ['image', 'observation', 'pid', 'closed', 'stdinClosed',
-    'stdoutClosed', 'stderrClosed', 'exitCode', 'sentBytes', 'sentHash', 'response', 'stderr']);
+    'stdoutClosed', 'stderrClosed', 'exitCode', 'sentBytes', 'sentHash', 'accepted', 'response', 'stderr']);
   requireHost((facts.image === null || digest(facts.image)) && digest(facts.observation) &&
     (facts.pid === null || int(facts.pid, 1, 2147483647)) &&
-    [facts.closed, facts.stdinClosed, facts.stdoutClosed, facts.stderrClosed].every(boolean) &&
+    [facts.closed, facts.stdinClosed, facts.stdoutClosed, facts.stderrClosed, facts.accepted].every(boolean) &&
     (facts.exitCode === null || int(facts.exitCode, -2147483648, 2147483647)) &&
     (facts.sentBytes === null || int(facts.sentBytes, 0, 12 + REQUEST_CAP)) &&
     (facts.sentHash === null || (facts.sentBytes !== null && digest(facts.sentHash))) &&
@@ -181,7 +181,7 @@ export function createWorkerArtifactCompileHostV1(options) {
     const kept = wire(await retain(Object.freeze({ record, request: Buffer.from(request),
       response: Buffer.from(response), stderr: Buffer.from(stderr) })), ['kind', 'recordHash', 'stored']);
     requireHost(kept.kind === 'compile_host_retained_v1' && kept.stored === true && kept.recordHash === recordHash);
-    requireHost(facts.image === scope.hostHash && facts.pid !== null && facts.closed && facts.stdinClosed &&
+    requireHost(facts.accepted && facts.image === scope.hostHash && facts.pid !== null && facts.closed && facts.stdinClosed &&
       facts.stdoutClosed && facts.stderrClosed && facts.exitCode === 0 && !stderr.length &&
       facts.sentBytes === request.length && facts.sentHash === scope.requestHash);
     const native = parseReply(response, binding);

@@ -16,8 +16,9 @@ const CONFIG = ['compiler', 'linker', 'manifestTool', 'workerRoot', 'upstreamA',
 const AUTHORITY = ['attempt', 'baseline', 'closure', 'grant'];
 const ENV = ['windows', 'path', 'include', 'temp'];
 const PROFILE = ['config', 'authority', 'environment', 'node', 'helper', 'entry', 'evidenceRoot',
-  'outputParentIdentity', 'outputMaxBytes', 'spend', 'writerPolicy', 'namespace'];
-const READY = ['version', 'kind', 'scope', 'spend', 'writerPolicy', 'namespace', 'evidenceId',
+  'outputParentIdentity', 'outputMaxBytes', 'spend', 'writerPolicy', 'namespace', 'inputCatalog'];
+const READY = ['version', 'kind', 'scope', 'spend', 'writerPolicy', 'namespace', 'inputCatalog', 'inputSeal',
+  'inputFiles', 'absenceSlots', 'evidenceId',
   'tempId', 'parentPid', 'nodePid', 'jobFlags', 'parentInJob', 'activeProcesses', 'pins'];
 const ENTRY_MAX = 2 * 1024 * 1024;
 const READY_MAX = 4096;
@@ -95,7 +96,7 @@ function setup(value) {
   const authority = Object.freeze(data(input.authority, AUTHORITY));
   const environment = Object.freeze(data(input.environment, ENV));
   const recipe = planWorkerArtifactComparisonV1(config);
-  requireAttempt([...Object.values(authority), input.spend, input.writerPolicy, input.namespace].every(digest));
+  requireAttempt([...Object.values(authority), input.spend, input.writerPolicy, input.namespace, input.inputCatalog].every(digest));
   const node = pin(input.node, NODE, 128 * 1024 * 1024);
   const helper = pin(input.helper, HELPER, 8 * 1024 * 1024);
   const entry = path(input.entry, true), evidenceRoot = path(input.evidenceRoot, true);
@@ -112,7 +113,7 @@ function setup(value) {
       .every(file => disjoint(root, file.slice(0, file.lastIndexOf('/'))))));
   const profile = Object.freeze({ config, authority, environment, node, helper, entry, evidenceRoot,
     outputParentIdentity: input.outputParentIdentity, outputMaxBytes: input.outputMaxBytes,
-    spend: input.spend, writerPolicy: input.writerPolicy, namespace: input.namespace });
+    spend: input.spend, writerPolicy: input.writerPolicy, namespace: input.namespace, inputCatalog: input.inputCatalog });
   const context = Object.freeze({ attempt: authority.attempt, recipe: jsonSha(recipe),
     baseline: authority.baseline, closure: authority.closure, grant: authority.grant });
   return { profile, context, scope: jsonSha({ version: 1, kind: 'compile_attempt_scope_v1', profile, context }) };
@@ -132,7 +133,8 @@ function verifyReady(text, prepared, observed) {
   const ready = data(JSON.parse(text), READY);
   requireAttempt(ready.version === 1 && ready.kind === 'compile_parent_ready_v1' &&
     ready.scope === scope && ready.spend === profile.spend && ready.writerPolicy === profile.writerPolicy &&
-    ready.namespace === profile.namespace && ready.nodePid === pid && ready.parentPid === ppid &&
+    ready.namespace === profile.namespace && ready.inputCatalog === profile.inputCatalog && digest(ready.inputSeal) &&
+    int(ready.inputFiles, 4, 1024) && int(ready.absenceSlots, 1, 2048) && ready.nodePid === pid && ready.parentPid === ppid &&
     ready.jobFlags === 0x2000 && typeof ready.parentInJob === 'boolean' && ready.activeProcesses === 1 &&
     Array.isArray(ready.pins) && ready.pins.length === 3);
   const expected = [profile.node, { bytes: entryBytes, sha256: entrySha256 }, profile.helper];

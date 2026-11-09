@@ -30,6 +30,12 @@ CAPTURE = h.ATTEMPT_ROOT / "activation-capture-v1"
 BARRIER = b"locallore-sdk24-cross-owner-deletion-activation-v1\n"
 REQUEST_KEYS = ("version", "scope", "authority", "attempt", "admission", "began_ns", "until_ns", "parent")
 TAIL_SECONDS = 15
+TERMINAL_KEYS = ("status", "cleanup_complete", "elapsed_ms", "output_capture_complete",
+                 "worker_returncode", "stdout_bytes", "stderr_bytes")
+SUCCESS_OUTPUT = (
+    b'{"qualified_target": true, "reason": "stop_requested", "feature_acceptance": false}',
+    b'{"passed": true, "feature_acceptance": false}',
+)
 _need = env.require
 _same = owned._same
 
@@ -73,6 +79,29 @@ def _handoff(request, supervisor):
                 began_ns=request["began_ns"], until_ns=request["until_ns"])
 
 
+def _await_started(request_pin, request):
+    parent = request["parent"]
+    api = mechanisms._ProcessApi()
+    handles = process.ProcessHandles(api)
+    try:
+        handles.add(parent["pid"], parent)
+        handle, worker = handles.add(os.getpid())
+        _need(worker["executable"] == parent["executable"] == sys.executable
+              and api.parent_pid(handle) == parent["pid"] and os.getpid() in api.current_job_pids(), "identity")
+        # The watchdog releases stdin before its callback publishes STARTED.
+        deadline = time.monotonic() + 5
+        while not os.path.lexists(STARTED):
+            handles.guard()
+            _need(time.monotonic() < deadline, "identity")
+            time.sleep(.02)
+        started_pin, started = h.read(STARTED)
+        _need(_same(started, dict(request=request_pin, worker=worker)), "identity")
+        handles.guard()
+    finally:
+        _need(handles.close() is True, "identity")
+    return started_pin, worker
+
+
 def _run_worker(request_pin):
     _context()
     request = h.at(request_pin, REQUEST)
@@ -80,16 +109,9 @@ def _run_worker(request_pin):
     owned._process(request["parent"])
     _need(_same(request["version"], 1) and request["scope"] == h.AUTHORITY_SCOPE
           and request["parent"]["pid"] == os.getppid(), "request")
-    _identity(os.getppid(), request["parent"])
-    started_pin, started = h.read(STARTED)
-    owned._obj(started, ("request", "worker"), "identity")
-    owned._process(started["worker"])
-    _need(_same(started["request"], request_pin), "request")
-    worker = _identity(os.getpid(), started["worker"])
-    _need(worker["executable"] == request["parent"]["executable"] == sys.executable
-          and os.getpid() in mechanisms._ProcessApi().current_job_pids(), "identity")
-
     window = (request["began_ns"], request["until_ns"])
+    h.check_window(*window, minimum_seconds=h.LAUNCH_TAIL_SECONDS)
+    started_pin, worker = _await_started(request_pin, request)
     h.check_window(*window, minimum_seconds=h.LAUNCH_TAIL_SECONDS)
     admission_pin = _gate(request["authority"])
     _need(_same(admission_pin, request["admission"]), "admission")
@@ -109,8 +131,26 @@ def _run_worker(request_pin):
     return 0 if child.returncode == 0 else 1
 
 
+def _capture_ok(terminal):
+    if type(terminal) is not dict or set(terminal) != set(TERMINAL_KEYS):
+        return False
+    expected = [newline.join((*SUCCESS_OUTPUT, b"")) for newline in (b"\r\n", b"\n")]
+    stdout, stderr = (terminal[key] for key in ("stdout_bytes", "stderr_bytes"))
+    elapsed = terminal["elapsed_ms"]
+    if not (terminal["status"] == "child_exited" and terminal["cleanup_complete"] is True
+            and terminal["output_capture_complete"] is True and _same(terminal["worker_returncode"], 0)
+            and type(elapsed) is int and 0 <= elapsed <= h.ACTIVATION_SECONDS * 1000
+            and type(stdout) is int and stdout in {len(value) for value in expected} and _same(stderr, 0)):
+        return False
+    with env.safe_path(CAPTURE / "owner-stdout-v1.bin").open("rb") as stream:
+        output = stream.read(stdout + 1)
+    with env.safe_path(CAPTURE / "owner-stderr-v1.bin").open("rb") as stream:
+        error = stream.read(1)
+    return len(output) == stdout and output in expected and not error
+
+
 def _verify_terminal(request_pin, request, worker, terminal_pin, terminal):
-    _need(worker is not None and process._owner_ok(terminal, CAPTURE), "owner")
+    _need(worker is not None and _capture_ok(terminal), "owner")
     _need(_same(h.at(terminal_pin, TERMINAL), terminal), "owner")
     started_pin, started = h.read(STARTED)
     _need(_same(started, dict(request=request_pin, worker=worker)), "identity")
@@ -124,6 +164,7 @@ def _verify_terminal(request_pin, request, worker, terminal_pin, terminal):
     for pin in (request_pin, terminal_pin, started_pin, handoff_pin, completion, admission_pin,
                 request["authority"], request["attempt"], *evidence.values()):
         env.check_binding(pin)
+    _need(_capture_ok(terminal), "owner")
     return completion
 
 

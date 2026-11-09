@@ -110,7 +110,7 @@ for _name in (
     "validate_proof", "validate_query_bundle", "validate_claim", "claim_record",
     "instrumentation_kind", "source_bindings", "revalidate_inputs", "check_stop", "_rows",
     "validate_observation", "validate_guest_observation", "validate_guest_prefix",
-    "device_transport", "validate_guest_job", "validate_ready",
+    "device_status", "device_transport", "validate_guest_job", "validate_ready",
 ):
     globals()[_name] = getattr(_API, _name)
 del _name

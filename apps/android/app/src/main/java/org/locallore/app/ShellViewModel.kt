@@ -261,10 +261,13 @@ class ShellViewModel internal constructor(
         }
     }
 
-    fun openArchive() {
-        val controller = archiveController ?: return
+    fun openArchive() = openArchive(mutable.value)
+
+    fun openArchive(rendered: ShellState) {
         val before = mutable.value
-        if (disposed || workflowBlocksActions() || before.archiveActive || before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
+        if (before !== rendered || disposed || workflowBlocksActions() || before.archiveActive ||
+            before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
+        val controller = archiveController ?: return
         val story = before.selectedStory ?: return
         diagnosticController.dismiss()
         recordController.dismiss()

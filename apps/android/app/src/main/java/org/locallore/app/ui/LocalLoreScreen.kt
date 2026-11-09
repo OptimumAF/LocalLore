@@ -335,9 +335,12 @@ internal fun LocalLoreScreen(
                             if (state.forkActive) Text("Timeline review is open or finishing. Other actions are paused.",
                                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("fork-active"))
                             if (archiveAvailable && state.persistent) {
-                                OutlinedButton(onClick = onArchive,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired && state.selectedStory != null,
-                                    modifier = Modifier.testTag("story-archive")) { Text("Story archive") }
+                                key(renderedControlKey) {
+                                    OutlinedButton(onClick = {
+                                        if (renderedControls.active && currentRenderedState.value === state) onArchive()
+                                    }, enabled = !actionBlocked,
+                                        modifier = Modifier.testTag("story-archive")) { Text("Story archive") }
+                                }
                             }
                             if (deletionAvailable && state.persistent && state.selectedStory != null) {
                                 key(renderedControlKey) {

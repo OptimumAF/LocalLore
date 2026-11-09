@@ -33,10 +33,17 @@ a separately approved target.
 
 The [owned-guest controller](../../benchmarks/saved_library_status_controller.py)
 requires both ordinary packages to be absent before staging either APK.
-Installation uses Android's explicit no-replacement option (`-R`). The controller checks both installed UIDs,
-APK paths and hashes before and after the selected test and replays the
-captured commands and result. It takes an already owned guest. Preparation,
-boot and storage admission are separate.
+Installation uses Android's explicit no-replacement option (`-R`).
+The controller checks both installed UIDs, APK paths and hashes before and
+after the selected test and replays the captured commands and result.
+
+The [prepared-guest handoff](../../benchmarks/saved_library_status_handoff.py)
+joins the fixed approval and one-use attempt to the preparation receipts,
+signed APKs and the shared v2 storage ledger. The owner rechecks the pinned
+handoff and supervisor process before starting its private ADB service. It
+must consume the exact prepared reservation before starting the guest.
+This handoff needs a separately approved operation to prepare the guest
+and supervise the run.
 
 ## Build and run
 

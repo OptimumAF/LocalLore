@@ -20,7 +20,7 @@ serialize the port with any build child and any other use of either helper.
 The lease observes direct files under its private roots. Its logical size
 does not include output elsewhere or previously retained records. The
 owner's supplied `maxBytes` bounds these two rosters and must fit within
-the separately reserved allowance.
+both the prepared lease's byte ceiling and the separately reserved allowance.
 
 The contract is cooperative. It relies on owner-controlled quiescence between
 LINK and MT and on the copy helper's held-handle hash verification. It does
@@ -76,8 +76,10 @@ terminal record cannot authorize lease reuse.
 ## Sequence
 
 1. Bind the request and genuine signal before I/O. Publish pending ownership
-   synchronously before either helper is offered. Listen for abort and check
-   the signal again before the first offer. Abort latches `CANCELLED` and
+   synchronously before either helper is offered. Listen on a private dependent
+   signal made with `AbortSignal.any([signal])` and check it again before the
+   first offer. An earlier listener on the shared signal cannot block delivery
+   to the private signal. Abort latches `CANCELLED` and
    asks both helpers to stop once, even if one stop request throws. Helpers
    are awaited through settlement. Detach the listener after settlement.
 2. Recheck both roots. Require a Ready snapshot with complete, known-closed

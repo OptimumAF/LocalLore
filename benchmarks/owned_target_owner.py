@@ -892,7 +892,8 @@ class _TargetRuntimeCore:
     def prepare_guest(self):
         self.guard()
         guest = self.admission["guest"]
-        self.proposal = environment.authorize(guest["proposal"]["path"], guest["authorization"]["path"], "run")
+        self.proposal = environment.authorize(guest["proposal"]["path"], guest["authorization"]["path"], "run",
+                                              run_scope=getattr(self._contract, "RUN_SCOPE", None))
         _need(self.proposal["paths"]["root"] == guest["root"] and self.proposal["memory_mib"] == 8192 and
               self.proposal["cores"] == 4 and self.proposal["max_seconds"] == 1800 and
               Path(self.proposal["sdk"]) / "emulator/emulator.exe" == Path(guest["emulator"]["path"]), "guest")
@@ -916,14 +917,17 @@ class _TargetRuntimeCore:
         self.guard()
         return environment.binding(path)
 
+    def _retain_guest(self):
+        environment.storage_transition(environment.guest_storage.record_state,
+            Path(self.admission["guest"]["root"]), "retained",
+            proposal_sha256=self.admission["guest"]["proposal"]["sha256"])
+
     def start_guest(self):
         self.guard()
         _need(self.proposal is not None, "guest")
         environment.verify_prepared(self.proposal, initial=True)
         environment.check_binding(self.admission["guest"]["proposal"])
-        environment.storage_transition(environment.guest_storage.record_state,
-            Path(self.admission["guest"]["root"]), "retained",
-            proposal_sha256=self.admission["guest"]["proposal"]["sha256"])
+        self._retain_guest()
         claim_path = Path(self.admission["guest"]["root"]) / self._contract.BOOT_CLAIM_FILE
         environment.create_json(claim_path, dict(version=1, protocol=self._contract.PROTOCOL,
             admission=self.admission_binding, worker=copy.deepcopy(self.worker),
@@ -939,6 +943,7 @@ class _TargetRuntimeCore:
         command = environment.emulator_command(self.proposal) + ["-adb-path", self.admission["guest"]["refuser"]["path"]]
         _need("-no-direct-adb" not in command and not any("quit-after-boot" in arg for arg in command), "guest")
         self.guest_capture = primitives.ServerCapture(self.root / "guest-output-v1")
+        self.guard()
         self.guest_child = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, bufsize=0, env=child_env, creationflags=subprocess.CREATE_NO_WINDOW)
         self.guest_capture.start(self.guest_child)
@@ -1280,7 +1285,9 @@ def _reason(error, default="owner"):
     value = getattr(error, "reason", str(error))
     allowed = {"owner", "platform", "admission", "source", "python", "identity", "receipt", "auth", "port",
         "startup", "readiness", "proof", "framing", "deadline", "stop", "capture", "cleanup", "output",
-        "stop_requested", "expired", "guest", "timer", "ancestry", "registration", "job", "target", "binding"}
+        "stop_requested", "expired", "guest", "timer", "ancestry", "registration", "job", "target", "binding",
+        "authority", "attempt", "handoff", "plan", "profile", "installed", "proposal", "prepared",
+        "ledger", "already_used", "not_authorized", "storage_prepared_changed"}
     return value if value in allowed else default
 
 

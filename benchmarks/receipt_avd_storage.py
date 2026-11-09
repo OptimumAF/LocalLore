@@ -59,9 +59,20 @@ def encoded(value):
     return (json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
 
 
-def read_json(path):
+def read_json(path, *, expected=None):
     p = safe_path(path, exists=True)
-    require(0 < p.stat().st_size <= 16 * 1024 * 1024, "invalid_json")
+    size = p.stat().st_size
+    require(0 < size <= 16 * 1024 * 1024, "invalid_json")
+    if expected is None:
+        data = p.read_bytes()
+    else:
+        _validate_binding(expected)
+        require(expected["path"] == str(p) and expected["bytes"] == size, "ledger_changed")
+        with p.open("rb") as source:
+            data = source.read(size + 1)
+        require(len(data) == size and hashlib.sha256(data).hexdigest() == expected["sha256"],
+                "ledger_changed")
+
     def unique(pairs):
         result = {}
         for key, value in pairs:
@@ -69,7 +80,7 @@ def read_json(path):
             result[key] = value
         return result
     try:
-        return json.loads(p.read_bytes().decode("utf-8"), object_pairs_hook=unique,
+        return json.loads(data.decode("utf-8"), object_pairs_hook=unique,
                           parse_constant=lambda _: require(False, "invalid_json"))
     except (ValueError, UnicodeError, TypeError):
         raise StorageRefused("invalid_json") from None
@@ -84,12 +95,16 @@ def binding(path):
     return {"path": str(p), "bytes": p.stat().st_size, "sha256": h.hexdigest()}
 
 
-def check_binding(value):
+def _validate_binding(value):
     require(type(value) is dict and set(value) == {"path", "bytes", "sha256"} and
             type(value["path"]) is str and type(value["bytes"]) is int and
             value["bytes"] >= 0 and type(value["sha256"]) is str and
             re.fullmatch(r"[0-9a-f]{64}", value["sha256"]) is not None,
             "invalid_binding")
+
+
+def check_binding(value):
+    _validate_binding(value)
     require(binding(value["path"]) == value, "binding_changed")
 
 
@@ -114,19 +129,31 @@ def _atomic_write(path, value):
 
 def _validate(ledger, registry):
     require(type(ledger) is dict and set(ledger) == {"version", "max_guests", "budget_bytes", "reservation_bytes", "entries"}
-            and type(ledger["version"]) is int and ledger["version"] == 1 and
+            and type(ledger["version"]) is int and ledger["version"] in (1, 2) and
             type(ledger["max_guests"]) is int and ledger["max_guests"] == MAX_GUESTS and
             ledger["budget_bytes"] == BUDGET_BYTES and ledger["reservation_bytes"] == RESERVATION_BYTES
             and type(ledger["entries"]) is list and len(ledger["entries"]) <= 10000, "invalid_ledger")
     roots = []
     for entry in ledger["entries"]:
-        require(type(entry) is dict and set(entry) == {"root", "proposal_sha256", "state", "reserved_bytes", "closure", "retirement", "retirement_receipt"}
+        keys = {"root", "proposal_sha256", "state", "reserved_bytes", "closure", "retirement", "retirement_receipt"}
+        if ledger["version"] == 2:
+            keys.add("recovery")
+        require(type(entry) is dict and set(entry) == keys
                 and type(entry["root"]) is str and type(entry["state"]) is str and
                 entry["state"] in STATES and type(entry["proposal_sha256"]) is str and
                 re.fullmatch(r"[0-9a-f]{64}", entry["proposal_sha256"]) is not None and
                 type(entry["reserved_bytes"]) is int and entry["reserved_bytes"] >= 0,
                 "invalid_ledger")
         root = safe_path(entry["root"])
+        # A one-use intent is never optional after migration. An interrupted
+        # intent publication before ledger replacement also refuses closed.
+        from benchmarks import prepare_recovery_contract as recovery
+        claim = recovery.claim_path(registry, root)
+        reference = entry.get("recovery")
+        if reference is not None:
+            recovery.validate_history(entry, registry)
+        else:
+            require(not claim.exists(), "recovery_unlinked_intent")
         require(not any(_contains(old, root) or _contains(root, old) for old in roots), "overlapping_roots")
         roots.append(root)
         require(entry["state"] == "preparing" or root.is_dir(), "tracked_root_missing")
@@ -150,6 +177,7 @@ def _validate(ledger, registry):
 
 
 def _charge(entry):
+    from benchmarks import prepare_recovery_contract as recovery
     if entry["state"] == "retired":
         _verify_retired(entry)
         root = Path(entry["root"])
@@ -159,6 +187,7 @@ def _charge(entry):
         paths.extend((Path(manifest["path"]), Path(entry["retirement_receipt"]["path"])))
         paths.extend(_closed(read_json(entry["closure"]["path"]), entry["proposal_sha256"]))
         paths.append(Path(entry["closure"]["path"]))
+        paths.extend(recovery.history_paths(entry))
         return _logical_bytes(paths)
     if entry["state"] != "closed":
         return RESERVATION_BYTES
@@ -166,6 +195,7 @@ def _charge(entry):
     proofs = _closed(read_json(entry["closure"]["path"]), entry["proposal_sha256"])
     # Re-observe closed roots: external additions cannot silently make admission cheaper.
     paths = list(_files(Path(entry["root"])).values()) + proofs + [Path(entry["closure"]["path"])]
+    paths.extend(recovery.history_paths(entry))
     return max(entry["reserved_bytes"], _logical_bytes(paths))
 
 
@@ -201,9 +231,10 @@ def _initialize_registry(registry):
 
 
 @contextmanager
-def _locked(registry):
+def _locked(registry, *, expected_ledger=None):
     registry = safe_path(registry)
-    _initialize_registry(registry)
+    if expected_ledger is None:
+        _initialize_registry(registry)
     safe_path(registry, exists=True, directory=True)
     lock = registry / "admission.lock"
     try:
@@ -217,7 +248,7 @@ def _locked(registry):
             os.fsync(stream.fileno())
         path = registry / "ledger-v1.json"
         require(path.exists(), "ledger_missing")
-        ledger = read_json(path)
+        ledger = read_json(path) if expected_ledger is None else read_json(path, expected=expected_ledger)
         _validate(ledger, registry)
         yield ledger
     finally:
@@ -231,13 +262,60 @@ def _entry(ledger, root):
     return entries[0]
 
 
-def reserve_prepare(root, proposal_sha256, registry=DEFAULT_REGISTRY):
-    """Durably reserve before root mkdir or SDK calls; failure never auto-releases."""
+def preview_prepare(root, registry=DEFAULT_REGISTRY):
+    """Read-only capacity observation, never a reservation or runtime grant.
+
+    Reuses admission's ledger validation and all current charges. Detected
+    changes refuse; this is not a locked/linearizable snapshot or a promise
+    against concurrent filesystem changes. reserve_prepare must still perform
+    its fresh locked admission. No SDK, disk-free, RAM or port check runs here.
+    """
+    root, registry = safe_path(root), safe_path(registry, exists=True, directory=True)
+
+    def paths_unchanged():
+        safe_path(root)
+        safe_path(root.parent, exists=True, directory=True)
+        safe_path(registry, exists=True, directory=True)
+        require(not os.path.lexists(root), "target_exists")
+        require(not _contains(root, registry) and not _contains(registry, root), "overlapping_roots")
+        require(not os.path.lexists(registry / "admission.lock"), "registry_locked")
+
+    paths_unchanged()
+    path = registry / "ledger-v1.json"
+    require(path.is_file(), "ledger_missing")
+    before = binding(path)
+    ledger = read_json(path)
+    check_binding(before)
+    _validate(ledger, registry)
+    require(not any(_contains(Path(e["root"]), root) or _contains(root, Path(e["root"]))
+                    for e in ledger["entries"]), "root_already_tracked")
+    charges = [_charge(entry) for entry in ledger["entries"]]
+    # Revalidate closure, retirement and recovery proofs as well as the ledger:
+    # unchanged ledger bytes alone do not establish unchanged external evidence.
+    _validate(ledger, registry)
+    require(charges == [_charge(entry) for entry in ledger["entries"]], "preview_changed")
+    paths_unchanged()
+    check_binding(before)
+    active = sum(entry["state"] != "retired" for entry in ledger["entries"])
+    charged = sum(charges)
+    root_limit = active + 1 > MAX_GUESTS
+    byte_limit = charged + RESERVATION_BYTES > BUDGET_BYTES
+    return {"version": 1, "scope": "receipt-avd-prepare-capacity-preview-v1",
+            "root": str(root), "ledger": before, "max_guests": MAX_GUESTS,
+            "budget_bytes": BUDGET_BYTES, "reservation_bytes": RESERVATION_BYTES,
+            "active_count": active, "charged_bytes": charged,
+            "projected_bytes": charged + RESERVATION_BYTES,
+            "root_limit_exceeded": root_limit, "byte_limit_exceeded": byte_limit,
+            "would_fit": not root_limit and not byte_limit, "admission_granted": False}
+
+
+def reserve_prepare(root, proposal_sha256, registry=DEFAULT_REGISTRY, *, expected_ledger=None):
+    """Durably reserve before root mkdir, optionally against an exact ledger snapshot."""
     root, registry = safe_path(root), safe_path(registry)
     require(not root.exists(), "target_exists")
     require(not _contains(root, registry) and not _contains(registry, root), "overlapping_roots")
     require(type(proposal_sha256) is str and re.fullmatch(r"[0-9a-f]{64}", proposal_sha256), "invalid_proposal_digest")
-    with _locked(registry) as ledger:
+    with _locked(registry, expected_ledger=expected_ledger) as ledger:
         require(not root.exists(), "target_exists")
         require(not any(_contains(Path(e["root"]), root) or _contains(root, Path(e["root"]))
                         for e in ledger["entries"]), "root_already_tracked")
@@ -248,27 +326,41 @@ def reserve_prepare(root, proposal_sha256, registry=DEFAULT_REGISTRY):
         entry = {"root": str(root), "proposal_sha256": proposal_sha256, "state": "preparing",
                  "reserved_bytes": RESERVATION_BYTES, "closure": None, "retirement": None,
                  "retirement_receipt": None}
+        if ledger["version"] == 2:
+            entry["recovery"] = None
         ledger["entries"].append(entry)
         _validate(ledger, registry)
         _atomic_write(registry / "ledger-v1.json", ledger)
         return dict(entry)
 
 
-def record_state(root, state, registry=DEFAULT_REGISTRY, proposal_sha256=None):
-    """Retain all reservations; call retained before dispatching any guest run."""
+def record_state(root, state, registry=DEFAULT_REGISTRY, proposal_sha256=None, *, expected_prepare_sha256=None):
+    """Retain reservations, optionally consuming a specific prepared v2 entry."""
     require(state in ("prepared", "retained"), "invalid_transition")
     require(proposal_sha256 is None or (type(proposal_sha256) is str and
             re.fullmatch(r"[0-9a-f]{64}", proposal_sha256)), "invalid_proposal_digest")
+    if expected_prepare_sha256 is not None:
+        require(state == "retained" and proposal_sha256 is not None and
+                type(expected_prepare_sha256) is str and re.fullmatch(r"[0-9a-f]{64}", expected_prepare_sha256),
+                "invalid_transition")
     registry = safe_path(registry)
     with _locked(registry) as ledger:
         entry = _entry(ledger, root)
         require(entry["state"] != "retired", "invalid_transition")
+        if expected_prepare_sha256 is not None:
+            require(ledger["version"] == 2 and entry["state"] == "prepared" and
+                    entry["proposal_sha256"] == expected_prepare_sha256 and entry["recovery"] is None,
+                    "prepared_changed")
+        if state == "retained":
+            from benchmarks import prepare_recovery_contract as recovery
+            recovery.require_cleanup(entry)
         safe_path(root, exists=True, directory=True)
         require(sum(_charge(e) for e in ledger["entries"] if e is not entry) + RESERVATION_BYTES <= BUDGET_BYTES,
                 "storage_capacity_exceeded")
         entry.update(state=state, reserved_bytes=RESERVATION_BYTES, closure=None, retirement=None)
         if proposal_sha256 is not None:
             entry["proposal_sha256"] = proposal_sha256
+        _validate(ledger, registry)
         _atomic_write(registry / "ledger-v1.json", ledger)
 
 
@@ -291,11 +383,14 @@ def record_closed(root, closure_path, registry=DEFAULT_REGISTRY):
     with _locked(registry) as ledger:
         entry = _entry(ledger, root)
         require(entry["state"] != "retired", "invalid_transition")
+        from benchmarks import prepare_recovery_contract as recovery
+        recovery.require_cleanup(entry)
         safe_path(root, exists=True, directory=True)
         closure = binding(closure_path)
         proofs = _closed(read_json(closure_path), entry["proposal_sha256"])
         check_binding(closure)
-        measured = _logical_bytes(list(_files(Path(root)).values()) + proofs + [Path(closure_path)])
+        measured = _logical_bytes(list(_files(Path(root)).values()) + proofs + [Path(closure_path)] +
+                                  recovery.history_paths(entry))
         # Only the first verified closure releases the live reservation. Replaying
         # closure after external truncation is not evidence of retirement.
         if entry["state"] == "closed":

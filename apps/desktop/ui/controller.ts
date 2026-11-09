@@ -705,7 +705,27 @@ export class Controller {
     // Used by another application-owned view/test client; still opens the same Rust owner.
     async attach(session: Session) {
         await this.invalidate();
-        this.patch({ sessions: [session], selectedId: session.id });
+        const current = this.selected();
+        const changed =
+            !current ||
+            current.id !== session.id ||
+            !sameScope(current.scope, session.scope);
+        this.patch({
+            sessions: [session],
+            selectedId: session.id,
+            ...(changed
+                ? {
+                      play: null,
+                      playV2: null,
+                      draft: "",
+                      turnStatus: null,
+                      receiptTurn: null,
+                      diff: [],
+                      diffRevision: null,
+                      page: 0,
+                  }
+                : {}),
+        });
         await this.refresh();
     }
     async switchSession(id: string) {
@@ -932,7 +952,14 @@ export class Controller {
             inspectionRevision: null,
             inspectionObserver: null,
         });
-        if (!session || !play || this.state.view !== "lab") return;
+        if (
+            epoch !== this.inspectionEpoch ||
+            !session ||
+            !play ||
+            this.state.view !== "lab" ||
+            !sameScope(session.scope, play.scope)
+        )
+            return;
         try {
             const value = (await this.gateway.call({
                 op: "inspect",

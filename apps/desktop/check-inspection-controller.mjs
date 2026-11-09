@@ -26,19 +26,29 @@ const scope = { story: "synthetic-inspection", branch: "main" };
 let queries = [],
     held = null,
     heldRawInspection = null,
+    heldOpen = null,
+    rawReads = 0,
     head = 0,
     corrupt = false;
 const gateway = {
     async call(command) {
-        if (command.op === "open") return { revision: head };
+        if (command.op === "open") {
+            if (heldOpen) {
+                const wait = heldOpen;
+                heldOpen = null;
+                wait.entered();
+                await wait.waiting;
+            }
+            return { revision: head };
+        }
         if (command.op === "play_snapshot")
             return {
-                scope,
+                scope: command.scope,
                 revision: head,
                 inventory: {},
                 receipts: [],
                 player: {
-                    scope,
+                    scope: command.scope,
                     revision: head,
                     observer: "player",
                     self_state: { name: "Rowan", energy: 2, location: "quay" },
@@ -48,10 +58,12 @@ const gateway = {
                 },
             };
         if (command.op === "inspect") {
+            rawReads++;
             const wait = heldRawInspection;
             heldRawInspection = null;
             if (wait) await wait;
             return {
+                scope: command.scope,
                 observer: command.observer,
                 revision: command.expected_revision,
             };
@@ -164,7 +176,9 @@ const unsubscribe = c.subscribe(() => {
             state.inspectionObserver !== state.observer ||
             state.inspectionRevision !== state.play?.revision ||
             state.inspection.observer !== state.observer ||
-            state.inspection.revision !== state.play?.revision)
+            state.inspection.revision !== state.play?.revision ||
+            state.inspection.scope.story !== state.play?.scope.story ||
+            state.inspection.scope.branch !== state.play?.scope.branch)
     ) {
         mismatches.push({
             view: state.view,
@@ -176,12 +190,12 @@ const unsubscribe = c.subscribe(() => {
 });
 c.setView("lab");
 await c.inspect();
-assert.deepEqual(c.get().inspection, { observer: "omniscient", revision: 0 });
+assert.deepEqual(c.get().inspection, { scope, observer: "omniscient", revision: 0 });
 
 c.setObserver("mira");
 assert.deepEqual(mismatches, [], "lens change must clear in the same update");
 await c.inspect();
-assert.deepEqual(c.get().inspection, { observer: "mira", revision: 0 });
+assert.deepEqual(c.get().inspection, { scope, observer: "mira", revision: 0 });
 
 let releaseRawInspection;
 heldRawInspection = new Promise((resolve) => (releaseRawInspection = resolve));
@@ -190,12 +204,39 @@ c.setObserver("sable");
 await c.inspect();
 releaseRawInspection();
 await staleRawInspection;
-assert.deepEqual(c.get().inspection, { observer: "sable", revision: 0 });
+assert.deepEqual(c.get().inspection, { scope, observer: "sable", revision: 0 });
 
 head = 1;
 await c.refresh();
 assert.deepEqual(mismatches, [], "head change must clear in the same update");
-assert.deepEqual(c.get().inspection, { observer: "sable", revision: 1 });
+assert.deepEqual(c.get().inspection, { scope, observer: "sable", revision: 1 });
+
+let enterOpen, releaseOpen;
+const openEntered = new Promise((resolve) => (enterOpen = resolve));
+heldOpen = {
+    entered: enterOpen,
+    waiting: new Promise((resolve) => (releaseOpen = resolve)),
+};
+const otherScope = { story: "synthetic-other-inspection", branch: "fork" };
+const attaching = c.attach({
+    id: "s",
+    scope: otherScope,
+    revision: head,
+    name: "Another story",
+});
+await openEntered;
+assert.equal(c.get().play, null, "new scope must not retain the old snapshot");
+const readsBeforeOpen = rawReads;
+c.setObserver("mira");
+await c.inspect();
+assert.equal(rawReads, readsBeforeOpen, "inspection needs the new Play scope");
+releaseOpen();
+await attaching;
+assert.deepEqual(c.get().inspection, {
+    scope: otherScope,
+    observer: "mira",
+    revision: 1,
+});
 
 c.setView("play");
 assert.deepEqual(mismatches, [], "Play must never publish a Lab payload");
@@ -203,7 +244,7 @@ assert.equal(c.get().inspection, null);
 unsubscribe();
 await c.dispose();
 console.log(
-    "PASS: inspection context is atomic across observer, revision and Play changes; delayed and wrong-privacy replies are fenced.",
+    "PASS: inspection context is atomic across observer, revision, story and Play changes; delayed and wrong-privacy replies are fenced.",
 );
 
 // Removed fields must resolve their prior origin, not query a nonexistent after-field.

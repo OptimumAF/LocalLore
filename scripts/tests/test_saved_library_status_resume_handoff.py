@@ -44,6 +44,8 @@ class ResumeRecords(BootRecords):
         self.inspect = Mock(side_effect=self.review)
         self.source_pin = self.add("handoff_source", Path(resume.__file__).resolve(), b"synthetic handoff source")
         self.review_pin = self.add("review_source", Path(review.__file__).resolve(), b"synthetic review source")
+        self.operation_pin = self.add("operation_source", Path(resume.__file__).with_name(
+            "saved_library_status_resume_operation.py").resolve(), b"synthetic operation source")
         self.refuser_pin = dict(self.admission["guest"]["refuser_source"],
                                 path=str(original.ROOT / "benchmarks/native/deny_adb_client.c"))
         self.created = []
@@ -51,6 +53,7 @@ class ResumeRecords(BootRecords):
         self.plan = dict(
             version=1, scope=resume.PLAN_SCOPE, source_root=str(original.ROOT),
             sources=self.admission["sources"], handoff_source=self.source_pin, review_source=self.review_pin,
+            operation_source=self.operation_pin,
             python=self.admission["python"], artifacts=self.admission["artifacts"],
             evidence=self.evidence, original_authority=self.original_authority,
             original_run=self.original_run, original_admission=self.original_admission,

@@ -269,7 +269,8 @@ def _resume_boot(admission_pin, *, owner_created=False):
     authority, plan = resume.read_authority(handoff["authority"])
     guest = admission["guest"]
     launch_inputs = (authority["plan"], authority["proposal"], plan["evidence"]["manifest"],
-                     plan["handoff_source"], plan["review_source"], plan["original_authority"],
+                     plan["handoff_source"], plan["review_source"], plan["operation_source"],
+                     plan["original_authority"],
                      plan["original_admission"], plan["original_run"], guest["proposal"], guest["authorization"])
     return pin, handoff, admission, plan["evidence"]["ledger"], launch_inputs
 

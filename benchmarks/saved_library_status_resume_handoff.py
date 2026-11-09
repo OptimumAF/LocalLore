@@ -61,7 +61,9 @@ def _canonical_run(pin):
 def _source():
     return dict(source_root=str(h.ROOT), sources=owner.source_bindings(),
                 handoff_source=env.binding(Path(__file__).resolve()),
-                review_source=env.binding(Path(review.__file__).resolve()), python=python_pins._python_bindings(),
+                review_source=env.binding(Path(review.__file__).resolve()),
+                operation_source=env.binding(Path(__file__).with_name("saved_library_status_resume_operation.py").resolve()),
+                python=python_pins._python_bindings(),
                 artifacts=artifacts.artifact_bindings())
 
 
@@ -76,7 +78,7 @@ def inspect_plan(manifest_pin, ledger_pin):
 
 
 def _check_plan(plan):
-    owner._obj(plan, ("version", "scope", "source_root", "sources", "handoff_source", "review_source",
+    owner._obj(plan, ("version", "scope", "source_root", "sources", "handoff_source", "review_source", "operation_source",
                       "python", "artifacts",
                       "evidence", *_HISTORY), "plan")
     _need(_same(plan["version"], 1) and plan["scope"] == PLAN_SCOPE, "plan")
@@ -141,6 +143,9 @@ def _approved_attempt(authority_pin, attempt_pin):
     return authority, plan
 
 
+approved_plan = _approved_attempt
+
+
 def _prepared(plan):
     proposal = _canonical_run(plan["original_run"])
     lock = h.LEDGER.with_name("admission.lock")
@@ -198,18 +203,25 @@ def _check_owner_output(owner_created):
         env.safe_path(OWNED_ROOT, directory=True)
 
 
-def verify_handoff(handoff_pin, admission_pin, *, owner_created=False):
-    """Replay the handoff at the parent or at its already dispatched worker."""
-    _check_owner_output(owner_created)
+def _handoff_value(handoff_pin, admission_pin):
     handoff = h.at(handoff_pin, HANDOFF)
     owner._obj(handoff, ("version", "scope", "authority", "attempt", "admission", "supervisor",
                          "began_ns", "until_ns"), "handoff")
     _need(_same(handoff["version"], 1) and handoff["scope"] == HANDOFF_SCOPE
           and _same(handoff["admission"], admission_pin), "handoff")
     owner._process(handoff["supervisor"])
-    h.check_launch_window(handoff["began_ns"], handoff["until_ns"])
-    _, plan = _approved_attempt(handoff["authority"], handoff["attempt"])
-    _need(handoff["supervisor"]["executable"] == plan["python"]["executable"]["path"], "identity")
+    return handoff
+
+
+def read_handoff(admission_pin, *, live=True):
+    pin, _ = h.read(HANDOFF)
+    handoff = _handoff_value(pin, admission_pin)
+    check = h.check_window if live else h.check_bounds
+    check(handoff["began_ns"], handoff["until_ns"])
+    return pin, handoff
+
+
+def _verify_admission(plan, admission_pin, authority_pin, attempt_pin):
     proposal = _prepared(plan)
     admission = owner.validate_admission(h.at(admission_pin, ADMISSION))
     guest = admission["guest"]
@@ -220,9 +232,25 @@ def verify_handoff(handoff_pin, admission_pin, *, owner_created=False):
                             run_scope=RUN_SCOPE)
     _need(_same(admission, _admission_value(plan, run, authorization, admission["run_id"])), "admission")
     owner.revalidate_inputs(admission)
-    for pin in (handoff_pin, admission_pin, handoff["authority"], handoff["attempt"], run, authorization,
-                plan["evidence"]["ledger"]):
+    for pin in (admission_pin, authority_pin, attempt_pin, run, authorization, plan["evidence"]["ledger"]):
         env.check_binding(pin)
+    return admission
+
+
+def verify_admission(admission_pin, authority_pin, attempt_pin):
+    _, plan = _approved_attempt(authority_pin, attempt_pin)
+    return _verify_admission(plan, admission_pin, authority_pin, attempt_pin)
+
+
+def verify_handoff(handoff_pin, admission_pin, *, owner_created=False):
+    """Replay the handoff at the parent or at its already dispatched worker."""
+    _check_owner_output(owner_created)
+    handoff = _handoff_value(handoff_pin, admission_pin)
+    h.check_launch_window(handoff["began_ns"], handoff["until_ns"])
+    _, plan = _approved_attempt(handoff["authority"], handoff["attempt"])
+    _need(handoff["supervisor"]["executable"] == plan["python"]["executable"]["path"], "identity")
+    admission = _verify_admission(plan, admission_pin, handoff["authority"], handoff["attempt"])
+    env.check_binding(handoff_pin)
     _check_owner_output(owner_created)
     h.check_launch_window(handoff["began_ns"], handoff["until_ns"])
     return handoff, admission

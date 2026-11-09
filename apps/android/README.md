@@ -62,7 +62,10 @@ preserves the original preparation and run proposal bytes. The owned
 runner checks the original preparation source and the current runtime
 source separately. It can consume the existing reservation only when the
 approved ledger bytes and prepared digest still match under the shared
-lock. A separate supervisor and fresh approval are required for a live run.
+lock. The [resume supervisor](../../benchmarks/saved_library_status_resume_operation.py)
+rechecks resources and ports before it dispatches the same saved-library
+test. It requires scope-aware process and storage closure replay. A live run
+requires fresh approval.
 
 ## Build and run
 

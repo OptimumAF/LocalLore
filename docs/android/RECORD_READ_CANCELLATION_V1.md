@@ -60,6 +60,18 @@ fresh callback target when the visible values match.
 
 This integrates the page action and clickable-node lifetime checks from
 [PR #336](https://github.com/OptimumAF/LocalLore/pull/336) with the owned
-cancellation path and event action rules above. Search draft and list scroll
-state keep their existing lifetimes. The historical verification on the
-separate branch remains attributed to that build.
+cancellation path and event action rules above. The historical verification
+on the separate branch remains attributed to that build.
+
+## Reading position and larger text
+
+A different story context, section, applied search, or page cursor starts at
+the top. Opening an event and returning to the same page keeps the list's
+scroll position. Editing the search field leaves the page in place until
+the search is applied.
+
+The section and paging controls use the available content width and text
+scale to choose one or two controls per row. Close and event Back remain
+outside the scrolling content. This brings the larger-text layout from
+[PR #401](https://github.com/OptimumAF/LocalLore/pull/401) into the same
+action scope as the record and event views.

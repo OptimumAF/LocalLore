@@ -130,7 +130,9 @@ receipt and known closure for all opened markers and streams. Each marker
 already attested as created must retain its bound root identity and report
 created with a closed marker handle. A Closed receipt cannot forget known
 markers or move its recheck count backward. A stopped scan can clear file
-rows and still attest closure of its known markers. Outer owner
+rows and still attest closure of its known markers. A malformed or thrown
+latest lease observation permits a cleanup attempt but cannot attest
+release. Outer owner
 postflight still audits partial output, untouched normal bytes and all
 temp files, including on refusal. Never reopen or adopt the roots.
 

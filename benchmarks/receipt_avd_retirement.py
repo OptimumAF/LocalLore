@@ -33,7 +33,9 @@ CLEANUP_KEYS = frozenset((
     'process_handles_closed', 'server_output_capture_complete', 'server_pipes_closed',
     'server_process_handle_closed', 'server_terminate_attempted', 'server_wait_completed'))
 PROTOCOLS = frozenset(('owned-emulator-target-v1', 'owned-emulator-restart-target-v1',
-                       'owned-emulator-archive-ui-v1', 'owned-emulator-record-ui-v1'))
+                       'owned-emulator-archive-ui-v1', 'owned-emulator-record-ui-v1',
+                       'owned-emulator-player-presentation-ui-v1',
+                       'owned-emulator-presentation-process-v1'))
 
 
 class RetirementRefused(ValueError):

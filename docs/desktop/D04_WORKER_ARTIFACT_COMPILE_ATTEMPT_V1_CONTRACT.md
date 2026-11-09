@@ -10,8 +10,8 @@ retry path.
 
 The future admitted build must create one self-contained
 `worker_artifact_compile_attempt_v1.mjs` on physical D:. Bundle this
-module, one literal reviewed profile, the independently admitted input
-and writer checks, and a fixed bootstrap. Use the already pinned
+module, one literal reviewed profile and check manifest, the independent
+writer check, and a fixed bootstrap. Use the already pinned
 esbuild version in the desktop dependency lock, Node ESM format, and
 allow only Node built-ins as external imports. Review the bundle
 inputs and exact output before holding it in the native parent.
@@ -20,8 +20,8 @@ No bundle or fixture was created for this source slice.
 
 The exact private profile contains config, authority, environment,
 node, helper, entry, evidenceRoot, outputParentIdentity, outputMaxBytes,
-spend, writerPolicy and namespace. Use the existing recipe config and
-authority. Node and helper are exact path, bytes and SHA-256 pins.
+spend, writerPolicy, namespace, inputCatalog and checkManifest. Use the
+existing recipe config and authority. Node and helper are exact path, bytes and SHA-256 pins.
 Entry is the intended absolute path of the final bundled file.
 Environment is windows, path, include and temp. PATH and INCLUDE
 are ordered canonical semicolon-separated path lists. All project
@@ -42,13 +42,15 @@ a digest input to itself. The authority and independent guard checks
 are not generated from placeholder strings or future expected results.
 
 The fixed bootstrap calls `runWorkerArtifactCompileAttemptV1(profile,
-owner, signal)` once. Its owner has exactly two private methods,
-`check(request, signal, admitted)` and
-`excludeWriters(request, admitted)`. The last argument is the frozen,
-verified scope, context, ready hash, ready record and normalized profile.
-Check must produce fresh, actual #408 input and storage checks. Exclusion
-must independently confirm outside-writer exclusion while the Node
-observer is still alive. It may not substitute a configured digest or
+manifest, excludeWriters, signal)` once. The attempt constructs the
+existing production input and storage check directly. It verifies the
+native input catalog and full Node check manifest against the profile
+before reading READY or the entry file. The profile scope binds both
+digests. The bootstrap cannot substitute a check or supply a cached
+receipt. The remaining private callback, `excludeWriters(request,
+admitted)`, receives the frozen scope, context, ready hash, ready record
+and profile. It must independently confirm outside-writer exclusion
+while the Node observer is still alive. It may not substitute a configured digest or
 wait for outer Job zero while that same observer is alive. The native
 parent verifies the outer Job after Node exits. Do not interpret the
 parent's closed unused stdin as cancellation.
@@ -92,12 +94,15 @@ the native parent. A pre-ready refusal must produce a bounded failure
 without creating any candidate roots. The parent retains startup and
 closure evidence even if Node dies before a terminal record exists.
 
-The source-only FIRST file contains twelve in-memory groups for profile
-and ready validation. After separate admission, run it with the exact
-pinned Node 24.22.1 on its fixed source path. Expected stdout is one
-compact JSON line with kind compile_attempt_first_v1 and groups 12.
-This does not exercise native readiness I/O, Win32 Job behavior, the
-helper, compiler or actual outside-writer checks. The bundle and
+The source-only FIRST file contains seventeen in-memory groups for
+profile, READY and manifest validation. The manifest groups cover a
+fixed UTF-8 digest, canonical key order, semantic changes that leave the
+native catalog unchanged, and refusal at the actual attempt entry before
+filesystem work. After separate admission, run it with the exact pinned
+Node 24.22.1 on its fixed source path. Expected stdout is one compact JSON
+line with kind `compile_attempt_first_v1` and `groups: 17`. These checks
+remain unrun. Native readiness I/O, Win32 Job behavior, the helper,
+compiler and actual outside-writer checks require separate evidence. The bundle and
 native entry still need a bounded synthetic qualification, then a
 separate real compiler admission. LINK, artifact adoption, model
 execution and desktop qualification remain separate.

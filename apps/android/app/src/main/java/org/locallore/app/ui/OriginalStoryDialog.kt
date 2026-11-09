@@ -115,7 +115,9 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
                         key(OriginalConsent(review)) { OriginalAction("Create",editable,"original-create") { onCreate(state,review) } }
                     }
                 }
-                OriginalAction(if(state.closing)"Finishing…" else "Cancel",!state.closing,"original-cancel",onDismiss)
+                key(OriginalConsent(state)) {
+                    OriginalAction(if(state.closing)"Finishing…" else "Cancel",!state.closing,"original-cancel",onDismiss)
+                }
             }
         }
     }

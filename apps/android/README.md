@@ -11,6 +11,22 @@ palette on dark green surfaces. This changes presentation only. The
 [system-theme verification report](../../docs/android/SYSTEM_THEME_VERIFICATION_2026-10-30.md)
 records host checks and the Android visual/accessibility checks still pending.
 
+Story Record gives each section and paging control its own row when the
+available width cannot fit two controls at the current text scale. The record
+body scrolls while Close stays in view. `StoryRecordLargeTextTest` exercises
+the dialog at 320 × 420 dp with standard and 2× text.
+
+To build and audit its isolated APK pair, run this from the repository root:
+
+```powershell
+python scripts/check.py android --archive-verification --offline
+```
+
+Use the existing `org.locallore.app.archiveverify` product and its `.test`
+package for a guarded Android run. Select only
+`org.locallore.app.StoryRecordLargeTextTest#narrowRecordReflowsAtDoubleTextSizeAndKeepsActionsReachable`
+on a target with at least 320 dp of available width.
+
 The [native story-scene adoption](../../docs/native/ANDROID_STORY_SCENE_V1_VERIFICATION_2026-10-31.md)
 selects the existing starter or authored scene recipe from each validated Rust
 seed when the external local-inference owner is configured. Kotlin and model

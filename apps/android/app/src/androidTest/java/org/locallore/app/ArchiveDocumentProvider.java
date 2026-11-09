@@ -32,7 +32,7 @@ public final class ArchiveDocumentProvider extends ContentProvider {
     private static final int SLICE_LENGTH = 4;
     private static final byte[] SLICE_FILE = {0x71, 0x72, 0x73, 0, 0x41, (byte) 0xff, 0x42, 0x74, 0x75};
     private static final List<String> CASES = Arrays.asList("empty", "nonempty", "exact_limit", "overflow",
-        "null", "failure", "read_only", "blockedopen", "cancellableopen", "slice");
+        "null", "failure", "read_only", "blockedopen", "cancellableopen", "slice", "cancellablewrite");
     private final AtomicInteger opened = new AtomicInteger(), closed = new AtomicInteger(), started = new AtomicInteger(),
         mainOpens = new AtomicInteger(), rw = new AtomicInteger(), reads = new AtomicInteger(), forbiddenModes = new AtomicInteger(),
         blocked = new AtomicInteger(), cancelledOpens = new AtomicInteger();
@@ -65,7 +65,9 @@ public final class ArchiveDocumentProvider extends ContentProvider {
     }
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode, CancellationSignal signal) throws FileNotFoundException {
         String name = caseName(uri);
-        if (!"r".equals(mode) && (isPlatformReadCase(name) || !"rw".equals(mode))) {
+        boolean cancellableWrite = "cancellablewrite".equals(name);
+        if ((cancellableWrite && !"rw".equals(mode)) ||
+                (!"r".equals(mode) && (isPlatformReadCase(name) || !"rw".equals(mode)))) {
             forbiddenModes.incrementAndGet(); throw new FileNotFoundException("Unsupported synthetic mode");
         }
         started.incrementAndGet();
@@ -76,6 +78,10 @@ public final class ArchiveDocumentProvider extends ContentProvider {
         if ("cancellableopen".equals(name)) {
             awaitCancellationOrRelease(signal);
             return null;
+        }
+        if (cancellableWrite) {
+            // Return a late destination so the client must close it without writing.
+            awaitCancellationOrRelease(signal);
         }
         if ("blockedopen".equals(name)) {
             blocked.incrementAndGet();
@@ -92,6 +98,7 @@ public final class ArchiveDocumentProvider extends ContentProvider {
         try {
             File file = fixture(name);
             if (!file.exists()) initialize(file, name);
+            if (cancellableWrite && file.length() != 0) throw new IOException("Synthetic export fixture is not empty");
             int flags = "r".equals(mode) || "read_only".equals(name)
                 ? ParcelFileDescriptor.MODE_READ_ONLY : ParcelFileDescriptor.MODE_READ_WRITE;
             // Deliberately no MODE_TRUNCATE or MODE_CREATE on an opened destination.

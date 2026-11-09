@@ -50,6 +50,22 @@ Each test has a 90-second limit within the 20-minute controller budget.
 The controller keeps the command records in order, refuses any mismatch or
 uncertain observer closure, and replays the same checks from the saved bytes.
 
-The profile has no preparation, boot or service entry point. Android execution
-requires a separately authorized guest handoff under the
-[shared storage contract](RECEIPT_AVD_STORAGE.md).
+## Preparation-only gate
+
+`benchmarks/archive_provider_platform_preparation.py` uses the fixed SDK26
+experiment parent and the [shared storage contract](RECEIPT_AVD_STORAGE.md).
+Its plan records the archived APKs, source and interpreter pins and the
+shared API 35 preparation proposal for an 8 GiB, four-core guest.
+Capacity preview reads the shared ledger and grants no reservation. A
+blocked preview skips the host resource checks.
+
+The prepare entry point requires an exact preparation-only authority file
+and its SHA-256. The reviewed proposal must identify the exact plan and
+ledger digests. Before calling shared preparation, the guard checks the
+current inputs and writes an exclusive one-use claim. The shared path checks
+the ledger again under lock before reserving 40 GiB. A failed attempt retains
+its claim and records.
+
+Success requires the unbooted prepared receipt, worker output and closure
+proof, and matching prepared ledger entry. This scope ends at preparation.
+Boot and Android execution still require a separately authorized owner handoff.

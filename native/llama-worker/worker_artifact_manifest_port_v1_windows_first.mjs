@@ -77,7 +77,8 @@ async function withHandle(path, flags, use, markUnknown) {
 
 async function writeFixture(path, content, markUnknown) {
   const data = Buffer.from(content, 'ascii');
-  await withHandle(path, 'wx', async handle => {
+  // The exclusive handle also needs read access for the held metadata query.
+  await withHandle(path, 'wx+', async handle => {
     const result = await handle.write(data, 0, data.length, 0);
     requireProof(result.bytesWritten === data.length);
     await handle.sync();

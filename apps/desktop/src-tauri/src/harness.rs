@@ -228,7 +228,7 @@ const SELECTED_SCENE_LABELS: &[&str] = &[
     "selected-scene-sable",
     "selected-scene-guard",
     "selected-scene-guard-results",
-    "selected-scene-native-unavailable",
+    "selected-scene-native-consent-denied",
     "selected-scene-unknown",
     "selected-scene-recovered",
     "selected-scene-consent-pending",

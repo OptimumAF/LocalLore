@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [Player state UI qualification harness](docs/native/PLAYER_PROFILE_UI_V1.md)
+binds fourteen fixed chat, inventory and self-profile tests to PR #333's exact
+APK pair. [Host verification](docs/native/PLAYER_PROFILE_UI_VERIFICATION_2026-11-01.md)
+passes 47 new checks and 26 existing regressions in separate cohorts; actual
+Android execution remains unrun and requires matching execution authority.
+
 The [SDK12 inventory and chat UI profile](docs/native/PLAYER_INVENTORY_UI_V1.md)
 binds eleven methods to the separately frozen B59 inventory APK pair, with
 a fixed byte-attestation guard, separate ownership records and joined cleanup.

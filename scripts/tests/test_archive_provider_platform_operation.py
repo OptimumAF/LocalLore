@@ -129,6 +129,8 @@ class ArchiveProviderOperationTests(unittest.TestCase):
 
     def test_supervisor_spends_once_and_requires_terminal_replay(self):
         completion = self.save(self.root / "verified", {"synthetic": "completion"})
+        evidence = dict(started={"synthetic": "worker"}, handoff={"synthetic": "handoff"},
+                        observed_owner={"synthetic": "owner"}, capture={"synthetic": "capture"})
         terminal = {"synthetic": "supervised terminal"}
 
         def supervise(command, raw, capture, seconds, started):
@@ -146,11 +148,12 @@ class ArchiveProviderOperationTests(unittest.TestCase):
             return terminal
 
         with (patch.object(env, "supervise_operation", side_effect=supervise) as watchdog,
-              patch.object(operation, "_verify_terminal", return_value=completion) as replay):
+              patch.object(operation, "_verify_terminal", return_value=dict(completion=completion, **evidence)) as replay):
             result = self.execute()
             self.assertIs(result["passed"], True)
             self.assertIs(result["feature_acceptance"], False)
             self.assertEqual(result["completion"], completion)
+            self.assertEqual(result["evidence"], evidence)
             self.assertEqual(env.read_json(operation.RESULT), result)
             with self.assertRaisesRegex(env.EnvironmentRefused, "^already_used$"):
                 self.execute()
@@ -166,6 +169,7 @@ class ArchiveProviderOperationTests(unittest.TestCase):
             self.assertIs(result["passed"], False)
             self.assertIs(result["feature_acceptance"], False)
             self.assertIsNone(result["completion"])
+            self.assertIsNone(result["evidence"])
             self.assertEqual(result["supervisor"], env.binding(operation.TERMINAL))
             self.assertEqual(result["attempt"], env.binding(handoff.ATTEMPT))
             self.assertEqual(env.read_json(operation.TERMINAL), terminal)
@@ -188,7 +192,7 @@ class ArchiveProviderOperationTests(unittest.TestCase):
             terminal[channel + "_bytes"] = len(raw)
         terminal_pin = self.save(operation.TERMINAL, terminal)
         handoff_pin = self.save(candidate.HANDOFF, operation._handoff(request, self.worker))
-        self.save(operation.OWNER_STARTED, dict(request=request_pin, handoff=handoff_pin, owner=self.owner))
+        observed = self.save(operation.OWNER_STARTED, dict(request=request_pin, handoff=handoff_pin, owner=self.owner))
         evidence = {name: self.save(self.root / name, {"synthetic": name})
                     for name in ("controller", "owner-result", "closure", "ledger")}
         evidence["owner"] = evidence.pop("owner-result")
@@ -199,8 +203,11 @@ class ArchiveProviderOperationTests(unittest.TestCase):
 
         with (patch.object(handoff, "read_approval", return_value=approved),
               patch.object(operation.closure, "verify_result", return_value=evidence) as replay):
-            self.assertEqual(operation._verify_terminal(request_pin, request, self.worker, terminal_pin, terminal),
-                             completion)
+            replayed = operation._verify_terminal(request_pin, request, self.worker, terminal_pin, terminal)
+        capture = {channel: env.binding(operation.CAPTURE / ("owner-" + channel + "-v1.bin"))
+                   for channel in ("stdout", "stderr")}
+        self.assertEqual(replayed, dict(completion=completion, started=env.binding(operation.STARTED),
+                                        handoff=handoff_pin, observed_owner=observed, capture=capture))
         replay.assert_called_once_with(self.admission_pin, self.owner)
         self.popen.assert_not_called()
 
@@ -360,7 +367,7 @@ class ArchiveProviderOperationTests(unittest.TestCase):
         err = operation.CAPTURE / "owner-stderr-v1.bin"
         out.write_bytes(stdout)
         err.write_bytes(b"")
-        operation._verify_capture(terminal)
+        self.assertEqual(operation._verify_capture(terminal), dict(stdout=env.binding(out), stderr=env.binding(err)))
 
         for changed, suffix in ((stdout.replace(b"stop_requested", b"stop_spoofed!!"), b""),
                                 (stdout + b"\n", b""),

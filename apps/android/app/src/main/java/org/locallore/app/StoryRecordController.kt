@@ -102,6 +102,12 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
         val detail = current.eventDetail ?: return
         if (!detail.loading) readEvent(current, detail.reference, detail.scopedReference)
     }
+    fun retryEvent(expected: StoryRecordEventDetail) {
+        val current = mutable.value
+        val detail = current.eventDetail ?: return
+        if (detail === expected && !detail.loading && detail.problem != null)
+            readEvent(current, detail.reference, detail.scopedReference)
+    }
     fun openScopedEvent(reference: StoryRecordScopedEvent) {
         val current = mutable.value
         if (current.eventDetail == null) readEvent(current, reference.sequence, reference)
@@ -124,7 +130,10 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
             version = if (reference == null) 1 else 2)
         val ticket = ++generation
         pending?.cancel()
-        publish(current.copy(eventDetail = StoryRecordEventDetail(sequence, scopedReference = reference)))
+        // A retry replaces the rendered result, but stays in the same open detail.
+        val detail = StoryRecordEventDetail(sequence, scopedReference = reference,
+            viewToken = current.eventDetail?.viewToken ?: Any(), readId = ticket)
+        publish(current.copy(eventDetail = detail))
         launchRead(ticket, detail = true) {
             try {
                 val page = reader.readStoryRecord(query)
@@ -138,16 +147,17 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                 validateEntry(entry, query, page.storyTime)
                 check(entry.origin == StoryRecordOrigin.RECORDED_OBSERVATION && entry.event?.sequence == sequence)
                 check(entry.event?.originalScope == reference?.originalScope)
-                publish(mutable.value.copy(eventDetail = StoryRecordEventDetail(sequence, loading = false,
-                    entry = freeze(entry), scopedReference = reference)))
+                publish(mutable.value.copy(eventDetail = detail.copy(loading = false, entry = freeze(entry))))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
                 if (!disposed && ticket == generation) publish(mutable.value.copy(
-                    eventDetail = StoryRecordEventDetail(sequence, loading = false,
-                        problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE,
-                        scopedReference = reference)))
+                    eventDetail = detail.copy(loading = false,
+                        problem = (failure as? StoryRecordFailure)?.problem ?: StoryRecordProblem.INVALID_RESPONSE)))
             }
         }
+    }
+    fun back(expected: StoryRecordEventDetail) {
+        if (mutable.value.eventDetail?.viewToken === expected.viewToken) back()
     }
     fun back() {
         if (mutable.value.eventDetail == null) return
@@ -209,11 +219,11 @@ internal class StoryRecordController(private val reader: StoryRecordReader, priv
                         val current = mutable.value
                         if (detail) {
                             current.eventDetail?.takeIf { it.loading }?.let {
-                                mutable.value = current.copy(eventDetail = it.copy(loading = false,
-                                    entry = null, problem = StoryRecordProblem.UNAVAILABLE))
+                                publish(current.copy(eventDetail = it.copy(loading = false,
+                                    entry = null, problem = StoryRecordProblem.UNAVAILABLE)))
                             }
                         } else if (current.loading) {
-                            mutable.value = current.copy(loading = false, problem = StoryRecordProblem.UNAVAILABLE)
+                            publish(current.copy(loading = false, problem = StoryRecordProblem.UNAVAILABLE))
                         }
                     }
                     if (pending === job) pending = null

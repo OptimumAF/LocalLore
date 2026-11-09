@@ -519,6 +519,8 @@ class ShellViewModel internal constructor(
         if (isCurrentRecordView(rendered)) retryRecordEvent()
     }
 
+    internal fun backToStoryRecord(expected: StoryRecordEventDetail) = recordController.back(expected)
+    internal fun retryRecordEvent(expected: StoryRecordEventDetail) = recordController.retryEvent(expected)
     fun closeDiagnostics() { diagnosticController.dismiss(); synchronizeForkContext() }
     fun closeDiagnostics(review: DiagnosticsReview) {
         if (diagnosticController.dismiss(review)) synchronizeForkContext()

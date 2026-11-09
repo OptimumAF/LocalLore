@@ -509,6 +509,30 @@ export async function runWorkerArtifactOutputRootsSelfchecksV1(api) {
     stopped(result);
     assert.equal(result.roots[0].markerClosure, 'unknown');
     assert.equal((await lease.close()).roots[0].markerClosure, 'unknown');
+    for (const reply of [undefined, null, true, 'private path', Symbol('private path')]) {
+      const uncertain = fixture(create);
+      uncertain.hooks.set('openMarker', normal => {
+        normal();
+        return reply;
+      });
+      const active = uncertain.create();
+      const refused = await active.prepare();
+      stopped(refused);
+      assert.equal(refused.roots[0].creation, 'created');
+      assert.equal(refused.roots[0].marker, 'unknown');
+      assert.equal(refused.roots[0].markerClosure, 'unknown');
+      assert.equal(refused.roots[1].creation, 'unattempted');
+      assert.equal(refused.observedBytes, '0');
+      eq(only(uncertain, 'mkdir'), [uncertain.a.path]);
+      eq(only(uncertain, 'openMarker'), [uncertain.a.markerPath]);
+      for (const key of ['markerWrite', 'markerSync', 'markerClose', 'openDirectory']) eq(only(uncertain, key), []);
+      assert(!JSON.stringify(refused).includes('private path'));
+      await assert.rejects(active.prepare(), { message: STATE });
+      const closed = await active.close();
+      assert.equal(closed.roots[0].markerClosure, 'unknown');
+      eq(only(uncertain, 'markerClose'), []);
+      assert.equal(uncertain.nodes.get(uncertain.a.markerPath).content.length, 0);
+    }
   });
 
   add('R12', async () => {

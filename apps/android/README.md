@@ -38,6 +38,8 @@ The saved-story screen shows the empty-library message after a confirmed
 empty catalog. While opening, recovering, or changing the library, it uses the
 existing workflow status. A confirmed catalog with stories and no selected
 story directs the player to Saved stories.
+If opening or recovering the local library returns no snapshot, the shell
+keeps the last confirmed view and offers recovery.
 
 ## Build and run
 

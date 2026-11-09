@@ -350,7 +350,7 @@ class ShellViewModel internal constructor(
         }
         if (gateway.durable) {
             publish(ShellState(busy = true, persistent = true, notice = "Opening local saved stories…"))
-            savedOperation("Saved story resumed. Uncommitted responses remain outside accepted history.") { gateway.initialize() }
+            savedOperation("Local saved library opened.") { checkNotNull(gateway.initialize()) }
         }
     }
 
@@ -417,7 +417,8 @@ class ShellViewModel internal constructor(
         if (!disposed && !workflowBlocksActions() && !before.busy && !before.archiveActive &&
             !before.deletionActive && !before.localRestartRequired && gateway.durable) {
             savedOperation("Saved progress recovered.") {
-                if (before.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+                val saved = if (before.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+                checkNotNull(saved)
             }
         }
     }

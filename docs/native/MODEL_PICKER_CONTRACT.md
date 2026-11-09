@@ -91,6 +91,12 @@ It verifies the command result and independently replays guest and private
 ADB closure before reporting success. A preparation failure, refusal or
 uncertain closure retains the attempt evidence and blocks a retry.
 
+The [readiness inspector](../../benchmarks/model_picker_action_readiness.py)
+checks the fixed plan and current v2 ledger by their SHA-256 pins. It reports
+advisory storage, host capacity and port facts while authority, attempt and
+guest paths are absent. Preparation and boot still require a separate approval
+and fresh guarded admission.
+
 ## Real document provider and ownership
 
 The conditional TEST APK alone declares `ModelPickerDocumentsProvider` and its

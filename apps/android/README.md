@@ -212,6 +212,16 @@ fixed 26-command capture to begin. Boot records live in `boot-readiness-v1`
 and the version 2 controller result binds and replays them separately. The
 first command of the fixed capture still checks the property again.
 
+The guarded SDK24 owner accepts one sealed activation of the fixed prepared
+guest. Before launching, it verifies the exact admission, approval, prepared
+ledger snapshot and live supervisor. The retained transition compares that
+snapshot under the shared ledger lock. The owned worker runs the controller
+once and requests its normal shutdown. The final activation result requires
+independent replay of the test, qualified owner cleanup and the closed ledger
+entry. An uncertain controller leaves the full reservation charged. A live
+run requires an approved preparation and a separately authorized activation.
+
+
 Parent-retirement verification has its own debug identity and project cache:
 
 ```powershell

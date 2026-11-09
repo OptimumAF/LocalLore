@@ -619,54 +619,87 @@ fn actual_scene4_paired_and_rollout_noninitial_prepare_start_and_observer_reads_
 }
 
 #[test]
-fn source4_native_lane_refuses_before_consent_or_target_with_another_real_model_owner() {
+fn source4_native_prepare_obeys_consent_without_reserving_or_creating_a_target() {
     for kind in [
         producer::ComparisonKind::PairedSnapshots,
         producer::ComparisonKind::ContinuousRollout,
     ] {
         let f = fixture4(kind);
         let before = inventory(f.source());
-        let client = uuid().unwrap();
-        let mut input = source_input4(&f, &client, f.source());
-        input.lane = SelectedInputLane::ApprovedNative;
-        let token = input.run_token.clone();
-        let reader = input.reader_client_id.clone();
         let owner = f.models.reserve_evaluation().unwrap();
-        let calls = Arc::new(AtomicUsize::new(0));
-        let seen = calls.clone();
-        f.manager
-            .selected_prepare(&f.lease, &f.models, f.epoch, true, input, move |_| {
-                seen.fetch_add(1, Ordering::SeqCst);
-                Ok(true)
-            })
-            .unwrap();
-        let done = f.done(&client);
-        join4(&f);
-        assert_eq!(done["error"], "NativeUnavailable");
-        assert_eq!(calls.load(Ordering::SeqCst), 0);
-        for key in ["plan_token", "run_token", "binding", "run_id", "prepared"] {
-            assert!(done[key].is_null());
+        let model_before = f.models.status().unwrap();
+
+        for permitted in [false, true] {
+            let client = uuid().unwrap();
+            let mut input = source_input4(&f, &client, f.source());
+            input.lane = SelectedInputLane::ApprovedNative;
+            let token = input.run_token.clone();
+            let reader = input.reader_client_id.clone();
+            let binding = input.binding.clone();
+            let turn = input.turn_id.clone();
+            let calls = Arc::new(AtomicUsize::new(0));
+            let seen = calls.clone();
+            let constructions = serde_json::to_value(arm_descriptors()).unwrap();
+            let expected_constructions = constructions.clone();
+            f.manager
+                .selected_prepare(&f.lease, &f.models, f.epoch, true, input, move |metadata| {
+                    seen.fetch_add(1, Ordering::SeqCst);
+                    assert_eq!(metadata["version"], 4);
+                    assert_eq!(metadata["kind"], "selected_prepared");
+                    assert_eq!(metadata["source_protocol_version"], 4);
+                    assert_eq!(metadata["source_binding"], binding);
+                    assert_eq!(metadata["lane"], "native_selected_case");
+                    assert_eq!(metadata["selection"]["turn"], turn);
+                    assert_eq!(metadata["selection"]["index"], SELECTED_INDEX);
+                    assert_eq!(metadata["selection"]["clicked_arm"], "right");
+                    assert_eq!(metadata["constructions"], expected_constructions);
+                    for key in ["request", "profile", "generation_grant", "report"] {
+                        assert!(metadata.get(key).is_none(), "{key}");
+                    }
+                    Ok(permitted)
+                })
+                .unwrap();
+            let done = f.done(&client);
+            join4(&f);
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            assert_eq!(done["cleanup_required"], false);
+            assert!(done["run_token"].is_null() && done["run_id"].is_null());
+            if permitted {
+                assert_eq!(done["phase"], "prepared", "{done}");
+                assert!(done["error"].is_null());
+                assert!(done["plan_token"].as_str().is_some());
+                assert_eq!(done["prepared"]["version"], 4);
+                assert_eq!(done["prepared"]["lane"], "native_selected_case");
+                assert_eq!(done["prepared"]["constructions"], constructions);
+            } else {
+                assert_eq!(done["phase"], "failed", "{done}");
+                assert_eq!(done["error"], "Cancelled");
+                for key in ["plan_token", "binding", "prepared"] {
+                    assert!(done[key].is_null(), "{key}: {done}");
+                }
+            }
+            assert!(catalog4(&f)["runs"].as_array().unwrap().is_empty());
+            assert!(!f.manager.selected_root().exists());
+            assert_eq!(
+                f.manager
+                    .comparison_source(&f.lease, f.epoch, true, &token)
+                    .unwrap_err(),
+                "UnknownEvaluationRun"
+            );
+            assert_eq!(
+                f.manager
+                    .comparison_close(&f.lease, f.epoch, &reader, Some(&token))
+                    .unwrap()["phase"],
+                "closed"
+            );
+            assert_eq!(f.models.status().unwrap(), model_before);
+            assert!(matches!(f.models.reserve_evaluation(), Err(error) if error == "Busy"));
+            assert!(!f.source().parent().unwrap().join("models").exists());
+            close4(&f, &client);
+            source_released4(&f, &before);
         }
-        assert!(catalog4(&f)["runs"].as_array().unwrap().is_empty());
-        assert!(!f.manager.selected_root().exists());
-        assert_eq!(
-            f.manager
-                .comparison_source(&f.lease, f.epoch, true, &token)
-                .unwrap_err(),
-            "UnknownEvaluationRun"
-        );
-        assert_eq!(
-            f.manager
-                .comparison_close(&f.lease, f.epoch, &reader, Some(&token))
-                .unwrap()["phase"],
-            "closed"
-        );
-        assert!(matches!(f.models.reserve_evaluation(), Err(error) if error == "Busy"));
-        assert!(!f.source().parent().unwrap().join("models").exists());
         drop(owner);
-        close4(&f, &client);
         assert!(f.models.cleanup_complete());
-        source_released4(&f, &before);
     }
 }
 

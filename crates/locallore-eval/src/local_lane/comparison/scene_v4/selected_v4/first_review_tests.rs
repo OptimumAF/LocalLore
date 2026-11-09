@@ -1140,6 +1140,49 @@ fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current
             lane: SelectedLane::ScriptedBaseline }, &Cancellation::default())),
         "SelectedLaneMismatch");
     drop(opened);
+
+    // The desktop index must join to the complete manifest-derived prepared
+    // projection and its original client before it can obtain the same read.
+    let client = manifest["client_id"].as_str().unwrap();
+    let mut arms = manifest["source_inputs"].clone();
+    for arm in arms.as_array_mut().unwrap() {
+        assert!(arm.as_object_mut().unwrap().remove("request").is_some());
+    }
+    let prepared = json!({
+        "version":4, "kind":"selected_prepared", "source_protocol_version":4,
+        "binding":manifest["binding"], "source_binding":manifest["source_binding"],
+        "lane":manifest["lane"], "selection":manifest["selection"],
+        "constructions":manifest["arms"], "arms":arms
+    });
+    let indexed = super::desktop_read::open_indexed_read_only(&dir, client, &prepared).unwrap();
+    assert_eq!(super::desktop_read::summary(&indexed, true).unwrap(), summary);
+    drop(indexed);
+    assert_eq!(
+        refused(super::desktop_read::open_indexed_read_only(&dir, "other-client", &prepared)),
+        "SnapshotMismatch"
+    );
+    for fault in 0..11 {
+        let mut drift = prepared.clone();
+        match fault {
+            0 => drift["binding"] = json!("b".repeat(64)),
+            1 => drift["source_binding"] = json!("c".repeat(64)),
+            2 => drift["selection"]["clicked_arm"] = json!("right"),
+            3 => drift["arms"][0]["prefix_sha256"] = json!("d".repeat(64)),
+            4 => drift["arms"][1]["input_semantic_sha256"] = json!("e".repeat(64)),
+            5 => drift["arms"][0]["before_head"] = json!(1),
+            6 => drift["arms"][1]["scope"]["branch"] = json!("other-branch"),
+            7 => drift["constructions"] = json!(v4::arm_descriptors()),
+            8 => drift["lane"] = json!("scripted_selected_case"),
+            9 => drift["source_protocol_version"] = json!(3),
+            _ => drift["execution_available"] = json!(true),
+        }
+        assert_ne!(drift, prepared, "{fault}");
+        assert_eq!(
+            refused(super::desktop_read::open_indexed_read_only(&dir, client, &drift)),
+            "SnapshotMismatch",
+            "{fault}"
+        );
+    }
     assert!(fs::read(&file).unwrap() == original);
     assert!(fs::read(dir.join("run.lock")).unwrap().is_empty());
     let mut names = fs::read_dir(&dir).unwrap().map(|entry|

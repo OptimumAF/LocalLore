@@ -169,18 +169,23 @@ def run(admission_binding, running_binding):
         live = client.LiveOwnedCombinedRecordUiTarget(admission_binding, running_binding)
         cap = client.OwnedCombinedRecordUiSdkCapture(output / "clients", SECONDS, live)
         result["caller"], result["session"] = live.caller, cap.session_binding
+        until = min(until, cap.until)
+        cap.until = until
         boot_until = min(until, time.monotonic() + 120)
 
         def command(argv, label, *, source=None, seconds=15, limit=131072):
             deadline = boot_until if label == "boot" else until
             budget = min(seconds, _remaining(deadline))
             previous = cap.count
+            # Include pre-command proof work in the controller's absolute deadline.
+            cap.until = deadline
             try:
                 if source is None:
                     raw = cap.shell(argv, label, seconds=budget, cap=limit)
                 else:
                     raw = cap.stream(argv, source, label, seconds=budget, cap=limit)
             finally:
+                cap.until = until
                 if cap.count == previous + 1:
                     path = cap.directory / f"command-{cap.count:04d}.json"
                     if os.path.lexists(path):
@@ -195,8 +200,8 @@ def run(admission_binding, running_binding):
             return raw
 
         def pause():
-            _need(_remaining(boot_until) > 2, "deadline")
             live.guard(min_seconds=2)
+            _need(_remaining(boot_until) > 2, "deadline")
             time.sleep(2)
 
         journey = _journey(command, pause, admission["artifacts"])

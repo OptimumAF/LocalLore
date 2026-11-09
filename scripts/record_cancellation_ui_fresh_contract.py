@@ -9,10 +9,10 @@ import json
 from pathlib import Path, PureWindowsPath
 import re
 
-SOURCE=Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-profile-v1/candidate-source-v1')
-SOURCE_HEAD='287b158e72ed5c0811a2e7e433e73ada4f4d6c52'
-SOURCE_TREE='81dae478d06f2da8be5f14a693f276318fe0c4ac'
-OUT=Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-fresh-v1')
+SOURCE = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1/frozen-profile-source-v1')
+SOURCE_HEAD = 'c89b9e4f73a5481a1ba5afd9808821e023d1cd0c'
+SOURCE_TREE = 'd29c520f60c2f21204fef0972d25f7d322ca368a'
+OUT = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1')
 OPERATOR_ROOT=OUT/'candidate-source-v1'
 OPERATOR = OPERATOR_ROOT/'scripts/run_record_cancellation_ui_fresh.py'
 CONTRACT = OPERATOR_ROOT/'scripts/record_cancellation_ui_fresh_contract.py'
@@ -23,18 +23,18 @@ ATTEMPT = LIVE/'attempt-v1.json'
 REGISTRY = Path('D:/Dev/_Migration/LocalLore-AVD-Storage')
 GUEST = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-v1/avd-v1')
 RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-runtime-v1')
-CONTROLS=Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-profile-v1/run-controls-v1')
+CONTROLS = OUT/'run-controls-v1'
 RUN_PROPOSAL = LIVE/'run-proposal-v1.json'
 RUN_AUTHORIZATION = LIVE/'run-authorization-v1.json'
 PREPARE_AUTHORIZATION = LIVE/'prepare-authorization-v1.json'
 ADMISSION = RUNTIME/'admission-v1.json'
 INPUT = CONTROLS/'run-input-v1.json'
-HANDOFF={'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-fresh-v1\\inspection-v1\\frozen-inputs-v1.json', 'bytes': 9074, 'sha256': '8ee6bd191b3b996c79aae877a125b2b2255ad4e61316ad1baae88cd477b1a40d'}
+HANDOFF = {'bytes': 9255, 'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\inspection-v1\\frozen-inputs-v1.json', 'sha256': '50e86854bcb5aeb3eb4c5c002e42c40bcf86285e869d8b99a51f95b8b73a0b7b'}
 STATIC = dict(path=str(Path('D:/Dev/Experiments/LocalLore/2026-11-01-recovered-owner-handoff-v1/frozen-inputs-v3/static-installed-inputs-v1.json')),
     bytes=3678,sha256='d2ca3f1ef02ed01169b84bb62090f663aca610db159e8db97606d1e1becccf99')
-SOURCE_PUBLICATION={'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-profile-v1\\final-source-readback-v1.json', 'bytes': 747334, 'sha256': 'b6202c3a4b06d70845c28cedf52ec68140da3a2dc482b6573221183d2de11db5'}
+SOURCE_PUBLICATION = {'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\profile-source-publication-v1.json', 'bytes': 753002, 'sha256': 'cab63a069e95ecc2fed25e4064bc67030d06cf4b744df39a1441100de659870d'}
 READY=OUT/'inspection-v1'
-PREPARE_PIN={'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-fresh-v1\\inspection-v1\\prepare-proposal-v1.json', 'bytes': 173590, 'sha256': 'ce5b7347c7c2e933f590bf442079d6b9e540529cd31b4e9e4afb71c9c4b89ab0'}
+PREPARE_PIN = {'bytes': 173620, 'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-coherent-v1\\inspection-v1\\prepare-proposal-v1.json', 'sha256': 'fbfb3b37c089f7f662bd90762daf2c2c4e7a5d775a0bda8cdfaccede673c0afb'}
 BUILD_PIN={'path': 'D:\\Dev\\Experiments\\LocalLore\\2026-11-03-record-cancellation-ui-build-v1\\record-cancellation-ui-build-v1.json', 'bytes': 32140, 'sha256': '4d39b74ad5aee455ce9060c01d760204022101e4b6b8ce58d12f666450d2894e'}
 PROFILE = dict(memory_mib=8192,cores=4,api=35,max_run_seconds=1800)
 MAX_SECONDS = 2400

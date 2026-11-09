@@ -1,7 +1,7 @@
 """Independent finite metadata construction for SDK18 inspection oracles.
 
 No fixture opens the frozen profile, installed tools, credentials or a device.
-The catalog graph has all 2644 rows; only its explicit reader port returns bytes.
+The catalog graph has all 2664 rows; only its explicit reader port returns bytes.
 """
 import copy
 from contextlib import ExitStack
@@ -12,12 +12,12 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-PROFILE_HEAD = '287b158e72ed5c0811a2e7e433e73ada4f4d6c52'
-PROFILE_TREE = '81dae478d06f2da8be5f14a693f276318fe0c4ac'
-PROFILE_SOURCE = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-profile-v1/candidate-source-v1')
+PROFILE_HEAD = 'c89b9e4f73a5481a1ba5afd9808821e023d1cd0c'
+PROFILE_TREE = 'd29c520f60c2f21204fef0972d25f7d322ca368a'
+PROFILE_SOURCE = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1/frozen-profile-source-v1')
 GUEST = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-v1/avd-v1')
 RUNTIME = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-ui-runtime-v1')
-CONTROLS = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-profile-v1/run-controls-v1')
+CONTROLS = Path('D:/Dev/Experiments/LocalLore/2026-11-03-record-cancellation-coherent-v1/run-controls-v1')
 EMPTY_BLOB = 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391'
 HELLO_BLOB = 'ce013625030ba8dba906f756967f9e9ca394464a'
 
@@ -33,7 +33,7 @@ class CatalogGraph:
         self.calls = []
         self.bodies = {}
         rows = []
-        for index in range(2644):
+        for index in range(2664):
             name = 'source-%04d.txt' % index
             body = b'hello\n' if index == 1 else b''
             self.bodies[name] = body
@@ -43,7 +43,7 @@ class CatalogGraph:
         self.value = dict(final_commit=PROFILE_HEAD, final_tree=PROFILE_TREE,
             files=rows, normal_preserved=dict(head='8924278ce1c877e6d67c90c15a35fb23ca7198dc',
                 status='', index_sha256='897c91824eb4ad6ecd5034e1eecb2874c34dfd499675763a4d44a4a55ba80119'),
-            shared_ledger_sha256='84ad23a43f6c4abd6be82164fcec2e4e7b51277f1e250a507af22654be1a7294')
+            shared_ledger_sha256='c0d39a503e7ce86607215a33bdad84c0d6b9769cc762234a17105c69eb4d0673')
 
     @property
     def names(self):

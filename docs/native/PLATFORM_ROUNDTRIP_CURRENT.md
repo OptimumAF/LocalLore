@@ -165,3 +165,27 @@ archive retained by the earlier Rust test. Its Android return evidence was
 simulated. The typed exchange entry now calls the four transfer legs over an
 already-admitted SDK25 lease. The operator admission and stop/ledger
 closure remain separate from this exchange.
+
+## Reverify the shared owner stop and closure
+
+The controller accepts an already-running SDK25 lease and a separate
+controller process identity. It needs at least 1,210 seconds remaining
+on the owner lease, including a 10-second stop reserve. It verifies all
+four transfer legs before publishing the shared, admission-bound
+`stop-v1.json` through a non-replacing Windows rename. A failed exchange
+preserves the attempt and leaves the finite owner to expire. Unconfirmed
+observer cleanup is reported separately and prevents a controller receipt.
+
+The closed check ties the expected owner and controller identities to the
+running lease, transfer receipts, scoped stop and shared worker/parent
+terminals. It requires every shared cleanup flag and the exact closure
+record in a closed entry of the shared ledger. The existing ledger
+validator checks either supported ledger schema. The closed check reads
+evidence and has no guest command or ledger write.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_lifecycle.py
+```
+
+The lifecycle tests use synthetic owner and ledger records. The fixed
+operator launcher and real guest admission remain separate.

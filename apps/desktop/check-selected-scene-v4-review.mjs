@@ -2604,6 +2604,41 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
         },
     );
 
+    await check(
+        "direct native Open to Resume refuses a different artifact format",
+        async () => {
+            const downgradedNative = {
+                ...prepared(2),
+                lane: "native_selected_case",
+            };
+            for (const [metadata, lane] of [
+                [prepared(3), "scripted_baseline"],
+                [downgradedNative, "approved_native"],
+                [prepared(4), "approved_native"],
+            ]) {
+                const f = fixture(4);
+                await f.c.open(RUN);
+                assert.equal(f.c.get().status.prepared, null);
+                assert.equal(f.c.get().summary, null);
+                f.hooks.set("resume", ({ clientId }) =>
+                    status(clientId, "completed", 4, { prepared: metadata, lane }),
+                );
+                render(f, { nativeSceneSelected: true });
+                const resume = button("Resume / verify with linked source");
+                assert(!resume.props.disabled);
+                resume.props.onClick();
+                await flush();
+                if (metadata.version === 4) {
+                    assert.equal(f.c.get().error, null);
+                    assert.equal(f.c.get().status.prepared.version, 4);
+                } else {
+                    assert.equal(f.c.get().error, "SelectedEvaluationWire");
+                    assert.equal(f.c.get().status.prepared, null);
+                }
+            }
+        },
+    );
+
     for (const c of controllers) c.dispose();
     controllers.clear();
     await flush();

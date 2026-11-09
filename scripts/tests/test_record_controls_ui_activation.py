@@ -194,10 +194,14 @@ class RecordControlsActivationTests(unittest.TestCase):
         self.assertIsNone(namespace['_MODULES'])
         self.assertEqual((namespace['OUTER_SECONDS'],namespace['OWNER_SECONDS'],namespace['PARENT_SECONDS'],
                           namespace['CONTROLLER_SECONDS'],namespace['CALLER_SECONDS']),(1800,1700,1730,1200,1230))
-        self.assertEqual(namespace['SOURCE_ROOT'],Path('D:/Worktrees/locallore-record-controls-ui-core-v1'))
-        self.assertEqual(namespace['HELPER'],namespace['SOURCE_ROOT']/'benchmarks/record_controls_ui_activation.py')
-        self.assertEqual(namespace['CONTROLS'],Path('D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-harness-v1/run-controls-v1'))
-        self.assertEqual(namespace['RUNTIME'],Path('D:/Dev/Experiments/LocalLore/2026-11-01-current-record-controls-ui-run-v1'))
+        frozen = Path('D:/Worktrees/locallore-record-actions-flow-v1')
+        controls = Path('D:/Dev/Experiments/LocalLore/2026-11-01-recovered-owner-handoff-v1/run-controls-v1')
+        runtime = Path('D:/Dev/Experiments/LocalLore/2026-11-01-current-recovered-record-controls-ui-run-v1')
+        self.assertEqual(namespace['SOURCE_ROOT'], frozen)
+        self.assertEqual(namespace['HELPER'], frozen/'benchmarks/record_controls_ui_activation.py')
+        self.assertEqual(namespace['CONTROLS'], controls)
+        self.assertEqual(namespace['INPUT'], controls/'run-input-v1.json')
+        self.assertEqual(namespace['RUNTIME'], runtime)
 
     def test_metadata_and_authority_fences_precede_every_dispatch(self):
         original_inputs=activation._inputs

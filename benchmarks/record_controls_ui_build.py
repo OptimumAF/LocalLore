@@ -16,7 +16,9 @@ import time
 
 SCOPE = 'record-controls-ui-build-v1'
 MODE = 'fixed-b66-byte-attestation-v1'
-BASELINE_PATH = Path(__file__).with_name('record_controls_ui_build_baseline.json')
+# This is recorded B66 data, not the location of the current implementation.
+# Relocating a reader must not retag the immutable manifest's baseline identity.
+BASELINE_PATH = Path('D:/Worktrees/locallore-record-controls-ui-core-v1/benchmarks/record_controls_ui_build_baseline.json')
 BASELINE_BYTES = 16380
 BASELINE_SHA256 = '2bcfa9dee3e8314e8fc24a10b9adec0481a31c165073c9bed9d6e54f138dc5fa'
 

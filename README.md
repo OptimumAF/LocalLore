@@ -32,6 +32,12 @@ failure and the nineteen UI methods that remain unrun.
 The [guarded preparation recovery contract](docs/runtime/android/PREPARE_RECOVERY.md)
 retains the reservation and failed history through a one-use, owned preparation;
 live recovery and later UI execution require their own verified gates.
+The [current owner handoff](docs/runtime/android/RECOVERED_OWNER_HANDOFF.md)
+admits the recovery dependency before live dispatch and uses separately
+preserved activation inputs. The subsequently authorized B77 recovery attempt
+refused the host commit-capacity gate before intent or ledger migration;
+all nineteen UI methods remain unrun. The retained report distinguishes the
+refusal from a later passing read-only resource sample.
 
 The [Player state UI qualification harness](docs/native/PLAYER_PROFILE_UI_V1.md)
 binds fourteen fixed chat, inventory and self-profile tests to PR #333's exact

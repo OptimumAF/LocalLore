@@ -64,6 +64,7 @@ function identity(value, native) {
 
 function path(value, project) {
   requireAttempt(typeof value === 'string' && Buffer.byteLength(value) <= 1024 &&
+    Buffer.from(value).toString('utf8') === value &&
     (project ? value.startsWith('D:/') : /^[CD]:\//.test(value)) &&
     value.slice(3).split('/').every(part => part.length > 0 && Buffer.byteLength(part) <= 255 &&
       !/[\x00-\x1f\x7f:"\\*?<>|;,=&#\x60]/.test(part) && !/[ .]$/.test(part) &&
@@ -120,8 +121,8 @@ export function workerArtifactCompileAttemptScopeV1(profile) {
   return setup(profile).scope;
 }
 
-function verifyReady(text, setup, observed) {
-  const { profile, context, scope } = setup;
+function verifyReady(text, prepared, observed) {
+  const { profile, context, scope } = prepared;
   const { pid, ppid, entryBytes, entrySha256 } = data(observed, ['pid', 'ppid', 'entryBytes', 'entrySha256']);
   requireAttempt(int(pid, 1, 2147483647) && int(ppid, 1, 2147483647) && pid !== ppid &&
     int(entryBytes, 1, ENTRY_MAX) && digest(entrySha256) &&
@@ -152,6 +153,7 @@ export function verifyWorkerArtifactCompileParentReadyV1(text, profile, observed
 }
 
 const statOptions = { bigint: true };
+const localIdentity = stat => stat.dev.toString() + ':' + stat.ino.toString();
 const stamp = stat => [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs, stat.mode].join(':');
 
 async function named(file, directory) {
@@ -166,8 +168,8 @@ async function readPinned(file, maximum, signal) {
   requireAttempt(!signal.aborted);
   const expected = await named(file, false);
   requireAttempt(expected.size > 0n && expected.size <= BigInt(maximum) && !signal.aborted);
-  const handle = await open(file, 'r');
   const bytes = Buffer.alloc(Number(expected.size));
+  const handle = await open(file, 'r');
   try {
     const initial = await handle.stat(statOptions);
     requireAttempt(initial.isFile() && initial.nlink === 1n && stamp(initial) === stamp(expected));
@@ -207,14 +209,14 @@ export async function runWorkerArtifactCompileAttemptV1(profile, owner, sourceSi
     samePath(process.env.TEMP, pinned.environment.temp) && samePath(process.env.TMP, pinned.environment.temp));
   const readyPath = win32.join(pinned.evidenceRoot, 'parent-ready.json');
   requireAttempt(samePath(process.env.LOCALLORE_COMPILE_PARENT_READY, readyPath));
-  await named(pinned.evidenceRoot, true);
+  const evidenceIdentity = localIdentity(await named(pinned.evidenceRoot, true));
   const ready = await readPinned(readyPath, READY_MAX, signal);
   const ownEntry = await readPinned(pinned.entry, ENTRY_MAX, signal);
   const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(ready);
   const admitted = verifyReady(text, prepared, { pid: process.pid, ppid: process.ppid,
     entryBytes: ownEntry.length, entrySha256: sha(ownEntry) });
-  const target = await named(pinned.config.targetRoot, true);
-  requireAttempt(target.dev.toString() + ':' + target.ino.toString() === pinned.outputParentIdentity);
+  requireAttempt(localIdentity(await named(pinned.evidenceRoot, true)) === evidenceIdentity &&
+    localIdentity(await named(pinned.config.targetRoot, true)) === pinned.outputParentIdentity);
 
   const supervisor = createWorkerArtifactCompileSupervisorV1({
     context, hostHash: pinned.helper.sha256, hostDirectory: pinned.helper.path.slice(0, pinned.helper.path.lastIndexOf('/')),

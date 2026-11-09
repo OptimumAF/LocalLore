@@ -155,6 +155,16 @@ async fn host_call(
     .await
     .map_err(|_| "Transport".to_owned())?
 }
+fn allows_app_navigation(url: &tauri::Url) -> bool {
+    url.port().is_none()
+        && url.username().is_empty()
+        && url.password().is_none()
+        && matches!(
+            (url.scheme(), url.host_str()),
+            ("http", Some("tauri.localhost")) | ("tauri", Some("localhost"))
+        )
+}
+
 fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn std::error::Error>> {
     let epoch = app
         .state::<WorkspaceState>()
@@ -295,10 +305,7 @@ fn build_window(app: &tauri::AppHandle, reopened: bool) -> Result<(), Box<dyn st
         // Harness builds never show, activate or capture the user's desktop.
         .visible(!testing)
         .focused(false)
-        .on_navigation(|url| {
-            (url.scheme() == "http" && url.host_str() == Some("tauri.localhost"))
-                || (url.scheme() == "tauri" && url.host_str() == Some("localhost"))
-        })
+        .on_navigation(allows_app_navigation)
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
         .initialization_script(script)
         .build()?;
@@ -694,4 +701,44 @@ fn main() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod navigation_tests {
+    use super::allows_app_navigation;
+    use tauri::Url;
+
+    #[test]
+    fn accepts_bundled_navigation() {
+        for address in [
+            "http://tauri.localhost/",
+            "http://tauri.localhost:80/index.html?view=lab#receipt",
+            "tauri://localhost/index.html",
+        ] {
+            assert!(
+                allows_app_navigation(&Url::parse(address).unwrap()),
+                "{address}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_other_authorities_and_schemes() {
+        for address in [
+            "http://tauri.localhost:8765/",
+            "tauri://localhost:80/",
+            "http://user@tauri.localhost/",
+            "http://:password@tauri.localhost/",
+            "tauri://user:password@localhost/",
+            "http://tauri.localhost.example/",
+            "http://127.0.0.1/",
+            "https://tauri.localhost/",
+            "file:///index.html",
+        ] {
+            assert!(
+                !allows_app_navigation(&Url::parse(address).unwrap()),
+                "{address}"
+            );
+        }
+    }
 }

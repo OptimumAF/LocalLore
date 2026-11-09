@@ -334,6 +334,26 @@ class CombinedRecordUiOperationTests(unittest.TestCase):
         graph.prepare_once.assert_not_called()
         graph.activate.assert_not_called()
 
+    def test_prepare_plan_drift_at_authorization_publication_refuses_dispatch(self):
+        graph = SyntheticOperation()
+
+        def publish_and_drift(path, value):
+            binding = graph.publish(path, value)
+            if path == operation.PREPARE_AUTH:
+                graph.add("changed_prepare", handoff.PREPARE, dict(graph.prepare, memory_mib=2048))
+            return binding
+
+        with graph.ports(), patch.object(operation, "_save", side_effect=publish_and_drift):
+            stage = operation._run_stages(
+                graph.authority_pin, graph.attempt_pin, graph.began_ns, graph.worker,
+            )
+
+        self.assertIs(stage["passed"], False)
+        self.assertIn(operation.PREPARE_AUTH, graph.records)
+        self.assertEqual(graph.read(operation.STAGE)[1], stage)
+        graph.prepare_once.assert_not_called()
+        graph.activate.assert_not_called()
+
     def test_uncertain_prepare_preserves_prefix_and_never_retries(self):
         graph = SyntheticOperation()
         graph.prepare_once.side_effect = handoff.env.EnvironmentRefused("prepare_failed")
@@ -456,6 +476,28 @@ class CombinedRecordUiOperationTests(unittest.TestCase):
                                     graph.began_ns, graph.worker)
 
         graph.verify_activation.assert_not_called()
+
+    def test_stage_replay_refuses_late_approved_input_drift_after_activation_replay(self):
+        for path in (handoff.PROPOSAL, handoff.PLAN, handoff.PREPARE):
+            with self.subTest(path=path):
+                graph = SyntheticOperation()
+                self.assertIs(graph.stages()["passed"], True)
+                graph.verify_activation.reset_mock()
+                stage_pin, _ = graph.read(operation.STAGE)
+
+                def replay_then_drift(*args, **kwargs):
+                    closure = graph.replay_activation(*args, **kwargs)
+                    _, value = graph.read(path)
+                    changed = value + b"\nchanged" if type(value) is bytes else dict(value, changed=True)
+                    graph.add("changed_approved_input", path, changed)
+                    return closure
+
+                graph.verify_activation.side_effect = replay_then_drift
+                with graph.ports(), self.assertRaises(REFUSED):
+                    operation._verify_stage(stage_pin, graph.authority_pin, graph.attempt_pin,
+                                            graph.began_ns, graph.worker)
+
+                graph.verify_activation.assert_called_once()
 
     def test_worker_entry_requires_the_announced_identity_in_its_job(self):
         graph = SyntheticOperation()

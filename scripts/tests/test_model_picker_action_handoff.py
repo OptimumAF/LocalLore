@@ -339,3 +339,57 @@ class PickerActionHandoffTests(unittest.TestCase):
         graph.check_binding = check_with_drift
         with self.assertRaises(REFUSED):
             graph.check()
+
+class PickerActionOwnerGateTests(unittest.TestCase):
+    def test_main_refuses_foreign_path_and_preexisting_owned_output(self):
+        graph = BootRecords()
+        args = ["--admission", str(handoff.ADMISSION), "--admission-sha256",
+                graph.admission_pin["sha256"]]
+        with (graph.ports(),
+              patch.object(contract.mechanisms, "_main_profile", return_value=0) as owner,
+              patch.object(contract, "_live_boot") as live_boot):
+            foreign = [args[0], str(handoff.OUT / "other.json"), *args[2:]]
+            self.assertEqual(contract.main(foreign), 1)
+            owner.assert_not_called()
+
+            self.assertEqual(contract.main(args), 0)
+            check = owner.call_args.kwargs["_admission_check"]
+            graph.present.add(handoff.OWNED_ROOT)
+            with self.assertRaisesRegex(env.EnvironmentRefused, "^already_used$"):
+                check(graph.admission)
+            live_boot.assert_not_called()
+            graph.present.clear()
+            check(graph.admission)
+            live_boot.assert_called_once_with(*graph.read(handoff.HANDOFF))
+
+    def test_live_worker_requires_supervisor_ancestry_and_job_membership(self):
+        graph = BootRecords()
+        handoff_pin, approved = graph.read(handoff.HANDOFF)
+        supervisor = approved["supervisor"]
+        parent = dict(pid=720, creation_filetime=820, executable=supervisor["executable"])
+        worker = 730
+        api = Mock()
+        api.parent_pid.return_value = supervisor["pid"]
+        api.current_job_pids.return_value = [worker]
+        handles = Mock()
+        handles.add.return_value = (45, parent)
+        handles.close.return_value = True
+        with (graph.ports(),
+              patch.dict(contract.os.environ, {handoff.HANDOFF_ENV: handoff_pin["sha256"]}),
+              patch.object(contract.os, "getppid", return_value=parent["pid"]),
+              patch.object(contract.os, "getpid", return_value=worker),
+              patch.object(contract.mechanisms, "_ProcessApi", return_value=api),
+              patch.object(contract.process, "ProcessHandles", return_value=handles)):
+            contract._live_boot(handoff_pin, approved, parent)
+            handles.guard.assert_called_once_with()
+            handles.close.assert_called_once_with()
+
+            api.current_job_pids.return_value = [parent["pid"]]
+            with self.assertRaisesRegex(env.EnvironmentRefused, "^identity$"):
+                contract._live_boot(handoff_pin, approved, parent)
+            api.current_job_pids.return_value = [worker]
+            api.parent_pid.return_value = parent["pid"]
+            with self.assertRaisesRegex(env.EnvironmentRefused, "^identity$"):
+                contract._live_boot(handoff_pin, approved, parent)
+            self.assertEqual(handles.guard.call_count, 1)
+            self.assertEqual(handles.close.call_count, 3)

@@ -340,16 +340,21 @@ internal fun LocalLoreScreen(
                                     modifier = Modifier.testTag("story-archive")) { Text("Story archive") }
                             }
                             if (deletionAvailable && state.persistent && state.selectedStory != null) {
-                                OutlinedButton(onClick = onDelete,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired,
-                                    modifier = Modifier.heightIn(min = 48.dp).testTag("delete-story")) { Text("Delete story...") }
+                                key(renderedControlKey) {
+                                    OutlinedButton(onClick = {
+                                        if (renderedControls.active && currentRenderedState.value === state) onDelete()
+                                    }, enabled = !actionBlocked,
+                                        modifier = Modifier.heightIn(min = 48.dp).testTag("delete-story")) { Text("Delete story...") }
+                                }
                             }
                             if (branchDeletionAvailable && state.persistent && state.selectedStory != null) {
                                 val root = state.stories.firstOrNull { it.story == state.selectedStory.story }
-                                OutlinedButton(onClick = onDeleteTimeline,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && !state.recoveryRequired &&
-                                        root != null && state.selectedStory.branch != root.branch,
-                                    modifier = Modifier.heightIn(min = 48.dp).testTag("delete-timeline")) { Text("Delete timeline...") }
+                                key(renderedControlKey) {
+                                    OutlinedButton(onClick = {
+                                        if (renderedControls.active && currentRenderedState.value === state) onDeleteTimeline()
+                                    }, enabled = !actionBlocked && root != null && state.selectedStory.branch != root.branch,
+                                        modifier = Modifier.heightIn(min = 48.dp).testTag("delete-timeline")) { Text("Delete timeline...") }
+                                }
                             }
                         }
                     }

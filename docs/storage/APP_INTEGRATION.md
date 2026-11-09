@@ -53,8 +53,11 @@ deterministic story-ID order. Startup without a resolved selection uses the
 first entry. Empty-library behavior follows the shell's existing creation
 policy. The library permits explicit selection. New/reset preserves previous saves.
 Closing a session preserves its story. Android exposes separately previewed,
-explicitly confirmed whole-story deletion and nonroot timeline retirement; see
-the [retention contract](../native/PARENT_RETENTION_CONTRACT.md).
+explicitly confirmed whole-story deletion and nonroot timeline retirement.
+The Android deletion buttons open a review only for the current displayed
+shell frame. A retained callback cannot request a preview for a replacement
+selection or revision. Native preview and confirmation still govern deletion.
+See the [retention contract](../native/PARENT_RETENTION_CONTRACT.md).
 
 Android gives a valid saved-task hint priority. A fresh launch can also read a
 versioned, at most 132-byte record containing only the last confirmed story and

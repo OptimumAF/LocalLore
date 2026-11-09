@@ -85,8 +85,83 @@ class LibraryActionScopeShellTest {
             "Read-only workflow fixture", "fantasy_v1", listOf("A starting player."))
         override suspend fun create(request: StoryCreationRequest): SavedSnapshot = error("No creation consent")
     }
-    private fun model(port: Port, log: DiagnosticLog = DiagnosticLog()) = ShellViewModel(port, log).also {
-        owners.put("library-scope-${nextModel++}", it)
+    private class DeletionPreviews : StoryDeletionGateway, BranchDeletionGateway {
+        val stories = mutableListOf<SavedStory>()
+        val timelines = mutableListOf<SavedStory>()
+
+        override suspend fun prepare(story: SavedStory): StoryDeletionPrepared {
+            stories += story
+            return StoryDeletionPrepared(1, StoryDeletionPreview(1, story.story, story.title, story.branch,
+                mapOf(story.branch to story.revision), 0, 0, 0, 0, emptyMap(), "Synthetic logical deletion"))
+        }
+
+        override suspend fun prepareBranch(story: SavedStory): BranchDeletionPrepared {
+            timelines += story
+            return BranchDeletionPrepared(2, BranchDeletionPreview(2, story.story, story.branch, story.title,
+                "main", story.revision, emptyMap(), emptyMap(), listOf(story.branch), emptyMap(), 0, 0,
+                "Synthetic timeline retirement"))
+        }
+
+        override suspend fun commit(token: Long): StoryDeleted = error("No deletion consent")
+        override suspend fun commitBranch(token: Long): BranchDeleted = error("No retirement consent")
+        override fun cancel() {}
+        override fun close() {}
+    }
+
+    private fun model(port: Port, log: DiagnosticLog = DiagnosticLog(), deletes: DeletionPreviews? = null) =
+        ShellViewModel(port, log, deletionGateway = deletes, branchDeletionGateway = deletes).also {
+            owners.put("library-scope-${nextModel++}", it)
+        }
+
+    @Test fun priorStoryAndCopiedFramesCannotRequestADeletionPreviewForTheCurrentStory() = runTest(dispatcher) {
+        val deletes = DeletionPreviews()
+        val model = model(Port(), deletes = deletes)
+        advanceUntilIdle()
+        val prior = model.state.value
+        model.resume(Other)
+        advanceUntilIdle()
+        val current = model.state.value
+        assertEquals(Other, current.selectedStory)
+
+        model.openDeletion(prior)
+        model.openDeletion(current.copy())
+        advanceUntilIdle()
+        assertEquals(emptyList<SavedStory>(), deletes.stories)
+        assertSame(current, model.state.value)
+        assertFalse(model.deletion.value.visible)
+
+        model.openDeletion(current)
+        advanceUntilIdle()
+        assertEquals(listOf(Other), deletes.stories)
+        assertEquals(Other.story, model.deletion.value.prepared?.preview?.storyId)
+    }
+
+    @Test fun priorTimelineAndCopiedFramesCannotRequestADeletionPreviewForTheCurrentTimeline() = runTest(dispatcher) {
+        val deletes = DeletionPreviews()
+        val model = model(Port(), deletes = deletes)
+        advanceUntilIdle()
+        model.resume(Fork)
+        advanceUntilIdle()
+        val prior = model.state.value
+        val replacement = Other.copy(branch = Fork.branch)
+        model.resume(replacement)
+        advanceUntilIdle()
+        val current = model.state.value
+        assertEquals(replacement, current.selectedStory)
+
+        model.openBranchDeletion(prior)
+        model.openBranchDeletion(current.copy())
+        advanceUntilIdle()
+        assertEquals(emptyList<SavedStory>(), deletes.timelines)
+        assertSame(current, model.state.value)
+        assertFalse(model.branchDeletion.value.visible)
+
+        model.openBranchDeletion(current)
+        advanceUntilIdle()
+        assertEquals(listOf(replacement), deletes.timelines)
+        val preview = checkNotNull(model.branchDeletion.value.prepared).preview
+        assertEquals(replacement.story, preview.storyId)
+        assertEquals(replacement.branch, preview.branchId)
     }
     private fun story(state: ShellState) = state.stories.single { it.story == Main.story }
     private fun child(state: ShellState) = state.timelines.single { it.branch == "fork" }

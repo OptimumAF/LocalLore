@@ -215,10 +215,11 @@ class ShellViewModel internal constructor(
     }
     internal fun stopFork() { if (!disposed) invalidateForkContext() }
 
-    fun openBranchDeletion() {
-        val controller = branchDeletionController ?: return
+    fun openBranchDeletion(rendered: ShellState = mutable.value) {
         val before = mutable.value
-        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        if (before !== rendered || disposed || workflowBlocksActions() || before.busy || before.archiveActive ||
+            before.deletionActive || before.recoveryRequired || !before.persistent) return
+        val controller = branchDeletionController ?: return
         val selected = before.selectedStory ?: return
         val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         if (selected.branch == root.branch) return
@@ -239,10 +240,11 @@ class ShellViewModel internal constructor(
         savedOperation(notice) { gateway.reconcileSaved() }
     }
 
-    fun openDeletion() {
-        val controller = deletionController ?: return
+    fun openDeletion(rendered: ShellState = mutable.value) {
         val before = mutable.value
-        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        if (before !== rendered || disposed || workflowBlocksActions() || before.busy || before.archiveActive ||
+            before.deletionActive || before.recoveryRequired || !before.persistent) return
+        val controller = deletionController ?: return
         val selected = before.selectedStory ?: return
         val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         diagnosticController.dismiss()

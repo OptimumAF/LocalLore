@@ -192,6 +192,37 @@ class ArchiveProviderReadTest {
         assertEquals(0, cancels.get())
     }
 
+    @Test fun cancelledBulkReadDoesNotStartTheSingleByteFallback() = runBlocking {
+        val readEntered = CompletableDeferred<Unit>()
+        val releaseRead = CountDownLatch(1)
+        val fallbackReads = AtomicInteger()
+        val closes = AtomicInteger()
+        val source = object : InputStream() {
+            override fun read(bytes: ByteArray, offset: Int, count: Int): Int {
+                readEntered.complete(Unit)
+                releaseRead.awaitRelease()
+                return 0
+            }
+
+            override fun read(): Int {
+                fallbackReads.incrementAndGet()
+                return -1
+            }
+
+            override fun close() { closes.incrementAndGet() }
+        }
+        val operation = launch { readArchiveFromProvider(open = { source }, cancelOpen = {}) }
+        try {
+            withTimeout(5_000) { readEntered.await() }
+            operation.cancel()
+        } finally {
+            releaseRead.countDown()
+        }
+        withTimeout(5_000) { operation.join() }
+        assertEquals(0, fallbackReads.get())
+        assertEquals(1, closes.get())
+    }
+
     private fun CountDownLatch.awaitRelease() {
         check(await(10, TimeUnit.SECONDS)) { "Test provider did not receive its release" }
     }

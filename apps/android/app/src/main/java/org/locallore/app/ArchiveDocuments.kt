@@ -85,6 +85,7 @@ internal suspend fun readArchiveFromProvider(open: () -> InputStream?, cancelOpe
                 }
             }
         }
+        currentCoroutineContext().ensureActive()
         return checkNotNull(bytes)
     } catch (cancelled: CancellationException) {
         bytes?.fill(0)
@@ -129,6 +130,7 @@ internal fun readBoundedArchive(input: InputStream, cap: Int = MAX_ARCHIVE_BYTES
                 val count = source.read(buffer, 0, minOf(buffer.size, cap - output.size()))
                 if (count < 0) return@use output.toByteArray()
                 if (count == 0) {
+                    check()
                     val one = source.read()
                     if (one < 0) return@use output.toByteArray()
                     output.write(one)

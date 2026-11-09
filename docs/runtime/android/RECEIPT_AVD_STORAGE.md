@@ -118,6 +118,13 @@ The four declared proof paths stay charged for closed and retired guests; paths
 already counted in the guest root or declared archive roster count only once
 within an entry.
 
+Keep those external proof files and their original owner output tree in place.
+The guest manifest archives guest-root records; it does **not** archive the entire
+owner output tree or transitively preserve every raw file referenced by those
+proofs. Operators must retain that separate evidence tree and any frozen captures.
+These checks cover the four explicitly bound proof files, without claiming full
+recursive proof preservation or replaying owner verification during admission.
+
 ### Failed SDK24 registration review
 
 The spent cross-owner deletion attempt failed before publishing a running
@@ -141,13 +148,6 @@ review while the guest remains retained. A separate reviewed operation and
 owner approval are required to record a closure or to retire any images.
 This review starts no device or service and leaves the failed Android run
 at zero executed test methods.
-
-Keep those external proof files and their original owner output tree in place.
-The guest manifest archives guest-root records; it does **not** archive the entire
-owner output tree or transitively preserve every raw file referenced by those
-proofs. Operators must retain that separate evidence tree and any frozen captures.
-These checks cover the four explicitly bound proof files, without claiming full
-recursive proof preservation or replaying owner verification during admission.
 
 ## Evidence-aware retirement planning
 

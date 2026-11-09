@@ -83,9 +83,23 @@ ledger and requires unused boot outputs. The admission includes only the
 expected authorization digest. The actual authorization and owner handoff
 require separate activation approval and fresh preboot checks.
 
-Freeze the complete source roster before requesting preparation approval.
-The earlier SDK26 plans remain evidence of capacity refusal on their own
-source revisions.
+The complete source roster, including the activation supervisor, uses the
+fixed `preparation-plan-sdk26-v2.json` and `prepare-proposal-sdk26-v2.json`
+slots at the same guest parent. The file suffix identifies the frozen input
+pair. The record schema and the one-use preparation scope are unchanged.
+Both slots are create-only. The earlier v1 pair stays at its original paths
+as evidence of capacity refusal on its earlier source revision.
+
+From the physical D: worktree with D: temporary paths, the file-only freeze
+and inspection can run before requesting preparation approval:
+
+```powershell
+python -I -S -B -c 'import sys; sys.path.insert(0, "."); from benchmarks import archive_provider_platform_preparation as p; pin=p.build_plan(*sys.argv[1:]); print(p.inspect(pin, p.env.binding(p.LEDGER)))' $sdkPath $javaPath
+```
+
+Inspection reports the current ledger and whether it would fit. If either
+storage limit is exceeded, it skips the host resource checks. Neither step
+creates a guest or grants preparation authority.
 
 ## Activation handoff and terminal evidence
 

@@ -15,8 +15,8 @@ class ArchiveProviderPreparationTests(unittest.TestCase):
         self.root = Path(self.enterContext(TemporaryDirectory())).resolve()
         paths = {
             "GUEST": "avd-v1",
-            "PLAN": "preparation-plan-v1.json",
-            "PREPARE": "prepare-proposal-v1.json",
+            "PLAN": prep.PLAN.name,
+            "PREPARE": prep.PREPARE.name,
             "PROPOSED_PREPARATION": "PROPOSED_PREPARATION.md",
             "AUTHORITY": "human-authority-v1.json",
             "CLAIM": "claim-v1.json",
@@ -60,6 +60,11 @@ class ArchiveProviderPreparationTests(unittest.TestCase):
             prep.env, "resource_facts", return_value={"free_bytes": {"D:": 50 * 1024**3}},
         ))
         self.enterContext(patch.object(prep.env, "ports_free"))
+        self.old_prepare_pin = self.save(self.root / "prepare-proposal-sdk26-v1.json", self.proposal)
+        self.old_plan_pin = self.save(self.root / "preparation-plan-sdk26-v1.json", dict(
+            version=1, scope=prep.PLAN_SCOPE, prepare=self.old_prepare_pin,
+            sources=self.sources, python=self.python, artifacts=self.artifact_pins,
+        ))
         self.plan_pin = prep.build_plan(self.sdk, self.java)
         self.prepare_pin = prep.env.binding(prep.PREPARE)
 
@@ -75,7 +80,8 @@ class ArchiveProviderPreparationTests(unittest.TestCase):
         return self.proposal
 
     def approve(self, **overrides):
-        text = f"Plan SHA-256 {self.plan_pin['sha256']}\nLedger SHA-256 {self.ledger['sha256']}\n"
+        plan_pin = overrides.get("plan", self.plan_pin)
+        text = f"Plan SHA-256 {plan_pin['sha256']}\nLedger SHA-256 {self.ledger['sha256']}\n"
         prep.PROPOSED_PREPARATION.write_text(text, encoding="utf-8", newline="\n")
         authority = dict(version=1, scope=prep.PREPARE_SCOPE,
                          proposal=prep.env.binding(prep.PROPOSED_PREPARATION),
@@ -99,6 +105,38 @@ class ArchiveProviderPreparationTests(unittest.TestCase):
         self.plan_prepare.assert_called_once()
         self.verify_artifacts.assert_called_with(self.artifact_pins)
         self.assertFalse(prep.AUTHORITY.exists())
+        self.assert_not_dispatched()
+
+    def test_fixed_v2_pair_is_created_once_with_old_v1_records_preserved(self):
+        self.assertEqual(prep.PLAN, prep.GUEST.parent / "preparation-plan-sdk26-v2.json")
+        self.assertEqual(prep.PREPARE, prep.GUEST.parent / "prepare-proposal-sdk26-v2.json")
+        with self.assertRaisesRegex(prep.env.EnvironmentRefused, "^already_used$"):
+            prep.build_plan(self.sdk, self.java)
+        self.plan_prepare.assert_called_once()
+        for pin in (self.old_plan_pin, self.old_prepare_pin, self.plan_pin, self.prepare_pin):
+            with self.subTest(path=pin["path"]):
+                self.assertEqual(prep.env.binding(pin["path"]), pin)
+        self.assert_not_dispatched()
+
+    def test_loader_refuses_the_old_plan_even_with_matching_inputs(self):
+        with self.assertRaisesRegex(prep.env.EnvironmentRefused, "^binding$"):
+            prep.load_plan(self.old_plan_pin)
+        self.assert_not_dispatched()
+
+    def test_authority_refuses_the_old_plan_even_with_its_exact_review_hash(self):
+        authority = self.approve(plan=self.old_plan_pin)
+        with self.assertRaisesRegex(prep.env.EnvironmentRefused, "^authority$"):
+            prep.prepare(authority)
+        self.preview_prepare.assert_not_called()
+        self.assert_not_dispatched()
+
+    def test_loader_refuses_a_current_plan_linked_to_the_old_proposal(self):
+        self.assertEqual(self.old_prepare_pin["sha256"], self.prepare_pin["sha256"])
+        plan = prep.env.read_json(prep.PLAN)
+        prep.PLAN.write_bytes(prep.env.encoded(dict(plan, prepare=self.old_prepare_pin)))
+        mixed = prep.env.binding(prep.PLAN)
+        with self.assertRaisesRegex(prep.env.EnvironmentRefused, "^binding$"):
+            prep.load_plan(mixed)
         self.assert_not_dispatched()
 
     def test_inspection_is_read_only_and_reports_capacity_without_authority(self):

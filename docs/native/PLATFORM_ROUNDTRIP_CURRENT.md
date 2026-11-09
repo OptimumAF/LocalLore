@@ -235,6 +235,49 @@ These tests use synthetic authority, preparation and ledger records.
 The retained APK and Windows artifact check is read-only. No SDK25
 preparation or boot is evidenced by these checks.
 
+## Stage the exact SDK25 run inputs
+
+After a verified preparation, supply `run-installation-v1.json` in
+the fixed operator control directory. Its version-1 fields are the
+existing byte/hash pins for `refuser`, `capabilities`, `source_review`
+and `compatibility`. The refuser must match the exact compiled and
+tested deny-ADB helper and the current C source must match its recorded
+source. See the [owned target verification](OWNED_TARGET_VERIFICATION_2026-10-29.md).
+The emulator, headless QEMU and private ADB tool pins come from the
+prepared guest's shared proposal. The ADB key path is metadata only.
+
+```powershell
+python -B -m benchmarks.archive_roundtrip_run_inputs stage --receipt-sha256 <prepare-receipt-sha256> --installation-sha256 <installation-sha256>
+```
+
+Staging uses the shared run planner and publishes a review packet named
+by its SHA-256. The packet contains the prepared ledger, receipt, exact
+run proposal, installation pin and prospective authorization and
+admission pins. It leaves authority with the operator. If an unrelated
+ledger entry changes before boot, stage a new review against the fresh
+ledger. The run identity and prospective admission stay stable when
+only the ledger changes.
+
+After the operator separately approves one boot and supplies the scoped
+`run-authority-v1.json` matching the packet's prospective admission,
+preparation receipt and ledger, publish the exact two input files:
+
+```powershell
+python -B -m benchmarks.archive_roundtrip_run_inputs materialize --plan-sha256 <review-packet-sha256> --authority-sha256 <approved-authority-sha256>
+```
+
+Both input files use create-only publication. An exact existing file or
+complete pending record can be reused under the same approved inputs.
+Changed or incomplete records refuse and stay preserved. Publication
+rechecks the authority, fresh ledger and unused target around the writes.
+The supervisor's separate preboot gate rechecks the full shared SDK and
+external environment. The shared owner checks host resources before
+launching the guest.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_run_inputs.py
+```
+
 ## Verify the operator's prepared-run admission
 
 The host gate accepts one externally approved authority record at the fixed

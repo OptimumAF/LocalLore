@@ -17,6 +17,7 @@ from unittest.mock import patch
 import zipfile
 
 from scripts.tests import test_audit_apk as f
+from scripts.tests import test_audit_physical_model_apk as dex_fixture
 from scripts.tests import test_apk_backup_audit as backup
 from scripts.tests import test_physical_backup_linkage as linkage
 from scripts.tests import test_check as check_fixture
@@ -25,6 +26,13 @@ from scripts.tests import test_check as check_fixture
 ROOT = Path(__file__).resolve().parents[2]
 NORMAL = "org.locallore.app"
 ARCHIVE = NORMAL + ".archiveverify"
+COLD = NORMAL + ".draftprocessverify"
+COLD_CLASS = b"Lorg/locallore/app/ColdNavigationFreshTaskTest;"
+COLD_METHOD = b"reopensConfirmedChildFromPrivateHintWithoutSavedTaskState"
+COLD_SELECTOR = [
+    "-e", "class", NORMAL + ".ColdNavigationFreshTaskTest#" + COLD_METHOD.decode("ascii"),
+    "-e", "cold_navigation_v1", "true", COLD + ".test/androidx.test.runner.AndroidJUnitRunner",
+]
 SIGNER = "a" * 64
 
 
@@ -65,13 +73,23 @@ class InstrumentationApkTests(unittest.TestCase):
             module.audit_manifests(*values, archive_verification=archive)
 
     def pair(self, *, archive=False, main=False, flags=None, selected_package=None,
-             same=False, mutate=False, signing=None, tool_failure=None, java_via_path=False):
+             same=False, mutate=False, signing=None, tool_failure=None, java_via_path=False,
+             cold=False, cold_method=COLD_METHOD, cold_in_app=False):
         module = self.module()
         directory = Path(tempfile.mkdtemp(prefix="locallore-test-apk-"))
         app = f.ApkAuditTests().archive(directory)
+        cold_definition = {COLD_CLASS: (17, [(cold_method, (b"V", 0), 17, True)])}
+        if cold:
+            app_definitions = {b"Lorg/locallore/app/MainActivity;": (17, [])}
+            if cold_in_app:
+                app_definitions.update(cold_definition)
+            with zipfile.ZipFile(app, "a") as z:
+                z.writestr("classes.dex", dex_fixture.dex(app_definitions))
         test = directory / "instrumentation.apk"
         with zipfile.ZipFile(test, "x") as z:
             z.writestr("AndroidManifest.xml", b"synthetic compiled test manifest")
+            if cold:
+                z.writestr("classes.dex", dex_fixture.dex(cold_definition))
         sdk = directory / "sdk"
         (sdk / "lib").mkdir(parents=True)
         (sdk / "lib/apksigner.jar").write_bytes(b"inert signing-tool placeholder")
@@ -80,7 +98,7 @@ class InstrumentationApkTests(unittest.TestCase):
         java = directory / "jdk"
         (java / "bin").mkdir(parents=True)
         (java / "bin" / ("java.exe" if os.name == "nt" else "java")).write_bytes(b"never executed")
-        package = selected_package or (ARCHIVE if archive else NORMAL)
+        package = selected_package or (COLD if cold else ARCHIVE if archive else NORMAL)
         values = captures(package)
         calls = []
         changed = False
@@ -128,10 +146,17 @@ class InstrumentationApkTests(unittest.TestCase):
                     return_value=str(java / "bin" / ("java.exe" if os.name == "nt" else "java"))))
             if main:
                 args = [str(app), str(app if same else test)]
-                args += (["--archive-verification"] if archive else []) if flags is None else flags
+                if flags is None:
+                    if archive:
+                        args.append("--archive-verification")
+                    if cold:
+                        args.append("--cold-navigation-verification")
+                else:
+                    args.extend(flags)
                 value = invoke(module.main, args)
             else:
-                value = module.audit_pair(app, app if same else test, archive_verification=archive)
+                profile = {"cold_navigation_verification": True} if cold else {}
+                value = module.audit_pair(app, app if same else test, archive_verification=archive, **profile)
         return value, before, calls
 
     def test_normal_and_archive_manifest_pairs_accept_lf_and_crlf_with_exact_result_schema(self):
@@ -174,6 +199,85 @@ class InstrumentationApkTests(unittest.TestCase):
                 self.rejected(values)
         self.rejected(captures(ARCHIVE))
         self.rejected(captures(NORMAL), archive=True)
+
+    def test_cold_navigation_manifest_closes_package_target_and_runner(self):
+        module = self.module()
+        good = captures(COLD)
+        self.assertEqual(module.audit_manifests(*good, cold_navigation_verification=True), {
+            "package": COLD, "test_package": COLD + ".test",
+            "test_permissions": ["android.permission.REORDER_TASKS"],
+        })
+        self.rejected(good)
+        for label, value in (
+            ("ordinary", captures(NORMAL)),
+            ("archive", captures(ARCHIVE)),
+            ("foreign_test", [*good[:2], *captures(ARCHIVE)[2:]]),
+            ("wrong_target", [*good[:3], good[3].replace(
+                'targetPackage(0x01010021)="' + COLD, 'targetPackage(0x01010021)="' + NORMAL)]),
+            ("wrong_runner", [*good[:3], good[3].replace(
+                "androidx.test.runner.AndroidJUnitRunner", "org.foreign.Runner")]),
+        ):
+            with self.subTest(case=label), self.assertRaises(module.base.AuditError):
+                self.assertNotEqual(value, good)
+                module.audit_manifests(*value, cold_navigation_verification=True)
+
+    def test_cold_navigation_selector_requires_one_exact_annotated_test_in_test_apk_only(self):
+        module = self.module()
+        expected = (COLD_METHOD, (b"V", 0), 17, True)
+        helper = (b"helper", (b"V", 0), 2, False)
+        unrelated = {b"Lorg/locallore/app/UnrelatedTest;": (17, [(b"other", (b"V", 0), 17, True)])}
+        test = {COLD_CLASS: (17, [expected, helper]), **unrelated}
+        self.assertEqual(module.audit_cold_navigation_selector({}, test), COLD_SELECTOR)
+        for label, flags, methods in (
+            ("unannotated", 17, [(*expected[:3], False)]),
+            ("alternative", 17, [(b"other", *expected[1:])]),
+            ("additional", 17, [expected, (b"other", *expected[1:])]),
+            ("parameters", 17, [(COLD_METHOD, (b"VI", 1), 17, True)]),
+            ("return_type", 17, [(COLD_METHOD, (b"I", 0), 17, True)]),
+            ("private_method", 17, [(COLD_METHOD, (b"V", 0), 2, True)]),
+            ("private_class", 16, [expected]),
+            ("abstract_class", 0x401, [expected]),
+            ("interface", 0x201, [expected]),
+        ):
+            with self.subTest(case=label), self.assertRaises(module.base.AuditError):
+                module.audit_cold_navigation_selector({}, {COLD_CLASS: (flags, methods)})
+        with self.assertRaises(module.base.AuditError):
+            module.audit_cold_navigation_selector({}, unrelated)
+        with self.assertRaises(module.base.AuditError):
+            module.audit_cold_navigation_selector({COLD_CLASS: (17, [])}, test)
+
+    def test_cold_navigation_pair_binds_real_dex_and_the_fixed_instrumentation_arguments(self):
+        value, before, calls = self.pair(cold=True)
+        self.assertEqual(set(value), {"status", "scope", "instrumentation_args", "package", "test_package",
+                                      "test_permissions", "certificate_sha256", "app", "test"})
+        self.assertEqual(value["status"], "passed")
+        self.assertEqual(value["scope"], "cold-navigation-apk-pair-v1")
+        self.assertEqual(value["instrumentation_args"], COLD_SELECTOR)
+        self.assertEqual((value["package"], value["test_package"], value["certificate_sha256"]),
+                         (COLD, COLD + ".test", SIGNER))
+        for label in ("app", "test"):
+            self.assertEqual(value[label], dict(bytes=len(before[label]), sha256=hashlib.sha256(before[label]).hexdigest()))
+        self.assertEqual(sum("--print-certs" in command for command in calls), 2)
+        (code, output, _), cli_bytes, _ = self.pair(cold=True, main=True)
+        self.assertEqual(code, 0, output)
+        expected_cli = {**value, **{label: dict(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+                                   for label, raw in cli_bytes.items()}}
+        self.assertEqual(json.loads(output), expected_cli)
+
+    def test_cold_navigation_pair_refuses_moved_or_alternate_dex_and_mixed_modes(self):
+        module = self.module()
+        for label, options in (
+            ("moved", {"cold_in_app": True}),
+            ("alternate", {"cold_method": b"other"}),
+            ("mixed", {"archive": True}),
+        ):
+            with self.subTest(case=label), self.assertRaises(module.base.AuditError):
+                self.pair(cold=True, **options)
+        with self.assertRaises(module.base.AuditError):
+            module.audit_manifests(*captures(COLD), archive_verification=True, cold_navigation_verification=True)
+        (code, _, _), _, calls = self.pair(cold=True, main=True, archive=True)
+        self.assertEqual(code, 2)
+        self.assertEqual(calls, [])
 
     def test_malformed_sdk_and_extra_duplicate_or_hidden_test_permissions_are_refused(self):
         good = captures(NORMAL)

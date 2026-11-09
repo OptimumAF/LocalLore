@@ -45,6 +45,25 @@ audit checked the isolated manifest and both packaged native ABIs. The
 pair check matched signing identities and found the annotated test method
 in the test APK only.
 
+## Bind the APK pair and selector
+
+From the repository root, audit the exact input-process outputs:
+
+```powershell
+python -I -S -B scripts/audit_instrumentation_apk.py `
+  apps/android/app/build-input-process/outputs/apk/debug/app-debug.apk `
+  apps/android/app/build-input-process/outputs/apk/androidTest/debug/app-debug-androidTest.apk `
+  --cold-navigation-verification
+```
+
+The resulting `cold-navigation-apk-pair-v1` JSON binds byte counts and
+SHA-256 hashes for both APKs, their verified signing identity, the reviewed
+manifest and the exact `instrumentation_args` array. The audit verifies that
+the concrete public test class and its single annotated method exist in the
+test APK only. It rechecks both APK identities after inspection. Use the
+complete result as a file binding for a reviewed device plan. The APK audit
+does not allocate a guest or grant operation authority.
+
 ## Guarded device selector
 
 After separate approval and normal storage, process ownership and device

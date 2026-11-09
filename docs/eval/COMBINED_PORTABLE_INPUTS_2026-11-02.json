@@ -1,0 +1,556 @@
+{
+  "format": "locallore-portable-cohort-inputs-v1",
+  "base_commit": "d3862614cb6654305d88d44901eda36b83f2a4e8",
+  "base_tree": "7c16b720fd46a62ee067e56d45328966b56ea9bf",
+  "tested_content_tree": "fdc9797ea80b516a970909fb47ebb7f433802999",
+  "source_counts": {
+    "base_files": 2568,
+    "overlay_files": 11,
+    "total_files": 2579,
+    "bytes": 36446507
+  },
+  "constituents": [
+    {
+      "number": 368,
+      "head": "327a729080c1717027e9900fb2a2c7e27d64291b",
+      "base": "d3862614cb6654305d88d44901eda36b83f2a4e8"
+    },
+    {
+      "number": 370,
+      "head": "211d64715f56395f156d1096c72b56e890460b23",
+      "base": "d3862614cb6654305d88d44901eda36b83f2a4e8"
+    },
+    {
+      "number": 371,
+      "head": "4d119d3953ef9c37f1683c8a9c1fd7ab4c43a55d",
+      "base": "d3862614cb6654305d88d44901eda36b83f2a4e8"
+    },
+    {
+      "number": 372,
+      "head": "d623ed0200d23c231c8f3b3b9efc3176ce5f6e59",
+      "base": "d3862614cb6654305d88d44901eda36b83f2a4e8"
+    }
+  ],
+  "overlay_files": [
+    {
+      "path": "crates/locallore-storage/tests/m08_archive_epistemic_journey.rs",
+      "mode": "100644",
+      "git_blob": "407c52654782e779943aa60bd46ccffb121d169b",
+      "sha256": "1a23f251c5615fcb1ecd0142ea3262273bde3e716471c95cb2ffac2af719cd63",
+      "size": 16763,
+      "origin_commit": "4d119d3953ef9c37f1683c8a9c1fd7ab4c43a55d",
+      "origin_pr": 371
+    },
+    {
+      "path": "crates/locallore-storage/tests/m08_archive_observation_authority.rs",
+      "mode": "100644",
+      "git_blob": "2dae3fd4e1551134b4eb617fd0963eaad6713d82",
+      "sha256": "c60eeeb12e354443179ed42cc154bb8b8532ebc2cf291a382040747ea4661924",
+      "size": 15038,
+      "origin_commit": "4d119d3953ef9c37f1683c8a9c1fd7ab4c43a55d",
+      "origin_pr": 371
+    },
+    {
+      "path": "crates/locallore-storage/tests/m10_durable_epistemic_rollback.rs",
+      "mode": "100644",
+      "git_blob": "c0d7f78a813ea2a56481f4602595a33faf67421c",
+      "sha256": "9f5cc91b407587f2f1a313d89e92df82f02384f4c3c9c7f30899f4a6a14b6e5b",
+      "size": 11899,
+      "origin_commit": "211d64715f56395f156d1096c72b56e890460b23",
+      "origin_pr": 370
+    },
+    {
+      "path": "crates/locallore-storage/tests/m10_durable_observation_chain.rs",
+      "mode": "100644",
+      "git_blob": "9cab1e43690ff692ace54fc1bee5daaab05fe529",
+      "sha256": "6678b8f2fed761b64d54b18d35031aeaa8b19053cda0ca2bfc6a12587b656603",
+      "size": 14922,
+      "origin_commit": "211d64715f56395f156d1096c72b56e890460b23",
+      "origin_pr": 370
+    },
+    {
+      "path": "crates/locallore-workspace/tests/m08_imported_generation.rs",
+      "mode": "100644",
+      "git_blob": "ef7bd19f3d74d37ebc30fee2846c80b05452a631",
+      "sha256": "42305c60b8b3ee0275f896bc96351ae809cefe495950eaf813eaf380a3d94e41",
+      "size": 27572,
+      "origin_commit": "d623ed0200d23c231c8f3b3b9efc3176ce5f6e59",
+      "origin_pr": 372
+    },
+    {
+      "path": "crates/locallore/tests/m10_query2_observation_chain.rs",
+      "mode": "100644",
+      "git_blob": "4d975eedf869ce2227477e250b93a23f9134e51b",
+      "sha256": "52d56af6d450c0aa525c2c51c9335e12a6611c6f2190b1cb5aa5087c8a784f9a",
+      "size": 7354,
+      "origin_commit": "327a729080c1717027e9900fb2a2c7e27d64291b",
+      "origin_pr": 368
+    },
+    {
+      "path": "crates/locallore/tests/m10_staged_epistemic_rejection.rs",
+      "mode": "100644",
+      "git_blob": "6c9985c51d2a20de43962a5b641e8e0e4f668f05",
+      "sha256": "931c399fdb7016952cf82c075fce86aa76c4234c9a7c1bc6c7fe4fc60a1b9b13",
+      "size": 5399,
+      "origin_commit": "327a729080c1717027e9900fb2a2c7e27d64291b",
+      "origin_pr": 368
+    },
+    {
+      "path": "docs/eval/ARCHIVE_EPISTEMIC_JOURNEY_VERIFICATION_2026-11-02.md",
+      "mode": "100644",
+      "git_blob": "988f774044b9a982832df1f03c10251f35d0240e",
+      "sha256": "0af0f21ec4fa4d8e05ff1eac2ce108e051fe0d8aa0695186a754f871119fb897",
+      "size": 9113,
+      "origin_commit": "4d119d3953ef9c37f1683c8a9c1fd7ab4c43a55d",
+      "origin_pr": 371
+    },
+    {
+      "path": "docs/eval/ENGINE_EPISTEMIC_BOUNDARY_VERIFICATION_2026-11-02.md",
+      "mode": "100644",
+      "git_blob": "304dc6a3e28e4bbf48be92937ef0a799cdbb63a6",
+      "sha256": "9c47d9807209cb5d94964956fc46cfc2a20729171b1663613c1febd0bda8d310",
+      "size": 7847,
+      "origin_commit": "327a729080c1717027e9900fb2a2c7e27d64291b",
+      "origin_pr": 368
+    },
+    {
+      "path": "docs/eval/IMPORTED_HOST_GENERATION_VERIFICATION_2026-11-02.md",
+      "mode": "100644",
+      "git_blob": "49fcb3713fa39787da4563ad2da4dc53123015cb",
+      "sha256": "4593d2cf5e54d450343c3fef8b3f6cd352b539da36c13179170216823f3cf3bf",
+      "size": 9059,
+      "origin_commit": "d623ed0200d23c231c8f3b3b9efc3176ce5f6e59",
+      "origin_pr": 372
+    },
+    {
+      "path": "docs/eval/SQLITE_EPISTEMIC_BOUNDARY_VERIFICATION_2026-11-02.md",
+      "mode": "100644",
+      "git_blob": "f25b2fae0ac6a19366ab0943ee152ddcc31ff97e",
+      "sha256": "387ae05a13aa8e7719c556a67bb06ebf9ac2a1a4fa9776dd1f8fe6639ba21918",
+      "size": 7688,
+      "origin_commit": "211d64715f56395f156d1096c72b56e890460b23",
+      "origin_pr": 370
+    }
+  ],
+  "new_tests": [
+    {
+      "name": "remembered_and_per_event_values_survive_two_corrections_without_same_revision_branch_bleed",
+      "package": "locallore",
+      "source": {
+        "bytes": 7354,
+        "git_blob": "4d975eedf869ce2227477e250b93a23f9134e51b",
+        "head": "327a729080c1717027e9900fb2a2c7e27d64291b",
+        "path": "crates/locallore/tests/m10_query2_observation_chain.rs",
+        "pr": 368,
+        "sha256": "52d56af6d450c0aa525c2c51c9335e12a6611c6f2190b1cb5aa5087c8a784f9a",
+        "status": "A"
+      },
+      "test_target": "m10_query2_observation_chain"
+    },
+    {
+      "name": "rejected_epistemic_and_mechanical_prefix_does_not_reserve_turn_or_event_sources",
+      "package": "locallore",
+      "source": {
+        "bytes": 5399,
+        "git_blob": "6c9985c51d2a20de43962a5b641e8e0e4f668f05",
+        "head": "327a729080c1717027e9900fb2a2c7e27d64291b",
+        "path": "crates/locallore/tests/m10_staged_epistemic_rejection.rs",
+        "pr": 368,
+        "sha256": "931c399fdb7016952cf82c075fce86aa76c4234c9a7c1bc6c7fe4fc60a1b9b13",
+        "status": "A"
+      },
+      "test_target": "m10_staged_epistemic_rejection"
+    },
+    {
+      "name": "final_commit_busy_rolls_back_composed_knowledge_and_mechanics_then_exact_retry_spends_once",
+      "package": "locallore-storage",
+      "source": {
+        "bytes": 11899,
+        "git_blob": "c0d7f78a813ea2a56481f4602595a33faf67421c",
+        "head": "211d64715f56395f156d1096c72b56e890460b23",
+        "path": "crates/locallore-storage/tests/m10_durable_epistemic_rollback.rs",
+        "pr": 370,
+        "sha256": "9f5cc91b407587f2f1a313d89e92df82f02384f4c3c9c7f30899f4a6a14b6e5b",
+        "status": "A"
+      },
+      "test_target": "m10_durable_epistemic_rollback"
+    },
+    {
+      "name": "sqlite_reopens_preserve_query2_observation_history_and_same_head_branch_isolation",
+      "package": "locallore-storage",
+      "source": {
+        "bytes": 14922,
+        "git_blob": "9cab1e43690ff692ace54fc1bee5daaab05fe529",
+        "head": "211d64715f56395f156d1096c72b56e890460b23",
+        "path": "crates/locallore-storage/tests/m10_durable_observation_chain.rs",
+        "pr": 370,
+        "sha256": "6678b8f2fed761b64d54b18d35031aeaa8b19053cda0ca2bfc6a12587b656603",
+        "status": "A"
+      },
+      "test_target": "m10_durable_observation_chain"
+    },
+    {
+      "name": "archive3_preserves_query2_pages_and_sources_then_only_imported_future_observes_c",
+      "package": "locallore-storage",
+      "source": {
+        "bytes": 16763,
+        "git_blob": "407c52654782e779943aa60bd46ccffb121d169b",
+        "head": "4d119d3953ef9c37f1683c8a9c1fd7ab4c43a55d",
+        "path": "crates/locallore-storage/tests/m08_archive_epistemic_journey.rs",
+        "pr": 371,
+        "sha256": "1a23f251c5615fcb1ecd0142ea3262273bde3e716471c95cb2ffac2af719cd63",
+        "status": "A"
+      },
+      "test_target": "m08_archive_epistemic_journey"
+    },
+    {
+      "name": "genuine_wrapper_from_existing_same_value_sibling_cannot_authorize_a_recipient_observation",
+      "package": "locallore-storage",
+      "source": {
+        "bytes": 15038,
+        "git_blob": "2dae3fd4e1551134b4eb617fd0963eaad6713d82",
+        "head": "4d119d3953ef9c37f1683c8a9c1fd7ab4c43a55d",
+        "path": "crates/locallore-storage/tests/m08_archive_observation_authority.rs",
+        "pr": 371,
+        "sha256": "c60eeeb12e354443179ed42cc154bb8b8532ebc2cf291a382040747ea4661924",
+        "status": "A"
+      },
+      "test_target": "m08_archive_observation_authority"
+    },
+    {
+      "name": "imported_cold_host_generates_new_observation_from_b_to_c_only_after_explicit_commit",
+      "package": "locallore-workspace",
+      "source": {
+        "bytes": 27572,
+        "git_blob": "ef7bd19f3d74d37ebc30fee2846c80b05452a631",
+        "head": "d623ed0200d23c231c8f3b3b9efc3176ce5f6e59",
+        "path": "crates/locallore-workspace/tests/m08_imported_generation.rs",
+        "pr": 372,
+        "sha256": "42305c60b8b3ee0275f896bc96351ae809cefe495950eaf813eaf380a3d94e41",
+        "status": "A"
+      },
+      "test_target": "m08_imported_generation"
+    },
+    {
+      "name": "imported_cold_host_cancel_discards_late_valid_narration_and_never_regenerates_terminal_turn",
+      "package": "locallore-workspace",
+      "source": {
+        "bytes": 27572,
+        "git_blob": "ef7bd19f3d74d37ebc30fee2846c80b05452a631",
+        "head": "d623ed0200d23c231c8f3b3b9efc3176ce5f6e59",
+        "path": "crates/locallore-workspace/tests/m08_imported_generation.rs",
+        "pr": 372,
+        "sha256": "42305c60b8b3ee0275f896bc96351ae809cefe495950eaf813eaf380a3d94e41",
+        "status": "A"
+      },
+      "test_target": "m08_imported_generation"
+    }
+  ],
+  "seeded_case": {
+    "assertion_mapping": [
+      {
+        "invariant": "fixed_seed",
+        "line": 975,
+        "source_text": "let mut rng = 0x1a17_2026_u64;"
+      },
+      {
+        "invariant": "attempt_bound",
+        "line": 976,
+        "source_text": "for i in 0..10_000 {"
+      },
+      {
+        "invariant": "one_command_per_attempt",
+        "line": 1004,
+        "source_text": "if apply(&mut e, &format!(\"seeded-{i}\"), vec![command]).is_err() {"
+      },
+      {
+        "invariant": "rejection_projection",
+        "line": 1005,
+        "source_text": "assert_eq!(before, e.canonical_bytes(), \"seed=0x1a172026 attempt={i}\");"
+      },
+      {
+        "invariant": "rejection_revision",
+        "line": 1006,
+        "source_text": "assert_eq!(rev, e.revision());"
+      },
+      {
+        "invariant": "quantity_total",
+        "line": 1014,
+        "source_text": "<= 2"
+      },
+      {
+        "invariant": "positive_quantity_and_known_owner",
+        "line": 1020,
+        "source_text": ".all(|i| i.quantity > 0 && e.state().actors.contains_key(&i.owner)));"
+      },
+      {
+        "invariant": "energy_bound",
+        "line": 1021,
+        "source_text": "assert!(e.state().actors.values().all(|a| a.energy <= 100));"
+      },
+      {
+        "invariant": "ability_count",
+        "line": 1022,
+        "source_text": "assert_eq!(e.state().actors[\"player\"].abilities.len(), 1);"
+      },
+      {
+        "invariant": "provider_free_replay",
+        "line": 1024,
+        "source_text": "let replayed = Engine::replay(seed(), e.receipts()).unwrap();"
+      },
+      {
+        "invariant": "replay_canonical_equality",
+        "line": 1025,
+        "source_text": "assert_eq!(replayed.canonical_bytes(), e.canonical_bytes());"
+      }
+    ],
+    "attempts": 10000,
+    "limitations": [
+      "One deterministic RNG trajectory, not10000 independent tests or seeds.",
+      "Singleton actions only; does not replace newly composed multi-command/SQLite/archive/Host oracles.",
+      "No per-step observer-context/replay assertion in this method; final replay comparison only."
+    ],
+    "name": "ten_thousand_seeded_attempts_preserve_conservation_bounds_and_replay",
+    "one_command_per_attempt": true,
+    "seed": "0x1a172026",
+    "source": {
+      "bytes": 29346,
+      "git_blob": "9b92fc7e3fb8c77586058ef240f93c54765a47a6",
+      "path": "crates/locallore/tests/contracts.rs",
+      "sha256": "ed474806a0d17f0843d0baddda7e020e1016b68caf2ff7d971a86bdffc82e75d"
+    },
+    "start_line": 973
+  },
+  "selection": {
+    "compiled_test_packages": [
+      "locallore",
+      "locallore-android",
+      "locallore-storage",
+      "locallore-workspace"
+    ],
+    "excluded_package": "locallore-desktop-spike",
+    "formatting": "all workspace Rust source, including desktop source read-only",
+    "features": "defaults; no all-features; Core host is enabled by Workspace dependency",
+    "ignored": "unchanged; no --ignored or --include-ignored",
+    "host_target": "x86_64-pc-windows-msvc",
+    "android": "Rust bridge host tests, not JNI/Android execution",
+    "observed_root_features": {
+      "locallore": [
+        "host"
+      ],
+      "locallore-android": [],
+      "locallore-storage": [],
+      "locallore-workspace": []
+    }
+  },
+  "lock": {
+    "git_blob": "286a3abd02357632f26b5379df6806bb2566d52f",
+    "sha256": "68bc3cf2c3570b676e222fd294138cc7133994f26a8a894cac4e39c67d7af3f8",
+    "packages": 415,
+    "qualification": "Lock identity does not mean all lock packages compile or excluded packages are qualified"
+  },
+  "environment": {
+    "cargo_incremental": "0",
+    "build_jobs": 2,
+    "profile_dev_debug": "0",
+    "profile_test_debug": "0",
+    "offline": true,
+    "cleared_child_flags": [
+      "LOCALLORE_*",
+      "B34_LEGACY_CAPTURE_PATH",
+      "LIBSQLITE3_FLAGS",
+      "CARGO_BUILD_TARGET"
+    ],
+    "global_settings_changed": false
+  },
+  "commands": [
+    [
+      "cargo",
+      "+1.93.1",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    [
+      "cargo",
+      "+1.93.1",
+      "clippy",
+      "--workspace",
+      "--exclude",
+      "locallore-desktop-spike",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    [
+      "cargo",
+      "+1.93.1",
+      "test",
+      "--workspace",
+      "--exclude",
+      "locallore-desktop-spike",
+      "--locked",
+      "--offline",
+      "--",
+      "--test-threads=1"
+    ]
+  ],
+  "normal_operator_preserved": {
+    "head": "8924278ce1c877e6d67c90c15a35fb23ca7198dc",
+    "index_sha256": "897c91824eb4ad6ecd5034e1eecb2874c34dfd499675763a4d44a4a55ba80119"
+  },
+  "integration": "Exact additive Git-content composition; no merge/cherry-pick, no production delta, constituent PRs remain open and unmerged",
+  "publication": {
+    "base_commit": "027ddbaf298cd05ebdcdf65d716962e783bcad31",
+    "base_tree": "f6762ec93978882f9e0744cb92d39f90256f738c",
+    "content_tree_before_evidence": "03c39743dc40bfbbf3aaef6365186439109fbdd0",
+    "upstream_delta_from_actual_tested_base": [
+      {
+        "path": "docs/desktop/D04_MSVC_ARCHIVE_ALIGNMENT_V2_CODE_ADMISSION_2026-11-02.md",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "694fdbae6f39af1a9b327dee2d2ac1e526ff0303"
+        },
+        "new_bytes": 10581,
+        "new_sha256": "76cfe2bd4f39fc57b03ea2205275b2b0eb7988ab8857e992abb31cd8d2662e31"
+      },
+      {
+        "path": "docs/desktop/D04_MSVC_ARCHIVE_ALIGNMENT_V2_CONTRACT_2026-11-02.md",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "e5f57728c6a85e93bacf994e31f7ca1d2c539e46"
+        },
+        "new_bytes": 11057,
+        "new_sha256": "dd222748a2ec14f7f641c1bf28509edfb0970439461cdb6761c5d8c331f6ae3e"
+      },
+      {
+        "path": "docs/desktop/D04_MSVC_ARCHIVE_ALIGNMENT_V2_VERIFICATION_2026-11-02.md",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "31bb0b0548e803ceb99a97855103c4537d2cb33e"
+        },
+        "new_bytes": 10834,
+        "new_sha256": "071001f91782284e3cfddab447c667036b6054abc2f97fa107addf702f41cad9"
+      },
+      {
+        "path": "docs/desktop/D04_RUNTIME_METADATA_V2_OBSERVATION_ADMISSION_2026-11-02.md",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "ce749df7e93e22ff73527abfbb9cc29832c85e92"
+        },
+        "new_bytes": 10750,
+        "new_sha256": "239457f5e562aa0899f45a38396c659d61816ca24c530e74eeed99da1cf5fdff"
+      },
+      {
+        "path": "docs/desktop/D04_RUNTIME_METADATA_V2_OBSERVATION_CONTRACT_2026-11-02.md",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "7411f9832ce946f565508d1a0844ad2a5abb1d6e"
+        },
+        "new_bytes": 12956,
+        "new_sha256": "66fd963eed1d83397f91513804a6c9531df060ffea9b34ea686ef258b602b90b"
+      },
+      {
+        "path": "docs/desktop/D04_RUNTIME_METADATA_V2_OBSERVATION_VERIFICATION_2026-11-02.md",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "d5a1d42f9485318298b2115efede6a49d12a92e4"
+        },
+        "new_bytes": 11554,
+        "new_sha256": "da4dd9d26ba63f4aad00edf6f7e5f68b5595d6d1ea14325a0b3d64b48949c8e2"
+      },
+      {
+        "path": "native/llama-worker/library_archive_alignment_v2_first.mjs",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "338d6a147a7eeeee7e6a3097a5481ab21f937448"
+        },
+        "new_bytes": 29556,
+        "new_sha256": "5bccd9534402700c4c2481d246059b5183202b56e6df12cbf75733ed54edfefa"
+      },
+      {
+        "path": "native/llama-worker/library_inputs.mjs",
+        "status": "modified",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "d17ee278f33ddf141f0ffbd6ca6f591383bcddb1"
+        },
+        "new_bytes": 17906,
+        "new_sha256": "c6bd3309db944bf431838fd1e98670a6e8ed937f104e66a31735c5cc1372c5dc",
+        "old": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "e75da58a9c3870e741b22298a532e2c03de06783"
+        },
+        "old_bytes": 16987,
+        "old_sha256": "9972c0eb4d8cf936f252b090a8f0794b0d6b5328a2245b8720cdec32d5fafa53"
+      },
+      {
+        "path": "native/llama-worker/library_runtime_metadata_v2.mjs",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "1e615fb02654facc8c35e85d6f66bfa2c7fe0eb1"
+        },
+        "new_bytes": 11238,
+        "new_sha256": "c73f7a7f5a87018e3d70b3226f8aeaf899580f879f8d3379857e435f0d66d4e1"
+      },
+      {
+        "path": "native/llama-worker/library_runtime_metadata_v2_first.mjs",
+        "status": "added",
+        "new": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "e19e9aee9f444df989d5a3d1ec151bcd2292abac"
+        },
+        "new_bytes": 28315,
+        "new_sha256": "9c614ff1d5dbb5caa5e25f3b0bc2945a963a6675d22ef4668b53ede209821d38"
+      }
+    ],
+    "coordinator_performed_merge": false,
+    "actual_tested_base_and_content_tree_unchanged": true,
+    "portable_rust_format_config_and_fixture_inputs_identical": true,
+    "upstream_js_and_docs_executed_or_qualified_by_this_cohort": false,
+    "reconciliation": "Preserve both original failed exact-main preflights. Reuse actual d386+11 source Rust results because independent source-closure reviews found no changed input to these checks. Final publication equals exact027 main plus the same eleven overlays and two non-executable evidence artifacts; all ten upstream JS/docs changes stay unqualified by this cohort. Further relevant drift requires renewed review/checks.",
+    "independent_reviews": [
+      {
+        "artifact": "publication-main-drift-review-v1.json",
+        "sha256": "fb98444b550ad25a3d02895e64f6c33c2c852e92da4972d1c29a8940b0aad23a"
+      },
+      {
+        "artifact": "main-drift-equivalence-v1.json",
+        "sha256": "f600af96b40cfca1c168c43c26f635ea8ecf61080ff80e1e48774e6b72422398"
+      },
+      {
+        "artifact": "second-main-drift-equivalence-v1.json",
+        "sha256": "597c84f896a87a3ad2c9672f13773723b95b9b4743d751484efae9f99072e77a"
+      }
+    ],
+    "previous_guarded_publication_base": "dcbb4bdbcaf7d0c1cd066e2c2b124af317dde2f9",
+    "external_merge_prs": [
+      369,
+      373
+    ],
+    "preserved_publication_refusals": 2
+  }
+}

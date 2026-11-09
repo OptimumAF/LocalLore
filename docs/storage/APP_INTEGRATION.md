@@ -96,6 +96,10 @@ force-stop or a cold launch. See [Android draft lifecycle evidence](../native/AN
 Android Send and quick actions bind to the ViewModel state that rendered
 the control. A callback from an earlier state is discarded before the
 engine receives a request. A current control uses the current saved revision.
+Draft edits belong to the mounted composer. Its callbacks lose access when
+that composer leaves the screen, including when the same story and timeline
+later return. Edits within the current composer and saved-draft restoration
+retain their existing scope.
 Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.

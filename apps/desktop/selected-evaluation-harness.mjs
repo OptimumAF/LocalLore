@@ -865,7 +865,7 @@ const sceneLabels = {
         "sable",
         "guard",
         "guard-results",
-        "native-unavailable",
+        "native-consent-denied",
         "unknown",
         "recovered",
         "consent-pending",
@@ -1140,11 +1140,28 @@ try {
                     report.checks.length >= (stage === "restart" ? 160 : 154),
                 `FrozenCheckCount:${stage}`,
             );
-        } else
+        } else {
             assert(
                 Array.isArray(report.checks) && report.checks.length > 0,
                 "ActualSceneChecksRequired",
             );
+            assert.equal(
+                report.nativeSceneConsentDenied,
+                stage === "initial",
+                "NativeSceneConsentDenialOnlyInInitialStage",
+            );
+            if (stage === "initial")
+                for (const check of [
+                    "scene-ready-native-route-advertised-in-the-mounted-panel",
+                    "scene-native-consent-idle-before-prepare",
+                    "scene-native-prepare-publishes-pending-status",
+                    "scene-native-preparation-enters-held-consent",
+                    "scene-native-held-consent-has-no-plan-or-read-capability",
+                    "scene-native-consent-denial-keeps-operation-with-no-grant",
+                    "scene-native-refusal-creates-no-selected-run",
+                ])
+                    assert(report.checks.includes(check), check);
+        }
         const expectedLabels = scene
             ? sceneLabels[stage]
             : stage === "restart"
@@ -1177,6 +1194,28 @@ try {
                 `SemanticVersion:${label}`,
             );
             assert(snapshot.selectedEvaluation, `SelectedSnapshot:${label}`);
+            if (label === "selected-scene-native-consent-denied") {
+                const status = snapshot.selectedEvaluation.status;
+                assert.equal(status?.lane, "approved_native");
+                assert.equal(status.phase, "failed");
+                assert.equal(status.running, false);
+                assert.equal(status.error, "Cancelled");
+                assert(guid(status.client_id), "ActualNativeDenialClient");
+                assert(
+                    Number.isSafeInteger(status.operation_id) && status.operation_id >= 0,
+                    "ActualNativeDenialOperation",
+                );
+                for (const key of ["plan_token", "run_id", "run_token", "binding", "prepared"])
+                    assert.equal(status[key], null, `NativeDenialNoCapability:${key}`);
+                assert.equal(status.cleanup_required, false);
+                assert.equal(snapshot.visibleError, "Cancelled");
+                assert.equal(snapshot.pendingOperation, null);
+                assert.equal(snapshot.displayedReceipt, null);
+                assert.equal(snapshot.selectedReport, null);
+                const source = snapshot.retainedRequestContext;
+                assert.equal(source?.presentationOnly, true);
+                assert(hex(source.sourceBinding), "NativeDenialSourceBinding");
+            }
             assert(
                 [
                     "selectedStory",

@@ -63,23 +63,24 @@ fn checked_workspace(workspace: &Path) -> Result<&Path, String> {
     let expected = std::env::var_os("LOCALLORE_TEST_WORKSPACE").map(PathBuf::from);
     workspace_parent(workspace, expected.as_deref())
 }
-fn metadata_kind(metadata: &Value) -> Result<(), String> {
+#[derive(Clone, Copy)]
+enum ConsentPolicy {
+    Fixture,
+    DenyNativeScene,
+}
+
+fn metadata_kind(metadata: &Value) -> Result<ConsentPolicy, String> {
     metadata_kind_for_mode(
         metadata,
         crate::comparison_reader_harness::selected_scene_mode(),
     )
 }
-fn metadata_kind_for_mode(metadata: &Value, scene: bool) -> Result<(), String> {
-    // This is a closed fixture discriminator, NOT a second canonical/DTO
-    // validator. The actual service supplies already-validated shared metadata.
+fn metadata_kind_for_mode(metadata: &Value, scene: bool) -> Result<ConsentPolicy, String> {
+    // The actual service supplies already-validated shared metadata. This
+    // discriminator limits what the synthetic consent callback can observe.
+    let kind = metadata["kind"].as_str();
     if !metadata.is_object()
-        || !(matches!(metadata["version"].as_u64(), Some(1 | 2))
-            || (scene && metadata["version"] == 3 && metadata["source_protocol_version"] == 4))
-        || (metadata["version"] == 2 && metadata["source_protocol_version"] != 3)
-        || !matches!(
-            metadata["kind"].as_str(),
-            Some("selected_prepared" | "selected_read")
-        )
+        || !matches!(kind, Some("selected_prepared" | "selected_read"))
         || serde_json::to_vec(metadata)
             .map_err(|_| "InvalidEvaluationInput")?
             .len()
@@ -87,10 +88,32 @@ fn metadata_kind_for_mode(metadata: &Value, scene: bool) -> Result<(), String> {
     {
         return Err("InvalidEvaluationInput".into());
     }
-    Ok(())
+
+    let version = metadata["version"].as_u64();
+    let source = metadata["source_protocol_version"].as_u64();
+    if scene && metadata["lane"] == "native_selected_case" {
+        return match (version, source, kind) {
+            (Some(4), Some(4), Some("selected_prepared")) => Ok(ConsentPolicy::DenyNativeScene),
+            _ => Err("InvalidEvaluationInput".into()),
+        };
+    }
+    match (version, source) {
+        (Some(1), _) | (Some(2), Some(3)) => Ok(ConsentPolicy::Fixture),
+        (Some(3), Some(4)) if scene => Ok(ConsentPolicy::Fixture),
+        _ => Err("InvalidEvaluationInput".into()),
+    }
 }
 fn finish_consent(state: &SelectedHarness) -> bool {
     !state.deny.swap(false, Ordering::SeqCst)
+}
+
+fn consent_decision(state: &SelectedHarness, policy: ConsentPolicy) -> bool {
+    match policy {
+        ConsentPolicy::Fixture => finish_consent(state),
+        // Holding the actual callback proves route entry. This branch never
+        // issues a Start grant, independent of the scripted fixture flags.
+        ConsentPolicy::DenyNativeScene => false,
+    }
 }
 pub fn consent(
     workspace: &Path,
@@ -99,7 +122,7 @@ pub fn consent(
 ) -> Result<bool, String> {
     let parent = checked_workspace(workspace)?;
     let _pins = crate::archive::pin(parent)?;
-    metadata_kind(metadata)?;
+    let policy = metadata_kind(metadata)?;
     state.consent_active.store(true, Ordering::SeqCst);
     let _active = ActiveConsent(&state.consent_active);
     let started = Instant::now();
@@ -117,7 +140,7 @@ pub fn consent(
     }
     // Deliberately synthetic dev affirmation. It is not a real dialog/user
     // permission, model measurement, or an override of shared Rust validation.
-    Ok(finish_consent(state))
+    Ok(consent_decision(state, policy))
 }
 fn consume_lost_ack(state: &SelectedHarness) -> bool {
     state.lost_ack.swap(false, Ordering::SeqCst)

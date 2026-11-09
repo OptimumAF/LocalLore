@@ -1099,6 +1099,7 @@ async function selectedSceneJourneys(
     let disposalStarted = false;
     let failureCaptured = false;
     let nativeCaptures = 0;
+    let nativeSceneConsentDenied = false;
     const omni: ObserverV2 = { kind: "omniscient" };
     const check = (value: unknown, name: string) => {
         failedCheck = name;
@@ -1371,8 +1372,9 @@ async function selectedSceneJourneys(
             "#selected-evaluation select[aria-label='Selected experiment lane'] option[value='approved_native']",
         );
         check(
-            nativeOption?.disabled === true,
-            "scene-native-option-visibly-unavailable",
+            current.source?.selected_native_format === 4 &&
+                nativeOption?.disabled === false,
+            "scene-ready-native-route-advertised-in-the-mounted-panel",
         );
         const linked = {
             identity: {
@@ -2189,32 +2191,77 @@ async function selectedSceneJourneys(
             await capture("selected-scene-guard-results", "diagnostics");
             await s.close();
 
-            // Hold continuously across the negative and positive calibration.
-            // Native refusal alone is not a universal callback-entry counter.
-            await fault("hold-consent");
-            consentHeld = true;
             const native = await source("paired");
             const runsBeforeRefusal = await ids();
-            await s.prepare(native.identity, native.row, "approved_native", 4);
+            await fault("hold-consent");
+            consentHeld = true;
+            const beforeConsent = object(await fault("consent-status"));
+            check(
+                beforeConsent?.held === true && beforeConsent.active === false,
+                "scene-native-consent-idle-before-prepare",
+            );
+            // Use the mounted panel's controller and native invoke transport.
+            // The format-4 dev callback denies even without a scripted deny flag.
+            const nativePrepare = s.prepare(
+                native.identity,
+                native.row,
+                "approved_native",
+                4,
+            );
+            await until(
+                () => s.get().status?.running === true,
+                "scene-native-prepare-publishes-pending-status",
+            );
+            await held("scene-native-preparation-enters-held-consent");
+            const nativePending = s.get().status;
+            const nativeClient = s.get().clientId;
+            const nativeOperation = nativePending?.operation_id;
+            check(
+                nativeClient &&
+                    typeof nativeOperation === "number" &&
+                    nativePending?.phase === "preparing" &&
+                    nativePending.running &&
+                    nativePending.lane === "approved_native" &&
+                    nativePending.plan_token === null &&
+                    nativePending.run_id === null &&
+                    nativePending.run_token === null &&
+                    nativePending.binding === null &&
+                    nativePending.prepared === null,
+                "scene-native-held-consent-has-no-plan-or-read-capability",
+            );
+            await fault("release-consent");
+            consentHeld = false;
+            await nativePrepare;
             const nativeStatus = s.get().status;
             const observation = object(await fault("consent-status"));
             check(
-                nativeStatus?.phase === "failed" &&
-                    nativeStatus.error === "NativeUnavailable" &&
+                s.get().clientId === nativeClient &&
+                    nativeStatus?.operation_id === nativeOperation &&
+                    nativeStatus?.phase === "failed" &&
+                    nativeStatus.lane === "approved_native" &&
+                    nativeStatus.error === "Cancelled" &&
                     nativeStatus.plan_token === null &&
                     nativeStatus.run_id === null &&
+                    nativeStatus.run_token === null &&
+                    nativeStatus.binding === null &&
+                    nativeStatus.prepared === null &&
                     !nativeStatus.running &&
-                    observation?.held === true &&
+                    !nativeStatus.cleanup_required &&
+                    !s.get().uncertain &&
+                    observation?.held === false &&
                     observation.active === false,
-                "scene-actual-native-refusal-while-consent-remains-held",
+                "scene-native-consent-denial-keeps-operation-with-no-grant",
             );
-            await capture("selected-scene-native-unavailable");
+            await capture("selected-scene-native-consent-denied");
             check(
                 structural(await ids()) === structural(runsBeforeRefusal),
                 "scene-native-refusal-creates-no-selected-run",
             );
+            nativeSceneConsentDenied = true;
             await s.close();
             const pendingSource = await source("paired");
+            await fault("hold-consent");
+            consentHeld = true;
             const pending = s.prepare(
                 pendingSource.identity,
                 pendingSource.row,
@@ -2494,8 +2541,10 @@ async function selectedSceneJourneys(
                 rendering: "native-webview2",
                 nativeCaptures,
                 nativeDialogsAutomated: false,
+                nativeSceneConsentDenied,
                 unavailable: [
-                    "approved_native_selected_scene_execution_unavailable",
+                    "native_selected_scene_generation_not_exercised",
+                    "native_selected_scene_recorded_open_not_exercised",
                     "quality_not_reviewed",
                     "provider_inflight_between_arm_or_OS_kill_not_exercised",
                     "ordinary_shutdown_absent_model_candidate_metadata_probe_not_zero_path_probes",

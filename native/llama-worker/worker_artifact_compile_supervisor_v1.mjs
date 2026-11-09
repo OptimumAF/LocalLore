@@ -14,7 +14,9 @@ const RUN_MS = 132000;
 const DRAIN_MS = 5000;
 const CAPS = Object.freeze({ 'START.json': 4096, 'OFFER.json': 4096, 'request.bin': REQUEST,
   'response.bin': RESPONSE, 'stderr.bin': STDERR, 'transport.json': 4096, 'CAPTURE.json': 4096,
-  'terminal.json': 16384 });
+  'terminal.json': 16384, 'check-admit.json': 4096, 'check-before.json': 4096, 'check-after.json': 4096 });
+const CHECK_PHASES = ['admit', 'before', 'after'];
+const CHECK_PROOFS = ['source', 'headers', 'tool', 'environment', 'normal', 'temp', 'storage', 'reserve'];
 const CONTEXT = ['attempt', 'recipe', 'baseline', 'closure', 'grant'];
 const rawHash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = data => Buffer.from(JSON.stringify(data));
@@ -357,13 +359,41 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
   let startOffered = false, terminalOffered = false, offerUsed = false, offerPending = false;
   let journalPending = false, startBytes = null;
   let start = null, offer = null, transportUsed = false, transportPending = false, capture = null;
-  let retainUsed = false, retainPending = false;
+  let retainUsed = false, retainPending = false, captureRetained = false;
+  const checkWires = { admit: null, before: null, after: null };
+  const checkHashes = { admit: null, before: null, after: null };
+  const checkOffered = new Set();
 
   function scopeOf(value) {
     const supplied = data(value, ['context', 'requestHash', 'hostHash']);
     requireSupervisor(sameContext(supplied.context, context) && hash(supplied.requestHash) &&
       supplied.hostHash === spec.hostHash);
     return Object.freeze({ context, requestHash: supplied.requestHash, hostHash: spec.hostHash });
+  }
+
+  async function recordCheck(phase, text) {
+    requireSupervisor(CHECK_PHASES.includes(phase) && !checkOffered.has(phase) && !terminalOffered &&
+      !journalPending && !offerPending && !transportPending && !retainPending &&
+      typeof text === 'string' && Buffer.byteLength(text) <= 4096);
+    const allowed = phase === 'admit' ? !startOffered && !offerUsed :
+      phase === 'before' ? start !== null && !offerUsed : captureRetained && capture.facts.accepted;
+    requireSupervisor(allowed);
+    const parsed = JSON.parse(text);
+    const proof = data(parsed, ['version', 'kind', 'context', 'when', 'roster', ...CHECK_PROOFS]);
+    requireSupervisor(JSON.stringify(parsed) === text && proof.version === 1 &&
+      proof.kind === 'worker_artifact_compile_check_v1' && sameContext(proof.context, context) &&
+      proof.when === phase && (phase === 'admit' ? proof.roster === null : hash(proof.roster)) &&
+      CHECK_PROOFS.every(key => hash(proof[key])));
+    checkOffered.add(phase);
+    journalPending = true;
+    try {
+      const bytes = Buffer.from(text);
+      const sha256 = await save('check-' + phase + '.json', bytes);
+      checkWires[phase] = bytes;
+      checkHashes[phase] = sha256;
+    } finally {
+      journalPending = false;
+    }
   }
 
   async function journal(value) {
@@ -378,15 +408,20 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
       !terminalOffered && !journalPending && !offerPending && !transportPending && !retainPending);
     const starting = record.kind === 'worker_artifact_compile_observation_start_v1';
     if (starting) {
-      requireSupervisor(!startOffered && record.runCount === 1 && hash(record.preflight));
+      requireSupervisor(!startOffered && record.runCount === 1 && checkHashes.admit !== null &&
+        record.preflight === checkHashes.admit);
       startOffered = true;
     } else {
       requireSupervisor(record.kind === 'worker_artifact_compile_observation_v1' &&
         record.linkAllowed === false && record.qualified === false);
+      const checks = data(record.checks, CHECK_PHASES);
+      requireSupervisor(CHECK_PHASES.every(phase => checks[phase] === null
+        ? record.status !== 'observed' : checks[phase] === checkHashes[phase]));
       terminalOffered = true;
     }
     journalPending = true;
     try {
+      if (starting) await verify('check-admit.json', checkWires.admit);
       // #408 hashes the original record's key order.
       const bytes = json(value);
       const sha256 = await save(starting ? 'START.json' : 'terminal.json', bytes);
@@ -402,7 +437,7 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
 
   async function authorize(value) {
     const scope = scopeOf(value);
-    requireSupervisor(!terminalOffered && !offerUsed && !journalPending && start !== null);
+    requireSupervisor(!terminalOffered && !offerUsed && !journalPending && start !== null && checkHashes.before !== null);
     offerUsed = true;
     offerPending = true;
     try {
@@ -432,6 +467,7 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
     try {
       await verify('START.json', startBytes);
       await verify('OFFER.json', offer.bytes);
+      await verify('check-before.json', checkWires.before);
       requireSupervisor(await save('request.bin', request) === scope.requestHash);
       let outcome = blankProcess(), before = null, after = null;
       if (!signal.aborted) {
@@ -459,7 +495,7 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
         sentBytes === request.length && sentHash === scope.requestHash;
       const facts = { image, pid, closed, stdinClosed, stdoutClosed, stderrClosed, exitCode, sentBytes, sentHash, accepted };
       const record = { kind: 'compile_supervisor_transport_v1', scope, authorization: offer.authorization,
-        admitted, facts, lifecycle, before, after, environment: rawHash(json(env)), requestBytes: request.length,
+        admitted, facts, lifecycle, before, after, beforeCheck: checkHashes.before, environment: rawHash(json(env)), requestBytes: request.length,
         responseBytes: response.length, responseHash: rawHash(response), stderrBytes: stderr.length, stderrHash: rawHash(stderr) };
       const transportBytes = json(record);
       const observation = await save('transport.json', transportBytes);
@@ -494,11 +530,12 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
       await verify('transport.json', capture.transportBytes);
       requireSupervisor(bytes.length <= 4096);
       const recordHash = await save('CAPTURE.json', bytes);
+      captureRetained = true;
       return JSON.stringify({ kind: 'compile_host_retained_v1', recordHash, stored: true });
     } finally {
       retainPending = false;
     }
   }
 
-  return Object.freeze({ journal, authorize, transport, retain });
+  return Object.freeze({ journal, recordCheck, authorize, transport, retain });
 }

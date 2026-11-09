@@ -234,7 +234,13 @@ export async function runWorkerArtifactCompileAttemptV1(profile, owner, sourceSi
   const outputReader = createWorkerArtifactHeldOutputsV1({ config: pinned.config });
   const observation = createWorkerArtifactCompileObservationV1({ config: pinned.config, authority: pinned.authority,
     outputRoots, outputReader,
-    ports: { check: (request, guardSignal) => check(request, guardSignal, admitted),
+    ports: { check: async (request, guardSignal) => {
+      const lease = request.when === 'admit' ? null : outputRoots.snapshot();
+      const receipt = await check(request, guardSignal, admitted, lease);
+      await supervisor.recordCheck(request.when, receipt);
+      requireAttempt(!guardSignal.aborted);
+      return receipt;
+    },
       journal: supervisor.journal, launch: host.launch }
   });
 

@@ -268,6 +268,11 @@ handles keyboard space around both the scrolling chat and Latest control.
 Host tests, Android-test compilation and lint pass; the two new injected-inset
 journeys and real keyboard/accessibility behavior still require Android execution.
 
+The [fixed SDK17 fresh handoff](docs/native/DIAGNOSTIC_UI_FRESH_HANDOFF_V1.md)
+joins separately approved guarded preparation to the existing six-test
+diagnostic runner. It adds no execution authority, capacity exception or model
+operation. Actual preparation and Android qualification remain separately gated.
+
 The [fixed diagnostic UI profile](docs/native/DIAGNOSTIC_UI_PROFILE_V1.md) binds
 six compiled diagnostic journeys to guarded ownership, complete replay and
 sticky cancellation/cleanup. Its [host verification report](docs/native/DIAGNOSTIC_UI_PROFILE_VERIFICATION_2026-11-03.md)

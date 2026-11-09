@@ -73,7 +73,7 @@ An admitted Android `inspection_query` or `play_presentation_v2` read can
 finish after the caller retires its view. The owner observes the native reply
 within the original finite command deadline, then propagates caller
 cancellation and discards the result. A read that exceeds that deadline or
-fails the UTF-8 or reply-size check still quarantines the workspace. These two read-only
+fails the workspace reply checks still quarantines the workspace. These two read-only
 operations keep the existing active-run admission checks. Mutating commands
 retain the existing conservative handling of uncertain cancellation.
 
@@ -83,6 +83,16 @@ all such commands return bounded replies or the owner is quarantined.
 The existing status, cancellation and lifecycle commands retain their
 concurrent admission. A retired caller of an in-flight read still holds its
 reservation until native completion is known.
+
+For the external workspace, the production transport decodes each bounded
+UTF-8 Host reply before the owner releases command admission. It requires one
+v1 object, an integer version, and either success with object data or rejection
+with a string error. Generation and the owner's cleanup Cancel use the same
+envelope check. Unusable envelopes follow the existing uncertainty and native
+invalidation path. Valid rejection metadata stays available to the gateway,
+which still checks operation payloads and their scope. Envelope framing and
+shape are checked around the platform JSON tokenizer. Canonical outcomes
+remain subject to the original saved-turn recovery rules.
 
 The injected worker contract makes these states testable without an SDK. A
 future SDK adapter must establish them from actual callbacks and resource joins;

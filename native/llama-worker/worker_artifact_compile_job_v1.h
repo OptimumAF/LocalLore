@@ -311,8 +311,9 @@ inline void terminate(const Handle& job, const Handle& process, Result& result) 
     }
 }
 
+template <typename Cancelled>
 inline Clock::time_point settle(const Handle& process, const Handle& job, const Handle& out,
-                                const Handle& err, const std::atomic_bool& cancelled,
+                                const Handle& err, const Cancelled& cancelled,
                                 Clock::time_point run_deadline, Result& result) {
     std::optional<Clock::time_point> drain_deadline;
     const auto needs_termination = [&]() {
@@ -320,7 +321,7 @@ inline Clock::time_point settle(const Handle& process, const Handle& job, const 
     };
     for (;;) {
         const auto now = Clock::now();
-        if (cancelled.load()) stop(result, Stop::cancelled);
+        if (cancelled()) stop(result, Stop::cancelled);
         if (!drain_deadline && now >= run_deadline) stop(result, Stop::deadline);
         if (!drain_deadline && result.stop != Stop::none)
             drain_deadline = (std::min)(now, run_deadline) + drain_window;
@@ -330,8 +331,8 @@ inline Clock::time_point settle(const Handle& process, const Handle& job, const 
         const bool stdout_progress = poll_pipe(out, result.out, result);
         const bool stderr_progress = poll_pipe(err, result.err, result);
         observe_process(process, result);
+        if (cancelled()) stop(result, Stop::cancelled);
         const auto observed = Clock::now();
-        if (cancelled.load()) stop(result, Stop::cancelled);
         // A poll begun in time can still return after the cutoff.
         if (!drain_deadline && observed >= run_deadline) stop(result, Stop::deadline);
         if (!drain_deadline && (result.signaled || result.stop != Stop::none))
@@ -340,7 +341,7 @@ inline Clock::time_point settle(const Handle& process, const Handle& job, const 
         if (drain_deadline) {
             if (observed >= *drain_deadline) break;
             observe_job(job, result);
-            if (cancelled.load()) stop(result, Stop::cancelled);
+            if (cancelled()) stop(result, Stop::cancelled);
             if (Clock::now() >= *drain_deadline) break;
             const bool stdout_done = result.out.eof || result.out.overflow;
             const bool stderr_done = result.err.eof || result.err.overflow;
@@ -354,16 +355,14 @@ inline Clock::time_point settle(const Handle& process, const Handle& job, const 
     return *drain_deadline;
 }
 
-} // namespace detail
-
-inline Result launch(const Request& request, const std::atomic_bool& cancelled) {
-    using namespace detail;
+template <typename Cancelled>
+Result launch_with_cancel(const Request& request, const Cancelled& cancelled) {
     Result result;
     const auto started = Clock::now();
     const auto deadline = started + run_window;
     Handle job, in, stdin_writer, out, stdout_writer, err, stderr_writer, process, thread;
     const auto start = [&]() {
-        if (cancelled.load()) {
+        if (cancelled()) {
             stop(result, Stop::cancelled);
             return;
         }
@@ -413,7 +412,7 @@ inline Result launch(const Request& request, const std::atomic_bool& cancelled) 
         startup.StartupInfo.hStdError = stderr_writer.value;
         startup.lpAttributeList = attributes.list;
         PROCESS_INFORMATION info{};
-        if (cancelled.load()) stop(result, Stop::cancelled);
+        if (cancelled()) stop(result, Stop::cancelled);
         if (Clock::now() >= deadline) stop(result, Stop::deadline);
         if (result.stop != Stop::none) return;
         if (!CreateProcessW(executable.c_str(), cmd.data(), nullptr, nullptr, TRUE,
@@ -433,7 +432,7 @@ inline Result launch(const Request& request, const std::atomic_bool& cancelled) 
         close(in, result);
         close(stdout_writer, result);
         close(stderr_writer, result);
-        if (cancelled.load()) stop(result, Stop::cancelled);
+        if (cancelled()) stop(result, Stop::cancelled);
         if (Clock::now() >= deadline) stop(result, Stop::deadline);
         if (result.stop != Stop::none) return;
         const DWORD previous = ResumeThread(thread.value);
@@ -453,11 +452,17 @@ inline Result launch(const Request& request, const std::atomic_bool& cancelled) 
     }
     for (Handle* handle : {&thread, &in, &stdin_writer, &stdout_writer, &stderr_writer, &out, &err, &job})
         close(*handle, result);
-    if (cancelled.load()) stop(result, Stop::cancelled);
+    if (cancelled()) stop(result, Stop::cancelled);
     const auto finished = Clock::now();
     if (drain_deadline && finished >= *drain_deadline) stop(result, Stop::drain);
     result.elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
     return result;
+}
+
+} // namespace detail
+
+inline Result launch(const Request& request, const std::atomic_bool& cancelled) {
+    return detail::launch_with_cancel(request, [&]() { return cancelled.load(); });
 }
 
 } // namespace locallore::compile_job_v1

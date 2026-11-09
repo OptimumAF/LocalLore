@@ -51,6 +51,14 @@ explicit author trace labels; old director/narrator limits remain unchanged.
 Unknown cleanup still quarantines resources; coroutine cancellation is not
 proof of native closure.
 
+Closing the Android editor waits for any dispatched Begin reply and uses
+the returned native job ID even when it arrives after the editor retires.
+Only a current editor may start generation, and it binds Review to a job
+after that job supplies a valid generation reply. Dismissal waits for
+cancellation of the exact retained job and reports uncertainty if the Begin
+or Cancel reply cannot establish the outcome. An explicit Cancel reply
+reporting an already created story requires refreshing the library.
+
 Explicit creation uses the existing atomic full-seed Store transaction and
 idempotency key. A completed creation can be recovered after lost ACK/restart
 without inference. That recovery path only loads/rechecks an existing Engine;

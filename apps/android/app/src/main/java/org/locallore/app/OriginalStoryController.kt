@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -24,6 +25,9 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
     private var active: Job? = null
     private var disposed = false
     private var createStarted = false
+    // A native job may be acknowledged after the visible editor has retired.
+    private var nativeJob: String? = null
+    private var beginUnconfirmed = false
     private val creationId = UUID.randomUUID().toString().replace("-", "")
     fun open(capabilities: OriginalCapabilities) {
         if (disposed || state != null || !capabilities.available) return
@@ -56,22 +60,52 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
     fun generate(expected: OriginalStoryUiState) {
         if(!editable(expected) || !OriginalStoryWire.valid(expected.input)) return
         val ticket=++generation; val input=expected.input.frozen()
-        update(expected.copy(busy=true,review=null,editorEpoch=Any(),notice=if(expected.provider=="local") "Generating a draft locally…" else "Generating a synthetic scripted draft…"))
+        update(expected.copy(busy=true,job=null,review=null,editorEpoch=Any(),notice=if(expected.provider=="local") "Generating a draft locally…" else "Generating a synthetic scripted draft…"))
+        if (!current(ticket)) return
         run(ticket) {
             var begun: String? = null
             try {
-                expected.job?.let { check(gateway.cancelOriginal(it)) }
-                val job=gateway.beginOriginal(input); begun=job.job
+                // Observe finite control replies even when dismiss cancels this caller. Never
+                // carry that cancellation shield into model generation.
+                val job = withContext(NonCancellable) {
+                    if (!current(ticket)) return@withContext null
+                    nativeJob?.let {
+                        check(gateway.cancelOriginal(it))
+                        nativeJob = null
+                    }
+                    if (!current(ticket)) return@withContext null
+                    begin(input).also {
+                        nativeJob = it.job
+                        begun = it.job
+                    }
+                } ?: return@run
+                if (!current(ticket)) return@run
                 check(job.provider==expected.provider)
-                if(current(ticket)) update(checkNotNull(state).copy(job=job.job))
+                currentCoroutineContext().ensureActive()
                 val generated=gateway.generateOriginal(job.job)
                 check(generated.job==job.job && generated.provider==job.provider && generated.input==input)
                 val proposal=generated.proposal.frozen()
-                if(current(ticket)) update(checkNotNull(state).copy(input=input,proposal=proposal,review=null,editorEpoch=Any(),
+                if(current(ticket)) update(checkNotNull(state).copy(input=input,proposal=proposal,job=job.job,review=null,editorEpoch=Any(),
                     notice="Edit the cast and world, then choose Review changes. World truth and private beliefs are separate."))
             } finally {
-                if(!current(ticket) && begun!=null) withContext(NonCancellable) { gateway.cancelOriginal(checkNotNull(begun)) }
+                // Dismiss joins this job and owns its cancellation acknowledgement.
+                if(disposed && begun!=null) withContext(NonCancellable) { gateway.cancelOriginal(checkNotNull(begun)) }
             }
+        }
+    }
+    private suspend fun begin(input: OriginalInput): OriginalJob {
+        val priorUnconfirmed = beginUnconfirmed
+        beginUnconfirmed = true
+        try {
+            return gateway.beginOriginal(input).also { beginUnconfirmed = false }
+        } catch (failure: Exception) {
+            // These Begin rejections occur before Rust installs a job. An unreadable or missing
+            // reply gives no job ID to cancel and cannot prove that the dialog is safe to close.
+            if (failure is LocalInferenceBusy || failure is WorkspaceFailure &&
+                failure.category in setOf("Closed", "Busy", "Unsupported", "IdExhausted", "InvalidInput", "TooLarge")) {
+                beginUnconfirmed = priorUnconfirmed
+            }
+            throw failure
         }
     }
     fun review(expected: OriginalStoryUiState) {
@@ -102,7 +136,9 @@ internal class OriginalStoryController(private val gateway: OriginalStoryGateway
         active=scope.launch(start=CoroutineStart.LAZY) {
             previous?.join()
             try {
-                val cancelled=before.job?.let { gateway.cancelOriginal(it) } ?: true
+                check(!beginUnconfirmed)
+                val cancelled=nativeJob?.let { gateway.cancelOriginal(it) } ?: true
+                nativeJob = null
                 if(!disposed && generation==ticket) { state=null; closed(StoryCreationClose(refreshRequired=createStarted || !cancelled)) }
             } catch (_: Exception) {
                 if(!disposed && generation==ticket) update(checkNotNull(state).copy(notice="Local work could not be confirmed as finished. Close the app before continuing. No automatic retry was made."))

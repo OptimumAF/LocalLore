@@ -24,6 +24,7 @@ TEST_PACKAGE = PACKAGE + ".test"
 TEST_CLASS = "org.locallore.app.ArchivePlatformRoundTripTest"
 MARKER = b"locallore-platform-roundtrip-v1"
 MAX_FIXTURE_BYTES = 128 * 1024
+PACKAGED_FIXTURES = ROOT / "apps/android/app/src/androidTest/assets/platform-roundtrip-v1"
 ASSETS = ("windows-origin.json", "windows-continued.json", "expectations.json")
 OUTBOUND = ("windows-return.json", "windows-continued.json", "android-origin.json")
 REMOTE_FILES = set(OUTBOUND + ("android-return.json", "android-final.json", "owner-v1"))
@@ -233,7 +234,7 @@ def phase(device, name, run, output, identities):
 
 
 def native_check(executable, mode, output, inputs, fixtures, journal):
-    require(mode in ("verify", "check-final"), "invalid_mode")
+    require(mode in ("check-fixtures", "verify", "check-final"), "invalid_mode")
     args = [str(executable), "--owned-stdin", "--development-fixtures", mode, "--directory", str(output),
             "--inputs", str(inputs), "--fixtures", str(fixtures)]
     result = process_owner.run_process(args, deadline=120)
@@ -246,6 +247,18 @@ def native_check(executable, mode, output, inputs, fixtures, journal):
             and report.get("status") == "passed" and report.get("mode") == mode
             and report.get("fixture") == "locallore-platform-roundtrip-v1", "native_report")
     return {"status": "passed", "raw_sha256": digest(result.stdout)}
+
+
+def fixture_hashes(fixtures):
+    return {name: digest(read_small(fixtures / name)) for name in ASSETS}
+
+
+def check_fixture_pair(executable, output, packaged, current, packaged_hashes, journal):
+    expected = fixture_hashes(current)
+    receipt = native_check(executable, "check-fixtures", output, packaged, current, journal)
+    require(fixture_hashes(packaged) == packaged_hashes and fixture_hashes(current) == expected,
+            "fixture_drift")
+    return receipt, expected
 
 
 def run(args):
@@ -274,7 +287,10 @@ def run(args):
             identities = {PACKAGE: digest(app.read_bytes()), TEST_PACKAGE: digest(test.read_bytes())}
             result["apk_sha256"] = identities
             result["native_fixture_sha256"] = digest(executable.read_bytes())
-            result["fixture_sha256"] = verify_packaged_fixtures(test, fixtures)
+            packaged = real_path(PACKAGED_FIXTURES)
+            result["fixture_sha256"] = verify_packaged_fixtures(test, packaged)
+            result["fixture_preflight"], result["expected_fixture_sha256"] = check_fixture_pair(
+                executable, output / "fixture-check", packaged, fixtures, result["fixture_sha256"], journal)
             # Package names are checked from artifacts, never inferred from filenames.
             aapt = Path(args.adb).parent.parent / "build-tools/35.0.0/aapt2.exe"
             if os.name != "nt":
@@ -302,9 +318,12 @@ def run(args):
                 data = remote_read(device, run_id, name)
                 write_new(inputs / name, data)
                 artifacts[name] = {"bytes": len(data), "sha256": digest(data)}
-            require(read_small(inputs / "windows-return.json") == read_small(fixtures / "windows-origin.json")
-                    and read_small(inputs / "windows-continued.json") == read_small(fixtures / "windows-continued.json"),
-                    "windows_transfer_drift")
+            require(fixture_hashes(fixtures) == result["expected_fixture_sha256"], "fixture_drift")
+            for returned, expected in (("windows-return.json", "windows-origin.json"),
+                                       ("windows-continued.json", "windows-continued.json")):
+                require(artifacts[returned]["sha256"] == result["expected_fixture_sha256"][expected]
+                        and read_small(inputs / returned) == read_small(fixtures / expected),
+                        "windows_transfer_drift")
             native_output = output / "windows"
             result["phases"]["windows_import_continue"] = native_check(
                 executable, "verify", native_output, inputs, fixtures, journal)

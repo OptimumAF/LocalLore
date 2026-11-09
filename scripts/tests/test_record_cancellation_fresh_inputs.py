@@ -13,7 +13,9 @@ from scripts import run_record_cancellation_ui_fresh as subject
 from scripts import record_cancellation_ui_fresh_contract as rules
 from scripts.tests import test_record_cancellation_fresh_input_fixtures as f
 
-REFUSED = (rules.FreshRunRefused, f.env.EnvironmentRefused, f.storage.StorageRefused)
+def refusal_types():
+    # Retirement preview tests reload the storage module after discovery.
+    return rules.FreshRunRefused, f.env.EnvironmentRefused, f.storage.StorageRefused
 
 
 @unittest.skipUnless(os.name == 'nt', 'shared validators require an isolated physical D fixture')
@@ -62,7 +64,7 @@ class RecordCancellationFreshInputsTests(unittest.TestCase):
                     elif mutation == 'recovery': graph.entry['recovery'] = {'outcome': 'unknown'}
                     else: graph.entry['retirement'] = {'unexpected': True}
                     graph.write_ledger()
-                with self.assertRaises(REFUSED): graph.create()
+                with self.assertRaises(refusal_types()): graph.create()
                 self.assertEqual(graph.api.env.plan_run.call_count, 0)
                 self.assertEqual(graph.api.env.prepare.call_count, 0)
                 self.assertEqual(graph.api.activation.execute.call_count, 0)
@@ -80,7 +82,7 @@ class RecordCancellationFreshInputsTests(unittest.TestCase):
                 else:
                     with Path(graph.prepare_authorization['path']).open('ab') as stream:
                         stream.write(b' ')
-                with self.assertRaises(REFUSED): graph.create()
+                with self.assertRaises(refusal_types()): graph.create()
                 self.assertEqual(graph.api.env.plan_run.call_count, 0)
                 self.assertEqual(graph.api.activation.execute.call_count, 0)
                 self.assertFalse(rules.INPUT.exists())
@@ -95,14 +97,14 @@ class RecordCancellationFreshInputsTests(unittest.TestCase):
                 path = graph.registry / 'ledger-v1.json'
                 with path.open('ab') as stream: stream.write(b' ')
             graph.api.profile_build.verify_current.side_effect = changed_after_admission_validation
-            with self.assertRaises(REFUSED): graph.create()
+            with self.assertRaises(refusal_types()): graph.create()
             self.assertTrue(rules.RUN_PROPOSAL.exists())
             self.assertTrue(rules.RUN_AUTHORIZATION.exists())
             self.assertTrue(rules.ADMISSION.exists())
             self.assertFalse(rules.INPUT.exists())
             self.assertEqual(graph.api.env.plan_run.call_count, 1)
             self.assertEqual(graph.api.activation.execute.call_count, 0)
-            with self.assertRaises(REFUSED): graph.create()
+            with self.assertRaises(refusal_types()): graph.create()
             self.assertEqual(graph.api.env.plan_run.call_count, 1)
             self.assertEqual(graph.api.env.prepare.call_count, 0)
             self.assertEqual(graph.api.activation.execute.call_count, 0)

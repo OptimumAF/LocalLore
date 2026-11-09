@@ -156,6 +156,11 @@ class SyntheticOperation(BootRecords):
             raise AssertionError("unexpected synthetic capture read")
         return BytesIO()
 
+    def read_operation(self, path, cap=handoff.RECORD_CAP):
+        binding, value = self.read(path)
+        handoff.env.require(binding["bytes"] <= cap, "binding")
+        return binding, value
+
     def execute(self, *, cleanup=True, capture=True, returncode=None):
         self.watchdog_cleanup = cleanup
         self.watchdog_capture = capture
@@ -172,7 +177,7 @@ class SyntheticOperation(BootRecords):
     def ports(self):
         with super().ports(), ExitStack() as stack:
             for module, name, substitute in (
-                (operation, "_read", self.read),
+                (operation, "_read", self.read_operation),
                 (operation, "_save", self.publish),
                 (operation.preparation, "preflight", self.preflight),
                 (operation.env, "prepare", self.prepare_once),

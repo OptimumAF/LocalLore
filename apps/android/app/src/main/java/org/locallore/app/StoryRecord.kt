@@ -53,6 +53,8 @@ data class StoryRecordEventDetail(
     val entry: StoryRecordEntry? = null,
     val problem: StoryRecordProblem? = null,
     val scopedReference: StoryRecordScopedEvent? = null,
+    internal val viewToken: Any = Any(),
+    internal val readId: Long = 0,
 )
 data class StoryRecordPage(
     val query: StoryRecordQuery,

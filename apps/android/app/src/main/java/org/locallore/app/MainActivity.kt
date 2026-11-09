@@ -132,7 +132,9 @@ open class MainActivity : ComponentActivity() {
             val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
-            val renderedRecordContext = record.context
+            val renderedRecord = record
+            val renderedRecordContext = renderedRecord.context
+            val renderedRecordEvent = renderedRecord.eventDetail
             LocalLoreScreen(state, model::submit, model::setMode, model::cancel, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = model::resume, onRecover = model::recover,
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
@@ -166,12 +168,12 @@ open class MainActivity : ComponentActivity() {
                 model.deletionController?.let { controller ->
                     StoryDeletionDialog(deletion, controller::dismiss, controller::cancel, controller::confirm)
                 }
-                StoryRecordDialog(record, model::closeStoryRecord, model::recordSection, model::recordSearch,
+                StoryRecordDialog(renderedRecord, model::closeStoryRecord, model::recordSection, model::recordSearch,
                     model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
                     onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordContext) },
                     onScopedEvent = { reference -> model.openScopedRecordEvent(reference, renderedRecordContext) },
-                    onEventBack = model::backToStoryRecord,
-                    onEventRetry = model::retryRecordEvent)
+                    onEventBack = { renderedRecordEvent?.let { model.backToStoryRecord(it) } },
+                    onEventRetry = renderedRecordEvent?.let { detail -> { model.retryRecordEvent(detail) } })
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
                     if (model.beginDiagnosticExport()) {
                         try { documentPicker.launch("locallore-diagnostics.json") }

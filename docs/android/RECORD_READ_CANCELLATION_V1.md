@@ -36,3 +36,16 @@ cover current page/detail cancellation and exact retry, pre-entry cancellation,
 parent/sibling survival, late obsolete cancellation, cancelled owners, and a
 cancelled reader returning well-formed data. Actual model/phone/ARM64 and Compose
 instrumentation acceptance remain separate gates.
+
+## Rendered event actions
+
+The event detail keeps one view identity from open through loading, completion,
+and Retry. Back can close that view after its result settles. It refuses a
+callback from an earlier open, even when the current event has the same
+reference and story context.
+
+Each read within the view has its own identity. Retry accepts only the
+currently rendered failure. If a retry immediately returns the same error,
+the new result still reaches the screen so the player can retry it again.
+The existing cancellation path preserves both identities when settling the
+current read. The request continues to use the existing player-visible lens.

@@ -230,6 +230,13 @@ class OwnerWireTests(unittest.TestCase):
         self.assertIs(entry.call_args.kwargs["_verification"], owner.VERIFIER)
         self.assertIs(entry.call_args.kwargs["_runtime_type"], owner._ArchiveRuntime)
         self.assertIs(owner.VERIFIER.c, contract)
+        argv = ["--admission", str(handoff.admission.ADMISSION), "--admission-sha256", "b" * 64]
+        with (patch.object(owner.shared, "_main_profile", return_value=0) as entry,
+              patch.dict(owner.os.environ, {handoff.HANDOFF_ENV: "a" * 64})):
+            self.assertEqual(owner.main(argv), 0)
+        live = entry.call_args.kwargs["_verification"]
+        self.assertIs(live.c, contract)
+        self.assertEqual(live.expected_handoff_sha256, "a" * 64)
 
     def test_client_chooses_exact_lease_and_bounds_capture_before_wire(self):
         capture = client.OwnedArchiveRoundtripSdkCapture.__new__(client.OwnedArchiveRoundtripSdkCapture)

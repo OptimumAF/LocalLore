@@ -29,7 +29,7 @@ SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     "archive_roundtrip_outbound.py", "android_instrumentation_evidence.py",
     "archive_roundtrip_bridge.py", "archive_roundtrip_return.py", "archive_ui_build.py",
     "archive_roundtrip_final.py", "archive_roundtrip_lifecycle.py", "archive_roundtrip_admission.py",
-    "archive_roundtrip_handoff.py",
+    "archive_roundtrip_handoff.py", "archive_roundtrip_supervisor.py",
 })
 ROLES = ("product_apk", "test_apk")
 FILES = ("owner-v1", "windows-return.json", "windows-continued.json", "android-origin.json")

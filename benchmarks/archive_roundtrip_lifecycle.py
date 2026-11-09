@@ -68,19 +68,30 @@ def _verify_exchange(admission_pin, running_pin, admission, running, caller, exc
     return final.verify(admission, exchange["session"], exchange["bridge"], exchange["final"])
 
 
-def _publish_stop(root, admission_pin, observer):
-    path = output_control.validate_output(str(root / "stop-v1.json"))
+def stop_value(admission_pin):
+    return dict(version=1, protocol=contract.PROTOCOL,
+                admission_sha256=admission_pin["sha256"], action="stop")
+
+
+def prepare_stop(root, admission_pin, observer):
+    output_control.validate_output(str(root / "stop-v1.json"))
     pending = output_control.validate_output(str(root / "stop.pending-v1.json"))
-    value = dict(version=1, protocol=contract.PROTOCOL,
-                 admission_sha256=admission_pin["sha256"], action="stop")
+    value = stop_value(admission_pin)
     contract.check_stop(value, admission_pin["sha256"])
     observer.guard(min_seconds=STOP_RESERVE)
     env.create_json(pending, value)
     pending_pin, retained = _read(pending)
     _need(_same(value, retained), "stop")
     observer.guard(min_seconds=STOP_RESERVE)
-    env.check_binding(pending_pin)
-    # The Windows-only output guard above makes this a non-replacing rename.
+    return pending_pin
+
+
+def commit_stop(root, admission_pin, pending_pin):
+    path = output_control.validate_output(str(root / "stop-v1.json"))
+    pending = root / "stop.pending-v1.json"
+    value = stop_value(admission_pin)
+    _need(_same(_at(pending_pin, pending), value), "stop")
+    # The Windows-only output guard makes this a non-replacing rename.
     pending.rename(path)
     expected = dict(pending_pin, path=str(path))
     _need(_same(_at(expected, path), value), "stop")
@@ -88,7 +99,7 @@ def _publish_stop(root, admission_pin, observer):
 
 
 def drive(admission_pin, running_pin):
-    """Exercise one already-running SDK25 lease and publish its ordinary stop."""
+    """Exercise one already-running lease and close the controller observer."""
     admission, running = _inputs(admission_pin, running_pin)
     _need(admission["seconds"] > SECONDS + STOP_RESERVE, "controller_budget")
     root = Path(admission["root"])
@@ -105,7 +116,6 @@ def drive(admission_pin, running_pin):
         exchange = final.exchange(capture)
         _need(capture.clean is False, "capture")
         _verify_exchange(admission_pin, running_pin, admission, running, caller, exchange)
-        stop = _publish_stop(root, admission_pin, observer)
     finally:
         try:
             observer_closed = observer.close() is True
@@ -114,7 +124,7 @@ def drive(admission_pin, running_pin):
         _need(observer_closed, "observer_cleanup")
     path = output / RESULT
     value = dict(version=1, scope=SCOPE, admission=admission_pin, running=running_pin,
-                 caller=caller, exchange=exchange, stop=stop, observer_closed=True)
+                 caller=caller, exchange=exchange, observer_closed=True)
     env.create_json(path, value)
     pin, retained = _read(path)
     _need(_same(retained, value), "controller_result")
@@ -172,21 +182,29 @@ def _owner_closure(admission_pin, running_pin, admission, running, expected_owne
     return dict(owner=public_pin, closure=closure_pin, ledger=ledger_pin)
 
 
-def verify(admission_pin, running_pin, controller_pin, *, expected_owner, expected_caller):
-    """Reverify the exact exchange and shared closure without acting on a guest."""
-    admission, running = _inputs(admission_pin, running_pin)
+def verify_transfer(admission_pin, running_pin, admission, running, controller_pin, expected_caller):
+    """Reverify the exchange and the separate controller's closed observer."""
     root = Path(admission["root"])
     _check_caller(expected_caller, running)
     value = _at(controller_pin, root / outbound.OUTPUT / RESULT)
     contract._obj(value, ("version", "scope", "admission", "running", "caller", "exchange",
-                          "stop", "observer_closed"), "binding")
+                          "observer_closed"), "binding")
     _need(_same(value["version"], 1) and value["scope"] == SCOPE and value["observer_closed"] is True
           and _same(value["admission"], admission_pin) and _same(value["running"], running_pin)
           and _same(value["caller"], expected_caller), "controller_result")
-    stop = _at(value["stop"], root / "stop-v1.json")
-    contract.check_stop(stop, admission_pin["sha256"])
     _verify_exchange(admission_pin, running_pin, admission, running, expected_caller, value["exchange"])
+    env.check_binding(controller_pin)
+    return value["exchange"]
+
+
+def verify(admission_pin, running_pin, controller_pin, *, expected_owner, expected_caller):
+    """Reverify the exact exchange and shared closure without acting on a guest."""
+    admission, running = _inputs(admission_pin, running_pin)
+    root = Path(admission["root"])
+    stop_pin, stop = _read(root / "stop-v1.json")
+    contract.check_stop(stop, admission_pin["sha256"])
+    exchange = verify_transfer(admission_pin, running_pin, admission, running, controller_pin, expected_caller)
     closure = _owner_closure(admission_pin, running_pin, admission, running, expected_owner)
-    for pin in (admission_pin, running_pin, controller_pin, value["stop"]):
+    for pin in (admission_pin, running_pin, controller_pin, stop_pin):
         env.check_binding(pin)
-    return dict(closure, controller=controller_pin, final=value["exchange"]["final"])
+    return dict(closure, controller=controller_pin, final=exchange["final"])

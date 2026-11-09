@@ -19,6 +19,53 @@ ATTRS=(('allowBackup','0x01010280','false'),('fullBackupContent','0x010104eb','f
 DOMAINS=('root','file','database','sharedpref','external')
 OPTIONAL=('device_root','device_file','device_database','device_sharedpref')
 RULE_PATH='res/xml/data_extraction_rules.xml'
+# Exact component subtree observed in the frozen B88 debug APK; no device ran.
+COMPONENTS = """
+          E: activity (line=28)
+            A: http://schemas.android.com/apk/res/android:name(0x01010003)="org.locallore.app.MainActivity" (Raw: "org.locallore.app.MainActivity")
+            A: http://schemas.android.com/apk/res/android:exported(0x01010010)=true
+            A: http://schemas.android.com/apk/res/android:windowSoftInputMode(0x0101022b)=0x00000010
+              E: intent-filter (line=32)
+                  E: action (line=33)
+                    A: http://schemas.android.com/apk/res/android:name(0x01010003)="android.intent.action.MAIN" (Raw: "android.intent.action.MAIN")
+                  E: category (line=35)
+                    A: http://schemas.android.com/apk/res/android:name(0x01010003)="android.intent.category.LAUNCHER" (Raw: "android.intent.category.LAUNCHER")
+          E: provider (line=39)
+            A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.startup.InitializationProvider" (Raw: "androidx.startup.InitializationProvider")
+            A: http://schemas.android.com/apk/res/android:exported(0x01010010)=false
+            A: http://schemas.android.com/apk/res/android:authorities(0x01010018)="org.locallore.app.androidx-startup" (Raw: "org.locallore.app.androidx-startup")
+              E: meta-data (line=43)
+                A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.emoji2.text.EmojiCompatInitializer" (Raw: "androidx.emoji2.text.EmojiCompatInitializer")
+                A: http://schemas.android.com/apk/res/android:value(0x01010024)="androidx.startup" (Raw: "androidx.startup")
+              E: meta-data (line=46)
+                A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.lifecycle.ProcessLifecycleInitializer" (Raw: "androidx.lifecycle.ProcessLifecycleInitializer")
+                A: http://schemas.android.com/apk/res/android:value(0x01010024)="androidx.startup" (Raw: "androidx.startup")
+              E: meta-data (line=49)
+                A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.profileinstaller.ProfileInstallerInitializer" (Raw: "androidx.profileinstaller.ProfileInstallerInitializer")
+                A: http://schemas.android.com/apk/res/android:value(0x01010024)="androidx.startup" (Raw: "androidx.startup")
+          E: activity (line=54)
+            A: http://schemas.android.com/apk/res/android:theme(0x01010000)=@0x01030241
+            A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.activity.ComponentActivity" (Raw: "androidx.activity.ComponentActivity")
+            A: http://schemas.android.com/apk/res/android:exported(0x01010010)=true
+          E: receiver (line=59)
+            A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.profileinstaller.ProfileInstallReceiver" (Raw: "androidx.profileinstaller.ProfileInstallReceiver")
+            A: http://schemas.android.com/apk/res/android:permission(0x01010006)="android.permission.DUMP" (Raw: "android.permission.DUMP")
+            A: http://schemas.android.com/apk/res/android:enabled(0x0101000e)=true
+            A: http://schemas.android.com/apk/res/android:exported(0x01010010)=true
+            A: http://schemas.android.com/apk/res/android:directBootAware(0x01010505)=false
+              E: intent-filter (line=65)
+                  E: action (line=66)
+                    A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.profileinstaller.action.INSTALL_PROFILE" (Raw: "androidx.profileinstaller.action.INSTALL_PROFILE")
+              E: intent-filter (line=68)
+                  E: action (line=69)
+                    A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.profileinstaller.action.SKIP_FILE" (Raw: "androidx.profileinstaller.action.SKIP_FILE")
+              E: intent-filter (line=71)
+                  E: action (line=72)
+                    A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.profileinstaller.action.SAVE_PROFILE" (Raw: "androidx.profileinstaller.action.SAVE_PROFILE")
+              E: intent-filter (line=74)
+                  E: action (line=75)
+                    A: http://schemas.android.com/apk/res/android:name(0x01010003)="androidx.profileinstaller.action.BENCHMARK_OPERATION" (Raw: "androidx.profileinstaller.action.BENCHMARK_OPERATION")
+"""
 RESOURCE=('Binary APK\nPackage name=org.locallore.app id=7f\n'
           '  type xml id=0b entryCount=1\n'
           '    resource 0x7f0b0000 xml/data_extraction_rules\n'
@@ -29,12 +76,12 @@ def attribute(name,identifier,value,indent=8,namespace=URI):
     return ' '*indent+'A: '+namespace+name+'('+identifier+')='+value+'\n'
 
 
-def manifest():
+def manifest(extra_attributes=""):
     tree=fixtures.TREE.replace('  E: manifest (line=2)\n',
         'N: android=http://schemas.android.com/apk/res/android (line=2)\n'
         '  E: manifest (line=2)\n'
         '    A: package="org.locallore.app" (Raw: "org.locallore.app")\n')
-    return tree+'      E: application (line=17)\n'+''.join(attribute(*item)for item in ATTRS)
+    return tree+'      E: application (line=17)\n'+''.join(attribute(*item)for item in ATTRS)+extra_attributes+COMPONENTS
 
 
 def exclusion(domain,path='.'):

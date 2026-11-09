@@ -25,7 +25,6 @@ activation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(activation)
 with patch.object(activation, 'SOURCE_ROOT', REPO):
     REAL = activation._api()
-FIXTURES = Path('D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-host-fixtures-v1/activation')
 
 
 def identity(pid, executable):
@@ -36,8 +35,9 @@ class CoordinatorGraph:
     """Owned tiny byte records, with named native/process outcome boundaries."""
     def __init__(self):
         profile.ensure_budget(1024 * 1024)
-        FIXTURES.mkdir(parents=True,exist_ok=True)
-        self.root = Path(tempfile.mkdtemp(prefix='coordinator-',dir=FIXTURES))
+        parent = profile.fixture_root() / 'activation'
+        parent.mkdir(parents=True,exist_ok=True)
+        self.root = Path(tempfile.mkdtemp(prefix='coordinator-',dir=parent))
         self.runtime = self.root/'runtime';self.owned = self.runtime/'owned-v1'
         self.control = self.runtime/'control-v1';self.control.mkdir(parents=True);self.owned.mkdir()
         self.helper = SOURCE;self.input_path = self.root/'run-input-v1.json'

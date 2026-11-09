@@ -152,7 +152,9 @@ class PresentationProcessBuildTests(unittest.TestCase):
     def test_product_cli_rejects_every_profile_conflict_before_any_zip_or_tool_work(self):
         fixture = cli_f.ArchiveAuditCliTests()
         fixture.setUp()
-        for flag in (*cli_f.MODEL_FLAGS, "--archive-verification"):
+        for flag in ("--archive-verification", "--litert-verification", "--model-provisioning",
+                     "--model-picker-fixture", "--model-volume-verification", "--model-receipt-verification",
+                     "--input-draft-verification", "--input-process-verification"):
             with self.subTest(conflicting=flag):
                 (code, _, _), spies, calls = fixture.audit((FLAG, flag), package=APP)
                 self.assertIn(code, (1, 2))

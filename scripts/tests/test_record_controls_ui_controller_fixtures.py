@@ -11,8 +11,10 @@ Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import contextlib
 import copy
+import os
 from pathlib import Path, PureWindowsPath
 import shlex
+import stat
 import tempfile
 import threading
 from types import SimpleNamespace
@@ -100,8 +102,37 @@ SELECTORS = (('chat_ime_latest',
   'retainedPresetCannotRetargetLaterStatusEqualReopenOrAnotherStory'))
 
 
+def require_fixture_directory(path, *, allow_missing=False):
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        if allow_missing:
+            return
+        raise
+    if not stat.S_ISDIR(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+        raise RuntimeError('fixture_root_refused')
+
+
+def fixture_root():
+    """Use an explicitly admitted D: base for a separate synthetic cohort."""
+    override = os.environ.get('LOCALLORE_RECORD_CONTROLS_UI_FIXTURE_ROOT')
+    if override is None:
+        return FIXTURE_ROOT
+    root = Path(override)
+    if (not root.is_absolute() or root.drive.upper() != 'D:' or '..' in root.parts
+            or any(':' in part for part in root.parts[1:])):
+        raise RuntimeError('fixture_root_refused')
+    try:
+        for entry in (root, *root.parents):
+            require_fixture_directory(entry)
+        for name in OWN_FOLDERS:
+            require_fixture_directory(root / name, allow_missing=True)
+    except OSError as error:
+        raise RuntimeError('fixture_root_refused') from error
+    return root
+
+
 def meter(root):
-    import os
     total = 0
     if not root.exists():
         return total
@@ -118,8 +149,9 @@ def meter(root):
 
 
 def ensure_budget(extra=0):
-    own = sum(meter(FIXTURE_ROOT / name) for name in OWN_FOLDERS)
-    shared = meter(FIXTURE_ROOT)
+    root = fixture_root()
+    own = sum(meter(root / name) for name in OWN_FOLDERS)
+    shared = meter(root)
     BUDGET_OBSERVATIONS.append(dict(own_bytes=own, shared_bytes=shared, reserved_extra=extra))
     if own + extra > 64 * 1024 * 1024 or shared + extra > 128 * 1024 * 1024:
         raise RuntimeError('fixture_budget_refused')
@@ -151,7 +183,7 @@ def running(value):
 class SyntheticFiles:
     def __init__(self):
         ensure_budget(8 * 1024 * 1024)
-        parent = Path('D:/Dev/Experiments/LocalLore/2026-11-01-record-controls-ui-host-fixtures-v1/controller')
+        parent = fixture_root() / 'controller'
         parent.mkdir(parents=True, exist_ok=True)
         self.base = Path(tempfile.mkdtemp(prefix='case-', dir=parent))
         assert self.base.is_absolute() and self.base.drive.upper() == 'D:'

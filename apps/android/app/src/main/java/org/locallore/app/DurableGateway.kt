@@ -299,8 +299,8 @@ internal class DurableGateway(
         try {
             val submitted = submitOriginal(pending) ?: return DemoResult.Rejected("Cancelled")
             if (pending.cancelled) return DemoResult.Rejected("Cancelled")
-            val prepared = if (submitted.getString("phase") == "queued") call(scoped("prepare", pending)) else submitted
-            return result(prepared, pending)
+            val prepared = if (turnPhase(submitted, pending) == "queued") advanceTurn("prepare", pending) else submitted
+            return result(prepared, pending, allowReady = true)
         } catch (failure: WorkspaceFailure) {
             // An explicit rejection before acceptance cannot create canon; transport uncertainty stays pending.
             if (failure.category in setOf("Full", "Busy", "Database", "Integrity", "Io", "Internal")) throw failure
@@ -310,32 +310,42 @@ internal class DurableGateway(
     }
     private suspend fun submitOriginal(pending: Pending): JSONObject? = withContext(NonCancellable) {
         submissionGate.withLock {
-            if (pending.cancelled) null else call(submitCommand(pending))
+            if (pending.cancelled) return@withLock null
+            check(operation === pending)
+            call(submitCommand(pending))
         }
     }
-    private fun result(data: JSONObject, pending: Pending): DemoResult {
-        check(data.getString("turn") == pending.turn && sameScope(data.getJSONObject("scope"), pending.scope))
-        check(data.getLong("expected_revision") == pending.request.getLong("expected_revision"))
-        val resolved = when (data.getString("phase")) {
-        "ready" -> DemoResult.Prepared(0, pending.serial)
-        "committed" -> {
-            val receipt = data.getJSONObject("receipt")
-            check(sameJson(receipt.getJSONObject("request"), pending.request))
-            DemoResult.Accepted(pending.request.getLong("expected_revision") + 1, "", receipt.getString("narration"))
-        }
-        "cancelled", "failed", "stale" -> {
-            DemoResult.Rejected(data.optString("error").takeUnless { it.isBlank() || it == "null" } ?: "Cancelled")
-        }
-        else -> error("Unfinished")
+    /** Bind native phase evidence before using it to advance the original request. */
+    private fun turnPhase(data: JSONObject, pending: Pending): String {
+        val head = data.opt("expected_revision")
+        check(data.opt("turn") == pending.turn && sameJson(data.optJSONObject("scope"), pending.scope) &&
+            (head is Int || head is Long) &&
+            (head as Number).toLong() == pending.request.getLong("expected_revision")) { "Invalid turn reply" }
+        return data.opt("phase") as? String ?: error("Invalid turn reply")
+    }
+    private suspend fun advanceTurn(op: String, pending: Pending): JSONObject {
+        check(operation === pending && !pending.cancelled) { "Obsolete turn reply" }
+        return call(scoped(op, pending))
+    }
+    private fun result(data: JSONObject, pending: Pending, allowReady: Boolean = false): DemoResult {
+        val resolved = when (turnPhase(data, pending)) {
+            "ready" -> {
+                check(allowReady) { "Unfinished" }
+                DemoResult.Prepared(0, pending.serial)
+            }
+            "committed" -> {
+                val receipt = data.getJSONObject("receipt")
+                check(sameJson(receipt.getJSONObject("request"), pending.request))
+                DemoResult.Accepted(pending.request.getLong("expected_revision") + 1, "", receipt.getString("narration"))
+            }
+            "cancelled", "failed", "stale" -> {
+                DemoResult.Rejected(data.optString("error").takeUnless { it.isBlank() || it == "null" } ?: "Cancelled")
+            }
+            else -> error("Unfinished")
         }
         // Decode the entire authoritative result before releasing its recovery key.
         if (resolved !is DemoResult.Prepared && operation === pending) operation = null
         return resolved
-    }
-    private fun acknowledgeCancellation(data: JSONObject, pending: Pending) {
-        // An unfinished or foreign reply cannot release the original recovery key.
-        check(data.getString("phase") in setOf("committed", "cancelled", "failed", "stale"))
-        result(data, pending) // Validate the complete original binding before releasing it.
     }
     override suspend fun commitAsync(result: DemoResult): DemoResult {
         if (result !is DemoResult.Prepared) return result
@@ -345,7 +355,6 @@ internal class DurableGateway(
             catch (failure: Exception) {
                 // The original key is the only authority after a lost commit acknowledgement.
                 val status = try { call(scoped("turn_status", pending)) } catch (_: Exception) { throw failure }
-                if (status.optString("phase") !in setOf("committed", "cancelled", "failed", "stale")) throw failure
                 // Ready/queued work is still uncertain. Even a terminal-looking malformed
                 // reply cannot discard the key or hide the primary storage error.
                 return try { this.result(status, pending) } catch (_: Exception) { throw failure }
@@ -357,7 +366,7 @@ internal class DurableGateway(
         if (session == null) return initialize()
         operation?.let { pending ->
             if (pending.cancelled) {
-                try { submissionGate.withLock { acknowledgeCancellation(call(scoped("cancel", pending)), pending) } }
+                try { submissionGate.withLock { result(call(scoped("cancel", pending)), pending) } }
                 catch (failure: WorkspaceFailure) {
                     if (failure.category != "UnknownTurn") throw failure
                     if (operation === pending) operation = null
@@ -369,8 +378,12 @@ internal class DurableGateway(
                     if (failure.category != "UnknownTurn") throw failure
                     submitOriginal(pending) ?: return snapshot()
                 }
-            if (status.getString("phase") == "queued") status = call(scoped("prepare", pending))
-            if (status.getString("phase") == "ready") status = call(scoped("commit", pending))
+            var phase = turnPhase(status, pending)
+            if (phase == "queued") {
+                status = advanceTurn("prepare", pending)
+                phase = turnPhase(status, pending)
+            }
+            if (phase == "ready") status = advanceTurn("commit", pending)
             result(status, pending)
         }
         return snapshot()
@@ -389,7 +402,7 @@ internal class DurableGateway(
                     if (operation === pending) operation = null
                     return@let
                 }
-            acknowledgeCancellation(status, pending)
+            result(status, pending)
         }
         return snapshot()
     }
@@ -418,7 +431,7 @@ internal class DurableGateway(
             pending.cancelled = true
             try {
                 val status = submissionGate.withLock { call(scoped("cancel", pending)) }
-                acknowledgeCancellation(status, pending)
+                result(status, pending)
             } catch (failure: WorkspaceFailure) {
                 if (failure.category !in setOf("Closed", "UnknownTurn")) throw failure
                 if (operation === pending) operation = null
@@ -621,8 +634,6 @@ private fun decodeTimelines(data: JSONObject, root: SavedStory): List<SavedTimel
 } catch (_: Exception) {
     throw WorkspaceFailure("Malformed")
 }
-private fun sameScope(left: JSONObject, right: JSONObject) =
-    left.getString("story") == right.getString("story") && left.getString("branch") == right.getString("branch")
 private fun sameJson(left: Any?, right: Any?): Boolean = when {
     left is JSONObject && right is JSONObject -> {
         val keys = left.keys().asSequence().toSet()

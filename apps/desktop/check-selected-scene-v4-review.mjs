@@ -2639,6 +2639,36 @@ export function useEffect(effect,deps){const f=hooks.active;if(!f)return real.us
         },
     );
 
+    await check(
+        "rendered setup measurements and historical scripted limitations remain distinct",
+        async () => {
+            const native = fixture(4);
+            await opened(native);
+            native.hooks.set("diagnostics", () =>
+                wrap("selected_diagnostics_result", "diagnostics", {
+                    ...diagnostics(4),
+                    physical_setups: 1,
+                    physical_setup_ms: 37,
+                    unavailable: ["human_quality_not_reviewed"],
+                }),
+            );
+            await native.c.readDiagnostics();
+            const measured = render(native, { nativeSceneSelected: true });
+            assert.match(measured, /Physical setups: 1 · setup time 37 ms/);
+            assert.match(measured, /Recorded charges: left 3 ms.*right 4 ms/);
+
+            const scripted = fixture();
+            await opened(scripted);
+            await scripted.c.readDiagnostics();
+            const historical = /selected_protocol4_native_rerun_unavailable/;
+            assert.match(render(scripted), historical);
+            const advertised = render(scripted, { nativeSceneSelected: true });
+            assert.doesNotMatch(advertised, historical);
+            assert.match(advertised, /scripted_lane_no_native_setup_measurement/);
+            assert.match(advertised, /quality acceptance: not established/);
+        },
+    );
+
     for (const c of controllers) c.dispose();
     controllers.clear();
     await flush();

@@ -27,6 +27,7 @@ class ArchiveProviderHandoffTests(unittest.TestCase):
         for name, value in {
             "GUEST": guest, "LEDGER": self.root / "ledger-v1.json",
             "RESULT": self.root / "preparation-result.json",
+            "AUTHORITY": self.root / "preparation-authority.json",
         }.items():
             self.enterContext(patch.object(prep, name, value))
         for name, value in {
@@ -68,8 +69,9 @@ class ArchiveProviderHandoffTests(unittest.TestCase):
         }
         self.admission_pin = self.save(admission.ADMISSION, self.admitted)
         self.proposal = self.write(admission.PROPOSAL, admission._review_bytes(self.admission_pin, self.ledger))
+        self.prepare_review = self.write(self.root / "PROPOSED_PREPARATION.md", b"synthetic preparation review\n")
         self.preparation = self.save(prep.RESULT, {
-            "authority": self.save(self.root / "preparation-authority.json", {"synthetic": "authority"}),
+            "authority": self.save(prep.AUTHORITY, {"proposal": self.prepare_review}),
             "claim": self.save(self.root / "preparation-claim.json", {"synthetic": "claim"}),
             "authorization": self.save(self.root / "preparation-authorization.json", {"synthetic": "authorization"}),
             "evidence": {"worker": self.save(guest / "prepare-worker-claimed-v1.json", {"synthetic": "worker"})},
@@ -212,6 +214,7 @@ class ArchiveProviderHandoffTests(unittest.TestCase):
         self.assertIn(self.expected_run_authority, inputs)
         self.assertIn(self.run, inputs)
         self.assertIn(self.preparation, inputs)
+        self.assertIn(self.prepare_review, inputs)
         self.assertIn(self.prepared, inputs)
         self.assertIn(self.result, inputs)
         self.replay_boot.assert_called_once_with(self.candidate, self.ledger)

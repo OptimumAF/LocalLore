@@ -107,10 +107,12 @@ def verify_boot(admission_pin, admission, handoff_pin):
     review = candidate._read_candidate(candidate_pin, approved["ledger"])
     run = env.decode_json(prep._bound(guest["proposal"], candidate.RUN))
     proof = env.decode_json(prep._bound(review["preparation"], prep.RESULT))
+    preparation_grant = env.decode_json(prep._bound(proof["authority"], prep.AUTHORITY, 16_384))
     launch_inputs = (
         candidate_pin, approved["proposal"], review["plan"], review["preparation"],
         guest["proposal"], guest["authorization"], run["prepare_proposal"], run["prepared"],
-        run["prepare_result"], proof["authority"], proof["claim"], proof["authorization"],
+        run["prepare_result"], proof["authority"], preparation_grant["proposal"],
+        proof["claim"], proof["authorization"],
         *proof["evidence"].values(),
     )
     for pin in (handoff_pin, authority_pin, attempt_pin, admission_pin, approved["ledger"], *launch_inputs):

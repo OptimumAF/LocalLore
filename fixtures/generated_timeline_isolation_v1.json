@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "reed-bell-v1",
+  "scope": {"story": "reed-bell", "branch": "main"},
+  "profile": "fantasy_v1",
+  "player": "player",
+  "locations": ["inlet", "ridge"],
+  "routes": [["inlet", "ridge"], ["ridge", "inlet"]],
+  "actors": {
+    "player": {"name": "Neri", "location": "inlet", "alive": true, "energy": 4, "abilities": {"focus": 1}, "attributes": {}, "injuries": ["bruised-hand"], "affiliations": [], "goals": ["repair-bell"]},
+    "sel": {"name": "Ivo", "location": "inlet", "alive": true, "energy": 4, "abilities": {"focus": 1}, "attributes": {}, "injuries": ["bruised-knee"], "affiliations": [], "goals": []},
+    "watcher": {"name": "Ivo", "location": "ridge", "alive": true, "energy": 4, "abilities": {}, "attributes": {}, "injuries": [], "affiliations": [], "goals": []}
+  },
+  "items": {
+    "tonic": {"owner": "player", "quantity": 1, "return_to": null, "healing": true},
+    "coins": {"owner": "player", "quantity": 3, "return_to": null, "healing": false}
+  },
+  "abilities": {"focus": {"cost": 1, "prerequisite": null, "teacher": "sel", "max_rank": 1}},
+  "facts": {"bell-site": {"proposition": "The reed bell rests at the inlet.", "discoverable_at": "inlet", "known_by": ["player", "sel"]}},
+  "relationships": [],
+  "story_time": 0,
+  "beliefs": [{"believer": "sel", "proposition": "A traveling mason may own the bell.", "source_claim": null, "source": {"kind": "seed", "value": "reed-bell-v1"}, "confidence": "suspected"}],
+  "commitments": {}
+}

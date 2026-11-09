@@ -186,6 +186,22 @@ class ColdNavigationReadinessTests(unittest.TestCase):
         ports.private.assert_called_once()
         ports.save.assert_not_called()
 
+    def test_pending_preflight_refuses_source_drift_during_installation_check(self):
+        ports = Ports()
+        with ports.inert():
+            source_bindings = preparation.contract.source_bindings
+
+            def replace_source(prepare):
+                source_bindings.assert_called_once_with()
+                source_bindings.return_value = []
+
+            env.verify_installation.side_effect = replace_source
+            with self.assertRaisesRegex(REFUSED, "source"):
+                preparation.preflight_pending(ports.authority["ledger"], ports.plan, ports.prepare)
+            self.assertEqual(source_bindings.call_count, 2)
+        ports.save.assert_not_called()
+
+
     def test_cli_uses_the_exact_supplied_plan_and_ledger_digests(self):
         records = ReadinessRecords()
         code, result = records.invoke()

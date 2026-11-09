@@ -265,6 +265,7 @@ class ReceiptSupervisorEvidenceTests(unittest.TestCase):
         self.assertEqual(result["status"], "evidence_failed")
         self.assertEqual(result["stdout_bytes"], 0)
         self.assertEqual((self.root / env.LiveOutput.names[0]).read_bytes(), b"late output")
+        self.assertFalse(result["cleanup_complete"])
         self.assertFalse(result["output_capture_complete"])
 
     def test_late_close_error_overrides_exact_stop(self):

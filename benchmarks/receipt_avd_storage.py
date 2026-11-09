@@ -318,15 +318,23 @@ def reserve_prepare(root, proposal_sha256, registry=DEFAULT_REGISTRY):
         return dict(entry)
 
 
-def record_state(root, state, registry=DEFAULT_REGISTRY, proposal_sha256=None):
-    """Retain all reservations; call retained before dispatching any guest run."""
+def record_state(root, state, registry=DEFAULT_REGISTRY, proposal_sha256=None, *, expected_prepare_sha256=None):
+    """Retain reservations, optionally consuming a specific prepared v2 entry."""
     require(state in ("prepared", "retained"), "invalid_transition")
     require(proposal_sha256 is None or (type(proposal_sha256) is str and
             re.fullmatch(r"[0-9a-f]{64}", proposal_sha256)), "invalid_proposal_digest")
+    if expected_prepare_sha256 is not None:
+        require(state == "retained" and proposal_sha256 is not None and
+                type(expected_prepare_sha256) is str and re.fullmatch(r"[0-9a-f]{64}", expected_prepare_sha256),
+                "invalid_transition")
     registry = safe_path(registry)
     with _locked(registry) as ledger:
         entry = _entry(ledger, root)
         require(entry["state"] != "retired", "invalid_transition")
+        if expected_prepare_sha256 is not None:
+            require(ledger["version"] == 2 and entry["state"] == "prepared" and
+                    entry["proposal_sha256"] == expected_prepare_sha256 and entry["recovery"] is None,
+                    "prepared_changed")
         if state == "retained":
             from benchmarks import prepare_recovery_contract as recovery
             recovery.require_cleanup(entry)

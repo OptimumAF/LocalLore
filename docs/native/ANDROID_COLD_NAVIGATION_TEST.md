@@ -88,8 +88,25 @@ by default. [Android 15 package-manager source](https://android.googlesource.com
 The controller checks the installed UID, path and APK hash before and after
 the one test. It retains command records on refusal and replays the full
 ordered client roster before recording a completed result. Observer handle
-closure has its own result field. A separately approved outer operation
-still owns guest preparation, boot, and guest and private service teardown.
+closure has its own result field.
+
+The SDK20 owner in `benchmarks/owned_cold_navigation_ui_owner.py` accepts
+the fixed cold-navigation admission only. Both the parent and the worker
+verify the operation-specific approval and one-use attempt claim, reviewed
+plan, exact APK pair and prepared guest before handing off to the shared
+owner. The plan binds the proposal, source roster, Python and installed
+tools. The owner checks the current v2 storage ledger for the same guest's
+prepared 40 GiB reservation, and refuses an existing boot claim. The human
+approval binds the pre-preparation ledger snapshot through the reviewed
+proposal. At boot the owner consumes the matching preparation digest
+inside the ledger lock, so a changed entry refuses before guest dispatch.
+The run authorization carries the cold-navigation scope. The generic
+receipt runner rejects that record.
+
+The owner uses the reviewed SDK19 shared preparation, recovery and cleanup
+guards. A separate outer operation still needs to prepare the guest,
+publish the handoff, enforce the full 40-minute operation deadline,
+supervise the controller and verify guest and private service closure.
 
 ## Guarded device selector
 

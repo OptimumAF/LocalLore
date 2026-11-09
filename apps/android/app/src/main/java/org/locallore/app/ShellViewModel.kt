@@ -490,7 +490,7 @@ class ShellViewModel internal constructor(
         if (gateway.durable) {
             savedOperation("Cancellation checked. Showing the accepted saved history.", checkingCancellation = true) {
                 try {
-                    gateway.cancelSaved().also {
+                    checkNotNull(gateway.cancelSaved()) { "Missing saved cancellation snapshot" }.also {
                         if (!disposed) diagnosticLog.record(DiagnosticPhase.CANCEL,
                             DiagnosticOutcome.COMPLETED, elapsedMillis(start))
                     }

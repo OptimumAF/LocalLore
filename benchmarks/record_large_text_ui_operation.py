@@ -118,20 +118,21 @@ def _server(plan, run_id):
                          if PureWindowsPath(pin["path"]).name in server.SOURCE_NAMES | {"__init__.py"}])
 
 
-def _preflight(authority, plan, prepare):
+def _preflight(ledger_pin, plan, prepare):
     for path in (GUEST, activation.RUNTIME):
         env.safe_path(path, exists=False)
         _need(not os.path.lexists(path), "already_used")
     env.safe_path(GUEST.parent, directory=True)
-    ledger = _at(authority["ledger"], LEDGER, 16 * 1024**2)
+    ledger = _at(ledger_pin, LEDGER, 16 * 1024**2)
     storage._validate(ledger, storage.DEFAULT_REGISTRY)
     _need(type(ledger["version"]) is int and ledger["version"] == 2, "ledger")
     preview = storage.preview_prepare(GUEST)
+    _need(_same(preview["ledger"], ledger_pin), "binding")
     _need(preview["would_fit"] is True and preview["admission_granted"] is False, "storage_capacity")
     installed = plan["installed"]
     server.revalidate_inputs(_server(plan, "0" * 32))
     for role in ("emulator", "qemu", "refuser", "refuser_source", "compatibility"):
-        contract.binding(installed[role], project=role not in ("emulator", "qemu"), max_bytes=256 * 1024**2)
+        contract.binding(installed[role], project=role not in ("emulator", "qemu"))
         env.check_binding(installed[role])
     sdk = Path(prepare["sdk"])
     _need(installed["emulator"]["path"] == str(sdk / "emulator/emulator.exe")
@@ -142,11 +143,15 @@ def _preflight(authority, plan, prepare):
           "installed")
     env.verify_installation(prepare)
     env.check_external_state(prepare)
-    env.resource_facts(prepare)
+    key = Path(env.token_path()).parent / ".android/adbkey"
+    _need(installed["auth_key_path"] == str(key), "auth")
+    _need(env.safe_path(key).stat().st_size > 0, "auth")
+    resources = env.resource_facts(prepare)
     env.ports_free()
     private = process._exclusive_preflight(activation.owner_mechanisms._ProcessApi(), port=contract.PORT)
     _need(private["exclusive_bind_succeeded"] is True and private["closed_mask"] == 1, "ports_unavailable")
-    env.check_binding(authority["ledger"])
+    env.check_binding(ledger_pin)
+    return dict(resources=resources, storage=preview, ports_free=True)
 
 
 def _authorization(phase, proposal):
@@ -228,7 +233,9 @@ def _reason(error):
     if type(error) in (env.EnvironmentRefused, storage.StorageRefused):
         args = error.args
         if len(args) == 1 and type(args[0]) is str and args[0] in {
-            "already_used", "authority", "binding", "budget", "host_capacity", "host_commit_capacity",
+            "already_used", "auth", "authority", "binding", "binding_changed", "budget",
+            "host_capacity", "host_commit_capacity", "host_cpu_capacity", "installed", "ledger",
+            "memory_unavailable", "missing_path", "unsafe_path",
             "host_commit_unavailable", "ports_unavailable", "storage_capacity", "registry_locked", "source",
             "storage_capacity_exceeded", "storage_storage_capacity_exceeded", "storage_registry_locked",
         }:
@@ -246,7 +253,7 @@ def _run_stages(authority_pin, attempt_pin, begin):
         result.update(phase="preflight", step="readiness")
         _budget(begin, 2100)
         plan, prepare = _plan(authority["plan"])
-        _preflight(authority, plan, prepare)
+        _preflight(authority["ledger"], plan, prepare)
         _budget(begin, 2100)
         _need(_same(_authority(authority_pin), authority), "authority")
         _verify_attempt(attempt_pin, authority_pin)

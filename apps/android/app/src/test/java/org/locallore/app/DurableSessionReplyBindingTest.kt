@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -419,6 +420,66 @@ class DurableSessionReplyBindingTest {
         port.commands.clear()
         assertSavedCase(port.gateway.snapshot(), target)
         assertReadOwner(port.readsInOrder(), target)
+    }
+
+    @Test fun explicitResumeCannotInheritAStaleClosedSessionRecoveryNotice() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val oldTarget = corpus.case("main")
+        val fallback = corpus.case("empty")
+        val explicitTarget = corpus.case("mixed")
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), oldTarget)
+        port.commands.clear()
+
+        port.openReply = { reply ->
+            val scope = reply.getJSONObject("data").getJSONObject("scope")
+            if (scope.getString("story") == oldTarget.story) rejected("Closed") else reply
+        }
+        port.closeReply = { rejected("Closed") }
+        port.workspaceReply = { reply ->
+            val data = reply.getJSONObject("data")
+            val rows = data.getJSONArray("stories")
+            val surviving = (0 until rows.length()).map(rows::getJSONObject).filterNot {
+                it.getJSONObject("scope").getString("story") == oldTarget.story
+            }
+            reply.apply { data.put("stories", JSONArray(surviving)) }
+        }
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        port.resumeReply = { reply ->
+            val scope = reply.getJSONObject("data").getJSONObject("scope")
+            if (scope.getString("story") == fallback.story) {
+                entered.complete(Unit)
+                release.await()
+            }
+            reply
+        }
+
+        val late = async { runCatching { port.gateway.recoverSaved() } }
+        val (explicit, beforeLateReply) = try {
+            runCurrent()
+            assertTrue(entered.isCompleted)
+            assertEquals(listOf("open", "close", "workspace", "resume"), port.commands.map { it.getString("op") })
+            val newer = async { port.gateway.resumeSaved(explicitTarget.saved()) }
+            runCurrent()
+            assertTrue("The explicit selection must finish while recovery waits for Resume", newer.isCompleted)
+            newer.await() to port.commands.map(JSONObject::toString)
+        } finally {
+            release.complete(Unit)
+        }
+
+        assertCategory("Stale", late.await().exceptionOrNull())
+        assertEquals(beforeLateReply, port.commands.map(JSONObject::toString))
+        assertSavedCase(explicit, explicitTarget)
+        assertFalse(explicit.selectionRestoreUnavailable)
+        assertEquals(listOf(
+            PlayDraftScope(fallback.story, fallback.branch),
+            PlayDraftScope(explicitTarget.story, explicitTarget.branch),
+        ), port.resumeScopes())
+        port.commands.clear()
+        assertSavedCase(port.gateway.snapshot(), explicitTarget)
+        assertReadOwner(port.readsInOrder(), explicitTarget)
+        corpus.assertUnchanged()
     }
 
     @Test fun staleOpenCompletionCannotDispatchPresentationAfterNewerSnapshot() = runTest {

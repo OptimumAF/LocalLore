@@ -213,10 +213,21 @@ def tree_files(root):
     return result
 
 
-def installation_files(sdk, java):
+def _preparation_helpers(preparation_root):
+    """Locate the exact helpers whose bytes the original preparation recorded."""
+    current = [Path(__file__).resolve(), Path(host.__file__).resolve(), Path(commit_capacity.__file__).resolve(),
+               Path(guest_storage.__file__).resolve(), Path(__file__).with_name("prepare_recovery_contract.py").resolve()]
+    if preparation_root is None:
+        return current
+    root = Path(preparation_root)
+    require(root.drive.upper() == "D:" and all(":" not in part for part in root.parts[1:]), "unsafe_path")
+    helpers = safe_path(root / "benchmarks", directory=True)
+    return [helpers / path.name for path in current]
+
+
+def installation_files(sdk, java, *, preparation_root=None):
     sdk, java = Path(sdk), Path(java)
-    files = [Path(__file__).resolve(), Path(host.__file__).resolve(), Path(commit_capacity.__file__).resolve(),
-             Path(guest_storage.__file__).resolve(), Path(__file__).with_name("prepare_recovery_contract.py").resolve()]
+    files = _preparation_helpers(preparation_root)
     for folder in (sdk / "emulator", sdk / "cmdline-tools/latest",
                    sdk / "system-images/android-35/google_apis/x86_64", java,
                    sdk / "licenses", sdk / "platform-tools"):
@@ -224,9 +235,11 @@ def installation_files(sdk, java):
     return sorted(set(files))
 
 
-def verify_installation(proposal):
+def verify_installation(proposal, *, preparation_root=None):
+    context = {} if preparation_root is None else {"preparation_root": preparation_root}
     require({x["path"] for x in proposal["bindings"]} ==
-            {str(p) for p in installation_files(proposal["sdk"], proposal["java_home"])}, "binding_set_changed")
+            {str(p) for p in installation_files(proposal["sdk"], proposal["java_home"], **context)},
+            "binding_set_changed")
     for item in proposal["bindings"]:
         check_binding(item)
 
@@ -283,7 +296,7 @@ def _prepare_proposal_value(root, sdk, java_home, real_candidate=False, four_cor
     return proposal
 
 
-def validate_proposal(proposal, phase):
+def validate_proposal(proposal, phase, *, preparation_root=None):
     common = {"version", "phase", "avd_name", "serial", "console_port", "sdk", "java_home",
               "paths", "adb_path", "token", "old_avd", "bindings", "userdata_mib", "sdcard_mib",
               "memory_mib", "cores", "host_free_min", "host_available_memory_min",
@@ -307,9 +320,7 @@ def validate_proposal(proposal, phase):
             valid_profile(proposal), "invalid_proposal")
     items = proposal["bindings"]
     require(isinstance(items, list) and len({x["path"] for x in items}) == len(items), "invalid_proposal")
-    required = {str(Path(__file__).resolve()), str(Path(host.__file__).resolve()),
-                str(Path(commit_capacity.__file__).resolve()), str(Path(guest_storage.__file__).resolve()), proposal["adb_path"],
-                str(Path(__file__).with_name("prepare_recovery_contract.py").resolve()),
+    required = {*(str(path) for path in _preparation_helpers(preparation_root)), proposal["adb_path"],
                 str(Path(proposal["sdk"]) / "emulator/emulator.exe"),
                 str(Path(proposal["sdk"]) / "cmdline-tools/latest/bin/avdmanager.bat"),
                 str(Path(proposal["sdk"]) / "system-images/android-35/google_apis/x86_64/data/empty_data_disk")}
@@ -321,16 +332,17 @@ def validate_proposal(proposal, phase):
 
 
 def authorize(proposal_path, authorization_path, phase, *, run_scope=None, prepare_scope=None,
-              expected_proposal_sha256=None):
+              expected_proposal_sha256=None, preparation_root=None):
+    context = {} if preparation_root is None else {"preparation_root": preparation_root}
     if expected_proposal_sha256 is None:
         proposal = read_json(proposal_path)
     else:
         proposal = read_bound_json(proposal_path, expected_proposal_sha256)
-    validate_proposal(proposal, phase)
+    validate_proposal(proposal, phase, **context)
     auth = read_json(authorization_path, 4096)
     proposal_sha = digest(proposal_path) if expected_proposal_sha256 is None else expected_proposal_sha256
     check_authorization(auth, phase, proposal_sha, run_scope=run_scope, prepare_scope=prepare_scope)
-    verify_installation(proposal)
+    verify_installation(proposal, **context)
     check_external_state(proposal)
     return proposal
 
@@ -614,11 +626,12 @@ def process_identity(pid):
         k.CloseHandle(handle)
 
 
-def verify_prepared(proposal, initial=False):
+def verify_prepared(proposal, initial=False, *, preparation_root=None):
+    context = {} if preparation_root is None else {"preparation_root": preparation_root}
     check_binding(proposal["prepare_proposal"]); check_binding(proposal["prepared"])
     check_binding(proposal["prepare_result"])
     original = read_json(proposal["prepare_proposal"]["path"])
-    validate_proposal(original, "prepare")
+    validate_proposal(original, "prepare", **context)
     require({k: v for k, v in proposal.items() if k not in
              {"phase", "prepare_proposal", "prepared", "prepare_result", "max_seconds"}} ==
             {k: v for k, v in original.items() if k != "phase"}, "prepared_changed")

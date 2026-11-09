@@ -72,6 +72,17 @@ can check the SDK23 pre-boot refusal against its verified archive, the
 current prepared reservation and the original AVD files. A matching
 result supports review for reuse under separate approval.
 
+The [reuse handoff](../../benchmarks/saved_library_status_resume_handoff.py)
+uses an activation-only approval and a fresh attempt directory. It
+preserves the original preparation and run proposal bytes. The owned
+runner checks the original preparation source and the current runtime
+source separately. It can consume the existing reservation only when the
+approved ledger bytes and prepared digest still match under the shared
+lock. The [resume supervisor](../../benchmarks/saved_library_status_resume_operation.py)
+rechecks resources and ports before it dispatches the same saved-library
+test. It requires scope-aware process and storage closure replay. A live run
+requires fresh approval.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

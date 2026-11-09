@@ -322,11 +322,20 @@ class EnvironmentTests(unittest.TestCase):
                         prepare.assert_not_called(); launch.assert_not_called()
                     self.assertFalse((self.root / (phase + "-worker-claimed-v1.json")).exists())
 
-    def proposal(self, phase="prepare"):
+    def proposal(self, phase="prepare", *, preparation_root=None):
         # No dependency on actual installed SDK or credentials in any host test.
         files = [Path(env.__file__).resolve(), Path(env.host.__file__).resolve(),
                  Path(env.commit_capacity.__file__).resolve(), Path(env.guest_storage.__file__).resolve(),
                  Path(env.__file__).with_name("prepare_recovery_contract.py").resolve()]
+        if preparation_root is not None:
+            helpers = preparation_root / "benchmarks"
+            helpers.mkdir(parents=True)
+            files = [helpers / name for name in (
+                "receipt_avd_environment.py", "runtime_spike.py", "host_commit_capacity.py",
+                "receipt_avd_storage.py", "prepare_recovery_contract.py",
+            )]
+            for path in files:
+                path.write_bytes(b"historical preparation helper fixture")
         self.java.mkdir(exist_ok=True)
         (self.sdk / "licenses").mkdir(parents=True, exist_ok=True)
         for relative in ("platform-tools/adb.exe", "emulator/emulator.exe",
@@ -371,8 +380,8 @@ class EnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
             env.validate_proposal(value, "prepare")
 
-    def prepared_run(self, real_candidate=False, four_core_candidate=False):
-        prepare = self.proposal()
+    def prepared_run(self, real_candidate=False, four_core_candidate=False, *, preparation_root=None):
+        prepare = self.proposal(preparation_root=preparation_root)
         if real_candidate or four_core_candidate:
             prepare.update(memory_mib=8192, host_available_memory_min=12 * env.GIB)
         if four_core_candidate:
@@ -1222,6 +1231,44 @@ class EnvironmentTests(unittest.TestCase):
         receipt.write_bytes(env.encoded(value)); run["prepared"] = env.binding(receipt)
         with self.assertRaisesRegex(env.EnvironmentRefused, "prepared_changed"):
             env.verify_prepared(run)
+
+    def test_historical_run_checks_original_helper_roster_and_scoped_authorization(self):
+        original_root = self.base / "original-checkout"
+        run, proposal, authority = self.prepared_run(preparation_root=original_root)
+        authorization = env.read_json(authority)
+        authorization["run_scope"] = "synthetic-resume-v1"
+        authority.write_bytes(env.encoded(authorization))
+
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.validate_proposal(run, "run")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.verify_prepared(run, initial=True)
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^not_authorized$"):
+            env.authorize(proposal, authority, "run", run_scope="wrong-scope", preparation_root=original_root)
+
+        value = env.authorize(proposal, authority, "run", run_scope="synthetic-resume-v1",
+                              expected_proposal_sha256=env.digest(proposal), preparation_root=original_root)
+        self.assertEqual(value, run)
+        prepared = env.verify_prepared(value, initial=True, preparation_root=original_root)
+        self.assertEqual(prepared, env.read_json(run["prepared"]["path"]))
+        self.assertEqual(env.read_json(proposal), run)
+
+    def test_historical_helpers_refuse_wrong_root_roster_or_bytes(self):
+        original_root = self.base / "original-checkout"
+        value = self.proposal(preparation_root=original_root)
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^unsafe_path$"):
+            env.validate_proposal(value, "prepare", preparation_root="C:/synthetic-checkout")
+        foreign_root = self.base / "foreign-checkout"
+        (foreign_root / "benchmarks").mkdir(parents=True)
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^invalid_proposal$"):
+            env.validate_proposal(value, "prepare", preparation_root=foreign_root)
+
+        mixed = dict(value, bindings=value["bindings"] + [env.binding(Path(env.__file__).resolve())])
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^binding_set_changed$"):
+            env.verify_installation(mixed, preparation_root=original_root)
+        (original_root / "benchmarks/receipt_avd_environment.py").write_bytes(b"changed historical source")
+        with self.assertRaisesRegex(env.EnvironmentRefused, "^binding_changed$"):
+            env.verify_installation(value, preparation_root=original_root)
 
     def test_added_sdk_file_invalidates_installation_set(self):
         p, a = self.files(self.proposal())

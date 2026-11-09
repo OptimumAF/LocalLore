@@ -334,8 +334,9 @@ def reserve_prepare(root, proposal_sha256, registry=DEFAULT_REGISTRY, *, expecte
         return dict(entry)
 
 
-def record_state(root, state, registry=DEFAULT_REGISTRY, proposal_sha256=None, *, expected_prepare_sha256=None):
-    """Retain reservations, optionally consuming a specific prepared v2 entry."""
+def record_state(root, state, registry=DEFAULT_REGISTRY, proposal_sha256=None, *, expected_prepare_sha256=None,
+                 expected_ledger=None):
+    """Retain a reservation, optionally consuming an exact prepared v2 snapshot."""
     require(state in ("prepared", "retained"), "invalid_transition")
     require(proposal_sha256 is None or (type(proposal_sha256) is str and
             re.fullmatch(r"[0-9a-f]{64}", proposal_sha256)), "invalid_proposal_digest")
@@ -343,8 +344,9 @@ def record_state(root, state, registry=DEFAULT_REGISTRY, proposal_sha256=None, *
         require(state == "retained" and proposal_sha256 is not None and
                 type(expected_prepare_sha256) is str and re.fullmatch(r"[0-9a-f]{64}", expected_prepare_sha256),
                 "invalid_transition")
+    require(expected_ledger is None or expected_prepare_sha256 is not None, "invalid_transition")
     registry = safe_path(registry)
-    with _locked(registry) as ledger:
+    with _locked(registry, expected_ledger=expected_ledger) as ledger:
         entry = _entry(ledger, root)
         require(entry["state"] != "retired", "invalid_transition")
         if expected_prepare_sha256 is not None:

@@ -72,14 +72,17 @@ The enclosing owner must establish the behavior of each port.
 - Transport receives `{scope,authorization,request,signal}`, where
   authorization is the hash of the exact accepted authorize wire bytes. Use only
   the already pinned helper. Preserve one attempt, bounded output,
-  and observed process/pipe closure. Return exact own data
-  `{image,observation,pid,closed,stdinClosed,stdoutClosed,stderrClosed,exitCode,response,stderr}`.
+  and observed process/pipe closure. Verify the hash of the actual bytes
+  offered to stdin immediately against the authorized request hash.
+  Retain the actual sent length and hash or partial-send state with the
+  owner observation. Use null for unknown send facts. Return exact own data
+  `{image,observation,pid,closed,stdinClosed,stdoutClosed,stderrClosed,exitCode,sentBytes,sentHash,response,stderr}`.
   Image and observation bind the actual launch and retained owner
   observations, response and stderr are raw buffers, each bounded
   before return. The transport owner preserves partials even if it
   returns malformed data or throws. A successful frame requires pinned image, positive helper
   and three pipe closures, an actual helper PID distinct from the compiler,
-  exit zero and empty stderr.
+  exit zero, empty stderr and an exact completed send.
 - Retain receives `{record,request,response,stderr}`. The record
   binds hashes, lengths, helper facts, authorization and scope.
   Exclusively retain and read back the exact bytes of all three

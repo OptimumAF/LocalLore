@@ -19,9 +19,8 @@ use std::{
 
 #[cfg(feature = "local-model")]
 use super::{
-    desktop_read, inspect_selected, inspect_work, new_destination, open_destination,
-    preflight, prepared_metadata, resume_native_selected, run_native_selected,
-    PreparedSelectedPlan,
+    desktop_read, inspect_selected, inspect_work, new_destination, open_destination, preflight,
+    prepared_metadata, resume_native_selected, run_native_selected, PreparedSelectedPlan,
 };
 #[cfg(feature = "local-model")]
 use crate::{
@@ -43,9 +42,9 @@ use serde_json::{json, Value};
 #[cfg(feature = "local-model")]
 use std::{
     collections::{BTreeMap, BTreeSet},
+    path::Path,
     sync::{Arc, Mutex, OnceLock},
     time::Instant,
-    path::Path,
 };
 
 const INDEX: usize = 4;
@@ -68,19 +67,29 @@ fn fixture_root(label: &str) -> PathBuf {
         "native-selected4-first-{label}-{}-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));
     fs::create_dir(&root).unwrap();
     root
 }
 fn row(index: usize, arm: Arm) -> RowId {
-    RowId { turn: comparison::suite().unwrap().steps()[index].id().into(), arm }
+    RowId {
+        turn: comparison::suite().unwrap().steps()[index].id().into(),
+        arm,
+    }
 }
 fn refused<T>(result: Result<T>) -> String {
     let error = result.err().expect("expected finite refusal");
-    assert!(!error.is_empty() && error.len() <= 96 &&
-        error.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'));
+    assert!(
+        !error.is_empty()
+            && error.len() <= 96
+            && error
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+    );
     error
 }
 #[test]
@@ -88,30 +97,82 @@ fn n01_cancel_identity_lane_and_feature_precede_source_target_and_asset_io() {
     let root = fixture_root("pure-admission");
     let missing = root.join("missing-source");
     let intent = || SelectedIntent {
-        client_id: "native4-admission".into(), lane: SelectedLane::ApprovedNative,
+        client_id: "native4-admission".into(),
+        lane: SelectedLane::ApprovedNative,
     };
-    let cancel = Cancellation::default(); cancel.cancel();
-    assert_eq!(refused(prepare_selected(&missing, "bad", &row(INDEX, Arm::Left),
-        SelectedIntent { client_id: String::new(), lane: SelectedLane::ScriptedBaseline },
-        &cancel)), "Interrupted");
+    let cancel = Cancellation::default();
+    cancel.cancel();
+    assert_eq!(
+        refused(prepare_selected(
+            &missing,
+            "bad",
+            &row(INDEX, Arm::Left),
+            SelectedIntent {
+                client_id: String::new(),
+                lane: SelectedLane::ScriptedBaseline
+            },
+            &cancel
+        )),
+        "Interrupted"
+    );
     for (client, binding) in [
-        ("", "a".repeat(64)), ("bad_client", "a".repeat(64)),
+        ("", "a".repeat(64)),
+        ("bad_client", "a".repeat(64)),
         ("valid-client", "bad".into()),
     ] {
-        assert_eq!(refused(prepare_selected(&missing, &binding, &row(INDEX, Arm::Left),
-            SelectedIntent { client_id: client.into(), lane: SelectedLane::ApprovedNative },
-            &Cancellation::default())), "SelectedIdentity");
+        assert_eq!(
+            refused(prepare_selected(
+                &missing,
+                &binding,
+                &row(INDEX, Arm::Left),
+                SelectedIntent {
+                    client_id: client.into(),
+                    lane: SelectedLane::ApprovedNative
+                },
+                &Cancellation::default()
+            )),
+            "SelectedIdentity"
+        );
     }
-    assert_eq!(refused(prepare_selected(&missing, &"a".repeat(64), &row(INDEX, Arm::Right),
-        SelectedIntent { client_id: "native4-lane".into(), lane: SelectedLane::ScriptedBaseline },
-        &Cancellation::default())), "SelectedLaneMismatch");
-    let unknown = RowId { turn: "not-a-corpus-row".into(), arm: Arm::Left };
+    assert_eq!(
+        refused(prepare_selected(
+            &missing,
+            &"a".repeat(64),
+            &row(INDEX, Arm::Right),
+            SelectedIntent {
+                client_id: "native4-lane".into(),
+                lane: SelectedLane::ScriptedBaseline
+            },
+            &Cancellation::default()
+        )),
+        "SelectedLaneMismatch"
+    );
+    let unknown = RowId {
+        turn: "not-a-corpus-row".into(),
+        arm: Arm::Left,
+    };
     #[cfg(not(feature = "local-model"))]
-    assert_eq!(refused(prepare_selected(&missing, &"a".repeat(64), &unknown,
-        intent(), &Cancellation::default())), "NativeFeatureUnavailable");
+    assert_eq!(
+        refused(prepare_selected(
+            &missing,
+            &"a".repeat(64),
+            &unknown,
+            intent(),
+            &Cancellation::default()
+        )),
+        "NativeFeatureUnavailable"
+    );
     #[cfg(feature = "local-model")]
-    assert_eq!(refused(prepare_selected(&missing, &"a".repeat(64), &unknown,
-        intent(), &Cancellation::default())), "UnknownRow");
+    assert_eq!(
+        refused(prepare_selected(
+            &missing,
+            &"a".repeat(64),
+            &unknown,
+            intent(),
+            &Cancellation::default()
+        )),
+        "UnknownRow"
+    );
     assert!(!missing.exists() && fs::read_dir(&root).unwrap().next().is_none());
 }
 
@@ -175,8 +236,16 @@ fn value(path: &Path) -> Value {
 }
 #[cfg(feature = "local-model")]
 fn keys(value: &Value, expected: &[&str]) {
-    assert!(value.as_object().unwrap().keys().map(String::as_str).collect::<BTreeSet<_>>() ==
-        expected.iter().copied().collect::<BTreeSet<_>>(), "closed JSON keys");
+    assert!(
+        value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>()
+            == expected.iter().copied().collect::<BTreeSet<_>>(),
+        "closed JSON keys"
+    );
 }
 #[cfg(feature = "local-model")]
 fn cp(dir: &Path, arm: &str) -> PathBuf {
@@ -201,75 +270,135 @@ fn original_source(kind: comparison::ComparisonKind, divergent: bool) -> &'stati
     static ROLLOUT: OnceLock<std::result::Result<PathBuf, ()>> = OnceLock::new();
     static DIVERGENT: OnceLock<std::result::Result<PathBuf, ()>> = OnceLock::new();
     assert!(!divergent || kind == comparison::ComparisonKind::ContinuousRollout);
-    let slot = if divergent { &DIVERGENT } else if kind == comparison::ComparisonKind::PairedSnapshots {
+    let slot = if divergent {
+        &DIVERGENT
+    } else if kind == comparison::ComparisonKind::PairedSnapshots {
         &PAIRED
-    } else { &ROLLOUT };
-    slot.get_or_init(|| std::panic::catch_unwind(|| {
-        let parent = fixture_root(if divergent { "real-divergent-source" } else { "public-source" });
-        let dir = parent.join("source");
-        if divergent {
-            // Explicit b4344405 allowance: reuse the existing real private
-            // SOURCE driver, never edit receipts/checkpoints to manufacture it.
-            let manifest = source4::Manifest::new(kind,
-                LaneFactory::ScriptedBaseline.profile().unwrap(), None).unwrap();
-            let mut session = source4::Session4::open(
-                &dir, false, manifest, None, Instant::now()).unwrap();
-            session.begin_invocations().unwrap();
-            comparison::turn_execution::record_setup(&mut session.ledgers,
-                comparison::turn_execution::Setup {
-                    version: 4, dir: &session.dir, key: &session.key,
-                    native: false, physical_ms: 0, status: "scripted", load: None,
-                }).unwrap();
-            let corpus = comparison::suite().unwrap();
-            for index in 0..6 {
-                for (arm, name) in ARMS.iter().copied().enumerate() {
-                    let began = Instant::now();
-                    let arm_dir = dir.join(name);
-                    let path = comparison::database(&arm_dir, index, kind);
-                    comparison::ensure_database(&path, corpus.seed(), &[]).unwrap();
-                    let factory = if index == 0 && arm == 0 {
-                        LaneFactory::TestFault(TestFault::WrongCommand)
-                    } else { LaneFactory::ScriptedBaseline };
-                    let turn = source4::execute_turn4(source4::Job4 {
-                        dir: &arm_dir, path: &path, index, arm: name,
-                        construction: source4::CONSTRUCTIONS[arm], binding: &session.key,
-                        step: &corpus.steps()[index], factory: &factory,
-                        cancel: &Cancellation::default(), diagnostics: false,
-                    }, &mut session.ledgers[arm]).unwrap();
-                    if index == 0 && arm == 0 {
-                        assert_eq!(turn.row.phase, "failed");
-                        assert_eq!(turn.before_head, turn.after_head);
+    } else {
+        &ROLLOUT
+    };
+    slot.get_or_init(|| {
+        std::panic::catch_unwind(|| {
+            let parent = fixture_root(if divergent {
+                "real-divergent-source"
+            } else {
+                "public-source"
+            });
+            let dir = parent.join("source");
+            if divergent {
+                // Explicit b4344405 allowance: reuse the existing real private
+                // SOURCE driver, never edit receipts/checkpoints to manufacture it.
+                let manifest = source4::Manifest::new(
+                    kind,
+                    LaneFactory::ScriptedBaseline.profile().unwrap(),
+                    None,
+                )
+                .unwrap();
+                let mut session =
+                    source4::Session4::open(&dir, false, manifest, None, Instant::now()).unwrap();
+                session.begin_invocations().unwrap();
+                comparison::turn_execution::record_setup(
+                    &mut session.ledgers,
+                    comparison::turn_execution::Setup {
+                        version: 4,
+                        dir: &session.dir,
+                        key: &session.key,
+                        native: false,
+                        physical_ms: 0,
+                        status: "scripted",
+                        load: None,
+                    },
+                )
+                .unwrap();
+                let corpus = comparison::suite().unwrap();
+                for index in 0..6 {
+                    for (arm, name) in ARMS.iter().copied().enumerate() {
+                        let began = Instant::now();
+                        let arm_dir = dir.join(name);
+                        let path = comparison::database(&arm_dir, index, kind);
+                        comparison::ensure_database(&path, corpus.seed(), &[]).unwrap();
+                        let factory = if index == 0 && arm == 0 {
+                            LaneFactory::TestFault(TestFault::WrongCommand)
+                        } else {
+                            LaneFactory::ScriptedBaseline
+                        };
+                        let turn = source4::execute_turn4(
+                            source4::Job4 {
+                                dir: &arm_dir,
+                                path: &path,
+                                index,
+                                arm: name,
+                                construction: source4::CONSTRUCTIONS[arm],
+                                binding: &session.key,
+                                step: &corpus.steps()[index],
+                                factory: &factory,
+                                cancel: &Cancellation::default(),
+                                diagnostics: false,
+                            },
+                            &mut session.ledgers[arm],
+                        )
+                        .unwrap();
+                        if index == 0 && arm == 0 {
+                            assert_eq!(turn.row.phase, "failed");
+                            assert_eq!(turn.before_head, turn.after_head);
+                        }
+                        if index == 0 && arm == 1 {
+                            assert_eq!(turn.row.phase, "committed");
+                        }
+                        session.turns[arm].push(turn);
+                        session.ledgers[1 - arm]
+                            .exclude_measured_interval(
+                                began.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                            )
+                            .unwrap();
                     }
-                    if index == 0 && arm == 1 {
-                        assert_eq!(turn.row.phase, "committed");
-                    }
-                    session.turns[arm].push(turn);
-                    session.ledgers[1 - arm].exclude_measured_interval(
-                        began.elapsed().as_millis().min(u64::MAX as u128) as u64).unwrap();
                 }
+                comparison::saved(
+                    &dir.join("scene-00.json"),
+                    &source4::scene_data4(&dir, &session.key, 0).unwrap(),
+                    4096,
+                )
+                .unwrap();
+                let report = session.finish().unwrap();
+                assert_eq!((report.completed_scenes, report.turns.len()), (1, 12));
+            } else {
+                let reference = if kind == comparison::ComparisonKind::PairedSnapshots {
+                    let path = parent.join("reference-owner");
+                    comparison::prepare_reference(&path, &Cancellation::default()).unwrap();
+                    Some(comparison::open_reference(&path).unwrap())
+                } else {
+                    None
+                };
+                let report = source4::run_comparison(
+                    &dir,
+                    false,
+                    kind,
+                    &Cancellation::default(),
+                    1,
+                    LaneFactory::ScriptedBaseline,
+                    reference.as_ref(),
+                )
+                .unwrap();
+                assert_eq!(
+                    (report.version, report.completed_scenes, report.turns.len()),
+                    (4, 1, 12)
+                );
             }
-            comparison::saved(&dir.join("scene-00.json"),
-                &source4::scene_data4(&dir, &session.key, 0).unwrap(), 4096).unwrap();
-            let report = session.finish().unwrap();
-            assert_eq!((report.completed_scenes, report.turns.len()), (1, 12));
-        } else {
-            let reference = if kind == comparison::ComparisonKind::PairedSnapshots {
-                let path = parent.join("reference-owner");
-                comparison::prepare_reference(&path, &Cancellation::default()).unwrap();
-                Some(comparison::open_reference(&path).unwrap())
-            } else { None };
-            let report = source4::run_comparison(&dir, false, kind,
-                &Cancellation::default(), 1, LaneFactory::ScriptedBaseline,
-                reference.as_ref()).unwrap();
-            assert_eq!((report.version, report.completed_scenes, report.turns.len()), (4, 1, 12));
-        }
-        source4::inspect_comparison(&dir).unwrap();
-        dir
-    }).map_err(|_| ())).as_ref()
-        .expect("original source construction failed; retained, no replacement").as_path()
+            source4::inspect_comparison(&dir).unwrap();
+            dir
+        })
+        .map_err(|_| ())
+    })
+    .as_ref()
+    .expect("original source construction failed; retained, no replacement")
+    .as_path()
 }
 #[cfg(feature = "local-model")]
-struct Fixture { root: PathBuf, source: PathBuf, kind: comparison::ComparisonKind }
+struct Fixture {
+    root: PathBuf,
+    source: PathBuf,
+    kind: comparison::ComparisonKind,
+}
 #[cfg(feature = "local-model")]
 impl Fixture {
     fn new(label: &str, kind: comparison::ComparisonKind, divergent: bool) -> Self {
@@ -280,34 +409,65 @@ impl Fixture {
         Self { root, source, kind }
     }
     fn plan(&self, client: &str) -> PreparedSelectedPlan {
-        prepare_selected(&self.source, &source_binding(&self.source), &row(INDEX, Arm::Right),
-            SelectedIntent { client_id: client.into(), lane: SelectedLane::ApprovedNative },
-            &Cancellation::default()).unwrap()
+        prepare_selected(
+            &self.source,
+            &source_binding(&self.source),
+            &row(INDEX, Arm::Right),
+            SelectedIntent {
+                client_id: client.into(),
+                lane: SelectedLane::ApprovedNative,
+            },
+            &Cancellation::default(),
+        )
+        .unwrap()
     }
 }
 #[cfg(feature = "local-model")]
-struct Trap { assets: Arc<AtomicUsize> }
+struct Trap {
+    assets: Arc<AtomicUsize>,
+}
 #[cfg(feature = "local-model")]
 impl shared::SelectedNativeReservation for Trap {
     fn assets(&self) -> crate::local_lane::NativeAssets<'_> {
         self.assets.fetch_add(1, Ordering::SeqCst);
         panic!("native-selected4 FIRST reached forbidden assets");
     }
-    fn retain_uncertain(&mut self, owner: Arc<Mutex<LocalRuntime>>)
-        -> std::result::Result<(), Arc<Mutex<LocalRuntime>>> { Err(owner) }
+    fn retain_uncertain(
+        &mut self,
+        owner: Arc<Mutex<LocalRuntime>>,
+    ) -> std::result::Result<(), Arc<Mutex<LocalRuntime>>> {
+        Err(owner)
+    }
 }
 #[cfg(feature = "local-model")]
-fn native_error<T>(result: std::result::Result<T, shared::SelectedNativeFailure<Trap>>)
-    -> shared::SelectedNativeFailure<Trap> {
-    match result { Ok(_) => panic!("expected finite selected4 refusal"), Err(error) => error }
+fn native_error<T>(
+    result: std::result::Result<T, shared::SelectedNativeFailure<Trap>>,
+) -> shared::SelectedNativeFailure<Trap> {
+    match result {
+        Ok(_) => panic!("expected finite selected4 refusal"),
+        Err(error) => error,
+    }
 }
-
 
 #[cfg(feature = "local-model")]
 const MANIFEST_KEYS: &[&str] = &[
-    "version", "run_type", "source_protocol_version", "arms", "client_id", "binding",
-    "source_binding", "source_kind", "source_profile", "source_native", "selection",
-    "lane", "profile", "suite_sha256", "source_sha256", "source_reference_sha256", "source_inputs",
+    "version",
+    "run_type",
+    "source_protocol_version",
+    "arms",
+    "client_id",
+    "binding",
+    "source_binding",
+    "source_kind",
+    "source_profile",
+    "source_native",
+    "selection",
+    "lane",
+    "profile",
+    "suite_sha256",
+    "source_sha256",
+    "source_reference_sha256",
+    "source_inputs",
 ];
 #[cfg(feature = "local-model")]
 fn reseal(manifest: &mut Value) {
@@ -318,8 +478,10 @@ fn reseal(manifest: &mut Value) {
 fn actual_before(f: &Fixture, arm: &str) -> Engine {
     let checkpoint = value(&cp(&f.source, arm));
     let scope = comparison::suite().unwrap().seed().scope.clone();
-    engine(&db(&f.source, arm, f.kind), &scope).unwrap()
-        .at_revision(checkpoint["before_head"].as_u64().unwrap()).unwrap()
+    engine(&db(&f.source, arm, f.kind), &scope)
+        .unwrap()
+        .at_revision(checkpoint["before_head"].as_u64().unwrap())
+        .unwrap()
 }
 #[cfg(feature = "local-model")]
 fn check_plan_inputs(f: &Fixture, plan: &PreparedSelectedPlan) {
@@ -331,26 +493,53 @@ fn check_plan_inputs(f: &Fixture, plan: &PreparedSelectedPlan) {
     assert_eq!(m["run_type"], "selected_case");
     assert_eq!(m["source_native"], false);
     assert!(m["source_profile"] == value(&f.source.join("run.json"))["profile"]);
-    assert!(m["profile"] == serde_json::to_value(SelectedLane::ApprovedNative.profile().unwrap()).unwrap());
-    assert!(m["arms"] == serde_json::to_value(crate::memory_comparison_v4::current_arm_descriptors()).unwrap());
-    let mut unsigned = m.clone(); unsigned.as_object_mut().unwrap().remove("binding");
+    assert!(
+        m["profile"]
+            == serde_json::to_value(SelectedLane::ApprovedNative.profile().unwrap()).unwrap()
+    );
+    assert!(
+        m["arms"]
+            == serde_json::to_value(crate::memory_comparison_v4::current_arm_descriptors())
+                .unwrap()
+    );
+    let mut unsigned = m.clone();
+    unsigned.as_object_mut().unwrap().remove("binding");
     assert_eq!(m["binding"], digest(&encode(&unsigned).unwrap()));
     assert_ne!(m["binding"], m["source_binding"]);
     for (arm_index, arm) in ARMS.iter().enumerate() {
         let before = actual_before(f, arm);
         let source_cp = value(&cp(&f.source, arm));
         assert_eq!(plan.before[arm_index].revision(), before.revision());
-        assert!(plan.before[arm_index].receipts() == before.receipts(), "actual arm prefix");
+        assert!(
+            plan.before[arm_index].receipts() == before.receipts(),
+            "actual arm prefix"
+        );
         assert!(plan.before[arm_index].canonical_bytes() == before.canonical_bytes());
         assert!(m["source_inputs"][arm_index]["request"] == source_cp["request"]);
-        assert_eq!(m["source_inputs"][arm_index]["prefix_sha256"],
-            digest(&encode(before.receipts()).unwrap()));
-        assert_eq!(m["source_inputs"][arm_index]["input_semantic_sha256"],
-            source_cp["row"]["input_semantic_sha256"]);
+        assert_eq!(
+            m["source_inputs"][arm_index]["prefix_sha256"],
+            digest(&encode(before.receipts()).unwrap())
+        );
+        assert_eq!(
+            m["source_inputs"][arm_index]["input_semantic_sha256"],
+            source_cp["row"]["input_semantic_sha256"]
+        );
     }
     let metadata = prepared_metadata(plan).unwrap();
-    keys(&metadata, &["version", "kind", "source_protocol_version", "binding",
-        "source_binding", "lane", "selection", "arms", "constructions"]);
+    keys(
+        &metadata,
+        &[
+            "version",
+            "kind",
+            "source_protocol_version",
+            "binding",
+            "source_binding",
+            "lane",
+            "selection",
+            "arms",
+            "constructions",
+        ],
+    );
     assert_eq!(metadata["version"], 4);
     assert_eq!(metadata["kind"], "selected_prepared");
     assert_eq!(metadata["source_protocol_version"], 4);
@@ -360,14 +549,34 @@ fn check_plan_inputs(f: &Fixture, plan: &PreparedSelectedPlan) {
     assert!(metadata["constructions"] == m["arms"]);
     assert!(encode(&metadata).unwrap().len() <= 16 * 1024);
     for (index, arm) in ARMS.iter().enumerate() {
-        keys(&metadata["arms"][index],
-            &["arm", "scope", "before_head", "prefix_sha256", "input_semantic_sha256"]);
+        keys(
+            &metadata["arms"][index],
+            &[
+                "arm",
+                "scope",
+                "before_head",
+                "prefix_sha256",
+                "input_semantic_sha256",
+            ],
+        );
         assert_eq!(metadata["arms"][index]["arm"], *arm);
-        for key in ["scope", "before_head", "prefix_sha256", "input_semantic_sha256"] {
+        for key in [
+            "scope",
+            "before_head",
+            "prefix_sha256",
+            "input_semantic_sha256",
+        ] {
             assert!(metadata["arms"][index][key] == m["source_inputs"][index][key]);
         }
     }
-    for forbidden in ["generation_grant", "request", "source_inputs", "profile", "rows", "report"] {
+    for forbidden in [
+        "generation_grant",
+        "request",
+        "source_inputs",
+        "profile",
+        "rows",
+        "report",
+    ] {
         assert!(metadata.get(forbidden).is_none());
     }
 }
@@ -375,59 +584,117 @@ fn check_plan_inputs(f: &Fixture, plan: &PreparedSelectedPlan) {
 #[cfg(feature = "local-model")]
 #[test]
 fn n02_closed_manifest4_native_codec_preserves_selected3_and_scripted_source_provenance() {
-    let f = Fixture::new("closed-codec", comparison::ComparisonKind::ContinuousRollout, false);
+    let f = Fixture::new(
+        "closed-codec",
+        comparison::ComparisonKind::ContinuousRollout,
+        false,
+    );
     let source_before = inventory(&f.source);
     let p = f.plan("native4-closed-manifest");
     check_plan_inputs(&f, &p);
     let target = f.root.join("selected-native4");
     let destination = new_destination(&p, &target).unwrap();
-    drop(destination); drop(p);
+    drop(destination);
+    drop(p);
     let reopened = open_destination(&target).unwrap();
-    assert_eq!(reopened.manifest.binding,
-        value(&target.join("selected.json"))["binding"].as_str().unwrap());
+    assert_eq!(
+        reopened.manifest.binding,
+        value(&target.join("selected.json"))["binding"]
+            .as_str()
+            .unwrap()
+    );
     drop(reopened);
     let template = inventory(&target);
-    for fault in ["extra", "duplicate", "version", "protocol", "lane", "missing-null",
-        "bad-arm", "swapped-arms", "input-head"] {
+    for fault in [
+        "extra",
+        "duplicate",
+        "version",
+        "protocol",
+        "lane",
+        "missing-null",
+        "bad-arm",
+        "swapped-arms",
+        "input-head",
+    ] {
         let altered = f.root.join(format!("bad-{fault}"));
         copy_tree(&template, &altered);
         let file = altered.join("selected.json");
         let mut m = value(&file);
         match fault {
-            "extra" => { m["opaque"] = json!({"generation_grant":true}); }
-            "version" => { m["version"] = json!(3); }
-            "protocol" => { m["source_protocol_version"] = json!(3); }
-            "lane" => { m["lane"] = json!("scripted_selected_case"); }
-            "missing-null" => { m.as_object_mut().unwrap().remove("source_reference_sha256"); }
-            "bad-arm" => { m["arms"][0]["version"] = json!(99); }
-            "swapped-arms" => { m["arms"].as_array_mut().unwrap().swap(0, 1); }
-            "input-head" => { m["source_inputs"][0]["before_head"] = json!(0); }
+            "extra" => {
+                m["opaque"] = json!({"generation_grant":true});
+            }
+            "version" => {
+                m["version"] = json!(3);
+            }
+            "protocol" => {
+                m["source_protocol_version"] = json!(3);
+            }
+            "lane" => {
+                m["lane"] = json!("scripted_selected_case");
+            }
+            "missing-null" => {
+                m.as_object_mut().unwrap().remove("source_reference_sha256");
+            }
+            "bad-arm" => {
+                m["arms"][0]["version"] = json!(99);
+            }
+            "swapped-arms" => {
+                m["arms"].as_array_mut().unwrap().swap(0, 1);
+            }
+            "input-head" => {
+                m["source_inputs"][0]["before_head"] = json!(0);
+            }
             "duplicate" => {}
             _ => unreachable!(),
         }
         reseal(&mut m);
         if fault == "duplicate" {
             let text = String::from_utf8(encode(&m).unwrap()).unwrap();
-            fs::write(&file, format!("{{\"version\":4,{}", text.strip_prefix('{').unwrap())).unwrap();
-        } else { fs::write(&file, encode(&m).unwrap()).unwrap(); }
+            fs::write(
+                &file,
+                format!("{{\"version\":4,{}", text.strip_prefix('{').unwrap()),
+            )
+            .unwrap();
+        } else {
+            fs::write(&file, encode(&m).unwrap()).unwrap();
+        }
         let before = inventory(&altered);
         refused(inspect_selected(&altered));
         refused(desktop_read::open_read_only(&altered));
         unchanged(&altered, &before);
     }
     // Actual selected3 still refuses native before trying the nonexistent source.
-    assert_eq!(refused(source4::selected_v3::prepare_selected(
-        &f.root.join("missing"), &"a".repeat(64), &row(INDEX, Arm::Left),
-        SelectedIntent { client_id: "old3-native-denial".into(), lane: SelectedLane::ApprovedNative },
-        &Cancellation::default())), "SelectedNativeUnavailable");
+    assert_eq!(
+        refused(source4::selected_v3::prepare_selected(
+            &f.root.join("missing"),
+            &"a".repeat(64),
+            &row(INDEX, Arm::Left),
+            SelectedIntent {
+                client_id: "old3-native-denial".into(),
+                lane: SelectedLane::ApprovedNative
+            },
+            &Cancellation::default()
+        )),
+        "SelectedNativeUnavailable"
+    );
     refused(source4::selected_v3::inspect_selected(&target));
     let old = f.root.join("actual-scripted-selected3");
-    let old_plan = source4::selected_v3::prepare_selected(&f.source, &source_binding(&f.source),
+    let old_plan = source4::selected_v3::prepare_selected(
+        &f.source,
+        &source_binding(&f.source),
         &row(INDEX, Arm::Left),
-        SelectedIntent { client_id: "old3-retained".into(), lane: SelectedLane::ScriptedBaseline },
-        &Cancellation::default()).unwrap();
-    let old_report = serde_json::to_value(source4::selected_v3::run_selected(
-        old_plan, &old, &Cancellation::default()).unwrap()).unwrap();
+        SelectedIntent {
+            client_id: "old3-retained".into(),
+            lane: SelectedLane::ScriptedBaseline,
+        },
+        &Cancellation::default(),
+    )
+    .unwrap();
+    let old_report = serde_json::to_value(
+        source4::selected_v3::run_selected(old_plan, &old, &Cancellation::default()).unwrap(),
+    )
+    .unwrap();
     assert_eq!(old_report["version"], 3);
     assert_eq!(old_report["physical_setups"], 0);
     refused(inspect_selected(&old));
@@ -437,7 +704,11 @@ fn n02_closed_manifest4_native_codec_preserves_selected3_and_scripted_source_pro
 #[cfg(feature = "local-model")]
 #[test]
 fn n03_noninitial_paired_before_engines_are_real_reference_prefixes_and_source_is_immutable() {
-    let f = Fixture::new("paired-prefix", comparison::ComparisonKind::PairedSnapshots, false);
+    let f = Fixture::new(
+        "paired-prefix",
+        comparison::ComparisonKind::PairedSnapshots,
+        false,
+    );
     let before = inventory(&f.source);
     let plan = f.plan("native4-paired-prefix");
     check_plan_inputs(&f, &plan);
@@ -445,25 +716,39 @@ fn n03_noninitial_paired_before_engines_are_real_reference_prefixes_and_source_i
     let expected = reference.prefix(INDEX).unwrap();
     assert!(!expected.is_empty());
     for actual in &plan.before {
-        assert!(actual.receipts() == expected, "paired accepted reference prefix");
+        assert!(
+            actual.receipts() == expected,
+            "paired accepted reference prefix"
+        );
     }
-    drop(reference); drop(plan);
+    drop(reference);
+    drop(plan);
     unchanged(&f.source, &before);
 }
 
 #[cfg(feature = "local-model")]
 #[test]
 fn n04_noninitial_rollout_rederives_each_real_divergent_arm_instead_of_cloning_left() {
-    let f = Fixture::new("divergent-prefix", comparison::ComparisonKind::ContinuousRollout, true);
+    let f = Fixture::new(
+        "divergent-prefix",
+        comparison::ComparisonKind::ContinuousRollout,
+        true,
+    );
     let before = inventory(&f.source);
     let plan = f.plan("native4-divergent-prefix");
     check_plan_inputs(&f, &plan);
-    assert!(plan.before[0].receipts() != plan.before[1].receipts(),
-        "real one-arm failed SOURCE turn must remain divergent");
-    assert!(plan.before[0].accepted_history_basis().unwrap() !=
-        plan.before[1].accepted_history_basis().unwrap());
-    assert_ne!(plan.manifest.source_inputs[0].prefix_sha256,
-        plan.manifest.source_inputs[1].prefix_sha256);
+    assert!(
+        plan.before[0].receipts() != plan.before[1].receipts(),
+        "real one-arm failed SOURCE turn must remain divergent"
+    );
+    assert!(
+        plan.before[0].accepted_history_basis().unwrap()
+            != plan.before[1].accepted_history_basis().unwrap()
+    );
+    assert_ne!(
+        plan.manifest.source_inputs[0].prefix_sha256,
+        plan.manifest.source_inputs[1].prefix_sha256
+    );
     drop(plan);
     unchanged(&f.source, &before);
 }
@@ -471,76 +756,153 @@ fn n04_noninitial_rollout_rederives_each_real_divergent_arm_instead_of_cloning_l
 #[cfg(feature = "local-model")]
 #[test]
 fn n05_source_locks_binding_staleness_and_historical_source_refuse_without_new_authority() {
-    let f = Fixture::new("source-admission", comparison::ComparisonKind::ContinuousRollout, false);
+    let f = Fixture::new(
+        "source-admission",
+        comparison::ComparisonKind::ContinuousRollout,
+        false,
+    );
     let before = inventory(&f.source);
     let held = source4::desktop_api::open_read_only(&f.source).unwrap();
-    assert_eq!(refused(prepare_selected(&f.source, &"a".repeat(64), &row(INDEX, Arm::Left),
-        SelectedIntent { client_id: "native4-source-busy".into(), lane: SelectedLane::ApprovedNative },
-        &Cancellation::default())), "RunBusy");
+    assert_eq!(
+        refused(prepare_selected(
+            &f.source,
+            &"a".repeat(64),
+            &row(INDEX, Arm::Left),
+            SelectedIntent {
+                client_id: "native4-source-busy".into(),
+                lane: SelectedLane::ApprovedNative
+            },
+            &Cancellation::default()
+        )),
+        "RunBusy"
+    );
     drop(held);
-    assert_eq!(refused(prepare_selected(&f.source, &"a".repeat(64), &row(INDEX, Arm::Left),
-        SelectedIntent { client_id: "native4-source-binding".into(), lane: SelectedLane::ApprovedNative },
-        &Cancellation::default())), "SnapshotMismatch");
+    assert_eq!(
+        refused(prepare_selected(
+            &f.source,
+            &"a".repeat(64),
+            &row(INDEX, Arm::Left),
+            SelectedIntent {
+                client_id: "native4-source-binding".into(),
+                lane: SelectedLane::ApprovedNative
+            },
+            &Cancellation::default()
+        )),
+        "SnapshotMismatch"
+    );
     unchanged(&f.source, &before);
     let plan = f.plan("native4-source-refresh");
     let source_cp = cp(&f.source, "left");
-    fs::write(f.root.join("retained-original-checkpoint.json"), fs::read(&source_cp).unwrap()).unwrap();
-    let mut changed = value(&source_cp); changed["request"]["turn"] = json!("not-the-original-turn");
+    fs::write(
+        f.root.join("retained-original-checkpoint.json"),
+        fs::read(&source_cp).unwrap(),
+    )
+    .unwrap();
+    let mut changed = value(&source_cp);
+    changed["request"]["turn"] = json!("not-the-original-turn");
     fs::write(&source_cp, encode(&changed).unwrap()).unwrap();
     let calls = AtomicUsize::new(0);
     let target = f.root.join("not-created");
-    let failure = native_error(run_native_selected(plan, &target, &Cancellation::default(), || {
-        calls.fetch_add(1, Ordering::SeqCst);
-        Err::<Trap, _>("UnexpectedReservation".into())
-    }));
+    let failure = native_error(run_native_selected(
+        plan,
+        &target,
+        &Cancellation::default(),
+        || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Err::<Trap, _>("UnexpectedReservation".into())
+        },
+    ));
     assert!(!failure.cleanup_uncertain() && !target.exists());
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     let changed_before = inventory(&f.root);
-    refused(prepare_selected(&f.source, &"a".repeat(64), &row(INDEX, Arm::Left),
-        SelectedIntent { client_id: "native4-no-repair".into(), lane: SelectedLane::ApprovedNative },
-        &Cancellation::default()));
+    refused(prepare_selected(
+        &f.source,
+        &"a".repeat(64),
+        &row(INDEX, Arm::Left),
+        SelectedIntent {
+            client_id: "native4-no-repair".into(),
+            lane: SelectedLane::ApprovedNative,
+        },
+        &Cancellation::default(),
+    ));
     unchanged(&f.root, &changed_before);
-    let historical = Fixture::new("historical-source", comparison::ComparisonKind::ContinuousRollout, false);
+    let historical = Fixture::new(
+        "historical-source",
+        comparison::ComparisonKind::ContinuousRollout,
+        false,
+    );
     let path = historical.source.join("run.json");
-    fs::write(historical.root.join("retained-run-before-historical.json"), fs::read(&path).unwrap()).unwrap();
+    fs::write(
+        historical.root.join("retained-run-before-historical.json"),
+        fs::read(&path).unwrap(),
+    )
+    .unwrap();
     let mut m = value(&path);
-    m["source_sha256"] = json!("0".repeat(64)); m["binding"]["source_sha256"] = json!("0".repeat(64));
+    m["source_sha256"] = json!("0".repeat(64));
+    m["binding"]["source_sha256"] = json!("0".repeat(64));
     fs::write(path, encode(&m).unwrap()).unwrap();
-    assert!(!source4::inspect_comparison(&historical.source).unwrap().source_matches);
+    assert!(
+        !source4::inspect_comparison(&historical.source)
+            .unwrap()
+            .source_matches
+    );
     let binding = source_binding(&historical.source);
     let historical_before = inventory(&historical.root);
-    assert_eq!(refused(prepare_selected(&historical.source, &binding, &row(INDEX, Arm::Left),
-        SelectedIntent { client_id: "native4-historical-no-run".into(), lane: SelectedLane::ApprovedNative },
-        &Cancellation::default())), "SourceMismatch");
+    assert_eq!(
+        refused(prepare_selected(
+            &historical.source,
+            &binding,
+            &row(INDEX, Arm::Left),
+            SelectedIntent {
+                client_id: "native4-historical-no-run".into(),
+                lane: SelectedLane::ApprovedNative
+            },
+            &Cancellation::default()
+        )),
+        "SourceMismatch"
+    );
     unchanged(&historical.root, &historical_before);
 }
 
 #[cfg(feature = "local-model")]
 #[test]
 fn n06_disjoint_existing_nonordinary_target_and_source_path_drift_precede_reservation() {
-    let f = Fixture::new("target-paths", comparison::ComparisonKind::PairedSnapshots, false);
+    let f = Fixture::new(
+        "target-paths",
+        comparison::ComparisonKind::PairedSnapshots,
+        false,
+    );
     let before = inventory(&f.root);
     let calls = AtomicUsize::new(0);
     for target in [f.source.clone(), f.source.join("nested"), f.root.clone()] {
-        let failure = native_error(run_native_selected(f.plan("native4-disjoint"), &target,
-            &Cancellation::default(), || {
+        let failure = native_error(run_native_selected(
+            f.plan("native4-disjoint"),
+            &target,
+            &Cancellation::default(),
+            || {
                 calls.fetch_add(1, Ordering::SeqCst);
                 Err::<Trap, _>("UnexpectedReservation".into())
-            }));
+            },
+        ));
         assert!(!failure.cleanup_uncertain());
         unchanged(&f.root, &before);
     }
     let existing = f.root.join("existing");
-    fs::create_dir(&existing).unwrap(); fs::write(existing.join("sentinel"), b"unchanged").unwrap();
+    fs::create_dir(&existing).unwrap();
+    fs::write(existing.join("sentinel"), b"unchanged").unwrap();
     let component = f.root.join("ordinary-file-not-directory");
     fs::write(&component, b"unchanged").unwrap();
     let before_paths = inventory(&f.root);
     for target in [existing, component.join("child")] {
-        native_error(run_native_selected(f.plan("native4-existing-target"), &target,
-            &Cancellation::default(), || {
+        native_error(run_native_selected(
+            f.plan("native4-existing-target"),
+            &target,
+            &Cancellation::default(),
+            || {
                 calls.fetch_add(1, Ordering::SeqCst);
                 Err::<Trap, _>("UnexpectedReservation".into())
-            }));
+            },
+        ));
         unchanged(&f.root, &before_paths);
     }
     assert_eq!(calls.load(Ordering::SeqCst), 0);
@@ -552,31 +914,41 @@ fn n06_disjoint_existing_nonordinary_target_and_source_path_drift_precede_reserv
             // POSIX may allow rename despite held directory pins. Keep the
             // actual old tree; the missing original source cannot authorize run.
             let target = f.root.join("not-created-after-source-move");
-            native_error(run_native_selected(p, &target, &Cancellation::default(), || {
-                calls.fetch_add(1, Ordering::SeqCst);
-                Err::<Trap, _>("UnexpectedReservation".into())
-            }));
+            native_error(run_native_selected(
+                p,
+                &target,
+                &Cancellation::default(),
+                || {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    Err::<Trap, _>("UnexpectedReservation".into())
+                },
+            ));
             assert!(!target.exists());
             assert!(retained.is_dir() && !f.source.exists());
             unchanged(&retained, &source_before_move);
         }
+        #[cfg(windows)]
         Err(_) => {
             // Existing Windows pins use share_mode3 (no FILE_SHARE_DELETE).
             // A refused rename is evidence of pin protection, not observed drift.
-            assert!(cfg!(windows));
             drop(p);
             unchanged(&f.root, &before_paths);
         }
+        #[cfg(not(windows))]
+        Err(error) => panic!("source rename failed unexpectedly: {error}"),
     }
     assert_eq!(calls.load(Ordering::SeqCst), 0);
 }
-
 
 #[cfg(feature = "local-model")]
 #[test]
 fn n07_unknown_role_and_turn_time_reservations_in_either_arm_preflight_before_other_arm_mutation() {
     for exhausted in ARMS {
-        let f = Fixture::new("both-arm-unknown", comparison::ComparisonKind::ContinuousRollout, false);
+        let f = Fixture::new(
+            "both-arm-unknown",
+            comparison::ComparisonKind::ContinuousRollout,
+            false,
+        );
         let source_before = inventory(&f.source);
         let p = f.plan("native4-both-arm-unknown");
         let target = f.root.join("selected");
@@ -588,32 +960,58 @@ fn n07_unknown_role_and_turn_time_reservations_in_either_arm_preflight_before_ot
         let mut ledger = Ledger::load(&dir, &binding).unwrap();
         ledger.begin_invocation().unwrap();
         for admission in 0..27 {
-            assert_eq!(ledger.admit(&format!("scene-{}", step.scene()), step.id()).unwrap(), admission);
-            assert!(!dir.join(format!("admission-{admission:02}-settled.json")).exists());
+            assert_eq!(
+                ledger
+                    .admit(&format!("scene-{}", step.scene()), step.id())
+                    .unwrap(),
+                admission
+            );
+            assert!(!dir
+                .join(format!("admission-{admission:02}-settled.json"))
+                .exists());
         }
         ledger.finish().unwrap(); // Actual preparation measurement, no admission refunds.
         drop(ledger);
         let recorded = Ledger::load(&dir, &binding).unwrap();
-        assert_eq!((recorded.invocations, recorded.admissions, recorded.charged_roles), (1, 27, 81));
+        assert_eq!(
+            (
+                recorded.invocations,
+                recorded.admissions,
+                recorded.charged_roles
+            ),
+            (1, 27, 81)
+        );
         assert!(recorded.remaining() >= crate::local_lane::PREPARATION_MS);
-        assert!(recorded.remaining().saturating_sub(crate::local_lane::PREPARATION_MS) <
-            crate::local_lane::TURN_MS + crate::local_lane::CLEANUP_RESERVE_MS);
+        assert!(
+            recorded
+                .remaining()
+                .saturating_sub(crate::local_lane::PREPARATION_MS)
+                < crate::local_lane::TURN_MS + crate::local_lane::CLEANUP_RESERVE_MS
+        );
         drop(recorded);
         let work = inspect_work(&p, &target, Instant::now()).unwrap();
         assert!(work.needs_admission.into_iter().all(|needed| needed));
         assert_eq!(refused(preflight(&work)), "RunBudget");
-        drop(work); drop(destination); drop(p);
+        drop(work);
+        drop(destination);
+        drop(p);
         let before = inventory(&target);
         let calls = AtomicUsize::new(0);
-        let failure = native_error(resume_native_selected(&target, &f.source, &binding,
-            &Cancellation::default(), || {
+        let failure = native_error(resume_native_selected(
+            &target,
+            &f.source,
+            &binding,
+            &Cancellation::default(),
+            || {
                 calls.fetch_add(1, Ordering::SeqCst);
                 Err::<Trap, _>("RunBudget".into())
-            }));
+            },
+        ));
         assert_eq!(failure.code(), "RunBudget");
         assert!(!failure.cleanup_uncertain());
         assert_eq!(calls.load(Ordering::SeqCst), 0);
-        unchanged(&target, &before); unchanged(&f.source, &source_before);
+        unchanged(&target, &before);
+        unchanged(&f.source, &source_before);
         for arm in ARMS {
             assert!(!db(&target, arm, f.kind).exists() && !cp(&target, arm).exists());
         }
@@ -625,7 +1023,11 @@ fn n07_unknown_role_and_turn_time_reservations_in_either_arm_preflight_before_ot
 fn n08_both_arm_invocation_and_unknown_preparation_caps_refuse_before_reserve_or_assets() {
     for exhausted in ARMS {
         for budget in ["invocations", "unknown-preparation"] {
-            let f = Fixture::new("invocation-preflight", comparison::ComparisonKind::ContinuousRollout, false);
+            let f = Fixture::new(
+                "invocation-preflight",
+                comparison::ComparisonKind::ContinuousRollout,
+                false,
+            );
             let source_before = inventory(&f.source);
             let p = f.plan("native4-preflight-cap");
             let target = f.root.join("selected");
@@ -633,28 +1035,41 @@ fn n08_both_arm_invocation_and_unknown_preparation_caps_refuse_before_reserve_or
             let binding = destination.manifest.binding.clone();
             let mut ledger = Ledger::load(&target.join(exhausted), &binding).unwrap();
             if budget == "invocations" {
-                for _ in 0..32 { ledger.begin_invocation().unwrap(); ledger.finish().unwrap(); }
+                for _ in 0..32 {
+                    ledger.begin_invocation().unwrap();
+                    ledger.finish().unwrap();
+                }
                 assert_eq!(ledger.invocations, 32);
             } else {
                 // Keep genuine preparation reservations unknown; never invent
                 // elapsed measurements or fabricate a charged-time counter.
-                for _ in 0..15 { ledger.begin_invocation().unwrap(); }
+                for _ in 0..15 {
+                    ledger.begin_invocation().unwrap();
+                }
                 assert_eq!(ledger.invocations, 15);
                 assert_eq!(ledger.charged_ms, crate::local_lane::MAX_ACTIVE_MS);
             }
             assert_eq!((ledger.admissions, ledger.charged_roles), (0, 0));
-            drop(ledger); drop(destination); drop(p);
+            drop(ledger);
+            drop(destination);
+            drop(p);
             let before = inventory(&target);
             let calls = AtomicUsize::new(0);
-            let failure = native_error(resume_native_selected(&target, &f.source, &binding,
-                &Cancellation::default(), || {
+            let failure = native_error(resume_native_selected(
+                &target,
+                &f.source,
+                &binding,
+                &Cancellation::default(),
+                || {
                     calls.fetch_add(1, Ordering::SeqCst);
                     Err::<Trap, _>("RunBudget".into())
-                }));
+                },
+            ));
             assert_eq!(failure.code(), "RunBudget");
             assert!(!failure.cleanup_uncertain());
             assert_eq!(calls.load(Ordering::SeqCst), 0);
-            unchanged(&target, &before); unchanged(&f.source, &source_before);
+            unchanged(&target, &before);
+            unchanged(&f.source, &source_before);
         }
     }
 }
@@ -662,34 +1077,50 @@ fn n08_both_arm_invocation_and_unknown_preparation_caps_refuse_before_reserve_or
 #[cfg(feature = "local-model")]
 #[test]
 fn n09_fresh_reservation_is_once_after_preflight_and_late_cancel_still_precedes_assets_or_target() {
-    let f = Fixture::new("reserve-order", comparison::ComparisonKind::ContinuousRollout, false);
+    let f = Fixture::new(
+        "reserve-order",
+        comparison::ComparisonKind::ContinuousRollout,
+        false,
+    );
     let before = inventory(&f.root);
     let calls = AtomicUsize::new(0);
     let assets = Arc::new(AtomicUsize::new(0));
     let target = f.root.join("refused-reservation");
-    let failure = native_error(run_native_selected(f.plan("native4-reserve-once"), &target,
-        &Cancellation::default(), || {
+    let failure = native_error(run_native_selected(
+        f.plan("native4-reserve-once"),
+        &target,
+        &Cancellation::default(),
+        || {
             calls.fetch_add(1, Ordering::SeqCst);
             Err::<Trap, _>("RunBudget".into())
-        }));
+        },
+    ));
     assert_eq!(failure.code(), "RunBudget");
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert!(!failure.cleanup_uncertain() && !target.exists());
     unchanged(&f.root, &before);
     let late = Cancellation::default();
     let target = f.root.join("cancelled-after-reserve");
-    let failure = native_error(run_native_selected(f.plan("native4-late-cancel"), &target, &late, || {
-        calls.fetch_add(1, Ordering::SeqCst);
-        late.cancel();
-        Ok(Trap { assets: assets.clone() })
-    }));
+    let failure = native_error(run_native_selected(
+        f.plan("native4-late-cancel"),
+        &target,
+        &late,
+        || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            late.cancel();
+            Ok(Trap {
+                assets: assets.clone(),
+            })
+        },
+    ));
     assert_eq!(failure.code(), "Interrupted");
     assert!(!failure.cleanup_uncertain());
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     assert_eq!(assets.load(Ordering::SeqCst), 0);
     assert!(!target.exists());
     unchanged(&f.root, &before);
-    let early = Cancellation::default(); early.cancel();
+    let early = Cancellation::default();
+    early.cancel();
     let target = f.root.join("cancelled-at-entry");
     let p = f.plan("native4-early-cancel");
     let failure = native_error(run_native_selected(p, &target, &early, || {
@@ -724,20 +1155,37 @@ fn import_recovery(f: &Fixture) -> (PathBuf, Value, Vec<Engine>, Vec<Value>) {
         // Existing real recovery helper supplies the actual construction_matches
         // result. It never upgrades SCRIPTED provenance to current native profile.
         let recovered = source4::ready_turn4(source4::ReadyJob4 {
-            path: &path, full: &after, index: INDEX, arm,
-            construction: source4::CONSTRUCTIONS[arm_index], binding: &binding,
-            step, profile: &p.manifest.profile,
-        }).unwrap().expect("actual imported selected receipt");
+            path: &path,
+            full: &after,
+            index: INDEX,
+            arm,
+            construction: source4::CONSTRUCTIONS[arm_index],
+            binding: &binding,
+            step,
+            profile: &p.manifest.profile,
+        })
+        .unwrap()
+        .expect("actual imported selected receipt");
         expected.push(serde_json::to_value(recovered.row).unwrap());
         imported.push(after);
     }
-    drop(destination); drop(p);
+    drop(destination);
+    drop(p);
     let calls = AtomicUsize::new(0);
-    let report = serde_json::to_value(resume_native_selected(&target, &f.source, &binding,
-        &Cancellation::default(), || {
-            calls.fetch_add(1, Ordering::SeqCst);
-            Err::<Trap, _>("RunBudget".into())
-        }).unwrap()).unwrap();
+    let report = serde_json::to_value(
+        resume_native_selected(
+            &target,
+            &f.source,
+            &binding,
+            &Cancellation::default(),
+            || {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Err::<Trap, _>("RunBudget".into())
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     (target, report, imported, expected)
 }
@@ -754,7 +1202,10 @@ fn assert_unknown_recovery(report: &Value, imported: &[Engine], expected: &[Valu
     assert_eq!(report["human_rubric"], "not_reviewed");
     assert_eq!(report["quality_accepted"], false);
     let notes = report["unavailable"].as_array().unwrap();
-    for note in ["human_quality_not_reviewed", "native_setup_measurement_unavailable"] {
+    for note in [
+        "human_quality_not_reviewed",
+        "native_setup_measurement_unavailable",
+    ] {
         assert!(notes.iter().any(|value| value == note));
     }
     assert_eq!(report["rows"].as_array().unwrap().len(), 2);
@@ -768,11 +1219,21 @@ fn assert_unknown_recovery(report: &Value, imported: &[Engine], expected: &[Valu
         assert_eq!(row["construction_evidence_status"], "unavailable");
         assert_eq!(row["privacy_evidence_status"], "unavailable");
         assert!(row["construction_matches"] == expected[index]["construction_matches"]);
-        assert_eq!(row["actual_receipt_sha256"],
-            digest(&encode(imported[index].receipts().last().unwrap()).unwrap()));
-        for field in ["admission", "first_final_response_ms", "commit_elapsed_ms",
-            "narrator_prompt_sha256", "narrator_schema_sha256", "scene_frame_sha256",
-            "capture_sha256", "recording_sha256", "trace"] {
+        assert_eq!(
+            row["actual_receipt_sha256"],
+            digest(&encode(imported[index].receipts().last().unwrap()).unwrap())
+        );
+        for field in [
+            "admission",
+            "first_final_response_ms",
+            "commit_elapsed_ms",
+            "narrator_prompt_sha256",
+            "narrator_schema_sha256",
+            "scene_frame_sha256",
+            "capture_sha256",
+            "recording_sha256",
+            "trace",
+        ] {
             assert!(row[field].is_null(), "unavailable recovery field");
         }
         assert!(row["raw_sha256"].as_array().unwrap().is_empty());
@@ -781,15 +1242,21 @@ fn assert_unknown_recovery(report: &Value, imported: &[Engine], expected: &[Valu
 #[cfg(feature = "local-model")]
 #[test]
 fn n10_genuine_scripted_core_store_import_recovers_both_arms_without_assets_or_native_claims() {
-    for kind in [comparison::ComparisonKind::PairedSnapshots, comparison::ComparisonKind::ContinuousRollout] {
+    for kind in [
+        comparison::ComparisonKind::PairedSnapshots,
+        comparison::ComparisonKind::ContinuousRollout,
+    ] {
         let f = Fixture::new("real-import-recovery", kind, false);
         let source_before = inventory(&f.source);
         let (target, report, imported, expected) = import_recovery(&f);
         assert_unknown_recovery(&report, &imported, &expected);
         let binding = report["binding"].as_str().unwrap();
         for (index, arm) in ARMS.iter().enumerate() {
-            let actual = engine(&db(&target, arm, f.kind),
-                &comparison::suite().unwrap().seed().scope).unwrap();
+            let actual = engine(
+                &db(&target, arm, f.kind),
+                &comparison::suite().unwrap().seed().scope,
+            )
+            .unwrap();
             assert!(actual.receipts() == imported[index].receipts());
             assert!(actual.canonical_bytes() == imported[index].canonical_bytes());
             let recorded = value(&cp(&target, arm));
@@ -810,66 +1277,109 @@ fn n10_genuine_scripted_core_store_import_recovers_both_arms_without_assets_or_n
 
 #[cfg(feature = "local-model")]
 #[test]
-fn n11_completed_current_source_resume_at_cap_is_read_only_and_does_not_upgrade_imported_evidence() {
-    let f = Fixture::new("completed-at-cap", comparison::ComparisonKind::ContinuousRollout, false);
+fn n11_completed_current_source_resume_at_cap_is_read_only_and_does_not_upgrade_imported_evidence()
+{
+    let f = Fixture::new(
+        "completed-at-cap",
+        comparison::ComparisonKind::ContinuousRollout,
+        false,
+    );
     let (target, report, imported, expected) = import_recovery(&f);
     assert_unknown_recovery(&report, &imported, &expected);
     let binding = report["binding"].as_str().unwrap();
     for arm in ARMS {
         let mut ledger = Ledger::load(&target.join(arm), binding).unwrap();
         while ledger.invocations < 32 {
-            ledger.begin_invocation().unwrap(); ledger.finish().unwrap();
+            ledger.begin_invocation().unwrap();
+            ledger.finish().unwrap();
         }
-        assert_eq!((ledger.invocations, ledger.admissions, ledger.charged_roles), (32, 0, 0));
+        assert_eq!(
+            (ledger.invocations, ledger.admissions, ledger.charged_roles),
+            (32, 0, 0)
+        );
     }
     let expected_report = serde_json::to_value(inspect_selected(&target).unwrap()).unwrap();
     let before = inventory(&f.root);
     let calls = AtomicUsize::new(0);
-    let repeated = serde_json::to_value(resume_native_selected(&target, &f.source, binding,
-        &Cancellation::default(), || {
-            calls.fetch_add(1, Ordering::SeqCst);
-            Err::<Trap, _>("RunBudget".into())
-        }).unwrap()).unwrap();
+    let repeated = serde_json::to_value(
+        resume_native_selected(
+            &target,
+            &f.source,
+            binding,
+            &Cancellation::default(),
+            || {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Err::<Trap, _>("RunBudget".into())
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
     assert!(repeated == expected_report);
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert_unknown_recovery(&repeated, &imported, &expected);
     unchanged(&f.root, &before);
     let source_file = f.source.join("run.json");
-    fs::write(f.root.join("retained-completed-source-original.json"), fs::read(&source_file).unwrap()).unwrap();
+    fs::write(
+        f.root.join("retained-completed-source-original.json"),
+        fs::read(&source_file).unwrap(),
+    )
+    .unwrap();
     let mut source = value(&source_file);
     source["source_sha256"] = json!("0".repeat(64));
     source["binding"]["source_sha256"] = json!("0".repeat(64));
     fs::write(source_file, encode(&source).unwrap()).unwrap();
     let stale_before = inventory(&f.root);
-    let failure = native_error(resume_native_selected(&target, &f.source, binding,
-        &Cancellation::default(), || {
+    let failure = native_error(resume_native_selected(
+        &target,
+        &f.source,
+        binding,
+        &Cancellation::default(),
+        || {
             calls.fetch_add(1, Ordering::SeqCst);
             Err::<Trap, _>("RunBudget".into())
-        }));
+        },
+    ));
     assert!(!failure.cleanup_uncertain());
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     unchanged(&f.root, &stale_before);
 }
 
-
 #[cfg(feature = "local-model")]
-fn query(edge: comparison::desktop_api::Edge, observer: Observer, view: View)
-    -> comparison::desktop_api::EvidenceRequest {
-    comparison::desktop_api::EvidenceRequest::Query { edge, observer, view }
+fn query(
+    edge: comparison::desktop_api::Edge,
+    observer: Observer,
+    view: View,
+) -> comparison::desktop_api::EvidenceRequest {
+    comparison::desktop_api::EvidenceRequest::Query {
+        edge,
+        observer,
+        view,
+    }
 }
 #[cfg(feature = "local-model")]
 fn contexts(engine: &Engine) -> Value {
     json!([
-        engine.character_context(&engine.seed().player, engine.scope(), engine.revision()).unwrap(),
-        engine.character_context("mira", engine.scope(), engine.revision()).unwrap(),
-        engine.character_context("sable", engine.scope(), engine.revision()).unwrap(),
+        engine
+            .character_context(&engine.seed().player, engine.scope(), engine.revision())
+            .unwrap(),
+        engine
+            .character_context("mira", engine.scope(), engine.revision())
+            .unwrap(),
+        engine
+            .character_context("sable", engine.scope(), engine.revision())
+            .unwrap(),
     ])
 }
 #[cfg(feature = "local-model")]
 #[test]
 fn n12_native_read_setup_checkpoint_bounds_grants_queries_privacy_and_drift_never_mint_authority() {
     use comparison::desktop_api::{Edge, EvidenceRequest};
-    let f = Fixture::new("read-integrity", comparison::ComparisonKind::PairedSnapshots, false);
+    let f = Fixture::new(
+        "read-integrity",
+        comparison::ComparisonKind::PairedSnapshots,
+        false,
+    );
     let (target, report, imported, expected) = import_recovery(&f);
     assert_unknown_recovery(&report, &imported, &expected);
     let before = inventory(&f.root);
@@ -877,8 +1387,21 @@ fn n12_native_read_setup_checkpoint_bounds_grants_queries_privacy_and_drift_neve
     assert_eq!(refused(desktop_read::summary(&opened, false)), "Forbidden");
     assert_eq!(refused(desktop_read::open_read_only(&target)), "RunBusy");
     let metadata = desktop_read::summary(&opened, true).unwrap();
-    keys(&metadata, &["version", "kind", "source_protocol_version", "constructions",
-        "binding", "selection", "lane", "arms", "read_only", "execution_available"]);
+    keys(
+        &metadata,
+        &[
+            "version",
+            "kind",
+            "source_protocol_version",
+            "constructions",
+            "binding",
+            "selection",
+            "lane",
+            "arms",
+            "read_only",
+            "execution_available",
+        ],
+    );
     assert_eq!(metadata["version"], 4);
     assert_eq!(metadata["kind"], "selected_read");
     assert_eq!(metadata["source_protocol_version"], 4);
@@ -886,25 +1409,80 @@ fn n12_native_read_setup_checkpoint_bounds_grants_queries_privacy_and_drift_neve
     assert_eq!(metadata["read_only"], true);
     assert_eq!(metadata["execution_available"], false);
     assert!(encode(&metadata).unwrap().len() <= 16 * 1024);
-    assert!(metadata["selection"] == report["selection"] && metadata["constructions"] == report["arms"]);
+    assert!(
+        metadata["selection"] == report["selection"] && metadata["constructions"] == report["arms"]
+    );
     let binding = metadata["binding"].as_str().unwrap();
     assert_ne!(metadata["binding"], report["binding"]);
     assert_ne!(metadata["binding"], report["source_binding"]);
-    for forbidden in ["generation_grant", "request", "source_inputs", "profile", "report",
-        "rows", "narration", "error", "native_load"] {
+    for forbidden in [
+        "generation_grant",
+        "request",
+        "source_inputs",
+        "profile",
+        "report",
+        "rows",
+        "narration",
+        "error",
+        "native_load",
+    ] {
         assert!(metadata.get(forbidden).is_none());
     }
-    assert_eq!(refused(desktop_read::evidence(&opened, "bad", Arm::Left,
-        EvidenceRequest::Receipt { observer: Observer::Player }, false)), "Forbidden");
-    assert_eq!(refused(desktop_read::diagnostics(&opened, "bad", Observer::Omniscient, false)), "Forbidden");
-    assert_eq!(refused(desktop_read::diagnostics(&opened, binding, Observer::Player, true)), "Forbidden");
-    assert_eq!(refused(desktop_read::evidence(&opened, "bad", Arm::Right,
-        query(Edge::Before, Observer::Player, View::History), true)), "SnapshotMismatch");
-    for (index, (arm, name)) in [(Arm::Left, "left"), (Arm::Right, "right")].into_iter().enumerate() {
+    assert_eq!(
+        refused(desktop_read::evidence(
+            &opened,
+            "bad",
+            Arm::Left,
+            EvidenceRequest::Receipt {
+                observer: Observer::Player
+            },
+            false
+        )),
+        "Forbidden"
+    );
+    assert_eq!(
+        refused(desktop_read::diagnostics(
+            &opened,
+            "bad",
+            Observer::Omniscient,
+            false
+        )),
+        "Forbidden"
+    );
+    assert_eq!(
+        refused(desktop_read::diagnostics(
+            &opened,
+            binding,
+            Observer::Player,
+            true
+        )),
+        "Forbidden"
+    );
+    assert_eq!(
+        refused(desktop_read::evidence(
+            &opened,
+            "bad",
+            Arm::Right,
+            query(Edge::Before, Observer::Player, View::History),
+            true
+        )),
+        "SnapshotMismatch"
+    );
+    for (index, (arm, name)) in [(Arm::Left, "left"), (Arm::Right, "right")]
+        .into_iter()
+        .enumerate()
+    {
         let checkpoint = value(&cp(&target, name));
-        let full = engine(&db(&target, name, f.kind), &comparison::suite().unwrap().seed().scope).unwrap();
+        let full = engine(
+            &db(&target, name, f.kind),
+            &comparison::suite().unwrap().seed().scope,
+        )
+        .unwrap();
         let context_before = contexts(&full);
-        keys(&metadata["arms"][index], &["arm", "scope", "before_head", "after_head", "available"]);
+        keys(
+            &metadata["arms"][index],
+            &["arm", "scope", "before_head", "after_head", "available"],
+        );
         assert_eq!(metadata["arms"][index]["arm"], name);
         assert_eq!(metadata["arms"][index]["available"], true);
         assert!(metadata["arms"][index]["scope"] == checkpoint["request"]["scope"]);
@@ -915,18 +1493,51 @@ fn n12_native_read_setup_checkpoint_bounds_grants_queries_privacy_and_drift_neve
             let cut = full.at_revision(head).unwrap();
             for observer in [Observer::Player, Observer::Character { id: "sable".into() }] {
                 for view in [View::History, View::Knowledge] {
-                    let evidence = desktop_read::evidence(&opened, binding, arm,
-                        query(edge, observer.clone(), view), true).unwrap();
-                    keys(&evidence, &["version", "binding", "row", "scope", "before_head",
-                        "after_head", "observer", "edge", "read_only", "generation_grant", "body"]);
+                    let evidence = desktop_read::evidence(
+                        &opened,
+                        binding,
+                        arm,
+                        query(edge, observer.clone(), view),
+                        true,
+                    )
+                    .unwrap();
+                    keys(
+                        &evidence,
+                        &[
+                            "version",
+                            "binding",
+                            "row",
+                            "scope",
+                            "before_head",
+                            "after_head",
+                            "observer",
+                            "edge",
+                            "read_only",
+                            "generation_grant",
+                            "body",
+                        ],
+                    );
                     assert_eq!(evidence["read_only"], true);
                     assert_eq!(evidence["generation_grant"], false);
-                    let actual_query = inspection_query::query(&cut, &Query {
-                        version: 2, scope: cut.scope().clone(), expected_head: head,
-                        at_revision: None, observer: observer.clone(), view, cursor: None,
-                        limit: MAX_ROWS, search: String::new(),
-                    }, true).unwrap();
-                    assert!(evidence["body"]["page"] == serde_json::to_value(actual_query).unwrap());
+                    let actual_query = inspection_query::query(
+                        &cut,
+                        &Query {
+                            version: 2,
+                            scope: cut.scope().clone(),
+                            expected_head: head,
+                            at_revision: None,
+                            observer: observer.clone(),
+                            view,
+                            cursor: None,
+                            limit: MAX_ROWS,
+                            search: String::new(),
+                        },
+                        true,
+                    )
+                    .unwrap();
+                    assert!(
+                        evidence["body"]["page"] == serde_json::to_value(actual_query).unwrap()
+                    );
                     assert!(encode(&evidence).unwrap().len() <= 256 * 1024);
                     if matches!(&observer, Observer::Character { id } if id == "sable") {
                         assert!(!evidence.to_string().contains("SECRET-TIDE-731"));
@@ -935,9 +1546,15 @@ fn n12_native_read_setup_checkpoint_bounds_grants_queries_privacy_and_drift_neve
             }
         }
         for request in [
-            EvidenceRequest::Receipt { observer: Observer::Omniscient },
-            EvidenceRequest::Capture { observer: Observer::Omniscient },
-            EvidenceRequest::Outputs { observer: Observer::Omniscient },
+            EvidenceRequest::Receipt {
+                observer: Observer::Omniscient,
+            },
+            EvidenceRequest::Capture {
+                observer: Observer::Omniscient,
+            },
+            EvidenceRequest::Outputs {
+                observer: Observer::Omniscient,
+            },
         ] {
             let evidence = desktop_read::evidence(&opened, binding, arm, request, true).unwrap();
             assert_eq!(evidence["read_only"], true);
@@ -945,29 +1562,84 @@ fn n12_native_read_setup_checkpoint_bounds_grants_queries_privacy_and_drift_neve
             assert!(encode(&evidence).unwrap().len() <= 256 * 1024);
             // Recovered rows cannot manufacture their missing capture/calls.
         }
-        assert!(contexts(&engine(&db(&target, name, f.kind),
-            &comparison::suite().unwrap().seed().scope).unwrap()) == context_before);
+        assert!(
+            contexts(
+                &engine(
+                    &db(&target, name, f.kind),
+                    &comparison::suite().unwrap().seed().scope
+                )
+                .unwrap()
+            ) == context_before
+        );
     }
-    let diagnostics = desktop_read::diagnostics(&opened, binding, Observer::Omniscient, true).unwrap();
-    keys(&diagnostics, &["version", "kind", "source_protocol_version", "constructions",
-        "binding", "lane", "completed", "rows", "physical_setups", "physical_setup_ms",
-        "left_charged_ms", "right_charged_ms", "left_reserved_roles", "right_reserved_roles",
-        "human_reviewed", "human_rubric", "quality_accepted", "unavailable"]);
+    let diagnostics =
+        desktop_read::diagnostics(&opened, binding, Observer::Omniscient, true).unwrap();
+    keys(
+        &diagnostics,
+        &[
+            "version",
+            "kind",
+            "source_protocol_version",
+            "constructions",
+            "binding",
+            "lane",
+            "completed",
+            "rows",
+            "physical_setups",
+            "physical_setup_ms",
+            "left_charged_ms",
+            "right_charged_ms",
+            "left_reserved_roles",
+            "right_reserved_roles",
+            "human_reviewed",
+            "human_rubric",
+            "quality_accepted",
+            "unavailable",
+        ],
+    );
     assert_eq!(diagnostics["version"], 4);
     assert_eq!(diagnostics["kind"], "selected_diagnostics");
     assert_eq!(diagnostics["source_protocol_version"], 4);
     assert_eq!(diagnostics["human_reviewed"], 0);
     assert_eq!(diagnostics["quality_accepted"], false);
     assert!(encode(&diagnostics).unwrap().len() <= 256 * 1024);
-    let row_keys = ["turn", "arm", "phase", "error", "expected", "passed", "failures",
-        "quality_flags", "roles", "roles_known", "elapsed_ms", "actual_receipt_sha256",
-        "construction", "construction_evidence_status", "construction_evidence_reason",
-        "construction_matches", "privacy_evidence_status", "fallback", "repairs",
-        "recovered_without_checkpoint", "first_final_response_ms", "commit_elapsed_ms",
-        "narrator_prompt_sha256", "narrator_schema_sha256", "scene_frame_sha256"];
+    let row_keys = [
+        "turn",
+        "arm",
+        "phase",
+        "error",
+        "expected",
+        "passed",
+        "failures",
+        "quality_flags",
+        "roles",
+        "roles_known",
+        "elapsed_ms",
+        "actual_receipt_sha256",
+        "construction",
+        "construction_evidence_status",
+        "construction_evidence_reason",
+        "construction_matches",
+        "privacy_evidence_status",
+        "fallback",
+        "repairs",
+        "recovered_without_checkpoint",
+        "first_final_response_ms",
+        "commit_elapsed_ms",
+        "narrator_prompt_sha256",
+        "narrator_schema_sha256",
+        "scene_frame_sha256",
+    ];
     for row in diagnostics["rows"].as_array().unwrap() {
         keys(row, &row_keys);
-        for secret in ["request", "narration", "native_load", "recording_file", "capture_file", "raw"] {
+        for secret in [
+            "request",
+            "narration",
+            "native_load",
+            "recording_file",
+            "capture_file",
+            "raw",
+        ] {
             assert!(row.get(secret).is_none());
         }
     }
@@ -976,72 +1648,119 @@ fn n12_native_read_setup_checkpoint_bounds_grants_queries_privacy_and_drift_neve
     let template = inventory(&target);
     // Invalid fixtures preserve their genuine baseline and never repair source.
     // No manufactured valid native setup/metric is used as positive evidence.
-    for fault in ["setup-v4", "setup-scripted", "setup-large", "manifest-large",
-        "checkpoint-large", "checkpoint-request", "checkpoint-roles", "accounting"] {
+    for fault in [
+        "setup-v4",
+        "setup-scripted",
+        "setup-large",
+        "manifest-large",
+        "checkpoint-large",
+        "checkpoint-request",
+        "checkpoint-roles",
+        "accounting",
+    ] {
         let altered = f.root.join(format!("read-tamper-{fault}"));
         copy_tree(&template, &altered);
-        let binding = value(&altered.join("selected.json"))["binding"].as_str().unwrap().to_owned();
+        let binding = value(&altered.join("selected.json"))["binding"]
+            .as_str()
+            .unwrap()
+            .to_owned();
         match fault {
             "setup-v4" | "setup-scripted" => {
-                fs::write(altered.join("setup-00.json"), encode(&json!({
-                    "version": if fault == "setup-v4" { 4 } else { 2 },
-                    "binding": binding, "left_invocation":0, "right_invocation":0,
-                    "native":fault == "setup-v4", "physical_ms":0,
-                    "status":"failed", "load":null,
-                })).unwrap()).unwrap();
+                fs::write(
+                    altered.join("setup-00.json"),
+                    encode(&json!({
+                        "version": if fault == "setup-v4" { 4 } else { 2 },
+                        "binding": binding, "left_invocation":0, "right_invocation":0,
+                        "native":fault == "setup-v4", "physical_ms":0,
+                        "status":"failed", "load":null,
+                    }))
+                    .unwrap(),
+                )
+                .unwrap();
             }
-            "setup-large" => { fs::write(altered.join("setup-00.json"), vec![b' '; 64*1024+1]).unwrap(); }
+            "setup-large" => {
+                fs::write(altered.join("setup-00.json"), vec![b' '; 64 * 1024 + 1]).unwrap();
+            }
             "manifest-large" => {
-                let file = altered.join("selected.json"); let mut bytes = fs::read(&file).unwrap();
-                bytes.resize(128*1024+1, b' '); fs::write(file, bytes).unwrap();
+                let file = altered.join("selected.json");
+                let mut bytes = fs::read(&file).unwrap();
+                bytes.resize(128 * 1024 + 1, b' ');
+                fs::write(file, bytes).unwrap();
             }
             "checkpoint-large" => {
-                let file = cp(&altered, "right"); let mut bytes = fs::read(&file).unwrap();
-                bytes.resize(256*1024+1, b' '); fs::write(file, bytes).unwrap();
+                let file = cp(&altered, "right");
+                let mut bytes = fs::read(&file).unwrap();
+                bytes.resize(256 * 1024 + 1, b' ');
+                fs::write(file, bytes).unwrap();
             }
             "checkpoint-request" | "checkpoint-roles" => {
-                let file = cp(&altered, "right"); let mut checkpoint = value(&file);
-                if fault == "checkpoint-request" { checkpoint["request"]["turn"] = json!("changed"); }
-                else { checkpoint["row"]["roles_known"] = json!(true); }
+                let file = cp(&altered, "right");
+                let mut checkpoint = value(&file);
+                if fault == "checkpoint-request" {
+                    checkpoint["request"]["turn"] = json!("changed");
+                } else {
+                    checkpoint["row"]["roles_known"] = json!(true);
+                }
                 fs::write(file, encode(&checkpoint).unwrap()).unwrap();
             }
             "accounting" => {
                 let file = altered.join("right/invocation-00-settled.json");
-                let mut settlement = value(&file); settlement["binding"] = json!("a".repeat(64));
+                let mut settlement = value(&file);
+                settlement["binding"] = json!("a".repeat(64));
                 fs::write(file, encode(&settlement).unwrap()).unwrap();
             }
             _ => unreachable!(),
         }
         let bad_before = inventory(&altered);
-        refused(inspect_selected(&altered)); refused(desktop_read::open_read_only(&altered));
+        refused(inspect_selected(&altered));
+        refused(desktop_read::open_read_only(&altered));
         unchanged(&altered, &bad_before);
     }
-    let cached = f.root.join("cached-report-not-authority"); copy_tree(&template, &cached);
+    let cached = f.root.join("cached-report-not-authority");
+    copy_tree(&template, &cached);
     fs::write(cached.join("report.json"), b"not an authoritative manifest").unwrap();
     fs::write(cached.join("report.html"), b"not authoritative HTML").unwrap();
     let cache_before = inventory(&cached);
     assert!(serde_json::to_value(inspect_selected(&cached).unwrap()).unwrap() == report);
     unchanged(&cached, &cache_before);
-    let drift = f.root.join("opened-read-drift"); copy_tree(&template, &drift);
+    let drift = f.root.join("opened-read-drift");
+    copy_tree(&template, &drift);
     let opened = desktop_read::open_read_only(&drift).unwrap();
-    let private = desktop_read::summary(&opened, true).unwrap()["binding"].as_str().unwrap().to_owned();
-    let file = cp(&drift, "left"); let mut checkpoint = value(&file);
+    let private = desktop_read::summary(&opened, true).unwrap()["binding"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let file = cp(&drift, "left");
+    let mut checkpoint = value(&file);
     checkpoint["request"]["turn"] = json!("changed after read capability");
     fs::write(file, encode(&checkpoint).unwrap()).unwrap();
     // Permission denial precedes probing corrupt retained data.
     assert_eq!(refused(desktop_read::summary(&opened, false)), "Forbidden");
-    assert_eq!(refused(desktop_read::diagnostics(&opened, "bad", Observer::Player, true)), "Forbidden");
+    assert_eq!(
+        refused(desktop_read::diagnostics(
+            &opened,
+            "bad",
+            Observer::Player,
+            true
+        )),
+        "Forbidden"
+    );
     refused(desktop_read::summary(&opened, true));
-    refused(desktop_read::evidence(&opened, &private, Arm::Left,
-        query(Edge::After, Observer::Player, View::History), true));
+    refused(desktop_read::evidence(
+        &opened,
+        &private,
+        Arm::Left,
+        query(Edge::After, Observer::Player, View::History),
+        true,
+    ));
     drop(opened);
     unchanged(&f.source, &inventory(original_source(f.kind, false)));
 }
 
 #[test]
 fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current_profile() {
-    use crate::{digest, encode, memory_comparison_v2 as v2, memory_comparison_v4 as v4};
     use crate::local_lane::LaneFactory;
+    use crate::{digest, encode, memory_comparison_v2 as v2, memory_comparison_v4 as v4};
     use locallore::{engine::Engine, inspection_query::Observer};
     use serde_json::{json, Value};
 
@@ -1052,7 +1771,9 @@ fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current
     let root = fixture_root("data-only-historical-read");
     let dir = root.join("selected-data-only");
     fs::create_dir(&dir).unwrap();
-    for arm in ["left", "right"] { fs::create_dir(dir.join(arm)).unwrap(); }
+    for arm in ["left", "right"] {
+        fs::create_dir(dir.join(arm)).unwrap();
+    }
     fs::write(dir.join("run.lock"), b"").unwrap();
     let corpus = comparison::suite().unwrap();
     let before = Engine::new(corpus.seed().clone()).unwrap();
@@ -1069,10 +1790,15 @@ fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current
     // provenance label; neither feature branch calls native_profile().
     assert_ne!(historical_profile.id, source_profile.id);
     let current = v4::current_binding(false).unwrap();
-    let inputs: Vec<Value> = ["left", "right"].into_iter().map(|arm| json!({
-        "arm":arm,"scope":before.scope(),"before_head":before.revision(),
-        "prefix_sha256":prefix,"input_semantic_sha256":semantic,"request":request,
-    })).collect();
+    let inputs: Vec<Value> = ["left", "right"]
+        .into_iter()
+        .map(|arm| {
+            json!({
+                "arm":arm,"scope":before.scope(),"before_head":before.revision(),
+                "prefix_sha256":prefix,"input_semantic_sha256":semantic,"request":request,
+            })
+        })
+        .collect();
     let mut manifest = json!({
         "version":4,"run_type":"selected_case","source_protocol_version":4,
         "arms":v4::current_arm_descriptors(),"client_id":"data-only-historical-read",
@@ -1103,8 +1829,15 @@ fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current
     assert_eq!(report["human_reviewed"], 0);
     assert_eq!(report["human_rubric"], "not_reviewed");
     assert_eq!(report["quality_accepted"], false);
-    for note in ["human_quality_not_reviewed", "native_setup_measurement_unavailable"] {
-        assert!(report["unavailable"].as_array().unwrap().iter().any(|value| value == note));
+    for note in [
+        "human_quality_not_reviewed",
+        "native_setup_measurement_unavailable",
+    ] {
+        assert!(report["unavailable"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == note));
     }
     let opened = super::desktop_read::open_read_only(&dir).unwrap();
     let summary = super::desktop_read::summary(&opened, true).unwrap();
@@ -1113,7 +1846,14 @@ fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current
     assert_eq!(summary["read_only"], true);
     assert_eq!(summary["execution_available"], false);
     assert!(encode(&summary).unwrap().len() <= 16 * 1024);
-    for field in ["generation_grant", "request", "source_inputs", "profile", "report", "rows"] {
+    for field in [
+        "generation_grant",
+        "request",
+        "source_inputs",
+        "profile",
+        "report",
+        "rows",
+    ] {
         assert!(summary.get(field).is_none());
     }
     for arm in summary["arms"].as_array().unwrap() {
@@ -1121,24 +1861,48 @@ fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current
         assert!(arm["after_head"].is_null());
         assert_eq!(arm["available"], false);
     }
-    let diagnostics = super::desktop_read::diagnostics(&opened,
-        summary["binding"].as_str().unwrap(), Observer::Omniscient, true).unwrap();
+    let diagnostics = super::desktop_read::diagnostics(
+        &opened,
+        summary["binding"].as_str().unwrap(),
+        Observer::Omniscient,
+        true,
+    )
+    .unwrap();
     assert!(diagnostics["rows"].as_array().unwrap().is_empty());
     assert_eq!(diagnostics["quality_accepted"], false);
-    assert_eq!(refused(super::desktop_read::summary(&opened, false)), "Forbidden");
+    assert_eq!(
+        refused(super::desktop_read::summary(&opened, false)),
+        "Forbidden"
+    );
     // The empty read artifact and obsolete profile remain data, not a source
     // read capability, prepared execution plan or generation authorization.
     #[cfg(not(feature = "local-model"))]
-    assert_eq!(refused(prepare_selected(&root.join("missing-full-source"),
-        manifest["source_binding"].as_str().unwrap(), &row(0, Arm::Left),
-        SelectedIntent { client_id: "no-feature-historical-data".into(),
-            lane: SelectedLane::ApprovedNative }, &Cancellation::default())),
-        "NativeFeatureUnavailable");
-    assert_eq!(refused(prepare_selected(&dir,
-        manifest["source_binding"].as_str().unwrap(), &row(0, Arm::Left),
-        SelectedIntent { client_id: "read-is-not-scripted-authority".into(),
-            lane: SelectedLane::ScriptedBaseline }, &Cancellation::default())),
-        "SelectedLaneMismatch");
+    assert_eq!(
+        refused(prepare_selected(
+            &root.join("missing-full-source"),
+            manifest["source_binding"].as_str().unwrap(),
+            &row(0, Arm::Left),
+            SelectedIntent {
+                client_id: "no-feature-historical-data".into(),
+                lane: SelectedLane::ApprovedNative
+            },
+            &Cancellation::default()
+        )),
+        "NativeFeatureUnavailable"
+    );
+    assert_eq!(
+        refused(prepare_selected(
+            &dir,
+            manifest["source_binding"].as_str().unwrap(),
+            &row(0, Arm::Left),
+            SelectedIntent {
+                client_id: "read-is-not-scripted-authority".into(),
+                lane: SelectedLane::ScriptedBaseline
+            },
+            &Cancellation::default()
+        )),
+        "SelectedLaneMismatch"
+    );
     drop(opened);
 
     // The desktop index must join to the complete manifest-derived prepared
@@ -1155,10 +1919,17 @@ fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current
         "constructions":manifest["arms"], "arms":arms
     });
     let indexed = super::desktop_read::open_indexed_read_only(&dir, client, &prepared).unwrap();
-    assert_eq!(super::desktop_read::summary(&indexed, true).unwrap(), summary);
+    assert_eq!(
+        super::desktop_read::summary(&indexed, true).unwrap(),
+        summary
+    );
     drop(indexed);
     assert_eq!(
-        refused(super::desktop_read::open_indexed_read_only(&dir, "other-client", &prepared)),
+        refused(super::desktop_read::open_indexed_read_only(
+            &dir,
+            "other-client",
+            &prepared
+        )),
         "SnapshotMismatch"
     );
     for fault in 0..11 {
@@ -1178,17 +1949,24 @@ fn n13_data_only_historical_native_codec_reads_without_feature_assets_or_current
         }
         assert_ne!(drift, prepared, "{fault}");
         assert_eq!(
-            refused(super::desktop_read::open_indexed_read_only(&dir, client, &drift)),
+            refused(super::desktop_read::open_indexed_read_only(
+                &dir, client, &drift
+            )),
             "SnapshotMismatch",
             "{fault}"
         );
     }
     assert!(fs::read(&file).unwrap() == original);
     assert!(fs::read(dir.join("run.lock")).unwrap().is_empty());
-    let mut names = fs::read_dir(&dir).unwrap().map(|entry|
-        entry.unwrap().file_name().to_string_lossy().into_owned()).collect::<Vec<_>>();
+    let mut names = fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
     names.sort();
-    assert!(names.iter().map(String::as_str).eq(["left", "right", "run.lock", "selected.json"]));
+    assert!(names
+        .iter()
+        .map(String::as_str)
+        .eq(["left", "right", "run.lock", "selected.json"]));
     for arm in ["left", "right"] {
         assert!(fs::read_dir(dir.join(arm)).unwrap().next().is_none());
     }

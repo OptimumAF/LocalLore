@@ -2,12 +2,12 @@
 //! Native-only selected artifact4 over actual scene protocol4 inputs.
 //! Plans are opaque capabilities; recorded metadata grants no execution.
 pub mod desktop_read;
-use super::*;
 use super::selected_v3::{source_inputs, SourceSnapshot};
+use super::*;
 use crate::local_lane::comparison::{desktop_api as shared_read, selected as shared};
-use shared::{SelectedIntent, SelectedLane, Selection, SourceInput, MANIFEST_CAP};
 #[cfg(feature = "local-model")]
 use crate::local_lane::comparison::{native_selected_workflow as owned, native_startup};
+use shared::{SelectedIntent, SelectedLane, Selection, SourceInput, MANIFEST_CAP};
 #[cfg(test)]
 mod first_review_tests;
 
@@ -38,13 +38,18 @@ struct SelectedManifest4 {
 impl SelectedManifest4 {
     fn digest(&self) -> Result<String> {
         let mut value = serde_json::to_value(self).map_err(|_| "Encoding")?;
-        value.as_object_mut().ok_or("SelectedBinding")?.remove("binding");
+        value
+            .as_object_mut()
+            .ok_or("SelectedBinding")?
+            .remove("binding");
         Ok(digest(&encode(&value)?))
     }
     fn execution_manifest(&self) -> Result<Manifest> {
         v4::validate_arm_family(&self.arms)?;
         let mut manifest = Manifest::new_with_lane(
-            self.source_kind, self.profile.clone(), true,
+            self.source_kind,
+            self.profile.clone(),
+            true,
             self.source_reference_sha256.clone(),
         )?;
         manifest.binding.arms = self.arms.clone();
@@ -52,20 +57,30 @@ impl SelectedManifest4 {
     }
     fn validate(&self) -> Result<()> {
         let corpus = suite()?;
-        let step = corpus.steps().get(self.selection.index).ok_or("UnknownRow")?;
+        let step = corpus
+            .steps()
+            .get(self.selection.index)
+            .ok_or("UnknownRow")?;
         let seed = Engine::new(corpus.seed().clone()).map_err(|_| "Seed")?;
         let template = step.request(&seed);
         // Recorded validation is data-only. Never resolve today's native
         // profile or model assets merely to inspect historical provenance.
         self.execution_manifest()?.validate()?;
         Manifest::new_with_lane(
-            self.source_kind, self.source_profile.clone(), self.source_native,
+            self.source_kind,
+            self.source_profile.clone(),
+            self.source_native,
             self.source_reference_sha256.clone(),
-        )?.validate()?;
-        if self.version != 4 || self.source_protocol_version != 4
-            || self.run_type != "selected_case" || self.lane != NATIVE_LANE
-            || !shared::client_valid(&self.client_id) || !hex(&self.binding)
-            || self.binding != self.digest()? || !hex(&self.source_binding)
+        )?
+        .validate()?;
+        if self.version != 4
+            || self.source_protocol_version != 4
+            || self.run_type != "selected_case"
+            || self.lane != NATIVE_LANE
+            || !shared::client_valid(&self.client_id)
+            || !hex(&self.binding)
+            || self.binding != self.digest()?
+            || !hex(&self.source_binding)
             || !hex(&self.source_sha256)
             || self.suite_sha256 != v4::current_binding(false)?.suite_sha256
             || self.selection.turn != step.id()
@@ -74,13 +89,15 @@ impl SelectedManifest4 {
             return Err("SelectedBinding".into());
         }
         for (arm, input) in self.source_inputs.iter().enumerate() {
-            if input.arm != ARM_NAMES[arm] || input.scope != corpus.seed().scope
+            if input.arm != ARM_NAMES[arm]
+                || input.scope != corpus.seed().scope
                 || input.request.scope != input.scope
                 || input.request.version != template.version
                 || input.request.turn != self.selection.turn
                 || input.request.expected_revision != input.before_head
                 || input.request.intent != template.intent
-                || !hex(&input.prefix_sha256) || !hex(&input.input_semantic_sha256)
+                || !hex(&input.prefix_sha256)
+                || !hex(&input.input_semantic_sha256)
             {
                 return Err("SelectedInput".into());
             }
@@ -100,28 +117,43 @@ pub struct PreparedSelectedPlan {
 }
 
 fn manifest_for(
-    snapshot: &SourceSnapshot, selection: Selection, client_id: String,
-    before: &[Engine; 2], profile: PlayProfile,
+    snapshot: &SourceSnapshot,
+    selection: Selection,
+    client_id: String,
+    before: &[Engine; 2],
+    profile: PlayProfile,
 ) -> Result<SelectedManifest4> {
     let (value, source, _) = snapshot;
-    if !source.source_matches()? { return Err("SourceMismatch".into()); }
+    if !source.source_matches()? {
+        return Err("SourceMismatch".into());
+    }
     let corpus = suite()?;
     let make_input = |arm: usize| -> Result<SourceInput> {
         let engine = &before[arm];
         let request = corpus.steps()[selection.index].request(engine);
         Ok(SourceInput {
-            arm: ARM_NAMES[arm].into(), scope: engine.scope().clone(),
-            before_head: engine.revision(), prefix_sha256: digest(&encode(engine.receipts())?),
-            input_semantic_sha256: v2::semantic_input(engine, &request)?, request,
+            arm: ARM_NAMES[arm].into(),
+            scope: engine.scope().clone(),
+            before_head: engine.revision(),
+            prefix_sha256: digest(&encode(engine.receipts())?),
+            input_semantic_sha256: v2::semantic_input(engine, &request)?,
+            request,
         })
     };
     let mut result = SelectedManifest4 {
-        version: 4, run_type: "selected_case".into(), source_protocol_version: 4,
-        arms: v4::current_arm_descriptors(), client_id, binding: String::new(),
+        version: 4,
+        run_type: "selected_case".into(),
+        source_protocol_version: 4,
+        arms: v4::current_arm_descriptors(),
+        client_id,
+        binding: String::new(),
         source_binding: value["binding"].as_str().ok_or("Source")?.into(),
-        source_kind: source.kind, source_profile: source.profile.clone(),
-        source_native: source.binding.native, selection: selection.clone(),
-        lane: NATIVE_LANE.into(), profile,
+        source_kind: source.kind,
+        source_profile: source.profile.clone(),
+        source_native: source.binding.native,
+        selection: selection.clone(),
+        lane: NATIVE_LANE.into(),
+        profile,
         suite_sha256: source.binding.suite_sha256.clone(),
         source_sha256: source.source_sha256.clone(),
         source_reference_sha256: source.reference_sha256.clone(),
@@ -133,8 +165,11 @@ fn manifest_for(
 }
 
 pub fn prepare_selected(
-    source_dir: &Path, expected_source_binding: &str, row: &shared_read::RowId,
-    intent: SelectedIntent, cancel: &Cancellation,
+    source_dir: &Path,
+    expected_source_binding: &str,
+    row: &shared_read::RowId,
+    intent: SelectedIntent,
+    cancel: &Cancellation,
 ) -> Result<PreparedSelectedPlan> {
     shared::cancelled(cancel)?;
     if !shared::client_valid(&intent.client_id) || !hex(expected_source_binding) {
@@ -148,7 +183,11 @@ pub fn prepare_selected(
     let corpus = suite()?;
     let selection = Selection {
         turn: row.turn.clone(),
-        index: corpus.steps().iter().position(|s| s.id() == row.turn).ok_or("UnknownRow")?,
+        index: corpus
+            .steps()
+            .iter()
+            .position(|s| s.id() == row.turn)
+            .ok_or("UnknownRow")?,
         clicked_arm: ARM_NAMES[usize::from(matches!(row.arm, shared_read::Arm::Right))].into(),
     };
     let source = desktop_api::open_read_only(source_dir)?;
@@ -176,14 +215,21 @@ impl PreparedSelectedPlan {
         let snapshot = desktop_api::snapshot(&self.source_dir)?;
         let before = source_inputs(&self.source_dir, &snapshot, &self.manifest.selection)?;
         let manifest = manifest_for(
-            &snapshot, self.manifest.selection.clone(), self.manifest.client_id.clone(),
-            &before, SelectedLane::ApprovedNative.profile()?,
+            &snapshot,
+            self.manifest.selection.clone(),
+            self.manifest.client_id.clone(),
+            &before,
+            SelectedLane::ApprovedNative.profile()?,
         )?;
-        if manifest != self.manifest { return Err("SnapshotMismatch".into()); }
+        if manifest != self.manifest {
+            return Err("SnapshotMismatch".into());
+        }
         for (actual, expected) in before.iter().zip(&self.before) {
             if actual.accepted_history_basis().map_err(|_| "Source")?
                 != expected.accepted_history_basis().map_err(|_| "Source")?
-            { return Err("SnapshotMismatch".into()); }
+            {
+                return Err("SnapshotMismatch".into());
+            }
         }
         shared::cancelled(cancel)
     }
@@ -193,14 +239,20 @@ pub fn prepared_metadata(plan: &PreparedSelectedPlan) -> Result<Value> {
 }
 
 fn prepared_from_manifest(m: &SelectedManifest4) -> Result<Value> {
-    let arms: Vec<Value> = m.source_inputs.iter().map(|i| {
-        json!({"arm":i.arm,"scope":i.scope,"before_head":i.before_head,
+    let arms: Vec<Value> = m
+        .source_inputs
+        .iter()
+        .map(|i| {
+            json!({"arm":i.arm,"scope":i.scope,"before_head":i.before_head,
             "prefix_sha256":i.prefix_sha256,"input_semantic_sha256":i.input_semantic_sha256})
-    }).collect();
+        })
+        .collect();
     let value = json!({"version":4,"kind":"selected_prepared","source_protocol_version":4,
         "binding":m.binding,"source_binding":m.source_binding,"lane":m.lane,
         "selection":m.selection,"arms":arms,"constructions":m.arms});
-    if encode(&value)?.len() > 16 * 1024 { return Err("ReportBudget".into()); }
+    if encode(&value)?.len() > 16 * 1024 {
+        return Err("ReportBudget".into());
+    }
     Ok(value)
 }
 
@@ -213,12 +265,18 @@ struct Destination {
 fn open_destination(dir: &Path) -> Result<Destination> {
     let pins = shared::pin_selected(dir)?;
     ordinary(&dir.join("run.lock"))?;
-    let lock = OpenOptions::new().read(true).open(dir.join("run.lock")).map_err(|_| "Io")?;
+    let lock = OpenOptions::new()
+        .read(true)
+        .open(dir.join("run.lock"))
+        .map_err(|_| "Io")?;
     lock.try_lock().map_err(|_| "RunBusy")?;
     let manifest: SelectedManifest4 = decode(&dir.join("selected.json"), MANIFEST_CAP)?;
     manifest.validate()?;
     Ok(Destination {
-        dir: fs::canonicalize(dir).map_err(|_| "Io")?, manifest, _pins: pins, _lock: lock,
+        dir: fs::canonicalize(dir).map_err(|_| "Io")?,
+        manifest,
+        _pins: pins,
+        _lock: lock,
     })
 }
 #[cfg(feature = "local-model")]
@@ -226,19 +284,34 @@ fn new_destination(plan: &PreparedSelectedPlan, dir: &Path) -> Result<Destinatio
     let (canonical, mut pins) = shared::destination_target_for(&plan.source_dir, dir)?;
     fs::create_dir(&canonical).map_err(|_| "OutputExists")?;
     let lock = take_lock(&canonical)?;
-    saved(&canonical.join("selected.json"), &plan.manifest, MANIFEST_CAP)?;
-    for arm in ARM_NAMES { fs::create_dir(canonical.join(arm)).map_err(|_| "Io")?; }
+    saved(
+        &canonical.join("selected.json"),
+        &plan.manifest,
+        MANIFEST_CAP,
+    )?;
+    for arm in ARM_NAMES {
+        fs::create_dir(canonical.join(arm)).map_err(|_| "Io")?;
+    }
     pins.extend(shared::pin_selected(&canonical)?);
     Ok(Destination {
-        dir: canonical, manifest: plan.manifest.clone(), _pins: pins, _lock: lock,
+        dir: canonical,
+        manifest: plan.manifest.clone(),
+        _pins: pins,
+        _lock: lock,
     })
 }
 fn validate_destination(
-    dir: &Path, manifest: &SelectedManifest4, source: Option<&[Engine; 2]>,
+    dir: &Path,
+    manifest: &SelectedManifest4,
+    source: Option<&[Engine; 2]>,
 ) -> Result<[Option<StoredTurn4>; 2]> {
     let index = manifest.selection.index;
     let checkpoints = shared::validate_prefixes(
-        dir, index, manifest.source_kind, &manifest.source_inputs, source,
+        dir,
+        index,
+        manifest.source_kind,
+        &manifest.source_inputs,
+        source,
     )?;
     let execution = manifest.execution_manifest()?;
     let mut turns = [None, None];
@@ -246,13 +319,20 @@ fn validate_destination(
         if checkpoints[arm] {
             let d = dir.join(ARM_NAMES[arm]);
             let turn = load_turn4(
-                &d, &database(&d, index, manifest.source_kind), index, arm,
-                &manifest.binding, &execution,
+                &d,
+                &database(&d, index, manifest.source_kind),
+                index,
+                arm,
+                &manifest.binding,
+                &execution,
             )?;
             let input = &manifest.source_inputs[arm];
-            if turn.request != input.request || turn.before_head != input.before_head
+            if turn.request != input.request
+                || turn.before_head != input.before_head
                 || turn.row.input_semantic_sha256 != input.input_semantic_sha256
-            { return Err("CheckpointMismatch".into()); }
+            {
+                return Err("CheckpointMismatch".into());
+            }
             turns[arm] = Some(turn);
         }
     }
@@ -283,15 +363,22 @@ pub struct SelectedComparisonReportV4 {
     limitations: Vec<String>,
 }
 fn report(
-    dir: &Path, manifest: &SelectedManifest4, turns: &[Option<StoredTurn4>; 2],
+    dir: &Path,
+    manifest: &SelectedManifest4,
+    turns: &[Option<StoredTurn4>; 2],
     ledgers: &[Ledger; 2],
 ) -> Result<SelectedComparisonReportV4> {
     let setups = shared::setup_records(dir, &manifest.binding, true)?;
     let mut unavailable = vec!["human_quality_not_reviewed".into()];
-    if setups.is_empty() { unavailable.push("native_setup_measurement_unavailable".into()); }
+    if setups.is_empty() {
+        unavailable.push("native_setup_measurement_unavailable".into());
+    }
     for setup in &setups {
         if setup.status == "failed" {
-            unavailable.push(format!("native_setup_failed_invocation:{}", setup.left_invocation));
+            unavailable.push(format!(
+                "native_setup_failed_invocation:{}",
+                setup.left_invocation
+            ));
         }
     }
     append_ledger_notes(dir, ledgers, &mut unavailable);
@@ -321,14 +408,21 @@ fn report(
             "Missing workflow evidence does not prove zero historical provider work.".into(),
         ],
     };
-    if encode(&result)?.len() > crate::MAX_REPORT { return Err("ReportBudget".into()); }
+    if encode(&result)?.len() > crate::MAX_REPORT {
+        return Err("ReportBudget".into());
+    }
     Ok(result)
 }
 pub fn inspect_selected(dir: &Path) -> Result<SelectedComparisonReportV4> {
     let destination = open_destination(dir)?;
     let m = &destination.manifest;
     let turns = validate_destination(&destination.dir, m, None)?;
-    report(&destination.dir, m, &turns, &shared::ledgers(&destination.dir, &m.binding)?)
+    report(
+        &destination.dir,
+        m,
+        &turns,
+        &shared::ledgers(&destination.dir, &m.binding)?,
+    )
 }
 
 #[cfg(feature = "local-model")]
@@ -341,24 +435,45 @@ struct Work {
 #[cfg(feature = "local-model")]
 fn inspect_work(plan: &PreparedSelectedPlan, dir: &Path, started: Instant) -> Result<Work> {
     let m = &plan.manifest;
-    let turns = if dir.exists() { validate_destination(dir, m, Some(&plan.before))? }
-        else { [None, None] };
+    let turns = if dir.exists() {
+        validate_destination(dir, m, Some(&plan.before))?
+    } else {
+        [None, None]
+    };
     let mut work = Work {
-        turns, ready: [None, None], ledgers: shared::ledgers(dir, &m.binding)?,
+        turns,
+        ready: [None, None],
+        ledgers: shared::ledgers(dir, &m.binding)?,
         needs_admission: [false; 2],
     };
     let corpus = suite()?;
     let step = &corpus.steps()[m.selection.index];
     for arm in 0..2 {
         work.ledgers[arm].started = started;
-        if work.turns[arm].is_some() { continue; }
+        if work.turns[arm].is_some() {
+            continue;
+        }
         let path = database(&dir.join(ARM_NAMES[arm]), m.selection.index, m.source_kind);
-        let full = if path.exists() && !Store::open_read_only(&path)
-            .map_err(|_| "Workspace")?.stories().map_err(|_| "Workspace")?.is_empty()
-        { engine(&path, &corpus.seed().scope)? } else { plan.before[arm].clone() };
+        let full = if path.exists()
+            && !Store::open_read_only(&path)
+                .map_err(|_| "Workspace")?
+                .stories()
+                .map_err(|_| "Workspace")?
+                .is_empty()
+        {
+            engine(&path, &corpus.seed().scope)?
+        } else {
+            plan.before[arm].clone()
+        };
         work.ready[arm] = ready_turn4(ReadyJob4 {
-            path: &path, full: &full, index: m.selection.index, arm: ARM_NAMES[arm],
-            construction: CONSTRUCTIONS[arm], binding: &m.binding, step, profile: &m.profile,
+            path: &path,
+            full: &full,
+            index: m.selection.index,
+            arm: ARM_NAMES[arm],
+            construction: CONSTRUCTIONS[arm],
+            binding: &m.binding,
+            step,
+            profile: &m.profile,
         })?;
         work.needs_admission[arm] = work.ready[arm].is_none();
     }
@@ -366,17 +481,26 @@ fn inspect_work(plan: &PreparedSelectedPlan, dir: &Path, started: Instant) -> Re
 }
 #[cfg(feature = "local-model")]
 fn preflight(work: &Work) -> Result<()> {
-    for arm in 0..2 { work.ledgers[arm].preflight_invocation(work.needs_admission[arm])?; }
+    for arm in 0..2 {
+        work.ledgers[arm].preflight_invocation(work.needs_admission[arm])?;
+    }
     Ok(())
 }
 #[cfg(feature = "local-model")]
 fn remaining(work: &Work) -> u64 {
-    work.ledgers.iter().map(Ledger::remaining).min().unwrap_or(0)
+    work.ledgers
+        .iter()
+        .map(Ledger::remaining)
+        .min()
+        .unwrap_or(0)
 }
 #[cfg(feature = "local-model")]
 fn execute_work(
-    plan: &PreparedSelectedPlan, destination: &Destination, work: &mut Work,
-    factory: Option<&LaneFactory>, cancel: &Cancellation,
+    plan: &PreparedSelectedPlan,
+    destination: &Destination,
+    work: &mut Work,
+    factory: Option<&LaneFactory>,
+    cancel: &Cancellation,
 ) -> Result<()> {
     let dir = &destination.dir;
     let m = &destination.manifest;
@@ -388,38 +512,57 @@ fn execute_work(
         ComparisonKind::ContinuousRollout => (index / 6) % 2,
     };
     for arm in [first, 1 - first] {
-        if work.turns[arm].is_some() { continue; }
+        if work.turns[arm].is_some() {
+            continue;
+        }
         let began = Instant::now();
         let d = dir.join(ARM_NAMES[arm]);
         let path = database(&d, index, m.source_kind);
-        let recovered = work.ready[arm].as_ref().is_some_and(|t| t.row.recovered_without_checkpoint);
+        let recovered = work.ready[arm]
+            .as_ref()
+            .is_some_and(|t| t.row.recovered_without_checkpoint);
         if !recovered {
-            if cancel.is_cancelled() { break; }
+            if cancel.is_cancelled() {
+                break;
+            }
             ensure_database(&path, corpus.seed(), plan.before[arm].receipts())?;
             validate_pair_source(&path, corpus.seed(), plan.before[arm].receipts(), step)?;
-            if cancel.is_cancelled() { break; }
+            if cancel.is_cancelled() {
+                break;
+            }
         }
         let turn = match work.ready[arm].take() {
             Some(turn) => turn,
-            None => execute_turn4(Job4 {
-                dir: &d, path: &path, index, arm: ARM_NAMES[arm],
-                construction: CONSTRUCTIONS[arm], binding: &m.binding, step,
-                factory: factory.ok_or("NativeRuntimeUnavailable")?, cancel, diagnostics: false,
-            }, &mut work.ledgers[arm])?,
+            None => execute_turn4(
+                Job4 {
+                    dir: &d,
+                    path: &path,
+                    index,
+                    arm: ARM_NAMES[arm],
+                    construction: CONSTRUCTIONS[arm],
+                    binding: &m.binding,
+                    step,
+                    factory: factory.ok_or("NativeRuntimeUnavailable")?,
+                    cancel,
+                    diagnostics: false,
+                },
+                &mut work.ledgers[arm],
+            )?,
         };
         if !checkpoint_path(&d, index).exists() {
             saved(&checkpoint_path(&d, index), &turn, 256 * 1024)?;
         }
         work.turns[arm] = Some(turn);
-        work.ledgers[1 - arm].exclude_measured_interval(
-            began.elapsed().as_millis().min(u64::MAX as u128) as u64,
-        )?;
+        work.ledgers[1 - arm]
+            .exclude_measured_interval(began.elapsed().as_millis().min(u64::MAX as u128) as u64)?;
     }
     Ok(())
 }
 #[cfg(feature = "local-model")]
 fn finish_workflow(
-    plan: &PreparedSelectedPlan, destination: &Destination, work: &mut Work,
+    plan: &PreparedSelectedPlan,
+    destination: &Destination,
+    work: &mut Work,
 ) -> Result<SelectedComparisonReportV4> {
     let dir = &destination.dir;
     let m = &destination.manifest;
@@ -440,17 +583,39 @@ struct Workflow {
 #[cfg(feature = "local-model")]
 impl owned::Workflow for Workflow {
     type Report = SelectedComparisonReportV4;
-    fn profile(&self) -> &PlayProfile { &self.plan.manifest.profile }
-    fn started(&self) -> Instant { self.work.ledgers[0].started }
-    fn remaining(&self) -> u64 { remaining(&self.work) }
-    fn preflight(&self) -> Result<()> { preflight(&self.work) }
-    fn ledgers(&mut self) -> &mut [Ledger; 2] { &mut self.work.ledgers }
+    fn profile(&self) -> &PlayProfile {
+        &self.plan.manifest.profile
+    }
+    fn started(&self) -> Instant {
+        self.work.ledgers[0].started
+    }
+    fn remaining(&self) -> u64 {
+        remaining(&self.work)
+    }
+    fn preflight(&self) -> Result<()> {
+        preflight(&self.work)
+    }
+    fn ledgers(&mut self) -> &mut [Ledger; 2] {
+        &mut self.work.ledgers
+    }
     fn save_setup(&mut self, ms: u64, status: &str, load: Option<Value>) -> Result<()> {
-        owned::save_setup_at(&self.destination.dir, &self.destination.manifest.binding,
-            &mut self.work.ledgers, ms, status, load)
+        owned::save_setup_at(
+            &self.destination.dir,
+            &self.destination.manifest.binding,
+            &mut self.work.ledgers,
+            ms,
+            status,
+            load,
+        )
     }
     fn execute(&mut self, factory: Option<&LaneFactory>, cancel: &Cancellation) -> Result<()> {
-        execute_work(&self.plan, &self.destination, &mut self.work, factory, cancel)
+        execute_work(
+            &self.plan,
+            &self.destination,
+            &mut self.work,
+            factory,
+            cancel,
+        )
     }
     fn finish(mut self) -> Result<Self::Report> {
         finish_workflow(&self.plan, &self.destination, &mut self.work)
@@ -461,67 +626,117 @@ type NativeResult<T, R> = std::result::Result<T, shared::SelectedNativeFailure<R
 
 #[cfg(feature = "local-model")]
 pub fn run_native_selected<R: shared::SelectedNativeReservation>(
-    plan: PreparedSelectedPlan, new_dir: &Path, cancel: &Cancellation,
+    plan: PreparedSelectedPlan,
+    new_dir: &Path,
+    cancel: &Cancellation,
     reserve: impl FnOnce() -> Result<R>,
 ) -> NativeResult<SelectedComparisonReportV4, R> {
     let started = Instant::now();
     let failure = shared::SelectedNativeFailure::from_error;
     plan.refresh(cancel).map_err(failure)?;
-    let (target, _pins) = shared::destination_target_for(&plan.source_dir, new_dir).map_err(failure)?;
+    let (target, _pins) =
+        shared::destination_target_for(&plan.source_dir, new_dir).map_err(failure)?;
     let work = inspect_work(&plan, &target, started).map_err(failure)?;
     preflight(&work).map_err(failure)?;
-    let mut deadline = native_startup::preparation_deadline(started, remaining(&work), Instant::now())
-        .map_err(failure)?;
+    let mut deadline =
+        native_startup::preparation_deadline(started, remaining(&work), Instant::now())
+            .map_err(failure)?;
     native_startup::check_preparation(cancel, deadline).map_err(failure)?;
     let reservation = if work.needs_admission.into_iter().any(|needed| needed) {
         Some(reserve().map_err(failure)?)
-    } else { None };
-    deadline = deadline.min(native_startup::preparation_deadline(
-        started, remaining(&work), Instant::now(),
-    ).map_err(failure)?);
+    } else {
+        None
+    };
+    deadline = deadline.min(
+        native_startup::preparation_deadline(started, remaining(&work), Instant::now())
+            .map_err(failure)?,
+    );
     native_startup::check_preparation(cancel, deadline).map_err(failure)?;
     preflight(&work).map_err(failure)?;
     let destination = new_destination(&plan, &target).map_err(failure)?;
-    owned::run(Workflow { plan, destination, work }, reservation, cancel, deadline)
+    owned::run(
+        Workflow {
+            plan,
+            destination,
+            work,
+        },
+        reservation,
+        cancel,
+        deadline,
+    )
 }
 
 #[cfg(feature = "local-model")]
 pub fn resume_native_selected<R: shared::SelectedNativeReservation>(
-    dir: &Path, source_dir: &Path, expected_binding: &str, cancel: &Cancellation,
+    dir: &Path,
+    source_dir: &Path,
+    expected_binding: &str,
+    cancel: &Cancellation,
     reserve: impl FnOnce() -> Result<R>,
 ) -> NativeResult<SelectedComparisonReportV4, R> {
     let started = Instant::now();
     let failure = shared::SelectedNativeFailure::from_error;
     shared::cancelled(cancel).map_err(failure)?;
-    if !hex(expected_binding) { return Err(failure("SelectedIdentity".into())); }
+    if !hex(expected_binding) {
+        return Err(failure("SelectedIdentity".into()));
+    }
     let destination = open_destination(dir).map_err(failure)?;
     let m = &destination.manifest;
-    if m.binding != expected_binding { return Err(failure("CheckpointMismatch".into())); }
+    if m.binding != expected_binding {
+        return Err(failure("CheckpointMismatch".into()));
+    }
     let row = shared_read::RowId {
         turn: m.selection.turn.clone(),
-        arm: if m.selection.clicked_arm == "left" { shared_read::Arm::Left } else { shared_read::Arm::Right },
+        arm: if m.selection.clicked_arm == "left" {
+            shared_read::Arm::Left
+        } else {
+            shared_read::Arm::Right
+        },
     };
-    let plan = prepare_selected(source_dir, &m.source_binding, &row,
-        SelectedIntent { client_id: m.client_id.clone(), lane: SelectedLane::ApprovedNative }, cancel)
-        .map_err(failure)?;
+    let plan = prepare_selected(
+        source_dir,
+        &m.source_binding,
+        &row,
+        SelectedIntent {
+            client_id: m.client_id.clone(),
+            lane: SelectedLane::ApprovedNative,
+        },
+        cancel,
+    )
+    .map_err(failure)?;
     shared::disjoint(&plan.source_dir, &destination.dir).map_err(failure)?;
-    if plan.manifest != *m { return Err(failure("CheckpointMismatch".into())); }
+    if plan.manifest != *m {
+        return Err(failure("CheckpointMismatch".into()));
+    }
     plan.refresh(cancel).map_err(failure)?;
     let work = inspect_work(&plan, &destination.dir, started).map_err(failure)?;
     if work.turns.iter().all(Option::is_some) {
         return report(&destination.dir, m, &work.turns, &work.ledgers).map_err(failure);
     }
     preflight(&work).map_err(failure)?;
-    let mut deadline = native_startup::preparation_deadline(started, remaining(&work), Instant::now())
-        .map_err(failure)?;
+    let mut deadline =
+        native_startup::preparation_deadline(started, remaining(&work), Instant::now())
+            .map_err(failure)?;
     native_startup::check_preparation(cancel, deadline).map_err(failure)?;
     let reservation = if work.needs_admission.into_iter().any(|needed| needed) {
         Some(reserve().map_err(failure)?)
-    } else { None };
-    deadline = deadline.min(native_startup::preparation_deadline(
-        started, remaining(&work), Instant::now(),
-    ).map_err(failure)?);
+    } else {
+        None
+    };
+    deadline = deadline.min(
+        native_startup::preparation_deadline(started, remaining(&work), Instant::now())
+            .map_err(failure)?,
+    );
     native_startup::check_preparation(cancel, deadline).map_err(failure)?;
     preflight(&work).map_err(failure)?;
-    owned::run(Workflow { plan, destination, work }, reservation, cancel, deadline)
+    owned::run(
+        Workflow {
+            plan,
+            destination,
+            work,
+        },
+        reservation,
+        cancel,
+        deadline,
+    )
 }

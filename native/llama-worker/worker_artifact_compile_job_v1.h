@@ -292,36 +292,47 @@ inline void terminate(const Handle& job, const Handle& process, Result& result) 
     }
 }
 
-inline void settle(const Handle& process, const Handle& job, const Handle& out,
-                   const Handle& err, const std::atomic_bool& cancelled,
-                   Clock::time_point run_deadline, Result& result) {
+inline Clock::time_point settle(const Handle& process, const Handle& job, const Handle& out,
+                                const Handle& err, const std::atomic_bool& cancelled,
+                                Clock::time_point run_deadline, Result& result) {
     std::optional<Clock::time_point> drain_deadline;
+    const auto needs_termination = [&]() {
+        return !result.signaled || result.active_processes != 0;
+    };
     for (;;) {
         const auto now = Clock::now();
         if (cancelled.load()) stop(result, Stop::cancelled);
         if (!drain_deadline && now >= run_deadline) stop(result, Stop::deadline);
-        if (drain_deadline && now >= *drain_deadline) {
-            stop(result, Stop::drain);
-            if (!result.signaled || result.active_processes != 0) terminate(job, process, result);
-            return;
-        }
-
-        if (result.stop != Stop::none && (!result.signaled || result.active_processes != 0))
-            terminate(job, process, result);
+        if (!drain_deadline && result.stop != Stop::none)
+            drain_deadline = (std::min)(now, run_deadline) + drain_window;
+        if (drain_deadline && now >= *drain_deadline) break;
+        if (result.stop != Stop::none && needs_termination()) terminate(job, process, result);
 
         const bool stdout_progress = poll_pipe(out, result.out, result);
         const bool stderr_progress = poll_pipe(err, result.err, result);
         observe_process(process, result);
+        const auto observed = Clock::now();
+        if (cancelled.load()) stop(result, Stop::cancelled);
+        // A poll begun in time can still return after the cutoff.
+        if (!drain_deadline && observed >= run_deadline) stop(result, Stop::deadline);
         if (!drain_deadline && (result.signaled || result.stop != Stop::none))
-            drain_deadline = (std::min)(now, run_deadline) + drain_window;
+            drain_deadline = (std::min)(observed, run_deadline) + drain_window;
+
         if (drain_deadline) {
+            if (observed >= *drain_deadline) break;
             observe_job(job, result);
+            if (cancelled.load()) stop(result, Stop::cancelled);
+            if (Clock::now() >= *drain_deadline) break;
             const bool stdout_done = result.out.eof || result.out.overflow;
             const bool stderr_done = result.err.eof || result.err.overflow;
-            if (result.signaled && result.active_processes == 0 && stdout_done && stderr_done) return;
+            if (result.signaled && result.active_processes == 0 && stdout_done && stderr_done)
+                return *drain_deadline;
         }
         if (!stdout_progress && !stderr_progress) Sleep(1);
     }
+    stop(result, Stop::drain);
+    if (needs_termination()) terminate(job, process, result);
+    return *drain_deadline;
 }
 
 } // namespace detail
@@ -412,8 +423,9 @@ inline Result launch(const Request& request, const std::atomic_bool& cancelled) 
     };
 
     start();
+    std::optional<Clock::time_point> drain_deadline;
     if (process.valid()) {
-        settle(process, job, out, err, cancelled, deadline, result);
+        drain_deadline = settle(process, job, out, err, cancelled, deadline, result);
         result.process_handle_closed = process.close();
         if (!result.process_handle_closed) {
             result.handles_closed = false;
@@ -422,7 +434,10 @@ inline Result launch(const Request& request, const std::atomic_bool& cancelled) 
     }
     for (Handle* handle : {&thread, &in, &stdin_writer, &stdout_writer, &stderr_writer, &out, &err, &job})
         close(*handle, result);
-    result.elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
+    if (cancelled.load()) stop(result, Stop::cancelled);
+    const auto finished = Clock::now();
+    if (drain_deadline && finished >= *drain_deadline) stop(result, Stop::drain);
+    result.elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
     return result;
 }
 

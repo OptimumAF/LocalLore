@@ -55,7 +55,9 @@ buffers, plus at most one probe byte per stream to detect overflow.
 Observe cancellation and the 120,000 ms execution deadline even when
 output is busy. After termination, allow one shared 5,000 ms observation
 window for the direct process, Job and pipes. Never reset a deadline for
-progress, a second stream or a later failure. On cancellation, timeout,
+progress, a second stream or a later failure. Recheck after OS observations
+and handle cleanup. A poll started before a cutoff can return after it,
+with useful closure facts but without a successful outcome. On cancellation, timeout,
 overflow or I/O failure, request termination of the owned Job. A failed
 membership check also permits terminating only the still-suspended
 direct process. An unexpectedly live Job at the end of drain is
@@ -83,8 +85,10 @@ observed Job zero, both pipe EOFs, and all owned handle closes. It is a
 necessary native fact for the separate writer receipt, along with
 `closed()`, clean I/O and independent exclusion of external writers.
 Keep the existing direct process receipt's `processTreeContained:false`.
-Timeout, cancellation, overflow and any kill attempt remain refusal
-evidence even after known closure. The bridge must retain actual
+Every native stop remains a refusal even after known closure. Map an
+execution or drain cutoff to the process receipt's timeout flag. Preserve
+the native stop and measured evidence separately. Never offer an apparently
+clean process receipt for a stopped result. The bridge must retain actual
 observations on failures and must never clamp a receipt into a deadline
 or infer positive closure from closing the kill-on-close Job.
 

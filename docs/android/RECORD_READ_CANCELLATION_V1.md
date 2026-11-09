@@ -75,3 +75,19 @@ scale to choose one or two controls per row. Close and event Back remain
 outside the scrolling content. This brings the larger-text layout from
 [PR #401](https://github.com/OptimumAF/LocalLore/pull/401) into the same
 action scope as the record and event views.
+
+## Combined Android test build
+
+The activity and the ViewModel-backed cancellation and stale-action fixtures
+use the same `StoryRecordHost` to collect rendered frames and bind actions.
+The cancellation fixtures from [PR #386](https://github.com/OptimumAF/LocalLore/pull/386)
+exercise the current UI path using synthetic read ports. The large-text and
+page-scroll fixtures exercise the dialog directly with synthetic view states.
+
+Build the combined cohort using the existing isolated archive verification
+profile (`-PlocalLoreArchiveVerification=true --project-cache-dir .gradle-archive-verification`).
+The four test classes are `StoryRecordCancellationScreenTest`,
+`StoryRecordActionScopeScreenTest`, `StoryRecordLargeTextTest`, and
+`StoryRecordPageScrollTest`. The signed APK pair and the exact methods need
+their own guarded run binding and approval. Earlier frozen runs retain their
+original artifacts and selectors.

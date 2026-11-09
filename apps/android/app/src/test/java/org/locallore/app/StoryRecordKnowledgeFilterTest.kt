@@ -462,4 +462,3 @@ class StoryRecordKnowledgeFilterTest {
         assertEquals(finalReads, gateway.reads.size)
     }
 }
-

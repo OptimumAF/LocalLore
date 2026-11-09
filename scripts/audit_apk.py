@@ -666,7 +666,8 @@ def audit_app_components(tree, package="org.locallore.app", *, model_provisionin
                         "org.locallore.app.modelvolumeverify" if model_volume else "org.locallore.app.modelverify")
     require(package == expected_package if model_provisioning else package in (
         "org.locallore.app", "org.locallore.app.archiveverify", "org.locallore.app.litertverify",
-        "org.locallore.app.draftverify", "org.locallore.app.draftprocessverify"), "Wrong component package")
+        "org.locallore.app.draftverify", "org.locallore.app.draftprocessverify",
+        "org.locallore.app.presentationprocessverify"), "Wrong component package")
     nodes = _backup_nodes(tree)  # Shared bounded, ownership-preserving AAPT parser.
     roots = [i for i, node in enumerate(nodes) if node["parent"] is None]
     require(len(roots) == 1 and nodes[roots[0]]["name"] == "manifest", "Wrong component manifest")

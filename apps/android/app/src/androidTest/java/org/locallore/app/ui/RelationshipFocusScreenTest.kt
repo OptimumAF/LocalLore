@@ -42,8 +42,8 @@ class RelationshipFocusScreenTest {
                     { model.firstRecordPage(rendered) },
                     { model.retryStoryRecord(rendered) },
                     onScopedEvent = { ref -> model.openScopedRecordEvent(ref, rendered) },
-                    onEventBack = { model.backToStoryRecord(rendered) },
-                    onEventRetry = { model.retryRecordEvent(rendered) },
+                    onEventBack = { rendered.eventDetail?.let { model.backToStoryRecord(it) } },
+                    onEventRetry = rendered.eventDetail?.let { detail -> { model.retryRecordEvent(detail) } },
                     onFocusRelationship = { entry -> model.focusRecordRelationship(entry, rendered) },
                     onAllRelationships = { model.allRecordRelationships(rendered) })
             }

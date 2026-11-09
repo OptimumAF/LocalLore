@@ -42,8 +42,8 @@ class PromiseStatusScreenTest {
                     { model.firstRecordPage(rendered) },
                     { model.retryStoryRecord(rendered) },
                     onScopedEvent = { reference -> model.openScopedRecordEvent(reference, rendered) },
-                    onEventBack = { model.backToStoryRecord(rendered) },
-                    onEventRetry = { model.retryRecordEvent(rendered) },
+                    onEventBack = { rendered.eventDetail?.let { model.backToStoryRecord(it) } },
+                    onEventRetry = rendered.eventDetail?.let { detail -> { model.retryRecordEvent(detail) } },
                     onPromiseFilter = { filter -> model.recordPromiseFilter(filter, rendered) })
             }
         }

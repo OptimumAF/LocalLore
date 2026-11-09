@@ -157,6 +157,21 @@ class ApkComponentBoundaryTests(unittest.TestCase):
                     self.assertEqual(json.loads(output)["status"], "passed")
                     self.assertTrue(calls)
 
+    def test_presentation_process_cli_audits_its_own_component_and_permission_roster(self):
+        package = "org.locallore.app.presentationprocessverify"
+        flags = ["--presentation-process-verification"]
+        good = manifest(package)
+        code, output, _ = self.cli(good, package=package, flags=flags)
+        self.assertEqual(code, 0, output)
+        self.assertEqual(json.loads(output)["status"], "passed")
+        self.refused(good, package=package)
+        self.refused(manifest(), flags=flags)
+        permission = package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        request = node("uses-permission", (("name", permission),), indent=4)
+        self.refused(changed(good, request, ""), package=package, flags=flags)
+        foreign = node("activity", (("name", "foreign.vendor.Entry"), ("exported", "true")))
+        self.refused(manifest(package, extra=foreign), package=package, flags=flags)
+
     def test_exported_foreign_provider_receiver_activity_and_alias_are_not_an_implicit_allowlist(self):
         hostile = (
             node("provider", (("name", "foreign.vendor.Reader"), ("exported", "true"),

@@ -110,7 +110,14 @@ terminal record cannot authorize lease reuse.
 An abort or failed validation latches the first reason and fences new work.
 An offered helper that throws or produces a malformed receipt is uncertain
 because settlement alone does not attest cleanup. Known lease stop snapshots
-can report failure without uncertainty when closures are known. A reported
+can report failure without uncertainty when closures are known. Validate the
+full closed helper receipt shape first, including own data fields, bounded
+root and file arrays, recognized lease state and stop, and the copy helper's
+qualification and I/O counters. A positive copy requires the exact successful
+read and write counts, six verified scans, and three known handle closes.
+An otherwise complete roster with a changed role, identity or length fails
+the semantic check. A truncated or unrecognized helper receipt is uncertain
+even when an earlier stop reason is already present. A reported
 unknown close or uncertain write remains uncertain, even if cancellation
 already supplied the first reason. Invalid, failed or late completion never
 emits a positive manifest receipt. There is no port-level timer race or

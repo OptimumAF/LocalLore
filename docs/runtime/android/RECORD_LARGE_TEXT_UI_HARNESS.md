@@ -62,8 +62,20 @@ controller against its independently observed caller. An incomplete receipt
 or uncertain cleanup keeps the attempt unqualified. Storage transitions are
 owned by the existing guard.
 
-The enclosing operation still needs to join fresh human approval and
-guarded preparation to the activation input. Actual execution requires the current
-[shared storage guard](RECEIPT_AVD_STORAGE.md), fresh readiness checks and
-authorization for the exact operation. The Android layout and touch results
-and separate screen-reader checks are pending.
+`record_large_text_ui_operation.py` joins guarded preparation and activation
+under a 2,400-second Windows Job. Its fixed operation directory holds the
+reviewed proposal, bound plan and explicit approval record. The plan pins
+the preparation proposal, Python, installed inputs, sources and artifacts.
+The reviewed proposal includes one line each for `Plan SHA-256 <hex>` and
+`Ledger SHA-256 <hex>`. The approval binds those exact plan and ledger pins.
+The operator creates a single attempt record before starting its worker, which checks
+readiness and calls the current guarded preparation. The shared storage
+guard still makes the fresh locked admission decision. A spent attempt
+keeps its records and any storage charge. The operator grants only the
+derived prepare and run records needed for this approved attempt.
+
+Qualification requires known outer job cleanup and an exact join to the
+activation and ledger closure. Before an actual run, freeze and review the
+SDK19 plan, qualify current readiness, and obtain approval for that exact
+operation under the [shared storage guard](RECEIPT_AVD_STORAGE.md).
+The Android layout and touch results and separate screen-reader checks are pending.

@@ -32,6 +32,12 @@ identity denotes the whole verified model container; worker identity denotes
 the LF-normalized `LiteRtRoleWorker.kt` source. The build refuses a changed
 worker until that identity is reviewed. It is not an APK-signature identity.
 
+Setup's Choose, Check, Start and Cancel controls act only on the displayed setup
+state. A later state retires those controls even when the displayed status text
+repeats. The system picker still returns its result to the one pending selection.
+Cancelling the displayed file operation keeps its reservation until the operation
+has actually returned.
+
 ## Copy, cancellation and restart
 
 The model store owns only `local-model-v1` under `noBackupFilesDir`, separate

@@ -16,12 +16,17 @@ import kotlinx.coroutines.withContext
 
 internal enum class LocalModelSetupPhase { UNCHECKED, CHECKING, MISSING, PICKING, IMPORTING, STOPPING, READY, FAILED, OPENING, SESSION_HELD }
 
-internal data class LocalModelSetupState(
+// Each publication owns its controls, even when its phase and notice repeat.
+internal class LocalModelSetupState(
     val phase: LocalModelSetupPhase = LocalModelSetupPhase.UNCHECKED,
     val notice: String = "Check the app's local model copy before continuing.",
 ) {
-    val busy: Boolean get() = phase in setOf(LocalModelSetupPhase.CHECKING,
-        LocalModelSetupPhase.IMPORTING, LocalModelSetupPhase.STOPPING)
+    val canCancel: Boolean get() =
+        phase == LocalModelSetupPhase.CHECKING || phase == LocalModelSetupPhase.IMPORTING
+    val busy: Boolean get() = canCancel || phase == LocalModelSetupPhase.STOPPING
+    val canRecheck: Boolean get() = !busy && phase !in setOf(
+        LocalModelSetupPhase.PICKING, LocalModelSetupPhase.OPENING, LocalModelSetupPhase.SESSION_HELD,
+    )
     val ready: Boolean get() = phase == LocalModelSetupPhase.READY
     val canChoose: Boolean get() = phase in setOf(LocalModelSetupPhase.UNCHECKED,
         LocalModelSetupPhase.MISSING, LocalModelSetupPhase.FAILED)
@@ -65,11 +70,17 @@ internal class LocalModelSetupViewModel(
         }
     }
 
+    fun recheck(expected: LocalModelSetupState): Boolean =
+        mutable.value === expected && expected.canRecheck && recheck()
+
     fun recheck(): Boolean {
         if (!available() || mutable.value.phase in setOf(LocalModelSetupPhase.PICKING, LocalModelSetupPhase.OPENING)) return false
         if (holdIfClaimed()) return false
         return runOperation(LocalModelSetupPhase.CHECKING, "Checking the app's local model copy…", checkInstalled)
     }
+
+    fun beginPicker(expected: LocalModelSetupState): Boolean =
+        mutable.value === expected && beginPicker()
 
     fun beginPicker(): Boolean {
         if (!available() || !mutable.value.canChoose) return false
@@ -100,6 +111,10 @@ internal class LocalModelSetupViewModel(
         }
     }
 
+    fun cancel(expected: LocalModelSetupState) {
+        if (foreground && !disposed && mutable.value === expected && expected.canCancel) cancel()
+    }
+
     fun cancel() {
         val current = pending ?: return
         generation++
@@ -107,6 +122,9 @@ internal class LocalModelSetupViewModel(
         mutable.value = LocalModelSetupState(LocalModelSetupPhase.STOPPING, "Stopping. Wait for the current file operation to finish.")
         current.cancel()
     }
+
+    fun beginPlay(expected: LocalModelSetupState): Boolean =
+        mutable.value === expected && beginPlay()
 
     fun beginPlay(): Boolean {
         if (!available() || !mutable.value.ready) return false

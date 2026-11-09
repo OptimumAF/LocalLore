@@ -1359,7 +1359,23 @@ class EnvironmentTests(unittest.TestCase):
                 returned = wintypes.DWORD()
                 self.assertTrue(kernel.DeviceIoControl(msvcrt.get_osfhandle(stream.fileno()),
                     0x900C4, None, 0, None, 0, ctypes.byref(returned), None))  # FSCTL_SET_SPARSE
-                stream.truncate(8 * env.GIB)
+                # Python's Windows CRT truncate may write zeros even after
+                # FSCTL_SET_SPARSE, allocating GiB in this metadata-only case.
+                # Extend the same sparse test file through checked kernel EOF.
+                kernel.SetFilePointerEx.argtypes = [wintypes.HANDLE, ctypes.c_longlong,
+                    ctypes.POINTER(ctypes.c_longlong), wintypes.DWORD]
+                kernel.SetFilePointerEx.restype = wintypes.BOOL
+                kernel.SetEndOfFile.argtypes = [wintypes.HANDLE]
+                kernel.SetEndOfFile.restype = wintypes.BOOL
+                handle = msvcrt.get_osfhandle(stream.fileno())
+                self.assertTrue(kernel.SetFilePointerEx(handle, 8 * env.GIB, None, 0))
+                self.assertTrue(kernel.SetEndOfFile(handle))
+            kernel.GetCompressedFileSizeW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD)]
+            kernel.GetCompressedFileSizeW.restype = wintypes.DWORD
+            high = wintypes.DWORD(); ctypes.set_last_error(0)
+            low = kernel.GetCompressedFileSizeW(str(content / 'sdcard.img'), ctypes.byref(high))
+            self.assertFalse(low == 0xffffffff and ctypes.get_last_error() != 0)
+            self.assertLessEqual((high.value << 32) | low, 65536)
             (content / "userdata-qemu.img").write_bytes(b"must not adopt")
         return env.host.ProcessResult("completed", 10, b"created", 0, 0, True)
 

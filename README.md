@@ -21,6 +21,13 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [fresh SDK16 bridge](docs/native/KNOWLEDGE_FRESH_BRIDGE_V1.md) connects
+separately approved preparation to the existing owned Knowledge UI runner.
+[Host verification](docs/native/KNOWLEDGE_FRESH_BRIDGE_VERIFICATION_2026-11-02.md)
+records 219 distinct passing tests and real file-only startup checks. Actual
+preparation, boot and the four Android methods remain unrun; retirement approval
+and a separate bounded run proposal are still required.
+
 The [SDK16 preparation inspector](docs/native/KNOWLEDGE_PREPARE_INPUTS_V1.md)
 verifies frozen source, installed tools and the original APK pair, then emits five
 nonexecutable planning records. [Verification](docs/native/KNOWLEDGE_PREPARE_INPUTS_VERIFICATION_2026-11-02.md)

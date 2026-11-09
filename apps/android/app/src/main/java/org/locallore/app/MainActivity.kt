@@ -146,14 +146,13 @@ open class MainActivity : ComponentActivity() {
             val renderedArchive = archiveFrame.state
             val renderedDeletion = deletionFrame.state
             val renderedBranchDeletion = branchDeletionFrame.state
-            val renderedActionStory = state.selectedStory
             val renderedChatState = state
-            LocalLoreScreen(renderedChatState, { action -> model.submit(action, renderedActionStory) }, model::setMode,
+            LocalLoreScreen(renderedChatState, { action -> model.submit(action, renderedChatState) }, model::setMode,
                 { model.cancel(renderedChatState) }, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = { model.resume(it, renderedChatState) },
                 onRecover = { model.recover(renderedChatState) },
                 onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
-                onText = model::submitText,
+                onText = { input, _ -> model.submitText(input, renderedChatState) },
                 archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
                 deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
                 onTimeline = { model.resumeTimeline(it, renderedChatState) },

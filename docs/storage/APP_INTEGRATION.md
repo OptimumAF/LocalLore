@@ -93,6 +93,9 @@ branch, stays hidden while opening/recovery is unresolved, and is discarded when
 a different scope settles. Revision changes retain it; restoration never submits
 or resumes provider work. This is not a promise of retention after task dismissal,
 force-stop or a cold launch. See [Android draft lifecycle evidence](../native/ANDROID_INPUT_DRAFT_VERIFICATION_2026-10-25.md).
+Android Send and quick actions bind to the ViewModel state that rendered
+the control. A callback from an earlier state is discarded before the
+engine receives a request. A current control uses the current saved revision.
 Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.

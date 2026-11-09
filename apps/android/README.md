@@ -191,6 +191,12 @@ installed identities before and after the test. The caller must separately
 qualify the owner, transport, and command records before treating a replay as
 device evidence.
 
+`benchmarks/cross_owner_deletion_ui_capture.py` connects this replay to the
+existing owned-target verifier. It checks the expected caller and session,
+rereads each command's pinned output, and applies the fixed per-command
+deadlines. A future story-deletion owner can use it once a capture exists.
+The adapter provides host record verification.
+
 Parent-retirement verification has its own debug identity and project cache:
 
 ```powershell

@@ -730,9 +730,9 @@ fn resume_refuses_replacing_a_granted_scripted_read_with_an_exact_native_index()
                 .to_owned(),
             arm: Arm::Left,
         },
-        producer::SelectedIntent {
+        producer::selected::SelectedIntent {
             client_id: replacement_client.clone(),
-            lane: producer::SelectedLane::ApprovedNative,
+            lane: producer::selected::SelectedLane::ApprovedNative,
         },
         &Cancellation::default(),
     )

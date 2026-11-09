@@ -35,6 +35,7 @@ PACKAGE = "system-images;android-35;google_apis;x86_64"
 MAX_SECONDS = 1200
 REAL_MAX_SECONDS = 1800
 SUPERVISOR_MAX_SECONDS = 1800
+OPERATION_SUPERVISOR_MAX_SECONDS = 2400
 MAX_OUTPUT = 262144
 GIB = 1024 ** 3
 BARRIER = b"receipt-avd-owner-v1\n"
@@ -319,22 +320,34 @@ def validate_proposal(proposal, phase):
                 "invalid_budget")
 
 
-def authorize(proposal_path, authorization_path, phase, *, run_scope=None):
-    proposal = read_json(proposal_path)
+def authorize(proposal_path, authorization_path, phase, *, run_scope=None, prepare_scope=None,
+              expected_proposal_sha256=None):
+    if expected_proposal_sha256 is None:
+        proposal = read_json(proposal_path)
+    else:
+        proposal = read_bound_json(proposal_path, expected_proposal_sha256)
     validate_proposal(proposal, phase)
     auth = read_json(authorization_path, 4096)
-    check_authorization(auth, phase, digest(proposal_path), run_scope=run_scope)
+    proposal_sha = digest(proposal_path) if expected_proposal_sha256 is None else expected_proposal_sha256
+    check_authorization(auth, phase, proposal_sha, run_scope=run_scope, prepare_scope=prepare_scope)
     verify_installation(proposal)
     check_external_state(proposal)
     return proposal
 
 
-def check_authorization(auth, phase, proposal_sha, *, run_scope=None):
+def _valid_prepare_scope(value):
+    return type(value) is str and re.fullmatch(r"[a-z][a-z0-9-]{0,127}", value) is not None
+
+
+def check_authorization(auth, phase, proposal_sha, *, run_scope=None, prepare_scope=None):
     expected = {"version": 1, "phase": phase, "proposal_sha256": proposal_sha,
                 "allow_environment_calls": True, "root_go_pending": False}
     if run_scope is not None:
         require(phase == "run" and type(run_scope) is str and bool(run_scope), "not_authorized")
         expected["run_scope"] = run_scope
+    if prepare_scope is not None:
+        require(phase == "prepare" and _valid_prepare_scope(prepare_scope), "not_authorized")
+        expected["prepare_scope"] = prepare_scope
     require(auth == expected and type(auth["version"]) is int and auth["allow_environment_calls"] is True and
             auth["root_go_pending"] is False, "not_authorized")
 
@@ -453,29 +466,46 @@ def normalize_generated_config(original, registry_bytes, content, memory_mib=204
     return "".join(k + "=" + values[k] + "\n" for k in sorted(values)).encode("utf-8")
 
 
-def prepare(proposal_path, authorization_path):
-    admitted_sha = digest(proposal_path)
-    proposal = authorize(proposal_path, authorization_path, "prepare")
+def prepare(proposal_path, authorization_path, *, expected_ledger=None, expected_proposal_sha256=None,
+            prepare_scope=None):
+    scoped = any(value is not None for value in (expected_ledger, expected_proposal_sha256, prepare_scope))
+    if scoped:
+        require(type(expected_ledger) is dict and type(expected_proposal_sha256) is str and
+                re.fullmatch(r"[0-9a-f]{64}", expected_proposal_sha256) is not None and
+                _valid_prepare_scope(prepare_scope), "not_authorized")
+        admitted_sha = expected_proposal_sha256
+        proposal = authorize(proposal_path, authorization_path, "prepare", prepare_scope=prepare_scope,
+                             expected_proposal_sha256=admitted_sha)
+    else:
+        admitted_sha = digest(proposal_path)
+        proposal = authorize(proposal_path, authorization_path, "prepare")
     require(digest(proposal_path) == admitted_sha, "proposal_changed")
     root = Path(proposal["paths"]["root"])
     require(not root.exists(), "target_exists")
     safe_path(root.parent, directory=True)
     facts = resource_facts(proposal)
     # Admission is durable before either target creation or any SDK worker.
-    storage_transition(guest_storage.reserve_prepare, root, admitted_sha)
+    if scoped:
+        require(digest(proposal_path) == admitted_sha, "proposal_changed")
+        storage_transition(guest_storage.reserve_prepare, root, admitted_sha, expected_ledger=expected_ledger)
+    else:
+        storage_transition(guest_storage.reserve_prepare, root, admitted_sha)
     # Every path below belongs exclusively to this newly created target.
     root.mkdir()
-    return _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha, facts)
+    scope = {"prepare_scope": prepare_scope} if scoped else {}
+    return _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha, facts, **scope)
 
 
-def _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha, facts, registry=None):
+def _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha, facts, registry=None,
+                      *, prepare_scope=None):
     """Shared post-admission body; recovery retains its directory fence around it."""
     root = Path(proposal["paths"]["root"])
-    create_json(root / "prepare-start-v1.json", {"proposal_sha256": admitted_sha, "facts": facts,
-                                               "owner": process_identity(os.getpid())})
+    scope = {"prepare_scope": prepare_scope} if prepare_scope is not None else {}
+    create_json(root / "prepare-start-v1.json", dict(proposal_sha256=admitted_sha, facts=facts,
+                                                    owner=process_identity(os.getpid()), **scope))
     pending = None; failure = None; closure = False
     try:
-        pending = prepare_contents(proposal, proposal_path, authorization_path, admitted_sha)
+        pending = prepare_contents(proposal, proposal_path, authorization_path, admitted_sha, **scope)
     except BaseException as error:
         failure = error
     try:
@@ -502,16 +532,17 @@ def _prepare_admitted(proposal, proposal_path, authorization_path, admitted_sha,
     return pending
 
 
-def prepare_contents(proposal, proposal_path, authorization_path, admitted_sha):
+def prepare_contents(proposal, proposal_path, authorization_path, admitted_sha, *, prepare_scope=None):
     root = Path(proposal["paths"]["root"])
     for name in ("registry", "android", "emulator_home", "tmp"):
         Path(proposal["paths"][name]).mkdir()
     (root / "content").mkdir()
+    request = dict(proposal=str(Path(proposal_path).resolve()), proposal_sha256=admitted_sha,
+                   authorization=str(Path(authorization_path).resolve()))
+    if prepare_scope is not None:
+        request["prepare_scope"] = prepare_scope
     result = host.run_process([sys.executable, "-B", str(Path(__file__).resolve()), "_prepare-worker"],
-                              request=encoded({"proposal": str(Path(proposal_path).resolve()),
-                                               "proposal_sha256": admitted_sha,
-                                               "authorization": str(Path(authorization_path).resolve())}),
-                              deadline=180, max_output=MAX_OUTPUT)
+                              request=encoded(request), deadline=180, max_output=MAX_OUTPUT)
     with (root / "prepare-stdout-v1.bin").open("xb") as stream:
         stream.write(result.stdout); stream.flush(); os.fsync(stream.fileno())
     create_json(root / "prepare-client-v1.json", {"status": result.status, "returncode": result.returncode,
@@ -746,8 +777,19 @@ class LiveOutput:
 
 
 def supervise(command, request, root, seconds, on_started, stop_proposal_sha256=None):
+    """Supervise one receipt runtime within the runtime ceiling."""
+    return _supervise(command, request, root, seconds, on_started, SUPERVISOR_MAX_SECONDS,
+                      stop_proposal_sha256)
+
+
+def supervise_operation(command, request, root, seconds, on_started):
+    """Supervise a preparation and runtime under one outer job and operation ceiling."""
+    return _supervise(command, request, root, seconds, on_started, OPERATION_SUPERVISOR_MAX_SECONDS, None)
+
+
+def _supervise(command, request, root, seconds, on_started, max_seconds, stop_proposal_sha256):
     """Barrier child is assigned before request. Ordinary exit also kills descendants."""
-    require(os.name == "nt" and type(seconds) is int and 0 < seconds <= SUPERVISOR_MAX_SECONDS and
+    require(os.name == "nt" and type(seconds) is int and 0 < seconds <= max_seconds and
             len(request) <= 131072, "invalid_budget")
     child = None; job = None; readers = []; capture = None
     status = "spawn_failed"; cleaned = False
@@ -934,18 +976,32 @@ def worker(mode):
     raw = sys.stdin.buffer.read(131073)
     require(0 < len(raw) <= 131072, "invalid_request")
     request = decode_json(raw)
-    require(set(request) == {"proposal", "proposal_sha256", "authorization"}, "invalid_request")
-    proposal = read_bound_json(request["proposal"], request["proposal_sha256"])
     phase = "prepare" if mode == "_prepare-worker" else "run"
+    require(type(request) is dict, "invalid_request")
+    scope = {}
+    if "prepare_scope" in request:
+        require(phase == "prepare" and _valid_prepare_scope(request["prepare_scope"]), "invalid_request")
+        scope["prepare_scope"] = request["prepare_scope"]
+    require(set(request) == {"proposal", "proposal_sha256", "authorization"} | scope.keys(), "invalid_request")
+    proposal = read_bound_json(request["proposal"], request["proposal_sha256"])
     validate_proposal(proposal, phase)
-    check_authorization(read_json(request["authorization"], 4096), phase, request["proposal_sha256"])
+    check_authorization(read_json(request["authorization"], 4096), phase, request["proposal_sha256"], **scope)
     root = Path(proposal["paths"]["root"])
     start = read_json(root / (phase + "-start-v1.json"), 8192)
+    require(type(start) is dict and ("prepare_scope" in start) == bool(scope), "not_authorized")
+    if scope:
+        require(set(start) == {"proposal_sha256", "facts", "owner", "prepare_scope"} and
+                start["prepare_scope"] == scope["prepare_scope"] and start["owner"]["pid"] == os.getppid(),
+                "owner_lost")
+        verify_installation(proposal)
+        check_external_state(proposal)
     require(start["proposal_sha256"] == request["proposal_sha256"] and
             process_identity(start["owner"]["pid"]) == start["owner"], "owner_lost")
     resource_facts(proposal)  # Recheck every profile in the admitted worker before SDK dispatch.
+    if scope:
+        require(process_identity(start["owner"]["pid"]) == start["owner"], "owner_lost")
     create_json(root / (phase + "-worker-claimed-v1.json"),
-                {"proposal_sha256": request["proposal_sha256"], "worker": process_identity(os.getpid())})
+                dict(proposal_sha256=request["proposal_sha256"], worker=process_identity(os.getpid()), **scope))
     if mode == "_prepare-worker":
         return subprocess.run(prepare_command(proposal), input=b"no\n",
                               env=scoped_env(proposal)).returncode

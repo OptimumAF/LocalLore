@@ -59,9 +59,20 @@ def encoded(value):
     return (json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
 
 
-def read_json(path):
+def read_json(path, *, expected=None):
     p = safe_path(path, exists=True)
-    require(0 < p.stat().st_size <= 16 * 1024 * 1024, "invalid_json")
+    size = p.stat().st_size
+    require(0 < size <= 16 * 1024 * 1024, "invalid_json")
+    if expected is None:
+        data = p.read_bytes()
+    else:
+        _validate_binding(expected)
+        require(expected["path"] == str(p) and expected["bytes"] == size, "ledger_changed")
+        with p.open("rb") as source:
+            data = source.read(size + 1)
+        require(len(data) == size and hashlib.sha256(data).hexdigest() == expected["sha256"],
+                "ledger_changed")
+
     def unique(pairs):
         result = {}
         for key, value in pairs:
@@ -69,7 +80,7 @@ def read_json(path):
             result[key] = value
         return result
     try:
-        return json.loads(p.read_bytes().decode("utf-8"), object_pairs_hook=unique,
+        return json.loads(data.decode("utf-8"), object_pairs_hook=unique,
                           parse_constant=lambda _: require(False, "invalid_json"))
     except (ValueError, UnicodeError, TypeError):
         raise StorageRefused("invalid_json") from None
@@ -84,12 +95,16 @@ def binding(path):
     return {"path": str(p), "bytes": p.stat().st_size, "sha256": h.hexdigest()}
 
 
-def check_binding(value):
+def _validate_binding(value):
     require(type(value) is dict and set(value) == {"path", "bytes", "sha256"} and
             type(value["path"]) is str and type(value["bytes"]) is int and
             value["bytes"] >= 0 and type(value["sha256"]) is str and
             re.fullmatch(r"[0-9a-f]{64}", value["sha256"]) is not None,
             "invalid_binding")
+
+
+def check_binding(value):
+    _validate_binding(value)
     require(binding(value["path"]) == value, "binding_changed")
 
 
@@ -216,9 +231,10 @@ def _initialize_registry(registry):
 
 
 @contextmanager
-def _locked(registry):
+def _locked(registry, *, expected_ledger=None):
     registry = safe_path(registry)
-    _initialize_registry(registry)
+    if expected_ledger is None:
+        _initialize_registry(registry)
     safe_path(registry, exists=True, directory=True)
     lock = registry / "admission.lock"
     try:
@@ -232,7 +248,7 @@ def _locked(registry):
             os.fsync(stream.fileno())
         path = registry / "ledger-v1.json"
         require(path.exists(), "ledger_missing")
-        ledger = read_json(path)
+        ledger = read_json(path) if expected_ledger is None else read_json(path, expected=expected_ledger)
         _validate(ledger, registry)
         yield ledger
     finally:
@@ -293,13 +309,13 @@ def preview_prepare(root, registry=DEFAULT_REGISTRY):
             "would_fit": not root_limit and not byte_limit, "admission_granted": False}
 
 
-def reserve_prepare(root, proposal_sha256, registry=DEFAULT_REGISTRY):
-    """Durably reserve before root mkdir or SDK calls; failure never auto-releases."""
+def reserve_prepare(root, proposal_sha256, registry=DEFAULT_REGISTRY, *, expected_ledger=None):
+    """Durably reserve before root mkdir, optionally against an exact ledger snapshot."""
     root, registry = safe_path(root), safe_path(registry)
     require(not root.exists(), "target_exists")
     require(not _contains(root, registry) and not _contains(registry, root), "overlapping_roots")
     require(type(proposal_sha256) is str and re.fullmatch(r"[0-9a-f]{64}", proposal_sha256), "invalid_proposal_digest")
-    with _locked(registry) as ledger:
+    with _locked(registry, expected_ledger=expected_ledger) as ledger:
         require(not root.exists(), "target_exists")
         require(not any(_contains(Path(e["root"]), root) or _contains(root, Path(e["root"]))
                         for e in ledger["entries"]), "root_already_tracked")

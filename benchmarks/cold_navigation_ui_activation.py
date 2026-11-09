@@ -293,7 +293,7 @@ def _verify_runtime(runtime_pin, job, admission, admission_pin, authority_pin, a
     _need(runtime["passed"] is True and runtime["reason"] is None and runtime["feature_acceptance"] is False
           and _same(runtime["request"], job["request"]) and _same(runtime["worker"], job["worker"])
           and _same(runtime["admission"], admission_pin), "runtime")
-    handoff_pin, handoff = owner._read_handoff(admission_pin)
+    handoff_pin, handoff = owner._read_handoff(admission_pin, live=False)
     _need(_same(runtime["handoff"], handoff_pin) and _same(handoff["supervisor"], job["worker"])
           and _same(handoff["authority"], authority_pin) and _same(handoff["attempt"], attempt_pin)
           and _same(handoff["began_ns"], began_ns) and _same(handoff["until_ns"], until_ns), "handoff")
@@ -319,6 +319,32 @@ def _verify_runtime(runtime_pin, job, admission, admission_pin, authority_pin, a
                 runtime["controller"], *terminal["captures"].values(), *runtime["closure"].values()):
         env.check_binding(pin)
     return runtime
+
+
+def verify_result(pin, admission_pin, authority_pin, attempt_pin, *, began_ns, expected_parent):
+    """Replay the completed activation inside the enclosing operation."""
+    value = owner._at(pin, CONTROL / "activation-result-v1.json")
+    contract._obj(value, ("version", "scope", "admission", "authority", "attempt", "supervisor",
+                          "runtime", "passed", "reason", "feature_acceptance"), "activation")
+    _need(_same(value["version"], 1) and value["scope"] == SCOPE and value["passed"] is True
+          and value["reason"] is None and value["feature_acceptance"] is False
+          and _same(value["admission"], admission_pin) and _same(value["authority"], authority_pin)
+          and _same(value["attempt"], attempt_pin), "activation")
+    terminal, request_pin, request, worker = _job_evidence("runtime", value["supervisor"])
+    _need(process._owner_ok(terminal, _capture_dir("runtime")), "owner_terminal")
+    contract._obj(request, REQUEST_KEYS, "request")
+    contract._process(request["parent"])
+    _need(_same(request, dict(version=1, scope=SCOPE, kind="runtime", admission=admission_pin,
+                              authority=authority_pin, attempt=attempt_pin, began_ns=began_ns,
+                              until_ns=request["until_ns"], running=None, parent=expected_parent)), "request")
+    owner.check_bounds(began_ns, request["until_ns"])
+    admission = contract.validate_admission(owner._at(admission_pin, owner.ADMISSION))
+    contract.revalidate_inputs(admission)
+    runtime = _verify_runtime(value["runtime"], dict(request=request_pin, worker=worker), admission,
+                              admission_pin, authority_pin, attempt_pin, began_ns, request["until_ns"])
+    for bound in (pin, value["supervisor"], value["runtime"], request_pin, admission_pin):
+        env.check_binding(bound)
+    return runtime["closure"]
 
 
 def execute(admission_pin, authority_pin, attempt_pin, *, began_ns):

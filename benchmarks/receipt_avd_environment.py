@@ -245,6 +245,8 @@ def plan_prepare(root, sdk, java_home, output, real_candidate=False, four_core_c
     floors = root_free_min(root)
     p = paths(root)
     require(not Path(root).exists(), "target_exists")
+    # The experiment parent is an operator precondition, never created implicitly.
+    safe_path(Path(p["root"]).parent, directory=True)
     sdk = safe_path(sdk, directory=True)
     java = safe_path(java_home, directory=True)
     image = sdk / "system-images/android-35/google_apis/x86_64"
@@ -439,6 +441,7 @@ def prepare(proposal_path, authorization_path):
     require(digest(proposal_path) == admitted_sha, "proposal_changed")
     root = Path(proposal["paths"]["root"])
     require(not root.exists(), "target_exists")
+    safe_path(root.parent, directory=True)
     facts = resource_facts(proposal)
     # Admission is durable before either target creation or any SDK worker.
     storage_transition(guest_storage.reserve_prepare, root, admitted_sha)

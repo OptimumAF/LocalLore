@@ -413,7 +413,7 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
       startOffered = true;
     } else {
       requireSupervisor(record.kind === 'worker_artifact_compile_observation_v1' &&
-        record.linkAllowed === false && record.qualified === false);
+        record.linkAllowed === false && record.qualified === false && ['observed', 'stopped'].includes(record.status));
       const checks = data(record.checks, CHECK_PHASES);
       requireSupervisor(CHECK_PHASES.every(phase => checks[phase] === null
         ? record.status !== 'observed' : checks[phase] === checkHashes[phase]));
@@ -424,6 +424,17 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
       if (starting) await verify('check-admit.json', checkWires.admit);
       // #408 hashes the original record's key order.
       const bytes = json(value);
+      if (!starting && record.status === 'observed') {
+        for (const phase of CHECK_PHASES) {
+          try {
+            await verify('check-' + phase + '.json', checkWires[phase]);
+          } catch {
+            await save('terminal.json', json({ version: 1, kind: 'compile_observation_retention_refusal_v1',
+              reportHash: rawHash(bytes), failedPhase: phase }));
+            requireSupervisor(false);
+          }
+        }
+      }
       const sha256 = await save(starting ? 'START.json' : 'terminal.json', bytes);
       if (starting) {
         start = sha256;
@@ -442,6 +453,7 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
     offerPending = true;
     try {
       await verify('START.json', startBytes);
+      await verify('check-before.json', checkWires.before);
       const proof = { kind: 'compile_host_authorized_v1', scope, spend: admitted.spend,
         start, writerPolicy: admitted.writerPolicy };
       const bytes = json(proof);

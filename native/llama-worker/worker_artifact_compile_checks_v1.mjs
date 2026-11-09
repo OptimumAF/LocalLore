@@ -163,6 +163,17 @@ function ioFor(sourceSignal) {
     requireCheck(stamp(await named(pin.path, false)) === expected);
     return { path: pin.path, identity: pin.identity, bytes: pin.bytes, sha256: actual };
   }
+  async function heldMetadata(path, expected) {
+    live();
+    const file = await open(path, 'r');
+    try {
+      const held = await checked(() => file.stat(statOptions));
+      requireCheck(held.isFile() && held.nlink === 1n && stamp(held) === stamp(expected));
+    } finally {
+      await file.close();
+    }
+    requireCheck(stamp(await named(path, false)) === stamp(expected));
+  }
   async function missing(slot) {
     const folder = parent(slot.path);
     const before = await named(folder, true);
@@ -184,7 +195,7 @@ function ioFor(sourceSignal) {
       const before = await named(folder, true);
       requireCheck(id(before) === expectedId);
       live();
-      const directory = await opendir(folder);
+      const directory = await opendir(folder, { recursive: false, bufferSize: 1 });
       try {
         for (;;) {
           const entry = await checked(() => directory.read());
@@ -195,6 +206,7 @@ function ioFor(sourceSignal) {
           const rowPath = relative ? relative + '/' + entry.name : entry.name;
           const isDirectory = entry.isDirectory();
           const stat = await named(next, isDirectory);
+          if (!isDirectory) await heldMetadata(next, stat);
           const key = id(stat);
           requireCheck(stat.dev.toString() === device && !seen.has(key));
           seen.add(key);
@@ -212,7 +224,9 @@ function ioFor(sourceSignal) {
     }
     await walk(root.path, '', 0, root.identity);
     const pending = root.pending[phase];
-    requireCheck(total + BigInt(pending) <= BigInt(root.maxBytes));
+    const forecast = total + BigInt(pending);
+    requireCheck(forecast <= BigInt(root.maxBytes) &&
+      (root.role !== 'temp' || phase === 'after' || forecast === BigInt(root.maxBytes)));
     rows.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     return { role: root.role, identity: root.identity, bytes: total.toString(), pending, rows };
   }

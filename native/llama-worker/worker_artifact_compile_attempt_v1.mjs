@@ -26,6 +26,8 @@ const ENTRY = 'worker_artifact_compile_attempt_v1.mjs';
 const HELPER = 'locallore-compile-host-v1.exe';
 const NODE = 'node.exe';
 
+const signalAborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted').get;
+
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const jsonSha = value => sha(JSON.stringify(value));
 const int = (value, lo, hi) => Number.isSafeInteger(value) && value >= lo && value <= hi;
@@ -238,7 +240,7 @@ export async function runWorkerArtifactCompileAttemptV1(profile, owner, sourceSi
       const lease = request.when === 'admit' ? null : outputRoots.snapshot();
       const receipt = await check(request, guardSignal, admitted, lease);
       await supervisor.recordCheck(request.when, receipt);
-      requireAttempt(!guardSignal.aborted);
+      requireAttempt(!signalAborted.call(guardSignal));
       return receipt;
     },
       journal: supervisor.journal, launch: host.launch }

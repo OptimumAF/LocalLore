@@ -66,7 +66,7 @@ class PickerActionBindingTests(unittest.TestCase):
         self.assertEqual(set(self.pins), set(ROLES))
         expected = {
             "build": ("audit-test-pair-ef8d3a3b-v1.log", 763,
-                      "50dd9fc0743a6b940a8efacf56c1a2abb120731b30b35dad78aa556c549919e05"),
+                      "50dd9fc0743a6b940a8efac56c1a2abb120731b30b35dad78aa556c549919e05"),
             "product_apk": ("app-debug.apk", 78697092,
                             "ce1bba095a49ffa1f9c8be3c6ab4fd3b1ae5502fe07a7cf49e7005fa9c0d44ca"),
             "test_apk": ("app-debug-androidTest.apk", 2423912,

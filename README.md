@@ -67,6 +67,11 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [archive opening clarification](docs/android/ARCHIVE_CORRECTED_OPEN_2026-11-01.md)
+replaces a stale warning: explicit Open resumes the original root, then the
+library can select a playable corrected timeline. Thirteen native tests and
+the full 494-case JVM/offline Android gate pass; two new UI tests compile only.
+
 The [focused relationship view](docs/android/RELATIONSHIP_FOCUS_2026-11-01.md)
 shows the native dimensions for one visible target, with exact case-sensitive
 IDs and scoped evidence. The offline Android gate passes 492 JVM cases and

@@ -440,10 +440,17 @@ internal fun LocalLoreScreen(
                         }
                     }
                     if (onText != null) item(key = "play-composer") {
-                        // Text-field/button managers retain callbacks internally. Recreate
-                        // those controllers on a scope change, rather than retargeting an
-                        // old semantics/IME action to the new story's latest callback.
+                        // A returning scope mounts a new editor. Retained IME/semantics
+                        // callbacks from the previous editor must lose their draft access.
                         key(draftScope) {
+                            val composerControls = remember { RenderedControlLifetime() }
+                            DisposableEffect(composerControls) {
+                                onDispose { composerControls.active = false }
+                            }
+                            fun canEditDraft() = composerControls.active && !currentEditorBlocked &&
+                                !currentDraftPending && currentDraftScope == draftScope &&
+                                currentDraftInteractionAllowed(draftScope)
+
                             PlayInputComposer(
                                 input = playInput,
                                 provider = state.textProvider,
@@ -451,31 +458,26 @@ internal fun LocalLoreScreen(
                                     (state.persistent && state.selectedStory == null),
                                 recoveryRequired = state.recoveryRequired,
                                 onKindChange = { kind ->
-                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
-                                        !currentDraftPending && currentDraftScope == draftScope) {
+                                    if (canEditDraft()) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false)
                                         playDraft = latest.edit(draftScope, currentDraftScope, latest.input.copy(kind = kind))
                                     }
                                 },
                                 onTextChange = { text ->
-                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
-                                        !currentDraftPending && currentDraftScope == draftScope) {
+                                    if (canEditDraft()) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false)
                                         playDraft = latest.edit(draftScope, currentDraftScope, latest.input.copy(text = text))
                                     }
                                 },
                                 onInput = { input ->
-                                    if (!currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
-                                        !currentDraftPending && currentDraftScope == draftScope) {
+                                    if (canEditDraft()) {
                                         playDraft = playDraft.resolve(currentDraftScope, pending = false)
                                             .edit(draftScope, currentDraftScope, input)
                                     }
                                 },
                                 sendControlKey = renderedControlKey,
                                 onSend = { _ ->
-                                    if (renderedControls.active && currentRenderedState.value === state &&
-                                        !currentEditorBlocked && currentDraftInteractionAllowed(draftScope) &&
-                                        !currentDraftPending && currentDraftScope == draftScope) {
+                                    if (renderedControls.active && currentRenderedState.value === state && canEditDraft()) {
                                         val latest = playDraft.resolve(currentDraftScope, pending = false).input
                                         if (validPlayInput(latest)) onText(latest, renderedStory)
                                     }

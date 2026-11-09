@@ -126,6 +126,7 @@ internal fun LocalLoreScreen(
     val transcriptNavigation = rememberTranscriptNavigation(
         transcript, 4 + (if (onText != null) 1 else 0) + (if (onStoryRecord != null) 1 else 0),
     )
+    val sceneHeading = storyHeading(state)
     LocalLoreTheme {
         overlay()
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { safePadding ->
@@ -278,20 +279,26 @@ internal fun LocalLoreScreen(
                     if (state.persistent && state.selectedStory == null) item(key = "empty-library") {
                         Text("No saved stories. Choose New story to begin.", modifier = Modifier.testTag("empty-library"))
                     }
-                    if (!state.persistent || state.selectedStory != null) item(key = "scene") {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (sceneHeading != null) item(key = "scene") {
+                        Column(modifier = Modifier.testTag("story-heading"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                             Text(
-                                "Lantern Quay",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontFamily = FontFamily.Serif,
-                                modifier = Modifier.semantics { heading() },
+                                if (state.persistent) "Saved story" else "Demo scene",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("story-heading-kind"),
                             )
                             Text(
-                                "The tide laps below the quay. Mira waits beside you. " +
-                                    "Oren’s borrowed brass key rests in your satchel.",
+                                sceneHeading.title,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontFamily = FontFamily.Serif,
+                                modifier = Modifier.testTag("story-heading-title").semantics { heading() },
+                            )
+                            Text(
+                                sceneHeading.introduction,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontFamily = FontFamily.Serif,
+                                modifier = Modifier.testTag("story-heading-introduction"),
                             )
                         }
                     }

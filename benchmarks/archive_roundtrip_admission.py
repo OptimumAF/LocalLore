@@ -97,7 +97,7 @@ def _prepared_entry(ledger_pin, admission, proposal):
     _check_ledger_unlocked()
 
 
-def preboot(authority_pin):
+def preboot(authority_pin, *, owner_created=False):
     """Revalidate the one approved prepared-run context without spending it."""
     authority = _authority(authority_pin)
     admission_pin = authority["admission"]
@@ -105,8 +105,11 @@ def preboot(authority_pin):
     guest = admission["guest"]
     _need(admission["root"] == str(OWNED_ROOT) and _same(admission["seconds"], OWNER_SECONDS) and
           _same(guest["max_seconds"], GUEST_SECONDS), "admission")
-    _need(not os.path.lexists(OWNED_ROOT) and
-          not os.path.lexists(Path(guest["root"]) / contract.BOOT_CLAIM_FILE), "already_used")
+    if owner_created:
+        env.safe_path(OWNED_ROOT, directory=True)
+    else:
+        _need(not os.path.lexists(OWNED_ROOT), "already_used")
+    _need(not os.path.lexists(Path(guest["root"]) / contract.BOOT_CLAIM_FILE), "already_used")
     proposal = _proposal(admission)
     _prepared_entry(authority["ledger"], admission, proposal)
     build.verify_current(admission)
@@ -144,10 +147,10 @@ def spend(authority_pin):
     return pin
 
 
-def verify_spent(authority_pin, attempt_pin):
+def verify_spent(authority_pin, attempt_pin, *, owner_created=False):
     """Bind the spent attempt to the unchanged preboot context before launch."""
     retained = _at(attempt_pin, ATTEMPT, AUTHORITY_CAP)
-    context = preboot(authority_pin)
+    context = preboot(authority_pin, owner_created=owner_created)
     _need(_same(retained, _claim(authority_pin, context)), "attempt")
     env.check_binding(attempt_pin)
     return context

@@ -216,3 +216,26 @@ python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_admiss
 
 These host tests use synthetic admission, authorization and ledger
 records. The real operator launcher, authority and guest run are separate.
+
+## Verify the guarded owner handoff
+
+An already-owned supervisor job can publish one handoff for the spent
+SDK25 attempt. The fixed owner parent and inherited worker require the
+same handoff digest, held Windows process ancestry, and bounded launch
+window. The worker rechecks the handoff before starting the isolated
+server and again at the shared owner's last pre-emulator guard.
+
+The shared storage transition receives the exact approved prepared ledger
+pin and preparation digest under its lock before a boot claim is written.
+If the supervisor or authority disappears after the transition or boot
+claim, the worker refuses launch and preserves the spent evidence and
+reservation. A later supervisor must verify the controller's remaining
+lease budget after guest registration.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_handoff.py
+```
+
+These are synthetic handoff, Job membership and ledger-transition checks.
+The supervisor launcher, its controller process supervision, and separate
+guest authorization are still required.

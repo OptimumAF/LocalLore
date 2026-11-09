@@ -3,6 +3,7 @@ package org.locallore.app
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -118,7 +119,7 @@ class ArchiveProviderReadTest {
         }
     }
 
-    @Test fun cancelledQueuedImportNeverOpensOrSignalsTheProvider() = runBlocking {
+    @Test fun cancelledQueuedImportNeverOpensOrSignalsTheProvider() = runBlocking(Dispatchers.IO) {
         val openEntered = CompletableDeferred<Unit>()
         val releaseOpen = CountDownLatch(1)
         val queuedCalls = AtomicInteger()
@@ -135,6 +136,7 @@ class ArchiveProviderReadTest {
 
         try {
             withTimeout(5_000) { openEntered.await() }
+            // Enter the IO adapter inline so the occupied slot is the first suspension.
             val queued = launch(start = CoroutineStart.UNDISPATCHED) {
                 readArchiveFromProvider(
                     open = {

@@ -48,6 +48,13 @@ class SyntheticOperation(BootRecords):
         self.records.pop(owner.ADMISSION)
         self.prepared_path = owner.GUEST / "prepared-v1.json"
         self.prepare_result_path = owner.GUEST / "prepare-result-v1.json"
+        self.prepare_evidence_paths = {
+            role: owner.GUEST / name
+            for role, name in (("start", "prepare-start-v1.json"),
+                               ("worker", "prepare-worker-claimed-v1.json"),
+                               ("client", "prepare-client-v1.json"),
+                               ("stdout", "prepare-stdout-v1.bin"))
+        }
         _, self.prepared = self.records.pop(self.prepared_path)
         _, self.prepare_result = self.records.pop(self.prepare_result_path)
         self.preflight_result = dict(resources={"synthetic": "host capacity"},
@@ -75,6 +82,15 @@ class SyntheticOperation(BootRecords):
         return self.add("publication", path, value)
 
     def complete_prepare(self, *args, **kwargs):
+        paths = self.prepare_evidence_paths
+        common = dict(proposal_sha256=self.plan["prepare"]["sha256"], prepare_scope=owner.OPERATION_SCOPE)
+        self.publish(paths["start"], dict(common, facts={}, owner=self.worker))
+        sdk_worker = dict(self.worker, pid=self.worker["pid"] + 1,
+                          creation_filetime=self.worker["creation_filetime"] + 1)
+        self.publish(paths["worker"], dict(common, worker=sdk_worker))
+        capture = self.publish(paths["stdout"], b"synthetic prepare output")
+        self.publish(paths["client"], dict(status="completed", returncode=0, cleanup_complete=True,
+                                           elapsed_ms=1, stdout_sha256=capture["sha256"], stderr_bytes=0))
         self.publish(self.prepared_path, self.prepared)
         self.publish(self.prepare_result_path, self.prepare_result)
         return copy.deepcopy(self.prepared)
@@ -239,6 +255,9 @@ class ColdNavigationOperationTests(unittest.TestCase):
         self.assertEqual(stage["phase"], "completed")
         self.assertEqual(stage["worker"], graph.worker)
         self.assertEqual(stage["prepare"], graph.read(graph.prepare_result_path)[0])
+        self.assertEqual(stage["prepare_evidence"], {
+            role: graph.read(path)[0] for role, path in graph.prepare_evidence_paths.items()
+        })
         self.assertEqual(stage["closure"], graph.closure)
         self.assertEqual(graph.read(operation.STAGE)[1], stage)
         graph.preflight.assert_called_once_with(graph.authority, graph.plan, graph.prepare)
@@ -367,6 +386,43 @@ class ColdNavigationOperationTests(unittest.TestCase):
                                     graph.began_ns, graph.worker)
 
         graph.verify_activation.assert_not_called()
+
+    def test_stage_replay_refuses_replaced_prepare_owner_or_worker_claim(self):
+        for role, identity in (("start", "owner"), ("worker", "worker")):
+            with self.subTest(role=role):
+                graph = SyntheticOperation()
+                self.assertIs(graph.stages()["passed"], True)
+                graph.verify_activation.reset_mock()
+                stage_pin, _ = graph.read(operation.STAGE)
+                path = graph.prepare_evidence_paths[role]
+                _, value = graph.read(path)
+                graph.add("changed_prepare_evidence", path,
+                          dict(value, **{identity: dict(value[identity], pid=99999)}))
+
+                with graph.ports(), self.assertRaises(REFUSED):
+                    operation._verify_stage(stage_pin, graph.authority_pin, graph.attempt_pin,
+                                            graph.began_ns, graph.worker)
+
+                graph.verify_activation.assert_not_called()
+
+    def test_bad_prepare_capture_refuses_before_admission_or_activation(self):
+        graph = SyntheticOperation()
+
+        def complete_with_changed_stdout(*args, **kwargs):
+            result = graph.complete_prepare(*args, **kwargs)
+            path = graph.prepare_evidence_paths["stdout"]
+            _, stdout = graph.read(path)
+            graph.add("changed_prepare_output", path, b"z" * len(stdout))
+            return result
+
+        graph.prepare_once.side_effect = complete_with_changed_stdout
+        stage = graph.stages()
+
+        self.assertIs(stage["passed"], False)
+        self.assertEqual(stage["prepare"], graph.read(graph.prepare_result_path)[0])
+        self.assertIsNone(stage["prepare_evidence"])
+        graph.admit.assert_not_called()
+        graph.activate.assert_not_called()
 
     def test_stage_replay_refuses_cross_profile_prepare_authorization(self):
         graph = SyntheticOperation()

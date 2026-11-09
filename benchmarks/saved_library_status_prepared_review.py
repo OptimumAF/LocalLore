@@ -7,6 +7,7 @@ import os
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 import re
+import subprocess
 import sys
 from zipfile import BadZipFile, ZipFile
 from zlib import error as DeflateError
@@ -14,10 +15,12 @@ from zlib import error as DeflateError
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from benchmarks import adb_held_socket_probe as python_pins
 from benchmarks import owned_saved_library_status as owner
 from benchmarks import receipt_avd_environment as env
 from benchmarks import receipt_avd_storage as storage
 from benchmarks import saved_library_status_activation as activation
+from benchmarks import saved_library_status_binding as artifacts
 from benchmarks import saved_library_status_handoff as h
 from benchmarks import saved_library_status_operation as operation
 
@@ -30,6 +33,7 @@ RECORD_ROOTS = {
     "guest-receipts": h.GUEST,
     "plan": h.OUT,
 }
+EXECUTED_ROOT = Path("D:/Worktrees/LocalLore-saved-library-readiness-v1")
 EXECUTED_HEAD = "edbb6124b3a68c27e5d9f24f5645a66da0c90aa8"
 SCOPE = "sdk23-saved-library-prepared-review-v1"
 REVIEW_CAP = 16 * 1024**2
@@ -173,12 +177,41 @@ def _failure(pins, raw):
 
     admission = record("attempt/admission-v1.json", stage["admission"])
     receipt = pins["attempt/owned-v1/guest-inputs-v1.json"]
+    artifacts.verify_artifacts(admission["artifacts"])
     owner.REPLAY.verify_guest_inputs(receipt, admission, stage["admission"])
     proposal = record("attempt/run-proposal-v1.json", admission["guest"]["proposal"])
-    env.validate_proposal(proposal, "run")
     _need(_same(proposal["prepare_proposal"], plan["prepare"]) and _same(proposal["prepare_result"], stage["prepare"]),
           "prepared")
-    return receipt, proposal
+    return receipt, proposal, plan
+
+
+def _verify_original_preparation(proposal, plan):
+    # The installed-file pins deliberately include absolute paths to the
+    # original checkout. Replay under that checkout's unchanged reader.
+    _need(Path(plan["source_root"]) == EXECUTED_ROOT
+          and _same(plan["python"], python_pins._python_bindings()), "source")
+    sources = plan["sources"]
+    names = {Path(pin["path"]).relative_to(EXECUTED_ROOT) for pin in sources}
+    current_names = {Path(pin["path"]).relative_to(h.ROOT) for pin in owner.source_bindings()}
+    _need(names == current_names and len(names) == len(sources), "source")
+    for pin in sources:
+        env.check_binding(pin)
+    command = (
+        "import sys; sys.path.insert(0, str(__import__('pathlib').Path.cwd())); "
+        "from benchmarks import receipt_avd_environment as env; "
+        "value=env.decode_json(sys.stdin.buffer.read()); "
+        "env.validate_proposal(value, 'run'); "
+        "sys.stdout.buffer.write(env.encoded(env.verify_prepared(value, initial=True)))"
+    )
+    result = subprocess.run([plan["python"]["executable"]["path"], "-I", "-S", "-B", "-c", command],
+                            cwd=EXECUTED_ROOT, input=env.encoded(proposal), capture_output=True,
+                            creationflags=subprocess.CREATE_NO_WINDOW, timeout=120)
+    _need(result.returncode == 0 and result.stderr == b"" and len(result.stdout) <= h.RECORD_CAP, "prepared")
+    prepared = env.decode_json(result.stdout)
+    _need(_same(prepared, h.at(proposal["prepared"], h.GUEST / "prepared-v1.json")), "prepared")
+    for pin in sources:
+        env.check_binding(pin)
+    return prepared
 
 
 def inspect(manifest_pin, ledger_pin):
@@ -186,15 +219,18 @@ def inspect(manifest_pin, ledger_pin):
     absent = (h.GUEST / owner.BOOT_CLAIM_FILE, h.GUEST / "guest-storage-closure-v1.json",
               h.OWNED_ROOT / "running-v1.json", h.OWNED_ROOT / "guest-output-v1")
     _need(not any(os.path.lexists(path) for path in absent), "already_used")
+    lock = h.LEDGER.with_name("admission.lock")
+    _need(not os.path.lexists(lock), "ledger")
     current_ledger, entry = h.ledger_entry(h.GUEST)
     _need(_same(ledger_pin, current_ledger), "ledger")
     pins, raw = _archive(manifest_pin)
-    receipt, proposal = _failure(pins, raw)
+    receipt, proposal, plan = _failure(pins, raw)
     _check_ledger_entry(entry, proposal["prepare_proposal"]["sha256"])
-    prepared = env.verify_prepared(proposal, initial=True)
+    prepared = _verify_original_preparation(proposal, plan)
     archive_pin = h.at(manifest_pin, MANIFEST)["archive"]
     for pin in (manifest_pin, archive_pin, ledger_pin, *pins.values(), *prepared["immutable"]):
         env.check_binding(pin)
+    _need(not os.path.lexists(lock), "ledger")
     userdata = Path(proposal["paths"]["content"]) / "userdata-qemu.img"
     _need(not any(os.path.lexists(path) for path in (*absent, userdata)), "already_used")
     return dict(version=1, scope=SCOPE, status="prepared_candidate", manifest=manifest_pin, ledger=ledger_pin,
@@ -211,7 +247,7 @@ def main(argv=None):
         ledger, _ = h.read(h.LEDGER, h.STORAGE_CAP)
         _need(manifest["sha256"] == args[1] and ledger["sha256"] == args[3], "binding")
         result, status = inspect(manifest, ledger), 0
-    except (OSError, RuntimeError, ValueError, TypeError, KeyError, BadZipFile, DeflateError):
+    except (OSError, RuntimeError, ValueError, TypeError, KeyError, BadZipFile, DeflateError, subprocess.TimeoutExpired):
         result, status = dict(version=1, scope=SCOPE, status="refused", execution_authorized=False), 1
     print(json.dumps(result, sort_keys=True), flush=True)
     return status

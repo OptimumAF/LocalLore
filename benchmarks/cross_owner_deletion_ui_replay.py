@@ -8,7 +8,6 @@ import re
 from benchmarks import android_instrumentation_evidence as evidence
 from benchmarks import cross_owner_deletion_ui_binding as binding
 from benchmarks import owned_target_contract as core
-from benchmarks.saved_library_status_controller import _package_query
 
 SCOPE = "cross-owner-deletion-ui-replay-v1"
 COMMAND_COUNT = 26
@@ -28,6 +27,10 @@ def _line(raw):
     lines = _lines(raw)
     core._need(len(lines) == 1, "observation")
     return lines[0]
+
+
+def _package_query(package):
+    return ["cmd", "package", "list", "packages", "-U", "--user", "0", package]
 
 
 def _package_uids(raw, package):

@@ -49,6 +49,49 @@ class ShellViewModelTest {
         assertEquals(2, model.state.value.messages.size)
     }
 
+    @Test fun renderedStoryStartCannotResetAReplacementDemoRevision() = runTest(dispatcher) {
+        var resets = 0
+        val gateway = object : DemoGateway {
+            override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode) =
+                DemoResult.Accepted(1, "Mira", "Accepted sample.")
+            override fun reset() { resets++ }
+        }
+        val model = model(gateway)
+        val prior = model.state.value
+        model.submit(DemoAction.GIVE_POTION)
+        advanceUntilIdle()
+        val current = model.state.value
+        assertEquals(1L, current.revision)
+        assertTrue(current.messages.isNotEmpty())
+
+        model.startNewStory(prior)
+        model.startNewStory(current.copy())
+        assertEquals("A stale button reset the current demo", 0, resets)
+        assertSame(current, model.state.value)
+
+        model.startNewStory(current)
+        assertEquals(1, resets)
+        assertEquals(0L, model.state.value.revision)
+        assertTrue(model.state.value.messages.isEmpty())
+    }
+
+    @Test fun renderedStoryStartCannotResetABusyDemo() = runTest(dispatcher) {
+        val result = CompletableDeferred<DemoResult>()
+        val model = model { _, _, _ -> result.await() }
+        model.submit(DemoAction.GIVE_POTION)
+        runCurrent()
+        val busy = model.state.value
+        assertTrue(busy.busy)
+        try {
+            model.startNewStory(busy)
+            assertSame("A disabled reset discarded the pending turn", busy, model.state.value)
+        } finally {
+            result.complete(DemoResult.Accepted(1, "Mira", "Accepted sample."))
+            advanceUntilIdle()
+        }
+        assertEquals(1L, model.state.value.revision)
+    }
+
     @Test fun duplicateTapDoesNotStartAnotherRequest() = runTest(dispatcher) {
         var calls = 0
         val model = model { _, _, _ -> calls++; delay(5_000); DemoResult.Rejected("Ability") }

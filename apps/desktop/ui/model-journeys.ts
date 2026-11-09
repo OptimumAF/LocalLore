@@ -404,6 +404,10 @@ export async function modelJourneys({
         );
         await c.resume(scope);
         check(
+            c.get().notice === "",
+            "resuming-an-open-story-clears-other-story-notice",
+        );
+        check(
             c.get().play!.revision === savedRevision,
             "original-real-story-retains-canonical-head",
         );

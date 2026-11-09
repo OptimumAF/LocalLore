@@ -159,6 +159,84 @@ modes. Install its two APKs only on authorized targets, then select
 the Activity tests require this isolated package. Ordinary builds keep their
 usual identity/output directory.
 
+The production Activity recovery test uses the isolated story-deletion debug
+profile. Run this command from the Android project directory.
+
+```powershell
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug -PlocalLoreStoryDeletionVerification=true --project-cache-dir .gradle-story-deletion -Pkotlin.incremental=false --offline --no-daemon
+```
+
+The profile selects `org.locallore.app.storydelete` and `app/build-story-deletion`.
+Use a separately authorized target with a confirmed-empty library in that package
+and select exactly
+`org.locallore.app.CrossOwnerDeletionRecoveryMainActivityTest#recoversRetainedStoryAfterAnotherOwnerDeletesSelection`.
+The test creates two synthetic stories, then deletes its selected fixture through
+a second native owner and checks that the Activity recovers the retained story.
+The APK build and host checks leave Android execution pending.
+
+Check the preserved pair, build record and APK audit from the repository root.
+
+```powershell
+python -I -S -B benchmarks/cross_owner_deletion_ui_binding.py
+```
+
+The read-only report binds the exact archived bytes and annotated method to
+the story-deletion package. A later device run requires its own guarded
+admission and approval.
+
+The host replay in `benchmarks/cross_owner_deletion_ui_replay.py` checks the
+26-command sequence from a ready API 35 x86_64 emulator through one exact test.
+It checks both package absences, install flags, artifact hashes, and matching
+installed identities before and after the test. The caller must separately
+qualify the owner, transport, and command records before treating a replay as
+device evidence.
+
+`benchmarks/cross_owner_deletion_ui_capture.py` connects this replay to the
+existing owned-target verifier. It checks the expected caller and session,
+rereads each command's pinned output, and applies the fixed per-command
+deadlines. The same verifier checks the records produced by the fixed
+controller.
+
+`benchmarks/owned_cross_owner_deletion_ui.py` supplies the fixed host contract
+for that adapter. Its source roster includes the DEX checks, and its command
+rules require the isolated packages, one exact method, and installs with
+replacement disabled. The controller in
+`benchmarks/cross_owner_deletion_ui_controller.py` runs those 26 commands only
+against an already owned target. It verifies each recorded reply before the
+next command, replays the full capture and checks observer cleanup. A live
+owner and its operation still require a separately reviewed proposal and
+admission. The controller first captures read-only `sys.boot_completed` polls
+under the same owned guest, transport, and caller. It waits up to 120 seconds
+and accepts at most 24 polls. Only a replayed, qualified `1` reply allows the
+fixed 26-command capture to begin. Boot records live in `boot-readiness-v1`
+and the version 2 controller result binds and replays them separately. The
+first command of the fixed capture still checks the property again.
+
+The guarded SDK24 owner accepts one sealed activation of the fixed prepared
+guest. Before launching, it verifies the exact admission, approval, prepared
+ledger snapshot and live supervisor. The retained transition compares that
+snapshot under the shared ledger lock. The owned worker runs the controller
+once and requests its normal shutdown. The final activation result requires
+independent replay of the test, qualified owner cleanup and the closed ledger
+entry. An uncertain controller leaves the full reservation charged. A live
+run requires an approved preparation and a separately authorized activation.
+
+The preparation module can generate and inspect a fixed plan using the
+installed SDK and the pinned APKs. The inspection checks the shared ledger,
+host resources and ports. Its records grant no execution authority. The
+preparation command requires an exact preparation-only approval and uses the
+shared guarded SDK preparation path.
+
+After qualified preparation, the admission module stages the prospective
+run and an activation proposal. The derived run authorization is still
+absent at this stage. The activation supervisor consumes a separate exact
+approval once, creates that authorization inside its bounded worker and
+launches the guarded owner. Its result requires replay of the owner, test and
+cleanup evidence from the same activation. Partial records remain available
+for diagnosis.
+
+
+
 Parent-retirement verification has its own debug identity and project cache:
 
 ```powershell
@@ -324,8 +402,10 @@ model/cache holds still apply. See the [dated verification](../../docs/native/LI
 
 Give the potion to Mira, then try giving it again and using the unlearned ability.
 Only finalized shared-engine receipts enter the transcript. **Demo responses**
-injects malformed, rejected, delayed and failing generation. **New story** creates
-a new independent saved story and retains earlier stories in **Saved stories**.
+injects malformed, rejected, delayed and failing generation. **New story** opens
+a review before creating an independent save and retains earlier stories in
+**Saved stories**. **Reset demo** restarts the in-memory scene. Both buttons
+apply to the view that displayed them and discard stale clicks after a refresh.
 Cancel reconciles against accepted history: a commit that already won remains
 visible. Simulated delay is not a performance measurement.
 
@@ -528,15 +608,27 @@ a fresh session. Closing refreshes the accepted saved-story library.
 
 Model weights, separate diagnostics/raw prompt logs, caches, and uncommitted
 operations are excluded. The document provider may sync plaintext elsewhere.
-Checksums establish consistency, not authorship. Cancellation can race an
-already committed import; refresh the library before retrying. A provider that
-does not return can delay cancellation cleanup; Close holds the shell guard
-until active work and outstanding picker callbacks drain.
+Checksums establish consistency, not authorship. Cancelling an import or export
+signals the document provider's pending open from an I/O worker. A provider
+that ignores the signal or blocks during a stream read or write can delay
+cleanup. Close holds the shell guard until active work and outstanding picker
+callbacks drain. An export cancelled after writing starts can leave a partial
+document. Cancellation can race an already committed import; refresh the
+library before retrying.
 
 The [narrow native boundary](../../docs/native/ANDROID_ARCHIVE_BOUNDARY.md),
 [verification](../../docs/native/ANDROID_ARCHIVE_VERIFICATION_2026-10-23.md), and
 [shared format](../../docs/storage/M08_PLAYABLE_ARCHIVE_V1.md) describe limits.
 This adds no inference dependency, network/storage permission, or automatic upload.
+
+The two model-free methods in `org.locallore.app.ArchiveProviderPlatformTest`
+use the archive-verification APK pair (`-PlocalLoreArchiveVerification=true`).
+They check that the remote test provider receives cancellation during a
+read-only or read-write open. Import verifies the next read honors a file slice.
+Export verifies a late destination closes empty and a fresh export can write.
+The fixture lives in the test APK. Build both APKs with
+`:app:assembleDebug :app:assembleDebugAndroidTest`. Test execution requires
+a separately approved, owned Android run.
 
 The separate [Windows–Android proof](../../docs/native/PLATFORM_ROUNDTRIP_VERIFICATION_2026-10-23.md)
 transfers original fixture bytes through actual Rust/JNI and verifies replay,

@@ -1,0 +1,418 @@
+# Current Windows and Android archive fixture preparation
+
+The [historical report](PLATFORM_ROUNDTRIP_RESULTS_2026-10-23.json) records the earlier archive-v1 transfers. Its Android APK fixtures remain frozen at source database schema 2. The current Windows fixture generator writes archive v1 with the active Store schema, currently 5.
+
+For an owned physical D: checkout with the pinned tools already provisioned, build the Windows fixture executable and generate fresh expected fixtures.
+
+```powershell
+$env:TEMP = 'D:/Dev/_Temp'
+$env:TMP = $env:TEMP
+$target = 'D:/LocalLore proof/target'
+$fixtures = 'D:/LocalLore proof/current-fixtures'
+$check = 'D:/LocalLore proof/fixture-check'
+cargo +1.93.1 build -p locallore-android --example platform_roundtrip --locked --offline --target-dir $target
+$fixtureExe = Join-Path $target 'debug/examples/platform_roundtrip.exe'
+& $fixtureExe --development-fixtures generate --directory $fixtures
+& $fixtureExe --development-fixtures check-fixtures --directory $check --inputs apps/android/app/src/androidTest/assets/platform-roundtrip-v1 --fixtures $fixtures
+```
+
+Use the fresh generated directory for `scripts/platform_roundtrip.py --fixtures`. The runner separately verifies the test APK against the tracked historical assets. It runs the same bounded Rust fixture check before APK badging or device commands. Both archives must validate as archive v1. Only the source schema and its dependent payload digest may differ. The complete generated archive bytes must match the normalized compatibility record, and the expected snapshots must match byte for byte. Android's returned Windows archives still have to match the fresh current fixtures exactly.
+
+The isolated Android app and test APKs are produced by `python scripts/check.py android --archive-verification --offline` with the provisioned Android build environment. Build and fixture preflight evidence are separate from actual transfer. A current run still requires an exact isolated APK pair and a separately admitted target under the [shared guest storage procedure](../runtime/android/RECEIPT_AVD_STORAGE.md). The fixture preflight issues no device command.
+
+## Bind the verified APK and fixture inputs before guest admission
+
+The retained archive-verification APK pair and Windows fixture packet from
+[#30](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6747415942)
+have a host-only preflight. Supply the two existing physical D: evidence roots
+from the build and fixture checks.
+
+```powershell
+$env:TEMP = 'D:/Dev/_Temp'
+$env:TMP = $env:TEMP
+python -B -m benchmarks.archive_roundtrip_build --apk-root $apkEvidence --windows-root $windowsEvidence
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_build.py
+```
+
+The preflight returns the eight exact byte-count and SHA-256 bindings. It checks
+the exact bytes of the previously audited APKs and custody receipt, the Windows
+fixture executable, the three generated fixtures and the successful Rust
+compatibility receipt. It refuses missing or linked inputs, changes during
+the check, and any owner binding outside the fixed roster. The output contains local
+paths and belongs in local evidence. The build source in this record identifies
+where the APKs were built. A later owner must revalidate the artifact roster
+and live bytes, and must establish its own source, lease and shared-ledger
+admission. This command performs no SDK, device, or archive-transfer operation.
+
+## Verify the owned archive profile on the host
+
+The model-free SDK25 profile reuses the existing owned-target worker, shared
+guest ledger, bounded shell-v2 client, and retained capture verifier. It binds
+the exact eight artifacts above during admission and rechecks their bytes
+before the live lease or worker opens its shared process resources, and
+again when verifying the retained guest proof. The fixed target scope is
+API 35, x86_64 and Android user 0.
+
+The first phase uses a run ID derived from the admission. Its two isolated
+APKs use exclusive staging paths and no-replace installation. The outbound
+instrumentation consumes one durable claim. Private reads accept only that
+run's owner marker and three outbound files, with a combined 128 KiB capture
+limit in both live and retained verification.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_owned_archive_roundtrip_profile.py
+```
+
+These host checks exercise admission, command policy, one-shot claim and
+live/replay wiring with synthetic inputs. The worker entry requires the
+shared parent barrier. The operator launcher and separately approved guest
+admission remain pending.
+
+## Check the ordered outbound transfer evidence
+
+The outbound controller checks boot readiness, the fixed target and Android
+user, and absence of both isolated packages before writing either APK. It
+checks the staged hashes, installs without replacing, and records package
+UIDs, paths and APK hashes before and after the single outbound test. The
+test must pass and emit the exact owner marker. Both returned Windows
+archives must match the admitted sizes and SHA-256 digests.
+
+Host verification uses a synthetic 31-command capture with two boot reads.
+The live adapter allows at most 60 boot reads, gives each read at most the
+remaining time in the 120-second boot window, and refuses late readiness.
+Replay checks the command count, individual command deadlines, and the
+same ordered setup and transfer evidence. SDK25 caps raw captures at 128 KiB.
+Setup commands request 4 KiB and a retained setup record exceeding that
+size is refused.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_outbound.py
+```
+
+The result carries the exact session, contiguous record pins, and verified
+archive bytes. A return controller must match those frozen pins when replaying
+the prefix, run the pinned Rust continuation, and verify the exclusive return
+write before dispatch. These host tests use no SDK, emulator, or device.
+
+## Verify the Windows continuation receipt
+
+The continuation replays the exact outbound record prefix and compares its
+session, ordered record pins and bytes before creating the fixed attempt
+directory. It materializes only the three verified outbound archives. The
+retained Rust executable runs with its owned-stdin barrier and fixed
+`verify` arguments, a 120-second deadline and 4 KiB combined process
+capture. Its executable and fixture bytes are checked before and after the
+child under exclusive artifact custody.
+
+The receipt is create-only. It binds the request, owned process terminal and
+the complete native output roster. Each retained SQLite file must be at
+most 1 MiB when inspected after the child closes. This check measures
+retained files after execution. Closed verification replays the prefix,
+rechecks the exact materialized input and output bytes, and returns only
+the two archive pins for the next phase.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_bridge.py
+```
+
+The actual Windows CLI smoke used the retained Rust test executable to
+generate a synthetic Android-origin archive. The Android capture records
+were simulated. The exclusive write back to Android, final transfer replay,
+and real guest admission are separate steps.
+
+## Verify the ordered Android return evidence
+
+The return controller revalidates the Windows receipt and exact outbound
+prefix on the same SDK25 session. It rechecks installed identity and the
+private owner marker before spending the distinct write claim. The fixed
+private write uses noclobber and the receipt's exact archive input. A
+byte-exact readback is required before the return instrumentation claim.
+The final archive must match the Windows oracle and package identity must
+still match the outbound evidence.
+
+The client checks the retained receipt and prerequisites again before each
+return-only dispatch. A generic SDK call cannot use the return commands
+without this gate. Live execution closes the capture at the end. Closed
+verification requires the complete outbound and return capture roster,
+with no extra client or proof records.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_return.py
+```
+
+Host tests exercise the 18-command return sequence using synthetic records.
+End-to-end acceptance requires the final Windows replay on a real admitted
+guest's returned archive.
+
+## Check the final Windows archive replay
+
+The final step replays the complete Android return evidence and binds its
+session, bridge receipt, write claim and exact command records. It writes
+only the verified final archive into a fresh input directory. Before the
+one-shot child, it bounds and reads back the complete request. The retained
+Rust executable runs with the owned-stdin barrier and fixed `check-final`
+arguments, a 120-second deadline and 4 KiB combined capture. The create-only
+receipt requires known process closure, the exact terminal and the two
+expected output files. Closed verification checks the receipt without
+running a child.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_final.py
+```
+
+The actual Windows smoke checked the independently continued synthetic final
+archive retained by the earlier Rust test. Its Android return evidence was
+simulated. The typed exchange entry now calls the four transfer legs over an
+already-admitted SDK25 lease. The operator admission and stop/ledger
+closure remain separate from this exchange.
+
+## Reverify the shared owner stop and closure
+
+The controller accepts an already-running SDK25 lease and a separate
+controller process identity. It needs at least 1,210 seconds remaining
+on the owner lease, including a 10-second stop reserve. It verifies all
+four transfer legs and closes its observer before publishing the controller
+receipt. Only the bounded supervisor publishes the shared, admission-bound
+`stop-v1.json`. A failed exchange or uncertain cleanup preserves the
+attempt and leaves the finite owner without a qualified stop.
+
+The closed check ties the expected owner and controller identities to the
+running lease, transfer receipts, scoped stop and shared worker/parent
+terminals. It requires every shared cleanup flag and the exact closure
+record in a closed entry of the shared ledger. The existing ledger
+validator checks either supported ledger schema. The closed check reads
+evidence and has no guest command or ledger write.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_lifecycle.py
+```
+
+The lifecycle tests use synthetic owner and ledger records. The fixed
+operator launcher and real guest admission remain separate.
+
+## Prepare the fixed guest through the shared storage owner
+
+The preparation profile uses API 35 x86_64, 8 GiB RAM and four cores.
+Use the shared planner for the fixed SDK25 guest root after the ledger can
+admit a new 40 GiB reservation. It needs an existing physical D: parent.
+The shared planner's `--real-model-candidate --four-core-candidate` flags
+select the existing 8 GiB and four-core resource profile. This cohort
+uses fixed synthetic archive fixtures. Plan the 180-second preparation
+child separately from the later boot and archive exchange. Keep the prepared root, initial SD image and every
+failure receipt under the shared storage lifecycle.
+
+The operator control directory holds the fixed
+`prepare-proposal-v1.json`, `prepare-authorization-v1.json` and
+`prepare-authority-v1.json`. The last record binds the exact prepare
+proposal, the scoped shared authorization, current v2 ledger, the eight
+artifact pins, and the SHA-256 of the canonical SDK25 source-pin list.
+It also carries the external approval reference with prepare allowed and
+boot disallowed. The shared authorization uses prepare scope
+`sdk25-archive-roundtrip-prepare-once-v1`. Only a separately approved
+operator can provide those two authority inputs.
+
+After preparation approval and a fresh capacity preview, use the exact
+authority file digest:
+
+```powershell
+python -B -m benchmarks.archive_roundtrip_prepare --authority-sha256 <approved-sha256>
+```
+
+The wrapper checks the proposal, scoped authorization, installed
+environment, host resources, artifact bytes, source pins and ledger before
+creating the one-use prepare attempt. It passes the same proposal and
+expected ledger digests to the shared prepare API, which reserves
+capacity under its lock before creating the guest root. A failure keeps
+the attempt and any shared reservation. The receipt binds the scoped
+child start and claim, the client terminal and output bytes, and the
+prepared records and ledger observed at completion.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_prepare.py
+```
+
+These tests use synthetic authority, preparation and ledger records.
+The retained APK and Windows artifact check is read-only. No SDK25
+preparation or boot is evidenced by these checks.
+
+## Stage the exact SDK25 run inputs
+
+After a verified preparation, supply `run-installation-v1.json` in
+the fixed operator control directory. Its version-1 fields are the
+existing byte/hash pins for `refuser`, `capabilities`, `source_review`
+and `compatibility`. The refuser must match the exact compiled and
+tested deny-ADB helper and the current C source must match its recorded
+source. See the [owned target verification](OWNED_TARGET_VERIFICATION_2026-10-29.md).
+The emulator, headless QEMU and private ADB tool pins come from the
+prepared guest's shared proposal. The ADB key path is metadata only.
+
+```powershell
+python -B -m benchmarks.archive_roundtrip_run_inputs stage --receipt-sha256 <prepare-receipt-sha256> --installation-sha256 <installation-sha256>
+```
+
+Staging uses the shared run planner and publishes a review packet named
+by its SHA-256. The packet contains the prepared ledger, receipt, exact
+run proposal, installation pin and prospective authorization and
+admission pins. It leaves authority with the operator. If an unrelated
+ledger entry changes before boot, stage a new review against the fresh
+ledger. The run identity and prospective admission stay stable when
+only the ledger changes.
+
+After the operator separately approves one boot and supplies the scoped
+`run-authority-v1.json` matching the packet's prospective admission,
+preparation receipt and ledger, publish the exact two input files:
+
+```powershell
+python -B -m benchmarks.archive_roundtrip_run_inputs materialize --plan-sha256 <review-packet-sha256> --authority-sha256 <approved-authority-sha256>
+```
+
+Both input files use create-only publication. An exact existing file or
+complete pending record can be reused under the same approved inputs.
+Changed or incomplete records refuse and stay preserved. Publication
+rechecks the authority, fresh ledger and unused target around the writes.
+The supervisor's separate preboot gate rechecks the full shared SDK and
+external environment. The shared owner checks host resources before
+launching the guest.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_run_inputs.py
+```
+
+## Verify the operator's prepared-run admission
+
+The host gate accepts one externally approved authority record at the fixed
+SDK25 operation root. That record binds the exact admission and the current
+fresh prepared v2 snapshot of the shared storage ledger. It also pins the
+exact SDK25 prepare receipt. The gate replays its scoped child records
+and matches its prepared and result pins to the run proposal. The
+historical preparation ledger pin stays separate from the fresh run
+ledger, so an unrelated ledger entry can change between the two approvals.
+The admission binds the reviewed source, retained APKs and fixture
+executable, and scoped run proposal and authorization. The target must already be prepared by the
+shared workflow. The gate allows one boot, with a 1,700-second owner lease
+and 1,800-second guest ceiling. Preparation, model work and retirement
+require separate authority.
+
+The preboot check performs no launch or reservation. Spending writes a
+create-only attempt claim. The future owner must recheck it and use the
+same ledger pin and prepare digest in the shared locked transition to
+`retained` before publishing its boot claim. That atomic transition uses
+ledger v2. The closed verifier can still replay either supported schema.
+A v1 ledger, changed snapshot or observed storage lock refuses this
+prepared-run admission. The check reads the pinned installation and
+registry metadata and rehashes the prepared guest's initial SD image.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_admission.py
+```
+
+These host tests use synthetic admission, authorization and ledger
+records. The real operator launcher, authority and guest run are separate.
+
+## Verify the guarded owner handoff
+
+An already-owned supervisor job can publish one handoff for the spent
+SDK25 attempt. The fixed owner parent and inherited worker require the
+same handoff digest, held Windows process ancestry, and bounded launch
+window. The worker rechecks the handoff before starting the isolated
+server and again at the shared owner's last pre-emulator guard.
+
+The shared storage transition receives the exact approved prepared ledger
+pin and preparation digest under its lock before a boot claim is written.
+If the supervisor or authority disappears after the transition or boot
+claim, the worker refuses launch and preserves the spent evidence and
+reservation. A later supervisor must verify the controller's remaining
+lease budget after guest registration.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_handoff.py
+```
+
+These are synthetic handoff, Job membership and ledger-transition checks.
+
+## Supervise the one admitted archive exchange
+
+The fixed launcher spends the prepared-run authority once and assigns the
+runtime to a bounded Windows Job before releasing its private stdin barrier.
+The runtime checks the spent admission, publishes the sealed handoff, starts
+the guarded SDK25 owner and waits for the exact registered lease. A separate
+controller runs in its own bounded Job within the operation. Its result
+requires zero exit, complete capture, confirmed Job cleanup, matching
+process identities and a verified four-leg exchange.
+
+The runtime stages STOP under the held owner observation. It closes its
+observation handles, checks the outer deadline, publishes the exact stop
+gate, then commits STOP with a non-replacing Windows rename. The shared
+owner requires that gate, the exact handoff digest inherited at launch and
+the closed controller proof before it can close the storage ledger. If
+the controller or observer fails, the launcher preserves evidence and
+leaves the spent reservation fenced. Closed replay also binds the gate to
+the original runtime request and verifies the owner console and shared
+ledger closure.
+
+Run the host-only orchestration checks with synthetic records and process
+adapters:
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_supervisor.py
+```
+
+The orchestration unit tests use synthetic process adapters. The optional
+Windows host fixture below starts two short-lived Python stages in real
+nested Jobs. It exercises the existing supervisor's stdin barriers,
+started and terminal records, live Job membership and parent identities.
+Before the controller receives its started record, the fixture observes
+the exact controller process in both Jobs through the handles created by
+the existing supervisor. It also verifies that the runtime belongs to
+the outer Job and is outside the inner Job. Both stages must exit
+zero with empty capture and confirmed cleanup. The
+fixture retains its own evidence in a new directory printed at startup,
+under the physical D: temporary directory. The outer and inner Job
+deadlines are 20 and 8 seconds. The combined fixture budget is 1 MiB.
+
+```powershell
+$env:TEMP = 'D:/Dev/_Temp'
+$env:TMP = $env:TEMP
+python -I -S -B scripts/tests/archive_roundtrip_windows_job_fixture.py --host-check
+```
+
+### Recorded Windows host evidence
+
+The fixture with SHA-256
+`464fd5b9c271bd92725f057ca50498cd2ba9b6c679b95271b51c967ee8ea3b8d`
+passed with Python 3.14.7 and PowerShell 7.6.9 on Windows x64
+10.0.26300.0 against the supervisor at `8cd31a0f`. The invocation exited
+zero in 938 ms. The runtime and controller terminals reported 611 ms and
+297 ms respectively, zero exit, zero output bytes, complete capture and
+confirmed cleanup. The 18-file packet retained 7,399 bytes. The proof
+SHA-256 is `a716aa62e846255fc5bf14f0f0fde248367f7e9b432d6207f66b6b29b74edff5`.
+
+Two earlier attempts remain failed and retained. The first refused the
+fixture's singleton assumption for the NULL-handle process list before
+offering a controller. The second observed the controller's inner Job
+assignment but refused before publishing the outer membership record.
+Both retained positive outer Job and capture cleanup. The passing check
+uses direct Win32 membership queries on explicit Job handles and joins
+each observation to the exact process creation identity and terminal.
+See the [first](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6748932944)
+and [second](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6748981461)
+attempt records.
+
+The existing hard-owner-loss test separately passed in 0.244 seconds.
+It held the worker and descendant handles and verified their termination
+before closing the safety Job, with both forced output prefixes retained
+through the abrupt supervisor exit.
+
+```powershell
+python -B -m unittest -v scripts.tests.test_receipt_supervisor_evidence.ReceiptSupervisorEvidenceTests.test_actual_hard_owner_loss_retains_forced_prefix_and_kills_inner_job
+```
+
+After separate operator approval and exact prepared-guest admission, the
+fixed launcher accepts only the pinned authority digest:
+
+```powershell
+python -B -m benchmarks.archive_roundtrip_supervisor --authority-sha256 <approved-sha256>
+```
+
+The host fixture uses synthetic records and runs no live archive operation
+or Android tools. A real prepared-guest run and Android parity remain open.

@@ -2,10 +2,10 @@
 package org.locallore.app
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.junit4.ComposeTestRule
 
 /** Product Main setup only: review and one explicit Create, never a controller/native shortcut. */
-internal fun ComposeContentTestRule.createStoryThroughMainReview(timeoutMillis: Long = 8_000) {
+internal fun ComposeTestRule.createStoryThroughMainReview(timeoutMillis: Long = 8_000) {
     require(timeoutMillis in 1..15_000)
     val started = System.nanoTime()
     fun remaining(): Long = (timeoutMillis - (System.nanoTime() - started) / 1_000_000).also {

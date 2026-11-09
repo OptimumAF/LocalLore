@@ -125,6 +125,53 @@ proofs. Operators must retain that separate evidence tree and any frozen capture
 These checks cover the four explicitly bound proof files, without claiming full
 recursive proof preservation or replaying owner verification during admission.
 
+### Failed SDK24 registration review
+
+The spent cross-owner deletion attempt failed before publishing a running
+descriptor or normal-stop closure. Its full retained charge blocks the
+ordinary retirement preview. The fixed
+`benchmarks/cross_owner_deletion_ui_failed_closure.py` verifier replays the
+original failed terminal captures, boot claim, registration prefix and all
+cleanup flags. It joins the separate live owner observation and checks that
+each of the seven recorded Windows process incarnations has exited, is absent,
+or has been replaced by a different incarnation. It refuses live or unknown
+process status and rechecks the exact ledger and evidence pins after inspection.
+
+Use the reviewed digests from the original local failure evidence:
+
+```powershell
+python -I -S -B benchmarks/cross_owner_deletion_ui_failed_closure.py --operation-sha256 <result-digest> --observation-sha256 <observer-digest> --ledger-sha256 <current-ledger-digest>
+```
+
+The JSON output is private. It records eligibility for a guarded closure
+review while the guest remains retained.
+
+### Guarded SDK24 storage closure
+
+`benchmarks/cross_owner_deletion_ui_failed_close.py` can seal a fixed private
+plan from the review digest, exact current ledger, current verifier sources
+and the guest's file roster and sizes. The plan is create-only and grants no
+authority.
+
+```powershell
+python -I -S -B benchmarks/cross_owner_deletion_ui_failed_close.py --review-sha256 <review-digest>
+```
+
+Execution requires a separate closure-only approval binding that exact
+plan. While holding the shared admission lock, it replays the reviewed
+evidence, queries the seven recorded process identities again, and checks
+the file roster. It creates a one-use claim, preserves the exact prior ledger,
+and records a typed teardown proof and closure. The shared accounting path
+then measures and replaces the reservation under the same lock. A failure
+before ledger replacement retains the original charge and any partial
+records for review.
+
+The closure records verified teardown for a failed run with zero executed
+Android methods. The old failed result stays intact. Closed accounting still
+occupies one guest slot. The updated exact-image retirement reader can
+verify this separate proof kind and recheck the process identities. That
+operation requires its own reviewed plan and approval.
+
 ## Evidence-aware retirement planning
 
 Retirement defaults to a dry-run plan. First preserve **every non-disposable

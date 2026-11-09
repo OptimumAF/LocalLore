@@ -2,11 +2,11 @@
 package org.locallore.app
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import org.junit.Assert.*
 
 /** Read-only UI projection assertions; existing native/receipt assertions remain at each call site. */
-internal fun ComposeContentTestRule.assertPlayerPotionQuantity(expected: Int?, state: () -> ShellState) {
+internal fun ComposeTestRule.assertPlayerPotionQuantity(expected: Int?, state: () -> ShellState) {
     // A lazy row can be absent merely because it is offscreen. Establish the
     // exact accepted projection first, then inspect every expected rendered row.
     val accepted = runOnIdle { state() }
@@ -38,7 +38,7 @@ internal fun ComposeContentTestRule.assertPlayerPotionQuantity(expected: Int?, s
 }
 
 /** Recovery keeps the accepted projection, while the inspector is deliberately unavailable. */
-internal fun ComposeContentTestRule.assertPausedPlayerPotionQuantity(expected: Int?, state: () -> ShellState) {
+internal fun ComposeTestRule.assertPausedPlayerPotionQuantity(expected: Int?, state: () -> ShellState) {
     onNodeWithTag("story-list").performScrollToNode(hasTestTag("player-inventory-open"))
     onNodeWithTag("player-inventory-open").assertIsNotEnabled()
     onNodeWithTag("player-inventory-dialog").assertDoesNotExist()

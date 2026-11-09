@@ -53,8 +53,11 @@ deterministic story-ID order. Startup without a resolved selection uses the
 first entry. Empty-library behavior follows the shell's existing creation
 policy. The library permits explicit selection. New/reset preserves previous saves.
 Closing a session preserves its story. Android exposes separately previewed,
-explicitly confirmed whole-story deletion and nonroot timeline retirement; see
-the [retention contract](../native/PARENT_RETENTION_CONTRACT.md).
+explicitly confirmed whole-story deletion and nonroot timeline retirement.
+The Android deletion buttons open a review only for the current displayed
+shell frame. A retained callback cannot request a preview for a replacement
+selection or revision. Native preview and confirmation still govern deletion.
+See the [retention contract](../native/PARENT_RETENTION_CONTRACT.md).
 
 Android gives a valid saved-task hint priority. A fresh launch can also read a
 versioned, at most 132-byte record containing only the last confirmed story and
@@ -93,9 +96,30 @@ branch, stays hidden while opening/recovery is unresolved, and is discarded when
 a different scope settles. Revision changes retain it; restoration never submits
 or resumes provider work. This is not a promise of retention after task dismissal,
 force-stop or a cold launch. See [Android draft lifecycle evidence](../native/ANDROID_INPUT_DRAFT_VERIFICATION_2026-10-25.md).
+Android Send and quick actions bind to the ViewModel state that rendered
+the control. A callback from an earlier state is discarded before the
+engine receives a request. A current control uses the current saved revision.
+Draft edits belong to the mounted composer. Its callbacks lose access when
+that composer leaves the screen, including when the same story and timeline
+later return. Edits within the current composer and saved-draft restoration
+retain their existing scope.
+The isolated draft-verification APK pair binds the composer regression and its
+ten restoration controls to the exact built source. Replay the private build
+record and packaged method roster with
+`benchmarks.composer_draft_apk_binding.verify_artifacts`. This file check
+provides inputs for a separately approved Android run.
 Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.
+If another local owner closes the selected session by deleting its story or
+timeline, explicit Android recovery can reopen the existing catalog without
+creating a story once no turn key is pending. The prior selection remains the
+recovery hint across transient read failures. If the selection is unavailable,
+the app asks the player to review the library.
+
+Android opens Story Record only from the state that displayed the control.
+The native read uses that saved story, timeline and accepted revision. A
+callback retained after the displayed state changes cannot start a new read.
 
 On Android, a queued or ready reply must match the pending turn, exact story
 and timeline, and integer expected revision before it can advance preparation

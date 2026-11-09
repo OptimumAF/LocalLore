@@ -46,6 +46,38 @@ evidence may be hashed by existing strict checks; this does not authorize copyin
 or publishing keys. See the [frozen contract](RETIREMENT_PREVIEW_CONTRACT_2026-10-31.md)
 and [executed verification](RETIREMENT_PREVIEW_VERIFICATION_2026-10-31.md).
 
+### SDK24 evidence staging
+
+The fixed `cross_owner_deletion_ui_retirement_preservation.py` operator can
+preserve ordinary guest records while the failed SDK24 guest remains retained.
+It uses the sealed closure plan and its ledger snapshot, copies at most 16 MiB,
+and verifies the source and destination hashes. It excludes the exact image
+roster and both emulator credential paths. Its staged receipt has
+`manifest_complete: false`.
+
+```powershell
+python -I -S -B benchmarks/cross_owner_deletion_ui_retirement_preservation.py --plan-sha256 <closure-plan-digest>
+```
+
+Completing the manifest requires the exact typed closed entry and a private
+credential record at `existing-credentials-v1.json` under the operation's
+output directory. The record contains version 1, the guest root, and the
+two `files` entries with `relative` and `binding` fields for
+`emulator/adbkey` and `emulator/adbkey.pub`. The bindings must identify
+already preserved, byte-identical copies outside the ledger and tracked guests.
+The operator verifies them by digest and copies only the new closure record.
+It verifies the pending manifest before publishing the final create-only file.
+
+```powershell
+python -I -S -B benchmarks/cross_owner_deletion_ui_retirement_preservation.py --staged-sha256 <staged-digest> --credentials-sha256 <credential-record-digest> --ledger-sha256 <closed-ledger-digest>
+```
+
+The completed manifest is input to the separate read-only retirement preview.
+The storage ledger, guest images and original records stay in place. A
+separately approved exact-image operation is required to free the guest slot.
+
+### Guarded execution
+
 The executor requires an already pinned unchanged plan and its exact file
 digest. It does not generate, adopt or replace a plan. Production `execute`
 and the CLI select only the fixed shared registry. `_execute` is an internal

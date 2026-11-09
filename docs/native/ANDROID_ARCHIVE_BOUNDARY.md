@@ -97,8 +97,44 @@ ArchiveDialog(state, callbacks...) provides menu/preview/confirm/progress/error/
 success, explicit full-private warning and same-ID conflict text. No archive is
 imported before explicit consent; no export picker before capture/preview consent.
 Successful import offers explicit Open imported story or return to library.
+The Story archive button opens this review only for its current displayed shell
+state. A stale click is discarded before the controller captures the selected
+story, branch and revision for an export preview.
 Root freezes all story mutation/switch/recovery while archive UI owns its guard,
 then refreshes the actual Host library; explicit open creates a fresh session.
+
+The archive and deletion opener regressions share the isolated
+`org.locallore.app.archiveverify` debug profile. Audit the built app and test
+APK with the existing package audit and the two-selector pair audit.
+
+```console
+python scripts/audit_apk.py APP_APK --archive-verification
+python scripts/audit_instrumentation_apk.py APP_APK TEST_APK --archive-verification --storage-opener-selectors
+```
+
+The pair audit reports both compiled JUnit selectors, the runner, the shared
+signing identity, and the digests of the exact app and test APKs. The two
+regression classes must occur only in the test APK, with one executable
+JUnit method per class.
+
+The host adapter in `benchmarks/storage_opener_capture.py` re-reads the
+exact archived pair and its report. It requests one fixed 90-second
+AndroidJUnitRunner command per class through a qualified owned client.
+Both commands must return their own complete start and pass transcript.
+The journey in `benchmarks/storage_opener_journey.py` checks the API 35
+x86_64 emulator and user before staging the exact APKs. It requires both
+packages to be absent, uses no-replacement installs, and verifies the
+installed package paths, UIDs and hashes before, between and after the
+tests. Replay checks every command and both raw streams in order, using
+rows and reads qualified by the owner.
+
+The dedicated SDK27 profile in `benchmarks/owned_storage_opener.py`
+binds the exact APK pair, source paths, and two one-use test claims to
+its own admission and capture session. It verifies the APKs before
+acquiring observer handles and uses the shared owned-target transport
+to record commands and replay their evidence. The owner supplies the
+running target and closes the observer and capture after use. Preparing
+or booting the guest requires separate approval and shared storage admission.
 
 Document helpers: readArchiveDocument(ContentResolver,Uri):ByteArray,
 writeArchiveDocument(ContentResolver,Uri,ByteArray). OpenDocument reads at most

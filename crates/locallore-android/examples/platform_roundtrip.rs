@@ -22,6 +22,7 @@ type Engines = BTreeMap<String, Engine>;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Mode {
     Generate,
+    CheckFixtures,
     Verify,
     CheckFinal,
 }
@@ -29,6 +30,7 @@ impl Mode {
     fn name(self) -> &'static str {
         match self {
             Self::Generate => "generate",
+            Self::CheckFixtures => "check-fixtures",
             Self::Verify => "verify",
             Self::CheckFinal => "check-final",
         }
@@ -47,6 +49,7 @@ impl Arguments {
             .map_err(|_| "Arguments")?;
         let mode = match args.next().and_then(|s| s.into_string().ok()).as_deref() {
             Some("generate") => Mode::Generate,
+            Some("check-fixtures") => Mode::CheckFixtures,
             Some("verify") => Mode::Verify,
             Some("check-final") => Mode::CheckFinal,
             _ => return Err("Arguments"),
@@ -543,6 +546,34 @@ fn check_retry(path: &Path, engine: &Engine) -> Result<()> {
     owner.deny_spend(&session, engine)?;
     owner.forbidden(&session, engine.revision())
 }
+fn match_fixture_archive(historical: &[u8], current: &[u8]) -> Result<()> {
+    validate_archive(historical, &|| false).map_err(|_| "Input")?;
+    validate_archive(current, &|| false).map_err(|_| "Input")?;
+    let mut compatible: Value = serde_json::from_slice(historical).map_err(|_| "Input")?;
+    let current_value: Value = serde_json::from_slice(current).map_err(|_| "Input")?;
+    require(
+        compatible["version"] == 1
+            && current_value["version"] == 1
+            && compatible["payload"]["source_database_schema_version"] == 2
+            && current_value["payload"]["source_database_schema_version"]
+                == locallore_storage::SCHEMA_VERSION,
+    )?;
+    // Only the source database schema and its dependent digest may differ.
+    compatible["payload"]["source_database_schema_version"] =
+        json!(locallore_storage::SCHEMA_VERSION);
+    compatible["integrity"]["payload_sha256"] =
+        current_value["integrity"]["payload_sha256"].clone();
+    require(compatible == current_value && encode(&compatible)? == current)
+}
+
+fn check_fixtures(historical: &Path, current: &Path) -> Result<()> {
+    require(read(historical, "expectations.json")? == read(current, "expectations.json")?)?;
+    for name in ["windows-origin.json", "windows-continued.json"] {
+        match_fixture_archive(&read(historical, name)?, &read(current, name)?)?;
+    }
+    Ok(())
+}
+
 fn verify(out: &Path, inputs: &Path, fixtures: &Path) -> Result<()> {
     let windows = read(inputs, "windows-return.json")?;
     let continued = read(inputs, "windows-continued.json")?;
@@ -629,6 +660,10 @@ fn run_with_stdin(mut args: Vec<OsString>, stdin: &mut impl Read) -> Result<Mode
     let out = fresh_directory(&args.directory)?;
     match args.mode {
         Mode::Generate => generate(&out)?,
+        Mode::CheckFixtures => check_fixtures(
+            args.inputs.as_deref().ok_or("Arguments")?,
+            args.fixtures.as_deref().ok_or("Arguments")?,
+        )?,
         Mode::Verify => verify(
             &out,
             args.inputs.as_deref().ok_or("Arguments")?,
@@ -745,42 +780,21 @@ mod tests {
             run(args("generate", &output, None, None)),
             Ok(Mode::Generate)
         );
-        let assets: [(&str, &[u8]); 3] = [
-            ("windows-origin.json", include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/windows-origin.json")),
-            ("windows-continued.json", include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/windows-continued.json")),
-            ("expectations.json", include_bytes!("../../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1/expectations.json")),
-        ];
-        for (name, golden) in assets {
-            let generated = read(&output, name).unwrap();
-            if name == "expectations.json" {
-                assert_eq!(generated, golden, "canonical snapshot fixture drift");
-                continue;
-            }
-            // Preserve the historical schema2/v1 assets as compatibility inputs.
-            // Validate both archives before allowing only source-version/checksum drift.
-            validate_archive(golden, &|| false).unwrap();
-            validate_archive(&generated, &|| false).unwrap();
-            let mut historical: Value = serde_json::from_slice(golden).unwrap();
-            let current: Value = serde_json::from_slice(&generated).unwrap();
-            assert_eq!(historical["payload"]["source_database_schema_version"], 2);
-            assert_eq!(
-                current["payload"]["source_database_schema_version"],
-                locallore_storage::SCHEMA_VERSION
-            );
-            historical["payload"]["source_database_schema_version"] =
-                json!(locallore_storage::SCHEMA_VERSION);
-            historical["integrity"]["payload_sha256"] =
-                current["integrity"]["payload_sha256"].clone();
-            assert_eq!(
-                historical, current,
-                "accepted history or branch integrity drift"
-            );
-            assert_eq!(
-                serde_json::to_vec(&historical).unwrap(),
-                generated,
-                "canonical archive encoding drift"
-            );
-        }
+        let frozen = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/android/app/src/androidTest/assets/platform-roundtrip-v1");
+        let proof = temp().join("fixture-check");
+        assert_eq!(
+            run(args("check-fixtures", &proof, Some(&frozen), Some(&output))),
+            Ok(Mode::CheckFixtures)
+        );
+        assert!(read(&proof, "result.json").is_ok());
+
+        let generated = read(&output, "windows-origin.json").unwrap();
+        let continued = read(&output, "windows-continued.json").unwrap();
+        let historical = read(&frozen, "windows-origin.json").unwrap();
+        assert!(match_fixture_archive(&generated, &generated).is_err());
+        assert!(match_fixture_archive(&historical, &continued).is_err());
+        assert!(match_fixture_archive(&historical, b"{").is_err());
     }
     #[test]
     fn all_three_modes_execute_real_host_retries_and_divergent_store_replay() {

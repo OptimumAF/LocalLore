@@ -6,8 +6,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -22,14 +25,19 @@ class DurableSessionReplyBindingTest {
         var resumeReply: suspend (JSONObject) -> JSONObject = { it }
         var openReply: suspend (JSONObject) -> JSONObject = { it }
         var closeReply: suspend (JSONObject) -> JSONObject = { it }
+        var workspaceReply: (JSONObject) -> JSONObject = { it }
+        var turnReplies = emptyMap<String, JSONObject>()
 
         override suspend fun exchange(command: JSONObject): JSONObject {
             commands += JSONObject(command.toString())
+            val operation = command.getString("op")
+            turnReplies[operation]?.let { return it }
             val reply = reads.exchange(command)
-            return when (command.getString("op")) {
+            return when (operation) {
                 "resume" -> resumeReply(reply)
                 "open" -> openReply(reply)
                 "close" -> closeReply(reply)
+                "workspace" -> workspaceReply(reply)
                 else -> reply
             }
         }
@@ -48,6 +56,9 @@ class DurableSessionReplyBindingTest {
 
     private fun mainTransport(corpus: PresentationCaptureCorpus): SessionTransport =
         corpus.case("main").let { SessionTransport(corpus, PlayDraftScope(it.story, it.branch)) }
+
+    private fun rejected(category: String): JSONObject =
+        JSONObject().put("version", 1).put("status", "rejected").put("error", category)
 
     private fun assertCategory(category: String, failure: Throwable?) {
         assertEquals("Expected $category; observed $failure", category, (failure as? WorkspaceFailure)?.category)
@@ -278,6 +289,197 @@ class DurableSessionReplyBindingTest {
         port.commands.clear()
         assertSavedCase(port.gateway.snapshot(), target)
         assertReadOwner(port.readsInOrder(), target)
+    }
+
+    @Test fun recoveringClosedSavedSessionReopensValidatedEmptyLibrary() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val target = corpus.case("main")
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), target)
+        port.commands.clear()
+
+        port.openReply = { rejected("Closed") }
+        port.closeReply = { rejected("Closed") }
+        port.workspaceReply = { it.apply { getJSONObject("data").put("stories", JSONArray()) } }
+
+        val recovered = port.gateway.recoverSaved()
+        assertNull(recovered.selected)
+        assertEquals(0L, recovered.revision)
+        assertTrue(recovered.stories.isEmpty())
+        assertTrue(recovered.messages.isEmpty())
+        assertTrue(recovered.selectionRestoreUnavailable)
+        assertEquals(listOf("open", "close", "workspace"), port.commands.map { it.getString("op") })
+        val session = target.envelope("resumed").getJSONObject("data").getString("session")
+        for (command in port.commands.take(2)) {
+            assertEquals(session, command.getString("session"))
+            assertEquals(target.story, command.getJSONObject("scope").getString("story"))
+            assertEquals(target.branch, command.getJSONObject("scope").getString("branch"))
+        }
+        corpus.assertUnchanged()
+    }
+
+    @Test fun closedSessionSelectionNoticeSurvivesABusyCatalogRead() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), corpus.case("main"))
+        port.commands.clear()
+        port.openReply = { rejected("Closed") }
+        port.closeReply = { rejected("Closed") }
+        port.workspaceReply = { rejected("Busy") }
+
+        assertCategory("Busy", runCatching { port.gateway.recoverSaved() }.exceptionOrNull())
+        assertEquals(listOf("open", "close", "workspace"), port.commands.map { it.getString("op") })
+
+        port.workspaceReply = { it.apply { getJSONObject("data").put("stories", JSONArray()) } }
+        val recovered = port.gateway.recoverSaved()
+        assertNull(recovered.selected)
+        assertTrue(recovered.stories.isEmpty())
+        assertTrue(recovered.selectionRestoreUnavailable)
+        assertEquals(listOf("open", "close", "workspace", "workspace"), port.commands.map { it.getString("op") })
+    }
+
+    @Test fun recoveringWithOtherReadFailuresKeepsTheSelectedAttachment() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val target = corpus.case("main")
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), target)
+
+        for (category in listOf("Busy", "InvalidHandle")) {
+            port.commands.clear()
+            port.openReply = { rejected(category) }
+            assertCategory(category, runCatching { port.gateway.recoverSaved() }.exceptionOrNull())
+            assertEquals(listOf("open"), port.commands.map { it.getString("op") })
+        }
+
+        port.commands.clear()
+        port.openReply = { it }
+        assertSavedCase(port.gateway.recoverSaved(), target)
+        assertReadOwner(port.readsInOrder(), target)
+    }
+
+    @Test fun closedPendingRecoveryKeepsTheExactTurnKeyForAnotherRetry() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val target = corpus.case("main")
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), target)
+        port.commands.clear()
+        port.turnReplies = mapOf("submit" to rejected("Busy"), "turn_status" to rejected("Closed"))
+
+        assertCategory("Busy", runCatching {
+            port.gateway.respond(DemoAction.GIVE_POTION, target.revision, DemoMode.ACCEPTED)
+        }.exceptionOrNull())
+        repeat(2) {
+            assertCategory("Closed", runCatching { port.gateway.recoverSaved() }.exceptionOrNull())
+        }
+
+        assertEquals(listOf("submit", "turn_status", "turn_status"), port.commands.map { it.getString("op") })
+        val submit = port.commands.first()
+        val request = submit.getJSONObject("request")
+        val originalScope = request.getJSONObject("scope")
+        for (status in port.commands.drop(1)) {
+            assertEquals(submit.getString("session"), status.getString("session"))
+            assertEquals(request.getString("turn"), status.getString("turn"))
+            val statusScope = status.getJSONObject("scope")
+            assertEquals(originalScope.getString("story"), statusScope.getString("story"))
+            assertEquals(originalScope.getString("branch"), statusScope.getString("branch"))
+        }
+    }
+
+    @Test fun lateClosedRecoveryCannotDetachNewerSavedSelection() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), corpus.case("main"))
+        port.commands.clear()
+
+        val target = corpus.case("rediscovered")
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        port.openReply = { reply ->
+            if (entered.complete(Unit)) {
+                release.await()
+                rejected("Closed")
+            } else reply
+        }
+
+        val late = async { runCatching { port.gateway.recoverSaved() } }
+        val beforeLateReply = try {
+            runCurrent()
+            assertTrue(entered.isCompleted)
+            assertEquals(listOf("open"), port.commands.map { it.getString("op") })
+            val newer = async { port.gateway.resumeSaved(target.saved()) }
+            runCurrent()
+            assertTrue("The newer resume must finish while recovery waits for Open", newer.isCompleted)
+            assertSavedCase(newer.await(), target)
+            port.commands.map(JSONObject::toString)
+        } finally {
+            release.complete(Unit)
+        }
+
+        assertCategory("Stale", late.await().exceptionOrNull())
+        assertEquals(beforeLateReply, port.commands.map(JSONObject::toString))
+        port.commands.clear()
+        assertSavedCase(port.gateway.snapshot(), target)
+        assertReadOwner(port.readsInOrder(), target)
+    }
+
+    @Test fun explicitResumeCannotInheritAStaleClosedSessionRecoveryNotice() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val oldTarget = corpus.case("main")
+        val fallback = corpus.case("empty")
+        val explicitTarget = corpus.case("mixed")
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), oldTarget)
+        port.commands.clear()
+
+        port.openReply = { reply ->
+            val scope = reply.getJSONObject("data").getJSONObject("scope")
+            if (scope.getString("story") == oldTarget.story) rejected("Closed") else reply
+        }
+        port.closeReply = { rejected("Closed") }
+        port.workspaceReply = { reply ->
+            val data = reply.getJSONObject("data")
+            val rows = data.getJSONArray("stories")
+            val surviving = (0 until rows.length()).map(rows::getJSONObject).filterNot {
+                it.getJSONObject("scope").getString("story") == oldTarget.story
+            }
+            reply.apply { data.put("stories", JSONArray(surviving)) }
+        }
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        port.resumeReply = { reply ->
+            val scope = reply.getJSONObject("data").getJSONObject("scope")
+            if (scope.getString("story") == fallback.story) {
+                entered.complete(Unit)
+                release.await()
+            }
+            reply
+        }
+
+        val late = async { runCatching { port.gateway.recoverSaved() } }
+        val (explicit, beforeLateReply) = try {
+            runCurrent()
+            assertTrue(entered.isCompleted)
+            assertEquals(listOf("open", "close", "workspace", "resume"), port.commands.map { it.getString("op") })
+            val newer = async { port.gateway.resumeSaved(explicitTarget.saved()) }
+            runCurrent()
+            assertTrue("The explicit selection must finish while recovery waits for Resume", newer.isCompleted)
+            newer.await() to port.commands.map(JSONObject::toString)
+        } finally {
+            release.complete(Unit)
+        }
+
+        assertCategory("Stale", late.await().exceptionOrNull())
+        assertEquals(beforeLateReply, port.commands.map(JSONObject::toString))
+        assertSavedCase(explicit, explicitTarget)
+        assertFalse(explicit.selectionRestoreUnavailable)
+        assertEquals(listOf(
+            PlayDraftScope(fallback.story, fallback.branch),
+            PlayDraftScope(explicitTarget.story, explicitTarget.branch),
+        ), port.resumeScopes())
+        port.commands.clear()
+        assertSavedCase(port.gateway.snapshot(), explicitTarget)
+        assertReadOwner(port.readsInOrder(), explicitTarget)
+        corpus.assertUnchanged()
     }
 
     @Test fun staleOpenCompletionCannotDispatchPresentationAfterNewerSnapshot() = runTest {

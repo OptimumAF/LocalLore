@@ -75,11 +75,36 @@ class StoryCreationShellTest {
     }
     private fun model(gateway: Gateway) = ShellViewModel(gateway).also { models.put("creation", it) }
 
+    @Test fun renderedStoryStartCannotOpenAReviewAfterTheSelectionChanges() = runTest(dispatcher) {
+        val replacement = original.copy(story = "replacement")
+        val gateway = Gateway().apply { stories += replacement }
+        val model = model(gateway)
+        advanceUntilIdle()
+        val prior = model.state.value
+        model.resume(replacement)
+        advanceUntilIdle()
+        val current = model.state.value
+        assertEquals(replacement, current.selectedStory)
+
+        model.startNewStory(prior)
+        model.startNewStory(current.copy())
+        advanceUntilIdle()
+        assertEquals("A stale button requested a creation review", 0, gateway.previews)
+        assertSame(current, model.state.value)
+
+        model.startNewStory(current)
+        advanceUntilIdle()
+        assertTrue(model.state.value.creationActive)
+        assertEquals(1, gateway.previews)
+        assertEquals(0, gateway.creates)
+        assertEquals(replacement, model.state.value.selectedStory)
+    }
+
     @Test fun emptyPersistentLibraryReviewsBeforeCreatingAndPublishesOnlyTheReturnedSnapshot() = runTest(dispatcher) {
         val gateway = Gateway(empty = true); val model = model(gateway); advanceUntilIdle()
         assertNull(model.state.value.selectedStory)
         assertEquals(TextProvider.UNAVAILABLE, model.state.value.textProvider)
-        model.startNewStory(); advanceUntilIdle()
+        model.startNewStory(model.state.value); advanceUntilIdle()
         assertTrue(model.state.value.creationActive)
         assertEquals(1, gateway.previews); assertEquals(0, gateway.creates); assertTrue(gateway.stories.isEmpty())
         val controller = model.creationController!!

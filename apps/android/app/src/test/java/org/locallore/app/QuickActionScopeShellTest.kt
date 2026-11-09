@@ -28,6 +28,8 @@ class QuickActionScopeShellTest {
 
     private data class Response(val action: DemoAction, val scope: SavedStory?, val revision: Long, val mode: DemoMode)
 
+    private data class TextResponse(val input: PlayInput, val scope: SavedStory, val revision: Long)
+
     private inner class Stories : DemoGateway {
         override val durable = true
         var selected: SavedStory? = a
@@ -37,6 +39,7 @@ class QuickActionScopeShellTest {
         var commits = 0
         var closes = 0
         val responses = mutableListOf<Response>()
+        val textResponses = mutableListOf<TextResponse>()
         val resumes = mutableListOf<SavedStory>()
         private val histories = mutableMapOf(
             (a.story to a.branch) to listOf(SceneMessage(1, "SCRIPTED A accepted history", false)),
@@ -67,6 +70,12 @@ class QuickActionScopeShellTest {
             check(revision == current.revision)
             responses += Response(action, current, revision, mode)
             return DemoResult.Accepted(revision + 1, "SCRIPTED compatible actor", "SCRIPTED accepted quick action")
+        }
+        override suspend fun respondText(input: PlayInput, revision: Long): DemoResult {
+            val current = checkNotNull(selected)
+            check(revision == current.revision)
+            textResponses += TextResponse(input, current, revision)
+            return DemoResult.Accepted(revision + 1, "SCRIPTED compatible actor", "SCRIPTED accepted text")
         }
         override suspend fun commitAsync(result: DemoResult): DemoResult {
             val accepted = result as DemoResult.Accepted
@@ -188,6 +197,98 @@ class QuickActionScopeShellTest {
         assertEquals(1, gateway.commits)
         assertEquals(20L, model.state.value.revision)
         assertEquals("Refreshed title", model.state.value.selectedStory?.title)
+    }
+
+    @Test fun acceptedQuickActionCannotBeResentFromTheOldFrame() = runTest(dispatcher) {
+        val gateway = Stories()
+        val model = model(gateway)
+        advanceUntilIdle()
+        val rendered = model.state.value
+
+        model.submit(DemoAction.GIVE_POTION, rendered)
+        advanceUntilIdle()
+        val accepted = model.state.value
+        assertEquals(8L, accepted.revision)
+        assertEquals(1, gateway.commits)
+
+        model.submit(DemoAction.GIVE_POTION, rendered)
+        advanceUntilIdle()
+        assertSame(accepted, model.state.value)
+        assertEquals(listOf(Response(DemoAction.GIVE_POTION, a, 7, DemoMode.ACCEPTED)), gateway.responses)
+        assertEquals(1, gateway.commits)
+
+        model.submit(DemoAction.TRY_ABILITY, accepted)
+        advanceUntilIdle()
+        assertEquals(
+            listOf(
+                Response(DemoAction.GIVE_POTION, a, 7, DemoMode.ACCEPTED),
+                Response(DemoAction.TRY_ABILITY, a.copy(revision = 8), 8, DemoMode.ACCEPTED),
+            ),
+            gateway.responses,
+        )
+        assertEquals(2, gateway.commits)
+        assertEquals(9L, model.state.value.revision)
+    }
+
+    @Test fun acceptedTextCannotBeResentFromTheOldFrame() = runTest(dispatcher) {
+        val gateway = Stories().apply { provider = TextProvider.SCRIPTED }
+        val model = model(gateway)
+        advanceUntilIdle()
+        val input = PlayInput(PlayInputKind.DIALOGUE, "May I ask about the quay?")
+        val rendered = model.state.value
+
+        model.submitText(input, rendered)
+        advanceUntilIdle()
+        val accepted = model.state.value
+        assertEquals(8L, accepted.revision)
+        assertEquals(1, gateway.commits)
+
+        model.submitText(input, rendered)
+        advanceUntilIdle()
+        assertSame(accepted, model.state.value)
+        assertEquals(listOf(TextResponse(input, a, 7)), gateway.textResponses)
+        assertEquals(1, gateway.commits)
+
+        model.submitText(input, accepted)
+        advanceUntilIdle()
+        assertEquals(
+            listOf(TextResponse(input, a, 7), TextResponse(input, a.copy(revision = 8), 8)),
+            gateway.textResponses,
+        )
+        assertEquals(2, gateway.commits)
+        assertEquals(9L, model.state.value.revision)
+    }
+
+    @Test fun returningToTheSameStoryAndRevisionCannotReviveAnOldFrame() = runTest(dispatcher) {
+        val gateway = Stories().apply { provider = TextProvider.SCRIPTED }
+        val model = model(gateway)
+        advanceUntilIdle()
+        val rendered = model.state.value
+        model.resume(b)
+        advanceUntilIdle()
+        assertEquals(b, model.state.value.selectedStory)
+        model.resume(a)
+        advanceUntilIdle()
+        val returned = model.state.value
+        assertEquals(rendered.selectedStory, returned.selectedStory)
+        assertEquals(rendered.revision, returned.revision)
+        assertNotSame(rendered, returned)
+
+        val input = PlayInput(PlayInputKind.DIALOGUE, "Is the quay open?")
+        model.submit(DemoAction.GIVE_POTION, rendered)
+        advanceUntilIdle()
+        model.submitText(input, rendered)
+        advanceUntilIdle()
+        assertSame(returned, model.state.value)
+        assertTrue(gateway.responses.isEmpty())
+        assertTrue(gateway.textResponses.isEmpty())
+        assertEquals(0, gateway.commits)
+
+        model.submitText(input, returned)
+        advanceUntilIdle()
+        assertEquals(listOf(TextResponse(input, a, 7)), gateway.textResponses)
+        assertEquals(1, gateway.commits)
+        assertEquals(8L, model.state.value.revision)
     }
 
     @Test fun demoNullScopeAndTrustedOneArgumentRoutesRemainUsable() = runTest(dispatcher) {

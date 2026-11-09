@@ -146,19 +146,18 @@ open class MainActivity : ComponentActivity() {
             val renderedArchive = archiveFrame.state
             val renderedDeletion = deletionFrame.state
             val renderedBranchDeletion = branchDeletionFrame.state
-            val renderedActionStory = state.selectedStory
             val renderedChatState = state
-            LocalLoreScreen(renderedChatState, { action -> model.submit(action, renderedActionStory) }, model::setMode,
-                { model.cancel(renderedChatState) }, model::startNewStory,
+            LocalLoreScreen(renderedChatState, { action -> model.submit(action, renderedChatState) }, model::setMode,
+                { model.cancel(renderedChatState) }, { model.startNewStory(renderedChatState) },
                 onDiagnostics = model::openDiagnostics, onResume = { model.resume(it, renderedChatState) },
                 onRecover = { model.recover(renderedChatState) },
-                onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
-                onText = model::submitText,
-                archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
-                deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,
+                onStoryRecord = if (model.hasStoryRecords) ({ model.openStoryRecord(renderedChatState) }) else null,
+                onText = { input, _ -> model.submitText(input, renderedChatState) },
+                archiveAvailable = model.archiveController != null, onArchive = { model.openArchive(renderedChatState) },
+                deletionAvailable = model.deletionController != null, onDelete = { model.openDeletion(renderedChatState) },
                 onTimeline = { model.resumeTimeline(it, renderedChatState) },
                 branchDeletionAvailable = model.branchDeletionController != null,
-                onDeleteTimeline = model::openBranchDeletion,
+                onDeleteTimeline = { model.openBranchDeletion(renderedChatState) },
                 forkAvailable = model.forkAvailable, forkRecoveryAvailable = forkRecoveryPending || forkProblem != null,
                 exposeTestTags = processVerificationEnabled,
                 draftInteractionAllowed = model::canEditPlayDraft,

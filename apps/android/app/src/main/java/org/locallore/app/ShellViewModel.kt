@@ -215,10 +215,11 @@ class ShellViewModel internal constructor(
     }
     internal fun stopFork() { if (!disposed) invalidateForkContext() }
 
-    fun openBranchDeletion() {
-        val controller = branchDeletionController ?: return
+    fun openBranchDeletion(rendered: ShellState = mutable.value) {
         val before = mutable.value
-        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        if (before !== rendered || disposed || workflowBlocksActions() || before.busy || before.archiveActive ||
+            before.deletionActive || before.recoveryRequired || !before.persistent) return
+        val controller = branchDeletionController ?: return
         val selected = before.selectedStory ?: return
         val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         if (selected.branch == root.branch) return
@@ -239,10 +240,11 @@ class ShellViewModel internal constructor(
         savedOperation(notice) { gateway.reconcileSaved() }
     }
 
-    fun openDeletion() {
-        val controller = deletionController ?: return
+    fun openDeletion(rendered: ShellState = mutable.value) {
         val before = mutable.value
-        if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive || before.recoveryRequired || !before.persistent) return
+        if (before !== rendered || disposed || workflowBlocksActions() || before.busy || before.archiveActive ||
+            before.deletionActive || before.recoveryRequired || !before.persistent) return
+        val controller = deletionController ?: return
         val selected = before.selectedStory ?: return
         val root = before.stories.firstOrNull { it.story == selected.story } ?: return
         diagnosticController.dismiss()
@@ -259,10 +261,13 @@ class ShellViewModel internal constructor(
         }
     }
 
-    fun openArchive() {
-        val controller = archiveController ?: return
+    fun openArchive() = openArchive(mutable.value)
+
+    fun openArchive(rendered: ShellState) {
         val before = mutable.value
-        if (disposed || workflowBlocksActions() || before.archiveActive || before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
+        if (before !== rendered || disposed || workflowBlocksActions() || before.archiveActive ||
+            before.deletionActive || before.busy || before.recoveryRequired || !before.persistent) return
+        val controller = archiveController ?: return
         val story = before.selectedStory ?: return
         diagnosticController.dismiss()
         recordController.dismiss()
@@ -441,6 +446,10 @@ class ShellViewModel internal constructor(
     fun openDiagnostics() { if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive) {
         invalidateForkContext(); recordController.dismiss(); diagnosticController.open()
     } }
+    internal fun openStoryRecord(rendered: ShellState) {
+        if (mutable.value === rendered) openStoryRecord()
+    }
+
     fun openStoryRecord() {
         val current = mutable.value
         val story = current.selectedStory ?: return
@@ -542,6 +551,16 @@ class ShellViewModel internal constructor(
 
     fun submit(action: DemoAction) = submitResponse(action.description(), shortcut = action) { before ->
         gateway.respond(action, before.revision, before.mode)
+    }
+
+    /** Accept a quick action only from the frame that rendered it. */
+    internal fun submit(action: DemoAction, rendered: ShellState) {
+        if (mutable.value === rendered) submit(action)
+    }
+
+    /** Accept draft submission only from the frame that rendered it. */
+    internal fun submitText(input: PlayInput, rendered: ShellState) {
+        if (mutable.value === rendered) submitText(input)
     }
 
     /** A retained quick action cannot attach to a different rendered story or timeline. */
@@ -691,6 +710,11 @@ class ShellViewModel internal constructor(
         if (!current.persistent) return rendered == null
         val selected = current.selectedStory ?: return false
         return rendered != null && rendered.story == selected.story && rendered.branch == selected.branch
+    }
+
+    fun startNewStory(rendered: ShellState) {
+        if (mutable.value !== rendered || rendered.busy) return
+        startNewStory()
     }
 
     fun startNewStory() {

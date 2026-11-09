@@ -30,7 +30,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 private val importSlot = Semaphore(1)
-private val importCancellationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+private val exportSlot = Semaphore(1)
+private val archiveCancellationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 /** One copy of openable archive content; no request for durable document access or source editing. */
 internal class ArchiveImportContract : ActivityResultContracts.GetContent() {
@@ -59,13 +60,66 @@ internal suspend fun readArchiveDocument(resolver: ContentResolver, uri: Uri): B
     }, cancelOpen = signal::cancel)
 }
 
+internal suspend fun readArchiveFromProvider(open: () -> InputStream?, cancelOpen: () -> Unit): ByteArray =
+    withArchiveProvider(importSlot, cancelOpen, discard = { it.fill(0) }) { check ->
+        readBoundedArchive(open() ?: throw ArchiveFailure("Io"), check = check)
+    }
+
+/** rw never requests truncation. Verify the same opened descriptor before the first write. */
+internal suspend fun writeArchiveDocument(resolver: ContentResolver, uri: Uri, bytes: ByteArray) {
+    if (uri.scheme != "content") throw ArchiveFailure("Io")
+    val signal = CancellationSignal()
+    writeArchiveToProvider(open = {
+        resolver.openFileDescriptor(uri, "rw", signal)?.let(::archiveSink)
+    }, cancelOpen = signal::cancel, bytes = bytes)
+}
+
+internal suspend fun writeArchiveToProvider(
+    open: () -> ArchiveDocumentSink?,
+    cancelOpen: () -> Unit,
+    bytes: ByteArray,
+) {
+    if (bytes.size !in 1..MAX_ARCHIVE_BYTES) throw ArchiveFailure("Io")
+    withArchiveProvider(exportSlot, cancelOpen) { check ->
+        writeEmptyArchive(open() ?: throw ArchiveFailure("Io"), bytes, check)
+    }
+}
+
+private fun archiveSink(descriptor: ParcelFileDescriptor): ArchiveDocumentSink {
+    val output = try {
+        ParcelFileDescriptor.AutoCloseOutputStream(descriptor)
+    } catch (error: Throwable) {
+        runCatching { descriptor.close() }
+        throw error
+    }
+    // Only the stream closes the descriptor after ownership has transferred.
+    return object : ArchiveDocumentSink {
+        override fun size(): Long {
+            if (descriptor.statSize != 0L ||
+                !OsConstants.S_ISREG(Os.fstat(descriptor.fileDescriptor).st_mode) ||
+                Os.lseek(descriptor.fileDescriptor, 0, OsConstants.SEEK_CUR) != 0L
+            ) throw ArchiveFailure("Io")
+            return output.channel.size()
+        }
+        override fun position() = output.channel.position()
+        override fun write(bytes: ByteArray, offset: Int, count: Int) = output.write(bytes, offset, count)
+        override fun flush() = output.flush()
+        override fun close() = output.close()
+    }
+}
+
 /** Retain the slot until blocking provider work, stream ownership and cancellation have drained. */
-internal suspend fun readArchiveFromProvider(open: () -> InputStream?, cancelOpen: () -> Unit): ByteArray {
-    var bytes: ByteArray? = null
+private suspend fun <T : Any> withArchiveProvider(
+    slot: Semaphore,
+    cancelOpen: () -> Unit,
+    discard: (T) -> Unit = {},
+    operation: (check: () -> Unit) -> T,
+): T {
+    var result: T? = null
     try {
         withContext(Dispatchers.IO) {
-            importSlot.withPermit {
-                val cancellation = importCancellationScope.launch(start = CoroutineStart.LAZY) {
+            slot.withPermit {
+                val cancellation = archiveCancellationScope.launch(start = CoroutineStart.LAZY) {
                     try { cancelOpen() } catch (_: Exception) { /* Keep provider details private. */ }
                 }
                 try {
@@ -73,8 +127,7 @@ internal suspend fun readArchiveFromProvider(open: () -> InputStream?, cancelOpe
                         completion.invokeOnCancellation { cancellation.start() }
                         try {
                             if (!completion.isActive) return@suspendCancellableCoroutine
-                            val input = open() ?: throw ArchiveFailure("Io")
-                            bytes = readBoundedArchive(input) { completion.context.ensureActive() }
+                            result = operation { completion.context.ensureActive() }
                             completion.resume(Unit)
                         } catch (error: Exception) {
                             if (completion.isActive) completion.resumeWithException(error)
@@ -86,34 +139,11 @@ internal suspend fun readArchiveFromProvider(open: () -> InputStream?, cancelOpe
             }
         }
         currentCoroutineContext().ensureActive()
-        return checkNotNull(bytes)
+        return checkNotNull(result)
     } catch (cancelled: CancellationException) {
-        bytes?.fill(0)
+        result?.let(discard)
         throw cancelled
     }
-    catch (failure: ArchiveFailure) { throw failure }
-    catch (_: Exception) { throw ArchiveFailure("Io") }
-}
-
-/** rw never requests truncation. Verify the same opened descriptor before the first write. */
-internal suspend fun writeArchiveDocument(resolver: ContentResolver, uri: Uri, bytes: ByteArray): Unit = withContext(Dispatchers.IO) {
-    if (uri.scheme != "content" || bytes.size !in 1..MAX_ARCHIVE_BYTES) throw ArchiveFailure("Io")
-    val context = currentCoroutineContext()
-    try {
-        val descriptor = resolver.openFileDescriptor(uri, "rw") ?: throw ArchiveFailure("Io")
-        try {
-            if (descriptor.statSize != 0L || !OsConstants.S_ISREG(Os.fstat(descriptor.fileDescriptor).st_mode) ||
-                Os.lseek(descriptor.fileDescriptor, 0, OsConstants.SEEK_CUR) != 0L) throw ArchiveFailure("Io")
-            val output = ParcelFileDescriptor.AutoCloseOutputStream(descriptor)
-            writeEmptyArchive(object : ArchiveDocumentSink {
-                override fun size() = output.channel.size()
-                override fun position() = output.channel.position()
-                override fun write(bytes: ByteArray, offset: Int, count: Int) = output.write(bytes, offset, count)
-                override fun flush() = output.flush()
-                override fun close() = output.close()
-            }, bytes) { context.ensureActive() }
-        } finally { descriptor.close() }
-    } catch (cancelled: CancellationException) { throw cancelled }
     catch (failure: ArchiveFailure) { throw failure }
     catch (_: Exception) { throw ArchiveFailure("Io") }
 }

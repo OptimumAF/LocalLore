@@ -48,9 +48,22 @@ the owner process's guest and service closure.
 The intended guest root is
 `D:/Dev/Experiments/LocalLore/2026-11-09-record-large-text-ui-v1/avd-v1`.
 The shared contract requires API 35 x86_64, 8 GiB guest RAM, four cores and
-a 30-minute guest ceiling. The next operation layer must join the controller
-to guarded preparation and verify owner closure. Actual preparation and
-execution require the current
+a 30-minute guest ceiling. `record_large_text_ui_activation.py` consumes the
+prepared guest's approved run records from the fixed SDK19 runtime folder.
+It checks the canonical preparation result and its reserved ledger entry
+before dispatch. The existing Windows Job supervisor bounds the activation
+worker to 1,800 seconds and the separate controller child to 1,200 seconds.
+The worker binds the child identities and capture receipts, then publishes
+one guarded stop after the controller's terminal state is known.
+
+Qualification requires the original owner's known exit, exact worker proof
+replay, matching guest closure in the schema-2 ledger, and replay of the
+controller against its independently observed caller. An incomplete receipt
+or uncertain cleanup keeps the attempt unqualified. Storage transitions are
+owned by the existing guard.
+
+The enclosing operation still needs to join fresh human approval and
+guarded preparation to the activation input. Actual execution requires the current
 [shared storage guard](RECEIPT_AVD_STORAGE.md), fresh readiness checks and
 authorization for the exact operation. The Android layout and touch results
 and separate screen-reader checks are pending.

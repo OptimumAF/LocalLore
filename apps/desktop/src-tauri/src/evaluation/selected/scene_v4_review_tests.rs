@@ -703,6 +703,80 @@ fn source4_native_prepare_obeys_consent_without_reserving_or_creating_a_target()
     }
 }
 
+#[test]
+fn resume_refuses_replacing_a_granted_scripted_read_with_an_exact_native_index() {
+    use scene_v4::selected_v4 as native_scene;
+
+    let f = fixture4(producer::ComparisonKind::ContinuousRollout);
+    let source_before = inventory(f.source());
+    let client = uuid().unwrap();
+    let (_, _, finished) = complete4(&f, &client);
+    let run = finished["run_id"].as_str().unwrap();
+    let work = work4(&f, run);
+    let work_before = inventory(&work);
+    let read = open4(&f, &client, run);
+
+    let source = scene_v4::desktop_api::open_read_only(f.source()).unwrap();
+    let snapshot = scene_v4::desktop_api::summary(&source, true).unwrap();
+    let binding = snapshot["binding"].as_str().unwrap();
+    drop(source);
+    let replacement_client = uuid().unwrap();
+    let replacement = native_scene::prepare_selected(
+        f.source(),
+        binding,
+        &source_reader::RowId {
+            turn: frozen_suite().unwrap().steps()[SELECTED_INDEX + 1]
+                .id()
+                .to_owned(),
+            arm: Arm::Left,
+        },
+        producer::SelectedIntent {
+            client_id: replacement_client.clone(),
+            lane: producer::SelectedLane::ApprovedNative,
+        },
+        &Cancellation::default(),
+    )
+    .unwrap();
+    let metadata = native_scene::prepared_metadata(&replacement).unwrap();
+    drop(replacement);
+
+    let path = work.parent().unwrap().join("native.json");
+    let mut index = read4(&path);
+    index["version"] = json!(4);
+    index["client_id"] = json!(replacement_client);
+    index["lane"] = json!("approved_native");
+    index["prepared"] = metadata.clone();
+    let replaced_bytes = serde_json::to_vec(&index).unwrap();
+    fs::write(&path, &replaced_bytes).unwrap();
+    assert_eq!(f.manager.selected_index(run).unwrap().prepared, metadata);
+
+    let source = source_input4(&f, &client, f.source());
+    assert_eq!(source.binding, binding);
+    let consent_calls = Arc::new(AtomicUsize::new(0));
+    let observed = consent_calls.clone();
+    f.manager
+        .selected_resume(
+            &f.lease,
+            &f.models,
+            f.epoch,
+            true,
+            resume_input4(&client, &read, source),
+            move |_| {
+                observed.fetch_add(1, Ordering::SeqCst);
+                Ok(false)
+            },
+        )
+        .unwrap();
+    let refused = f.done(&client);
+    join4(&f);
+    assert_eq!(refused["error"], "EvaluationSourceMismatch", "{refused}");
+    assert_eq!(consent_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(inventory(&work), work_before);
+    assert_eq!(fs::read(&path).unwrap(), replaced_bytes);
+    assert!(f.models.cleanup_complete());
+    source_released4(&f, &source_before);
+}
+
 struct Release4(Option<mpsc::SyncSender<()>>);
 impl Release4 {
     fn now(&mut self) {

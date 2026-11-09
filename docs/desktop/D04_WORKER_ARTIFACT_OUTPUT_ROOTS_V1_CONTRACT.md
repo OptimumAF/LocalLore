@@ -18,7 +18,9 @@ prepare/recheck no writer may be live. The wrapper must keep ownership while
 an operation or child remains unsettled, including after a caller-side
 deadline. No coordinator port is wired in this slice. A successful roster is
 a point observation of logical file lengths, not a file lock, sandbox,
-physical disk quota, atomic snapshot or approval to launch a child. It
+physical disk quota, atomic snapshot or approval to launch a child. The future coordinator must establish
+admission prerequisites before mutating prepare, then use its result as
+one additional observation before allowing any child. It
 excludes prior retained output and output elsewhere, including compiler temp
 files, streams and descendant writes; the owner must account for those
 separately. It does not establish expected stage files, freshness, hashes,
@@ -33,10 +35,11 @@ core. Specs and adapter records have exact enumerable own data fields on an
 ordinary or null-prototype record; no getters, extras or symbols. The
 accepted recipe validates `config`; the parent and two output roots are
 derived from its returned paths. `attemptSha256` is exactly 64 lowercase hex
-digits; the owner binds it to a real admission record later. The recipe
+digits and not all zero; the owner binds it to a real admission record later. The recipe
 digest is SHA-256 of its UTF-8 `JSON.stringify(recipe)` in returned field
 order. Identity tokens are canonical unsigned decimal `dev:ino` (two
-uint64s, nonzero ino). `maxBytes` is an integer in 1..67108864; the helper
+uint64s, nonzero ino, at most 41 characters). All root and file
+identities must use the same dev as the parent. `maxBytes` is an integer in 1..67108864; the helper
 never treats that whole ceiling as newly available evidence space.
 Invalid construction throws `WorkerArtifactOutputRootsV1Input`; production
 on a non-Windows host throws `WorkerArtifactOutputRootsV1Platform`.
@@ -48,7 +51,9 @@ with a stopped snapshot. `cancel()` returns a snapshot synchronously, latches
 `Cancelled` if no earlier failure, and starts no I/O. The states are
 `New`, `Ready`, `Stopped`, `Closed`. While prepare runs the underlying
 state stays New until success, and while recheck runs it stays Ready until
-success or stop. `pending` is `prepare`, `recheck`, `close` or null.
+success or stop. A latched stop changes the state to Stopped immediately,
+even during pending close, until explicit close settles in Closed. Closed
+means the lease cannot be used again; it does not prove known closure. `pending` is `prepare`, `recheck`, `close` or null.
 Only prepare from New and recheck from Ready are legal; limit 32 started
 rechecks per lease (attempt 33 latches `Limit`, no I/O). Concurrent
 prepare/recheck/close reject `WorkerArtifactOutputRootsV1Busy` and invalid
@@ -69,6 +74,9 @@ directory streams close once in their scan's cleanup. Explicit close tries
 each captured marker close exactly once, B then A, regardless of cancellation,
 time or other close failure; close is deliberately not a false hard deadline.
 A rejected/missing close is unknown, never retried or claimed closed.
+For transient stream cleanup check liveness before and after close without
+skipping it; a close rejection already known on resumption is recorded
+before the post-close clock observation. Explicit close ignores the clock.
 
 ## Fixed operations
 
@@ -89,8 +97,8 @@ A rejected/missing close is unknown, never retried or claimed closed.
   length, byte equality and zero-byte EOF probe. For each verification read only
   this marker's expected length plus one EOF probe byte; no other file payload reads.
 - After both markers, prepare scans A then B; each must contain exactly its
-  marker. Recheck likewise observes both roots, with marker verification
-  before and after each scan. Assert the same parent and each candidate
+  marker. Recheck likewise observes both roots. Both passes verify the
+  marker before and after each scan. Assert the same parent and each candidate
   directory identity at scan start/end and before each pathname stat.
   Use a manual nonrecursive directory stream; at most nine reads per root
   (eight allowed names plus EOF), buffer size one in production. The only
@@ -130,7 +138,8 @@ known EEXIST; all other operations use the normal failure path.
 
 The production adapter uses Node Windows `lstat`, `realpath`, `mkdir`,
 `open`, FileHandle operations and manual `opendir` reads/close. It requires
-ordinary, non-symbolic paths with case-insensitive physical spelling matches,
+ordinary, non-symbolic paths with physical spelling matches (normalize backslashes to slashes and fold
+ASCII A–Z only),
 nonzero ino and one-link file checks. This is cooperative pathname evidence,
 not directory-relative open, arbitrary reparse-tag inspection, ACL isolation,
 or a defense against an adversarial concurrent namespace. The pinned Windows
@@ -155,7 +164,9 @@ a directory close rejection does not erase a prior failure. `complete`
 requires EOF, marker, known stream closure, and matching postchecks. Files are reported in recipe order (marker first) as
 `{name,identity,bytes}` using allowlisted names, opaque identity tokens and
 decimal strings. Per-file facts in a stopped/incomplete pass are diagnostics,
-not a proof for the copy helper. Reset pass observations at prepare/recheck
+not a proof for the copy helper. A stopped pre-scan attempt may report zero
+observed bytes even after a write; the owner must retain and charge its
+reserved bytes until complete external accounting, without assuming absence. Reset pass observations at prepare/recheck
 start, preserve them across failure and close. No result exposes the
 absolute paths, marker payload, raw exceptions, or process/run authority.
 

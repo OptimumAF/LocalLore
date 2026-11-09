@@ -126,9 +126,15 @@ x86_64 emulator and user before staging the exact APKs. It requires both
 packages to be absent, uses no-replacement installs, and verifies the
 installed package paths, UIDs and hashes before, between and after the
 tests. Replay checks every command and both raw streams in order, using
-rows and reads qualified by the owner. Target admission, capture retention
-and teardown remain the owner's responsibility. Actual Android execution
-requires a separately approved guest run.
+rows and reads qualified by the owner.
+
+The dedicated SDK27 profile in `benchmarks/owned_storage_opener.py`
+binds the exact APK pair, source paths, and two one-use test claims to
+its own admission and capture session. It verifies the APKs before
+acquiring observer handles and uses the shared owned-target transport
+to record commands and replay their evidence. The owner supplies the
+running target and closes the observer and capture after use. Preparing
+or booting the guest requires separate approval and shared storage admission.
 
 Document helpers: readArchiveDocument(ContentResolver,Uri):ByteArray,
 writeArchiveDocument(ContentResolver,Uri,ByteArray). OpenDocument reads at most

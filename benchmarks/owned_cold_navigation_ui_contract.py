@@ -11,6 +11,7 @@ from benchmarks import owned_target_contract as core
 from benchmarks import receipt_avd_environment as env
 
 PROTOCOL = "owned-emulator-cold-navigation-ui-v1"
+RUN_SCOPE = PROTOCOL
 APP = "org.locallore.app.draftprocessverify"
 TEST = APP + ".test"
 CLASS = "org.locallore.app.ColdNavigationFreshTaskTest"
@@ -20,6 +21,7 @@ GUEST_ROOT = PureWindowsPath("D:/Dev/Experiments/LocalLore/2026-11-09-cold-navig
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     "owned_cold_navigation_ui_contract.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
     "owned_cold_navigation_ui_client.py", "cold_navigation_ui_controller.py",
+    "owned_cold_navigation_ui_owner.py",
 })
 
 _EVIDENCE = PureWindowsPath("D:/Dev/Experiments/LocalLore/2026-11-09-cold-navigation-artifact-v1")

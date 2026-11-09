@@ -319,20 +319,23 @@ def validate_proposal(proposal, phase):
                 "invalid_budget")
 
 
-def authorize(proposal_path, authorization_path, phase):
+def authorize(proposal_path, authorization_path, phase, *, run_scope=None):
     proposal = read_json(proposal_path)
     validate_proposal(proposal, phase)
     auth = read_json(authorization_path, 4096)
-    check_authorization(auth, phase, digest(proposal_path))
+    check_authorization(auth, phase, digest(proposal_path), run_scope=run_scope)
     verify_installation(proposal)
     check_external_state(proposal)
     return proposal
 
 
-def check_authorization(auth, phase, proposal_sha):
-    require(auth == {"version": 1, "phase": phase, "proposal_sha256": proposal_sha,
-                     "allow_environment_calls": True, "root_go_pending": False} and
-            type(auth["version"]) is int and auth["allow_environment_calls"] is True and
+def check_authorization(auth, phase, proposal_sha, *, run_scope=None):
+    expected = {"version": 1, "phase": phase, "proposal_sha256": proposal_sha,
+                "allow_environment_calls": True, "root_go_pending": False}
+    if run_scope is not None:
+        require(phase == "run" and type(run_scope) is str and bool(run_scope), "not_authorized")
+        expected["run_scope"] = run_scope
+    require(auth == expected and type(auth["version"]) is int and auth["allow_environment_calls"] is True and
             auth["root_go_pending"] is False, "not_authorized")
 
 

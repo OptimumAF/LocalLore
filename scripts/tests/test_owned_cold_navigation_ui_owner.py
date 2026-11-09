@@ -263,7 +263,9 @@ class ColdNavigationOwnerTests(unittest.TestCase):
             else:
                 gate.assert_called_once_with(graph.admission_pin, graph.admission)
             launch.assert_not_called()
-            self.assertFalse(json.loads(output.getvalue())["qualified_target"])
+            reported = json.loads(output.getvalue())
+            self.assertFalse(reported["qualified_target"])
+            self.assertEqual(reported["reason"], "already_used" if existing else "authority")
 
     def test_parent_only_accepts_the_fixed_admission_path_and_worker_command(self):
         args = ["--admission", "D:/Synthetic/admission-v1.json", "--admission-sha256", "0" * 64]

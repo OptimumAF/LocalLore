@@ -147,7 +147,8 @@ class _Verifier:
             self._equal(value[key], wanted)
         proposal = self._json(g['proposal'])
         authorization = self._json(g['authorization'])
-        env.check_authorization(authorization, 'run', g['proposal']['sha256'])
+        env.check_authorization(authorization, 'run', g['proposal']['sha256'],
+                                run_scope=getattr(self.c, 'RUN_SCOPE', None))
         self._equal(proposal['host_free_min'], env.root_free_min(g['root']))
         self.c._int(proposal['host_available_memory_min'], 12 * 1024 ** 3, 12 * 1024 ** 3, 'budget')
         self.c._need(proposal['version'] == 1 and proposal['phase'] == 'run' and (proposal['paths']['root'] == g['root']) and (proposal['serial'] == g['serial']) and (type(proposal['memory_mib']) is int) and (proposal['memory_mib'] == 8192) and (type(proposal['cores']) is int) and (proposal['cores'] == 4) and (proposal['max_seconds'] == 1800) and (proposal['console_port'] == 5592) and (proposal['adb_path'] == a['server']['adb']['path']), 'binding')

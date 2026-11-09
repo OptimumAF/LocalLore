@@ -67,6 +67,12 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [archive control fix](docs/android/ARCHIVE_ACTION_SCOPE_2026-11-01.md)
+binds consent controls to the exact displayed view and delivers fresh frames
+after equal-valued reopen. Nine original assertion failures become green with
+unchanged tests; the full offline Android gate passes 505 JVM cases and APK
+audits. Three new UI journeys compile but remain unrun on Android.
+
 The [archive opening clarification](docs/android/ARCHIVE_CORRECTED_OPEN_2026-11-01.md)
 replaces a stale warning: explicit Open resumes the original root, then the
 library can select a playable corrected timeline. Thirteen native tests and

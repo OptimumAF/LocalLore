@@ -153,6 +153,12 @@ export function decodeArchiveCompletion(
                 p.preview.branch_heads[exportBasis.branch] !== exportBasis.head)
         )
             wire();
+    } else if (result.status === "failed") {
+        const cleanup =
+            kind === "export"
+                ? result.cleanup_complete
+                : result.staging_cleanup_complete;
+        if (isPreview || typeof cleanup !== "boolean") wire();
     } else if (result.status === "exported" || result.status === "imported") {
         if (isPreview || !binding || binding.kind !== kind) wire();
         if (result.status === "exported") {
@@ -266,6 +272,10 @@ export function decodePreview(v: unknown): PreviewToken {
 export function decodeStatus(v: unknown): ArchiveStatus {
     if (
         !object(v) ||
+        Object.keys(v).length !== 6 ||
+        !["version", "operation_id", "running", "phase", "error", "result"].every(
+            (key) => Object.hasOwn(v, key),
+        ) ||
         v.version !== 1 ||
         !integer(v.operation_id) ||
         v.operation_id === 0 ||

@@ -286,7 +286,7 @@ class ShellViewModel internal constructor(
         }
         if (gateway.durable) {
             mutable.value = ShellState(busy = true, persistent = true, notice = "Opening local saved stories…")
-            savedOperation("Saved story resumed. Uncommitted responses remain outside accepted history.") { gateway.initialize() }
+            savedOperation("Local saved library opened.") { checkNotNull(gateway.initialize()) }
         }
     }
 
@@ -332,7 +332,8 @@ class ShellViewModel internal constructor(
 
     fun recover() {
         if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved progress recovered.") {
-            if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+            val saved = if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+            checkNotNull(saved)
         }
     }
     fun resume(story: SavedStory) {

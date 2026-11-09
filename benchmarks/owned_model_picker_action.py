@@ -1,18 +1,26 @@
-"""Fixed observer and capture for an independently owned synthetic picker guest.
+"""Observe or start one approved, prepared synthetic picker guest.
 
 Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 import copy
-from pathlib import PureWindowsPath
+import os
+from pathlib import Path, PureWindowsPath
 import sys
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks import android_process_client_v4 as wire
 from benchmarks import android_process_verification_v4 as verification
+from benchmarks import isolated_adb_owner as process
 from benchmarks import model_picker_action_binding as artifacts
 from benchmarks import owned_target_contract as core
 from benchmarks import owned_target_owner as mechanisms
+from benchmarks import receipt_avd_environment as env
+from benchmarks import receipt_avd_storage as storage
 
 PROTOCOL = "owned-emulator-model-picker-action-v1"
+RUN_SCOPE = PROTOCOL
 SDK_PROTOCOL = "sdk-model-picker-action-v1"
 PROOF_PROTOCOL = "model-picker-action-socket-proof-v1"
 CLIENT_VERSION = 22
@@ -28,7 +36,7 @@ CLAIM_KINDS = tuple(kind for kind, _, _ in INSTRUMENTATIONS)
 ARTIFACT_KEYS = frozenset(("build", "product_apk", "test_apk"))
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     OWNER_SCRIPT, "model_picker_action_binding.py", "model_picker_action_controller.py",
-    "archive_ui_build.py", "android_instrumentation_evidence.py",
+    "model_picker_action_handoff.py", "archive_ui_build.py", "android_instrumentation_evidence.py",
 })
 OwnerRefused = mechanisms.OwnerRefused
 ClientRefused = wire.ClientRefused
@@ -121,3 +129,92 @@ class OwnedModelPickerActionSdkCapture(wire._OwnedTargetSdkCapture):
     def _expected_lease_class(self):
         wire._need(type(self) is OwnedModelPickerActionSdkCapture, "client_type")
         return LiveOwnedModelPickerActionTarget
+
+
+def _live_boot(pin, approved, parent=None):
+    """Recheck the pinned handoff and the actual enclosing process identities."""
+    from benchmarks import model_picker_action_handoff as handoff
+
+    current_pin, current = handoff.read(handoff.HANDOFF)
+    env.require(pin["sha256"] == os.environ.get(handoff.HANDOFF_ENV)
+                and _same(current_pin, pin) and _same(current, approved), "handoff")
+    supervisor = approved["supervisor"]
+    api = mechanisms._ProcessApi()
+    handles = process.ProcessHandles(api)
+    try:
+        handles.add(supervisor["pid"], supervisor)
+        if parent is None:
+            env.require(os.getppid() == supervisor["pid"]
+                        and {supervisor["pid"], os.getpid()} <= set(api.current_job_pids()), "identity")
+        else:
+            parent_handle, _ = handles.add(parent["pid"], parent)
+            env.require(os.getppid() == parent["pid"] and api.parent_pid(parent_handle) == supervisor["pid"]
+                        and os.getpid() in api.current_job_pids(), "identity")
+        handles.guard()
+    finally:
+        env.require(handles.close() is True, "identity")
+    for binding in (pin, approved["authority"], approved["attempt"], approved["admission"]):
+        env.check_binding(binding)
+    handoff.check_launch_window(approved["began_ns"], approved["until_ns"])
+
+
+class _ModelPickerActionRuntime(mechanisms._TargetRuntimeCore):
+    def __init__(self, request, request_binding, root):
+        from benchmarks import model_picker_action_handoff as handoff
+
+        mechanisms._need(type(self) is _ModelPickerActionRuntime, "owner_type")
+        self._handoff_pin, self._handoff = handoff.verify_boot_handoff(
+            request["admission"], request["validated_admission"])
+        _live_boot(self._handoff_pin, self._handoff, request["owner"])
+        super().__init__(request, request_binding, root)
+
+    def start_server(self):
+        _live_boot(self._handoff_pin, self._handoff, self.request["owner"])
+        super().start_server()
+
+    def guard(self):
+        from benchmarks import model_picker_action_handoff as handoff
+
+        super().guard()
+        window = handoff.check_launch_window if self.guest_child is None else handoff.check_window
+        window(self._handoff["began_ns"], self._handoff["until_ns"])
+
+    def _retain_guest(self):
+        _live_boot(self._handoff_pin, self._handoff, self.request["owner"])
+        guest = self.admission["guest"]
+        env.storage_transition(storage.record_state, Path(guest["root"]), "retained",
+                               proposal_sha256=guest["proposal"]["sha256"],
+                               expected_prepare_sha256=self.proposal["prepare_proposal"]["sha256"])
+        _live_boot(self._handoff_pin, self._handoff, self.request["owner"])
+
+    @property
+    def _contract(self):
+        return _CONTRACT
+
+    @property
+    def _verification(self):
+        return REPLAY
+
+
+def main(argv=None):
+    from benchmarks import model_picker_action_handoff as handoff
+
+    args = sys.argv[1:] if argv is None else argv
+    if type(args) is not list or (args != ["_worker"] and not (
+        len(args) == 4 and args[:3] == ["--admission", str(handoff.ADMISSION), "--admission-sha256"]
+    )):
+        return 1
+
+    def check_admission(admission):
+        pin, current = handoff.read(handoff.ADMISSION)
+        env.require(pin["sha256"] == args[3] and _same(current, admission), "admission")
+        env.require(not os.path.lexists(handoff.OWNED_ROOT), "already_used")
+        _live_boot(*handoff.verify_boot_handoff(pin, admission))
+
+    return mechanisms._main_profile(args, _contract=_CONTRACT, _verification=REPLAY,
+                                    _runtime_type=_ModelPickerActionRuntime,
+                                    _admission_check=check_admission)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -489,8 +489,13 @@ class ShellViewModel internal constructor(
     }
 
     fun closeDiagnostics() { diagnosticController.dismiss(); synchronizeForkContext() }
+    fun closeDiagnostics(review: DiagnosticsReview) {
+        if (diagnosticController.dismiss(review)) synchronizeForkContext()
+    }
     fun clearDiagnostics() = diagnosticController.clear()
+    fun clearDiagnostics(review: DiagnosticsReview) { diagnosticController.clear(review) }
     fun beginDiagnosticExport() = diagnosticController.beginExport()
+    fun beginDiagnosticExport(review: DiagnosticsReview) = diagnosticController.beginExport(review)
     fun diagnosticPickerFailed() = diagnosticController.pickerFailed()
     fun completeDiagnosticExport(writer: (suspend (ByteArray) -> Unit)?) = diagnosticController.completeExport(writer)
 

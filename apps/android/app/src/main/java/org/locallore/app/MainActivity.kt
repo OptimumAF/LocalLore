@@ -206,8 +206,8 @@ open class MainActivity : ComponentActivity() {
                     onKnowledgeFilter = { filter -> model.recordKnowledgeFilter(filter, renderedRecordState) },
                     onFocusRelationship = { entry -> model.focusRecordRelationship(entry, renderedRecordState) },
                     onAllRelationships = { model.allRecordRelationships(renderedRecordState) })
-                DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) {
-                    if (model.beginDiagnosticExport()) {
+                DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) { review ->
+                    if (model.beginDiagnosticExport(review)) {
                         try { documentPicker.launch("locallore-diagnostics.json") }
                         catch (_: Exception) { model.diagnosticPickerFailed() }
                     }

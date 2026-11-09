@@ -57,7 +57,9 @@ facts in reports, and has no retry or alternate file path. The owner enforces
 stage-specific freshness and checks all ordinary output and temporary files.
 The reader does not confer permission to spawn or release anything.
 
-Invalid construction throws `WorkerArtifactHeldOutputsV1Input`. Busy or
+Invalid construction throws `WorkerArtifactHeldOutputsV1Input`. The native
+factory refuses other platforms with `WorkerArtifactHeldOutputsV1Platform`.
+Busy or
 already terminal offers reject with the fixed Busy or Stopped suffix.
 Wrong request shape, sequence or signal produces one terminal REQUEST
 result before file I/O. Capture the same genuine signal for the attempt.
@@ -93,6 +95,8 @@ Use a private follower of the supplied genuine abort signal and a
 four-second monotonic cooperative deadline per offer. A pre-aborted signal
 does not offer file I/O. Keep monotonic history across the reader. Fence new
 reads before and after every awaited operation and around parser entry.
+Listen for cancellation while an offer is pending. Between offers the
+next status read or offer observes cancellation on the same private signal.
 Cancel or timeout does not race the promise away from the
 owner. Retain a late handle long enough to close it once. Closure is attempted
 even after an earlier refusal and cannot overwrite its first reason.

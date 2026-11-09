@@ -24,9 +24,27 @@ arguments accepted by the existing owned-target wire. The same selector
 must appear in a complete JUnit start/pass sequence. Untrusted runner output
 passes through the shared bounded evidence parser.
 
-This verification reads files. It creates no device operation, lease or
-reservation. A future guarded controller must bind this policy to its
-owned target, install and verify the exact isolated packages, supervise the
-twelve results and verify cleanup. Live readiness and applicable human
-approval are required before preparation. Existing frozen profiles keep
-their original artifacts and selectors.
+## Owned SDK21 controller
+
+`combined_record_ui_controller.run(admission_binding, running_binding)`
+requires the SDK21 admission and running records for an independently owned
+API 35 x86_64 guest. The controller has a 1,200-second deadline, with up to
+120 seconds for boot checks and up to 90 seconds per test, limited by the
+remaining time. The outer supervisor owns process lifetime and guest closure.
+
+The controller checks the empty isolated install, stages and hashes the exact
+APK pair, and verifies package paths, hashes, and distinct UIDs before and
+after the twelve tests. Each instrumentation command consumes one existing
+owned-wire claim. The result retains the ordered client bindings and records
+whether the observer closed its handles.
+
+`verify_controller_result` requires the outer supervisor's independently
+observed caller. It replays the same command sequence from the closed capture
+and validates each raw JUnit result and socket proof. Partial runs, extra or
+reordered commands, and uncertain observer cleanup cannot qualify a result.
+Guest and private ADB closure still require the outer operation's proof.
+
+The SDK21 modules provide an observer and controller for an existing target.
+The approved preparation and boot handoff remains a separate step. Live
+readiness and applicable human approval are required before preparation.
+Existing frozen profiles keep their original artifacts and selectors.

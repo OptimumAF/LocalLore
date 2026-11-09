@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from benchmarks import archive_roundtrip_admission as gate
+from benchmarks import archive_roundtrip_prepare as preparation
 from benchmarks import receipt_avd_environment as env
 from scripts.tests.test_owned_archive_roundtrip_profile import admission
 from scripts.tests.test_owned_target_contract import pin
@@ -34,8 +35,9 @@ class OperatorAdmissionTests(unittest.TestCase):
                           proposal_sha256=self.prepare["sha256"], closure=None, recovery=None,
                           retirement=None, retirement_receipt=None)
         self.ledger = self.add(gate.storage.DEFAULT_REGISTRY / "ledger-v1.json", {"version": 2})
+        self.prepare_receipt = pin(str(preparation.RESULT))
         self.authority = self.add(gate.AUTHORITY, dict(
-            version=1, scope=gate.SCOPE, admission=self.admit, ledger=self.ledger,
+            version=1, scope=gate.SCOPE, admission=self.admit, ledger=self.ledger, prepare_receipt=self.prepare_receipt,
             approval_reference="synthetic approval", allow_one_boot=True, allow_prepare=False,
             allow_model=False, allow_retirement=False, owner_seconds=gate.OWNER_SECONDS,
             guest_seconds=gate.GUEST_SECONDS))
@@ -48,6 +50,7 @@ class OperatorAdmissionTests(unittest.TestCase):
         self.authorize = self.enterContext(patch.object(env, "authorize",
                                                          side_effect=lambda *args, **kwargs: copy.deepcopy(self.proposal)))
         self.prepared = self.enterContext(patch.object(env, "verify_prepared"))
+        self.receipt = self.enterContext(patch.object(preparation, "verify_receipt"))
         self.binding = self.enterContext(patch.object(env, "check_binding"))
         self.ledger_validate = self.enterContext(patch.object(gate.storage, "_validate"))
         self.enterContext(patch.object(gate.storage, "_entry", side_effect=lambda *args: self.entry))
@@ -90,9 +93,18 @@ class OperatorAdmissionTests(unittest.TestCase):
         self.authorize.assert_called_once_with(str(gate.RUN_PROPOSAL), str(gate.RUN_AUTHORIZATION), "run",
             run_scope=gate.contract.RUN_SCOPE, expected_proposal_sha256=self.a["guest"]["proposal"]["sha256"])
         self.prepared.assert_called_once_with(self.proposal, initial=True)
+        self.receipt.assert_called_once_with(self.prepare_receipt, self.proposal, self.a["artifacts"])
         self.sources.assert_called_once_with(self.a)
         self.artifacts.assert_called_once_with(self.a)
         self.ledger_validate.assert_called_once_with({"version": 2}, gate.storage.DEFAULT_REGISTRY)
+
+    def test_generic_prepared_records_do_not_replace_the_scoped_receipt(self):
+        self.receipt.side_effect = gate.AdmissionRefused("prepared")
+        with self.assertRaisesRegex(gate.AdmissionRefused, "^prepared$"):
+            gate.spend(self.authority)
+        self.assertFalse(self.exists(gate.ATTEMPT))
+        self.authorize.assert_not_called()
+        self.prepared.assert_not_called()
 
     def test_one_shot_claim_and_revalidation(self):
         attempt = gate.spend(self.authority)

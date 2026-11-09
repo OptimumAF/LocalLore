@@ -45,7 +45,7 @@ def _at(pin, path, cap=lifecycle.RECORD_CAP):
 
 def _authority(pin):
     value = _at(pin, AUTHORITY, AUTHORITY_CAP)
-    contract._obj(value, ("version", "scope", "admission", "ledger", "approval_reference",
+    contract._obj(value, ("version", "scope", "admission", "ledger", "prepare_receipt", "approval_reference",
                           "allow_one_boot", "allow_prepare", "allow_model", "allow_retirement",
                           "owner_seconds", "guest_seconds"), "auth")
     reference = value["approval_reference"]
@@ -99,6 +99,8 @@ def _prepared_entry(ledger_pin, admission, proposal):
 
 def preboot(authority_pin, *, owner_created=False):
     """Revalidate the one approved prepared-run context without spending it."""
+    from benchmarks import archive_roundtrip_prepare as preparation
+
     authority = _authority(authority_pin)
     admission_pin = authority["admission"]
     admission = contract.validate_admission(_at(admission_pin, ADMISSION))
@@ -112,6 +114,7 @@ def preboot(authority_pin, *, owner_created=False):
     _need(not os.path.lexists(Path(guest["root"]) / contract.BOOT_CLAIM_FILE), "already_used")
     proposal = _proposal(admission)
     _prepared_entry(authority["ledger"], admission, proposal)
+    preparation.verify_receipt(authority["prepare_receipt"], proposal, admission["artifacts"])
     build.verify_current(admission)
     contract.revalidate_inputs(admission)
     current = env.authorize(str(RUN_PROPOSAL), str(RUN_AUTHORIZATION), "run",
@@ -119,7 +122,7 @@ def preboot(authority_pin, *, owner_created=False):
                             expected_proposal_sha256=guest["proposal"]["sha256"])
     _need(_same(current, proposal), "proposal")
     env.verify_prepared(proposal, initial=True)
-    for pin in (authority_pin, admission_pin, authority["ledger"], guest["proposal"],
+    for pin in (authority_pin, admission_pin, authority["ledger"], authority["prepare_receipt"], guest["proposal"],
                 guest["authorization"], proposal["prepare_proposal"], proposal["prepared"],
                 proposal["prepare_result"]):
         env.check_binding(pin)

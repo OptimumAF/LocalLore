@@ -72,20 +72,20 @@ internal class NativeWorkspaceTransport(
         val envelope = JSONObject().put("version", 1).put("command", command).toString()
         val bytes = if (localInference == null) envelope.toByteArray(Charsets.UTF_8) else localUtf8(envelope)
         require(bytes.size <= 24_576)
-        val reply = if (localInference == null) NativeWorkspace.call(id, bytes) else {
-            val operation = command.getString("op")
-            val cancel = when(operation) {
-                "prepare" -> JSONObject(command.toString()).put("op", "cancel")
-                "authoring_generate" -> JSONObject().put("op","authoring_cancel").put("job",command.get("job"))
-                else -> null
-            }
-            localInference.execute(checkNotNull(localPort), operation, bytes, cancel?.let {
-                JSONObject().put("version", 1).put("command", it).toString().let(::localUtf8)
-            })
+        if (localInference == null) {
+            val reply = NativeWorkspace.call(id, bytes)
+            check(reply.size <= 262_144)
+            return@withContext JSONObject(reply.toString(Charsets.UTF_8)).also { check(it.getInt("version") == 1) }
         }
-        check(reply.size <= 262_144)
-        JSONObject(if (localInference == null) reply.toString(Charsets.UTF_8) else localText(reply, 262_144))
-            .also { check(it.getInt("version") == 1) }
+        val operation = command.getString("op")
+        val cancel = when (operation) {
+            "prepare" -> JSONObject(command.toString()).put("op", "cancel")
+            "authoring_generate" -> JSONObject().put("op", "authoring_cancel").put("job", command.get("job"))
+            else -> null
+        }
+        localInference.executeWorkspace(checkNotNull(localPort), operation, bytes, cancel?.let {
+            JSONObject().put("version", 1).put("command", it).toString().let(::localUtf8)
+        })
     }
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
@@ -99,6 +99,31 @@ internal class NativeWorkspaceTransport(
             lifecycle.cancel()
         }
     }
+}
+
+internal suspend fun LocalInferenceOwner.executeWorkspace(
+    value: LocalInferenceNativePort, operation: String, input: ByteArray, cancelInput: ByteArray? = null,
+): JSONObject = executeDecoded(value, operation, input, cancelInput, ::workspaceControlReply)
+
+private fun workspaceControlReply(bytes: ByteArray): JSONObject {
+    val text = localText(bytes, 262_144)
+    check('\u0000' !in text && text.trimStart(' ', '\t', '\r', '\n').startsWith('{'))
+    val reader = JSONTokener(text)
+    val reply = reader.nextValue() as? JSONObject ?: throw LocalInferenceUncertain()
+    while (true) {
+        val trailing = reader.next()
+        if (trailing == '\u0000') break
+        check(trailing == ' ' || trailing == '\t' || trailing == '\r' || trailing == '\n')
+    }
+    val version = reply.opt("version")
+    check(version == 1 || version == 1L)
+    // Operation payloads and additive rejection metadata belong to the gateway.
+    when (reply.opt("status")) {
+        "ok" -> check(reply.opt("data") is JSONObject && !reply.has("error"))
+        "rejected" -> check((reply.opt("error") as? String)?.isNotBlank() == true && !reply.has("data"))
+        else -> throw LocalInferenceUncertain()
+    }
+    return reply
 }
 
 /** Platform JSON is confined to the production port; the lifecycle owner is plain JVM Kotlin. */

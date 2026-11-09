@@ -25,11 +25,14 @@ class DurableSessionReplyBindingTest {
         var openReply: suspend (JSONObject) -> JSONObject = { it }
         var closeReply: suspend (JSONObject) -> JSONObject = { it }
         var workspaceReply: (JSONObject) -> JSONObject = { it }
+        var turnReplies = emptyMap<String, JSONObject>()
 
         override suspend fun exchange(command: JSONObject): JSONObject {
             commands += JSONObject(command.toString())
+            val operation = command.getString("op")
+            turnReplies[operation]?.let { return it }
             val reply = reads.exchange(command)
-            return when (command.getString("op")) {
+            return when (operation) {
                 "resume" -> resumeReply(reply)
                 "open" -> openReply(reply)
                 "close" -> closeReply(reply)
@@ -331,6 +334,34 @@ class DurableSessionReplyBindingTest {
         port.openReply = { it }
         assertSavedCase(port.gateway.recoverSaved(), target)
         assertReadOwner(port.readsInOrder(), target)
+    }
+
+    @Test fun closedPendingRecoveryKeepsTheExactTurnKeyForAnotherRetry() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val target = corpus.case("main")
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), target)
+        port.commands.clear()
+        port.turnReplies = mapOf("submit" to rejected("Busy"), "turn_status" to rejected("Closed"))
+
+        assertCategory("Busy", runCatching {
+            port.gateway.respond(DemoAction.GIVE_POTION, target.revision, DemoMode.ACCEPTED)
+        }.exceptionOrNull())
+        repeat(2) {
+            assertCategory("Closed", runCatching { port.gateway.recoverSaved() }.exceptionOrNull())
+        }
+
+        assertEquals(listOf("submit", "turn_status", "turn_status"), port.commands.map { it.getString("op") })
+        val submit = port.commands.first()
+        val request = submit.getJSONObject("request")
+        val originalScope = request.getJSONObject("scope")
+        for (status in port.commands.drop(1)) {
+            assertEquals(submit.getString("session"), status.getString("session"))
+            assertEquals(request.getString("turn"), status.getString("turn"))
+            val statusScope = status.getJSONObject("scope")
+            assertEquals(originalScope.getString("story"), statusScope.getString("story"))
+            assertEquals(originalScope.getString("branch"), statusScope.getString("branch"))
+        }
     }
 
     @Test fun lateClosedRecoveryCannotDetachNewerSavedSelection() = runTest {

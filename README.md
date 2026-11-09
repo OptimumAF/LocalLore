@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [current Story Record UI harness](docs/native/RECORD_CONTROLS_UI_V1.md)
+binds nineteen chat, inventory, profile, retained-control and promise journeys
+to PR #337's exact APK pair. [Host verification](docs/native/RECORD_CONTROLS_UI_VERIFICATION_2026-11-01.md)
+passes 56 new checks and 79 existing regressions; actual Android execution
+remains unrun and needs matching execution authority.
+
 The [Player state UI qualification harness](docs/native/PLAYER_PROFILE_UI_V1.md)
 binds fourteen fixed chat, inventory and self-profile tests to PR #333's exact
 APK pair. [Host verification](docs/native/PLAYER_PROFILE_UI_VERIFICATION_2026-11-01.md)

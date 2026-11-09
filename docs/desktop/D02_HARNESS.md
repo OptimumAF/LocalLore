@@ -31,6 +31,17 @@ fresh ignored `apps/desktop/artifacts/{native|headless}-UUID` leaf, and exits
 nonzero on failure, timeout or missing checkpoints. Exit 0 requires the final
 report and all 21 checkpoint files. Bounds are timeouts, not performance claims.
 
+The base native runner starts its app child with the fixed memory fixture and
+the new run's workspace and artifact paths. It excludes inherited LocalLore
+selectors and WebView2 environment overrides, including profile and debugger
+settings. Windows WebView2 registry policy can still affect environment
+creation and must be checked before a qualification run. The focused launch
+environment test runs without opening a WebView:
+
+```powershell
+node --test apps/desktop/d02-native-environment.test.mjs
+```
+
 ## What each backend establishes
 
 | Backend | Actual path | Render and lifecycle evidence |

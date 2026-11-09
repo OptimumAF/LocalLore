@@ -528,12 +528,13 @@ a fresh session. Closing refreshes the accepted saved-story library.
 
 Model weights, separate diagnostics/raw prompt logs, caches, and uncommitted
 operations are excluded. The document provider may sync plaintext elsewhere.
-Checksums establish consistency, not authorship. Cancelling an import signals
-the document provider's pending read-only open from an I/O worker. A provider
-that ignores the signal or blocks during a stream read can delay cleanup.
-Close holds the shell guard until active work and outstanding picker callbacks
-drain. Cancellation can race an already committed import; refresh the library
-before retrying.
+Checksums establish consistency, not authorship. Cancelling an import or export
+signals the document provider's pending open from an I/O worker. A provider
+that ignores the signal or blocks during a stream read or write can delay
+cleanup. Close holds the shell guard until active work and outstanding picker
+callbacks drain. An export cancelled after writing starts can leave a partial
+document. Cancellation can race an already committed import; refresh the
+library before retrying.
 
 The [narrow native boundary](../../docs/native/ANDROID_ARCHIVE_BOUNDARY.md),
 [verification](../../docs/native/ANDROID_ARCHIVE_VERIFICATION_2026-10-23.md), and

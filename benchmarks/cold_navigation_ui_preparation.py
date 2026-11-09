@@ -15,10 +15,13 @@ from benchmarks import receipt_avd_environment as env
 from benchmarks import receipt_avd_storage as storage
 
 
-def _fresh_outputs(*, guest=False):
-    env.safe_path(owner.ATTEMPT_ROOT, directory=True)
+def _fresh_outputs(*, guest=False, pending=False):
     paths = (owner.ADMISSION, owner.RUN, owner.RUN_AUTHORITY, owner.HANDOFF,
              owner.OWNED_ROOT, activation.CONTROL)
+    if pending:
+        paths = (owner.AUTHORITY, owner.ATTEMPT_ROOT, *paths)
+    else:
+        env.safe_path(owner.ATTEMPT_ROOT, directory=True)
     if guest:
         env.safe_path(owner.GUEST.parent, directory=True)
         paths = (owner.GUEST, *paths)
@@ -39,10 +42,13 @@ def _server(plan, run_id):
                 source_review=installed["source_review"])
 
 
-def preflight(authority, plan, prepare):
-    """Observe the exact approved inputs and capacity without reserving or starting a guest."""
-    _fresh_outputs(guest=True)
-    ledger_pin = authority["ledger"]
+def _check_source_and_apks(plan):
+    env.require(contract._same(plan["sources"], contract.source_bindings()), "source")
+    contract.verify_artifacts(plan["artifacts"])
+
+
+def _preflight(ledger_pin, plan, prepare, *, pending):
+    _fresh_outputs(guest=True, pending=pending)
     ledger = owner._at(ledger_pin, owner.LEDGER, cap=owner._STORAGE_CAP)
     storage._validate(ledger, storage.DEFAULT_REGISTRY)
     env.require(contract._same(ledger["version"], 2), "ledger")
@@ -50,8 +56,7 @@ def preflight(authority, plan, prepare):
     env.require(contract._same(preview["ledger"], ledger_pin) and preview["root"] == str(owner.GUEST), "binding")
     env.require(preview["would_fit"] is True and preview["admission_granted"] is False, "storage_capacity")
 
-    env.require(contract._same(plan["sources"], contract.source_bindings()), "source")
-    contract.verify_artifacts(plan["artifacts"])
+    _check_source_and_apks(plan)
     server.revalidate_inputs(_server(plan, "0" * 32))
     installed = plan["installed"]
     for role in ("emulator", "qemu", "refuser", "refuser_source", "compatibility"):
@@ -79,10 +84,22 @@ def preflight(authority, plan, prepare):
     env.require(private["exclusive_bind_succeeded"] is True and
                 all(contract._same(private[key], 1) for key in
                     ("created_mask", "close_attempted_mask", "closed_mask")), "ports_unavailable")
+    if pending:
+        _check_source_and_apks(plan)
     env.check_binding(plan["prepare"])
     env.check_binding(ledger_pin)
-    _fresh_outputs(guest=True)
+    _fresh_outputs(guest=True, pending=pending)
     return dict(resources=facts, storage=preview, ports_free=True)
+
+
+def preflight(authority, plan, prepare):
+    """Observe the exact approved inputs before reservation."""
+    return _preflight(authority["ledger"], plan, prepare, pending=False)
+
+
+def preflight_pending(ledger_pin, plan, prepare):
+    """Observe the same gates before any human approval or attempt exists."""
+    return _preflight(ledger_pin, plan, prepare, pending=True)
 
 
 def create_admission(plan):

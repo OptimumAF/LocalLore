@@ -150,9 +150,10 @@ def _prepared(plan):
     review._check_ledger_entry(entry, proposal["prepare_proposal"]["sha256"])
     for key in ("prepare_proposal", "prepared", "prepare_result"):
         env.check_binding(proposal[key])
-    _need(not any(os.path.lexists(path) for path in (lock, h.GUEST / owner.BOOT_CLAIM_FILE,
-               h.GUEST / "guest-storage-closure-v1.json", Path(proposal["paths"]["content"]) / "userdata-qemu.img")),
-          "already_used")
+    markers = (lock, h.GUEST / owner.BOOT_CLAIM_FILE, h.GUEST / "guest-storage-closure-v1.json",
+               Path(proposal["paths"]["content"]) / "userdata-qemu.img",
+               h.OWNED_ROOT / "running-v1.json", h.OWNED_ROOT / "guest-output-v1")
+    _need(not any(os.path.lexists(path) for path in markers), "already_used")
     return proposal
 
 

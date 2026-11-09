@@ -174,6 +174,16 @@ The test creates two synthetic stories, then deletes its selected fixture throug
 a second native owner and checks that the Activity recovers the retained story.
 The APK build and host checks leave Android execution pending.
 
+Check the preserved pair, build record and APK audit from the repository root.
+
+```powershell
+python -I -S -B benchmarks/cross_owner_deletion_ui_binding.py
+```
+
+The read-only report binds the exact archived bytes and annotated method to
+the story-deletion package. A later device run requires its own guarded
+admission and approval.
+
 Parent-retirement verification has its own debug identity and project cache:
 
 ```powershell

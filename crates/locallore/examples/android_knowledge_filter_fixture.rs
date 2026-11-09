@@ -1,6 +1,6 @@
 // Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 //! Actual player Knowledge Query2 pages; no model, Host, Store or file writes.
-//! Copy to crates/locallore/examples/android_knowledge_filter_fixture.rs before use.
+//! Default stdout generates JSON; --check compares the committed corpus byte-for-byte.
 use locallore::{
     author_correction::{AuthorCorrectionInputV1, AuthorCorrectionOperationV1},
     contracts::*,
@@ -375,6 +375,12 @@ fn case(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<_> = std::env::args_os().skip(1).collect();
+    let check = match args.as_slice() {
+        [] => false,
+        [arg] if arg == "--check" => true,
+        _ => return Err("Usage: android_knowledge_filter_fixture [--check]".into()),
+    };
     let mut parent = initial();
     let parent_scope = parent.scope().clone();
     for index in 0..9 {
@@ -454,13 +460,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ),
         ],
     };
-    let encoded = serde_json::to_vec(&corpus)?;
-    assert!(
-        encoded.len() + 1 <= 128 * 1024,
-        "corpus stdout budget exceeded"
-    );
+    let mut encoded = serde_json::to_vec(&corpus)?;
+    encoded.push(b'\n');
+    assert!(encoded.len() <= 128 * 1024, "corpus stdout budget exceeded");
+    if check {
+        let expected = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../apps/android/app/src/test/resources/story-record-knowledge-filters-v1.json"
+        ));
+        if encoded.as_slice() != expected {
+            return Err(
+                "Knowledge corpus differs from Rust outcomes; review regenerated stdout".into(),
+            );
+        }
+        println!("Knowledge corpus matches Rust engine bytes.");
+        return Ok(());
+    }
     let mut stdout = io::stdout().lock();
     stdout.write_all(&encoded)?;
-    stdout.write_all(b"\n")?;
     Ok(())
 }

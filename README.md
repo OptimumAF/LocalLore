@@ -99,6 +99,11 @@ qualification do not establish Android process-restoration execution, which
 remains a separate gate. The [host verification report](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_VERIFICATION_2026-11-01.md)
 records the tests, original failures and remaining device gates.
 
+The [native Knowledge corpus gate](docs/android/KNOWLEDGE_CORPUS_GATE_2026-11-02.md)
+detects engine/fixture drift during host checks. Real copied-source row and
+line-ending mutations are rejected; 620 Core tests and 18 orchestration tests
+pass after restoring one missing generated schema entry. No Android run follows.
+
 The [Knowledge record filters](docs/android/KNOWLEDGE_FILTERS_VERIFICATION_2026-11-02.md)
 separate observations, statements, beliefs and discoveries using the existing
 native player query. The actual Core corpus and all 579 JVM checks pass;

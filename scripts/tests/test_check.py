@@ -43,7 +43,11 @@ class CheckRunnerTests(unittest.TestCase):
         self.assertTrue(all(argv[1] == "+1.93.1" for argv in cargo))
         self.assertTrue(all("--offline" in argv for argv in cargo[1:]))
         self.assertNotIn("--offline", cargo[0])
-        self.assertEqual(cargo[-1][-2:], ("--", "--check"))
+        fixtures = [argv for argv in cargo if "--example" in argv]
+        self.assertEqual([argv[argv.index("--example") + 1] for argv in fixtures],
+                         ["android_fixtures", "android_knowledge_filter_fixture"])
+        self.assertTrue(all(argv[-2:] == ("--", "--check") for argv in fixtures))
+        self.assertTrue(all("--locked" in argv for argv in fixtures))
         self.assertTrue(all(command.cwd == root for command in commands))
         self.assertEqual(commands[-1].argv[0], str(root / "target/checks" / (
             "native-linker-tests.exe" if os.name == "nt" else "native-linker-tests")))
@@ -51,6 +55,21 @@ class CheckRunnerTests(unittest.TestCase):
 
     def test_wrapper_integrity_checks_actual_tracked_files(self):
         check.verify_wrapper(check.ROOT)
+
+    def test_native_knowledge_drift_stops_the_actual_host_graph(self):
+        for offline in (False, True):
+            commands = check.host_commands(check.ROOT, offline)
+            gate = next(index for index, command in enumerate(commands)
+                        if "android_knowledge_filter_fixture" in command.argv)
+            self.assertEqual(commands[gate].argv[-2:], ("--", "--check"))
+            self.assertEqual(commands[gate + 1].argv[0], sys.executable)
+            results = [subprocess.CompletedProcess([], 0) for _ in range(gate)]
+            results.append(subprocess.CompletedProcess([], 101))
+            with patch.object(check.subprocess, "run", side_effect=results) as run:
+                self.assertEqual(check.run_commands(commands), 101)
+            self.assertEqual(run.call_count, gate + 1)
+            self.assertEqual([call.args[0] for call in run.call_args_list],
+                             [list(command.argv) for command in commands[:gate + 1]])
 
     def test_portable_workspace_commands_exclude_only_desktop(self):
         # --workspace ignores default-members: a missing exclusion would compile

@@ -4,8 +4,10 @@ Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 """
 from dataclasses import dataclass, replace
 import hashlib
-from pathlib import PureWindowsPath
+from pathlib import Path, PureWindowsPath
+import tempfile
 import unittest
+from unittest.mock import Mock, patch
 
 from benchmarks import android_instrumentation_evidence as evidence
 from benchmarks import model_picker_action_binding as binding
@@ -260,3 +262,74 @@ class PickerOwnedContractTests(unittest.TestCase):
         ):
             with self.subTest(argv=argv), self.assertRaises(owned.TargetRefused):
                 owned.validate_operation({"argv": argv, "stdin": None}, self.value)
+
+
+class PickerReplayTests(unittest.TestCase):
+    def setUp(self):
+        self.admission = {"artifacts": binding.artifact_bindings()}
+        self.steps = command_tape(self.admission["artifacts"])
+        self.rows = [
+            dict(index=index, effective_deadline_ms=step.seconds * 1000,
+                 label=step.label, operation={"argv": step.argv, "stdin": step.source},
+                 client_qualified=True, status="completed", returncode=0,
+                 stdout=step.reply, stderr=b"")
+            for index, step in enumerate(self.steps, 1)
+        ]
+
+    def replay(self):
+        output = Path("unused-synthetic-output")
+        session_pin = {"synthetic": True}
+        with patch.object(owned.REPLAY, "require_current_clients", return_value=self.rows) as read, \
+                patch.object(owned.REPLAY, "_raw", side_effect=lambda raw, cap: raw):
+            result = controller._replay(output, len(self.rows), session_pin, self.admission)
+        read.assert_called_once_with(output, len(self.rows), session_pin, self.admission)
+        return result
+
+    def test_complete_replay_matches_live_journey(self):
+        replies = iter(step.reply for step in self.steps)
+        live = controller._journey(lambda *args, **kwargs: next(replies), lambda: None,
+                                   self.admission["artifacts"])
+        self.assertEqual(self.replay(), live)
+
+    def test_replay_refuses_changed_recipe_and_unqualified_capture(self):
+        test_index = next(i for i, row in enumerate(self.rows) if row["label"] == KIND)
+        original = self.rows[test_index]
+        for changes in (
+            {"operation": {"argv": INSTRUMENT[:-1], "stdin": None}},
+            {"client_qualified": False},
+            {"stderr": b"unexpected output"},
+            {"effective_deadline_ms": 90_001},
+        ):
+            with self.subTest(changes=changes):
+                self.rows[test_index] = {**original, **changes}
+                with self.assertRaises((env.EnvironmentRefused, owned.TargetRefused)):
+                    self.replay()
+        self.rows[test_index] = original
+
+    def test_replay_refuses_an_extra_record_after_exact_journey(self):
+        self.rows.append(dict(self.rows[-1], index=len(self.rows) + 1))
+        with self.assertRaisesRegex(env.EnvironmentRefused, "binding"):
+            self.replay()
+
+
+class PickerControllerOwnershipTests(unittest.TestCase):
+    def test_failed_capture_setup_closes_observer_and_records_refusal_once(self):
+        for close_known, reason in ((True, "checks_failed"), (False, "resource_uncertain")):
+            with self.subTest(close_known=close_known), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                live = Mock()
+                live.close.return_value = close_known
+                with patch.object(controller, "_admission", return_value={"root": str(root)}), \
+                        patch.object(owned, "LiveOwnedModelPickerActionTarget", return_value=live), \
+                        patch.object(owned, "OwnedModelPickerActionSdkCapture",
+                                     side_effect=owned.ClientRefused("client_guard")) as capture:
+                    result = controller.run({"admission": True}, {"running": True})
+                    self.assertEqual(result["outcome"], "refused")
+                    self.assertEqual(result["reason"], reason)
+                    self.assertEqual(result["observer_handles_closed"], close_known)
+                    self.assertEqual(result["client_count"], 0)
+                    self.assertEqual(env.read_json(root / "controller-v1" / controller.RESULT_FILE), result)
+                    live.close.assert_called_once_with()
+                    with self.assertRaises(FileExistsError):
+                        controller.run({"admission": True}, {"running": True})
+                    capture.assert_called_once()

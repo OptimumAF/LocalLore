@@ -8,6 +8,47 @@ helper, own its process and pipes, and implement the evidence ports.
 The helper is a Windows x64 development source behind the existing
 `LOCALLORE_COMPILE_JOB_V1_TEST_OWNER` build definition.
 
+## Standalone helper build
+
+The `native/llama-worker/compile-host` project builds only
+`locallore-compile-host-v1.exe`. It uses a Windows MSVC x64 Release
+configuration with Ninja and has no worker, llama.cpp, app or install
+target. The build selects the static MSVC release runtime and the
+translation unit refuses a dynamic or debug runtime. This reduces the
+helper's dependency on side-by-side runtime files. Actual imported
+Windows DLLs, activation-context redirection, transitive imports and
+any runtime loads still need their own evidence.
+[CMake static runtime property](https://cmake.org/cmake/help/v3.22/prop_tgt/MSVC_RUNTIME_LIBRARY.html)
+
+Only after a separate build admission, run from the exact reviewed
+physical D: checkout using the admitted MSVC x64 environment. The
+admission supplies the exact CMake executable and a fresh dedicated D:
+build root outside the worker sources and normal build. It must bind
+Ninja, the compiler, linker, SDK and resource/manifest tools, and
+reserve the complete configure, compiler-probe and build outputs.
+The CMake path checks do not establish physical storage or grant
+authority. Use the approved versions and process-local environment.
+
+```powershell
+$env:TEMP = 'D:/Dev/_Temp'
+$env:TMP = $env:TEMP
+$source = Join-Path (Get-Location).Path 'native/llama-worker/compile-host'
+& $approvedCMake -S $source -B $approvedHelperBuildRoot -G Ninja '-DCMAKE_BUILD_TYPE=Release'
+if ($LASTEXITCODE -ne 0) { throw 'Compile helper configuration failed' }
+& $approvedCMake --build $approvedHelperBuildRoot --target locallore-compile-host-v1 --parallel 1 --verbose
+if ($LASTEXITCODE -ne 0) { throw 'Compile helper build failed' }
+```
+
+Verify the actual compiler and link arguments, the x64 PE and its exact
+bytes and hash before considering it for the helper pin. Inspect normal
+and delay imports with the admitted PE inspection tool. Retain the exact
+scope and report before any separate loader run. A PE import listing
+alone cannot prove which files the Windows loader actually resolves.
+The held helper path and loader admission remain required. There has
+been no configuration, build, import inspection or execution of this
+target in this source slice.
+[Microsoft PE import listing](https://learn.microsoft.com/en-us/cpp/build/reference/imports-dumpbin?view=msvc-170)
+
 ## Frames
 
 The helper accepts no arguments. Its standard input and output are

@@ -19,7 +19,7 @@ const PROCESS = ['version', 'kind', ...PROCESS_CONTEXT, 'index', 'pid', 'exitCod
   'stdoutBytes', 'stderrBytes', 'stdoutHash', 'stderrHash', ...PROCESS_FLAGS];
 const READER = ['version', 'kind', 'index', 'candidate', 'role', 'ok', 'code', 'file', 'metadata',
   'io', 'unknownClosure', 'ioUncertain'];
-const READER_CODES = ['REQUEST', 'CANCELLED', 'DEADLINE', 'CLOCK', 'IDENTITY', 'CONTENT', 'COFF', 'IO', 'CLOSE'];
+const READER_CODES = ['CANCELLED', 'DEADLINE', 'CLOCK', 'IDENTITY', 'CONTENT', 'COFF', 'IO', 'CLOSE'];
 const LEASE_FIELDS = ['version', 'kind', 'qualified', 'state', 'pending', 'stop', 'rechecks', 'withinBudget', 'observedBytes', 'roots'];
 const ROOT_FIELDS = ['candidate', 'creation', 'identity', 'marker', 'markerClosure', 'directoryClosure', 'complete', 'files'];
 const LEASE_CODES = ['Cancelled', 'Deadline', 'Clock', 'Limit', 'Exists', 'Identity', 'Marker', 'Roster', 'Budget', 'IO', 'Closure'];
@@ -105,6 +105,7 @@ function leaseView(value) {
   const view = data(value, LEASE_FIELDS);
   requireData(view.version === 1 && view.kind === 'worker_artifact_output_roots_v1' &&
     view.qualified === false && view.pending === null && integer(view.rechecks, 0, 32) &&
+    ['Ready', 'Stopped', 'Closed'].includes(view.state) &&
     (view.stop === null || LEASE_CODES.includes(view.stop)) && bool(view.withinBudget));
   decimal(view.observedBytes, U64 + BigInt(MAX));
   view.roots = array(view.roots, 2).map((value, index) => {
@@ -112,7 +113,8 @@ function leaseView(value) {
     requireData(root.candidate === (index === 0 ? 'A' : 'B') &&
       ['unattempted', 'unknown', 'created', 'exists'].includes(root.creation) &&
       ['unattempted', 'unknown', 'created'].includes(root.marker) &&
-      CLOSURES.includes(root.markerClosure) && CLOSURES.includes(root.directoryClosure) && bool(root.complete));
+      CLOSURES.includes(root.markerClosure) && ['none', 'closed', 'unknown'].includes(root.directoryClosure) &&
+      bool(root.complete) && (!root.complete || root.directoryClosure === 'closed'));
     if (root.identity !== null) deviceOf(root.identity);
     root.files = array(root.files, 8).map(value => {
       const file = data(value, ['name', 'identity', 'bytes']);
@@ -127,20 +129,26 @@ function leaseView(value) {
   return view;
 }
 
-function markerClosed(value) {
+function markerClosed(value, anchors, minRechecks) {
   const view = leaseView(value);
-  requireData(view.state === 'Closed' && view.withinBudget === false);
-  for (const root of view.roots) {
+  requireData(view.state === 'Closed' && view.withinBudget === false && view.rechecks >= minRechecks);
+  for (const [index, root] of view.roots.entries()) {
     requireData((root.marker === 'created' ? root.creation === 'created' && root.identity !== null && root.markerClosure === 'closed' :
       root.marker === 'unattempted' && root.markerClosure === 'none') &&
-      (root.directoryClosure === 'none' || root.directoryClosure === 'closed') &&
-      (!root.complete || root.directoryClosure === 'closed'));
+      (root.directoryClosure === 'none' || root.directoryClosure === 'closed'));
+    const anchor = anchors[index];
+    if (anchor === null) continue;
+    requireData(root.identity === anchor.root && root.creation === 'created' &&
+      root.marker === 'created' && root.markerClosure === 'closed');
+    const markers = root.files.filter(file => file.name === MARKER);
+    requireData(markers.length <= 1 && (!root.complete || markers.length === 1));
+    if (markers.length === 1) requireData(markers[0].bytes === '167' &&
+      (anchor.marker === null || markers[0].identity === anchor.marker));
   }
   return true;
 }
 
-function roster(value, candidate, before = null) {
-  const view = leaseView(value);
+function roster(view, candidate, before = null) {
   requireData(view.state === 'Ready' && view.stop === null && view.withinBudget === true &&
     view.rechecks === (before === null ? 0 : 1));
   const objectName = candidate.object.slice(candidate.outputRoot.length + 1);
@@ -212,15 +220,18 @@ function readerReceipt(value, request) {
     (proof.unknownClosure || io.opened === io.closed) &&
     (reserved === payload + 2n ||
       (reserved === 0n && actual === 0n && io.opened === 0 && io.closed === 0 && io.verifiedScans === 0)) &&
+    ((actual === 0n && io.verifiedScans === 0) || io.opened === 1) &&
+    actual >= BigInt(io.verifiedScans) * BigInt(request.bytes) &&
     (proof.ioUncertain || actual <= reserved));
+  const fullScans = reserved === payload + 2n && actual === payload &&
+    io.opened === 1 && io.verifiedScans === 2 && !proof.ioUncertain;
   if (proof.ok) {
     const file = data(proof.file, ['sha256', 'bytes']);
     const metadata = data(proof.metadata, ['directives', 'defaultLibraries']);
     metadata.directives = array(metadata.directives, 64);
     metadata.defaultLibraries = array(metadata.defaultLibraries, 64);
     const values = [...metadata.directives, ...metadata.defaultLibraries];
-    requireData(proof.code === null && !proof.unknownClosure && !proof.ioUncertain &&
-      reserved === payload + 2n && actual === payload && io.opened === 1 && io.closed === 1 && io.verifiedScans === 2 &&
+    requireData(proof.code === null && !proof.unknownClosure && fullScans && io.closed === 1 &&
       digest(file.sha256) && file.bytes === request.bytes &&
       values.length <= 64 && values.every(value => typeof value === 'string' && value.length <= 8192) &&
       Buffer.byteLength(JSON.stringify(metadata), 'utf8') <= 8192);
@@ -228,6 +239,8 @@ function readerReceipt(value, request) {
     proof.metadata = metadata;
   } else {
     requireData(READER_CODES.includes(proof.code) && proof.file === null && proof.metadata === null);
+    if (proof.code === 'COFF') requireData(fullScans);
+    if (proof.code === 'CLOSE') requireData(proof.unknownClosure && fullScans && io.closed === 0);
   }
   proof.io = io;
   return freeze(proof);
@@ -326,6 +339,24 @@ export function createWorkerArtifactCompileObservationV1(options) {
     used = true;
     const checks = { admit: null, before: null, after: null };
     let process = null, output = null, leaseClosed = false;
+    let leaseBound = false, minRechecks = 0;
+    const anchors = [null, null];
+    function recordLease(value) {
+      const view = leaseView(value);
+      requireData(view.state === 'Ready' || view.state === 'Stopped');
+      minRechecks = Math.max(minRechecks, view.rechecks);
+      for (const [index, root] of view.roots.entries()) {
+        if (root.creation !== 'created' || root.marker !== 'created' || root.identity === null) continue;
+        anchors[index] ??= { root: root.identity, marker: null };
+        const anchor = anchors[index];
+        if (anchor.root !== root.identity) continue;
+        const rows = root.files.filter(file => file.name === MARKER);
+        if (rows.length === 1 && rows[0].bytes === '167' &&
+            deviceOf(rows[0].identity) === deviceOf(root.identity)) anchor.marker ??= rows[0].identity;
+      }
+      leaseBound = true;
+      return view;
+    }
     try {
       const admit = await ask('admit', null, null);
       checks.admit = sha(admit);
@@ -336,7 +367,7 @@ export function createWorkerArtifactCompileObservationV1(options) {
       const before = await receive('prepare', 'LEASE', () => {
         leaseOffered = true;
         return prepare();
-      }, value => roster(value, candidate));
+      }, value => roster(recordLease(value), candidate));
       checks.before = sha(await ask('before', before.digest, admit));
       const request = Object.freeze({ version: 1, context, index: 0, step, policy: POLICY, signal });
       process = await receive('launch', 'CLOSURE', () => {
@@ -349,7 +380,10 @@ export function createWorkerArtifactCompileObservationV1(options) {
       if (writerUnknown) fail('CLOSURE');
       if (direct.exitCode !== 0 || direct.timedOut || direct.overflow || direct.killAttempted) fail('PROCESS');
 
-      const after = await receive('roster', 'ROSTER', recheck, value => roster(value, candidate, before));
+      const after = await receive('roster', 'ROSTER', () => {
+        leaseBound = false;
+        return recheck();
+      }, value => roster(recordLease(value), candidate, before));
       output = await receive('read', 'OBJECT', () => {
         objectUnknown = true;
         return readNext(after.object, signal);
@@ -363,7 +397,9 @@ export function createWorkerArtifactCompileObservationV1(options) {
       if (leaseOffered && !writerUnknown && !objectUnknown) {
         phase = 'close';
         try {
-          leaseClosed = markerClosed(await close());
+          const closed = await close();
+          requireData(leaseBound);
+          leaseClosed = markerClosed(closed, anchors, minRechecks);
         } catch {
           stop ??= 'CLOSURE';
         }

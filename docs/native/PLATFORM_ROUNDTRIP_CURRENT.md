@@ -69,3 +69,29 @@ shared parent barrier. The operator launcher and return phase are still
 pending, including ordered package identity checks, verified Windows
 continuation, the single return write, final Rust replay and separately
 approved guest admission.
+
+## Check the ordered outbound transfer evidence
+
+The outbound controller checks boot readiness, the fixed target and Android
+user, and absence of both isolated packages before writing either APK. It
+checks the staged hashes, installs without replacing, and records package
+UIDs, paths and APK hashes before and after the single outbound test. The
+test must pass and emit the exact owner marker. Both returned Windows
+archives must match the admitted sizes and SHA-256 digests.
+
+Host verification uses a synthetic 31-command capture with two boot reads.
+The live adapter allows at most 60 boot reads, gives each read at most the
+remaining time in the 120-second boot window, and refuses late readiness.
+Replay checks the command count, individual command deadlines, and the
+same ordered setup and transfer evidence. SDK25 caps raw captures at 128 KiB.
+Setup commands request 4 KiB and a retained setup record exceeding that
+size is refused.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_outbound.py
+```
+
+The result carries the exact session, contiguous record pins, and verified
+archive bytes. A return controller must match those frozen pins when replaying
+the prefix, run the pinned Rust continuation, and verify the exclusive return
+write before dispatch. These host tests use no SDK, emulator, or device.

@@ -44,7 +44,25 @@ and validates each raw JUnit result and socket proof. Partial runs, extra or
 reordered commands, and uncertain observer cleanup cannot qualify a result.
 Guest and private ADB closure still require the outer operation's proof.
 
-The SDK21 modules provide an observer and controller for an existing target.
-The approved preparation and boot handoff remains a separate step. Live
-readiness and applicable human approval are required before preparation.
-Existing frozen profiles keep their original artifacts and selectors.
+## Prepared-guest handoff
+
+SDK21 uses the reviewed v2 shared ledger guard from
+[PR #446](https://github.com/OptimumAF/LocalLore/pull/446). It checks the approved
+ledger under the preparation lock and compares the original preparation digest
+under the transition lock before retaining a prepared guest for boot.
+
+The owner requires the fixed handoff, spent attempt, exact approval, plan, and
+run admission. It joins the prepared result and scoped prepare evidence to the
+same guest, verifies the fixed APKs, and checks that the v2 ledger still holds the
+40 GiB preparation reservation. Parent and worker also verify the live outer
+supervisor, its process job, and the launch window. Boot consumes the existing
+create-only claim.
+
+Closed replay joins the observed owner and worker records to a normal stop, known
+handle and capture cleanup, and the matching v2 ledger closure. It can be used
+alongside the controller's exact twelve-result replay by the outer supervisor.
+
+The remaining outer integration owns approval consumption, guarded preparation,
+activation and final closure. A fresh readiness check and exact approval are
+required before preparation. Earlier frozen profiles keep their own source,
+artifact and authority bindings.

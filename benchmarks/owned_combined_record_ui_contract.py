@@ -8,6 +8,7 @@ from benchmarks import combined_record_ui_binding as artifact_policy
 from benchmarks import owned_target_contract as core
 
 PROTOCOL = "owned-emulator-combined-record-ui-v1"
+RUN_SCOPE = PROTOCOL
 SDK_PROTOCOL = "sdk-combined-record-ui-v1"
 PROOF_PROTOCOL = "combined-record-ui-socket-proof-v1"
 CLIENT_VERSION = 21
@@ -24,6 +25,7 @@ ARTIFACT_KEYS = frozenset(("build", "product_apk", "test_apk"))
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     "owned_combined_record_ui_contract.py", OWNER_SCRIPT, "owned_combined_record_ui_client.py",
     "combined_record_ui_binding.py", "combined_record_ui_controller.py",
+    "combined_record_ui_handoff.py", "combined_record_ui_closure.py",
     "archive_ui_build.py", "android_instrumentation_evidence.py",
 })
 

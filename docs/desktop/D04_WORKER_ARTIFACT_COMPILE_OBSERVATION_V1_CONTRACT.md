@@ -21,7 +21,8 @@ Authority is the exact own-data record `{attempt,baseline,closure,grant}`
 with nonzero lowercase SHA-256 values. The captured context is
 `{attempt,recipe,baseline,closure,grant}`, where recipe is the hash of the
 accepted recipe's JSON. The external owner must validate the actual one-use
-grant and the current closure policy. A hash is a binding, not a grant.
+grant and current closure policy and durably mark the grant spent before
+calling `run`. A hash binds the evidence to that decision.
 Use the same prepared-for-attempt Windows lease and reader configuration.
 The entry point owns the exclusive use of both objects until settlement.
 Capture the own data methods `prepare,recheck,cancel,close` from outputRoots
@@ -39,7 +40,7 @@ offered record exclusively to the approved namespace and acknowledges its
 actual bytes. This module supplies none of those Windows ports. It does
 not run the six-stage coordinator or mark its unresolved link inputs fresh.
 
-Construction errors throw `WorkerArtifactCompileObservationV1Input`.
+Construction and extra-argument errors throw `WorkerArtifactCompileObservationV1Input`.
 The first no-argument run consumes the entry point. Any later run, including
 one while pending, rejects `WorkerArtifactCompileObservationV1Used`.
 Cancel latches CANCELLED before terminal record selection, signals the
@@ -61,8 +62,10 @@ the SHA-256 of the exact verified lease snapshot. The returned record is
 exactly `{version:1,kind:'worker_artifact_compile_check_v1',context,when,
 roster,source,headers,tool,environment,normal,temp,storage,reserve}`.
 The eight proof fields are nonzero SHA-256 values. Source, headers, tool,
-environment, normal and temp agree across all accepted checks. Storage and
-reserve attest each fresh checkpoint. Do not obtain CL-only evidence by
+environment, normal and temp agree across all accepted checks. Temp binds
+the private namespace, owner and policy. Storage and reserve attest each
+fresh checkpoint's actual temp, target and journal inventory and remaining
+limits. Do not obtain CL-only evidence by
 setting unrelated library and no-shadow flags.
 
 After the admit check, offer the frozen START record
@@ -70,9 +73,12 @@ After the admit check, offer the frozen START record
 preflight,runCount:1}` to journal. Preflight hashes the admit receipt.
 The exact journal acknowledgement for START or the terminal record is
 `{version:1,kind:'worker_artifact_compile_journal_ack_v1',sha256,stored:true}`,
-with the SHA-256 of the offered record. A failed START stops before lease
-preparation. The owner must consume the grant before offering START and
-never authorize another invocation after a pre-START failure.
+with the SHA-256 of the offered record after actual flush, known close and
+readback. A failed START stops before lease preparation. `started:true`
+means the START acknowledgement was verified. An unacknowledged partial
+record is still retained. Cancellation before run offers only the reserved
+terminal record. Cancellation during START waits for its acknowledgement
+and still records a verified START before stopping.
 
 Prepare the lease. Require a Ready, complete, known-closed directory roster
 with two open owned markers, exactly one 167-byte marker in each fixed root,
@@ -133,8 +139,9 @@ the validated held reader result or null. Status is observed only with
 successful checks, known closure and a positive object fact, otherwise
 stopped. The report is bounded to 16 KiB UTF-8 JSON. Code is null on success or one of CANCELLED, PREFLIGHT, START,
 LEASE, ROSTER, PROCESS, CLOSURE, OBJECT, POSTFLIGHT. `run` returns frozen
-`{report,retained}`. No report grants LINK, artifact adoption or runtime
-qualification.
+`{report,retained}`. Packet acceptance additionally requires retained true
+and the outer owner's independent postflight. The report carries no LINK,
+artifact adoption or runtime qualification authority.
 
 Independent FIRST exercises the actual recipe and the lease/reader cores
 with bounded in-memory adapters, plus controlled owner ports for receipt,

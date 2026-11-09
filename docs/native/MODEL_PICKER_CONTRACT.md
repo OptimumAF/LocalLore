@@ -82,8 +82,9 @@ before and after the single test. Its result can be replayed from qualified
 command captures. The [prepared-guest handoff](../../benchmarks/model_picker_action_handoff.py)
 joins the exact approval, consumed attempt, prepared guest and its v2 storage
 reservation before the owner can start a private service or boot the guest.
-The owner rechecks the enclosing supervisor and launch window and converts the
-matching prepared reservation to retained through the shared guard. A separate
+The owner rechecks the enclosing supervisor, launch window, and pinned approval
+and preparation files. It converts the matching prepared reservation to
+retained through the shared guard. A separate
 operation must supply the approved preparation, supervision and closure.
 
 ## Real document provider and ownership

@@ -202,20 +202,22 @@ def verify_prepared_admission(admission_pin, admission, authority_pin, attempt_p
           "prepared")
     claim = env.safe_path(GUEST / contract.BOOT_CLAIM_FILE, exists=False)
     _need(not os.path.lexists(claim), "already_used")
-    for pin in (admission_pin, authority_pin, attempt_pin, authority["proposal"],
-                authority["plan"], plan["prepare"], guest["proposal"], guest["authorization"],
-                proposal["prepared"], proposal["prepare_result"], ledger_pin, *preparation_pins):
+    launch_inputs = (authority["proposal"], authority["plan"], plan["prepare"],
+                     guest["proposal"], guest["authorization"], proposal["prepared"],
+                     proposal["prepare_result"], *preparation_pins)
+    for pin in (admission_pin, authority_pin, attempt_pin, ledger_pin, *launch_inputs):
         env.check_binding(pin)
-    return admission
+    return admission, launch_inputs
 
 
 def verify_boot_handoff(admission_pin, admission):
     """Join a live-window handoff to one spent approval and a prepared v2 entry."""
     handoff_pin, handoff = read_handoff(admission_pin)
     check_launch_window(handoff["began_ns"], handoff["until_ns"])
-    admission = verify_prepared_admission(admission_pin, admission, handoff["authority"],
-                                          handoff["attempt"], initial=True)
+    admission, launch_inputs = verify_prepared_admission(
+        admission_pin, admission, handoff["authority"], handoff["attempt"], initial=True,
+    )
     _need(handoff["supervisor"]["executable"] == admission["python"]["executable"]["path"], "identity")
     env.check_binding(handoff_pin)
     check_launch_window(handoff["began_ns"], handoff["until_ns"])
-    return handoff_pin, handoff
+    return handoff_pin, handoff, launch_inputs

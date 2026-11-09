@@ -173,7 +173,14 @@ class BootRecords:
 class PickerActionHandoffTests(unittest.TestCase):
     def test_exact_handoff_replays_both_scoped_receipts_and_the_current_ledger(self):
         graph = BootRecords()
-        self.assertEqual(graph.check(), graph.read(handoff.HANDOFF))
+        pin, record, launch_inputs = graph.check()
+        self.assertEqual((pin, record), graph.read(handoff.HANDOFF))
+        self.assertEqual([Path(pin["path"]) for pin in launch_inputs], [
+            handoff.PROPOSAL, handoff.PLAN, handoff.PREPARE, handoff.RUN, handoff.RUN_AUTHORITY,
+            handoff.GUEST / "prepared-v1.json", handoff.GUEST / "prepare-result-v1.json",
+            handoff.PREPARE_AUTH, handoff.GUEST / "prepare-start-v1.json",
+            handoff.GUEST / "prepare-worker-claimed-v1.json",
+        ])
         graph.verify_prepared.assert_called_once_with(graph.run_proposal, initial=True)
         graph.verify_artifacts.assert_called_once_with(graph.admission["artifacts"])
         graph.validate_ledger.assert_called_once_with(graph.read(handoff.LEDGER)[1],
@@ -360,11 +367,11 @@ class PickerActionOwnerGateTests(unittest.TestCase):
             live_boot.assert_not_called()
             graph.present.clear()
             check(graph.admission)
-            live_boot.assert_called_once_with(*graph.read(handoff.HANDOFF))
+            live_boot.assert_called_once_with(*graph.check())
 
     def test_live_worker_requires_supervisor_ancestry_and_job_membership(self):
         graph = BootRecords()
-        handoff_pin, approved = graph.read(handoff.HANDOFF)
+        handoff_pin, approved, launch_inputs = graph.check()
         supervisor = approved["supervisor"]
         parent = dict(pid=720, creation_filetime=820, executable=supervisor["executable"])
         worker = 730
@@ -380,16 +387,30 @@ class PickerActionOwnerGateTests(unittest.TestCase):
               patch.object(contract.os, "getpid", return_value=worker),
               patch.object(contract.mechanisms, "_ProcessApi", return_value=api),
               patch.object(contract.process, "ProcessHandles", return_value=handles)):
-            contract._live_boot(handoff_pin, approved, parent)
+            contract._live_boot(handoff_pin, approved, launch_inputs, parent)
             handles.guard.assert_called_once_with()
             handles.close.assert_called_once_with()
 
             api.current_job_pids.return_value = [parent["pid"]]
             with self.assertRaisesRegex(env.EnvironmentRefused, "^identity$"):
-                contract._live_boot(handoff_pin, approved, parent)
+                contract._live_boot(handoff_pin, approved, launch_inputs, parent)
             api.current_job_pids.return_value = [worker]
             api.parent_pid.return_value = parent["pid"]
             with self.assertRaisesRegex(env.EnvironmentRefused, "^identity$"):
-                contract._live_boot(handoff_pin, approved, parent)
+                contract._live_boot(handoff_pin, approved, launch_inputs, parent)
             self.assertEqual(handles.guard.call_count, 1)
             self.assertEqual(handles.close.call_count, 3)
+
+            api.parent_pid.return_value = supervisor["pid"]
+            for path in (handoff.PROPOSAL, handoff.PLAN, handoff.PREPARE_AUTH,
+                         handoff.GUEST / "prepare-start-v1.json",
+                         handoff.GUEST / "prepare-worker-claimed-v1.json"):
+                with self.subTest(path=path):
+                    original = graph.records[path]
+                    graph.add("changed", path, {"unapproved": True})
+                    try:
+                        with self.assertRaisesRegex(env.EnvironmentRefused, "^binding$"):
+                            contract._live_boot(handoff_pin, approved, launch_inputs, parent)
+                    finally:
+                        graph.records[path] = original
+            self.assertEqual(handles.close.call_count, 8)

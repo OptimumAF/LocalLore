@@ -131,7 +131,7 @@ class OwnedModelPickerActionSdkCapture(wire._OwnedTargetSdkCapture):
         return LiveOwnedModelPickerActionTarget
 
 
-def _live_boot(pin, approved, parent=None):
+def _live_boot(pin, approved, launch_inputs, parent=None):
     """Recheck the pinned handoff and the actual enclosing process identities."""
     from benchmarks import model_picker_action_handoff as handoff
 
@@ -153,7 +153,7 @@ def _live_boot(pin, approved, parent=None):
         handles.guard()
     finally:
         env.require(handles.close() is True, "identity")
-    for binding in (pin, approved["authority"], approved["attempt"], approved["admission"]):
+    for binding in (pin, approved["authority"], approved["attempt"], approved["admission"], *launch_inputs):
         env.check_binding(binding)
     handoff.check_launch_window(approved["began_ns"], approved["until_ns"])
 
@@ -163,13 +163,13 @@ class _ModelPickerActionRuntime(mechanisms._TargetRuntimeCore):
         from benchmarks import model_picker_action_handoff as handoff
 
         mechanisms._need(type(self) is _ModelPickerActionRuntime, "owner_type")
-        self._handoff_pin, self._handoff = handoff.verify_boot_handoff(
+        self._handoff_pin, self._handoff, self._launch_inputs = handoff.verify_boot_handoff(
             request["admission"], request["validated_admission"])
-        _live_boot(self._handoff_pin, self._handoff, request["owner"])
+        _live_boot(self._handoff_pin, self._handoff, self._launch_inputs, request["owner"])
         super().__init__(request, request_binding, root)
 
     def start_server(self):
-        _live_boot(self._handoff_pin, self._handoff, self.request["owner"])
+        _live_boot(self._handoff_pin, self._handoff, self._launch_inputs, self.request["owner"])
         super().start_server()
 
     def guard(self):
@@ -180,12 +180,12 @@ class _ModelPickerActionRuntime(mechanisms._TargetRuntimeCore):
         window(self._handoff["began_ns"], self._handoff["until_ns"])
 
     def _retain_guest(self):
-        _live_boot(self._handoff_pin, self._handoff, self.request["owner"])
+        _live_boot(self._handoff_pin, self._handoff, self._launch_inputs, self.request["owner"])
         guest = self.admission["guest"]
         env.storage_transition(storage.record_state, Path(guest["root"]), "retained",
                                proposal_sha256=guest["proposal"]["sha256"],
                                expected_prepare_sha256=self.proposal["prepare_proposal"]["sha256"])
-        _live_boot(self._handoff_pin, self._handoff, self.request["owner"])
+        _live_boot(self._handoff_pin, self._handoff, self._launch_inputs, self.request["owner"])
 
     @property
     def _contract(self):

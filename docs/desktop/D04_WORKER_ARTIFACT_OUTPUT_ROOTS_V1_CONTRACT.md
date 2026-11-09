@@ -83,8 +83,8 @@ before the post-close clock observation. Explicit close ignores the clock.
 - Prepare first checks that two full markers fit. Confirm the expected
   parent identity before and after each exclusive nonrecursive mkdir, in
   order A then B. A known existing root refuses; never adopt it. Bind the
-  new ordinary directory's identity (different from the parent and the other
-  root); verify root and parent around later operations. A generic failed
+  new ordinary directory's identity (distinct from the parent and any
+  previously bound root or marker); verify root and parent around later operations. A generic failed
   mkdir does not establish absence. Once A is created, B failure does not
   remove A. No deletion, renaming, overwrite, recreation or fallback path.
 - In each new root open only `.locallore-output-owner-v1` using `wx+`.
@@ -92,7 +92,8 @@ before the post-close clock observation. Explicit close ignores the clock.
   `locallore-worker-artifact-owner-v1\n<attemptSha256>\n<recipeSha256>\n<A or B>\n`
   (literal LF, no BOM). Require a new zero-length ordinary file, with identity distinct from the
   parent, bound roots and other marker; compare held and named identity, write with bounded positive short-write progress,
-  sync, and read back the exact bytes. A partial marker is preserved. Named
+  sync, and read back the exact bytes. Keep the expected bytes independent
+  of the mutable I/O buffers. A partial marker is preserved. Named
   and held checks bracket each marker verification: equal identity, exact
   length, byte equality and zero-byte EOF probe. For each verification read only
   this marker's expected length plus one EOF probe byte; no other file payload reads.
@@ -108,7 +109,8 @@ before the post-close clock observation. Explicit close ignores the clock.
   names and malformed entries refuse; the helper does not join or stat
   unknown names. Require each directory entry itself to indicate a file,
   as well as the pathname check below. For each accepted name require an ordinary one-link file and unique
-  identity across both rosters. The marker path must match the held marker.
+  identity across both rosters, distinct from the parent, roots and other
+  marker. The marker path must match the held marker.
   A roster with no marker refuses. Use exact BigInt arithmetic on uint64
   lengths. Stop as soon as a known aggregate length exceeds maxBytes; retain
   the full observed lower bound, including the crossing file, and keep the

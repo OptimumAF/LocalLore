@@ -91,6 +91,11 @@ def _pin_for_bytes(path, raw):
     return dict(path=str(path), bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
 
 
+def _authorization(run_pin):
+    return dict(version=1, phase="run", run_scope=owned.PROTOCOL,
+                proposal_sha256=run_pin["sha256"], allow_environment_calls=True, root_go_pending=False)
+
+
 def _admission(plan, run_pin, installed, run_id):
     owned._obj(installed, (*_SERVER_INPUTS, *_GUEST_INPUTS, "compatibility"), "tool")
     sources = [pin for pin in plan["sources"]
@@ -99,9 +104,7 @@ def _admission(plan, run_pin, installed, run_id):
                  port=owned.PORT, seconds=OWNER_SECONDS, sdk_version=server.SDK_VERSION,
                  expected_version="0029", sources=sources, python=plan["python"],
                  **{key: installed[key] for key in _SERVER_INPUTS})
-    auth = env.encoded(dict(version=1, phase="run", run_scope=owned.PROTOCOL,
-                            proposal_sha256=run_pin["sha256"], allow_environment_calls=True,
-                            root_go_pending=False))
+    auth = env.encoded(_authorization(run_pin))
     guest = dict(root=str(prep.GUEST), proposal=run_pin, authorization=_pin_for_bytes(RUN_AUTHORITY, auth),
                  console_port=5592, adb_port=5593, serial="emulator-5592", memory_mib=8192, cores=4,
                  max_seconds=env.REAL_MAX_SECONDS, api=35, abi="x86_64",
@@ -183,15 +186,18 @@ def create_candidate(plan_pin, preparation_pin, installed):
     ))
 
 
-def verify_candidate(candidate_pin, ledger_pin):
-    """Recheck the complete candidate before considering a separate activation grant."""
-    _unused()
+def _read_candidate(candidate_pin, ledger_pin):
     candidate = env.decode_json(prep._bound(candidate_pin, CANDIDATE))
     owned._obj(candidate, ("version", "scope", "plan", "preparation", "ledger", "admission",
                            "proposal", "execution_authorized"), "candidate")
     env.require(owned._same(candidate["version"], 1) and candidate["scope"] == SCOPE
                 and candidate["execution_authorized"] is False
                 and owned._same(candidate["ledger"], ledger_pin), "candidate")
+    return candidate
+
+
+def _verify_candidate(candidate_pin, ledger_pin):
+    candidate = _read_candidate(candidate_pin, ledger_pin)
     plan, prepare, proof, current = verify_preparation(candidate["plan"], candidate["preparation"])
     env.require(owned._same(current, ledger_pin), "ledger")
     admission = owned.validate_admission(env.decode_json(prep._bound(candidate["admission"], ADMISSION)))
@@ -209,5 +215,12 @@ def verify_candidate(candidate_pin, ledger_pin):
     _recheck_preparation(candidate["plan"], candidate["preparation"], plan, proof, current)
     for pin in (candidate_pin, candidate["admission"], candidate["proposal"], run_pin):
         env.check_binding(pin)
+    return admission
+
+
+def verify_candidate(candidate_pin, ledger_pin):
+    """Recheck the complete candidate before considering a separate activation grant."""
+    _unused()
+    admission = _verify_candidate(candidate_pin, ledger_pin)
     _unused()
     return admission

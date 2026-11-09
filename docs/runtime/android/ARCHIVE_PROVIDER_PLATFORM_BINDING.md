@@ -86,3 +86,21 @@ require separate activation approval and fresh preboot checks.
 Freeze the complete source roster before requesting preparation approval.
 The earlier SDK26 plans remain evidence of capacity refusal on their own
 source revisions.
+
+## Activation handoff and terminal evidence
+
+`benchmarks/archive_provider_platform_handoff.py` checks a separate one-boot
+grant tied to the reviewed candidate, admission and current ledger. It requires
+an exclusive activation claim before publishing the exact authorization bytes
+whose digest is already in the admission. Before boot, it replays the candidate
+and preparation files and requires a supervisor identity and enough time
+remaining for the controller and shutdown.
+
+`benchmarks/archive_provider_platform_closure.py` checks the completed
+controller against the independently observed owner and its worker. It
+requires normal stop, complete cleanup and the matching closed storage
+receipt before accepting the two test results.
+
+These modules have no launch entry point. A supervised owner must still
+check live process ancestry and job membership, recheck resources and ports,
+and use the shared locked transition before starting the guest.

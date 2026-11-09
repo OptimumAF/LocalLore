@@ -21,17 +21,21 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** TEST APK ONLY, separate process. No arbitrary path/title input or target-app files. */
 public final class ArchiveDocumentProvider extends ContentProvider {
     private static final int LIMIT = 32 * 1024 * 1024;
+    private static final int SLICE_OFFSET = 3;
+    private static final int SLICE_LENGTH = 4;
+    private static final byte[] SLICE_FILE = {0x71, 0x72, 0x73, 0, 0x41, (byte) 0xff, 0x42, 0x74, 0x75};
     private static final List<String> CASES = Arrays.asList("empty", "nonempty", "exact_limit", "overflow",
-        "null", "failure", "read_only", "blockedopen");
+        "null", "failure", "read_only", "blockedopen", "cancellableopen", "slice");
     private final AtomicInteger opened = new AtomicInteger(), closed = new AtomicInteger(), started = new AtomicInteger(),
         mainOpens = new AtomicInteger(), rw = new AtomicInteger(), reads = new AtomicInteger(), forbiddenModes = new AtomicInteger(),
-        blocked = new AtomicInteger();
+        blocked = new AtomicInteger(), cancelledOpens = new AtomicInteger();
     private final AtomicBoolean released = new AtomicBoolean();
     private final Object gate = new Object();
     private Handler callbacks;
@@ -45,11 +49,23 @@ public final class ArchiveDocumentProvider extends ContentProvider {
     }
     @Override public AssetFileDescriptor openAssetFile(Uri uri, String mode, CancellationSignal signal) throws FileNotFoundException {
         ParcelFileDescriptor descriptor = openFile(uri, mode, signal);
-        return descriptor == null ? null : new AssetFileDescriptor(descriptor, 0, AssetFileDescriptor.UNKNOWN_LENGTH);
+        if (descriptor == null) return null;
+        if ("slice".equals(uri.getLastPathSegment())) {
+            return new AssetFileDescriptor(descriptor, SLICE_OFFSET, SLICE_LENGTH);
+        }
+        return new AssetFileDescriptor(descriptor, 0, AssetFileDescriptor.UNKNOWN_LENGTH);
     }
-    @Override public ParcelFileDescriptor openFile(Uri uri, String mode, CancellationSignal ignored) throws FileNotFoundException {
+    @Override public AssetFileDescriptor openTypedAssetFile(Uri uri, String mimeTypeFilter, Bundle opts,
+            CancellationSignal signal) throws FileNotFoundException {
+        // ContentResolver sends a read-only content open through the wildcard typed route.
+        if ("*/*".equals(mimeTypeFilter) && isPlatformReadCase(uri.getLastPathSegment())) {
+            return openAssetFile(uri, "r", signal);
+        }
+        return super.openTypedAssetFile(uri, mimeTypeFilter, opts, signal);
+    }
+    @Override public ParcelFileDescriptor openFile(Uri uri, String mode, CancellationSignal signal) throws FileNotFoundException {
         String name = caseName(uri);
-        if (!"r".equals(mode) && !"rw".equals(mode)) {
+        if (!"r".equals(mode) && (isPlatformReadCase(name) || !"rw".equals(mode))) {
             forbiddenModes.incrementAndGet(); throw new FileNotFoundException("Unsupported synthetic mode");
         }
         started.incrementAndGet();
@@ -57,6 +73,10 @@ public final class ArchiveDocumentProvider extends ContentProvider {
         if (Looper.myLooper() == Looper.getMainLooper()) mainOpens.incrementAndGet();
         if ("failure".equals(name)) throw new FileNotFoundException("SYNTHETIC_PRIVATE_PROVIDER_FAILURE");
         if ("null".equals(name)) return null;
+        if ("cancellableopen".equals(name)) {
+            awaitCancellationOrRelease(signal);
+            return null;
+        }
         if ("blockedopen".equals(name)) {
             blocked.incrementAndGet();
             try {
@@ -79,10 +99,41 @@ public final class ArchiveDocumentProvider extends ContentProvider {
             opened.incrementAndGet(); return descriptor;
         } catch (IOException failure) { throw new FileNotFoundException("Synthetic archive fixture unavailable"); }
     }
+    private static boolean isPlatformReadCase(String name) {
+        return "cancellableopen".equals(name) || "slice".equals(name);
+    }
+    private void awaitCancellationOrRelease(CancellationSignal signal) throws FileNotFoundException {
+        AtomicBoolean signalled = new AtomicBoolean();
+        if (signal != null) signal.setOnCancelListener(() -> {
+            synchronized (gate) {
+                cancelledOpens.incrementAndGet();
+                signalled.set(true);
+                gate.notifyAll();
+            }
+        });
+        blocked.incrementAndGet();
+        try {
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+            synchronized (gate) {
+                while (!signalled.get() && !released.get()) {
+                    long remaining = deadline - System.nanoTime();
+                    if (remaining <= 0) throw new FileNotFoundException("Synthetic cancellation not received");
+                    TimeUnit.NANOSECONDS.timedWait(gate, remaining);
+                }
+            }
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new FileNotFoundException("Synthetic open interrupted");
+        } finally {
+            if (signal != null) signal.setOnCancelListener(null);
+            blocked.decrementAndGet();
+        }
+    }
     private void initialize(File file, String name) throws IOException {
         if (!file.createNewFile()) throw new IOException("Synthetic leaf already exists");
         try (FileOutputStream output = new FileOutputStream(file)) {
             if ("nonempty".equals(name)) output.write("SYNTHETIC_OLD_ARCHIVE_BYTES".getBytes(StandardCharsets.US_ASCII));
+            if ("slice".equals(name)) output.write(SLICE_FILE);
             if ("exact_limit".equals(name) || "overflow".equals(name)) {
                 byte[] buffer = new byte[8192]; Arrays.fill(buffer, (byte) 0x5a);
                 for (int remaining = LIMIT; remaining > 0; remaining -= buffer.length) output.write(buffer);
@@ -96,6 +147,7 @@ public final class ArchiveDocumentProvider extends ContentProvider {
             case "release": released.set(true); synchronized (gate) { gate.notifyAll(); } return result;
             case "stats":
                 result.putInt("opened", opened.get()); result.putInt("closed", closed.get()); result.putInt("started", started.get());
+                result.putInt("cancelled_opens", cancelledOpens.get());
                 result.putInt("opened_on_main", mainOpens.get()); result.putInt("rw", rw.get()); result.putInt("reads", reads.get());
                 result.putInt("forbidden_modes", forbiddenModes.get()); result.putInt("blocked", blocked.get()); return result;
             case "reset":
@@ -105,6 +157,7 @@ public final class ArchiveDocumentProvider extends ContentProvider {
                     if (file.exists() && !file.delete()) throw new IllegalStateException("Synthetic cleanup failed");
                 }
                 opened.set(0); closed.set(0); started.set(0); mainOpens.set(0); rw.set(0); reads.set(0); forbiddenModes.set(0);
+                cancelledOpens.set(0);
                 released.set(false); return result;
             case "new_empty":
                 requireDrained();

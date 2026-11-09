@@ -33,40 +33,37 @@ export function TurnDebugger({
     state: State;
 }) {
     if (!s.trace.shown) return null;
+    const currentState = s === c.get();
     const t = s.trace,
-        reply = t.reply,
+        reply = c.traceReply(s),
         attempts = reply?.snapshot.attempts ?? [],
-        selected = c.traceAttempt(),
-        receipt = c.debugReceipt(),
-        play = s.play ?? s.playV2,
-        session = c.selected(),
+        selected = reply ? c.traceAttempt() : null,
+        receipt = selected ? c.debugReceipt() : null,
+        play = currentState ? (s.play ?? s.playV2) : null,
+        session = currentState ? c.selected() : null,
         eligibility = c.traceNarrationValidationEligibility(),
         diagnostic = t.narrationValidation,
-        privateLens = s.view === "lab" && s.observer === "omniscient",
-        query = privateLens ? diagnostic.query : null,
-        metadataStale =
-            !!reply &&
-            (!play ||
-                reply.head !== play.revision ||
-                reply.scope.story !== play.scope.story ||
-                reply.scope.branch !== play.scope.branch ||
-                reply.base_revision !== t.baseRevision),
+        privateLens =
+            currentState && s.view === "lab" && s.observer === "omniscient",
+        pendingQuery = privateLens && reply ? diagnostic.query : null,
+        metadataStale = !!t.reply && !reply,
         diagnosticStale =
-            !!query &&
+            !!pendingQuery &&
             (!play ||
                 !session ||
-                query.session !== session.id ||
-                query.scope.story !== play.scope.story ||
-                query.scope.branch !== play.scope.branch ||
-                query.expected_head !== play.revision ||
+                pendingQuery.session !== session.id ||
+                pendingQuery.scope.story !== play.scope.story ||
+                pendingQuery.scope.branch !== play.scope.branch ||
+                pendingQuery.expected_head !== play.revision ||
                 !selected ||
-                query.base_revision !== t.baseRevision ||
+                pendingQuery.base_revision !== t.baseRevision ||
                 selected.identity.observer !== play.player.observer ||
-                selected.identity.scope.story !== query.scope.story ||
-                selected.identity.scope.branch !== query.scope.branch ||
-                query.base_revision !== selected.identity.base_revision ||
-                query.turn !== selected.identity.turn ||
-                query.attempt !== selected.identity.attempt),
+                selected.identity.scope.story !== pendingQuery.scope.story ||
+                selected.identity.scope.branch !== pendingQuery.scope.branch ||
+                pendingQuery.base_revision !== selected.identity.base_revision ||
+                pendingQuery.turn !== selected.identity.turn ||
+                pendingQuery.attempt !== selected.identity.attempt),
+        query = diagnosticStale ? null : pendingQuery,
         stale =
             metadataStale ||
             diagnosticStale ||
@@ -75,11 +72,13 @@ export function TurnDebugger({
         result = privateLens && !stale && query ? diagnostic.reply : null,
         validation = result?.status === "recorded" ? result.decision : null;
     const lens =
-        s.view === "play"
-            ? "Player"
-            : s.observer === "omniscient"
-              ? "Story Lab · omniscient"
-              : `Story Lab · character ${s.observer}`;
+        !currentState
+            ? "Unavailable"
+            : s.view === "play"
+              ? "Player"
+              : s.observer === "omniscient"
+                ? "Story Lab · omniscient"
+                : `Story Lab · character ${s.observer}`;
     return (
         <section className="turn-debugger" aria-labelledby="debugger-title">
             <div className="topline">
@@ -95,7 +94,7 @@ export function TurnDebugger({
             <p>
                 <strong>{lens}</strong> · displayed head r
                 {play?.revision ?? "unavailable"} · captured basis r
-                {t.baseRevision}
+                {currentState ? t.baseRevision : "unavailable"}
             </p>
             {stale && (
                 <p role="alert">
@@ -150,13 +149,13 @@ export function TurnDebugger({
                         max={play?.revision}
                         disabled={!play || t.busy || t.controlBusy}
                         step="1"
-                        value={t.baseRevision}
+                        value={currentState ? t.baseRevision : ""}
                         onChange={(e) =>
                             void c.traceBasis(e.target.valueAsNumber)
                         }
                     />
                 </label>
-                {s.view === "lab" && (
+                {currentState && s.view === "lab" && (
                     <label>
                         Trace inspection lens
                         <select
@@ -198,14 +197,16 @@ export function TurnDebugger({
                 </h3>
                 <div className="trace-controls">
                     <button
-                        disabled={!privateLens || !eligibility.allowed}
+                        disabled={!privateLens || !reply || !eligibility.allowed}
                         onClick={() => void c.readTraceNarrationValidation()}
                     >
                         Read selected narration validation
                     </button>
                     <button
                         disabled={
-                            !privateLens || diagnostic.status !== "pending"
+                            !privateLens ||
+                            !query ||
+                            diagnostic.status !== "pending"
                         }
                         onClick={() => c.cancelTraceNarrationValidation()}
                     >

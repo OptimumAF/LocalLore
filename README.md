@@ -21,6 +21,11 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [Knowledge UI build contract](docs/native/KNOWLEDGE_UI_BUILD_VERIFICATION_2026-11-02.md)
+binds the current frozen APK pair and four compiled journeys without granting
+device execution. A forced 579-case JVM run, 25 host contract checks and genuine
+manifest creation/readback pass. The four Android journeys remain unrun.
+
 The [bounded SDK15 recovery operator](docs/runtime/android/SDK15_RECOVERY_OPERATOR_2026-11-02.md)
 joins verified preparation recovery to fresh run inputs and the four-method UI
 runner. All 39 host checks pass, including a real owned-host-job capture test

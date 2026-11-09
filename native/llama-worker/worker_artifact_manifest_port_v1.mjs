@@ -6,12 +6,20 @@ const PREFIX = 'WorkerArtifactManifestPortV1';
 const CONTEXT = ['attempt', 'recipe', 'baseline', 'closure'];
 const OUTPUTS = ['object', 'executable', 'preEmbedCopy', 'manifest', 'compilerPdb', 'linkerPdb', 'importLibrary'];
 const COPY_FAILURES = ['INPUT', 'CLOCK', 'DEADLINE', 'CANCELLED', 'IO', 'IDENTITY', 'CONTENT', 'CLOSE'];
+const LEASE_FAILURES = ['Cancelled', 'Deadline', 'Clock', 'Limit', 'Exists', 'Identity', 'Marker', 'Roster', 'Budget', 'IO', 'Closure'];
+const LEASE_FIELDS = ['version', 'kind', 'qualified', 'state', 'pending', 'stop', 'rechecks', 'withinBudget', 'observedBytes', 'roots'];
+const ROOT_FIELDS = ['candidate', 'creation', 'identity', 'marker', 'markerClosure', 'directoryClosure', 'complete', 'files'];
+const COPY_FIELDS = ['version', 'kind', 'candidate', 'ok', 'code', 'executable', 'manifest', 'copy', 'io', 'unknownClosure', 'ioUncertain',
+  'qualified', 'linkQualification', 'closureComplete', 'requiresFreshAdmission', 'normalWorkerUnchangedRequired'];
+const IO_FIELDS = ['reservedCopies', 'reservedReadBytes', 'reservedWriteBytes', 'actualReadBytes', 'actualWriteBytes',
+  'openAttempts', 'opened', 'closeAttempts', 'closed', 'unknownClosures', 'verifiedScans'];
 const MARKER = '.locallore-output-owner-v1';
 const MAX = 67108864;
 const U64 = (1n << 64n) - 1n;
 const STOP = Symbol('manifest port stopped');
 const BAD_DATA = Symbol('malformed manifest data');
 const signalAborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted').get;
+const followSignals = AbortSignal.any;
 const addListener = EventTarget.prototype.addEventListener;
 const removeListener = EventTarget.prototype.removeEventListener;
 
@@ -34,6 +42,20 @@ function method(owner, name) {
   if (!d || !Object.hasOwn(d, 'value') || typeof d.value !== 'function') throw BAD_DATA;
   const fn = d.value;
   return (...args) => Reflect.apply(fn, owner, args);
+}
+
+function boundedArray(value, min, max) {
+  if (!Array.isArray(value)) throw BAD_DATA;
+  const length = Object.getOwnPropertyDescriptor(value, 'length')?.value;
+  if (!Number.isInteger(length) || length < min || length > max ||
+      Reflect.ownKeys(value).length !== length + 1) throw BAD_DATA;
+  const entries = [];
+  for (let i = 0; i < length; i++) {
+    const entry = Object.getOwnPropertyDescriptor(value, String(i));
+    if (!entry?.enumerable || !Object.hasOwn(entry, 'value')) throw BAD_DATA;
+    entries.push(entry.value);
+  }
+  return entries;
 }
 
 const digest = value => typeof value === 'string' && value.length === 64 &&
@@ -62,10 +84,10 @@ function matchesStep(value, expected) {
   });
 }
 
-function decimal(text) {
+function decimal(text, maximum = U64) {
   if (typeof text !== 'string' || text.length < 1 || text.length > 20 || /[^0-9]/.test(text)) return null;
   const value = BigInt(text);
-  return value <= U64 && value.toString() === text ? value : null;
+  return value <= maximum && value.toString() === text ? value : null;
 }
 
 function identity(text) {
@@ -74,6 +96,61 @@ function identity(text) {
   if (parts.length !== 2) return false;
   const [device, file] = parts.map(decimal);
   return device !== null && file !== null && file > 0n;
+}
+
+function leaseSnapshot(value) {
+  const view = record(value, LEASE_FIELDS);
+  const ready = view.state === 'Ready';
+  const stopped = view.state === 'Stopped';
+  const total = decimal(view.observedBytes, U64 + BigInt(MAX));
+  if (view.version !== 1 || view.kind !== 'worker_artifact_output_roots_v1' ||
+      view.qualified !== false || view.pending !== null ||
+      (!ready && !stopped) || view.withinBudget !== ready ||
+      (ready ? view.stop !== null : !LEASE_FAILURES.includes(view.stop)) ||
+      !within(view.rechecks, 32) || total === null) throw BAD_DATA;
+  let observed = 0n;
+  const roots = boundedArray(view.roots, 2, 2).map((value, index) => {
+    const root = record(value, ROOT_FIELDS);
+    if (root.candidate !== (index === 0 ? 'A' : 'B') || root.creation !== 'created' ||
+        !identity(root.identity) || root.marker !== 'created' ||
+        !['open', 'unknown'].includes(root.markerClosure) ||
+        !['none', 'closed', 'unknown'].includes(root.directoryClosure) ||
+        typeof root.complete !== 'boolean') throw BAD_DATA;
+    const files = boundedArray(root.files, 0, 8).map(value => {
+      const row = record(value, ['name', 'identity', 'bytes']);
+      const bytes = decimal(row.bytes);
+      if (typeof row.name !== 'string' || row.name.length < 1 || row.name.length > 255 ||
+          !identity(row.identity) || bytes === null) throw BAD_DATA;
+      observed += bytes;
+      return { name: row.name, identity: row.identity, bytes };
+    });
+    return { ...root, files };
+  });
+  if (observed !== total) throw BAD_DATA;
+  return { ready, roots, total };
+}
+
+function copySnapshot(value) {
+  const proof = record(value, COPY_FIELDS);
+  const io = record(proof.io, IO_FIELDS);
+  if (proof.version !== 1 || proof.kind !== 'worker_artifact_preembed_copy_v1' ||
+      proof.qualified !== false || proof.linkQualification !== false || proof.closureComplete !== false ||
+      proof.requiresFreshAdmission !== true || proof.normalWorkerUnchangedRequired !== true ||
+      typeof proof.ok !== 'boolean' || typeof proof.unknownClosure !== 'boolean' ||
+      typeof proof.ioUncertain !== 'boolean') throw BAD_DATA;
+  for (const key of IO_FIELDS) {
+    const value = io[key];
+    if (Number.isSafeInteger(value) && value >= 0) continue;
+    if (key === 'actualReadBytes' || key === 'actualWriteBytes') {
+      const exact = decimal(value);
+      if (exact !== null && exact > BigInt(Number.MAX_SAFE_INTEGER)) continue;
+    }
+    throw BAD_DATA;
+  }
+  if (proof.unknownClosure !== (io.unknownClosures > 0) || io.opened > io.openAttempts ||
+      io.closeAttempts > io.opened || io.closed > io.closeAttempts ||
+      (!proof.unknownClosure && io.closed !== io.openAttempts)) throw BAD_DATA;
+  return { ...proof, io };
 }
 
 function setup(value) {
@@ -126,54 +203,48 @@ export function createWorkerArtifactManifestPortV1(options) {
   }
 
   function readRoster(value) {
-    requireThat(value?.version === 1 && value.kind === 'worker_artifact_output_roots_v1' &&
-      value.qualified === false && value.pending === null && Array.isArray(value.roots) &&
-      value.roots.length === 2, 'UNCERTAIN');
-    for (const root of value.roots) {
-      requireThat(root && ['none', 'open', 'closed', 'unknown'].includes(root.markerClosure) &&
-        ['none', 'open', 'closed', 'unknown'].includes(root.directoryClosure), 'UNCERTAIN');
+    const view = leaseSnapshot(value);
+    for (const root of view.roots) {
       requireThat(root.markerClosure !== 'unknown' && root.directoryClosure !== 'unknown', 'UNCERTAIN');
     }
-    requireThat(value.state === 'Ready' && value.stop === null && value.withinBudget === true, 'ROSTER');
+    requireThat(view.ready, 'ROSTER');
 
     const identities = new Set();
     function unique(id) {
-      requireThat(identity(id) && !identities.has(id), 'ROSTER');
+      requireThat(!identities.has(id), 'ROSTER');
       identities.add(id);
     }
-    for (const root of value.roots) unique(root.identity);
+    for (const root of view.roots) unique(root.identity);
 
-    let total = 0n;
-    const roots = value.roots.map((root, index) => {
+    const roots = view.roots.map((root, index) => {
       const names = [MARKER, ...Object.values(leaves[index])];
-      requireThat(root.candidate === recipe.candidates[index].id && root.creation === 'created' &&
-        root.marker === 'created' && root.complete === true && root.markerClosure === 'open' &&
-        root.directoryClosure === 'closed' && Array.isArray(root.files) && root.files.length <= names.length, 'ROSTER');
+      requireThat(root.complete && root.directoryClosure === 'closed', 'ROSTER');
       const files = new Map();
       for (const row of root.files) {
-        requireThat(row && names.includes(row.name) && !files.has(row.name), 'ROSTER');
-        const bytes = decimal(row.bytes);
-        requireThat(bytes !== null, 'ROSTER');
+        requireThat(names.includes(row.name) && !files.has(row.name), 'ROSTER');
         unique(row.identity);
-        total += bytes;
-        files.set(row.name, { identity: row.identity, bytes });
+        files.set(row.name, row);
       }
       requireThat((files.get(MARKER)?.bytes ?? 0n) > 0n, 'ROSTER');
       return { identity: root.identity, files };
     });
-    requireThat(total.toString() === value.observedBytes, 'ROSTER');
-    return { roots, total };
+    return { roots, total: view.total };
   }
 
-  function checkCopy(proof, request) {
-    requireThat(proof?.version === 1 && proof.kind === 'worker_artifact_preembed_copy_v1' &&
-      proof.qualified === false && typeof proof.ok === 'boolean' &&
-      typeof proof.unknownClosure === 'boolean' && typeof proof.ioUncertain === 'boolean' &&
-      (proof.candidate === request.candidate || (!proof.ok && proof.candidate === null)), 'UNCERTAIN');
+  function checkCopy(value, request) {
+    const proof = copySnapshot(value);
+    const { io } = proof;
+    requireThat(proof.candidate === request.candidate || (!proof.ok && proof.candidate === null), 'UNCERTAIN');
     if (proof.ok) {
+      const readBytes = 4 * request.linked.executable.bytes + 2 * request.linked.manifest.bytes;
+      const writeBytes = request.linked.executable.bytes;
       requireThat(proof.code === null && equal(fact(proof.executable), request.linked.executable) &&
         equal(fact(proof.manifest, 65536), request.linked.manifest) &&
-        equal(fact(proof.copy), request.linked.executable), 'UNCERTAIN');
+        equal(fact(proof.copy), request.linked.executable) && io.reservedCopies === 1 &&
+        io.reservedReadBytes === readBytes && io.actualReadBytes === readBytes &&
+        io.reservedWriteBytes === writeBytes && io.actualWriteBytes === writeBytes &&
+        io.openAttempts === 3 && io.opened === 3 && io.closeAttempts === 3 && io.closed === 3 &&
+        io.verifiedScans === 6, 'UNCERTAIN');
     } else {
       requireThat(COPY_FAILURES.includes(proof.code) && proof.executable === null &&
         proof.manifest === null && proof.copy === null, 'UNCERTAIN');
@@ -184,7 +255,7 @@ export function createWorkerArtifactManifestPortV1(options) {
   }
 
   async function prepare(index, linked, signal) {
-    let listening = false, stoppedHelpers = false;
+    let follower = null, stoppedHelpers = false;
     function abort() {
       latch('CANCELLED');
       if (stoppedHelpers) return;
@@ -194,7 +265,7 @@ export function createWorkerArtifactManifestPortV1(options) {
       }
     }
     function live() {
-      if (signalAborted.call(signal)) abort();
+      if (signalAborted.call(follower)) abort();
       if (stop !== null) throw STOP;
     }
     async function observe(read, inspect) {
@@ -218,8 +289,8 @@ export function createWorkerArtifactManifestPortV1(options) {
     }
 
     try {
-      addListener.call(signal, 'abort', abort, { once: true });
-      listening = true;
+      follower = followSignals([signal]);
+      addListener.call(follower, 'abort', abort, { once: true });
       live();
       const before = await observe(recheck, readRoster);
       const names = leaves[index];
@@ -265,7 +336,7 @@ export function createWorkerArtifactManifestPortV1(options) {
       if (stop === null) latch('UNCERTAIN');
       throw Error(PREFIX + 'Stopped');
     } finally {
-      if (listening) removeListener.call(signal, 'abort', abort);
+      if (follower !== null) removeListener.call(follower, 'abort', abort);
       pending = null;
       active = null;
     }

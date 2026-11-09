@@ -5,6 +5,7 @@ Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 from pathlib import Path
 
 from benchmarks import saved_library_status_handoff as handoff
+from benchmarks import saved_library_status_resume_handoff as resume_handoff
 from benchmarks import isolated_adb_owner as process
 from benchmarks import owned_saved_library_status as contract
 from benchmarks import receipt_avd_environment as env
@@ -13,14 +14,16 @@ _need = env.require
 _same = contract._same
 
 
-def verify_closure(admission_pin, admission, running_pin, owner_identity):
+def verify_closure(admission_pin, admission, running_pin, owner_identity, *, resume=False):
     """Join the qualified owner and storage closure to the observed owner."""
+    selected = resume_handoff if resume else handoff
+    replay = contract.RESUME_REPLAY if resume else contract.REPLAY
     contract._process(owner_identity)
     admission = contract.validate_admission(admission)
     root = Path(admission["root"])
     guest = Path(admission["guest"]["root"])
-    _need(root == handoff.OWNED_ROOT and guest == handoff.GUEST
-          and _same(handoff.at(admission_pin, handoff.ADMISSION), admission), "admission")
+    _need(root == selected.OWNED_ROOT and guest == handoff.GUEST
+          and _same(handoff.at(admission_pin, selected.ADMISSION), admission), "admission")
     public_pin, public = handoff.read(root / "result-v1.json")
     contract._obj(public, ("version", "protocol", "admission", "request", "started", "worker_result",
                            "owner", "after", "qualified_target", "reason", "feature_acceptance"), "owner")
@@ -40,8 +43,8 @@ def verify_closure(admission_pin, admission, running_pin, owner_identity):
     _need(_same(after, dict(admission=admission_pin, sources=admission["sources"], python=admission["python"],
                             tools=admission["server"]["tools"], owner=owner_identity,
                             process_handles_closed=True)), "owner")
-    worker = contract.REPLAY.verify_owned_target_result(public["worker_result"], admission, admission_pin,
-                                                      public["request"], started["worker"])
+    worker = replay.verify_owned_target_result(public["worker_result"], admission, admission_pin,
+                                               public["request"], started["worker"])
     contract._obj(worker["cleanup"], contract.CLEANUP_KEYS, "identity")
     _need(worker["reason"] == "stop_requested" and worker["stop_requested"] is True
           and _same(worker["running"], running_pin)

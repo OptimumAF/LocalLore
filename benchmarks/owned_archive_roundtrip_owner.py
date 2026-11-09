@@ -20,6 +20,19 @@ from benchmarks import receipt_avd_environment as env
 from benchmarks import receipt_avd_storage as storage
 
 class _ArchiveReplay(replay._Verifier):
+    def __init__(self, selected, *, expected_handoff_sha256=None):
+        super().__init__(selected)
+        self.expected_handoff_sha256 = expected_handoff_sha256
+
+    def verify_owned_target_result(self, binding, admission, admission_binding, request_binding, expected_worker):
+        from benchmarks import archive_roundtrip_supervisor as supervisor
+
+        result = super().verify_owned_target_result(
+            binding, admission, admission_binding, request_binding, expected_worker)
+        supervisor.verify_stop(admission, admission_binding, result,
+                               expected_handoff_sha256=self.expected_handoff_sha256)
+        return result
+
     def verify_guest_inputs(self, pin, admission, admission_binding):
         build.verify_current(contract.validate_admission(admission))
         return super().verify_guest_inputs(pin, admission, admission_binding)
@@ -87,7 +100,8 @@ def main(argv=None):
     from benchmarks import archive_roundtrip_handoff as handoff
 
     args = sys.argv[1:] if argv is None else argv
-    if type(args) is not list or re.fullmatch("[0-9a-f]{64}", os.environ.get(handoff.HANDOFF_ENV, "")) is None:
+    launch_sha256 = os.environ.get(handoff.HANDOFF_ENV, "")
+    if type(args) is not list or re.fullmatch("[0-9a-f]{64}", launch_sha256) is None:
         return 1
     expected = ["--admission", str(handoff.admission.ADMISSION), "--admission-sha256"]
     if args != ["_worker"] and not (
@@ -101,7 +115,8 @@ def main(argv=None):
         shared._need(pin["sha256"] == args[3] and contract._same(value, admitted), "admission")
         handoff.verify_boot(pin, admitted)
 
-    return shared._main_profile(args, _contract=contract, _verification=VERIFIER,
+    verifier = VERIFIER if args == ["_worker"] else _ArchiveReplay(contract, expected_handoff_sha256=launch_sha256)
+    return shared._main_profile(args, _contract=contract, _verification=verifier,
                                 _runtime_type=_ArchiveRuntime, _admission_check=check_admission)
 
 

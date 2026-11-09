@@ -171,10 +171,10 @@ closure remain separate from this exchange.
 The controller accepts an already-running SDK25 lease and a separate
 controller process identity. It needs at least 1,210 seconds remaining
 on the owner lease, including a 10-second stop reserve. It verifies all
-four transfer legs before publishing the shared, admission-bound
-`stop-v1.json` through a non-replacing Windows rename. A failed exchange
-preserves the attempt and leaves the finite owner to expire. Unconfirmed
-observer cleanup is reported separately and prevents a controller receipt.
+four transfer legs and closes its observer before publishing the controller
+receipt. Only the bounded supervisor publishes the shared, admission-bound
+`stop-v1.json`. A failed exchange or uncertain cleanup preserves the
+attempt and leaves the finite owner without a qualified stop.
 
 The closed check ties the expected owner and controller identities to the
 running lease, transfer receipts, scoped stop and shared worker/parent
@@ -237,5 +237,40 @@ python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_handof
 ```
 
 These are synthetic handoff, Job membership and ledger-transition checks.
-The supervisor launcher, its controller process supervision, and separate
-guest authorization are still required.
+
+## Supervise the one admitted archive exchange
+
+The fixed launcher spends the prepared-run authority once and assigns the
+runtime to a bounded Windows Job before releasing its private stdin barrier.
+The runtime checks the spent admission, publishes the sealed handoff, starts
+the guarded SDK25 owner and waits for the exact registered lease. A separate
+controller runs in its own bounded Job within the operation. Its result
+requires zero exit, complete capture, confirmed Job cleanup, matching
+process identities and a verified four-leg exchange.
+
+The runtime stages STOP under the held owner observation. It closes its
+observation handles, checks the outer deadline, publishes the exact stop
+gate, then commits STOP with a non-replacing Windows rename. The shared
+owner requires that gate, the exact handoff digest inherited at launch and
+the closed controller proof before it can close the storage ledger. If
+the controller or observer fails, the launcher preserves evidence and
+leaves the spent reservation fenced. Closed replay also binds the gate to
+the original runtime request and verifies the owner console and shared
+ledger closure.
+
+Run the host-only orchestration checks with synthetic records and process
+adapters:
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_supervisor.py
+```
+
+After separate operator approval and exact prepared-guest admission, the
+fixed launcher accepts only the pinned authority digest:
+
+```powershell
+python -B -m benchmarks.archive_roundtrip_supervisor --authority-sha256 <approved-sha256>
+```
+
+The host tests do not launch the supervisor, Windows Jobs, Android tools,
+or a guest. A real prepared-guest run and Android parity remain open.

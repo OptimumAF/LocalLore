@@ -69,15 +69,14 @@ class DriveTests(unittest.TestCase):
     def drive(self):
         return lifecycle.drive(self.admit, self.live)
 
-    def test_exchange_verified_then_shared_stop_and_observer_receipt(self):
+    def test_exchange_verified_and_observer_closed_without_stop(self):
         def verify_before_stop(*args):
             self.assertFalse((self.temp / "stop-v1.json").exists())
         self.verify_exchange.side_effect = verify_before_stop
         proof = self.drive()
         self.assertEqual(Path(proof["path"]), self.output / lifecycle.RESULT)
-        stop = env.read_json(self.temp / "stop-v1.json")
-        self.assertEqual(stop, dict(version=1, protocol=contract.PROTOCOL,
-                                    admission_sha256=self.admit["sha256"], action="stop"))
+        self.assertTrue(env.read_json(self.output / lifecycle.RESULT)["observer_closed"])
+        self.assertFalse((self.temp / "stop-v1.json").exists())
         self.assertFalse((self.temp / "stop.pending-v1.json").exists())
         self.verify_exchange.assert_called_once_with(self.admit, self.live, self.admission, self.running,
                                                      self.caller, self.exchange)
@@ -93,11 +92,11 @@ class DriveTests(unittest.TestCase):
         self.assertFalse((self.output / lifecycle.RESULT).exists())
         self.observer.close.assert_called_once_with()
 
-    def test_uncertain_observer_close_refuses_result_and_retains_stop(self):
+    def test_uncertain_observer_close_refuses_result_and_never_stops(self):
         self.observer.close.return_value = False
         with self.assertRaisesRegex(lifecycle.LifecycleRefused, "^observer_cleanup$"):
             self.drive()
-        self.assertTrue((self.temp / "stop-v1.json").is_file())
+        self.assertFalse((self.temp / "stop-v1.json").exists())
         self.assertFalse((self.output / lifecycle.RESULT).exists())
 
     def test_exchange_error_with_unknown_observer_cleanup_is_distinct(self):
@@ -170,7 +169,7 @@ class ClosureTests(unittest.TestCase):
         self.exchange = {name: legacy.pin("D:/Synthetic/" + name) for name in ("session", "bridge", "final")}
         self.controller = self.add(self.root / lifecycle.outbound.OUTPUT / lifecycle.RESULT, dict(
             version=1, scope=lifecycle.SCOPE, admission=self.admit, running=self.live, caller=self.caller,
-            exchange=self.exchange, stop=self.stop, observer_closed=True))
+            exchange=self.exchange, observer_closed=True))
         self.session = legacy.session(a)
         self.session.update(admission=self.admit, running=self.live, descriptor=self.running, caller=self.caller)
         self.worker = dict(reason="stop_requested", stop_requested=True, running=self.live,

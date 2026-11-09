@@ -42,6 +42,14 @@ export interface EvaluationState {
     busy: boolean;
     error: string | null;
 }
+function sameCuratedRun(a: CuratedStatus, b: CuratedStatus) {
+    return (
+        a.run_id === b.run_id &&
+        a.client_id === b.client_id &&
+        a.lane === b.lane &&
+        a.source_binding === b.source_binding
+    );
+}
 export class EvaluationController {
     private state: EvaluationState = {
         curatedCatalog: null,
@@ -63,6 +71,7 @@ export class EvaluationController {
     };
     private epoch = 0;
     private context = "";
+    private allowed = false;
     private evidenceEpoch = 0;
     private listeners = new Set<() => void>();
     constructor(
@@ -84,21 +93,16 @@ export class EvaluationController {
         this.state = { ...this.state, ...v };
         for (const f of this.listeners) f();
     }
-    contextChanged(context: string, allowed: boolean) {
-        if (this.context === context) return;
-        this.context = context;
+    private clearPresentation(extra: Partial<EvaluationState> = {}) {
+        this.epoch++;
         this.evidenceEpoch++;
         this.patch({
-            curatedCatalog: null,
             curatedStatus: null,
             curatedEvidence: null,
             curatedBusy: false,
             curatedError: null,
             curatedCase: null,
             curatedTurn: null,
-        });
-        this.epoch++;
-        this.patch({
             shown: false,
             status: null,
             report: null,
@@ -106,30 +110,40 @@ export class EvaluationController {
             selectedTurn: null,
             busy: false,
             error: null,
+            ...extra,
         });
-        if (!allowed) this.patch({ catalog: null });
+    }
+    contextChanged(context: string, allowed: boolean) {
+        if (this.context === context && this.allowed === allowed) return;
+        this.context = context;
+        this.allowed = allowed;
+        this.clearPresentation({
+            curatedCatalog: null,
+            ...(!allowed ? { catalog: null } : {}),
+        });
     }
     dispose() {
-        this.epoch++;
-        this.evidenceEpoch++;
-        this.patch({
-            curatedCatalog: null,
-            curatedStatus: null,
-            curatedEvidence: null,
-            curatedBusy: false,
-        });
-        this.patch({ shown: false, status: null, report: null, busy: false });
+        this.allowed = false;
+        this.clearPresentation({ catalog: null, curatedCatalog: null });
+    }
+    private canReadCurated() {
+        return this.allowed && this.context.endsWith("|omniscient");
+    }
+    private errorCode(error: unknown) {
+        const name = error instanceof Error ? error.message : String(error);
+        return evaluationErrors.has(name) ? name : "EvaluationInvalidReply";
     }
     private fail(error: unknown) {
-        const name = error instanceof Error ? error.message : String(error);
         this.patch({
             busy: false,
-            error: evaluationErrors.has(name) ? name : "EvaluationInvalidReply",
+            error: this.errorCode(error),
         });
     }
     async show() {
+        if (!this.allowed || this.state.busy || this.state.curatedBusy) return;
         const epoch = ++this.epoch;
         this.patch({ shown: true, error: null, busy: true });
+        if (epoch !== this.epoch) return;
         try {
             const catalog = decodeEvaluationCatalog(
                 await this.invoke("evaluation_catalog"),
@@ -140,33 +154,18 @@ export class EvaluationController {
         }
     }
     hide() {
-        this.epoch++;
-        this.evidenceEpoch++;
-        this.patch({
-            curatedStatus: null,
-            curatedEvidence: null,
-            curatedBusy: false,
-            curatedError: null,
-            curatedCase: null,
-            curatedTurn: null,
-        });
-        this.patch({
-            shown: false,
-            status: null,
-            report: null,
-            busy: false,
-            selectedCase: null,
-            selectedTurn: null,
-        });
+        this.clearPresentation();
     }
-    async action(
+    private async action(
         command:
             | "evaluation_start"
             | "evaluation_open"
             | "evaluation_resume"
             | "evaluation_rerun",
         args: Record<string, unknown>,
+        expectedRunId?: string,
     ) {
+        if (!this.allowed || this.state.busy || this.state.curatedBusy) return;
         const epoch = ++this.epoch;
         this.patch({
             status: null,
@@ -176,17 +175,27 @@ export class EvaluationController {
             selectedCase: null,
             selectedTurn: null,
         });
+        if (epoch !== this.epoch) return;
         try {
             let status = decodeEvaluationStatus(
                 await this.invoke(command, args),
             );
             if (epoch !== this.epoch) return;
-            const token = status.run_token;
+            const first = status;
+            const token = first.run_token;
+            if (expectedRunId !== undefined && first.run_id !== expectedRunId)
+                throw Error("EvaluationInvalidReply");
             for (;;) {
                 if (epoch !== this.epoch) return;
-                if (status.run_token !== token)
+                if (
+                    status.run_token !== token ||
+                    status.run_id !== first.run_id ||
+                    (status.running &&
+                        status.operation_id !== first.operation_id)
+                )
                     throw Error("EvaluationInvalidReply");
                 this.patch({ status });
+                if (epoch !== this.epoch) return;
                 if (status.completed_cases > 0 || !status.running) {
                     try {
                         const value = (await this.invoke("evaluation_read", {
@@ -208,6 +217,8 @@ export class EvaluationController {
                         )
                             throw Error("EvaluationInvalidReply");
                         const report = decodeEvaluationReport(value.report);
+                        if (report.lane !== "deterministic_fake_shared_host")
+                            throw Error("EvaluationInvalidReply");
                         this.patch({
                             report,
                             selectedCase:
@@ -224,9 +235,10 @@ export class EvaluationController {
                         } else throw e;
                     }
                 }
+                if (epoch !== this.epoch) return;
                 if (!status.running) {
                     if (status.error) throw Error(status.error);
-                    this.patch({ busy: false });
+                    this.patch({ busy: false, error: null });
                     return;
                 }
                 await new Promise((r) => setTimeout(r, 75));
@@ -243,12 +255,16 @@ export class EvaluationController {
         return this.action("evaluation_start", { caseId, batch });
     }
     open(runId: string) {
-        return this.action("evaluation_open", { runId });
+        return this.action("evaluation_open", { runId }, runId);
     }
     resume(batch: "one" | "all" = "all") {
-        const token = this.state.status?.run_token;
-        return token
-            ? this.action("evaluation_resume", { runToken: token, batch })
+        const status = this.state.status;
+        return status
+            ? this.action(
+                  "evaluation_resume",
+                  { runToken: status.run_token, batch },
+                  status.run_id,
+              )
             : Promise.resolve();
     }
     rerun() {
@@ -261,14 +277,27 @@ export class EvaluationController {
     async cancel() {
         const status = this.state.status,
             epoch = this.epoch;
-        if (!status?.operation_id) return;
+        if (!status?.running || !status.operation_id) return;
         try {
-            await this.invoke("evaluation_cancel", {
-                runToken: status.run_token,
-                operationId: status.operation_id,
-            });
+            const reply = decodeEvaluationStatus(
+                await this.invoke("evaluation_cancel", {
+                    runToken: status.run_token,
+                    operationId: status.operation_id,
+                }),
+            );
+            if (
+                reply.run_token !== status.run_token ||
+                reply.run_id !== status.run_id ||
+                (reply.running && reply.operation_id !== status.operation_id)
+            )
+                throw Error("EvaluationInvalidReply");
         } catch (e) {
-            if (epoch === this.epoch) this.fail(e);
+            if (
+                epoch === this.epoch &&
+                this.state.status?.running &&
+                this.state.status.operation_id === status.operation_id
+            )
+                this.patch({ error: this.errorCode(e) });
         }
     }
     selectCase(id: string) {
@@ -302,12 +331,9 @@ export class EvaluationController {
         );
     }
     private curatedFailure(error: unknown) {
-        const name = error instanceof Error ? error.message : String(error);
         this.patch({
             curatedBusy: false,
-            curatedError: evaluationErrors.has(name)
-                ? name
-                : "EvaluationInvalidReply",
+            curatedError: this.errorCode(error),
         });
     }
     private recovery(client: string | null) {
@@ -326,12 +352,15 @@ export class EvaluationController {
         this.patch({ pendingClient: client });
     }
     async curatedShow() {
+        if (!this.canReadCurated() || this.state.busy || this.state.curatedBusy)
+            return;
         const epoch = this.epoch;
         try {
             const catalog = decodeCuratedCatalog(await this.curated("catalog"));
             if (epoch === this.epoch) {
                 this.patch({ curatedCatalog: catalog, curatedError: null });
                 if (
+                    epoch === this.epoch &&
                     !this.state.pendingClient &&
                     typeof localStorage !== "undefined"
                 ) {
@@ -349,10 +378,12 @@ export class EvaluationController {
         }
     }
     private async curatedAction(
-        action: string,
+        action: "start" | "lookup" | "open" | "resume",
         query: Record<string, unknown>,
+        expected?: CuratedStatus,
     ) {
-        if (this.state.busy || this.state.curatedBusy) return;
+        if (!this.canReadCurated() || this.state.busy || this.state.curatedBusy)
+            return;
         const epoch = ++this.epoch;
         this.evidenceEpoch++;
         this.patch({
@@ -363,21 +394,34 @@ export class EvaluationController {
             curatedTurn: null,
             curatedStatus: null,
         });
+        if (epoch !== this.epoch) return;
+        if (action === "start") {
+            const priorClient = this.state.pendingClient;
+            this.recovery(query.clientId as string);
+            if (epoch !== this.epoch) {
+                if (this.state.pendingClient === query.clientId)
+                    this.recovery(priorClient);
+                return;
+            }
+        }
         try {
             let status = decodeCuratedStatus(await this.curated(action, query));
-            const token = status.run_token,
-                runId = status.run_id,
-                clientId = status.client_id,
-                bound = status.source_binding,
-                lane = status.lane;
+            const first = status;
+            if (
+                ((action === "start" || action === "lookup") &&
+                    first.client_id !== query.clientId) ||
+                (action === "start" && first.lane !== query.lane) ||
+                (action === "open" && first.run_id !== query.runId) ||
+                (expected && !sameCuratedRun(first, expected))
+            )
+                throw Error("EvaluationInvalidReply");
             for (;;) {
                 if (epoch !== this.epoch) return;
                 if (
-                    status.run_token !== token ||
-                    status.run_id !== runId ||
-                    status.client_id !== clientId ||
-                    status.source_binding !== bound ||
-                    status.lane !== lane
+                    status.run_token !== first.run_token ||
+                    !sameCuratedRun(status, first) ||
+                    (status.running &&
+                        status.operation_id !== first.operation_id)
                 )
                     throw Error("EvaluationInvalidReply");
                 this.patch({
@@ -387,17 +431,24 @@ export class EvaluationController {
                         status.snapshot?.report.cases[0]?.id ??
                         null,
                 });
+                if (epoch !== this.epoch) return;
                 if (!status.running) {
-                    this.patch({ curatedBusy: false });
-                    if (status.client_id === this.state.pendingClient)
+                    if (
+                        (action === "start" || action === "lookup") &&
+                        status.client_id === this.state.pendingClient
+                    )
                         this.recovery(null);
-                    if (status.error) throw Error(status.error);
+                    if (epoch === this.epoch)
+                        this.patch({
+                            curatedBusy: false,
+                            curatedError: status.error,
+                        });
                     return;
                 }
                 await new Promise((r) => setTimeout(r, 75));
                 if (epoch !== this.epoch) return;
                 status = decodeCuratedStatus(
-                    await this.curated("status", { runToken: token }),
+                    await this.curated("status", { runToken: first.run_token }),
                 );
             }
         } catch (error) {
@@ -410,11 +461,8 @@ export class EvaluationController {
         batch: "one" | "all" = "all",
         consent = false,
     ) {
-        if (this.state.busy || this.state.curatedBusy) return Promise.resolve();
-        const clientId = crypto.randomUUID();
-        this.recovery(clientId);
         return this.curatedAction("start", {
-            clientId,
+            clientId: crypto.randomUUID(),
             lane,
             caseId,
             batch,
@@ -431,22 +479,39 @@ export class EvaluationController {
         return this.curatedAction("open", { runId });
     }
     curatedResume(consent = false, batch: "one" | "all" = "all") {
-        const runToken = this.state.curatedStatus?.run_token;
-        return runToken
-            ? this.curatedAction("resume", { runToken, batch, consent })
+        const status = this.state.curatedStatus;
+        return status
+            ? this.curatedAction(
+                  "resume",
+                  { runToken: status.run_token, batch, consent },
+                  status,
+              )
             : Promise.resolve();
     }
     async curatedCancel() {
         const status = this.state.curatedStatus,
             epoch = this.epoch;
-        if (!status?.operation_id) return;
+        if (!status?.running || !status.operation_id) return;
         try {
-            await this.invoke("evaluation_cancel", {
-                runToken: status.run_token,
-                operationId: status.operation_id,
-            });
+            const reply = decodeCuratedStatus(
+                await this.invoke("evaluation_cancel", {
+                    runToken: status.run_token,
+                    operationId: status.operation_id,
+                }),
+            );
+            if (
+                reply.run_token !== status.run_token ||
+                !sameCuratedRun(reply, status) ||
+                (reply.running && reply.operation_id !== status.operation_id)
+            )
+                throw Error("EvaluationInvalidReply");
         } catch (error) {
-            if (epoch === this.epoch) this.curatedFailure(error);
+            if (
+                epoch === this.epoch &&
+                this.state.curatedStatus?.running &&
+                this.state.curatedStatus.operation_id === status.operation_id
+            )
+                this.patch({ curatedError: this.errorCode(error) });
         }
     }
     curatedSelectCase(id: string) {
@@ -484,7 +549,14 @@ export class EvaluationController {
         const scope = this.state.curatedCatalog?.cases
             .find((c) => c.id === selected?.id)
             ?.sources.find((s) => s.turn === turn?.id)?.scope;
-        if (!run?.snapshot || !selected || !turn || !scope || run.running)
+        if (
+            !this.canReadCurated() ||
+            !run?.snapshot ||
+            !selected ||
+            !turn ||
+            !scope ||
+            run.running
+        )
             return;
         const effectiveView =
             view === "turn_diff" && turn.phase !== "committed"
@@ -493,6 +565,7 @@ export class EvaluationController {
         const epoch = this.epoch,
             sequence = ++this.evidenceEpoch;
         this.patch({ curatedEvidence: null, curatedError: null });
+        if (epoch !== this.epoch || sequence !== this.evidenceEpoch) return;
         try {
             const evidence = decodeCuratedEvidence(
                 await this.curated("evidence", {

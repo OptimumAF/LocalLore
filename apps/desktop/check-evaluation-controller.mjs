@@ -241,6 +241,114 @@ const wrongContext = renderToStaticMarkup(
     }),
 );
 assert.equal(wrongContext, "");
+
+const retiredOffers = [];
+const retiredDispatch = new EvaluationController(async (name) => {
+    retiredOffers.push(name);
+    return status;
+});
+retiredDispatch.contextChanged("same|lab|omniscient", true);
+retiredDispatch.subscribe(() => {
+    if (retiredDispatch.get().busy)
+        retiredDispatch.contextChanged("same|lab|omniscient", false);
+});
+await retiredDispatch.start();
+await retiredDispatch.show();
+assert.deepEqual(retiredOffers, [], "same-key revocation must stop an offer");
+
+const foreignRun = "33333333-3333-3333-3333-333333333333";
+const builtInCalls = [];
+const wrongOpen = new EvaluationController(async (name) => {
+    builtInCalls.push(name);
+    return { ...status, run_id: foreignRun };
+});
+wrongOpen.contextChanged("lab", true);
+await wrongOpen.open(id);
+assert.deepEqual(builtInCalls, ["evaluation_open"]);
+assert.equal(wrongOpen.get().status, null);
+assert.equal(wrongOpen.get().error, "EvaluationInvalidReply");
+
+const runningStatus = {
+    ...status,
+    running: true,
+    completed: false,
+    completed_cases: 0,
+    phase: "running",
+    operation_id: 7,
+};
+const reportReply = {
+    version: 1,
+    run_token: token,
+    run_id: id,
+    case_id: null,
+    report,
+};
+let polls = 0;
+const wrongPoll = new EvaluationController(async (name) => {
+    if (name === "evaluation_start") return runningStatus;
+    if (name === "evaluation_read") return reportReply;
+    assert.equal(name, "evaluation_status");
+    return ++polls === 1 ? { ...runningStatus, operation_id: 8 } : status;
+});
+wrongPoll.contextChanged("lab", true);
+await wrongPoll.start();
+assert.equal(wrongPoll.get().status.operation_id, 7);
+assert.equal(wrongPoll.get().error, "EvaluationInvalidReply");
+
+const wrongLane = new EvaluationController(async (name) =>
+    name === "evaluation_read"
+        ? {
+              ...reportReply,
+              report: { ...report, lane: "scripted_curated_shared_host" },
+          }
+        : status,
+);
+wrongLane.contextChanged("lab", true);
+await wrongLane.start();
+assert.equal(wrongLane.get().report, null);
+assert.equal(wrongLane.get().error, "EvaluationInvalidReply");
+
+function deferred() {
+    let resolve, reject;
+    const promise = new Promise((done, fail) => {
+        resolve = done;
+        reject = fail;
+    });
+    return { promise, resolve, reject };
+}
+
+const builtInPollEntered = deferred(),
+    builtInPoll = deferred(),
+    lateCancel = deferred();
+let cancelCalls = 0;
+const cancelling = new EvaluationController(async (name) => {
+    if (name === "evaluation_start") return runningStatus;
+    if (name === "evaluation_status") {
+        builtInPollEntered.resolve();
+        return builtInPoll.promise;
+    }
+    if (name === "evaluation_cancel") {
+        if (++cancelCalls === 1) throw Error("EvaluationIo");
+        return lateCancel.promise;
+    }
+    assert.equal(name, "evaluation_read");
+    return reportReply;
+});
+cancelling.contextChanged("lab", true);
+const active = cancelling.start();
+await builtInPollEntered.promise;
+await cancelling.cancel();
+assert.equal(cancelling.get().busy, true);
+assert.equal(cancelling.get().error, "EvaluationIo");
+const later = cancelling.cancel();
+builtInPoll.resolve(status);
+await active;
+lateCancel.reject(Error("EvaluationIo"));
+await later;
+assert.equal(cancelling.get().busy, false);
+assert.equal(cancelling.get().error, null);
+assert.equal(cancelling.get().report.binding_sha256, report.binding_sha256);
+
 console.log(
     "PASS: evaluation controller late catalog/start/context fencing, bounded synthetic-only decoder, report-internal source selection, inert expected/actual failure-row MOCK render and explicit unavailable D05/D06 bridges.",
 );
@@ -399,7 +507,14 @@ let releaseEvidence;
 heldEvidence = new Promise((r) => (releaseEvidence = r));
 const oldEvidence = cu.curatedInspect();
 await new Promise((r) => setImmediate(r));
+const retiredSnapshots = [];
+const releaseRetirement = cu.subscribe(() => retiredSnapshots.push(cu.get()));
 cu.contextChanged("other|play|player", false);
+releaseRetirement();
+assert.equal(retiredSnapshots.length, 1);
+assert.equal(retiredSnapshots[0].shown, false);
+assert.equal(retiredSnapshots[0].curatedStatus, null);
+assert.equal(retiredSnapshots[0].curatedEvidence, null);
 releaseEvidence(evidence);
 await oldEvidence;
 assert.equal(cu.get().curatedEvidence, null);
@@ -414,6 +529,133 @@ lateCurated.contextChanged("second|lab|player", true);
 releaseCatalog(curatedCatalog);
 await loading;
 assert.equal(lateCurated.get().curatedCatalog, null);
+
+const curatedOffers = [];
+const retiredCuratedDispatch = new EvaluationController(async (name, args) => {
+    curatedOffers.push({ name, args });
+    return curatedStatus;
+});
+retiredCuratedDispatch.contextChanged("first|lab|omniscient", true);
+retiredCuratedDispatch.subscribe(() => {
+    if (retiredCuratedDispatch.get().pendingClient)
+        retiredCuratedDispatch.contextChanged("second|lab|player", true);
+});
+await retiredCuratedDispatch.curatedStart("scripted");
+await retiredCuratedDispatch.curatedShow();
+assert.deepEqual(curatedOffers, []);
+assert.equal(retiredCuratedDispatch.get().pendingClient, null);
+
+let bindMode = "wrong-start-client";
+const ownership = new EvaluationController(async (name, { action, query }) => {
+    assert.equal(name, "evaluation_curated");
+    if (bindMode === "wrong-start-client") {
+        assert.equal(action, "start");
+        return { ...curatedStatus, client_id: foreignRun };
+    }
+    if (bindMode === "wrong-lookup-client") {
+        assert.equal(action, "lookup");
+        return { ...curatedStatus, client_id: foreignRun };
+    }
+    if (bindMode === "correct-lookup") {
+        assert.equal(action, "lookup");
+        return { ...curatedStatus, client_id: query.clientId };
+    }
+    if (bindMode === "wrong-start-lane") {
+        assert.equal(action, "start");
+        return {
+            ...curatedStatus,
+            client_id: query.clientId,
+            lane: "native",
+            snapshot: null,
+        };
+    }
+    if (bindMode === "wrong-open") {
+        assert.equal(action, "open");
+        return { ...curatedStatus, run_id: foreignRun };
+    }
+    if (action === "open") return curatedStatus;
+    assert.equal(action, "resume");
+    assert.equal(query.runToken, token);
+    return {
+        ...curatedStatus,
+        run_token: foreignRun,
+        ...(bindMode === "wrong-resume" ? { client_id: foreignRun } : {}),
+    };
+});
+ownership.contextChanged("lab|omniscient", true);
+await ownership.curatedStart("scripted");
+const offeredClient = ownership.get().pendingClient;
+assert.ok(offeredClient);
+assert.equal(ownership.get().curatedStatus, null);
+assert.equal(ownership.get().curatedError, "EvaluationInvalidReply");
+bindMode = "wrong-lookup-client";
+await ownership.curatedRecover();
+assert.equal(ownership.get().pendingClient, offeredClient);
+assert.equal(ownership.get().curatedStatus, null);
+bindMode = "correct-lookup";
+await ownership.curatedRecover();
+assert.equal(ownership.get().curatedStatus.client_id, offeredClient);
+assert.equal(ownership.get().pendingClient, null);
+bindMode = "wrong-start-lane";
+await ownership.curatedStart("scripted");
+assert.equal(ownership.get().curatedStatus, null);
+assert.equal(ownership.get().curatedError, "EvaluationInvalidReply");
+bindMode = "wrong-open";
+await ownership.curatedOpen(id);
+assert.equal(ownership.get().curatedStatus, null);
+assert.equal(ownership.get().curatedError, "EvaluationInvalidReply");
+bindMode = "wrong-resume";
+await ownership.curatedOpen(id);
+await ownership.curatedResume();
+assert.equal(ownership.get().curatedStatus, null);
+assert.equal(ownership.get().curatedError, "EvaluationInvalidReply");
+bindMode = "correct-resume";
+await ownership.curatedOpen(id);
+await ownership.curatedResume();
+assert.equal(ownership.get().curatedStatus.run_id, id);
+assert.equal(ownership.get().curatedStatus.run_token, foreignRun);
+
+const curatedPollEntered = deferred(),
+    curatedPoll = deferred(),
+    curatedCancel = deferred();
+let curatedCancelCalls = 0;
+let currentClient;
+const curatedRunning = { ...curatedStatus, ...runningStatus, snapshot: null };
+const stoppingCurated = new EvaluationController(async (name, args) => {
+    if (name === "evaluation_cancel") {
+        assert.equal(args.operationId, 7);
+        if (++curatedCancelCalls === 1)
+            return {
+                ...curatedRunning,
+                operation_id: 8,
+                client_id: currentClient,
+            };
+        return curatedCancel.promise;
+    }
+    if (args.action === "start") {
+        currentClient = args.query.clientId;
+        return { ...curatedRunning, client_id: currentClient };
+    }
+    assert.equal(args.action, "status");
+    curatedPollEntered.resolve();
+    return curatedPoll.promise;
+});
+stoppingCurated.contextChanged("lab|omniscient", true);
+const runningCurated = stoppingCurated.curatedStart("scripted");
+await curatedPollEntered.promise;
+await stoppingCurated.curatedCancel();
+assert.equal(stoppingCurated.get().curatedBusy, true);
+assert.equal(stoppingCurated.get().curatedError, "EvaluationInvalidReply");
+const cancelCuratedLater = stoppingCurated.curatedCancel();
+curatedPoll.resolve({ ...curatedStatus, client_id: currentClient });
+await runningCurated;
+curatedCancel.reject(Error("EvaluationIo"));
+await cancelCuratedLater;
+assert.equal(stoppingCurated.get().curatedBusy, false);
+assert.equal(stoppingCurated.get().curatedError, null);
+assert.equal(stoppingCurated.get().curatedStatus.run_id, id);
+assert.equal(stoppingCurated.get().pendingClient, null);
+
 console.log(
     "PASS: MOCK actual curated controller preserves lost-ack identity, rejects foreign/binding/revision/raw-size/grant evidence, clears late context, and escapes raw report/output in SSR. This is not native runner/UI execution.",
 );

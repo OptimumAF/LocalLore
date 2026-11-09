@@ -190,6 +190,7 @@ for (const scenario of [
     "foreign-receipt-event",
     "ready-listener-cancel",
     "late-pending-status",
+    "terminal-poll-only",
     "cancelled-lost-ack-committed",
 ]) {
     const session = {
@@ -209,6 +210,9 @@ for (const scenario of [
     const refreshEntered = new Promise((resolve) => (enterRefresh = resolve));
     const heldRefresh = new Promise((resolve) => (releaseRefresh = resolve));
     const heldPoll = new Promise((resolve) => (releasePoll = resolve));
+    let enterCommit, releaseCommit;
+    const commitEntered = new Promise((resolve) => (enterCommit = resolve));
+    const heldCommit = new Promise((resolve) => (releaseCommit = resolve));
     const status = (phase, patch = {}) => ({
         scope: session.scope,
         turn: request.turn,
@@ -298,6 +302,10 @@ for (const scenario of [
             }
             if (command.op === "commit") {
                 const accepted = committed();
+                if (scenario === "terminal-poll-only") {
+                    enterCommit();
+                    await heldCommit;
+                }
                 if (scenario === "foreign-receipt-event") return wrongEvent();
                 return scenario === "nonterminal-commit"
                     ? status("ready")
@@ -352,6 +360,12 @@ for (const scenario of [
         assert.equal(await oldPoll, null);
         assert.equal(controller.get().turnStatus.phase, "committed");
         releaseRefresh();
+    } else if (scenario === "terminal-poll-only") {
+        await commitEntered;
+        assert.equal((await controller.pendingStatus()).phase, "committed");
+        assert.equal(controller.get().turnStatus.phase, "ready");
+        assert.equal(controller.get().play.revision, 0);
+        releaseCommit();
     }
     await sending;
     if (scenario === "foreign-submit" || scenario === "cancelled-lost-ack-committed") {
@@ -380,7 +394,10 @@ for (const scenario of [
             "turn_status",
             "commit",
         ]);
-    } else if (scenario === "nonterminal-commit") {
+    } else if (
+        scenario === "nonterminal-commit" ||
+        scenario === "terminal-poll-only"
+    ) {
         assert.deepEqual(turnCalls, [
             "submit",
             "prepare",

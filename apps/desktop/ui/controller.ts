@@ -2300,7 +2300,10 @@ export class Controller {
             this.state.turnStatus !== previous
         )
             return null;
-        this.patch({ turnStatus: status });
+        // Polling observes terminal replies without publishing them ahead of
+        // the operation that settles the receipt and refreshes the snapshot.
+        if (!terminalTurnPhases.includes(status.phase))
+            this.patch({ turnStatus: status });
         return status;
     }
     async cancel() {

@@ -254,6 +254,10 @@ $eof = [bool[]]@($false, $false)
 $reads = [Threading.Tasks.Task[int][]]::new(2)
 $processStarted = $false
 $disposed = $false
+$stdinClosed = $false
+$inputWriter = $null
+$outputReaders = [IO.StreamReader[]]::new(2)
+$readersReleased = [bool[]]::new(2)
 $pidObserved = $null
 $exitCode = $null
 $reason = $null
@@ -264,8 +268,12 @@ try {
     $processStarted = $child.Start()
     if (-not $processStarted) { throw 'StartRefused' }
     $pidObserved = $child.Id
-    $child.StandardInput.Close()
-    $streams = @($child.StandardOutput.BaseStream, $child.StandardError.BaseStream)
+    $inputWriter = $child.StandardInput
+    $inputWriter.Close()
+    $stdinClosed = $true
+    $outputReaders[0] = $child.StandardOutput
+    $outputReaders[1] = $child.StandardError
+    $streams = @($outputReaders[0].BaseStream, $outputReaders[1].BaseStream)
     for ($i = 0; $i -lt 2; $i++) {
         $reads[$i] = $streams[$i].ReadAsync($buffers[$i], 0, $buffers[$i].Length)
     }
@@ -320,6 +328,20 @@ try {
         } catch { $reason = 'StopUnconfirmed' }
     }
 } finally {
+    if ($inputWriter -and -not $stdinClosed) {
+        try {
+            $inputWriter.Dispose()
+            $stdinClosed = $true
+        } catch { $reason ??= 'ProcessCloseFailed' }
+    }
+    foreach ($i in 0..1) {
+        if ($outputReaders[$i]) {
+            try {
+                $outputReaders[$i].Dispose()
+                $readersReleased[$i] = $true
+            } catch { $reason ??= 'ProcessCloseFailed' }
+        }
+    }
     try {
         $child.Dispose()
         $disposed = $true
@@ -328,7 +350,8 @@ try {
 }
 if ($clock.ElapsedMilliseconds -ge 30000) { $reason ??= 'Deadline' }
 
-$closed = $disposed -and $null -ne $exitCode -and $eof[0] -and $eof[1]
+$closed = $disposed -and $stdinClosed -and $null -ne $exitCode -and
+    $eof[0] -and $eof[1] -and $readersReleased[0] -and $readersReleased[1]
 $logs = [ordered]@{}
 foreach ($i in 0..1) {
     $name = @('stdout.bin', 'stderr.bin')[$i]
@@ -390,8 +413,12 @@ Write-Record 'result.json' ([ordered]@{
     esbuildPid = $servicePid
     esbuildClosureReported = $null -ne $servicePid
     quarantineRequired = -not $closed -or $null -eq $servicePid
+    stdinClosed = $stdinClosed
     stdoutEof = $eof[0]
     stderrEof = $eof[1]
+    stdoutReleased = $readersReleased[0]
+    stderrReleased = $readersReleased[1]
+    processDisposed = $disposed
     killRequested = $killRequested
     processTreeContained = $false
     exitCode = $exitCode

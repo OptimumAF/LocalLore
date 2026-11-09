@@ -317,6 +317,26 @@ class DurableSessionReplyBindingTest {
         corpus.assertUnchanged()
     }
 
+    @Test fun closedSessionSelectionNoticeSurvivesABusyCatalogRead() = runTest {
+        val corpus = PresentationCaptureCorpus()
+        val port = mainTransport(corpus)
+        assertSavedCase(port.gateway.initialize(), corpus.case("main"))
+        port.commands.clear()
+        port.openReply = { rejected("Closed") }
+        port.closeReply = { rejected("Closed") }
+        port.workspaceReply = { rejected("Busy") }
+
+        assertCategory("Busy", runCatching { port.gateway.recoverSaved() }.exceptionOrNull())
+        assertEquals(listOf("open", "close", "workspace"), port.commands.map { it.getString("op") })
+
+        port.workspaceReply = { it.apply { getJSONObject("data").put("stories", JSONArray()) } }
+        val recovered = port.gateway.recoverSaved()
+        assertNull(recovered.selected)
+        assertTrue(recovered.stories.isEmpty())
+        assertTrue(recovered.selectionRestoreUnavailable)
+        assertEquals(listOf("open", "close", "workspace", "workspace"), port.commands.map { it.getString("op") })
+    }
+
     @Test fun recoveringWithOtherReadFailuresKeepsTheSelectedAttachment() = runTest {
         val corpus = PresentationCaptureCorpus()
         val target = corpus.case("main")

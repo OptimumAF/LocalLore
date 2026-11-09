@@ -93,7 +93,7 @@ def _check_inputs(request, root, outbound_result):
               "inputs")
 
 
-def _check_terminal(terminal, root):
+def _check_terminal(terminal, root, *, mode="verify"):
     keys = {"status", "exit_code", "stderr_bytes", "elapsed_ms", "cleanup_complete", "stdout"}
     _need(type(terminal) is dict and set(terminal) == keys and
           terminal["status"] == "completed" and terminal["cleanup_complete"] is True and
@@ -102,8 +102,9 @@ def _check_terminal(terminal, root):
           type(terminal["elapsed_ms"]) is int and 0 <= terminal["elapsed_ms"] <= DEADLINE * 1000,
           "terminal")
     raw = _read(terminal["stdout"], root / "stdout.bin", TERMINAL_CAP)
-    _need(raw in (b'{"status":"passed","mode":"verify"}\n',
-                  b'{"status":"passed","mode":"verify"}\r\n'), "terminal")
+    _need(mode in ("verify", "check-final"), "terminal")
+    expected = ('{"status":"passed","mode":"' + mode + '"}').encode("ascii")
+    _need(raw in (expected + b"\n", expected + b"\r\n"), "terminal")
 
 
 def _inventory(root, *, published):

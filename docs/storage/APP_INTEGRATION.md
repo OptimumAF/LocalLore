@@ -49,12 +49,21 @@ old coverage proofs return Unsupported there. These refusals do not mean
 durable correction UI or complete Domain2 app resume is available.
 
 The bounded `workspace` operation returns metadata for up to 256 stories in
-deterministic story-ID order. Startup resumes the first entry, or creates a new
-opaque story identity when empty. The library permits explicit selection; this
-order does not imply last-used or newest. New/reset preserves previous saves.
+deterministic story-ID order. Startup without a resolved selection uses the
+first entry. Empty-library behavior follows the shell's existing creation
+policy. The library permits explicit selection. New/reset preserves previous saves.
 Closing a session preserves its story. Android exposes separately previewed,
 explicitly confirmed whole-story deletion and nonroot timeline retirement; see
 the [retention contract](../native/PARENT_RETENTION_CONTRACT.md).
+
+Android gives a valid saved-task hint priority. A fresh launch can also read a
+versioned, at most 132-byte record containing only the last confirmed story and
+timeline IDs. The app stores this optional hint in `noBackupFilesDir` using
+background atomic writes. It resolves the IDs through the native catalog and
+bound Resume before displaying history. A retired or absent target uses the
+existing visible fallback, which is not remembered as a new confirmed choice.
+Unreadable hint storage is optional. The hint carries no session, turn key,
+revision, story prose or draft text and cannot start inference or commit work.
 
 Android binds each Resume reply to the selected story and timeline before
 attaching its session. Navigation retains its ownership across release and

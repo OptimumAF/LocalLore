@@ -3,9 +3,11 @@ package org.locallore.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,9 +24,32 @@ class ShellViewModel internal constructor(
     private val forkContextProvider: ((SavedStory, Long, Long) -> BranchForkContext?)? = null,
     private val forkRecoveryStore: ForkRecoveryPersistence? = null,
     creationGateway: StoryCreationGateway? = gateway as? StoryCreationGateway,
+    navigationStore: SavedNavigationStore? = null,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(ShellState())
     val state: StateFlow<ShellState> = mutable.asStateFlow()
+    private val navigationUpdates = navigationStore?.let { store ->
+        Channel<PlayDraftScope?>(Channel.CONFLATED).also { updates ->
+            // One writer prevents a slow earlier selection from overwriting a later one.
+            viewModelScope.launch {
+                var hasWritten = false
+                var lastWritten: PlayDraftScope? = null
+                for (selection in updates) {
+                    if (hasWritten && lastWritten == selection) continue
+                    hasWritten = false // An I/O failure can leave either value on disk.
+                    try {
+                        store.save(selection)
+                        lastWritten = selection
+                        hasWritten = true
+                    } catch (_: IOException) {
+                        // The selection hint is optional; a later snapshot can retry it.
+                    } catch (_: SecurityException) {
+                        // Keep the confirmed native snapshot when local hint storage is unavailable.
+                    }
+                }
+            }
+        }
+    }
     private var generation = 0L
     private var messageId = 0L
     private var pending: Job? = null
@@ -305,6 +330,9 @@ class ShellViewModel internal constructor(
                 "Previously selected timeline is unavailable. Review the library before sending." else notice,
         )
         synchronizeForkContext(next)
+        if (!saved.selectionRestoreUnavailable) {
+            navigationUpdates?.trySend(saved.selected?.let { PlayDraftScope(it.story, it.branch) })
+        }
         return next
     }
 

@@ -90,8 +90,9 @@ open class MainActivity : ComponentActivity() {
                 val transport = createWorkspaceTransport()
                 ProcessVerificationProbe.factoryCreated()
                 transportObservation = WeakReference(transport)
+                val navigationStore = AtomicSavedNavigationStore(applicationContext)
                 val durable = DurableGateway(transport, autoCreateIfEmpty = false,
-                    initialScopeHint = pendingNavigationHint)
+                    initialScopeHint = pendingNavigationHint, navigationStore = navigationStore)
                 return ShellViewModel(durable,
                     archiveGateway = NativeArchiveGateway(applicationContext),
                     deletionGateway = NativeArchiveGateway(applicationContext),
@@ -101,7 +102,8 @@ open class MainActivity : ComponentActivity() {
                             { ProcessVerificationProbe.operation("fork_mutation") }
                         } else null),
                     forkContextProvider = durable::forkContext,
-                    forkRecoveryStore = AtomicForkRecoveryStore(applicationContext)) as T
+                    forkRecoveryStore = AtomicForkRecoveryStore(applicationContext),
+                    navigationStore = navigationStore) as T
             }
         }
         model = try {

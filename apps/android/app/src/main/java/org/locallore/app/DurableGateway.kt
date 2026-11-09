@@ -3,6 +3,7 @@ package org.locallore.app
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.util.UUID
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
@@ -22,11 +23,13 @@ internal class DurableGateway(
     private val transport: WorkspaceTransport,
     autoCreateIfEmpty: Boolean = true,
     initialScopeHint: PlayDraftScope? = null,
+    private val navigationStore: SavedNavigationStore? = null,
 ) : DemoGateway, StoryCreationGateway, OriginalStoryGateway {
     private var mayAutoCreate = autoCreateIfEmpty
     // Navigation IDs are an unresolved UI hint, never a saved engine/session.
     // Keep them through initialization failures, including failures after attach.
     private var pendingInitialScopeHint = initialScopeHint
+    private var startupNavigationRead = initialScopeHint != null || navigationStore == null
     private var initialSelectionUnavailable = false
     override val durable = true
     override val storyRecords = true
@@ -113,7 +116,23 @@ internal class DurableGateway(
 
     override suspend fun initialize(): SavedSnapshot {
         if (session != null) return snapshot()
-        return openLibrary(mayAutoCreate)
+        val (attachment, loadNavigation) = synchronized(playerMetadataLock) {
+            playerAttachment to !startupNavigationRead
+        }
+        if (loadNavigation) {
+            val hint = try { navigationStore?.load() }
+                catch (_: IOException) { null }
+                catch (_: SecurityException) { null }
+            synchronized(playerMetadataLock) {
+                if (closed.get()) throw WorkspaceFailure("Closed")
+                if (playerAttachment !== attachment) throw WorkspaceFailure("Stale")
+                if (!startupNavigationRead) {
+                    pendingInitialScopeHint = hint?.takeIf { encodeNavigationHint(it) != null }
+                    startupNavigationRead = true
+                }
+            }
+        }
+        return openLibrary(mayAutoCreate, attachment)
     }
     private suspend fun workspace(): JSONObject = call(command("workspace"))
     /** The existing native catalog wire, shared by initial selection and snapshots. */

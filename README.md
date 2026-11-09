@@ -268,6 +268,12 @@ handles keyboard space around both the scrolling chat and Latest control.
 Host tests, Android-test compilation and lint pass; the two new injected-inset
 journeys and real keyboard/accessibility behavior still require Android execution.
 
+The [fixed diagnostic UI profile](docs/native/DIAGNOSTIC_UI_PROFILE_V1.md) binds
+six compiled diagnostic journeys to guarded ownership, complete replay and
+sticky cancellation/cleanup. Its [host verification report](docs/native/DIAGNOSTIC_UI_PROFILE_VERIFICATION_2026-11-03.md)
+separates synthetic and saved-artifact evidence from Android execution. No new
+guest or run grant is created; the six Android journeys remain unrun here.
+
 The [buffered restart qualification](docs/native/BUFFERED_RESTART_RUN_2026-10-29.md)
 completes one newly approved API 35/x86_64 run using PR #270's frozen build:
 verified local model transfer/import, real AUTHOR creation, idempotent retry,

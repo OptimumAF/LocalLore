@@ -703,6 +703,11 @@ class ShellViewModel internal constructor(
         return rendered != null && rendered.story == selected.story && rendered.branch == selected.branch
     }
 
+    fun startNewStory(rendered: ShellState) {
+        if (mutable.value !== rendered || rendered.busy) return
+        startNewStory()
+    }
+
     fun startNewStory() {
         if (!gateway.durable) { reset(); return }
         val before = mutable.value

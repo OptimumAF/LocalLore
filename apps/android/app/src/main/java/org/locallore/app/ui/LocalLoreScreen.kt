@@ -202,12 +202,18 @@ internal fun LocalLoreScreen(
                                     fontFamily = FontFamily.Serif,
                                     modifier = Modifier.weight(1f).semantics { heading() },
                                 )
-                                TextButton(
-                                    onClick = onReset,
-                                    enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive && (!state.persistent || !state.recoveryRequired),
-                                    modifier = Modifier.heightIn(min = 48.dp)
-                                        .testTag("reset-demo"),
-                                ) { Text(if (state.persistent) "New story" else "Reset demo") }
+                                val canStart = !state.busy && !state.archiveActive && !state.deletionActive &&
+                                    !state.forkActive && !state.creationActive && (!state.persistent || !state.recoveryRequired)
+                                key(renderedControlKey) {
+                                    TextButton(
+                                        onClick = {
+                                            if (canStart && renderedControls.active && currentRenderedState.value === state) onReset()
+                                        },
+                                        enabled = canStart,
+                                        modifier = Modifier.heightIn(min = 48.dp)
+                                            .testTag("reset-demo"),
+                                    ) { Text(if (state.persistent) "New story" else "Reset demo") }
+                                }
                             }
                             Text(
                                 when (state.textProvider) {

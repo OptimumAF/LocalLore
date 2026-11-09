@@ -30,27 +30,13 @@ class StoryRecordActionScopeScreenTest {
     private data class Harness(val model: ShellViewModel, val gateway: RecordGateway)
 
     private fun show(): Harness {
-        // Match MainActivity's plain rendered snapshot, never a delegated getter in a callback.
         compose.setContent {
             active.value?.let { model ->
                 val shell by model.state.collectAsState()
-                val recordFrame by model.storyRecordFrames.collectAsState()
-                val renderedRecordState = recordFrame.state
-                val renderedRecordEvent = renderedRecordState.eventDetail
                 LocalLoreScreen(shell, model::submit, model::setMode, model::cancel, model::reset,
                     onResume = model::resume, onRecover = model::recover,
                     onStoryRecord = model::openStoryRecord, onText = model::submitText) {
-                    StoryRecordDialog(renderedRecordState,
-                        { model.closeStoryRecord(renderedRecordState) },
-                        { section -> model.recordSection(section, renderedRecordState) },
-                        { text -> model.recordSearch(text, renderedRecordState) },
-                        { model.nextRecordPage(renderedRecordState) },
-                        { model.firstRecordPage(renderedRecordState) },
-                        { model.retryStoryRecord(renderedRecordState) },
-                        onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordState) },
-                        onScopedEvent = { reference -> model.openScopedRecordEvent(reference, renderedRecordState) },
-                        onEventBack = { renderedRecordEvent?.let { model.backToStoryRecord(it) } },
-                        onEventRetry = renderedRecordEvent?.let { detail -> { model.retryRecordEvent(detail) } })
+                    StoryRecordHost(model)
                 }
             }
         }

@@ -74,7 +74,9 @@ be distinct, nonzero identifiers on one volume. Treat native IDs
 as native facts, separately from Node's dev and ino values.
 
 The same exact ready hash can bind both the Job and the held helper
-because the actual native record describes both. The separate
+because the actual native record describes both. The parent owns that
+record in the sealed namespace. Matching JSON and PIDs alone cannot
+authenticate Job membership. The separate
 namespace and writer policy remain external obligations.
 Check the evidence directory is unchanged across those reads and
 verify the output parent using the Node identity before composing

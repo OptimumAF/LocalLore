@@ -151,7 +151,7 @@ open class MainActivity : ComponentActivity() {
                 { model.cancel(renderedChatState) }, model::startNewStory,
                 onDiagnostics = model::openDiagnostics, onResume = { model.resume(it, renderedChatState) },
                 onRecover = { model.recover(renderedChatState) },
-                onStoryRecord = if (model.hasStoryRecords) model::openStoryRecord else null,
+                onStoryRecord = if (model.hasStoryRecords) ({ model.openStoryRecord(renderedChatState) }) else null,
                 onText = { input, _ -> model.submitText(input, renderedChatState) },
                 archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
                 deletionAvailable = model.deletionController != null, onDelete = model::openDeletion,

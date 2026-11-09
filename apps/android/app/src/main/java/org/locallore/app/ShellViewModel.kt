@@ -441,6 +441,10 @@ class ShellViewModel internal constructor(
     fun openDiagnostics() { if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive) {
         invalidateForkContext(); recordController.dismiss(); diagnosticController.open()
     } }
+    internal fun openStoryRecord(rendered: ShellState) {
+        if (mutable.value === rendered) openStoryRecord()
+    }
+
     fun openStoryRecord() {
         val current = mutable.value
         val story = current.selectedStory ?: return

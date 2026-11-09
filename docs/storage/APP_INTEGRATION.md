@@ -100,6 +100,10 @@ Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.
 
+Android opens Story Record only from the state that displayed the control.
+The native read uses that saved story, timeline and accepted revision. A
+callback retained after the displayed state changes cannot start a new read.
+
 On Android, a queued or ready reply must match the pending turn, exact story
 and timeline, and integer expected revision before it can advance preparation
 or commit. Malformed or foreign replies keep the original key available for

@@ -19,10 +19,8 @@ from benchmarks import adb_held_socket_probe as python_pins
 from benchmarks import owned_saved_library_status as owner
 from benchmarks import receipt_avd_environment as env
 from benchmarks import receipt_avd_storage as storage
-from benchmarks import saved_library_status_activation as activation
 from benchmarks import saved_library_status_binding as artifacts
 from benchmarks import saved_library_status_handoff as h
-from benchmarks import saved_library_status_operation as operation
 
 RECOVERY = Path("D:/Dev/Recovery/LocalLore/2026-11-09-saved-library-owned-operation-v1")
 MANIFEST = RECOVERY / "records-manifest-v1.json"
@@ -115,6 +113,9 @@ def _check_ledger_entry(entry, prepare_digest):
 
 
 def _failure(pins, raw):
+    from benchmarks import saved_library_status_activation as activation
+    from benchmarks import saved_library_status_operation as operation
+
     unbound = object()
 
     def record(name, expected=unbound):

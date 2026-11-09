@@ -18,7 +18,7 @@ SETUP_CAP = 4096
 # The fixed roster after boot contains 29 commands. Boot reads are the only
 # variable prefix. Transfer and package mutations never retry.
 FIXED_COMMANDS = 29
-OUTPUT = "archive-transfer-v1"
+OUTPUT = contract.TRANSFER_OUTPUT
 PACKAGES = (contract.APP, contract.TEST)
 
 
@@ -158,16 +158,22 @@ def _session(admission, session_binding):
 
 
 class _Commands:
-    def __init__(self, admission, session, count, capture=None, boot_deadline=None):
+    def __init__(self, admission, session, count, capture=None, boot_deadline=None, *, start=0):
         self.admission = admission
         self.session = session
         self.limit = count
         self.capture = capture
         self.boot_deadline = boot_deadline
         self.records = []
+        self.start = start
+
+    def _capture_command(self, argv, label, source, seconds, cap):
+        if source is None:
+            return self.capture.shell(argv, label, seconds=seconds, cap=cap)
+        return self.capture.stream(argv, source, label, seconds=seconds, cap=cap)
 
     def __call__(self, argv, label, *, source=None, seconds=15, cap=SETUP_CAP):
-        index = len(self.records) + 1
+        index = self.start + len(self.records) + 1
         _need(index <= self.limit, "command_count")
         operation = {"argv": argv, "stdin": source}
         contract.validate_operation(operation, self.admission)
@@ -179,10 +185,7 @@ class _Commands:
                 remaining = self.boot_deadline - time.monotonic()
                 _need(remaining > 0, "boot")
                 live_seconds = min(seconds, remaining)
-            if source is None:
-                captured = self.capture.shell(argv, label, seconds=live_seconds, cap=cap)
-            else:
-                captured = self.capture.stream(argv, source, label, seconds=seconds, cap=cap)
+            captured = self._capture_command(argv, label, source, live_seconds, cap)
             _need(self.capture.count == index, "command_count")
         verifier = owner.VERIFIER
         pin = verifier._pin(Path(self.session["root"]) / "clients" / f"command-{index:04d}.json")

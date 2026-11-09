@@ -121,3 +121,27 @@ The actual Windows CLI smoke used the retained Rust test executable to
 generate a synthetic Android-origin archive. The Android capture records
 were simulated. The exclusive write back to Android, final transfer replay,
 and real guest admission are separate steps.
+
+## Verify the ordered Android return evidence
+
+The return controller revalidates the Windows receipt and exact outbound
+prefix on the same SDK25 session. It rechecks installed identity and the
+private owner marker before spending the distinct write claim. The fixed
+private write uses noclobber and the receipt's exact archive input. A
+byte-exact readback is required before the return instrumentation claim.
+The final archive must match the Windows oracle and package identity must
+still match the outbound evidence.
+
+The client checks the retained receipt and prerequisites again before each
+return-only dispatch. A generic SDK call cannot use the return commands
+without this gate. Live execution closes the capture at the end. Closed
+verification requires the complete outbound and return capture roster,
+with no extra client or proof records.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_return.py
+```
+
+Host tests exercise the 18-command return sequence using synthetic records.
+The final Windows Rust replay and separately approved guest admission are
+still required for end-to-end acceptance.

@@ -14,7 +14,7 @@ from benchmarks import receipt_avd_environment as env
 from benchmarks import runtime_spike as process
 from benchmarks import windows_tcp_control as output_control
 
-DIRECTORY = "windows-continuation-v1"
+DIRECTORY = contract.BRIDGE_DIRECTORY
 SCOPE = "archive-windows-continuation-v1"
 INPUTS = ("windows-return.json", "windows-continued.json", "android-origin.json")
 OUTPUTS = ("android-return.json", "expected-android-final.json", "result.json",
@@ -169,8 +169,8 @@ def run(admission, outbound_result):
     return _pin(path, RECEIPT_CAP)
 
 
-def verify(admission, expected_session, receipt_pin):
-    """Revalidate retained continuation evidence and return its two exact archive pins."""
+def verify_context(admission, expected_session, receipt_pin):
+    """Revalidate the retained bridge and expose the verified prefix and output pins."""
     admission = contract.validate_admission(admission)
     root = _root(admission)
     _inventory(root, published=True)
@@ -188,4 +188,10 @@ def verify(admission, expected_session, receipt_pin):
     _check_terminal(terminal, root)
     outputs = _outputs(root)
     _need(contract._same(outputs, receipt["outputs"]), "outputs")
-    return {name: outputs[name] for name in OUTPUTS[:2]}
+    return dict(outputs={name: outputs[name] for name in OUTPUTS[:2]},
+                records=replayed["records"], installed=replayed["installed"])
+
+
+def verify(admission, expected_session, receipt_pin):
+    """Revalidate retained continuation evidence and return its two exact archive pins."""
+    return verify_context(admission, expected_session, receipt_pin)["outputs"]

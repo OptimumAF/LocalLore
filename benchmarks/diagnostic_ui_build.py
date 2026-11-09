@@ -120,7 +120,10 @@ def _tree(rows):
 def _stamp(path):
     info = path.lstat()
     _need(not stat.S_ISLNK(info.st_mode) and not getattr(info, "st_file_attributes", 0) & 0x400, "path")
-    return (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_nlink)
+    # Directory size is not the length of a bound file payload.
+    # Retain directory identity/change guards and exact ordinary-file sizes.
+    size = None if stat.S_ISDIR(info.st_mode) else info.st_size
+    return (info.st_dev, info.st_ino, info.st_mode, size, info.st_mtime_ns, info.st_nlink)
 
 
 class _Reader:

@@ -246,6 +246,10 @@ def _inspect(api, catalog, output):
         prepare_proposal=api.env.binding(prepare_path), capacity_preview=api.env.binding(output / 'capacity-preview-v1.json'),
         profile=PROFILE, execution_authorized=False, model_material=False)
     source_snapshot(); api.activation._source()
+    # Later source observations must not hide a changed planning snapshot.
+    # This remains an unlocked observation; guarded admission rechecks separately.
+    need(same(ledger_before, api.env.binding(REGISTRY / 'ledger-v1.json')) and
+         same(capacity, api.storage.preview_prepare(GUEST)), 'changed')
     api.env.create_json(output / 'frozen-inputs-v1.json', h)
     result = dict(version=1, scope='sdk18-prepare-input-inspection-v1',
         handoff=api.env.binding(output / 'frozen-inputs-v1.json'), prepare=h['prepare_proposal'], capacity=h['capacity_preview'],

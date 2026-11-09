@@ -56,6 +56,11 @@ can check the SDK23 pre-boot refusal against its verified archive, the
 current prepared reservation and the original AVD files. A matching
 result supports review for reuse under separate approval.
 
+The [reuse handoff](../../benchmarks/saved_library_status_resume_handoff.py)
+uses an activation-only approval and a fresh attempt directory. It
+preserves the original preparation and run proposal bytes. An owned
+activation entry point must consume this handoff before the guest can boot.
+
 ## Build and run
 
 Install Java 17, Android SDK platform 36, Build Tools 35.0.0, NDK 29.0.14206865,

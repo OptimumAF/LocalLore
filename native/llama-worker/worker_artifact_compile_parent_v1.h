@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <deque>
 #include <iterator>
+#include <memory>
 #include <set>
 
 namespace locallore::compile_parent_v1 {
@@ -30,7 +31,17 @@ struct Plan {
     std::string scope, spend, writer_policy, namespace_proof, topology, input_catalog;
 };
 
+struct DirectoryWatchReport {
+    std::size_t armed = 0;
+    std::size_t changed = 0;
+    std::size_t losses = 0;
+    std::size_t cancel_attempts = 0;
+    std::size_t pending = 0;
+    bool handles_closed = true;
+};
+
 struct Report {
+    DirectoryWatchReport watches;
     compile_job_v1::Result child;
     std::string ready_sha256;
     long long elapsed_ms = 0;
@@ -366,6 +377,137 @@ inline bool missing(const std::wstring& path) {
     return GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND;
 }
 
+// This one-shot detector never treats a quiet queue as an exclusion proof.
+class DirectoryWatches {
+    struct Watch {
+        explicit Watch(const Fact& expected) : identity(expected) {}
+        Fact identity;
+        Handle directory, event;
+        alignas(DWORD) std::array<unsigned char, 4096> buffer{};
+        OVERLAPPED operation{};
+        bool pending = false;
+        bool cancel_requested = false;
+        bool loss = false;
+    };
+
+public:
+    bool arm(const std::wstring& path, const Fact& identity) {
+        if (!quiet(true)) return false;
+        for (const auto& item : watches_)
+            if (same_id(item->identity, identity)) return true;
+        if (watches_.size() >= dir_count_max) {
+            ++report_.losses;
+            return false;
+        }
+        auto& watch = *watches_.emplace_back(std::make_unique<Watch>(identity));
+        watch.directory.value = CreateFileW(path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_OVERLAPPED, nullptr);
+        Fact actual;
+        if (!watch.directory.valid() || !observe(watch.directory.value, path, true, actual) ||
+            !same_id(identity, actual)) {
+            lose(watch);
+            return false;
+        }
+        watch.event.value = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!watch.event.valid()) {
+            lose(watch);
+            return false;
+        }
+        watch.operation.hEvent = watch.event.value;
+        constexpr DWORD filters = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME |
+            FILE_NOTIFY_CHANGE_ATTRIBUTES | FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE |
+            FILE_NOTIFY_CHANGE_CREATION | FILE_NOTIFY_CHANGE_SECURITY;
+        if (!ReadDirectoryChangesW(watch.directory.value, watch.buffer.data(),
+                                   static_cast<DWORD>(watch.buffer.size()), FALSE, filters, nullptr,
+                                   &watch.operation, nullptr) && GetLastError() != ERROR_IO_PENDING) {
+            lose(watch);
+            return false;
+        }
+        watch.pending = true;
+        ++report_.armed;
+        ++report_.pending;
+        return quiet(true);
+    }
+
+    bool quiet(bool force = false) noexcept {
+        const auto now = Clock::now();
+        if (force || now >= next_poll_) {
+            next_poll_ = now + 10ms;
+            for (const auto& item : watches_) sample(*item);
+        }
+        return report_.changed == 0 && report_.losses == 0;
+    }
+
+    DirectoryWatchReport finish(Clock::time_point deadline) noexcept {
+        quiet(true);
+        for (const auto& item : watches_) {
+            auto& watch = *item;
+            if (!watch.pending) continue;
+            ++report_.cancel_attempts;
+            watch.cancel_requested = true;
+            if (!CancelIoEx(watch.directory.value, &watch.operation) && GetLastError() != ERROR_NOT_FOUND)
+                lose(watch);
+        }
+        while (report_.pending && Clock::now() < deadline) {
+            quiet(true);
+            if (report_.pending) Sleep(1);
+        }
+        for (const auto& item : watches_) {
+            auto& watch = *item;
+            if (watch.pending) {
+                report_.handles_closed = false;
+                continue;
+            }
+            const bool directory_closed = watch.directory.close();
+            const bool event_closed = watch.event.close();
+            report_.handles_closed &= directory_closed && event_closed;
+        }
+        return report_;
+    }
+
+    ~DirectoryWatches() {
+        // A bounded teardown may return with kernel I/O still pending.
+        // Do not let object destruction free its buffer or event storage.
+        for (auto& item : watches_) {
+            if (item->pending) static_cast<void>(item.release());
+        }
+    }
+
+private:
+    void lose(Watch& watch) noexcept {
+        if (!watch.loss) {
+            watch.loss = true;
+            ++report_.losses;
+        }
+    }
+
+    void sample(Watch& watch) noexcept {
+        if (!watch.pending) return;
+        const DWORD wait = WaitForSingleObject(watch.event.value, 0);
+        if (wait == WAIT_TIMEOUT) return;
+        if (wait != WAIT_OBJECT_0) {
+            lose(watch);
+            return;
+        }
+        DWORD bytes = 0;
+        const bool complete = GetOverlappedResult(watch.directory.value, &watch.operation, &bytes, FALSE) != FALSE;
+        const DWORD error = complete ? ERROR_SUCCESS : GetLastError();
+        if (error == ERROR_IO_INCOMPLETE) {
+            lose(watch);
+            return;
+        }
+        watch.pending = false;
+        --report_.pending;
+        if (complete && bytes > 0 && bytes <= watch.buffer.size()) ++report_.changed;
+        else if (complete || error != ERROR_OPERATION_ABORTED || !watch.cancel_requested) lose(watch);
+    }
+
+    std::vector<std::unique_ptr<Watch>> watches_;
+    Clock::time_point next_poll_{};
+    DirectoryWatchReport report_;
+};
+
 inline bool read_exact(HANDLE file, std::string_view expected) {
     if (expected.size() > 4096) return false;
     std::array<char, 4097> bytes{};
@@ -465,6 +607,7 @@ public:
         }
         const auto started = Clock::now();
         const auto deadline = started + parent_window;
+        std::optional<Clock::time_point> cleanup_cutoff;
         const auto abort = [&]() { return cancelled.load(); };
         const auto live = [&]() { return !abort() && Clock::now() < deadline; };
         const auto run_fixed = [&]() {
@@ -516,13 +659,20 @@ public:
                     return;
                 }
             }
+            const auto helper_folder = helper.substr(0, helper.rfind(L'\\'));
+            const auto* helper_parent = lease_.directory_fact(helper_folder);
+            if (!helper_parent || !watches_.arm(helper_folder, *helper_parent)) {
+                report.child.stop = Stop::io;
+                report.child.io_error = true;
+                return;
+            }
             std::vector<std::wstring> absent;
             absent.reserve(plan.absent.size());
             for (const auto& slot : plan.absent) {
                 auto leaf = job::slash_to_windows(slot);
                 const auto folder = leaf.substr(0, leaf.rfind(L'\\'));
                 const auto* fact = live() && lease_.directories(folder) ? lease_.directory_fact(folder) : nullptr;
-                if (!fact || !missing(leaf) || !seal.text("absent\t" + id_text(*fact) + "\n")) {
+                if (!fact || !watches_.arm(folder, *fact) || !seal.text("absent\t" + id_text(*fact) + "\n")) {
                     report.child.stop = abort() ? Stop::cancelled :
                         Clock::now() >= deadline ? Stop::deadline : Stop::setup;
                     return;
@@ -533,8 +683,8 @@ public:
             const auto absence_current = [&](const auto& gate) {
                 return std::all_of(absent.begin(), absent.end(), [&](const auto& leaf) { return gate() && missing(leaf); });
             };
-            if (!digest(input_seal) || !live() || !lease_.current(live) ||
-                !missing(helper + L".com") || !missing(helper + L".exe") || !missing(ready_path)) {
+            if (!digest(input_seal) || !live() || !lease_.current(live) || !absence_current(live) ||
+                !missing(helper + L".com") || !missing(helper + L".exe") || !missing(ready_path) || !watches_.quiet(true)) {
                 report.child.stop = Stop::setup;
                 return;
             }
@@ -557,7 +707,7 @@ public:
                     accounting.ActiveProcesses != 1 || !exact_process(process, node) ||
                     !IsProcessInJob(GetCurrentProcess(), nullptr, &parent_in_job) ||
                     !lease_.current(live) || !absence_current(live) ||
-                    !missing(helper + L".com") || !missing(helper + L".exe")) return false;
+                    !missing(helper + L".com") || !missing(helper + L".exe") || !watches_.quiet(true)) return false;
 
                 std::string record = "{\"version\":1,\"kind\":\"compile_parent_ready_v1\",\"scope\":\"" +
                     plan.scope + "\",\"spend\":\"" + plan.spend + "\",\"writerPolicy\":\"" + plan.writer_policy +
@@ -575,14 +725,26 @@ public:
                 }
                 record += "]}";
                 return retain_ready(lease_, ready_path, record, report.ready_sha256,
-                                    report.ready_writer_close_known) && lease_.current(live) && absence_current(live);
+                                    report.ready_writer_close_known) && lease_.current(live) &&
+                                    absence_current(live) && watches_.quiet(true);
             };
             const auto cmd = L"\"" + node + L"\" \"" + entry + L"\"";
+            bool monitor_stop = false, caller_stop = false;
+            const auto launch_cancelled = [&]() {
+                if (!monitor_stop && !caller_stop) {
+                    if (abort()) caller_stop = true;
+                    else if (!watches_.quiet()) monitor_stop = true;
+                }
+                return caller_stop || monitor_stop;
+            };
             report.child = job::launch_owned(node, cmd, std::move(env), entry.substr(0, entry.rfind(L'\\')),
-                                             started, deadline, abort, ready, &quarantine_);
-            const auto postflight = [&]() { return Clock::now() < deadline + job::drain_window; };
-            if (!lease_.current(postflight) || !absence_current(postflight) ||
-                !missing(helper + L".com") || !missing(helper + L".exe"))
+                                             started, deadline, launch_cancelled, ready, &quarantine_, &cleanup_cutoff);
+            if (monitor_stop && report.child.stop == Stop::cancelled) report.child.stop = Stop::io;
+            const auto postflight = [&]() {
+                return Clock::now() < cleanup_cutoff.value_or(deadline + job::drain_window);
+            };
+            if (!watches_.quiet(true) || !lease_.current(postflight) || !absence_current(postflight) ||
+                !missing(helper + L".com") || !missing(helper + L".exe") || !watches_.quiet(true))
                 job::stop(report.child, Stop::io, ERROR_INVALID_DATA);
         };
 
@@ -591,14 +753,21 @@ public:
         } catch (...) {
             job::stop(report.child, Stop::setup, ERROR_INVALID_DATA);
         }
+        const auto cutoff = cleanup_cutoff.value_or((std::min)(Clock::now() + job::drain_window,
+                                                             deadline + job::drain_window));
+        report.watches = watches_.finish(cutoff);
+        const bool watch_known = !report.watches.pending && report.watches.handles_closed;
+        if (!watch_known || report.watches.changed || report.watches.losses)
+            job::stop(report.child, Stop::io, ERROR_INVALID_DATA);
+        if (Clock::now() >= cutoff) job::stop(report.child, Stop::drain);
         const bool group_known = !report.child.pid ||
             (report.child.closed() && report.child.job_and_pipes_closed() && !report.child.io_error);
-        if (group_known && report.ready_writer_close_known) report.lease_closed = lease_.close();
+        if (group_known && watch_known && report.ready_writer_close_known) report.lease_closed = lease_.close();
         report.quarantined = !group_known || !report.lease_closed;
         if (!report.ready_writer_close_known) job::stop(report.child, Stop::io, ERROR_INVALID_DATA);
         if (abort()) job::stop(report.child, Stop::cancelled);
         const auto finished = Clock::now();
-        if (finished >= deadline + job::drain_window) job::stop(report.child, Stop::drain);
+        if (finished >= cutoff || finished >= deadline + job::drain_window) job::stop(report.child, Stop::drain);
         report.elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
         return report;
     }
@@ -606,6 +775,7 @@ public:
 private:
     std::atomic_bool used_{false};
     detail::Lease lease_;
+    detail::DirectoryWatches watches_;
     detail::job::Quarantine quarantine_;
 };
 

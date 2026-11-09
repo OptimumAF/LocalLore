@@ -11,6 +11,7 @@ import type { NativeCloseController } from "./native-close-controller";
 import type { ComparisonReaderController } from "./comparison-reader-controller";
 import { sameReaderObserver } from "./comparison-reader-model";
 import { ArchivePanel } from "./ArchivePanel";
+import { archiveContextKey } from "./archive-model";
 import type { ArchiveController } from "./archive-controller";
 import { TimelinePanel } from "./TimelinePanel";
 import { ForkPanel } from "./ForkPanel";
@@ -819,8 +820,12 @@ export function App({
                         <ArchivePanel
                             archive={archive}
                             controller={c}
-                            context={`${s.selectedId}|${s.view}|${s.observer}`}
-                            allowed={s.view === "lab"}
+                            context={archiveContextKey(
+                                selected,
+                                s.view,
+                                s.observer,
+                            )}
+                            allowed={s.view === "lab" && !s.disposed}
                         />
                     )}
                     {s.playV2 && v2 ? (

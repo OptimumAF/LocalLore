@@ -7,7 +7,7 @@ import {
 import { SelectedEvaluationController } from "./selected-evaluation-controller";
 import { NativeCloseController } from "./native-close-controller";
 import { ArchiveController } from "./archive-controller";
-import { archiveBinding } from "./archive-model";
+import { archiveBinding, archiveContextKey } from "./archive-model";
 import { ForkController } from "./fork-controller";
 import { MemoryMaintenanceController } from "./memory-maintenance-controller";
 import { MemoryInspectionController } from "./memory-inspection-controller";
@@ -28,6 +28,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { Controller } from "./controller";
 import { ErrorBuffer, IpcGateway, category } from "./model";
+import type { Scope } from "./model";
 declare const __DEV_HARNESS__: boolean;
 declare global {
     interface Window {
@@ -312,20 +313,30 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
         // Capture the validated request binding before dispatch/context retirement.
         if (!isPreview && (!preview || args.token !== preview.token))
             return Promise.reject("InvalidArchiveInput");
+        const exportScope = args.scope as Partial<Scope> | undefined;
+        const selection =
+            command === "archive_export_preview"
+                ? {
+                      session: args.session as string,
+                      story: exportScope?.story,
+                      branch: exportScope?.branch,
+                      head: args.expectedRevision as number,
+                  }
+                : selected
+                  ? {
+                        session: selected.id,
+                        story: selected.scope.story,
+                        branch: selected.scope.branch,
+                        head:
+                            controller.get().play?.revision ??
+                            selected.revision,
+                    }
+                  : {};
         return brokerRetention.start(
             {
                 surface: "archive",
                 action: command,
-                ...(selected
-                    ? {
-                          session: selected.id,
-                          story: selected.scope.story,
-                          branch: selected.scope.branch,
-                          head:
-                              controller.get().play?.revision ??
-                              selected.revision,
-                      }
-                    : {}),
+                ...selection,
                 ...(typeof args.token === "string"
                     ? { token: args.token }
                     : {}),
@@ -342,7 +353,15 @@ const invoke = (command: string, args: Record<string, unknown> = {}) => {
                 if (owner?.surface === "author") {
                     if (brokerRetention.get()?.identity === owner)
                         await brokerRetention.observeAuthor(value);
-                } else brokerRetention.observe(value);
+                } else {
+                    const current = brokerRetention.get();
+                    if (
+                        current?.identity === owner &&
+                        (owner?.surface !== "archive" ||
+                            current?.operation === operationId)
+                    )
+                        brokerRetention.observe(value);
+                }
                 return value;
             },
             (error) => {
@@ -610,8 +629,8 @@ const syncEvaluationContext = () => {
         !!authorNativeContext?.granted && s.view === "lab" && !s.disposed,
     );
     archive.contextChanged(
-        `${s.selectedId}|${s.view}|${s.observer}`,
-        s.view === "lab",
+        archiveContextKey(controller.selected(), s.view, s.observer),
+        s.view === "lab" && !s.disposed,
     );
 };
 function authorContext(): AuthorContext | null {

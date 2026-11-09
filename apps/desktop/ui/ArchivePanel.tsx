@@ -17,13 +17,22 @@ export function ArchivePanel({
         session = c.selected();
     if (!allowed || !a.matchesContext(context)) return null;
     if (!s.shown)
-        return <button onClick={() => a.show()}>Playable story archive</button>;
+        return (
+            <button onClick={() => a.matchesContext(context) && a.show()}>
+                Playable story archive
+            </button>
+        );
     const p = s.preview?.preview;
+    const currentPanel = () => a.matchesContext(context) && a.get().shown;
+    const currentPreview = () =>
+        currentPanel() && !a.get().busy && a.get().preview === s.preview;
     return (
         <section className="archive-panel" aria-labelledby="archive-title">
             <div className="panel-heading">
                 <h2 id="archive-title">Playable story archive</h2>
-                <button onClick={() => a.hide()}>Close playable archive</button>
+                <button onClick={() => currentPanel() && a.hide()}>
+                    Close playable archive
+                </button>
             </div>
             <p>
                 Full private, whole story. Includes hidden facts, every branch,
@@ -49,13 +58,7 @@ export function ArchivePanel({
                 <button
                     disabled={s.busy || !session || !play}
                     onClick={() => {
-                        if (
-                            !allowed ||
-                            !a.matchesContext(context) ||
-                            !session ||
-                            !play
-                        )
-                            return;
+                        if (!currentPanel() || !session || !play) return;
                         const currentSession = c.selected(),
                             currentPlay = c.get().play ?? c.get().playV2;
                         // A retained callback cannot export a different selection
@@ -86,13 +89,23 @@ export function ArchivePanel({
                 </button>
                 <button
                     disabled={s.busy}
-                    onClick={() => void a.previewImport()}
+                    onClick={() => {
+                        if (currentPanel()) void a.previewImport();
+                    }}
                 >
                     Choose playable archive to review
                 </button>
                 <button
                     disabled={!s.status?.running}
-                    onClick={() => void a.cancel()}
+                    onClick={() => {
+                        if (
+                            currentPanel() &&
+                            s.status?.running &&
+                            a.get().status?.operation_id ===
+                                s.status.operation_id
+                        )
+                            void a.cancel();
+                    }}
                 >
                     Cancel archive operation
                 </button>
@@ -184,14 +197,19 @@ export function ArchivePanel({
                             type="checkbox"
                             checked={s.consent}
                             disabled={s.busy}
-                            onChange={(e) => a.consent(e.target.checked)}
+                            onChange={(e) => {
+                                if (currentPreview())
+                                    a.consent(e.target.checked);
+                            }}
                         />{" "}
                         I reviewed this full-private snapshot and understand its
                         identity and exclusions.
                     </label>
                     <button
                         disabled={!s.consent || s.busy}
-                        onClick={() => void a.confirm()}
+                        onClick={() => {
+                            if (currentPreview() && s.consent) void a.confirm();
+                        }}
                     >
                         {s.preview!.kind === "export"
                             ? "Choose folder and export exact snapshot"
@@ -208,7 +226,7 @@ export function ArchivePanel({
                 </p>
             )}
             {s.notice && <p role="status">{s.notice}</p>}
-            {s.result?.location && (
+            {s.result?.status === "exported" && s.result.location && (
                 <p className="storage-path">
                     Saved private file: {s.result.location}
                 </p>
@@ -225,8 +243,13 @@ export function ArchivePanel({
                     Partial export cleanup incomplete in the selected folder.
                 </p>
             )}
-            {s.result?.root && (
-                <button onClick={() => void c.resume(s.result!.root!)}>
+            {s.result?.status === "imported" && s.result.root && (
+                <button
+                    onClick={() => {
+                        if (currentPanel() && a.get().result === s.result)
+                            void c.resume(s.result!.root!);
+                    }}
+                >
                     Open imported story
                 </button>
             )}

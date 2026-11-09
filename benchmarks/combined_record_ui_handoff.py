@@ -84,6 +84,7 @@ def read_authority(authority_pin):
           and authority["allow_model"] is False and authority["allow_retirement"] is False
           and _same(authority["max_operation_seconds"], SECONDS), "authority")
     _pin_at(authority["proposal"], PROPOSAL, 65536)
+    _pin_at(authority["plan"], PLAN, 131072)
     _pin_at(authority["ledger"], LEDGER, STORAGE_CAP)
     lines = files._bound(authority["proposal"], cap=65536).decode("utf-8").splitlines()
     for label, role in (("Plan SHA-256", "plan"), ("Ledger SHA-256", "ledger")):
@@ -195,7 +196,7 @@ def verify_boot_handoff(admission_pin, admission):
     _need(not os.path.lexists(claim), "already_used")
     for pin in (handoff_pin, admission_pin, handoff["authority"], handoff["attempt"], authority["proposal"],
                 authority["plan"], plan["prepare"], guest["proposal"], guest["authorization"],
-                proposal["prepare_result"], ledger_pin, *preparation_pins):
+                proposal["prepared"], proposal["prepare_result"], ledger_pin, *preparation_pins):
         env.check_binding(pin)
     check_launch_window(handoff["began_ns"], handoff["until_ns"])
     return handoff_pin, handoff

@@ -79,8 +79,12 @@ policy produces command arguments and checks files and output. The
 an independently owned API 35 x86_64 guest. It checks user 0 and both package
 names before staging, then verifies the installed APK paths, UIDs and hashes
 before and after the single test. Its result can be replayed from qualified
-command captures. Guest preparation, boot admission and closure remain
-separate operations.
+command captures. The [prepared-guest handoff](../../benchmarks/model_picker_action_handoff.py)
+joins the exact approval, consumed attempt, prepared guest and its v2 storage
+reservation before the owner can start a private service or boot the guest.
+The owner rechecks the enclosing supervisor and launch window and converts the
+matching prepared reservation to retained through the shared guard. A separate
+operation must supply the approved preparation, supervision and closure.
 
 ## Real document provider and ownership
 

@@ -257,7 +257,7 @@ class ReceiptSupervisorEvidenceTests(unittest.TestCase):
     def test_late_reader_exception_overrides_child_exit(self):
         result = self.fake_supervise(reader_error=True)
         self.assertEqual(result["status"], "evidence_failed")
-        self.assertTrue(result["cleanup_complete"])
+        self.assertFalse(result["cleanup_complete"])
         self.assertFalse(result["output_capture_complete"])
 
     def test_late_force_error_overrides_child_exit_and_retains_uncertain_bytes(self):
@@ -265,13 +265,14 @@ class ReceiptSupervisorEvidenceTests(unittest.TestCase):
         self.assertEqual(result["status"], "evidence_failed")
         self.assertEqual(result["stdout_bytes"], 0)
         self.assertEqual((self.root / env.LiveOutput.names[0]).read_bytes(), b"late output")
+        self.assertFalse(result["cleanup_complete"])
         self.assertFalse(result["output_capture_complete"])
 
     def test_late_close_error_overrides_exact_stop(self):
         result = self.fake_supervise(close_error=True, stop=True)
         self.assertEqual(result["status"], "evidence_failed")
         self.assertFalse(result["output_capture_complete"])
-        self.assertTrue(result["cleanup_complete"])
+        self.assertFalse(result["cleanup_complete"])
 
     def test_trailing_overflow_is_output_limit_not_successful_capture(self):
         result = self.fake_supervise(data=b"x" * (env.MAX_OUTPUT + 1))

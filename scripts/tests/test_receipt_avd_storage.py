@@ -117,6 +117,37 @@ class StorageTests(unittest.TestCase):
         self.root.rmdir()
         self.assert_refused("tracked_root_missing", lambda: self.reserve(self.base / "other"))
 
+    def test_owned_boot_consumes_only_the_bound_v2_preparation(self):
+        self.reserve()
+        self.root.mkdir()
+        storage.record_state(self.root, "prepared", self.registry)
+        ledger_path = self.registry / "ledger-v1.json"
+        run_sha = "b" * 64
+
+        def retain(prepare_sha=self.sha):
+            storage.record_state(self.root, "retained", self.registry, proposal_sha256=run_sha,
+                                 expected_prepare_sha256=prepare_sha)
+
+        original = ledger_path.read_bytes()
+        self.assert_refused("prepared_changed", retain)
+        self.assertEqual(ledger_path.read_bytes(), original)
+
+        ledger = storage.read_json(ledger_path)
+        ledger["version"] = 2
+        ledger["entries"][0]["recovery"] = None
+        self.write(ledger_path, ledger)
+        original = ledger_path.read_bytes()
+        self.assert_refused("prepared_changed", lambda: retain("c" * 64))
+        self.assertEqual(ledger_path.read_bytes(), original)
+
+        retain()
+        expected = ledger["entries"][0]
+        expected.update(state="retained", proposal_sha256=run_sha)
+        self.assertEqual(storage.read_json(ledger_path), ledger)
+        consumed = ledger_path.read_bytes()
+        self.assert_refused("prepared_changed", retain)
+        self.assertEqual(ledger_path.read_bytes(), consumed)
+
     def test_ledger_policy_cannot_be_increased(self):
         self.reserve()
         ledger = storage.read_json(self.registry / "ledger-v1.json")

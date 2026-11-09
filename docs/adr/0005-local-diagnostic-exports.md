@@ -35,8 +35,9 @@ Configuration recreation retains pending consent; process death does not.
 Rendered Export, Clear and Close controls carry an opaque, process-memory review
 identity. Opening or clearing a preview replaces that identity even when its
 JSON is byte-identical; status/notice changes within the same review retain it.
-A retained control cannot borrow a replacement review's consent, clear its log
-or close its active writer. The current review's Close still cancels its own
+Compose gives the button group a new identity when the review changes so a
+retained button cannot acquire a replacement callback. The controller also
+checks the review before export, clear or close. The current review's Close still cancels its own
 export. These UI entry points are separate from unconditional current-owner
 reset/disposal cleanup and the outstanding-picker tombstone. The identity is
 neither serialized diagnostic data nor native/canonical authority. It scopes

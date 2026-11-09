@@ -166,3 +166,14 @@ construction remain unchanged. No new prompt, frame, policy or canonical schema
 is introduced; saved records retain their concrete provenance. See the
 [closed host/packaging checks and limitations](../native/ANDROID_STORY_SCENE_V1_VERIFICATION_2026-10-31.md).
 Refs #9 (M05.03), #14 (M10.02 supporting ownership).
+
+## Fresh ordinary narration and time-only outcomes
+
+When the only approved event advances time, the ordinary Play generation path
+screens a bounded set of speaker and listener claims before choosing the
+existing mechanical fallback. This check applies to fresh provider output.
+Versioned commit and history replay retain their existing policies and prompt
+IDs. A previously accepted receipt still replays exactly. The check addresses
+the observed unsupported listener wording and does not assess prose quality.
+
+Refs #9 (M05.03), #25 (D04.04), and #29 (D07.04).

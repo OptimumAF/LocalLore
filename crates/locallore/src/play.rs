@@ -1085,6 +1085,18 @@ fn prose_words(text: &str) -> Vec<String> {
         .collect()
 }
 
+fn time_only_narration_assigns_listener(approved: &Receipt, text: &str) -> bool {
+    if !matches!(approved.events(), [event] if matches!(event.outcome(), Effect::TimeAdvanced { .. }))
+    {
+        return false;
+    }
+    prose_words(text).windows(3).any(|phrase| {
+        phrase == ["you", "heard", "me"]
+            || phrase == ["you", "hear", "me"]
+            || phrase == ["as", "the", "listener"]
+    })
+}
+
 fn validate_prose(
     engine: &Engine,
     approved: &Receipt,
@@ -1936,7 +1948,16 @@ impl NarrationPreparation {
                 false,
             )
         }
-        .map_err(NarrationValidationFailureV1::from)
+        .map_err(NarrationValidationFailureV1::from)?;
+        // Fresh ordinary provider output can be screened before choosing the
+        // existing fallback without changing recorded-policy replay.
+        if !presentation
+            && !literal
+            && time_only_narration_assigns_listener(staged.approved(), &record.narration.text)
+        {
+            return Err(Error::Narration.into());
+        }
+        Ok(())
     }
     fn commit(
         self,

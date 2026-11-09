@@ -234,6 +234,14 @@ inline std::string utf8_path(const std::wstring& path) {
     std::string result(static_cast<std::size_t>(length), '\0');
     if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.data(), units,
                             result.data(), length, nullptr, nullptr) != length) return {};
+    std::string_view tail(result);
+    tail.remove_prefix(3);
+    for (;;) {
+        const auto slash = tail.find('/');
+        if (tail.substr(0, slash).size() > 255) return {};
+        if (slash == tail.npos) break;
+        tail.remove_prefix(slash + 1);
+    }
     return result;
 }
 

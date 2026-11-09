@@ -142,6 +142,8 @@ const cases = [
     assert.notEqual(inputCatalog({ ...manifest, pins: [manifest.pins[0],
       { ...header, path: 'C:/SDK/include/cafe.hpp' }, ...manifest.pins.slice(2)] }, 'D:/outputs'), fixed);
     assert.throws(() => inputCatalog({ ...manifest, absent: [{ ...manifest.absent[0], path: 'C:/SDK/x.lib' }] }, 'D:/outputs'));
+    assert.throws(() => inputCatalog({ ...manifest, absent: [{ ...manifest.absent[0],
+      path: 'C:/SDK/' + '\u00e9'.repeat(128) }] }, 'D:/outputs'));
   }],
   ['budget limits and Node output-parent identity', () => {
     refuseProfile({ outputMaxBytes: 333 });

@@ -77,6 +77,13 @@ fails the UTF-8 or reply-size check still quarantines the workspace. These two r
 operations keep the existing active-run admission checks. Mutating commands
 retain the existing conservative handling of uncertain cancellation.
 
+The owner reserves each finite command that is incompatible with generation
+before dispatching it. Play preparation and author generation stay busy until
+all such commands return bounded replies or the owner is quarantined.
+The existing status, cancellation and lifecycle commands retain their
+concurrent admission. A retired caller of an in-flight read still holds its
+reservation until native completion is known.
+
 The injected worker contract makes these states testable without an SDK. A
 future SDK adapter must establish them from actual callbacks and resource joins;
 returning a Boolean in a fake test is no real-model ownership measurement.

@@ -113,12 +113,25 @@ function createJournal(root) {
     requireSupervisor(actual === rootIdentity);
   }
 
+  async function verifyNamed(path, expected, bytes) {
+    const file = await open(path, 'r');
+    try {
+      requireSupervisor(stamp(await file.stat(statOptions)) === expected);
+      await verifyBytes(file, bytes);
+      requireSupervisor(stamp(await file.stat(statOptions)) === expected);
+    } finally {
+      await file.close();
+    }
+    await checkRoot();
+    requireSupervisor(stamp(await ordinary(path, false)) === expected);
+  }
+
   async function save(name, bytes) {
     requireSupervisor(Object.hasOwn(CAPS, name) && bytes.length <= CAPS[name]);
     await checkRoot();
     const path = win32.join(root, name);
     const file = await open(path, 'wx+');
-    let finalStamp;
+    let writtenIdentity;
     try {
       const initial = await file.stat(statOptions);
       requireSupervisor(initial.isFile() && initial.nlink === 1n && initial.size === 0n);
@@ -132,12 +145,16 @@ function createJournal(root) {
       const final = await file.stat(statOptions);
       requireSupervisor(final.isFile() && final.nlink === 1n && identity(final) === identity(initial) &&
         final.size === BigInt(bytes.length));
-      finalStamp = stamp(final);
+      writtenIdentity = identity(final);
     } finally {
       await file.close();
     }
     await checkRoot();
-    requireSupervisor(stamp(await ordinary(path, false)) === finalStamp);
+    const named = await ordinary(path, false);
+    requireSupervisor(identity(named) === writtenIdentity && named.size === BigInt(bytes.length));
+    // Windows can finalize last-write timestamps only after the writer closes.
+    const finalStamp = stamp(named);
+    await verifyNamed(path, finalStamp, bytes);
     stamps.set(name, finalStamp);
     return rawHash(bytes);
   }
@@ -148,16 +165,7 @@ function createJournal(root) {
     await checkRoot();
     const path = win32.join(root, name);
     requireSupervisor(stamp(await ordinary(path, false)) === expected);
-    const file = await open(path, 'r');
-    try {
-      requireSupervisor(stamp(await file.stat(statOptions)) === expected);
-      await verifyBytes(file, bytes);
-      requireSupervisor(stamp(await file.stat(statOptions)) === expected);
-    } finally {
-      await file.close();
-    }
-    await checkRoot();
-    requireSupervisor(stamp(await ordinary(path, false)) === expected);
+    await verifyNamed(path, expected, bytes);
   }
 
   return { save, verify };
@@ -183,7 +191,7 @@ function runHelper(path, env, request, requestHash, signal) {
       return;
     }
     result.stop = null;
-    let settled = false, childClosed = false, exited = false;
+    let settled = false, childClosed = false, matchingClose = false, exited = false;
     let exitSignal = null, exit = null;
     const input = child.stdin;
     let inputClosed = !input;
@@ -215,7 +223,8 @@ function runHelper(path, env, request, requestHash, signal) {
       clearTimeout(drainTimer);
       abortListener[Symbol.dispose]();
       result.elapsedMs = Math.floor(performance.now() - started);
-      result.closed = exited && childClosed && result.pid !== null;
+      if (result.elapsedMs >= RUN_MS) result.stop ??= 'deadline';
+      result.closed = exited && matchingClose && result.pid !== null;
       result.stdinClosed = Boolean(input) && inputClosed;
       result.stdoutClosed = streams[0].eof && streams[0].closed;
       result.stderrClosed = streams[1].eof && streams[1].closed;
@@ -281,12 +290,17 @@ function runHelper(path, env, request, requestHash, signal) {
     child.once('close', (code, signalName) => {
       if (settled) return;
       childClosed = true;
-      if (!exited || code !== exit || signalName !== exitSignal) stop('closure');
+      matchingClose = exited && code === exit && signalName === exitSignal;
+      if (!matchingClose) stop('closure');
       sample();
       maybeFinish();
     });
-    input?.on('error', () => { if (!result.cancelled && !exited) stop('io'); });
-    input?.once('close', () => { inputClosed = true; maybeFinish(); });
+    input?.on('error', () => stop('io'));
+    input?.once('close', hadError => {
+      if (hadError) stop('io');
+      inputClosed = true;
+      maybeFinish();
+    });
 
     for (const stream of streams) {
       stream.socket?.on('error', () => stop('io'));
@@ -325,7 +339,8 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
     TEMP: temp, TMP: temp, USERDOMAIN: '', USERNAME: '', USERPROFILE: temp, WINDIR: windows,
     NODE_OPTIONS: '', NODE_V8_COVERAGE: '' });
   const { save, verify } = createJournal(root);
-  let startOffered = false, terminalOffered = false, offerUsed = false;
+  let startOffered = false, terminalOffered = false, offerUsed = false, offerPending = false;
+  let journalPending = false, startBytes = null;
   let start = null, offer = null, transportUsed = false, transportPending = false, capture = null;
   let retainUsed = false, retainPending = false;
 
@@ -337,33 +352,55 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
   }
 
   async function journal(value) {
-    requireSupervisor(value?.version === 1 && sameContext(value.context, context) && !terminalOffered);
-    if (value.kind === 'worker_artifact_compile_observation_start_v1') {
-      requireSupervisor(!startOffered && value.runCount === 1 && hash(value.preflight));
-      data(value, ['version', 'kind', 'context', 'preflight', 'runCount']);
+    requireSupervisor(!terminalOffered && !journalPending && !offerPending &&
+      !transportPending && !retainPending);
+    const fields = value?.kind === 'worker_artifact_compile_observation_start_v1'
+      ? ['version', 'kind', 'context', 'preflight', 'runCount']
+      : ['version', 'kind', 'context', 'status', 'code', 'started', 'offered', 'checks', 'process',
+        'output', 'writerUnknown', 'objectUnknown', 'leaseClosed', 'linkAllowed', 'qualified'];
+    const record = data(value, fields);
+    requireSupervisor(record.version === 1 && sameContext(record.context, context) &&
+      !terminalOffered && !journalPending && !offerPending && !transportPending && !retainPending);
+    const starting = record.kind === 'worker_artifact_compile_observation_start_v1';
+    if (starting) {
+      requireSupervisor(!startOffered && record.runCount === 1 && hash(record.preflight));
       startOffered = true;
-      start = await save('START.json', json(value));
-      return JSON.stringify({ version: 1, kind: 'worker_artifact_compile_journal_ack_v1', sha256: start, stored: true });
+    } else {
+      requireSupervisor(record.kind === 'worker_artifact_compile_observation_v1' &&
+        record.linkAllowed === false && record.qualified === false);
+      terminalOffered = true;
     }
-    requireSupervisor(value.kind === 'worker_artifact_compile_observation_v1' &&
-      !transportPending && !retainPending && value.linkAllowed === false && value.qualified === false);
-    terminalOffered = true;
-    const bytes = json(value);
-    requireSupervisor(bytes.length <= 16384);
-    const sha256 = await save('terminal.json', bytes);
-    return JSON.stringify({ version: 1, kind: 'worker_artifact_compile_journal_ack_v1', sha256, stored: true });
+    journalPending = true;
+    try {
+      // #408 hashes the original record's key order.
+      const bytes = json(value);
+      const sha256 = await save(starting ? 'START.json' : 'terminal.json', bytes);
+      if (starting) {
+        start = sha256;
+        startBytes = bytes;
+      }
+      return JSON.stringify({ version: 1, kind: 'worker_artifact_compile_journal_ack_v1', sha256, stored: true });
+    } finally {
+      journalPending = false;
+    }
   }
 
   async function authorize(value) {
     const scope = scopeOf(value);
-    requireSupervisor(!terminalOffered && !offerUsed && start !== null);
+    requireSupervisor(!terminalOffered && !offerUsed && !journalPending && start !== null);
     offerUsed = true;
-    const proof = { kind: 'compile_host_authorized_v1', scope, spend: admitted.spend,
-      start, writerPolicy: admitted.writerPolicy };
-    const bytes = json(proof);
-    const authorization = await save('OFFER.json', bytes);
-    offer = Object.freeze({ scope, authorization });
-    return bytes.toString('utf8');
+    offerPending = true;
+    try {
+      await verify('START.json', startBytes);
+      const proof = { kind: 'compile_host_authorized_v1', scope, spend: admitted.spend,
+        start, writerPolicy: admitted.writerPolicy };
+      const bytes = json(proof);
+      const authorization = await save('OFFER.json', bytes);
+      offer = Object.freeze({ scope, authorization, bytes });
+      return bytes.toString('utf8');
+    } finally {
+      offerPending = false;
+    }
   }
 
   async function transport(value) {
@@ -374,10 +411,12 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
       scope.requestHash === offer.scope.requestHash && requestData.authorization === offer.authorization &&
       Buffer.isBuffer(requestData.request) && int(requestData.request.length, 12, REQUEST));
     const request = Buffer.from(requestData.request);
-    requireSupervisor(rawHash(request) === scope.requestHash);
+    requireSupervisor(rawHash(request) === scope.requestHash && !transportUsed && !terminalOffered);
     transportUsed = true;
     transportPending = true;
     try {
+      await verify('START.json', startBytes);
+      await verify('OFFER.json', offer.bytes);
       requireSupervisor(await save('request.bin', request) === scope.requestHash);
       let outcome = blankProcess(), before = null, after = null;
       if (!signal.aborted) {
@@ -385,6 +424,10 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
         if (before !== null && !signal.aborted) {
           outcome = await runHelper(host, env, request, scope.requestHash, signal);
         }
+      }
+      if (outcome.stop === 'preflight' && signal.aborted) {
+        outcome.stop = 'cancelled';
+        outcome.cancelled = true;
       }
       const { response, stderr, pid, closed, stdinClosed, stdoutClosed, stderrClosed, exitCode,
         sentBytes, sentHash, ...lifecycle } = outcome;
@@ -396,8 +439,9 @@ export function createWorkerArtifactCompileSupervisorV1(options) {
         try { after = await checkImage(host, spec.hostHash); } catch { /* Drift leaves the image unproven. */ }
       }
       const image = before !== null && before === after && pid !== null ? spec.hostHash : null;
-      const accepted = image !== null && lifecycle.stop === null && closed &&
-        stdinClosed && stdoutClosed && stderrClosed && exitCode === 0;
+      const accepted = rawSaved && image !== null && lifecycle.stop === null && closed &&
+        stdinClosed && stdoutClosed && stderrClosed && exitCode === 0 && !stderr.length &&
+        sentBytes === request.length && sentHash === scope.requestHash;
       const facts = { image, pid, closed, stdinClosed, stdoutClosed, stderrClosed, exitCode, sentBytes, sentHash, accepted };
       const record = { kind: 'compile_supervisor_transport_v1', scope, authorization: offer.authorization,
         admitted, facts, lifecycle, before, after, requestBytes: request.length,

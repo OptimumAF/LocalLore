@@ -103,7 +103,11 @@ helper build, filesystem allocation and other owner records. This is
 a design bound and does not authorize any new evidence cap or run.
 
 A write uses exclusive creation, positional writes, flush, exact held
-readback plus EOF, known close and named identity readback. Capture
+readback plus EOF, known close and named identity readback. Windows can
+finalize write timestamps on close, so record the stable stamp and repeat
+exact readback through a new read-only handle after close.
+[Windows file timestamps](https://learn.microsoft.com/en-us/windows/win32/sysinfo/file-times)
+START and OFFER are verified again before the helper launch. Capture
 bytes are retained before the post-launch image check. CAPTURE
 additionally reopens and verifies the exact retained request and output
 bytes and transport record. Partial files stay in place. A retention

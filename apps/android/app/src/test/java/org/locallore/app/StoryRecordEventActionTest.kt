@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
@@ -143,6 +144,10 @@ class StoryRecordEventActionTest {
             runCurrent()
             val secondFailure = checkNotNull(controller.state.value.eventDetail)
             assertNotSame(firstFailure, secondFailure)
+            assertNotEquals("An identical visible failure still needs a fresh StateFlow emission", firstFailure, secondFailure)
+            assertEquals(firstFailure.scopedReference, secondFailure.scopedReference)
+            assertEquals(firstFailure.problem, secondFailure.problem)
+            assertEquals(firstFailure.entry, secondFailure.entry)
             assertEquals(StoryRecordProblem.EVENT_UNAVAILABLE, secondFailure.problem)
             assertEquals(2, queries.size)
 

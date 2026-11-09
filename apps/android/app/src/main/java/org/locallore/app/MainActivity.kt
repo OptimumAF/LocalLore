@@ -153,7 +153,7 @@ open class MainActivity : ComponentActivity() {
                 onRecover = { model.recover(renderedChatState) },
                 onStoryRecord = if (model.hasStoryRecords) ({ model.openStoryRecord(renderedChatState) }) else null,
                 onText = { input, _ -> model.submitText(input, renderedChatState) },
-                archiveAvailable = model.archiveController != null, onArchive = model::openArchive,
+                archiveAvailable = model.archiveController != null, onArchive = { model.openArchive(renderedChatState) },
                 deletionAvailable = model.deletionController != null, onDelete = { model.openDeletion(renderedChatState) },
                 onTimeline = { model.resumeTimeline(it, renderedChatState) },
                 branchDeletionAvailable = model.branchDeletionController != null,

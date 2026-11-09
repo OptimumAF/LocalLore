@@ -51,7 +51,12 @@ class ArchiveShellTest {
         private val preview = ArchivePreview(1, "imported", "Imported", "main", mapOf("main" to 1L),
             1, 100, "a".repeat(64), "Full private synthetic archive", false)
         var closes = 0
-        override suspend fun prepareExport(story: SavedStory) = ArchivePrepared(1, preview.copy(storyId = story.story))
+        val exportRequests = mutableListOf<SavedStory>()
+        override suspend fun prepareExport(story: SavedStory): ArchivePrepared {
+            exportRequests += story
+            return ArchivePrepared(1, preview.copy(storyId = story.story, title = story.title,
+                branchHeads = mapOf(story.branch to story.revision)))
+        }
         override suspend fun prepareImport(bytes: ByteArray) = ArchivePrepared(2, preview)
         override suspend fun exportBytes(token: Long) = "synthetic".toByteArray()
         override suspend fun commitImport(token: Long): ArchiveImported {
@@ -63,6 +68,50 @@ class ArchiveShellTest {
     }
     private fun model(story: StoryGateway, archives: Archives) =
         ShellViewModel(story, archiveGateway = archives).also { models.put("archive-shell", it) }
+
+    @Test fun staleArchiveOpenerCannotBorrowAReplacementStory() = runTest(dispatcher) {
+        val story = StoryGateway().apply { importedExists = true }
+        val model = model(story, Archives(story))
+        advanceUntilIdle()
+        val prior = model.state.value
+        model.resume(imported)
+        advanceUntilIdle()
+        val current = model.state.value
+        assertEquals(imported, current.selectedStory)
+
+        model.openArchive(prior)
+        assertFalse("The old control opened the replacement archive review", model.archive.value.visible)
+        assertSame(current, model.state.value)
+
+        model.openArchive(current)
+        assertTrue(model.state.value.archiveActive)
+        assertEquals(imported, model.archive.value.selected)
+    }
+
+    @Test fun staleArchiveOpenerCannotBorrowAReplacementHeadOrEqualCopiedFrame() = runTest(dispatcher) {
+        val story = StoryGateway()
+        val archives = Archives(story)
+        val model = model(story, archives)
+        advanceUntilIdle()
+        val prior = model.state.value
+        val advanced = original.copy(revision = original.revision + 1)
+        story.selected = advanced
+        model.recover()
+        advanceUntilIdle()
+        val current = model.state.value
+        assertEquals(advanced, current.selectedStory)
+
+        model.openArchive(prior)
+        model.openArchive(current.copy())
+        assertFalse("A stale frame opened the current archive review", model.archive.value.visible)
+        assertSame(current, model.state.value)
+
+        model.openArchive(current)
+        model.archiveController!!.prepareExport(model.archive.value)
+        advanceUntilIdle()
+        assertEquals(listOf(advanced), archives.exportRequests)
+        assertEquals(mapOf(advanced.branch to advanced.revision), model.archive.value.prepared?.preview?.branchHeads)
+    }
 
     @Test fun archiveGuardFencesRetainedStoryCallbacksAndRestoresLibraryAfterDismissal() = runTest(dispatcher) {
         val story = StoryGateway(); val archives = Archives(story); val model = model(story, archives)

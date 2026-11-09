@@ -97,6 +97,9 @@ ArchiveDialog(state, callbacks...) provides menu/preview/confirm/progress/error/
 success, explicit full-private warning and same-ID conflict text. No archive is
 imported before explicit consent; no export picker before capture/preview consent.
 Successful import offers explicit Open imported story or return to library.
+The Story archive button opens this review only for its current displayed shell
+state. A stale click is discarded before the controller captures the selected
+story, branch and revision for an export preview.
 Root freezes all story mutation/switch/recovery while archive UI owns its guard,
 then refreshes the actual Host library; explicit open creates a fresh session.
 

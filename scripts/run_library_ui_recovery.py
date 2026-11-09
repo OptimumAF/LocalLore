@@ -198,8 +198,9 @@ def _supervise(request_pin, begin):
         if child is not None:
             try:
                 if job is not None:closed=job.close() is True
-                else:child.kill();closed=True  # No barrier release without a job.
-                child.wait(timeout=5)
+                else:child.kill();closed=False  # Constructor handles remain unverified.
+            except BaseException:closed=False
+            try:child.wait(timeout=5)
             except BaseException:closed=False
         joined=True
         for thread in readers:
@@ -215,8 +216,10 @@ def _supervise(request_pin, begin):
         if capture is not None:
             if stalled:capture.failed.set()
             else:
-                try:capture.close()
+                try:
+                    if capture.close() is False:capture.failed.set()
                 except BaseException:capture.failed.set()
+            if capture.failed.is_set():closed=False
     complete=capture is not None and not stalled and not capture.failed.is_set() and not capture.overflow.is_set()
     return dict(status=status,worker_returncode=child.returncode if child is not None else None,
         cleanup_complete=closed and not stalled,output_capture_complete=complete,

@@ -253,16 +253,24 @@ class Device:
                     time.sleep(.02)
                 if process.returncode != 0:
                     raise Failure("transfer_failed")
+            except (OSError, ValueError):
+                raise Failure("transfer_failed") from None
             finally:
                 if job:
-                    cleaned = job.close()
+                    try:
+                        cleaned = job.close() is True
+                    except BaseException:
+                        cleaned = False
                 else:
-                    process.kill() if process.poll() is None else None
-                    cleaned = True
+                    cleaned = os.name != "nt"
+                    try:
+                        process.kill() if process.poll() is None else None
+                    except BaseException:
+                        cleaned = False
                 try:
                     process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    raise Failure("transfer_failed") from None
+                except BaseException:
+                    cleaned = False
                 if not cleaned:
                     raise Failure("transfer_failed")
         observed = self.shell("run-as", PACKAGE, "sha256sum", stage, deadline=90)

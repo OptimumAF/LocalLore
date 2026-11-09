@@ -21,6 +21,12 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [checked Windows host cleanup](docs/native/WINDOWS_JOB_CLOSE_VERIFICATION_2026-11-02.md)
+keeps failed handle, constructor and capture closure unqualified across five
+development-tool callers. All 28 new fault tests, 221 regressions and 39 SDK16
+host checks pass; original failures remain preserved. This host work does not
+qualify an Android or model run.
+
 The [fixed SDK16 Knowledge profile](docs/native/KNOWLEDGE_UI_PROFILE_V1.md)
 connects the verified Knowledge APK pair to the existing guarded owner, finite
 client, complete proof replay and joined cancellation/cleanup controller. It

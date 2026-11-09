@@ -546,7 +546,7 @@ class NativeSupervisorTests(unittest.TestCase):
         result,events,child,_=self.supervise(job_fail=True)
         self.assertNotIn('stdin-write',events);self.assertNotIn('identity-recorded',events)
         self.assertEqual(events.count('kill-own-child'),1);self.assertIn('wait-own-child',events)
-        self.assertEqual(result['status'],'owner_failed');self.assertTrue(result['cleanup_complete'])
+        self.assertEqual(result['status'],'owner_failed');self.assertFalse(result['cleanup_complete'])
 
     def test_reader_or_capture_failure_never_claims_complete_capture(self):
         for changes in(dict(read_fail=True),dict(capture_fail=True),dict(capture_close_fail=True)):

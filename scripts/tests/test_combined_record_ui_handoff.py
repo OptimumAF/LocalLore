@@ -211,6 +211,15 @@ class CombinedRecordUiHandoffTests(unittest.TestCase):
             with self.subTest(mutate=mutate), self.assertRaises(REFUSED):
                 BootRecords(("proposal", mutate)).check()
 
+    def test_malformed_plan_pin_is_refused_before_reviewed_proposal_read(self):
+        graph = BootRecords(("authority", lambda row: row["plan"].pop("sha256")))
+        with (graph.ports(),
+              patch.object(handoff.files, "_bound", wraps=graph.bound) as bound,
+              self.assertRaisesRegex(contract.TargetRefused, "^binding$")):
+            handoff.read_authority(graph.authority_pin)
+        self.assertEqual([call.args[0]["path"] for call in bound.call_args_list],
+                         [str(handoff.AUTHORITY)])
+
     def test_handoff_refuses_resealed_semantic_drift(self):
         for role, mutation in (
             ("authority", lambda row: row.update(scope="other-operation")),
@@ -268,6 +277,15 @@ class CombinedRecordUiHandoffTests(unittest.TestCase):
         _, record = graph.read(handoff.HANDOFF)
         graph.verify_prepared.side_effect = lambda *_args, **_kwargs: graph.add(
             "handoff", handoff.HANDOFF, dict(record, scope="replaced"))
+        with self.assertRaises(REFUSED):
+            graph.check()
+
+    def test_prepared_manifest_drift_during_verification_refuses(self):
+        graph = BootRecords()
+        path = handoff.GUEST / "prepared-v1.json"
+        _, record = graph.read(path)
+        graph.verify_prepared.side_effect = lambda *_args, **_kwargs: graph.add(
+            "prepared", path, dict(record, proposal_sha256="0" * 64))
         with self.assertRaises(REFUSED):
             graph.check()
 

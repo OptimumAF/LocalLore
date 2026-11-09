@@ -243,7 +243,7 @@ class _Contract:
         elif argv[:1] == ['cmd']:
             ok = any((argv == ['cmd', 'package', 'list', 'packages', '-U', '--user', '0', p] or argv == ['cmd', 'package', 'path', '--user', '0', p] for p in (self.profile.APP, self.profile.TEST)))
         elif argv[:1] == ['pm']:
-            ok = any((argv == ['pm', 'install', '-r', '-t', '--user', '0', p] for p in apk_paths))
+            ok = any(argv == self._install_argv(path) for path in apk_paths)
         elif argv[:1] == ['sha256sum']:
             ok = len(argv) == 2 and (argv[1] in apk_paths or re.fullmatch('/data/app/[A-Za-z0-9_~=/.-]+/base\\.apk', argv[1]) is not None)
             if ok:
@@ -597,6 +597,9 @@ class _Contract:
         if 'process_probe_source' in a['artifacts']:
             _need(_same(a['artifacts']['process_probe_source'], env.binding(root / 'benchmarks/native/android_author_process_probe.c')), 'source')
         return None
+
+    def _install_argv(self, path):
+        return ['pm', 'install', '-r', '-t', '--user', '0', path]
 
     def _instrumentation_argv(self, class_name, method):
         return ['am', 'instrument', '-w', '-r', '-e', 'class', class_name + '#' + method,

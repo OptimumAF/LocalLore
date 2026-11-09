@@ -40,6 +40,7 @@ RUNTIME_KEYS = ("admission", "running", "owner_started", "owner_terminal",
 _need = env.require
 _same = contract._same
 _read = handoff.read
+_save = handoff.save
 
 
 def _identity(pid, expected=None):
@@ -48,13 +49,6 @@ def _identity(pid, expected=None):
         return handles.add(pid, expected)[1]
     finally:
         _need(handles.close() is True, "identity")
-
-
-def _save(path, value):
-    env.create_json(path, value)
-    pin, actual = _read(path)
-    _need(_same(actual, value), "publication")
-    return pin
 
 
 def _capture_pins(root):

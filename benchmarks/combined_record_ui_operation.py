@@ -29,7 +29,7 @@ CAPTURE = handoff.ATTEMPT_ROOT / "operation-capture-v1"
 TERMINAL = handoff.ATTEMPT_ROOT / "operation-supervisor-v1.json"
 STAGE = handoff.ATTEMPT_ROOT / "operation-stage-v1.json"
 RESULT = handoff.ATTEMPT_ROOT / "operation-result-v1.json"
-PREPARE_AUTH = handoff.ATTEMPT_ROOT / "prepare-authorization-v1.json"
+PREPARE_AUTH = handoff.PREPARE_AUTH
 PREFLIGHT = handoff.ATTEMPT_ROOT / "operation-preflight-v1.json"
 PREPARED = handoff.GUEST / "prepare-result-v1.json"
 ACTIVATED = activation.CONTROL / "activation-result-v1.json"
@@ -126,6 +126,8 @@ def _run_stages(authority_pin, attempt_pin, began_ns, worker_identity):
             version=1, phase="prepare", proposal_sha256=prepare_pin["sha256"],
             prepare_scope=handoff.OPERATION_SCOPE, allow_environment_calls=True, root_go_pending=False,
         ))
+        _need(_same(handoff.approved_plan(authority_pin, attempt_pin), (authority, plan))
+              and _same(handoff.prepare_plan(plan), prepare), "binding")
         _budget(began_ns, PREPARE_BUDGET)
         env.prepare(prepare_pin["path"], auth_pin["path"], expected_ledger=authority["ledger"],
                     expected_proposal_sha256=prepare_pin["sha256"], prepare_scope=handoff.OPERATION_SCOPE)
@@ -184,8 +186,9 @@ def _verify_stage(stage_pin, authority_pin, attempt_pin, began_ns, worker_identi
     closure = activation.verify_result(stage["activation"], stage["admission"], authority_pin, attempt_pin,
                                        began_ns=began_ns, expected_parent=worker_identity)
     _need(_same(stage["closure"], closure), "activation")
-    for pin in (stage_pin, authority_pin, attempt_pin, stage["preflight"], stage["prepare"], auth_pin,
-                stage["admission"], stage["activation"], *closure.values()):
+    for pin in (stage_pin, authority_pin, attempt_pin, authority["proposal"], authority["plan"], plan["prepare"],
+                stage["preflight"], stage["prepare"], auth_pin, stage["admission"], stage["activation"],
+                *closure.values()):
         env.check_binding(pin)
     return stage
 

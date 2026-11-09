@@ -44,6 +44,22 @@ Use one unnamed kill-on-close Job with no breakaway flags.
 are both passed at process creation, with only the three standard handles
 inherited. A suspended creation must report actual Job membership before
 the primary thread can run. There is no assign-after-create fallback.
+The fixed creation-time image policy blocks remote and low-integrity
+images and prefers System32 over the executable directory in the standard
+DLL search order. Query the three effective enforced flags through the
+actual suspended child handle. An attribute or readback failure refuses
+through the existing setup path. Audit-only flags cannot satisfy the
+check. The launch does not write system, user or executable settings.
+The existing framed resume fact can only be set after this check in the
+pinned launcher. It does not carry a module list. A separately admitted
+Windows packet must verify policy compatibility, all three readbacks,
+refusal before resume and known cleanup after a refused child.
+[Windows process creation policy](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute)
+[Windows image load flags](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-process_mitigation_image_load_policy)
+
+The independent loader topology must still cover actual DLL selection
+and all remaining loader search and redirection steps. The image policy
+does not seal local namespaces or establish outside-writer exclusion.
 The closed stdin writer gives immediate EOF. Use a dedicated owner process with no competing handle-inheriting
 launches. The read ends of the two
 local, first-instance byte pipes are noninheritable and use PIPE_NOWAIT.

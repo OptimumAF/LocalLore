@@ -101,15 +101,16 @@ struct Attributes {
     LPPROC_THREAD_ATTRIBUTE_LIST list = nullptr;
 
     bool init() {
+        constexpr DWORD count = 3;
         SIZE_T bytes = 0;
-        if (InitializeProcThreadAttributeList(nullptr, 2, 0, &bytes) ||
+        if (InitializeProcThreadAttributeList(nullptr, count, 0, &bytes) ||
             GetLastError() != ERROR_INSUFFICIENT_BUFFER || !bytes || bytes > 16384) {
             SetLastError(ERROR_INVALID_DATA);
             return false;
         }
         storage.resize((bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
         const auto candidate = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(storage.data());
-        if (!InitializeProcThreadAttributeList(candidate, 2, 0, &bytes)) return false;
+        if (!InitializeProcThreadAttributeList(candidate, count, 0, &bytes)) return false;
         list = candidate;
         return true;
     }
@@ -402,12 +403,17 @@ Result launch_owned(const std::wstring& executable, std::wstring cmd, std::wstri
 
         HANDLE child_handles[]{in.value, stdout_writer.value, stderr_writer.value};
         HANDLE jobs[]{job.value};
+        DWORD64 image_policy = PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_REMOTE_ALWAYS_ON |
+                               PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_NO_LOW_LABEL_ALWAYS_ON |
+                               PROCESS_CREATION_MITIGATION_POLICY_IMAGE_LOAD_PREFER_SYSTEM32_ALWAYS_ON;
         Attributes attributes;
         if (!attributes.init() ||
             !UpdateProcThreadAttribute(attributes.list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
                                        child_handles, sizeof(child_handles), nullptr, nullptr) ||
             !UpdateProcThreadAttribute(attributes.list, 0, PROC_THREAD_ATTRIBUTE_JOB_LIST,
-                                       jobs, sizeof(jobs), nullptr, nullptr)) {
+                                       jobs, sizeof(jobs), nullptr, nullptr) ||
+            !UpdateProcThreadAttribute(attributes.list, 0, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY,
+                                       &image_policy, sizeof(image_policy), nullptr, nullptr)) {
             stop(result, Stop::setup, GetLastError());
             return;
         }
@@ -439,6 +445,16 @@ Result launch_owned(const std::wstring& executable, std::wstring cmd, std::wstri
         close(in, result);
         close(stdout_writer, result);
         close(stderr_writer, result);
+        if (result.stop == Stop::none) {
+            PROCESS_MITIGATION_IMAGE_LOAD_POLICY observed_policy{};
+            if (!GetProcessMitigationPolicy(process.value, ProcessImageLoadPolicy,
+                                            &observed_policy, sizeof(observed_policy))) {
+                stop(result, Stop::setup, GetLastError());
+            } else if (!observed_policy.NoRemoteImages || !observed_policy.NoLowMandatoryLabelImages ||
+                       !observed_policy.PreferSystem32Images) {
+                stop(result, Stop::setup, ERROR_INVALID_DATA);
+            }
+        }
         if (cancelled()) stop(result, Stop::cancelled);
         if (Clock::now() >= deadline) stop(result, Stop::deadline);
         if (result.stop == Stop::none) {

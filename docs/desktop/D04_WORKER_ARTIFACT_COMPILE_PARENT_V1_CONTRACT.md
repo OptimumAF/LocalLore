@@ -54,7 +54,13 @@ no window, and explicit Unicode environment. The parent sets
 or inherited environment variables. The child is created suspended
 inside a new unnamed Job by the creation-time Job list. Its three
 standard handles are the only inherited handles. The parent closes its
-copies of the child ends before any readiness evidence.
+copies of the child ends before any readiness evidence. The shared Job
+launcher also requests and reads back the three enforced image-policy
+flags before calling the READY writer. These flags apply directly to
+this Node process and to the compiler created by the helper. The
+Node-spawned helper has a separate initial loader path and must be
+covered by the independent loader admission. Do not infer effective
+flags for a descendant from the parent READY record.
 
 Read back the exact kill-on-close flag, without either breakaway flag,
 before creation and while suspended. Verify actual membership using the

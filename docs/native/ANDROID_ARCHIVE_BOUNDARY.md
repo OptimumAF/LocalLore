@@ -121,10 +121,14 @@ The host adapter in `benchmarks/storage_opener_capture.py` re-reads the
 exact archived pair and its report. It requests one fixed 90-second
 AndroidJUnitRunner command per class through a qualified owned client.
 Both commands must return their own complete start and pass transcript.
-The owner supplies target admission, installation readback, command
-qualification, raw capture retention and teardown. The adapter does not
-grant guest authority. Actual Android execution requires a separately
-approved guest run.
+The journey in `benchmarks/storage_opener_journey.py` checks the API 35
+x86_64 emulator and user before staging the exact APKs. It requires both
+packages to be absent, uses no-replacement installs, and verifies the
+installed package paths, UIDs and hashes before, between and after the
+tests. Replay checks every command and both raw streams in order, using
+rows and reads qualified by the owner. Target admission, capture retention
+and teardown remain the owner's responsibility. Actual Android execution
+requires a separately approved guest run.
 
 Document helpers: readArchiveDocument(ContentResolver,Uri):ByteArray,
 writeArchiveDocument(ContentResolver,Uri,ByteArray). OpenDocument reads at most

@@ -484,7 +484,7 @@ internal fun LocalLoreScreen(
                     }
                     item(key = "actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (state.persistent && state.recoveryRequired) key(StorageActionIdentity(state)) {
+                            if (state.persistent && state.recoveryRequired && !state.localRestartRequired) key(StorageActionIdentity(state)) {
                                 OutlinedButton(
                                     onClick = { if (storageControls.active && currentStorageState.value === state) onRecover() },
                                     enabled = !state.busy && !state.archiveActive && !state.deletionActive && !state.forkActive && !state.creationActive,

@@ -52,6 +52,7 @@ data class ShellState(
     val playerProfile: PlayerSelfProfile? = null,
     /** Process-local response identity for UI cancellation; never serialized or gameplay authority. */
     internal val responseOwner: Any? = null,
+    val localRestartRequired: Boolean = false,
 )
 
 sealed interface DemoResult {

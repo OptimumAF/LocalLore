@@ -265,6 +265,56 @@ adapters:
 python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_supervisor.py
 ```
 
+The orchestration unit tests use synthetic process adapters. The optional
+Windows host fixture below starts two short-lived Python stages in real
+nested Jobs. It exercises the existing supervisor's stdin barriers,
+started and terminal records, live Job membership and parent identities.
+Before the controller receives its started record, the fixture observes
+the exact controller process in both Jobs through the handles created by
+the existing supervisor. It also verifies that the runtime belongs to
+the outer Job and is outside the inner Job. Both stages must exit
+zero with empty capture and confirmed cleanup. The
+fixture retains its own evidence in a new directory printed at startup,
+under the physical D: temporary directory. The outer and inner Job
+deadlines are 20 and 8 seconds. The combined fixture budget is 1 MiB.
+
+```powershell
+$env:TEMP = 'D:/Dev/_Temp'
+$env:TMP = $env:TEMP
+python -I -S -B scripts/tests/archive_roundtrip_windows_job_fixture.py --host-check
+```
+
+### Recorded Windows host evidence
+
+The fixture with SHA-256
+`464fd5b9c271bd92725f057ca50498cd2ba9b6c679b95271b51c967ee8ea3b8d`
+passed with Python 3.14.7 and PowerShell 7.6.9 on Windows x64
+10.0.26300.0 against the supervisor at `8cd31a0f`. The invocation exited
+zero in 938 ms. The runtime and controller terminals reported 611 ms and
+297 ms respectively, zero exit, zero output bytes, complete capture and
+confirmed cleanup. The 18-file packet retained 7,399 bytes. The proof
+SHA-256 is `a716aa62e846255fc5bf14f0f0fde248367f7e9b432d6207f66b6b29b74edff5`.
+
+Two earlier attempts remain failed and retained. The first refused the
+fixture's singleton assumption for the NULL-handle process list before
+offering a controller. The second observed the controller's inner Job
+assignment but refused before publishing the outer membership record.
+Both retained positive outer Job and capture cleanup. The passing check
+uses direct Win32 membership queries on explicit Job handles and joins
+each observation to the exact process creation identity and terminal.
+See the [first](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6748932944)
+and [second](https://github.com/OptimumAF/LocalLore/issues/30#issuecomment-6748981461)
+attempt records.
+
+The existing hard-owner-loss test separately passed in 0.244 seconds.
+It held the worker and descendant handles and verified their termination
+before closing the safety Job, with both forced output prefixes retained
+through the abrupt supervisor exit.
+
+```powershell
+python -B -m unittest -v scripts.tests.test_receipt_supervisor_evidence.ReceiptSupervisorEvidenceTests.test_actual_hard_owner_loss_retains_forced_prefix_and_kills_inner_job
+```
+
 After separate operator approval and exact prepared-guest admission, the
 fixed launcher accepts only the pinned authority digest:
 
@@ -272,5 +322,5 @@ fixed launcher accepts only the pinned authority digest:
 python -B -m benchmarks.archive_roundtrip_supervisor --authority-sha256 <approved-sha256>
 ```
 
-The host tests do not launch the supervisor, Windows Jobs, Android tools,
-or a guest. A real prepared-guest run and Android parity remain open.
+The host fixture uses synthetic records and runs no live archive operation
+or Android tools. A real prepared-guest run and Android parity remain open.

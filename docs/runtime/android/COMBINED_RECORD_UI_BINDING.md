@@ -62,7 +62,22 @@ Closed replay joins the observed owner and worker records to a normal stop, know
 handle and capture cleanup, and the matching v2 ledger closure. It can be used
 alongside the controller's exact twelve-result replay by the outer supervisor.
 
-The remaining outer integration owns approval consumption, guarded preparation,
-activation and final closure. A fresh readiness check and exact approval are
-required before preparation. Earlier frozen profiles keep their own source,
-artifact and authority bindings.
+## Single-use operation
+
+The SDK21 operator takes the SHA-256 of the exact approval at the fixed
+operation path. It consumes one attempt before dispatching the supervised
+worker. The worker checks the source, APKs, installed tools, storage, memory,
+commit headroom and unused ports. Guarded preparation compares the approved
+ledger under lock before allocating the guest. The prepared result and its raw
+SDK capture must bind to the observed operation worker.
+
+The outer Windows Job bounds the operation to 2,400 seconds. Activation has
+up to 1,800 seconds under that ceiling and binds its runtime and controller
+processes to the approved attempt. It requests stop only through the owned
+observer. Qualification requires the controller's twelve results and the
+replayed owner, process and ledger closure. Refused and interrupted attempts
+retain their claim and any charged reservation.
+
+A fresh readiness check and exact approval are required before running the
+operator. Earlier frozen profiles keep their own source, artifact and
+authority bindings.

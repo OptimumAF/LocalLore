@@ -61,6 +61,13 @@ def at(pin, path, cap=RECORD_CAP):
     return env.decode_json(files._bound(pin, cap=cap))
 
 
+def save(path, value):
+    env.create_json(path, value)
+    pin, actual = read(path)
+    _need(_same(actual, value), "publication")
+    return pin
+
+
 def ledger_entry(root):
     _need(Path(root) == GUEST, "ledger")
     pin, ledger = read(LEDGER, STORAGE_CAP)
@@ -117,9 +124,13 @@ def prepare_plan(plan):
     return prepare
 
 
-def check_window(began_ns, until_ns):
+def check_bounds(began_ns, until_ns):
     _need(type(began_ns) is int and type(until_ns) is int
           and 0 < began_ns < until_ns <= began_ns + SECONDS * NS, "deadline")
+
+
+def check_window(began_ns, until_ns):
+    check_bounds(began_ns, until_ns)
     now = time.monotonic_ns()
     _need(began_ns <= now < until_ns and until_ns - now <= ACTIVATION_SECONDS * NS, "deadline")
     return now
@@ -153,20 +164,24 @@ def _verify_preparation(plan, admission, proposal):
     return authorization_pin, started_pin, worker_pin
 
 
-def verify_boot_handoff(admission_pin, admission):
-    """Join a live-window handoff to one spent approval and a prepared v2 entry."""
-    admission = contract.validate_admission(admission)
-    _need(admission["root"] == str(OWNED_ROOT) and _same(admission["seconds"], OWNER_SECONDS)
-          and _same(at(admission_pin, ADMISSION), admission), "admission")
+def read_handoff(admission_pin, *, live=True):
     handoff_pin, handoff = read(HANDOFF)
     contract._obj(handoff, ("version", "scope", "authority", "attempt", "admission",
                             "supervisor", "began_ns", "until_ns"), "binding")
     _need(_same(handoff["version"], 1) and handoff["scope"] == HANDOFF_SCOPE
           and _same(handoff["admission"], admission_pin), "handoff")
     contract._process(handoff["supervisor"])
-    _need(handoff["supervisor"]["executable"] == admission["python"]["executable"]["path"], "identity")
-    check_launch_window(handoff["began_ns"], handoff["until_ns"])
-    authority, plan = approved_plan(handoff["authority"], handoff["attempt"])
+    check = check_window if live else check_bounds
+    check(handoff["began_ns"], handoff["until_ns"])
+    return handoff_pin, handoff
+
+
+def verify_prepared_admission(admission_pin, admission, authority_pin, attempt_pin, *, initial=False):
+    """Join one spent approval to its prepared guest and exact admission."""
+    admission = contract.validate_admission(admission)
+    _need(admission["root"] == str(OWNED_ROOT) and _same(admission["seconds"], OWNER_SECONDS)
+          and _same(at(admission_pin, ADMISSION), admission), "admission")
+    authority, plan = approved_plan(authority_pin, attempt_pin)
     prepare = prepare_plan(plan)
     _need(all(_same(plan[key], admission[key]) for key in ("sources", "python", "artifacts")), "plan")
     server, guest = admission["server"], admission["guest"]
@@ -186,7 +201,7 @@ def verify_boot_handoff(admission_pin, admission):
     env.check_authorization(authorization, "run", guest["proposal"]["sha256"], run_scope=contract.RUN_SCOPE)
     preparation_pins = _verify_preparation(plan, admission, proposal)
     artifacts.verify_artifacts(admission["artifacts"])
-    env.verify_prepared(proposal, initial=True)
+    env.verify_prepared(proposal, initial=initial)
     ledger_pin, entry = ledger_entry(GUEST)
     _need(entry["state"] == "prepared" and _same(entry["reserved_bytes"], storage.RESERVATION_BYTES)
           and entry["proposal_sha256"] == plan["prepare"]["sha256"]
@@ -194,9 +209,20 @@ def verify_boot_handoff(admission_pin, admission):
           "prepared")
     claim = env.safe_path(GUEST / contract.BOOT_CLAIM_FILE, exists=False)
     _need(not os.path.lexists(claim), "already_used")
-    for pin in (handoff_pin, admission_pin, handoff["authority"], handoff["attempt"], authority["proposal"],
+    for pin in (admission_pin, authority_pin, attempt_pin, authority["proposal"],
                 authority["plan"], plan["prepare"], guest["proposal"], guest["authorization"],
                 proposal["prepared"], proposal["prepare_result"], ledger_pin, *preparation_pins):
         env.check_binding(pin)
+    return admission
+
+
+def verify_boot_handoff(admission_pin, admission):
+    """Join a live-window handoff to one spent approval and a prepared v2 entry."""
+    handoff_pin, handoff = read_handoff(admission_pin)
+    check_launch_window(handoff["began_ns"], handoff["until_ns"])
+    admission = verify_prepared_admission(admission_pin, admission, handoff["authority"],
+                                          handoff["attempt"], initial=True)
+    _need(handoff["supervisor"]["executable"] == admission["python"]["executable"]["path"], "identity")
+    env.check_binding(handoff_pin)
     check_launch_window(handoff["began_ns"], handoff["until_ns"])
     return handoff_pin, handoff

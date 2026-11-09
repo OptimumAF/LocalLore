@@ -22,6 +22,7 @@ ARTIFACT_KEYS = build.ARTIFACT_KEYS
 SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     "archive_roundtrip_build.py", "owned_archive_roundtrip_contract.py",
     "owned_archive_roundtrip_owner.py", "owned_archive_roundtrip_client.py",
+    "archive_roundtrip_outbound.py", "android_instrumentation_evidence.py",
 })
 ROLES = ("product_apk", "test_apk")
 FILES = ("owner-v1", "windows-return.json", "windows-continued.json", "android-origin.json")

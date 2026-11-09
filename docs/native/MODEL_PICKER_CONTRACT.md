@@ -55,6 +55,22 @@ This lets successful synthetic imports use production wiring without changing
 the actual model identity or pretending that tiny data is a runnable model.
 No weights, account, downloader, Internet permission or inference is added.
 
+## Setup action regression
+
+Select
+`org.locallore.app.ModelPickerActionScopeTest#retiredChooseAndCheckCannotActOnReplacementStatus`
+on an admitted target with the fixture root absent, before any test populates
+that root. The regression retains the real Compose Choose and Check actions,
+uses Check to publish the same visible missing status, and exercises the retired
+actions against the replacement state. The current Choose action must issue one
+openable, local-only document request. An Android instrumentation activity
+monitor returns a canceled result before DocumentsUI opens, and the fixture
+root must remain absent.
+
+This selector covers control ownership and the app's canceled-result handling.
+The separate provider cohort covers actual DocumentsUI, URI delivery and
+descriptor release.
+
 ## Real document provider and ownership
 
 The conditional TEST APK alone declares `ModelPickerDocumentsProvider` and its

@@ -64,6 +64,19 @@ test APK only. It rechecks both APK identities after inspection. Use the
 complete result as a file binding for a reviewed device plan. The APK audit
 does not allocate a guest or grant operation authority.
 
+The cold-navigation command policy in
+`benchmarks/owned_cold_navigation_ui_contract.py` checks the retained #434
+APK bytes and #436 attestation against fixed bindings. The existing owned
+client's operation validator and test claim lookup use the same exact
+argument vector. The cold profile also refuses force-stop and model commands.
+Its host replay requires a zero exit code, empty stderr and a complete
+start/pass pair for the one selected method. A skip or an incomplete
+instrumentation record fails replay.
+
+These are file and command checks. The cold profile still needs a concrete
+guarded owner and controller that bind the live captures to an approved
+one-use preparation and launch.
+
 ## Guarded device selector
 
 After separate approval and normal storage, process ownership and device

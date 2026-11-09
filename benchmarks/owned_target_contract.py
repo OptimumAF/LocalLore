@@ -239,7 +239,7 @@ class _Contract:
         elif argv[:3] == ['am', 'force-stop', '--user']:
             ok = len(argv) == 5 and argv[3] == '0' and (argv[4] in (self.profile.APP, self.profile.TEST))
         elif argv[:1] == ['am']:
-            ok = any((argv == ['am', 'instrument', '-w', '-r', '-e', 'class', cl + '#' + m, self.profile.TEST + '/androidx.test.runner.AndroidJUnitRunner'] for _, cl, m in self.profile.INSTRUMENTATIONS))
+            ok = any(argv == self._instrumentation_argv(cl, method) for _, cl, method in self.profile.INSTRUMENTATIONS)
         elif argv[:1] == ['cmd']:
             ok = any((argv == ['cmd', 'package', 'list', 'packages', '-U', '--user', '0', p] or argv == ['cmd', 'package', 'path', '--user', '0', p] for p in (self.profile.APP, self.profile.TEST)))
         elif argv[:1] == ['pm']:
@@ -598,9 +598,13 @@ class _Contract:
             _need(_same(a['artifacts']['process_probe_source'], env.binding(root / 'benchmarks/native/android_author_process_probe.c')), 'source')
         return None
 
+    def _instrumentation_argv(self, class_name, method):
+        return ['am', 'instrument', '-w', '-r', '-e', 'class', class_name + '#' + method,
+                self.profile.TEST + '/androidx.test.runner.AndroidJUnitRunner']
+
     def instrumentation_kind(self, argv):
         for kind, cl, method in self.profile.INSTRUMENTATIONS:
-            if argv == ['am', 'instrument', '-w', '-r', '-e', 'class', cl + '#' + method, self.profile.TEST + '/androidx.test.runner.AndroidJUnitRunner']:
+            if argv == self._instrumentation_argv(cl, method):
                 return kind
         raise TargetRefused('command')
 

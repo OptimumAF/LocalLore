@@ -43,3 +43,29 @@ paths and belongs in local evidence. The build source in this record identifies
 where the APKs were built. A later owner must revalidate the artifact roster
 and live bytes, and must establish its own source, lease and shared-ledger
 admission. This command performs no SDK, device, or archive-transfer operation.
+
+## Verify the owned archive profile on the host
+
+The model-free SDK25 profile reuses the existing owned-target worker, shared
+guest ledger, bounded shell-v2 client, and retained capture verifier. It binds
+the exact eight artifacts above during admission and rechecks their bytes
+before the live lease or worker opens its shared process resources, and
+again when verifying the retained guest proof. The fixed target scope is
+API 35, x86_64 and Android user 0.
+
+The first phase uses a run ID derived from the admission. Its two isolated
+APKs use exclusive staging paths and no-replace installation. The outbound
+instrumentation consumes one durable claim. Private reads accept only that
+run's owner marker and three outbound files, with a combined 128 KiB capture
+limit in both live and retained verification.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_owned_archive_roundtrip_profile.py
+```
+
+These host checks exercise admission, command policy, one-shot claim and
+live/replay wiring with synthetic inputs. The worker entry requires the
+shared parent barrier. The operator launcher and return phase are still
+pending, including ordered package identity checks, verified Windows
+continuation, the single return write, final Rust replay and separately
+approved guest admission.

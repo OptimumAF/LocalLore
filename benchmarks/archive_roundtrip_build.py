@@ -7,7 +7,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import stat
 import sys
 
@@ -102,8 +102,7 @@ def _verify_file(binding):
     _need(digest.hexdigest() == binding["sha256"], "digest")
 
 
-def _expected(apk_root, windows_root):
-    roots = (_root(apk_root), _root(windows_root))
+def _bindings(roots):
     _need(not roots[0].is_relative_to(roots[1]) and
           not roots[1].is_relative_to(roots[0]), "root")
     return {
@@ -115,23 +114,36 @@ def _expected(apk_root, windows_root):
 
 def collect(apk_root, windows_root):
     """Check the two evidence roots and return only the fixed owner artifacts."""
-    expected = _expected(apk_root, windows_root)
+    expected = _bindings((_root(apk_root), _root(windows_root)))
     for binding in expected.values():
         _verify_file(binding)
     return expected
 
 
-def verify_current(admission):
-    """Match the owner artifact roster and recheck live bytes before owner start."""
-    _need(type(admission) is dict and type(admission.get("artifacts")) is dict, "binding")
-    artifacts = admission["artifacts"]
-    _need(set(artifacts) == ARTIFACT_KEYS and all(
+def _artifact_roots(artifacts, path_type):
+    _need(type(artifacts) is dict and set(artifacts) == ARTIFACT_KEYS and all(
         type(value) is dict and set(value) == {"path", "bytes", "sha256"} and
         type(value["path"]) is str and type(value["bytes"]) is int and
         type(value["sha256"]) is str for value in artifacts.values()), "binding")
-    apk_root = Path(artifacts["build"]["path"]).parent
-    windows_root = Path(artifacts["fixture_preflight"]["path"]).parent.parent
-    expected = _expected(apk_root, windows_root)
+    return (path_type(artifacts["build"]["path"]).parent,
+            path_type(artifacts["fixture_preflight"]["path"]).parent.parent)
+
+
+def validate_bindings(artifacts):
+    """Validate exact Windows role metadata without consulting the filesystem."""
+    roots = _artifact_roots(artifacts, PureWindowsPath)
+    _need(all(root.is_absolute() and root.drive.upper() == "D:" and
+              not {"..", ".android"} & {part.casefold() for part in root.parts}
+              for root in roots), "binding")
+    _need(artifacts == _bindings(roots), "binding")
+
+
+def verify_current(admission):
+    """Match the owner artifact roster and recheck live bytes before owner start."""
+    _need(type(admission) is dict, "binding")
+    artifacts = admission.get("artifacts")
+    roots = _artifact_roots(artifacts, Path)
+    expected = _bindings(tuple(_root(root) for root in roots))
     _need(artifacts == expected, "binding")
     for binding in expected.values():
         _verify_file(binding)

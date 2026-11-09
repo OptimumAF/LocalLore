@@ -91,7 +91,7 @@ def _journey(command, pause, artifacts):
                             source=source, seconds=120) == b"", "checks_failed")
         env.require(_line(command(["sha256sum", path], "staged-hash")) ==
                     source["sha256"] + "  " + path, "checks_failed")
-        env.require(_line(command(["pm", "install", "-t", "--user", "0", path],
+        env.require(_line(command(["pm", "install", "-R", "-t", "--user", "0", path],
                                   "install", seconds=120)) == "Success", "checks_failed")
     before = _installed(command, artifacts)
     kind, _, _ = binding.INSTRUMENTATIONS[0]

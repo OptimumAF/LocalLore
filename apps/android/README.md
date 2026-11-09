@@ -33,7 +33,7 @@ a separately approved target.
 
 The [owned-guest controller](../../benchmarks/saved_library_status_controller.py)
 requires both ordinary packages to be absent before staging either APK.
-Installation refuses replacement. The controller checks both installed UIDs,
+Installation uses Android's explicit no-replacement option (`-R`). The controller checks both installed UIDs,
 APK paths and hashes before and after the selected test and replays the
 captured commands and result. It takes an already owned guest. Preparation,
 boot and storage admission are separate.

@@ -241,7 +241,8 @@ internal class DurableGateway(
         val saved = SavedSnapshot(playerRevision, if (presentation.hasPotion) "You" else "Not in your inventory",
             presentation.messages, workspace.getString("location"), 1, stories,
             SavedStory(current.story, current.branch, root.title, current.revision), current.uncommittedDrafts,
-            presentation.rules, textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines)
+            presentation.rules, textProvider, databaseSchemaVersion = databaseSchema, timelines = timelines,
+            inventory = presentation.inventory)
         synchronized(playerMetadataLock) {
             requirePlayerOwner(owner)
             if(revision!=playerRevision)throw WorkspaceFailure("Stale")

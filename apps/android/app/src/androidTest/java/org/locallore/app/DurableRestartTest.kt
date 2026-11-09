@@ -63,7 +63,7 @@ class DurableRestartTest {
         assertEquals(2, state.messages.size)
         assertEquals("You give 1 potion to mira.", state.messages.single { !it.isPlayer }.text)
         tag("revision").assertTextEquals("Accepted revision · 1")
-        tag("potion-owner").assertTextEquals("Healing potion · Not in your inventory")
+        compose.assertPlayerPotionQuantity(null) { model().state.value }
     }
     private fun select(story: SavedStory) {
         tag("saved-library").performClick()
@@ -137,7 +137,7 @@ class DurableRestartTest {
         compose.createStoryThroughMainReview(10_000); idle()
         assertEquals(0L, model().state.value.revision)
         assertTrue(model().state.value.messages.isEmpty())
-        tag("potion-owner").assertTextEquals("Healing potion · You")
+        compose.assertPlayerPotionQuantity(1) { model().state.value }
         state = model().state.value
         select(state.stories.single { it.story == saved.story && it.branch == saved.branch })
         accepted()

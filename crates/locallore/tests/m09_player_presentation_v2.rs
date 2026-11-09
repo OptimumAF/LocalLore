@@ -626,3 +626,136 @@ fn accepted_uint64_action_fields_use_exact_decimal_presentation_strings_only() {
     assert_eq!(source.engines[0].accepted_history_basis().unwrap(), basis);
     assert_eq!(source.writes, 0);
 }
+
+// B58: independent inventory oracles. The golden contains the complete actual
+// Host envelope, not a Kotlin reconstruction or a relabeled historical frame.
+const INVENTORY_PLAYER: &str = "a-inventory-native-player";
+const INVENTORY_CANARY: &str = "PRIVATE-INVENTORY-NPC-CANARY";
+
+fn inventory_seed() -> Seed {
+    let mut seed = engine().seed().clone();
+    seed.scope.story = "inventory-native".into();
+    let mut player = seed.actors["player"].clone();
+    player.name = "Lio".into();
+    player.energy = 0;
+    player.abilities.clear();
+    player.attributes.clear();
+    player.injuries.clear();
+    player.affiliations.clear();
+    player.goals.clear();
+    seed.actors.insert(INVENTORY_PLAYER.into(), player);
+    seed.player = INVENTORY_PLAYER.into();
+    for (id, quantity, return_to, healing) in [
+        ("carry-zinc", 3, Some("oren".to_owned()), true),
+        ("carry-azure", 7, None, false),
+    ] {
+        seed.items.insert(
+            id.into(),
+            Item {
+                owner: INVENTORY_PLAYER.into(),
+                quantity,
+                return_to,
+                healing,
+            },
+        );
+    }
+    seed.items.insert(
+        INVENTORY_CANARY.into(),
+        Item {
+            owner: "mira".into(),
+            quantity: 99,
+            return_to: None,
+            healing: true,
+        },
+    );
+    seed
+}
+
+#[test]
+fn opaque_domain_two_inventory_matches_entire_android_golden_without_canonical_writes() {
+    let parent = Engine::new(inventory_seed()).unwrap();
+    assert_eq!(parent.domain_version(), 1);
+    let child = corrected(&parent, NEW);
+    assert_eq!(child.domain_version(), 2);
+    assert_eq!(child.revision(), 1);
+    let canonical = child.canonical_bytes();
+    let basis = child.accepted_history_basis().unwrap();
+    let (host, source) = host(vec![child.clone()], false);
+    let session = session(&host, &child);
+    let expected: Value = serde_json::from_str(include_str!(
+        "../../../apps/android/app/src/test/resources/native-player-inventory-v1.json"
+    ))
+    .unwrap();
+    for _ in 0..2 {
+        let actual = presentation(&host, &session, &child);
+        assert_eq!(actual, expected);
+        assert_eq!(actual["data"]["player"]["observer"], INVENTORY_PLAYER);
+        assert!(!actual.to_string().contains(INVENTORY_CANARY));
+        assert!(!actual.to_string().contains(NEW));
+        assert!(!actual.to_string().contains(REASON));
+        assert!(!actual.to_string().contains(NPC));
+    }
+    let source = source.lock().unwrap();
+    assert_eq!(source.engines[0].canonical_bytes(), canonical);
+    assert_eq!(source.engines[0].accepted_history_basis().unwrap(), basis);
+    assert_eq!(source.writes, 0);
+}
+
+#[test]
+fn inventory_projection_follows_actual_full_stack_transfer_in_both_domains() {
+    let mut parent = Engine::new(inventory_seed()).unwrap();
+    append(
+        &mut parent,
+        "carry-stack-to-mira",
+        Intent::Actions(vec![Command::Give {
+            item: "carry-azure".into(),
+            to: "mira".into(),
+            quantity: 7,
+        }]),
+    );
+    let child = corrected(&parent, NEW);
+    for engine in [parent, child] {
+        let canonical = engine.canonical_bytes();
+        let (host, source) = host(vec![engine.clone()], false);
+        let session = session(&host, &engine);
+        let actual = presentation(&host, &session, &engine);
+        assert_eq!(actual["status"], "ok");
+        assert_eq!(
+            actual["data"]["inventory"],
+            json!({"carry-zinc":{
+                "owner":INVENTORY_PLAYER,"quantity":3,"return_to":"oren","healing":true
+            }})
+        );
+        assert!(actual["data"]["inventory"].get("carry-azure").is_none());
+        assert!(actual["data"]["inventory"].get(INVENTORY_CANARY).is_none());
+        let source = source.lock().unwrap();
+        assert_eq!(source.engines[0].canonical_bytes(), canonical);
+        assert_eq!(source.writes, 0);
+    }
+}
+
+#[test]
+fn native_zero_stack_is_invalid_and_loan_possession_cannot_authorize_consumption() {
+    let mut seed = inventory_seed();
+    seed.items.get_mut("carry-azure").unwrap().quantity = 0;
+    assert!(matches!(Engine::new(seed), Err(Error::Inventory)));
+    let engine = Engine::new(inventory_seed()).unwrap();
+    let before = engine.canonical_bytes();
+    let request = engine.request(
+        "cannot-consume-loan",
+        Intent::Actions(vec![Command::Consume {
+            item: "carry-zinc".into(),
+        }]),
+    );
+    let proposal = Engine::proposal(&request).unwrap();
+    assert!(matches!(
+        engine.preview(&request, &proposal),
+        Err(Error::Inventory)
+    ));
+    assert_eq!(engine.canonical_bytes(), before);
+    assert_eq!(engine.state().items["carry-zinc"].quantity, 3);
+    assert_eq!(
+        engine.state().items["carry-zinc"].return_to.as_deref(),
+        Some("oren")
+    );
+}

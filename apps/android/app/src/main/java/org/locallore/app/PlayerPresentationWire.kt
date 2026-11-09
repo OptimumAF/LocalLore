@@ -15,6 +15,7 @@ internal data class PlayerPresentation(
     val rules: String,
     val hasPotion: Boolean,
     val messages: List<SceneMessage>,
+    val inventory: List<PlayerInventoryItem>,
 )
 
 internal object PlayerPresentationWire {
@@ -45,13 +46,15 @@ internal object PlayerPresentationWire {
         val observer = player.id("observer")
         actor(player.getJSONObject("self_state"))
         val inventory = data.getJSONObject("inventory")
+        val inventoryItems = mutableListOf<PlayerInventoryItem>()
         for (key in inventory.keys().asSequence()) {
             require(identifier.matches(key))
             val item = inventory.getJSONObject(key).also { it.fields("owner", "quantity", "return_to", "healing") }
             require(item.id("owner") == observer)
-            item.unsigned16("quantity")
+            val quantity = item.unsigned16("quantity")
             if (!item.isNull("return_to")) item.id("return_to")
             item.boolean("healing")
+            inventoryItems += PlayerInventoryItem(key, quantity.toInt())
         }
         val window = data.getJSONObject("window").also { it.fields("total", "start", "end") }
         val total = window.integer("total").also { require(it in 0..4096) }
@@ -82,7 +85,8 @@ internal object PlayerPresentationWire {
             messages += SceneMessage(ordinal * 2 + 2, narration, false)
         }
         PlayerPresentation(domain, selectedScope, expectedRevision, observer, rules, inventory.has("potion"),
-            Collections.unmodifiableList(ArrayList(messages)))
+            Collections.unmodifiableList(ArrayList(messages)),
+            Collections.unmodifiableList(ArrayList(inventoryItems.sortedBy { it.id })))
     } catch (failure: WorkspaceFailure) { throw failure }
     catch (_: Exception) { throw WorkspaceFailure("Malformed") }
 

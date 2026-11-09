@@ -293,7 +293,7 @@ class StorageRecoveryInstrumentedTest {
                 tag("mode-menu").assertIsNotEnabled()
                 tag("recover-save").assertIsEnabled()
                 tag("revision").assertTextEquals("Accepted revision · 0")
-                tag("potion-owner").assertTextEquals("Healing potion · You")
+                compose.assertPausedPlayerPotionQuantity(1) { model.state.value }
                 compose.runOnIdle {
                     assertTrue(model.state.value.recoveryRequired)
                     assertTrue(model.state.value.messages.isEmpty())
@@ -303,7 +303,7 @@ class StorageRecoveryInstrumentedTest {
                 val prepares = f.replies.count("prepare")
                 tag("recover-save").performClick(); idle(model)
                 tag("revision").assertTextEquals("Accepted revision · 1")
-                tag("potion-owner").assertTextEquals("Healing potion · Not in your inventory")
+                compose.assertPlayerPotionQuantity(null) { model.state.value }
                 compose.runOnIdle {
                     assertFalse(model.state.value.recoveryRequired)
                     assertEquals(2, model.state.value.messages.size)

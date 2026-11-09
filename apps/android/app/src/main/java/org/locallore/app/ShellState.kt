@@ -4,6 +4,9 @@ package org.locallore.app
 enum class DemoAction { GIVE_POTION, TRY_ABILITY }
 enum class DemoMode { ACCEPTED, MALFORMED, REJECTED, DELAYED, FAILED }
 data class SceneMessage(val id: Long, val text: String, val isPlayer: Boolean)
+
+/** Read-only projection of one validated native observer inventory row. */
+data class PlayerInventoryItem(val id: String, val quantity: Int)
 data class SavedStory(val story: String, val branch: String, val title: String, val revision: Long)
 data class SavedTimeline(
     val story: String, val branch: String, val parentBranch: String?, val forkRevision: Long?,
@@ -18,6 +21,7 @@ data class SavedSnapshot(
     val databaseSchemaVersion: Int? = null,
     val timelines: List<SavedTimeline> = emptyList(),
     val selectionRestoreUnavailable: Boolean = false,
+    val inventory: List<PlayerInventoryItem>? = null,
 )
 data class ShellState(
     val busy: Boolean = false,
@@ -43,6 +47,7 @@ data class ShellState(
     val timelines: List<SavedTimeline> = emptyList(),
     val checkingCancellation: Boolean = false,
     val creationActive: Boolean = false,
+    val inventory: List<PlayerInventoryItem>? = null,
 )
 
 sealed interface DemoResult {

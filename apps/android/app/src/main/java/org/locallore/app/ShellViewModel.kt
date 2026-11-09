@@ -103,7 +103,11 @@ class ShellViewModel internal constructor(
         forkController?.contextChanged(context)
         return context
     }
-    internal fun openFork() {
+    private fun currentForkView(view: BranchForkUiState) =
+        !disposed && mutableForkVisible.value && fork.value === view
+
+    internal fun openFork(view: ShellState = mutable.value) {
+        if (!currentLibraryView(view)) return
         val before = mutable.value
         val controller = forkController ?: return
         if (disposed || workflowBlocksActions() || before.busy || before.archiveActive || before.deletionActive ||
@@ -122,39 +126,42 @@ class ShellViewModel internal constructor(
         mutableForkVisible.value = true
         publish(mutable.value.copy(forkActive = true))
     }
-    internal fun prepareForkBoundary(rendered: BranchForkInput?, atRevision: Long) {
-        if (disposed || !mutableForkVisible.value || fork.value.busy || forkRecoveryIdentity != null || mutableForkProblem.value != null ||
+    internal fun prepareForkBoundary(rendered: BranchForkInput?, atRevision: Long, view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || fork.value.busy || forkRecoveryIdentity != null || mutableForkProblem.value != null ||
             fork.value.input !== rendered) return
         val context = synchronizeForkContext() ?: return
-        if (fork.value.input !== rendered || context.head != mutable.value.revision) return
+        if (!currentForkView(view) || fork.value.input !== rendered || context.head != mutable.value.revision) return
         if (rendered != null && (fork.value.uncertain || fork.value.outcome != null || fork.value.lookupOnly ||
                 rendered.parent != context.parent || rendered.expectedParentRevision != context.head)) return
         // Editing an unsubmitted boundary keeps its fixed child ID; never reroll a retry.
         if (rendered == null) forkController?.prepare(atRevision)
         else forkController?.prepare(atRevision, rendered.childBranch)
     }
-    internal fun confirmFork(rendered: BranchForkInput, consent: Boolean) {
-        if (disposed || !mutableForkVisible.value || mutableForkProblem.value != null) return
+    internal fun confirmFork(rendered: BranchForkInput, consent: Boolean, view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || mutableForkProblem.value != null) return
         synchronizeForkContext()
+        if (!currentForkView(view)) return
         forkController?.confirm(rendered, consent)
     }
-    internal fun retryFork(consent: Boolean) {
-        if (disposed || !mutableForkVisible.value || mutable.value.busy) return
+    internal fun retryFork(consent: Boolean, view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || mutable.value.busy) return
         synchronizeForkContext()
+        if (!currentForkView(view)) return
         forkController?.retryExact(consent)
     }
-    internal fun lookupFork() {
-        if (disposed || !mutableForkVisible.value || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive) return
+    internal fun lookupFork(view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || mutable.value.busy || mutable.value.archiveActive || mutable.value.deletionActive) return
         synchronizeForkContext()
+        if (!currentForkView(view)) return
         forkController?.lookup()
     }
-    internal fun forgetFork(consent: Boolean) {
-        if (disposed || !mutableForkVisible.value || mutable.value.busy) return
+    internal fun forgetFork(consent: Boolean, view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view) || mutable.value.busy) return
         forkController?.forgetRecovery(consent)
     }
-    internal fun cancelFork() { if (!disposed && mutableForkVisible.value) forkController?.cancel() }
-    internal fun closeFork() {
-        if (disposed || !mutableForkVisible.value) return
+    internal fun cancelFork(view: BranchForkUiState = fork.value) { if (currentForkView(view)) forkController?.cancel() }
+    internal fun closeFork(view: BranchForkUiState = fork.value) {
+        if (!currentForkView(view)) return
         if (fork.value.busy) { forkController?.cancel(); return }
         forkController?.dismiss()
         mutableForkVisible.value = false
@@ -163,10 +170,10 @@ class ShellViewModel internal constructor(
             savedOperation("Timeline request closed. The original selection is retained; recovery remains explicit.") { gateway.snapshot() }
         else synchronizeForkContext()
     }
-    internal fun resumeFork(rendered: BranchForkOutcome) {
+    internal fun resumeFork(rendered: BranchForkOutcome, view: BranchForkUiState = fork.value) {
         val before = mutable.value
         val current = fork.value
-        if (disposed || !mutableForkVisible.value || current.busy || before.busy || current.outcome !== rendered) return
+        if (!currentForkView(view) || current.busy || before.busy || current.outcome !== rendered) return
         val input = current.input ?: return
         if (!matchesForkOutcome(rendered, input)) return
         forkController?.dismiss()

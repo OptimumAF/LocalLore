@@ -125,6 +125,30 @@ proofs. Operators must retain that separate evidence tree and any frozen capture
 These checks cover the four explicitly bound proof files, without claiming full
 recursive proof preservation or replaying owner verification during admission.
 
+### Failed SDK24 registration review
+
+The spent cross-owner deletion attempt failed before publishing a running
+descriptor or normal-stop closure. Its full retained charge blocks the
+ordinary retirement preview. The fixed
+`benchmarks/cross_owner_deletion_ui_failed_closure.py` verifier replays the
+original failed terminal captures, boot claim, registration prefix and all
+cleanup flags. It joins the separate live owner observation and checks that
+each of the seven recorded Windows process incarnations has exited, is absent,
+or has been replaced by a different incarnation. It refuses live or unknown
+process status and rechecks the exact ledger and evidence pins after inspection.
+
+Use the reviewed digests from the original local failure evidence:
+
+```powershell
+python -I -S -B benchmarks/cross_owner_deletion_ui_failed_closure.py --operation-sha256 <result-digest> --observation-sha256 <observer-digest> --ledger-sha256 <current-ledger-digest>
+```
+
+The JSON output is private. It records eligibility for a guarded closure
+review while the guest remains retained. A separate reviewed operation and
+owner approval are required to record a closure or to retire any images.
+This review starts no device or service and leaves the failed Android run
+at zero executed test methods.
+
 ## Evidence-aware retirement planning
 
 Retirement defaults to a dry-run plan. First preserve **every non-disposable

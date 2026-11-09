@@ -55,7 +55,8 @@ independent free-space floor, at least 1 MiB. The real root paths come
 from the verified profile. Require one admitted D: volume, distinct
 root identities, at most 512 rows and depth eight per root, and
 no aliases or nonordinary entries. Walk using bounded directory
-reads, verify each named identity, record logical file bytes and
+reads with one-entry buffering, verify each named identity and actual
+held link count for files, record logical bytes and
 recheck each directory across its read. Require total plus pending
 to fit each separate cap, then observe BigInt available blocks times
 block size for the admitted volume and require the floor plus
@@ -70,10 +71,12 @@ the earlier checks, START/OFFER, request, response and stderr,
 transport and CAPTURE. Keep independent input/authority/writer
 records outside this exact evidence root. Match every target row to
 the production lease snapshot that #408 already validated and hashed.
-Do not advance the lease during the check. Keep enough target reserve
-for the full profile bound before compilation and enough evidence
-reserve for all still-absent fixed leaves. The three new check
-files add at most 12,288 bytes to the earlier supervisor allowance.
+Do not advance the lease during the check. Reserve the full remaining temp capacity at admit and before. Keep
+enough target reserve for the full profile bound before compilation
+and enough evidence reserve for all still-absent fixed leaves. The three
+new check files add at most 12,288 bytes to the earlier supervisor
+allowance, for eleven leaves and 184,412 bytes. Parent-ready is separate
+and capped at 4,096 bytes.
 
 ## Exact check retention
 
@@ -93,8 +96,11 @@ check-admit.json, check-before.json or check-after.json. START binds
 the actual admit hash. The compiler offer needs the retained before
 check, which is rechecked with START/OFFER before spawn and bound
 in the transport record. Terminal binds every check hash it claims,
-requiring all three for observed status. An earlier refusal or
-incomplete check can still retain a stopped terminal record.
+requiring all three and actual readback for observed status. A lost or
+changed retained wire can leave a fixed terminal retention-refusal record
+binding the offered report hash without acknowledging that report. An
+earlier refusal or incomplete check can still retain a stopped terminal
+record.
 No repeated check offer or partial-file overwrite is permitted.
 
 Source review and Git checks do not exercise Windows behavior.

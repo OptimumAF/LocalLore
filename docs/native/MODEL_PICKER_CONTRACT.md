@@ -74,8 +74,13 @@ descriptor release.
 The [host binding policy](../../benchmarks/model_picker_action_binding.py)
 pins this selector to the audited APP and TEST pair and reuses the shared
 AndroidJUnitRunner evidence parser for one complete start/pass pair. The
-policy produces command arguments and checks files and output. The owned
-runner still supplies device admission, installed identity and execution.
+policy produces command arguments and checks files and output. The
+[owned controller](../../benchmarks/model_picker_action_controller.py) consumes
+an independently owned API 35 x86_64 guest. It checks user 0 and both package
+names before staging, then verifies the installed APK paths, UIDs and hashes
+before and after the single test. Its result can be replayed from qualified
+command captures. Guest preparation, boot admission and closure remain
+separate operations.
 
 ## Real document provider and ownership
 

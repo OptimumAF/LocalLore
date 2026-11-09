@@ -15,6 +15,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.locallore.app.DemoAction
 import org.locallore.app.PlayInput
+import org.locallore.app.PlayInputKind
 import org.locallore.app.SavedStory
 import org.locallore.app.SceneMessage
 import org.locallore.app.ShellState
@@ -55,10 +56,10 @@ class QuickActionScopeScreenTest {
         compose.onNodeWithTag("story-list").performScrollToNode(hasTestTag(name))
         return compose.onNodeWithTag(name)
     }
-    private fun retainEnabledClicks() = Clicks(
-        checkNotNull(tag("give-potion").assertIsEnabled().fetchSemanticsNode().config[SemanticsActions.OnClick].action),
-        checkNotNull(tag("try-ability").assertIsEnabled().fetchSemanticsNode().config[SemanticsActions.OnClick].action),
-    )
+    private fun retainEnabledClick(name: String): () -> Boolean =
+        checkNotNull(tag(name).assertIsEnabled().fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+
+    private fun retainEnabledClicks() = Clicks(retainEnabledClick("give-potion"), retainEnabledClick("try-ability"))
     private fun invokeRetained(clicks: Clicks) {
         compose.runOnIdle { clicks.give(); clicks.ability() }
         compose.waitForIdle()
@@ -117,6 +118,36 @@ class QuickActionScopeScreenTest {
             assertSame(messages, state.value.messages)
             assertEquals(7L, state.value.revision)
             assertEquals(fork, state.value.selectedStory)
+        }
+    }
+
+    @Test fun retainedQuickActionAndSendCannotRetargetTheSameStoryAtANewRevision() {
+        val original = initial()
+        val state = mutableStateOf(original)
+        val calls = Calls()
+        show(state, calls)
+        val input = PlayInput(PlayInputKind.DIALOGUE, "SCRIPTED unsent dialogue at revision seven.")
+        tag("play-kind-dialogue").performClick()
+        tag("play-input").performTextReplacement(input.text)
+        val oldGive = retainEnabledClick("give-potion")
+        val oldSend = retainEnabledClick("play-send")
+
+        val updated = a.copy(revision = 8)
+        select(state, original.copy(revision = updated.revision, selectedStory = updated, stories = listOf(updated, b)))
+        compose.runOnIdle {
+            oldGive()
+            oldSend()
+        }
+        assertActions(calls, emptyList())
+        tag("play-input").assert(hasText(input.text))
+        tag("play-kind-dialogue").assertIsSelected()
+
+        tag("give-potion").assertIsEnabled().performClick()
+        tag("play-send").assertIsEnabled().performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(DemoAction.GIVE_POTION to updated), calls.actions)
+            assertEquals(listOf(input to updated), calls.sent)
+            assertEquals(0, calls.other)
         }
     }
 

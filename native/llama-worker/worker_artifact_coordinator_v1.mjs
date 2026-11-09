@@ -118,7 +118,8 @@ export function createWorkerArtifactCoordinatorV1(options) {
       activeCancel = beginGrace;
       try {
         if (name === 'launchStep') { offered = true; attempted++; }
-        const operation = ports[name], pending = operation(request);
+        const operation = ports[name];
+        const pending = name === 'prepareManifest' ? operation(request, controller.signal) : operation(request);
         Promise.resolve(pending).then(value => finish(true, value),
           () => finish(false, new Stop('PORT_ERROR', unknown())));
       } catch { finish(false, new Stop('PORT_ERROR', unknown())); }

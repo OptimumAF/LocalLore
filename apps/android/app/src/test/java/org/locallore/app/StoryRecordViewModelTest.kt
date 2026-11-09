@@ -75,6 +75,56 @@ class StoryRecordViewModelTest {
         }
     }
 
+    @Test fun retainedRecordOpenerCannotReadTheReplacementStory() = runTest(dispatcher) {
+        val gateway = RecordGateway()
+        val model = createModel(gateway)
+        advanceUntilIdle()
+        val first = model.frames.value.state
+        assertEquals(FirstStory, first.selectedStory)
+
+        model.resume(SecondStory)
+        advanceUntilIdle()
+        val second = model.frames.value.state
+        assertEquals(SecondStory, second.selectedStory)
+        model.openStoryRecord(first)
+        advanceUntilIdle()
+        assertEquals(StoryRecordState(), model.storyRecord.value)
+        assertTrue(gateway.reads.isEmpty())
+
+        model.openStoryRecord(second)
+        advanceUntilIdle()
+        val expected = StoryRecordContext(SecondStory, SecondStory.revision)
+        assertEquals(expected, model.storyRecord.value.context)
+        assertEquals(expected, gateway.reads.single().context)
+    }
+
+    @Test fun retainedRecordOpenerCannotReadANewerRevisionOfTheSameStory() = runTest(dispatcher) {
+        val gateway = RecordGateway()
+        val model = createModel(gateway)
+        advanceUntilIdle()
+        val original = model.frames.value.state
+
+        gateway.response = { DemoResult.Accepted(5, "Mira", "Synthetic accepted outcome") }
+        model.submit(DemoAction.GIVE_POTION)
+        advanceUntilIdle()
+        val current = model.frames.value.state
+        val updated = FirstStory.copy(revision = 5)
+        assertEquals(updated, current.selectedStory)
+        assertEquals(5L, current.revision)
+
+        model.openStoryRecord(original)
+        model.openStoryRecord(current.copy())
+        advanceUntilIdle()
+        assertEquals(StoryRecordState(), model.storyRecord.value)
+        assertTrue(gateway.reads.isEmpty())
+
+        model.openStoryRecord(current)
+        advanceUntilIdle()
+        val expected = StoryRecordContext(updated, 5)
+        assertEquals(expected, model.storyRecord.value.context)
+        assertEquals(expected, gateway.reads.single().context)
+    }
+
     @Test fun recoveryRequiredBlocksInspectionUntilSavedRecoveryCompletes() = runTest(dispatcher) {
         val gateway = RecordGateway().apply { response = { error("synthetic transport failure") } }
         val model = createModel(gateway)

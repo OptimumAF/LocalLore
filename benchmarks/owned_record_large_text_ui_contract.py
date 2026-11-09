@@ -44,6 +44,7 @@ SOURCE_NAMES = frozenset(core.SOURCE_NAMES | core.CURRENT_STORAGE_SOURCES | {
     'archive_ui_build.py',
     'record_large_text_ui_controller.py',
     'record_large_text_ui_activation.py',
+    'record_large_text_ui_operation.py',
     'android_instrumentation_evidence.py',
 })
 

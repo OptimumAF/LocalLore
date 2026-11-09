@@ -26,7 +26,7 @@ import org.locallore.app.ui.ArchiveDialog
 import org.locallore.app.ui.StoryDeletionDialog
 import org.locallore.app.ui.BranchDeletionDialog
 import org.locallore.app.ui.BranchForkPanel
-import org.locallore.app.ui.StoryRecordDialog
+import org.locallore.app.ui.StoryRecordHost
 import org.locallore.app.ui.StoryCreationDialog
 
 internal class WorkspaceConstructionUnavailable : IllegalStateException("Workspace unavailable")
@@ -139,12 +139,10 @@ open class MainActivity : ComponentActivity() {
             val branchDeletionFrame by model.branchDeletionFrames.collectAsStateWithLifecycle()
             val creationFrame by model.creationFrames.collectAsStateWithLifecycle()
             val renderedCreation = creationFrame.state
-            val recordFrame by model.storyRecordFrames.collectAsStateWithLifecycle()
             val fork by model.fork.collectAsStateWithLifecycle()
             val forkVisible by model.forkVisible.collectAsStateWithLifecycle()
             val forkProblem by model.forkProblem.collectAsStateWithLifecycle()
             val forkRecoveryPending by model.forkRecoveryPending.collectAsStateWithLifecycle()
-            val renderedRecordState = recordFrame.state
             val renderedArchive = archiveFrame.state
             val renderedDeletion = deletionFrame.state
             val renderedBranchDeletion = branchDeletionFrame.state
@@ -193,21 +191,7 @@ open class MainActivity : ComponentActivity() {
                         { controller.dismiss(renderedDeletion) }, { controller.cancel(renderedDeletion) },
                         { expected -> controller.confirm(expected, renderedDeletion) })
                 }
-                StoryRecordDialog(renderedRecordState,
-                    { model.closeStoryRecord(renderedRecordState) },
-                    { section -> model.recordSection(section, renderedRecordState) },
-                    { text -> model.recordSearch(text, renderedRecordState) },
-                    { model.nextRecordPage(renderedRecordState) },
-                    { model.firstRecordPage(renderedRecordState) },
-                    { model.retryStoryRecord(renderedRecordState) },
-                    onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordState) },
-                    onScopedEvent = { reference -> model.openScopedRecordEvent(reference, renderedRecordState) },
-                    onEventBack = { renderedRecordState.eventDetail?.let { model.backToStoryRecord(it) } },
-                    onEventRetry = renderedRecordState.eventDetail?.let { detail -> { model.retryRecordEvent(detail) } },
-                    onPromiseFilter = { filter -> model.recordPromiseFilter(filter, renderedRecordState) },
-                    onKnowledgeFilter = { filter -> model.recordKnowledgeFilter(filter, renderedRecordState) },
-                    onFocusRelationship = { entry -> model.focusRecordRelationship(entry, renderedRecordState) },
-                    onAllRelationships = { model.allRecordRelationships(renderedRecordState) })
+                StoryRecordHost(model)
                 DiagnosticsDialog(diagnostics, model::closeDiagnostics, model::clearDiagnostics) { review ->
                     if (model.beginDiagnosticExport(review)) {
                         try { documentPicker.launch("locallore-diagnostics.json") }

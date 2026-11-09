@@ -78,9 +78,15 @@ fun StoryRecordDialog(
     val actionKey = RecordActionKey(state)
     val lifetime = remember { RecordDialogLifetime() }
     val currentActionKey by rememberUpdatedState(actionKey)
+    val currentDetailToken by rememberUpdatedState(state.eventDetail?.viewToken)
     DisposableEffect(lifetime) { onDispose { lifetime.active = false } }
     fun act(block: () -> Unit) {
         if (lifetime.active && currentActionKey == actionKey) block()
+    }
+    // Retry changes the result frame without retiring this open detail's Back action.
+    fun backToRecords() {
+        val detail = state.eventDetail ?: return
+        if (lifetime.active && currentDetailToken === detail.viewToken) onEventBack()
     }
     // A new story/head or applied query must never inherit another context's edited search.
     var searchDraft by remember(state.context, state.search, state.promiseFilter, state.relationshipTarget, state.knowledgeFilter) {
@@ -121,7 +127,7 @@ fun StoryRecordDialog(
                     )
                     key(actionKey) {
                         OutlinedButton(
-                            onClick = { act { onEventBack() } },
+                            onClick = ::backToRecords,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                 .testTag("story-event-back"),
                         ) { Text("Back to records") }
@@ -349,7 +355,7 @@ fun StoryRecordDialog(
         }
     }
     Dialog(
-        onDismissRequest = { act { if (state.eventDetail != null) onEventBack() else onDismiss() } },
+        onDismissRequest = { if (state.eventDetail != null) backToRecords() else act(onDismiss) },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         // The dialog has its own Compose owner. Keep the screen's text scale for this record.

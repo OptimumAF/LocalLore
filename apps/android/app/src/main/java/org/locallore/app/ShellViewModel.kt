@@ -471,56 +471,59 @@ class ShellViewModel internal constructor(
     fun backToStoryRecord() = recordController.back()
     fun retryRecordEvent() = recordController.retryEvent()
 
-    // A retained callback must still belong to the exact published record view.
-    // Context/value equality also occurs after closing and reopening the same page.
+    internal fun backToStoryRecord(expected: StoryRecordEventDetail) = recordController.back(expected)
+    internal fun retryRecordEvent(expected: StoryRecordEventDetail) = recordController.retryEvent(expected)
+
     private fun isCurrentRecordView(rendered: StoryRecordState) =
         !disposed && rendered.visible && storyRecord.value === rendered
+
+    private fun isCurrentRecordPage(rendered: StoryRecordState) =
+        rendered.eventDetail == null && isCurrentRecordView(rendered)
 
     fun closeStoryRecord(rendered: StoryRecordState) {
         if (isCurrentRecordView(rendered)) closeStoryRecord()
     }
+
     fun recordSection(section: StoryRecordSection, rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) recordSection(section)
-    }
-    fun recordSearch(text: String, rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) recordSearch(text)
-    }
-    fun recordPromiseFilter(filter: StoryRecordPromiseFilter, rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) recordPromiseFilter(filter)
-    }
-    fun recordKnowledgeFilter(filter: StoryRecordKnowledgeFilter, rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) recordKnowledgeFilter(filter)
-    }
-    fun focusRecordRelationship(entry: StoryRecordEntry, rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) focusRecordRelationship(entry)
-    }
-    fun allRecordRelationships(rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) allRecordRelationships()
-    }
-    fun nextRecordPage(rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) nextRecordPage()
-    }
-    fun firstRecordPage(rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) firstRecordPage()
-    }
-    fun retryStoryRecord(rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) retryStoryRecord()
-    }
-    fun openRecordEvent(sequence: Long, rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) openRecordEvent(sequence, rendered.context)
-    }
-    fun openScopedRecordEvent(reference: StoryRecordScopedEvent, rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) openScopedRecordEvent(reference, rendered.context)
-    }
-    fun backToStoryRecord(rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) backToStoryRecord()
-    }
-    fun retryRecordEvent(rendered: StoryRecordState) {
-        if (isCurrentRecordView(rendered)) retryRecordEvent()
+        if (isCurrentRecordPage(rendered)) recordSection(section)
     }
 
-    internal fun backToStoryRecord(expected: StoryRecordEventDetail) = recordController.back(expected)
-    internal fun retryRecordEvent(expected: StoryRecordEventDetail) = recordController.retryEvent(expected)
+    fun recordSearch(text: String, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordSearch(text)
+    }
+
+    fun recordPromiseFilter(filter: StoryRecordPromiseFilter, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordPromiseFilter(filter)
+    }
+    fun recordKnowledgeFilter(filter: StoryRecordKnowledgeFilter, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) recordKnowledgeFilter(filter)
+    }
+    fun focusRecordRelationship(entry: StoryRecordEntry, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) focusRecordRelationship(entry)
+    }
+    fun allRecordRelationships(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) allRecordRelationships()
+    }
+
+    fun nextRecordPage(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) nextRecordPage()
+    }
+
+    fun firstRecordPage(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) firstRecordPage()
+    }
+
+    fun retryStoryRecord(rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) retryStoryRecord()
+    }
+
+    fun openRecordEvent(sequence: Long, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) openRecordEvent(sequence, rendered.context)
+    }
+
+    fun openScopedRecordEvent(reference: StoryRecordScopedEvent, rendered: StoryRecordState) {
+        if (isCurrentRecordPage(rendered)) openScopedRecordEvent(reference, rendered.context)
+    }
     fun closeDiagnostics() { diagnosticController.dismiss(); synchronizeForkContext() }
     fun closeDiagnostics(review: DiagnosticsReview) {
         if (diagnosticController.dismiss(review)) synchronizeForkContext()

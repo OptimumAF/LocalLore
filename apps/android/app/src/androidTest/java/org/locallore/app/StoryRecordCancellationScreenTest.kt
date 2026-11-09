@@ -25,7 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.locallore.app.ui.LocalLoreScreen
 import org.locallore.app.ui.LocalLoreTheme
-import org.locallore.app.ui.StoryRecordDialog
+import org.locallore.app.ui.StoryRecordHost
 
 /** Real ShellViewModel/controller and production Compose; synthetic read ports only.
  * Source compilation is not Android execution, native cancellation or canonical evidence.
@@ -39,16 +39,10 @@ class StoryRecordCancellationScreenTest {
         LocalLoreTheme {
             mounted.value?.let { model ->
                 val shell by model.state.collectAsState()
-                val record by model.storyRecord.collectAsState()
-                val capturedContext = record.context
                 LocalLoreScreen(shell, model::submit, model::setMode, model::cancel, model::reset,
                     onResume = model::resume, onRecover = model::recover,
                     onStoryRecord = model::openStoryRecord) {
-                    StoryRecordDialog(record, model::closeStoryRecord, model::recordSection, model::recordSearch,
-                        model::nextRecordPage, model::firstRecordPage, model::retryStoryRecord,
-                        onEvent = { model.openRecordEvent(it, capturedContext) },
-                        onScopedEvent = { model.openScopedRecordEvent(it, capturedContext) },
-                        onEventBack = model::backToStoryRecord, onEventRetry = model::retryRecordEvent)
+                    StoryRecordHost(model)
                 }
             }
         }

@@ -102,7 +102,8 @@ class StoryRecordActionScopeTest {
             { model.retryStoryRecord(renderedRecord) },
             { sequence -> model.openRecordEvent(sequence, renderedRecord) },
             { reference -> model.openScopedRecordEvent(reference, renderedRecord) },
-            { model.backToStoryRecord(renderedRecord) }, { model.retryRecordEvent(renderedRecord) })
+            { renderedRecord.eventDetail?.let { model.backToStoryRecord(it) } },
+            { renderedRecord.eventDetail?.let { model.retryRecordEvent(it) } })
     }
     private fun all(actions: Actions): List<Pair<String, () -> Unit>> = listOf(
         "close" to actions.close, "section" to { actions.section(StoryRecordSection.KNOWLEDGE) },

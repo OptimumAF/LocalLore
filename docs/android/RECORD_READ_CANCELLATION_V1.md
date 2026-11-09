@@ -49,3 +49,46 @@ currently rendered failure. If a retry immediately returns the same error,
 the new result still reaches the screen so the player can retry it again.
 The existing cancellation path preserves both identities when settling the
 current read. The request continues to use the existing player-visible lens.
+
+## Rendered page actions
+
+The page controls use the exact published record state. Search, paging, section
+selection, page Retry, and source links apply to the page that displayed them.
+Close also requires the current rendered state. The activity collects a
+transient render frame so closing and reopening the same page still delivers a
+fresh callback target when the visible values match.
+
+This integrates the page action and clickable-node lifetime checks from
+[PR #336](https://github.com/OptimumAF/LocalLore/pull/336) with the owned
+cancellation path and event action rules above. The historical verification
+on the separate branch remains attributed to that build.
+
+## Reading position and larger text
+
+A different story context, section, applied search, or page cursor starts at
+the top. Opening an event and returning to the same page keeps the list's
+scroll position. Editing the search field leaves the page in place until
+the search is applied.
+
+The section and paging controls use the available content width and text
+scale to choose one or two controls per row. Close and event Back remain
+outside the scrolling content. This brings the larger-text layout from
+[PR #401](https://github.com/OptimumAF/LocalLore/pull/401) into the same
+action scope as the record and event views.
+
+## Combined Android test build
+
+The activity and the ViewModel-backed cancellation and stale-action fixtures
+use the same `StoryRecordHost` to collect rendered frames and bind actions.
+The cancellation fixtures from [PR #386](https://github.com/OptimumAF/LocalLore/pull/386)
+exercise the current UI path using synthetic read ports. The large-text and
+page-scroll fixtures exercise the dialog directly with synthetic view states.
+
+Build the combined cohort with the existing isolated archive verification
+profile (`-PlocalLoreArchiveVerification=true`). On Windows, use
+`--project-cache-dir` with an absolute D: experiment path outside the checkout.
+The four test classes are `StoryRecordCancellationScreenTest`,
+`StoryRecordActionScopeScreenTest`, `StoryRecordLargeTextTest`, and
+`StoryRecordPageScrollTest`. The signed APK pair and the exact methods need
+their own guarded run binding and approval. Earlier frozen runs retain their
+original artifacts and selectors.

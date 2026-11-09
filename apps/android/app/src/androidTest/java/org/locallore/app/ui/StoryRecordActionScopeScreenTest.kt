@@ -30,26 +30,13 @@ class StoryRecordActionScopeScreenTest {
     private data class Harness(val model: ShellViewModel, val gateway: RecordGateway)
 
     private fun show(): Harness {
-        // Match MainActivity's plain rendered snapshot, never a delegated getter in a callback.
         compose.setContent {
             active.value?.let { model ->
                 val shell by model.state.collectAsState()
-                val record by model.storyRecord.collectAsState()
-                val renderedRecordState = record
                 LocalLoreScreen(shell, model::submit, model::setMode, model::cancel, model::reset,
                     onResume = model::resume, onRecover = model::recover,
                     onStoryRecord = model::openStoryRecord, onText = model::submitText) {
-                    StoryRecordDialog(renderedRecordState,
-                        { model.closeStoryRecord(renderedRecordState) },
-                        { section -> model.recordSection(section, renderedRecordState) },
-                        { text -> model.recordSearch(text, renderedRecordState) },
-                        { model.nextRecordPage(renderedRecordState) },
-                        { model.firstRecordPage(renderedRecordState) },
-                        { model.retryStoryRecord(renderedRecordState) },
-                        onEvent = { sequence -> model.openRecordEvent(sequence, renderedRecordState) },
-                        onScopedEvent = { reference -> model.openScopedRecordEvent(reference, renderedRecordState) },
-                        onEventBack = { model.backToStoryRecord(renderedRecordState) },
-                        onEventRetry = { model.retryRecordEvent(renderedRecordState) })
+                    StoryRecordHost(model)
                 }
             }
         }
@@ -81,7 +68,14 @@ class StoryRecordActionScopeScreenTest {
         compose.onNodeWithTag("story-list").performScrollToNode(hasTestTag(tag))
         return compose.onNodeWithTag(tag)
     }
-    private fun record(tag: String) = compose.onNodeWithTag(tag).performScrollTo()
+    private fun record(tag: String): SemanticsNodeInteraction {
+        val node = compose.onNodeWithTag(tag)
+        // Back and Close are pinned below the scrollable content.
+        return when (tag) {
+            "story-event-back", "story-record-close" -> node
+            else -> node.performScrollTo()
+        }
+    }
     private fun click(tag: String): () -> Boolean = checkNotNull(
         record(tag).assertIsEnabled().fetchSemanticsNode().config[SemanticsActions.OnClick].action)
     private fun open(model: ShellViewModel) {
@@ -231,8 +225,9 @@ class StoryRecordActionScopeScreenTest {
         val eventDetail = checkNotNull(detail.eventDetail)
         assertEquals(reference(A), eventDetail.scopedReference)
         assertEquals("Synthetic eligible event", eventDetail.entry!!.text)
-        for (old in listOf(oldEventRetry, oldBack, oldDetailClose, oldListRetry)) quiet(h, detail, old)
-        compose.onNodeWithTag("story-event-back").performClick()
+        for (old in listOf(oldEventRetry, oldDetailClose, oldListRetry)) quiet(h, detail, old)
+        // Back still belongs to this open detail after its Retry has settled.
+        compose.runOnIdle { oldBack() }
         loaded(h.model) { it.eventDetail == null }
         quiet(h, h.model.storyRecord.value, oldSource)
         record("story-record-scoped-source-0-0").performClick()
@@ -243,6 +238,7 @@ class StoryRecordActionScopeScreenTest {
         for (old in listOf(oldEventRetry, oldBack, oldDetailClose, oldListRetry, oldSource)) quiet(h, reopened, old)
         record("story-record-scoped-source-0-0").performClick()
         loaded(h.model) { it.eventDetail?.entry != null }
+        quiet(h, h.model.storyRecord.value, oldBack)
         close()
         draftUnchanged(text)
         compose.runOnIdle { assertSame(MESSAGES, h.model.state.value.messages); assertTrue(h.gateway.gameplay.isEmpty()) }

@@ -133,7 +133,7 @@ class StoryRecordCancellationViewModelTest {
             model.closeStoryRecord()
             model.openStoryRecord(); runCurrent()
             assertTrue(model.storyRecord.value.loading)
-            val retained = model::retryStoryRecord
+            val retained: () -> Unit = model::retryStoryRecord
             store.clear()
             retired.complete(Unit); advanceUntilIdle()
             retained(); model.openStoryRecord(); model.retryRecordEvent(); advanceUntilIdle()

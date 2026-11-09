@@ -1,6 +1,7 @@
 /* Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0 */
 package org.locallore.app
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -131,6 +132,122 @@ class StoryRecordRenderFrameTest {
         } finally {
             release.complete(Unit)
             collector.cancel()
+            controller.dispose()
+        }
+    }
+
+    @Test fun currentPageAndEventCancellationPublishTheirSettledFrames() = runTest {
+        val pageRelease = CompletableDeferred<Unit>()
+        val eventRelease = CompletableDeferred<Unit>()
+        val search = "cancelled page search"
+        val reads = mutableListOf<StoryRecordQuery>()
+        val producer = CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
+        val controller = StoryRecordController({ query ->
+            reads += query
+            when {
+                query.search == search -> {
+                    pageRelease.await()
+                    throw CancellationException("private fixture page cancellation")
+                }
+                query.section == StoryRecordSection.HISTORY -> {
+                    eventRelease.await()
+                    throw CancellationException("private fixture event cancellation")
+                }
+                else -> page(query)
+            }
+        }, producer)
+        val observed = mutableListOf<StoryRecordFrame>()
+        val collector = launch(StandardTestDispatcher(testScheduler)) { controller.frames.collect { observed += it } }
+        try {
+            controller.open(context)
+            runCurrent()
+
+            controller.search(search)
+            runCurrent()
+            assertTrue(controller.state.value.loading)
+            pageRelease.complete(Unit)
+            runCurrent()
+
+            val cancelledPage = controller.state.value
+            assertFalse(cancelledPage.loading)
+            assertEquals(StoryRecordProblem.UNAVAILABLE, cancelledPage.problem)
+            assertEquals(context, cancelledPage.context)
+            assertEquals(search, cancelledPage.search)
+            assertTrue(cancelledPage.entries.isEmpty())
+            assertSame(cancelledPage, controller.frames.value.state)
+            assertSame(cancelledPage, observed.last().state)
+            assertEquals(2, reads.size)
+
+            controller.search("")
+            runCurrent()
+            val sourcePage = controller.state.value
+            controller.openScopedEvent(source)
+            runCurrent()
+            val loadingDetail = checkNotNull(controller.state.value.eventDetail)
+            assertTrue(loadingDetail.loading)
+            eventRelease.complete(Unit)
+            runCurrent()
+
+            val cancelledEvent = controller.state.value
+            val detail = checkNotNull(cancelledEvent.eventDetail)
+            assertFalse(detail.loading)
+            assertEquals(StoryRecordProblem.UNAVAILABLE, detail.problem)
+            assertNull(detail.entry)
+            assertEquals(source, detail.scopedReference)
+            assertSame(loadingDetail.viewToken, detail.viewToken)
+            assertEquals(loadingDetail.readId, detail.readId)
+            assertEquals(sourcePage, cancelledEvent.copy(eventDetail = null))
+            assertSame(cancelledEvent, controller.frames.value.state)
+            assertSame(cancelledEvent, observed.last().state)
+            assertEquals(4, reads.size)
+        } finally {
+            pageRelease.complete(Unit)
+            eventRelease.complete(Unit)
+            collector.cancel()
+            controller.dispose()
+        }
+    }
+    @Test fun cancelledFilteredPageRetriesTheSameQueryAndCursor() = runTest {
+        val cursor = "2:1:${"a".repeat(64)}"
+        val reads = mutableListOf<StoryRecordQuery>()
+        var refuseNext = true
+        val controller = StoryRecordController({ query ->
+            reads += query
+            if (query.knowledgeFilter != StoryRecordKnowledgeFilter.OBSERVED) page(query)
+            else {
+                if (query.cursor != null && refuseNext) {
+                    refuseNext = false
+                    throw CancellationException("private fixture filtered-page cancellation")
+                }
+                val row = page(query).entries.single().copy(origin = StoryRecordOrigin.KNOWN_AS_OBSERVED)
+                StoryRecordPage(query, 11, 2, listOf(row), if (query.cursor == null) cursor else null)
+            }
+        }, this)
+        try {
+            controller.open(context); advanceUntilIdle()
+            controller.select(StoryRecordSection.KNOWLEDGE); advanceUntilIdle()
+            controller.knowledgeFilter(StoryRecordKnowledgeFilter.OBSERVED); advanceUntilIdle()
+            assertEquals(cursor, controller.state.value.nextCursor)
+            controller.next(); advanceUntilIdle()
+
+            val failedQuery = reads.last()
+            assertEquals(4, reads.size)
+            assertEquals(StoryRecordQuery(context, StoryRecordSection.KNOWLEDGE, cursor = cursor,
+                knowledgeFilter = StoryRecordKnowledgeFilter.OBSERVED), failedQuery)
+            val settled = controller.state.value
+            assertFalse(settled.loading)
+            assertEquals(StoryRecordProblem.UNAVAILABLE, settled.problem)
+            assertEquals(StoryRecordKnowledgeFilter.OBSERVED, settled.knowledgeFilter)
+            assertEquals(cursor, settled.cursor)
+            assertTrue(settled.entries.isEmpty())
+            assertSame(settled, controller.frames.value.state)
+
+            controller.retry(); advanceUntilIdle()
+            assertEquals(5, reads.size)
+            assertEquals(failedQuery, reads.last())
+            assertNull(controller.state.value.problem)
+            assertEquals(StoryRecordOrigin.KNOWN_AS_OBSERVED, controller.state.value.entries.single().origin)
+        } finally {
             controller.dispose()
         }
     }

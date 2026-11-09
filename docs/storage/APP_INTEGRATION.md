@@ -80,6 +80,15 @@ Retrying an uncertain outcome retains its original
 request key and looks up the recorded result before applying effects again.
 Request keys created by the apps are distinct across process restarts.
 
+On Android, a queued or ready reply must match the pending turn, exact story
+and timeline, and integer expected revision before it can advance preparation
+or commit. Malformed or foreign replies keep the original key available for
+explicit recovery. Recovery rechecks the binding after preparation, and checks
+that the same request is still active before dispatch. Commit and cancellation
+require a terminal reply. A matching terminal
+receipt still resolves a lost commit acknowledgement using the original
+request.
+
 Unopenable, foreign, corrupt or incompatible databases and bounded storage errors
 surface visibly. Production startup has no silent memory fallback. Full-disk and
 commit-stage failures are tested at the storage boundary; this is not a claim that

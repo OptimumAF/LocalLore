@@ -21,6 +21,13 @@ These are planned capabilities, not claims about implemented software. Free-form
 
 ## Start here
 
+The [transcript navigation UI harness](docs/native/TRANSCRIPT_UI_COHORT_V1.md)
+adds a separate, model-free SDK10 profile for six ordinary-app Compose tests,
+including fixed-window transcript rollover. It checks the preserved PR #317
+build without rebuilding it or borrowing another cohort's authority. The
+[host verification report](docs/native/TRANSCRIPT_UI_COHORT_VERIFICATION_2026-11-01.md)
+separates host checks from the six Android executions, which remain unrun.
+
 The [presentation-process runner](docs/native/PLAYER_PRESENTATION_PROCESS_RUNNER_V1.md)
 adds a distinct guarded three-APK host profile for the
 [V3 saved-task proof](docs/native/PLAYER_PRESENTATION_PROCESS_V3.md). It revalidates

@@ -117,6 +117,9 @@ full closed helper receipt shape first, including own data fields, bounded
 root and file arrays, recognized lease state and stop, and the copy helper's
 qualification and I/O counters. A positive copy requires the exact successful
 read and write counts, six verified scans, and three known handle closes.
+Ready and complete rosters require known-closed directory streams. Known
+copy failure bytes must fit the reserved write count and the reserved read
+count plus one possible extra byte from the failing EOF probe.
 An otherwise complete roster with a changed role, identity or length fails
 the semantic check. A truncated or unrecognized helper receipt is uncertain
 even when an earlier stop reason is already present. A reported

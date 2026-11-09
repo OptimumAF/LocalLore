@@ -26,6 +26,8 @@ SOURCE_NAMES = frozenset(core.SOURCE_NAMES | {
     "owned_combined_record_ui_contract.py", OWNER_SCRIPT, "owned_combined_record_ui_client.py",
     "combined_record_ui_binding.py", "combined_record_ui_controller.py",
     "combined_record_ui_handoff.py", "combined_record_ui_closure.py",
+    "combined_record_ui_preparation.py", "combined_record_ui_activation.py",
+    "combined_record_ui_operation.py",
     "archive_ui_build.py", "android_instrumentation_evidence.py",
 })
 

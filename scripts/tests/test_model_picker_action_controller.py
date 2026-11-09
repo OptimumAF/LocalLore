@@ -201,10 +201,20 @@ class PickerJourneyTests(unittest.TestCase):
 
     def test_shared_uid_refuses_even_with_distinct_package_paths_and_correct_hashes(self):
         _, steps = self.replace_reply("package", 2, f"package:{TEST} uid:10001\n".encode())
+        first = next(index for index, step in enumerate(steps) if step.label == "package")
+        steps[first] = replace(steps[first], reply=f"package:{APP} uid:10001\npackage:{TEST} uid:10001\n".encode())
         with self.assertRaises(env.EnvironmentRefused):
             self.run_tape(steps)
         instrument_index = next(index for index, step in enumerate(steps) if step.label == KIND)
         self.assertEqual(self.calls, steps[:instrument_index])
+
+    def test_overlapping_package_queries_must_agree_before_instrumentation(self):
+        listing = f"package:{APP} uid:10001\npackage:{TEST} uid:10999\n".encode()
+        _, steps = self.replace_reply("package", 1, listing)
+        with self.assertRaisesRegex(env.EnvironmentRefused, "checks_failed"):
+            self.run_tape(steps)
+        self.assertEqual(self.calls[-1].argv, package_query(TEST))
+        self.assertFalse(any(step.label == KIND for step in self.calls))
 
     def test_uid_drift_after_test_cannot_pass_or_retry_instrumentation(self):
         _, steps = self.replace_reply("package", 3, f"package:{APP} uid:10003\n".encode())

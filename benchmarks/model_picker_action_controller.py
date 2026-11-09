@@ -38,7 +38,7 @@ def _package_query(package):
     return ["cmd", "package", "list", "packages", "-U", "--user", "0", package]
 
 
-def _uid(raw, package):
+def _package_uids(raw, package):
     values = {}
     for line in raw.decode("ascii").splitlines():
         match = re.fullmatch(r"package:([^\s]+) uid:([1-9][0-9]{0,9})", line)
@@ -47,13 +47,16 @@ def _uid(raw, package):
                     "checks_failed")
         values[match[1]] = int(match[2])
     env.require(package in values, "checks_failed")
-    return values[package]
+    return values
 
 
 def _installed(command, artifacts):
     installed = {}
+    observed_uids = {}
     for role, package, _ in TARGETS:
-        uid = _uid(command(_package_query(package), "package"), package)
+        listing = _package_uids(command(_package_query(package), "package"), package)
+        for name, uid in listing.items():
+            env.require(observed_uids.setdefault(name, uid) == uid, "checks_failed")
         line = _line(command(["cmd", "package", "path", "--user", "0", package], "package-path"))
         pattern = (r"package:/data/app/(?:~~[A-Za-z0-9_=-]+/)?" + re.escape(package)
                    + r"-[A-Za-z0-9_~=-]+/base\.apk")
@@ -62,7 +65,7 @@ def _installed(command, artifacts):
         digest = artifacts[role]["sha256"]
         env.require(_line(command(["sha256sum", path], "package-hash")) == digest + "  " + path,
                     "checks_failed")
-        installed[role] = dict(package=package, uid=uid, path=path, sha256=digest)
+        installed[role] = dict(package=package, uid=listing[package], path=path, sha256=digest)
     env.require(len({row["uid"] for row in installed.values()}) == len(TARGETS), "checks_failed")
     return installed
 

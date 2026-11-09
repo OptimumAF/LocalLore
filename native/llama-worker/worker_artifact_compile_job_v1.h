@@ -117,6 +117,21 @@ struct Attributes {
     ~Attributes() { if (list) DeleteProcThreadAttributeList(list); }
 };
 
+inline bool device_name(std::wstring_view part) {
+    auto stem = part.substr(0, part.find(L'.'));
+    while (!stem.empty() && stem.back() == L' ') stem.remove_suffix(1);
+    if (stem.size() < 3 || stem.size() > 7) return false;
+    std::array<wchar_t, 7> lower{};
+    std::transform(stem.begin(), stem.end(), lower.begin(), [](wchar_t ch) {
+        return ch >= L'A' && ch <= L'Z' ? static_cast<wchar_t>(ch + (L'a' - L'A')) : ch;
+    });
+    const std::wstring_view name{lower.data(), stem.size()};
+    if (name == L"con" || name == L"prn" || name == L"aux" || name == L"nul" ||
+        name == L"conin$" || name == L"conout$") return true;
+    return name.size() == 4 && (name.substr(0, 3) == L"com" || name.substr(0, 3) == L"lpt") &&
+           std::wstring_view{L"123456789\u00b9\u00b2\u00b3"}.find(name.back()) != name.npos;
+}
+
 inline bool path(std::wstring_view value, bool project = false) {
     if (value.size() < 4 || value.size() > 1024 ||
         (value.front() != L'D' && (project || value.front() != L'C')) ||
@@ -127,7 +142,7 @@ inline bool path(std::wstring_view value, bool project = false) {
         const auto slash = value.find(L'/');
         const auto part = value.substr(0, slash);
         if (part.empty() || part.size() > 255 || part.back() == L'.' || part.back() == L' ' ||
-            part.find_first_of(forbidden) != part.npos) return false;
+            part.find_first_of(forbidden) != part.npos || device_name(part)) return false;
         for (wchar_t ch : part) {
             if (ch < 32 || ch == 127) return false;
         }
@@ -223,7 +238,11 @@ inline bool pipe(Handle& read, Handle& write, SECURITY_ATTRIBUTES& inherit) {
     write.value = CreateFileW(name.c_str(), GENERIC_WRITE, 0, &inherit, OPEN_EXISTING,
                               SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr);
     if (!write.valid()) return false;
-    if (!ConnectNamedPipe(read.value, nullptr) && GetLastError() != ERROR_PIPE_CONNECTED) return false;
+    if (ConnectNamedPipe(read.value, nullptr)) {
+        SetLastError(ERROR_INVALID_DATA);
+        return false;
+    }
+    if (GetLastError() != ERROR_PIPE_CONNECTED) return false;
     ULONG client = 0;
     if (!GetNamedPipeClientProcessId(read.value, &client)) return false;
     if (client == owner) return true;

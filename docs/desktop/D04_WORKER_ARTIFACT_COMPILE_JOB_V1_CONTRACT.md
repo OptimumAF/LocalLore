@@ -13,7 +13,7 @@ Construct `locallore::compile_job_v1::Request` in the private host from the
 already accepted candidate A recipe. Pass its exact candidate A argument
 vector, compiler, worker directory, upstream directory, output directory,
 approved Windows directory, ordered PATH and INCLUDE, and private temp
-directory. Use forward slashes and uppercase drive letters. The header
+directory. Use forward slashes and uppercase drive letters. Device-name components are refused. The header
 reconstructs the v1 compile arguments independently and refuses a mismatch
 before touching the OS. It has one fixed tool leaf, working directory,
 source leaf, candidate and stage. There is no shell, response file,
@@ -44,10 +44,11 @@ Use one unnamed kill-on-close Job with no breakaway flags.
 are both passed at process creation, with only the three standard handles
 inherited. A suspended creation must report actual Job membership before
 the primary thread can run. There is no assign-after-create fallback.
-The closed stdin writer gives immediate EOF. The read ends of the two
+The closed stdin writer gives immediate EOF. Use a dedicated owner process with no competing handle-inheriting
+launches. The read ends of the two
 local, first-instance byte pipes are noninheritable and use PIPE_NOWAIT.
-The connector checks that the actual client belongs to the current owner
-process before passing its write handle to the child. No secondary reader
+The connector requires a positively connected client owned by the
+current process before passing its write handle to the child. No secondary reader
 or detached thread is needed.
 
 Capture raw bytes into fixed 65,536-byte stdout and 4,096-byte stderr

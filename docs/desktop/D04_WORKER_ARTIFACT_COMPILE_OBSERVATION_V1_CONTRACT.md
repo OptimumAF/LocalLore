@@ -114,7 +114,9 @@ the same genuine signal. Mark objectUnknown before the offer. Clear it
 only for a valid scoped proof with known handle closure. Accept only its
 exact scoped proof, complete
 two-scan accounting and known closure. A known strict COFF refusal is
-retained evidence and stops the attempt. After a positive object result,
+retained evidence and stops the attempt. A COFF refusal follows two complete
+scans, and a CLOSE refusal always carries closure uncertainty. A contradictory
+proof cannot clear objectUnknown. After a positive object result,
 check after using the post-compile roster digest.
 
 On a stopped attempt, preserve the first cause and any valid observations.
@@ -122,7 +124,11 @@ A later unknown writer or reader closure is still recorded even when
 cancellation supplied the first cause. If writer closure or object handle
 closure is unknown, retain the lease for quarantine. Otherwise try exactly
 one explicit close when preparation was offered. Require the lease's Closed
-receipt and known closure for all opened markers and streams. Outer owner
+receipt and known closure for all opened markers and streams. Each marker
+already attested as created must retain its bound root identity and report
+created with a closed marker handle. A Closed receipt cannot forget known
+markers or move its recheck count backward. A stopped scan can clear file
+rows and still attest closure of its known markers. Outer owner
 postflight still audits partial output, untouched normal bytes and all
 temp files, including on refusal. Never reopen or adopt the roots.
 

@@ -197,6 +197,12 @@ rereads each command's pinned output, and applies the fixed per-command
 deadlines. A future story-deletion owner can use it once a capture exists.
 The adapter provides host record verification.
 
+`benchmarks/owned_cross_owner_deletion_ui.py` supplies the fixed host contract
+for that adapter. Its source roster includes the DEX checks, and its command
+rules require the isolated packages, one exact method, and installs with
+replacement disabled. A live owner and its operation still require a separately
+reviewed proposal and admission.
+
 Parent-retirement verification has its own debug identity and project cache:
 
 ```powershell

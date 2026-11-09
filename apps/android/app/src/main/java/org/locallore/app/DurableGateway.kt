@@ -342,9 +342,12 @@ internal class DurableGateway(
         val pending = operation ?: return DemoResult.Rejected("Cancelled")
         if (pending.cancelled || result.operation != pending.serial) return DemoResult.Rejected("Cancelled")
         val data = try { call(scoped("commit", pending)) }
+            catch (retired: LocalInferenceUncertain) { throw retired }
             catch (failure: Exception) {
                 // The original key is the only authority after a lost commit acknowledgement.
-                val status = try { call(scoped("turn_status", pending)) } catch (_: Exception) { throw failure }
+                val status = try { call(scoped("turn_status", pending)) }
+                    catch (retired: LocalInferenceUncertain) { throw retired }
+                    catch (_: Exception) { throw failure }
                 if (status.optString("phase") !in setOf("committed", "cancelled", "failed", "stale")) throw failure
                 // Ready/queued work is still uncertain. Even a terminal-looking malformed
                 // reply cannot discard the key or hide the primary storage error.

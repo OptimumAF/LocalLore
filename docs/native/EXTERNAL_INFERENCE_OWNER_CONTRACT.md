@@ -60,6 +60,15 @@ provider. The gateway retains its original pending turn key on this fixed
 uncertainty exception. Already accepted outcomes remain saved; cancellation
 never promises rollback.
 
+On this terminal uncertainty, the saved-story UI retains its last confirmed
+view and directs the player to restart the app process and check the same
+story and timeline. The in-session recovery action is unavailable for the
+retired lease. A commit status check can discover retirement after a
+temporary failure. In that case the UI uses the restart path. Temporary
+storage errors on a usable lease still offer exact-key recovery in the
+current session. Fresh startup uses the normal passive saved-history path,
+with no automatic resubmission.
+
 One owner reserves exactly one transport before native allocation; its transport
 reservation and native-port binding are atomic. Each turn has one engine and
 fresh role calls. A single whole cleanup deadline bounds the sequence. Cancellation

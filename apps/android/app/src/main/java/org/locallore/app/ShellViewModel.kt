@@ -300,7 +300,7 @@ class ShellViewModel internal constructor(
             databaseSchemaVersion = saved.databaseSchemaVersion,
             timelines = saved.timelines,
             textProvider = saved.textProvider,
-            recoveryRequired = false, checkingCancellation = false,
+            recoveryRequired = false, checkingCancellation = false, localRestartRequired = false,
             notice = if (saved.selectionRestoreUnavailable)
                 "Previously selected timeline is unavailable. Review the library before sending." else notice,
         )
@@ -320,9 +320,8 @@ class ShellViewModel internal constructor(
                 if (!disposed && ticket == generation && saved != null) mutable.value = publishSaved(saved, notice)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
-                if (!disposed && ticket == generation) mutable.value = mutable.value.copy(
-                    recoveryRequired = true, notice = recoveryNotice(failure,
-                        "Saved progress could not be confirmed. Retry recovery; existing saves are retained."),
+                if (!disposed && ticket == generation) mutable.value = mutable.value.savedRecoveryFailure(
+                    failure, "Saved progress could not be confirmed. Retry recovery; existing saves are retained.",
                 )
             } finally {
                 if (!disposed && ticket == generation) mutable.value = mutable.value.copy(busy = false, checkingCancellation = false)
@@ -331,8 +330,12 @@ class ShellViewModel internal constructor(
     }
 
     fun recover() {
-        if (!disposed && !workflowBlocksActions() && !mutable.value.busy && !mutable.value.archiveActive && !mutable.value.deletionActive && gateway.durable) savedOperation("Saved progress recovered.") {
-            if (mutable.value.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+        val before = mutable.value
+        if (!disposed && !workflowBlocksActions() && !before.busy && !before.archiveActive &&
+            !before.deletionActive && !before.localRestartRequired && gateway.durable) {
+            savedOperation("Saved progress recovered.") {
+                if (before.storageLocation == null) gateway.initialize() else gateway.recoverSaved()
+            }
         }
     }
     fun resume(story: SavedStory) {
@@ -463,12 +466,13 @@ class ShellViewModel internal constructor(
                     if (committing) DiagnosticOutcome.UNKNOWN else DiagnosticOutcome.FAILED,
                     elapsedMillis(start), if (failure is WorkspaceFailure) DiagnosticError.fromNative(failure.category)
                         else DiagnosticError.TRANSPORT)
-                if (ticket == generation) mutable.value = if (committing || gateway.durable) before.copy(
-                    recoveryRequired = true,
-                    notice = if (gateway.durable) recoveryNotice(failure,
+                if (ticket == generation) mutable.value = when {
+                    gateway.durable -> before.savedRecoveryFailure(failure,
                         "Unable to confirm the outcome. Retry recovery using the original response key; saves are retained.")
-                        else "Unable to confirm the outcome. Reset this in-memory demo to continue.",
-                ) else before.copy(notice = "Response failed. Nothing changed; try again.")
+                    committing -> before.copy(recoveryRequired = true,
+                        notice = "Unable to confirm the outcome. Reset this in-memory demo to continue.")
+                    else -> before.copy(notice = "Response failed. Nothing changed; try again.")
+                }
             } finally {
                 if (ticket == generation) mutable.value = mutable.value.copy(busy = false, preparingResponse = false)
             }
@@ -579,10 +583,17 @@ class ShellViewModel internal constructor(
     }
 }
 
-private fun recoveryNotice(failure: Exception, fallback: String): String = when ((failure as? WorkspaceFailure)?.category) {
-    "Full" -> "Local storage is full. Free space, then retry recovery. Saved progress is retained."
-    "Busy" -> "The local engine is busy. Wait briefly, then retry recovery. Saved progress is retained."
-    else -> fallback
+private fun ShellState.savedRecoveryFailure(failure: Exception, fallback: String): ShellState {
+    val restart = failure is LocalInferenceUncertain
+    val notice = when {
+        restart -> "The outcome could not be confirmed. Restart LocalLore completely, then open the same story and timeline and check saved history before sending again."
+        failure is WorkspaceFailure && failure.category == "Full" ->
+            "Local storage is full. Free space, then retry recovery. Saved progress is retained."
+        failure is WorkspaceFailure && failure.category == "Busy" ->
+            "The local engine is busy. Wait briefly, then retry recovery. Saved progress is retained."
+        else -> fallback
+    }
+    return copy(recoveryRequired = true, localRestartRequired = restart, notice = notice)
 }
 
 private fun DemoAction.description(): String = when (this) {

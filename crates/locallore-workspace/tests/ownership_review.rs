@@ -757,14 +757,15 @@ fn lost_commit_acknowledgement_retries_the_recorded_outcome_without_a_second_eff
     drop(h);
     let h = tmp.host(false);
     let id = resume(&h, &scope);
-    assert_eq!(submit(&h, &id, &req, "accepted"), accepted);
+    // A new owner can display the accepted history before any submit or prepare.
+    let reopened = snapshot(&h, &id, &scope, 1);
+    assert_eq!(reopened["status"], "ok", "{reopened}");
     assert_eq!(
-        snapshot(&h, &id, &scope, 1)["data"]["receipts"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
+        reopened["data"]["receipts"],
+        json!([accepted["data"]["receipt"]])
     );
+    assert_eq!(submit(&h, &id, &req, "accepted"), accepted);
+    assert_eq!(snapshot(&h, &id, &scope, 1), reopened);
 }
 
 #[test]

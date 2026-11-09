@@ -43,6 +43,7 @@ data class ShellState(
     val timelines: List<SavedTimeline> = emptyList(),
     val checkingCancellation: Boolean = false,
     val creationActive: Boolean = false,
+    val localRestartRequired: Boolean = false,
 )
 
 sealed interface DemoResult {

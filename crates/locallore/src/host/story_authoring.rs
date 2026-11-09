@@ -320,7 +320,30 @@ impl Host {
                         accepted: proposal.clone(),
                         title: title.clone(),
                     };
-                    let hash = core::origin_hash(&origin)?;
+                    let hash = match core::origin_hash(&origin) {
+                        Ok(hash) => hash,
+                        Err(error) if error == "InvalidProposal" => {
+                            // Preserve the legacy rejection and expose only actionable,
+                            // text-free reasons from the validator for the edited proposal.
+                            use core::InitialProposalFailureV1::{
+                                CharacterSelfKnowledge, RouteReachability,
+                            };
+                            let problem = match core::validate_proposal_detailed(
+                                &origin.reviewed,
+                                &origin.accepted,
+                            ) {
+                                Err(RouteReachability) => Some("RouteReachability"),
+                                Err(CharacterSelfKnowledge) => Some("CharacterSelfKnowledge"),
+                                _ => None,
+                            };
+                            let mut reply = reject(error);
+                            if let Some(problem) = problem {
+                                reply["review_problem"] = json!(problem);
+                            }
+                            return Ok(reply);
+                        }
+                        Err(error) => return Err(error),
+                    };
                     let reply = preview(job, &origin, &hash)?;
                     current.reviewed = Some((origin, hash));
                     current.phase = "reviewed";

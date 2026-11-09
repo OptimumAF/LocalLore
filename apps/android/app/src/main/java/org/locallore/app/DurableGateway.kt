@@ -75,7 +75,18 @@ internal class DurableGateway(
         check(!closed.get())
         val reply = transport.exchange(command)
         check(reply.getInt("version") == 1)
-        if (reply.getString("status") != "ok") throw WorkspaceFailure(reply.optString("error", "Storage"))
+        val status = reply.getString("status")
+        if (status != "ok") {
+            val problem = if (command.opt("op") == "authoring_review" &&
+                status == "rejected" && reply.opt("error") == "InvalidProposal") {
+                when (reply.opt("review_problem")) {
+                    "RouteReachability" -> OriginalReviewProblem.ROUTE_REACHABILITY
+                    "CharacterSelfKnowledge" -> OriginalReviewProblem.CHARACTER_SELF_KNOWLEDGE
+                    else -> null
+                }
+            } else null
+            throw WorkspaceFailure(reply.optString("error", "Storage"), originalReviewProblem = problem)
+        }
         return reply.getJSONObject("data")
     }
     private fun command(op: String) = JSONObject().put("op", op)
@@ -559,7 +570,10 @@ internal class DurableGateway(
         }
     }
 }
-internal class WorkspaceFailure(val category: String) : Exception("Workspace operation failed")
+internal class WorkspaceFailure(
+    val category: String,
+    val originalReviewProblem: OriginalReviewProblem? = null,
+) : Exception("Workspace operation failed")
 private val timelineId = Regex("[A-Za-z0-9_-]{1,64}")
 
 /** Metadata validation only. Replay, history eligibility and gameplay remain Rust-owned. */

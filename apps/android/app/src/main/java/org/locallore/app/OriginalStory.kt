@@ -23,6 +23,10 @@ internal data class OriginalJob(val job: String, val inputSha256: String, val pr
 internal data class OriginalGenerated(val job: String, val input: OriginalInput, val proposal: OriginalProposal, val provider: String)
 internal data class OriginalReview(val job: String, val reviewSha256: String, val input: OriginalInput,
     val proposal: OriginalProposal, val title: String, val details: List<String>)
+internal enum class OriginalReviewProblem {
+    ROUTE_REACHABILITY,
+    CHARACTER_SELF_KNOWLEDGE,
+}
 internal interface OriginalStoryGateway {
     suspend fun originalCapabilities(): OriginalCapabilities
     suspend fun beginOriginal(input: OriginalInput): OriginalJob

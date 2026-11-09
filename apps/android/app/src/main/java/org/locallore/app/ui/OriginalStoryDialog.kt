@@ -107,6 +107,20 @@ internal fun OriginalStoryDialog(state: OriginalStoryUiState, onDismiss: () -> U
                         if(world.possessions.size<4) OriginalAction("Add possession",editable) { onEdit(state,OriginalStoryEdit.Add(OriginalRows.POSSESSION)) }
                     }
                     OriginalField("Save title",state.title,"original-title",editable) { text(OriginalTextField.TITLE,it) }
+                    state.reviewProblem?.let { problem ->
+                        Text(
+                            when (problem) {
+                                OriginalReviewProblem.ROUTE_REACHABILITY ->
+                                    "Add travel routes so every location can be reached from the player's start. Follow the arrows in order."
+                                OriginalReviewProblem.CHARACTER_SELF_KNOWLEDGE ->
+                                    "Under each character's description, select that character in their own knowledge list."
+                            },
+                            modifier = Modifier.testTag("original-review-problem").semantics {
+                                liveRegion = LiveRegionMode.Polite
+                            },
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     if(world!=null) OriginalAction("Review changes",editable && validStoryTitle(state.title) && OriginalStoryWire.valid(input,world),"original-review") { onReview(state) }
                     if(!OriginalStoryWire.valid(input,world)) Text("Complete the fields before generating or reviewing. Use a different name for each character, including the player. Keep names and descriptions short; check the locations and who knows each fact.",color=MaterialTheme.colorScheme.error)
                     state.review?.let { review ->

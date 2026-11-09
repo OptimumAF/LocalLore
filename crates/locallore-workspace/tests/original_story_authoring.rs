@@ -427,6 +427,77 @@ fn edits_invalid_reviews_cancel_and_configuration_changes_revoke_old_creation_co
     assert_eq!(temp.snapshot(), before);
 }
 
+fn check_review_refusal(
+    edit: impl FnOnce(&mut InitialWorldProposalV1),
+    review_problem: Option<&str>,
+) {
+    let temp = Temp::new();
+    let h = temp.host();
+    let before = temp.snapshot();
+    let (input, proposal) = fixture(false);
+    let calls = configure(&h, &proposal);
+    let (job, old_hash) = ready(&h, &input, &proposal, "Ashglass");
+    let mut invalid = proposal.clone();
+    edit(&mut invalid);
+    let reply = call(
+        &h,
+        json!({"op":"authoring_review","job":job,"input":input,"proposal":invalid,"title":"Ashglass"}),
+    );
+    let mut expected = json!({"version":1,"status":"rejected","error":"InvalidProposal"});
+    if let Some(problem) = review_problem {
+        expected["review_problem"] = json!(problem);
+    }
+    assert_eq!(reply, expected);
+
+    let id = "e".repeat(32);
+    assert_eq!(create(&h, &job, &old_hash, &id)["error"], "Stale");
+    assert_eq!(temp.snapshot(), before);
+
+    let review = data(call(
+        &h,
+        json!({"op":"authoring_review","job":job,"input":input,"proposal":proposal,"title":"Repaired Ashglass"}),
+    ));
+    let new_hash = review["review_sha256"].as_str().unwrap();
+    assert_ne!(new_hash, old_hash);
+    assert_eq!(temp.snapshot(), before);
+    let created = data(create(&h, &job, new_hash, &id));
+    assert_eq!(created["created"], true);
+    let saved = temp.snapshot();
+    assert_eq!(saved["stories"].as_array().unwrap().len(), 1);
+    let retry = data(create(&h, &job, new_hash, &id));
+    assert_eq!(retry["created"], false);
+    assert_eq!(retry["scope"], created["scope"]);
+    assert_eq!(temp.snapshot(), saved);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn unreachable_authoring_review_reports_bounded_problem_and_revokes_consent() {
+    check_review_refusal(
+        |proposal| {
+            let start = proposal.player_location;
+            proposal.routes.retain(|route| route.from != start);
+        },
+        Some("RouteReachability"),
+    );
+}
+
+#[test]
+fn missing_self_knowledge_review_reports_bounded_problem_and_revokes_consent() {
+    check_review_refusal(
+        |proposal| proposal.characters[0].known_by = vec![0],
+        Some("CharacterSelfKnowledge"),
+    );
+}
+
+#[test]
+fn duplicate_route_review_keeps_the_generic_refusal() {
+    check_review_refusal(
+        |proposal| proposal.routes.push(proposal.routes[0].clone()),
+        None,
+    );
+}
+
 #[test]
 fn malformed_and_impossible_generated_worlds_never_reach_create_or_change_prior_canon() {
     for bytes in [

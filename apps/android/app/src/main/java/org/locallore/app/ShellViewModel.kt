@@ -439,6 +439,7 @@ class ShellViewModel internal constructor(
                 if (disposed || ticket != generation) return@launch
                 val saved = if (gateway.durable) gateway.snapshot() else null
                 if (disposed || ticket != generation) return@launch
+                if (gateway.durable) checkNotNull(saved) { "Missing saved turn snapshot" }
                 mutable.value = when (result) {
                     is DemoResult.Accepted -> if (saved != null) publishSaved(saved, "Outcome accepted and saved by the local engine.") else before.copy(
                         revision = result.revision,

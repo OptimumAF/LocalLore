@@ -189,3 +189,30 @@ python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_lifecy
 
 The lifecycle tests use synthetic owner and ledger records. The fixed
 operator launcher and real guest admission remain separate.
+
+## Verify the operator's prepared-run admission
+
+The host gate accepts one externally approved authority record at the fixed
+SDK25 operation root. That record binds the exact admission and the current
+prepared v2 snapshot of the shared storage ledger. The admission binds the
+reviewed source, retained APKs and fixture executable, and scoped run
+proposal and authorization. The target must already be prepared by the
+shared workflow. The gate allows one boot, with a 1,700-second owner lease
+and 1,800-second guest ceiling. Preparation, model work and retirement
+require separate authority.
+
+The preboot check performs no launch or reservation. Spending writes a
+create-only attempt claim. The future owner must recheck it and use the
+same ledger pin and prepare digest in the shared locked transition to
+`retained` before publishing its boot claim. That atomic transition uses
+ledger v2. The closed verifier can still replay either supported schema.
+A v1 ledger, changed snapshot or observed storage lock refuses this
+prepared-run admission. The check reads the pinned installation and
+registry metadata and rehashes the prepared guest's initial SD image.
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p test_archive_roundtrip_admission.py
+```
+
+These host tests use synthetic admission, authorization and ledger
+records. The real operator launcher, authority and guest run are separate.

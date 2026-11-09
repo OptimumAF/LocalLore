@@ -69,3 +69,20 @@ its claim and records.
 Success requires the unbooted prepared receipt, worker output and closure
 proof, and matching prepared ledger entry. This scope ends at preparation.
 Boot and Android execution still require a separately authorized owner handoff.
+
+## Candidate activation
+
+`benchmarks/archive_provider_platform_admission.py` replays the preparation
+approval, claim, worker and unbooted guest receipts. It checks the current
+ledger for the exact prepared reservation. A previous preparation receipt
+keeps its original ledger observation if an unrelated entry later changes.
+
+With the exact SDK and helper inputs, the module stages a run proposal,
+owner admission, and review for the two-test sequence. It pins the current
+ledger and requires unused boot outputs. The admission includes only the
+expected authorization digest. The actual authorization and owner handoff
+require separate activation approval and fresh preboot checks.
+
+Freeze the complete source roster before requesting preparation approval.
+The earlier SDK26 plans remain evidence of capacity refusal on their own
+source revisions.

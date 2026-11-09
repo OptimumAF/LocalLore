@@ -2,7 +2,11 @@
 package org.locallore.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,10 +75,7 @@ fun StoryRecordDialog(
     val windowHeight = with(density) { windowSize.height.toDp() }
     val canQuery = state.context != null && !state.loading
 
-    Dialog(
-        onDismissRequest = { if (state.eventDetail != null) onEventBack() else onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
+    val recordContent: @Composable () -> Unit = {
         Surface(
             modifier = Modifier.widthIn(max = minOf(560.dp, windowWidth * 0.94f))
                 .fillMaxWidth().heightIn(max = windowHeight * 0.9f).fillMaxHeight()
@@ -127,18 +129,16 @@ fun StoryRecordDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    StoryRecordSection.entries.chunked(2).forEach { sections ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            sections.forEach { section ->
-                                FilterChip(
-                                    selected = state.section == section,
-                                    onClick = { onSection(section) },
-                                    enabled = state.context != null,
-                                    label = { Text(section.label) },
-                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                                        .testTag("story-record-section-${section.wire}"),
-                                )
-                            }
+                    RecordActionRows {
+                        StoryRecordSection.entries.forEach { section ->
+                            FilterChip(
+                                selected = state.section == section,
+                                onClick = { onSection(section) },
+                                enabled = state.context != null,
+                                label = { Text(section.label) },
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                    .testTag("story-record-section-${section.wire}"),
+                            )
                         }
                     }
                     OutlinedTextField(
@@ -221,7 +221,7 @@ fun StoryRecordDialog(
                             Text(limitation, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RecordActionRows {
                         OutlinedButton(
                             onClick = onFirst,
                             enabled = canQuery && state.cursor != null,
@@ -244,6 +244,30 @@ fun StoryRecordDialog(
                 ) { Text("Close") }
             }
         }
+    }
+    Dialog(
+        onDismissRequest = { if (state.eventDetail != null) onEventBack() else onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        // The dialog has its own Compose owner. Keep the screen's text scale for this record.
+        CompositionLocalProvider(LocalDensity provides density, content = recordContent)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecordActionRows(content: @Composable FlowRowScope.() -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val gap = 8.dp
+        // Leave room for readable labels and button padding as the user's text grows.
+        val minActionWidth = 128.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            maxItemsInEachRow = if (maxWidth >= minActionWidth * 2 + gap) 2 else 1,
+            content = content,
+        )
     }
 }
 

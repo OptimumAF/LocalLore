@@ -355,25 +355,17 @@ inline Clock::time_point settle(const Handle& process, const Handle& job, const 
     return *drain_deadline;
 }
 
-template <typename Cancelled>
-Result launch_with_cancel(const Request& request, const Cancelled& cancelled) {
+template <typename Cancelled, typename Ready>
+Result launch_owned(const std::wstring& executable, std::wstring cmd, std::wstring env,
+                    const std::wstring& cwd, Clock::time_point started, Clock::time_point deadline,
+                    const Cancelled& cancelled, const Ready& ready, Handle* quarantine = nullptr) {
     Result result;
-    const auto started = Clock::now();
-    const auto deadline = started + run_window;
     Handle job, in, stdin_writer, out, stdout_writer, err, stderr_writer, process, thread;
     const auto start = [&]() {
         if (cancelled()) {
             stop(result, Stop::cancelled);
             return;
         }
-        if (!valid(request)) {
-            stop(result, Stop::request);
-            return;
-        }
-        auto cmd = command(request);
-        auto env = environment(request);
-        const auto executable = slash_to_windows(request.compiler);
-        const auto cwd = slash_to_windows(request.worker);
         if (cmd.size() >= 32767 || env.size() >= 32767) {
             stop(result, Stop::request);
             return;
@@ -392,6 +384,16 @@ Result launch_with_cancel(const Request& request, const Cancelled& cancelled) {
         }
         close(stdin_writer, result);
         if (result.io_error) return;
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION observed{};
+        if (!QueryInformationJobObject(job.value, JobObjectExtendedLimitInformation,
+                                       &observed, sizeof(observed), nullptr)) {
+            stop(result, Stop::setup, GetLastError());
+            return;
+        }
+        if (observed.BasicLimitInformation.LimitFlags != JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) {
+            stop(result, Stop::setup, ERROR_INVALID_DATA);
+            return;
+        }
 
         HANDLE child_handles[]{in.value, stdout_writer.value, stderr_writer.value};
         HANDLE jobs[]{job.value};
@@ -434,6 +436,15 @@ Result launch_with_cancel(const Request& request, const Cancelled& cancelled) {
         close(stderr_writer, result);
         if (cancelled()) stop(result, Stop::cancelled);
         if (Clock::now() >= deadline) stop(result, Stop::deadline);
+        if (result.stop == Stop::none) {
+            try {
+                if (!ready(job.value, process.value, result.pid)) stop(result, Stop::setup, ERROR_INVALID_DATA);
+            } catch (...) {
+                stop(result, Stop::setup, ERROR_INVALID_DATA);
+            }
+        }
+        if (cancelled()) stop(result, Stop::cancelled);
+        if (Clock::now() >= deadline) stop(result, Stop::deadline);
         if (result.stop != Stop::none) return;
         const DWORD previous = ResumeThread(thread.value);
         if (previous == 1) result.resumed = true;
@@ -450,13 +461,34 @@ Result launch_with_cancel(const Request& request, const Cancelled& cancelled) {
             stop(result, Stop::io, GetLastError());
         }
     }
-    for (Handle* handle : {&thread, &in, &stdin_writer, &stdout_writer, &stderr_writer, &out, &err, &job})
+    for (Handle* handle : {&thread, &in, &stdin_writer, &stdout_writer, &stderr_writer, &out, &err})
         close(*handle, result);
+    if (quarantine && result.pid &&
+        !(result.closed() && result.job_and_pipes_closed() && !result.io_error)) {
+        quarantine->value = std::exchange(job.value, nullptr);
+        result.handles_closed = false;
+    }
+    close(job, result);
     if (cancelled()) stop(result, Stop::cancelled);
     const auto finished = Clock::now();
     if (drain_deadline && finished >= *drain_deadline) stop(result, Stop::drain);
     result.elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count();
     return result;
+}
+
+template <typename Cancelled>
+Result launch_with_cancel(const Request& request, const Cancelled& cancelled) {
+    const auto started = Clock::now();
+    const bool was_cancelled = cancelled();
+    if (was_cancelled || !valid(request)) {
+        Result result;
+        stop(result, was_cancelled ? Stop::cancelled : Stop::request);
+        result.elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
+        return result;
+    }
+    const auto ready = [](HANDLE, HANDLE, DWORD) { return true; };
+    return launch_owned(slash_to_windows(request.compiler), command(request), environment(request),
+                        slash_to_windows(request.worker), started, started + run_window, cancelled, ready);
 }
 
 } // namespace detail

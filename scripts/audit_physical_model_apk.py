@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from benchmarks import runtime_spike as host
 
 APP = "org.locallore.app.phoneverify"
+INPUT_PROCESS_APP = "org.locallore.app.draftprocessverify"
 TEST = APP + ".test"
 RUNNER = "androidx.test.runner.AndroidJUnitRunner"
 TEST_METHODS = {
@@ -238,7 +239,7 @@ def one(header, name, expected):
 
 def audit_test_manifest(test_badging, test_tree, app):
     """Shared closed test-APK boundary; no package discovery or tool execution."""
-    require(type(app) is str and app in ("org.locallore.app", "org.locallore.app.archiveverify", APP,
+    require(type(app) is str and app in ("org.locallore.app", "org.locallore.app.archiveverify", APP, INPUT_PROCESS_APP,
                                        "org.locallore.app.presentationprocessverify"),
             "Unreviewed instrumentation app package")
     test_package = app + ".test"

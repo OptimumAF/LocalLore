@@ -707,20 +707,26 @@ export function App({
                         maintenance &&
                         maintenanceContext &&
                         selected && (
-                            <MemoryMaintenancePanel
-                                maintenance={maintenance}
-                                context={maintenanceContext()}
-                                receipt={
-                                    receipt
-                                        ? {
-                                              turn: receipt.request.turn,
-                                              revision:
-                                                  receipt.events.at(-1)
-                                                      ?.sequence ?? 0,
-                                          }
-                                        : undefined
-                                }
-                            />
+                            <details
+                                className="workspace-tool"
+                                open={s.view === "lab"}
+                            >
+                                <summary>Memory maintenance</summary>
+                                <MemoryMaintenancePanel
+                                    maintenance={maintenance}
+                                    context={maintenanceContext()}
+                                    receipt={
+                                        receipt
+                                            ? {
+                                                  turn: receipt.request.turn,
+                                                  revision:
+                                                      receipt.events.at(-1)
+                                                          ?.sequence ?? 0,
+                                              }
+                                            : undefined
+                                    }
+                                />
+                            </details>
                         )}
                     {timeline && selected && (
                         <TimelinePanel
@@ -810,10 +816,18 @@ export function App({
                         <ComparisonReaderPanel controller={comparison} />
                     )}
                     {comparison && selectedEvaluation && (
-                        <SelectedExperiment
-                            comparison={comparison}
-                            selected={selectedEvaluation}
-                        />
+                        <details
+                            className="workspace-tool"
+                            open={s.view === "lab"}
+                        >
+                            <summary>
+                                Selected experiments and worker cleanup
+                            </summary>
+                            <SelectedExperiment
+                                comparison={comparison}
+                                selected={selectedEvaluation}
+                            />
+                        </details>
                     )}
                     {archive && (
                         <ArchivePanel

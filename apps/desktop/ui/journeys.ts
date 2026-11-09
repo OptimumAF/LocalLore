@@ -350,6 +350,11 @@ export async function journeys({
         }
         throw new Error("JourneyTimeout");
     };
+    const workspaceTools = () => [
+        ...document.querySelectorAll<HTMLDetailsElement>(
+            "details.workspace-tool",
+        ),
+    ];
     const checkpoint = async (label: string) => {
         await pause();
         const root = document.getElementById("root")!;
@@ -388,6 +393,13 @@ export async function journeys({
             })),
             text: root.textContent?.slice(0, 32000),
             transcriptRows: root.querySelectorAll(".turn").length,
+            workspaceTools: workspaceTools().map((tool) => ({
+                title: tool.querySelector("summary")?.textContent?.trim(),
+                open: tool.open,
+            })),
+            transcriptTop:
+                root.querySelector(".transcript")?.getBoundingClientRect()
+                    .top ?? null,
             viewport: { width: innerWidth, height: innerHeight },
             horizontalOverflow:
                 document.documentElement.scrollWidth > innerWidth + 2,
@@ -516,6 +528,34 @@ export async function journeys({
                 }) === "edit",
             "shared-enter-newline-ime-shortcut",
         );
+        await pause();
+        const tools = workspaceTools();
+        const cleanup = document.getElementById("comparison-native-cleanup");
+        check(
+            tools.length === 2 && tools.every((tool) => !tool.open),
+            "play-workspace-tools-closed-by-default",
+        );
+        check(
+            !!cleanup && cleanup.getBoundingClientRect().height > 0,
+            "native-evaluation-cleanup-visible-in-play",
+        );
+        const experiments = tools.find((tool) =>
+            tool.querySelector("summary")?.textContent?.includes("experiments"),
+        );
+        if (!experiments)
+            throw new Error("SelectedExperimentDisclosureMissing");
+        experiments.open = true;
+        await pause();
+        const workerCleanup = [...experiments.querySelectorAll("button")].find(
+            (button) => button.textContent?.trim() === "Check worker cleanup",
+        );
+        check(
+            !!workerCleanup &&
+                !workerCleanup.disabled &&
+                workerCleanup.getBoundingClientRect().height > 0,
+            "selected-worker-cleanup-reachable-in-play",
+        );
+        experiments.open = false;
         await checkpoint("initial");
         await c.send();
         check(
@@ -535,6 +575,16 @@ export async function journeys({
             receipts: c.get().play!.receipts,
         })) as { equal: boolean };
         check(oracle.equal, "direct-headless-engine-equality");
+        await pause();
+        const acceptedRow = document
+            .querySelector(".transcript .turn")
+            ?.getBoundingClientRect();
+        check(
+            !!acceptedRow &&
+                acceptedRow.top >= 0 &&
+                acceptedRow.top < innerHeight,
+            "play-accepted-turn-visible-in-first-viewport",
+        );
         await checkpoint("play-accepted");
         await c.send();
         check(
@@ -744,6 +794,12 @@ export async function journeys({
                 c.get().inspectionObserver === "omniscient",
             "explicit-lab-grant",
         );
+        await pause();
+        check(
+            workspaceTools().length === 2 &&
+                workspaceTools().every((tool) => tool.open),
+            "story-lab-workspace-tools-open",
+        );
         await checkpoint("receipt");
         c.setObserver("sable");
         await c.inspect();
@@ -761,6 +817,12 @@ export async function journeys({
         check(
             c.get().inspection === null && c.get().observer === "player",
             "play-clears-omniscient-cache",
+        );
+        await pause();
+        check(
+            workspaceTools().length === 2 &&
+                workspaceTools().every((tool) => !tool.open),
+            "return-to-play-collapses-workspace-tools",
         );
         await checkpoint("play-return");
         c.setAction("dialogue");

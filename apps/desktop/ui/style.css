@@ -272,6 +272,15 @@ small,
     color: #deebcf;
     font-size: 0.8em;
 }
+.workspace-tool {
+    min-width: 0;
+    border-bottom: 1px solid #364238;
+}
+.workspace-tool > summary {
+    padding: 0.55rem 1.5rem;
+    font-size: 0.85em;
+    overflow-wrap: anywhere;
+}
 .transcript {
     flex: 1;
     min-height: 15rem;

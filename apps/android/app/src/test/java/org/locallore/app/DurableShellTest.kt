@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -37,7 +38,7 @@ class DurableShellTest {
         var current = saved()
         var closes = 0
         override suspend fun initialize() = current
-        override suspend fun snapshot() = current
+        override suspend fun snapshot(): SavedSnapshot? = current
         override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult = DemoResult.Prepared(0, 1)
         override suspend fun commitAsync(result: DemoResult): DemoResult = DemoResult.Accepted(1, "untrusted presentation", "unpublished draft")
         override suspend fun createSaved(): SavedSnapshot { current = saved(fresh); return current }
@@ -63,6 +64,83 @@ class DurableShellTest {
         assertEquals(listOf("Recorded action", "Saved narration"), model.state.value.messages.map { it.text })
         assertEquals("Not in your inventory", model.state.value.potionOwner)
     }
+
+    @Test fun acceptedTurnWithoutSnapshotRetainsCanonUntilRecovery() = runTest(dispatcher) {
+        val selected = old.copy(revision = 2)
+        val previous = saved()
+        val recovered = previous.copy(
+            revision = selected.revision,
+            potionOwner = "Story companion",
+            messages = previous.messages + listOf(
+                SceneMessage(3, "Second recorded action", true),
+                SceneMessage(4, "Recovered receipt narration", false),
+            ),
+            stories = listOf(selected, fresh),
+            selected = selected,
+        )
+        assertMissingTurnSnapshot(DemoResult.Prepared(0, 1), 1, recovered)
+    }
+
+    @Test fun rejectedTurnWithoutSnapshotRequiresRecoveryBeforeAnotherSend() = runTest(dispatcher) {
+        assertMissingTurnSnapshot(DemoResult.Rejected("Inventory"), 0, saved())
+    }
+
+    private fun TestScope.assertMissingTurnSnapshot(
+        prepared: DemoResult,
+        expectedCommits: Int,
+        recovered: SavedSnapshot,
+    ) {
+        var responses = 0
+        var commits = 0
+        var recoveries = 0
+        val gateway = object : Durable() {
+            override suspend fun snapshot(): SavedSnapshot? = null
+            override suspend fun respond(action: DemoAction, revision: Long, mode: DemoMode): DemoResult {
+                responses++
+                return prepared
+            }
+            override suspend fun commitAsync(result: DemoResult): DemoResult {
+                commits++
+                return DemoResult.Accepted(2, "untrusted presentation", "unpublished draft")
+            }
+            override suspend fun recoverSaved(): SavedSnapshot {
+                recoveries++
+                return recovered
+            }
+        }
+        val model = model(gateway)
+        advanceUntilIdle()
+        val before = model.state.value
+
+        model.submit(DemoAction.GIVE_POTION)
+        advanceUntilIdle()
+        val after = model.state.value
+        assertEquals(before, after.copy(notice = before.notice, recoveryRequired = before.recoveryRequired))
+        assertTrue(after.recoveryRequired)
+        assertTrue(after.notice.orEmpty().contains("Retry recovery"))
+        assertEquals(1, responses)
+        assertEquals(expectedCommits, commits)
+
+        model.submit(DemoAction.GIVE_POTION)
+        advanceUntilIdle()
+        assertEquals(1, responses)
+        assertEquals(expectedCommits, commits)
+        assertEquals(0, recoveries)
+
+        model.recover()
+        advanceUntilIdle()
+        val restored = model.state.value
+        assertFalse(restored.recoveryRequired)
+        assertEquals(recovered.revision, restored.revision)
+        assertEquals(recovered.potionOwner, restored.potionOwner)
+        assertEquals(recovered.messages, restored.messages)
+        assertEquals(recovered.stories, restored.stories)
+        assertEquals(recovered.selected, restored.selectedStory)
+        assertEquals(1, recoveries)
+        assertEquals(1, responses)
+        assertEquals(expectedCommits, commits)
+    }
+
     @Test fun newStoryRetainsLibraryAndResumeRestoresEarlierCanon() = runTest(dispatcher) {
         val model = model(Durable()); advanceUntilIdle()
         model.reset(); advanceUntilIdle()

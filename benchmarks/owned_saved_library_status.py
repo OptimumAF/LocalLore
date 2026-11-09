@@ -5,6 +5,7 @@ Copyright 2026 LocalLore contributors. SPDX-License-Identifier: Apache-2.0
 import copy
 import os
 from pathlib import Path, PureWindowsPath
+import re
 import sys
 
 if __package__ in (None, ""):
@@ -170,9 +171,15 @@ def _live_boot(pin, approved, launch_inputs, parent=None):
     """Recheck the pinned handoff and the actual enclosing process identities."""
     from benchmarks import saved_library_status_handoff as handoff
 
-    current_pin, current = handoff.read(handoff.HANDOFF)
+    _live_handoff(pin, approved, launch_inputs, parent, path=handoff.HANDOFF, env_key=handoff.HANDOFF_ENV)
+
+
+def _live_handoff(pin, approved, launch_inputs, parent=None, *, path, env_key):
+    from benchmarks import saved_library_status_handoff as handoff
+
+    current_pin, current = handoff.read(path)
     environment.require(
-        pin["sha256"] == os.environ.get(handoff.HANDOFF_ENV)
+        pin["sha256"] == os.environ.get(env_key)
         and _same(current_pin, pin) and _same(current, approved), "handoff",
     )
     supervisor = approved["supervisor"]
@@ -235,13 +242,124 @@ class _SavedLibraryStatusRuntime(mechanisms._TargetRuntimeCore):
         return REPLAY
 
 
+RESUME_HANDOFF_ENV = "LOCALLORE_SAVED_LIBRARY_RESUME_HANDOFF_SHA256"
+
+
+class _ResumeContract:
+    @property
+    def RUN_SCOPE(self):
+        from benchmarks import saved_library_status_resume_handoff as resume
+
+        return resume.RUN_SCOPE
+
+    def __getattr__(self, name):
+        return getattr(_CONTRACT, name)
+
+
+_RESUME_CONTRACT = _ResumeContract()
+RESUME_REPLAY = verification._Verifier(_RESUME_CONTRACT)
+
+
+def _resume_boot(admission_pin, *, owner_created=False):
+    from benchmarks import saved_library_status_resume_handoff as resume
+
+    pin, _ = resume.h.read(resume.HANDOFF)
+    environment.require(pin["sha256"] == os.environ.get(RESUME_HANDOFF_ENV), "handoff")
+    handoff, admission = resume.verify_handoff(pin, admission_pin, owner_created=owner_created)
+    authority, plan = resume.read_authority(handoff["authority"])
+    guest = admission["guest"]
+    launch_inputs = (authority["plan"], authority["proposal"], plan["evidence"]["manifest"],
+                     plan["handoff_source"], plan["review_source"], plan["original_authority"],
+                     plan["original_admission"], plan["original_run"], guest["proposal"], guest["authorization"])
+    return pin, handoff, admission, plan["evidence"]["ledger"], launch_inputs
+
+
+class _SavedLibraryResumeRuntime(mechanisms._TargetRuntimeCore):
+    def __init__(self, request, request_binding, root):
+        mechanisms._need(type(self) is _SavedLibraryResumeRuntime, "owner_type")
+        self._resume_pin, self._handoff, admission, self._ledger, self._launch_inputs = _resume_boot(
+            request["admission"], owner_created=True)
+        mechanisms._need(_same(admission, request["validated_admission"]), "admission")
+        self._guard_handoff(request["owner"])
+        super().__init__(request, request_binding, root)
+
+    def _guard_handoff(self, parent):
+        from benchmarks import saved_library_status_resume_handoff as resume
+
+        _live_handoff(self._resume_pin, self._handoff, self._launch_inputs, parent,
+                      path=resume.HANDOFF, env_key=RESUME_HANDOFF_ENV)
+
+    def _preparation_options(self):
+        from benchmarks import saved_library_status_prepared_review as review
+
+        return {"preparation_root": review.EXECUTED_ROOT}
+
+    def start_server(self):
+        self._guard_handoff(self.request["owner"])
+        environment.check_binding(self._ledger)
+        super().start_server()
+
+    def guard(self):
+        from benchmarks import saved_library_status_handoff as handoff
+
+        super().guard()
+        window = handoff.check_launch_window if self.guest_child is None else handoff.check_window
+        window(self._handoff["began_ns"], self._handoff["until_ns"])
+
+    def _retain_guest(self):
+        self._guard_handoff(self.request["owner"])
+        guest = self.admission["guest"]
+        environment.storage_transition(
+            storage.record_state, Path(guest["root"]), "retained",
+            proposal_sha256=guest["proposal"]["sha256"],
+            expected_prepare_sha256=self.proposal["prepare_proposal"]["sha256"],
+            expected_ledger=self._ledger,
+        )
+        self._guard_handoff(self.request["owner"])
+
+    @property
+    def _contract(self):
+        return _RESUME_CONTRACT
+
+    @property
+    def _verification(self):
+        return RESUME_REPLAY
+
+
+def _resume_main(args):
+    from benchmarks import saved_library_status_handoff as handoff
+    from benchmarks import saved_library_status_resume_handoff as resume
+
+    digest = os.environ.get(RESUME_HANDOFF_ENV, "")
+    if handoff.HANDOFF_ENV in os.environ or re.fullmatch("[0-9a-f]{64}", digest) is None:
+        return 1
+    if args != ["_worker"] and not (
+        len(args) == 4 and args[:3] == ["--admission", str(resume.ADMISSION), "--admission-sha256"]
+    ):
+        return 1
+
+    def check_admission(admission):
+        pin, saved = resume.h.read(resume.ADMISSION)
+        environment.require(pin["sha256"] == args[3] and _same(admission, saved), "admission")
+        handoff_pin, approved, expected, _, launch_inputs = _resume_boot(pin)
+        environment.require(_same(admission, expected), "admission")
+        _live_handoff(handoff_pin, approved, launch_inputs, path=resume.HANDOFF, env_key=RESUME_HANDOFF_ENV)
+
+    return mechanisms._main_profile(args, _contract=_RESUME_CONTRACT, _verification=RESUME_REPLAY,
+                                    _runtime_type=_SavedLibraryResumeRuntime, _admission_check=check_admission)
+
+
 def main(argv=None):
     from benchmarks import saved_library_status_handoff as handoff
 
     args = sys.argv[1:] if argv is None else argv
-    if type(args) is not list or (args != ["_worker"] and not (
+    if type(args) is not list:
+        return 1
+    if RESUME_HANDOFF_ENV in os.environ:
+        return _resume_main(args)
+    if args != ["_worker"] and not (
         len(args) == 4 and args[:3] == ["--admission", str(handoff.ADMISSION), "--admission-sha256"]
-    )):
+    ):
         return 1
 
     def check_admission(admission):

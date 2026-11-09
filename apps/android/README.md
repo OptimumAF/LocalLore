@@ -58,8 +58,11 @@ result supports review for reuse under separate approval.
 
 The [reuse handoff](../../benchmarks/saved_library_status_resume_handoff.py)
 uses an activation-only approval and a fresh attempt directory. It
-preserves the original preparation and run proposal bytes. An owned
-activation entry point must consume this handoff before the guest can boot.
+preserves the original preparation and run proposal bytes. The owned
+runner checks the original preparation source and the current runtime
+source separately. It can consume the existing reservation only when the
+approved ledger bytes and prepared digest still match under the shared
+lock. A separate supervisor and fresh approval are required for a live run.
 
 ## Build and run
 

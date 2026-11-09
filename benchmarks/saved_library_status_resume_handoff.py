@@ -192,9 +192,15 @@ def bind_admission(authority_pin, attempt_pin):
     return h.save(ADMISSION, admission)
 
 
-def verify_handoff(handoff_pin, admission_pin):
-    """Replay a new activation handoff before any owned runtime is dispatched."""
-    _need(not os.path.lexists(OWNED_ROOT), "already_used")
+def _check_owner_output(owner_created):
+    _need(type(owner_created) is bool and os.path.lexists(OWNED_ROOT) is owner_created, "already_used")
+    if owner_created:
+        env.safe_path(OWNED_ROOT, directory=True)
+
+
+def verify_handoff(handoff_pin, admission_pin, *, owner_created=False):
+    """Replay the handoff at the parent or at its already dispatched worker."""
+    _check_owner_output(owner_created)
     handoff = h.at(handoff_pin, HANDOFF)
     owner._obj(handoff, ("version", "scope", "authority", "attempt", "admission", "supervisor",
                          "began_ns", "until_ns"), "handoff")
@@ -217,6 +223,6 @@ def verify_handoff(handoff_pin, admission_pin):
     for pin in (handoff_pin, admission_pin, handoff["authority"], handoff["attempt"], run, authorization,
                 plan["evidence"]["ledger"]):
         env.check_binding(pin)
-    _need(not os.path.lexists(OWNED_ROOT), "already_used")
+    _check_owner_output(owner_created)
     h.check_launch_window(handoff["began_ns"], handoff["until_ns"])
     return handoff, admission

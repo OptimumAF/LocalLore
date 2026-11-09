@@ -843,6 +843,9 @@ class _TargetRuntimeCore:
             raise OwnerRefused("stop_requested")
         _left(self.until)
 
+    def _preparation_options(self):
+        return {}
+
     def guard(self):
         self.fast_guard()
         self._contract.revalidate_inputs(self.admission)
@@ -851,7 +854,7 @@ class _TargetRuntimeCore:
         self.auth.check()
         if self.proposal is not None:
             environment.check_external_state(self.proposal)
-            environment.verify_prepared(self.proposal)
+            environment.verify_prepared(self.proposal, **self._preparation_options())
         for root in (self.root, self.root / "server"):
             log = root / "adb.log"
             if os.path.lexists(log):
@@ -893,11 +896,12 @@ class _TargetRuntimeCore:
         self.guard()
         guest = self.admission["guest"]
         self.proposal = environment.authorize(guest["proposal"]["path"], guest["authorization"]["path"], "run",
-                                              run_scope=getattr(self._contract, "RUN_SCOPE", None))
+                                              run_scope=getattr(self._contract, "RUN_SCOPE", None),
+                                              **self._preparation_options())
         _need(self.proposal["paths"]["root"] == guest["root"] and self.proposal["memory_mib"] == 8192 and
               self.proposal["cores"] == 4 and self.proposal["max_seconds"] == 1800 and
               Path(self.proposal["sdk"]) / "emulator/emulator.exe" == Path(guest["emulator"]["path"]), "guest")
-        prepared = environment.verify_prepared(self.proposal, initial=True)
+        prepared = environment.verify_prepared(self.proposal, initial=True, **self._preparation_options())
         config_path = Path(self.proposal["paths"]["content"]) / "config.ini"
         _need(config_path.stat().st_size <= CAP, "guest")
         configuration = environment.ini(config_path.read_bytes())
@@ -925,7 +929,7 @@ class _TargetRuntimeCore:
     def start_guest(self):
         self.guard()
         _need(self.proposal is not None, "guest")
-        environment.verify_prepared(self.proposal, initial=True)
+        environment.verify_prepared(self.proposal, initial=True, **self._preparation_options())
         environment.check_binding(self.admission["guest"]["proposal"])
         self._retain_guest()
         claim_path = Path(self.admission["guest"]["root"]) / self._contract.BOOT_CLAIM_FILE

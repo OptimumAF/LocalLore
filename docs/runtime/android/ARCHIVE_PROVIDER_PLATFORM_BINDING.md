@@ -116,5 +116,36 @@ ADB port. The prepared reservation transitions to retained under the
 ledger lock before the guest starts. The controller requests an owned stop,
 and the parent publishes completion only after closure replay.
 
-An activation supervisor must still spend the one-use grant and start the
-owner under its bounded job. Device execution requires separate approval.
+## One-use activation supervisor
+
+The operator entry point accepts only the SHA-256 of the separately approved
+SDK26 activation authority at the fixed activation path. It replays the
+candidate against the current ledger, verifies the pinned Python, and creates
+the exclusive activation claim before any child starts.
+
+The shared watchdog assigns the worker to its Windows Job before delivering
+the pinned request. The worker waits for the supervisor's identity receipt and
+checks the actual parent and Job before publishing the exact run authorization.
+It starts the owner behind a second stdin barrier, records its observed process
+identity and verifies ancestry and Job membership before releasing it. The
+owner checks that same receipt before entering the existing SDK26 owner adapter.
+
+The activation window is 30 minutes from initial validation. The shared
+watchdog closes the outer Job on exit or timeout. The host accepts success
+only if replay finishes by 60 seconds after the activation window ends.
+Success requires the expected two owner status records, clean watchdog
+closure, both verified instrumentation results, and the closed ledger receipt
+for the independently observed owner. The result pins the exact startup
+receipts, handoff and captures used for replay. The operation retains its spent
+claim and any failure records.
+A failure requires review of the original evidence before another proposal.
+
+From the physical D: worktree, with TEMP, TMP and TMPDIR set to
+`D:\Dev\_Temp`, use this command only after exact one-boot approval:
+
+```powershell
+python -I -S -B benchmarks/archive_provider_platform_operation.py --authority-sha256 <approved-sha256>
+```
+
+Host verification of this supervisor leaves both Android methods unrun.
+Preparation and activation each require their own approved inputs.

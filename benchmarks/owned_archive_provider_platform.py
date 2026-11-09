@@ -42,6 +42,7 @@ SOURCE_NAMES = frozenset(core.SOURCE_NAMES | core.CURRENT_STORAGE_SOURCES | {
     "archive_provider_platform_controller.py", "android_instrumentation_evidence.py",
     "archive_provider_platform_preparation.py", "archive_provider_platform_admission.py",
     "archive_provider_platform_handoff.py", "archive_provider_platform_closure.py",
+    "archive_provider_platform_operation.py",
 })
 _DEX_AUDIT_SOURCES = ("audit_apk.py", "audit_physical_model_apk.py")
 

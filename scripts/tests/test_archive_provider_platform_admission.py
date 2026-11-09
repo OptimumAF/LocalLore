@@ -33,6 +33,7 @@ class ArchiveProviderAdmissionTests(unittest.TestCase):
             "RUN": "run-proposal-v1.json", "ADMISSION": "admission-v1.json",
             "PROPOSAL": "PROPOSED_OPERATION.md", "CANDIDATE": "candidate-v1.json",
             "RUN_AUTHORITY": "run-authorization-v1.json", "HANDOFF": "boot-handoff-v1.json",
+            "COMPLETION": "activation-completion-v1.json",
             "OWNED_ROOT": "owned-v1", "AUTHORITY": "human-authority-v1.json", "CLAIM": "claim-v1.json",
         }.items():
             self.enterContext(patch.object(admission, name, output / leaf, create=True))

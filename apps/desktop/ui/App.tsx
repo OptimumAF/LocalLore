@@ -252,6 +252,7 @@ export function App({
     const s = useSyncExternalStore(c.subscribe, c.get),
         selected = c.selected(),
         receipt = c.receipt();
+    const storageReady = s.workspace !== null || s.ephemeral;
     const syntheticFreeText = s.freeTextProvider?.kind === "synthetic_fixture";
     const scoped = useSyncExternalStore<V2PlayState | null>(
         v2?.subscribe ?? noScopedSubscription,
@@ -493,7 +494,7 @@ export function App({
                         disabled={
                             s.sessions.length >= 4 ||
                             s.starting ||
-                            (!s.workspace && !s.ephemeral)
+                            !storageReady
                         }
                         onClick={() => void c.create()}
                     >
@@ -543,7 +544,7 @@ export function App({
                             </p>
                         </details>
                     )}
-                    {!s.workspace && !s.ephemeral && !s.starting && (
+                    {!storageReady && !s.starting && (
                         <button onClick={() => void c.start()}>
                             Retry opening saved workspace
                         </button>
@@ -608,12 +609,21 @@ export function App({
                         <div className="topline">
                             <div>
                                 <h1>
-                                    {selected?.name ?? "Open an original scene"}
+                                    {selected?.name ??
+                                        (s.starting
+                                            ? "Opening workspace…"
+                                            : storageReady
+                                              ? "Open an original scene"
+                                              : "Saved workspace unavailable")}
                                 </h1>
                                 <small>
                                     {selected
                                         ? `${selected.scope.story} / ${selected.scope.branch}`
-                                        : "Choose New Lantern Quay to begin."}
+                                        : s.starting
+                                          ? "Checking storage before opening a story."
+                                          : storageReady
+                                            ? "Choose New Lantern Quay to begin."
+                                            : "Use Retry opening saved workspace to try again."}
                                 </small>
                             </div>
                             {!s.playV2 && (

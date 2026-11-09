@@ -97,6 +97,30 @@ export async function durableJourneys({
                     .textContent?.includes("Storage unavailable"),
                 "storage-failure-rendered-in-app",
             );
+            const root = document.getElementById("root")!;
+            const retry = [...root.querySelectorAll("button")].find(
+                (button) =>
+                    button.textContent?.trim() ===
+                    "Retry opening saved workspace",
+            );
+            check(
+                root.querySelector("main h1")?.textContent ===
+                    "Saved workspace unavailable" &&
+                    root
+                        .querySelector("main .topline small")
+                        ?.textContent?.includes(
+                            "Retry opening saved workspace",
+                        ) &&
+                    !root.textContent?.includes(
+                        "Choose New Lantern Quay to begin.",
+                    ),
+                "storage-error-directs-player-to-retry",
+            );
+            check(
+                root.querySelector<HTMLButtonElement>("button.new")
+                    ?.disabled === true && retry?.disabled === false,
+                "storage-error-retry-enabled-and-new-disabled",
+            );
             await checkpoint("durable-storage-error");
             await dispose();
             await invoke("harness_finish", {

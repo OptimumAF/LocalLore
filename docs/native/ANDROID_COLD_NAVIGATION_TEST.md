@@ -113,10 +113,22 @@ activation worker replays the exact controller result, requested stop,
 process cleanup and closed ledger entry. A failed controller with known
 cleanup can still yield a verified guest closure.
 
-The outer preparation operator still needs to perform fresh admission,
-create the prepared records and invoke activation under its own watchdog.
-The activation checks use the reviewed SDK19 shared ownership and cleanup
-guards.
+The outer operator in `benchmarks/cold_navigation_ui_operation.py` consumes
+the fixed human authority and its reviewed plan. It claims the attempt once
+and assigns its worker to a Windows job before the worker can start SDK
+preparation. Preparation checks host capacity and unused ports. It compares
+the approved ledger bytes under the shared reservation lock and charges
+40 GiB before creating the guest. The prepare authorization is scoped to
+this operation. A refused or interrupted attempt retains its records and
+any reservation.
+
+After verified preparation, the worker binds the run proposal, scoped run
+authorization and exact APKs to the admission. It invokes activation with
+the original operation start time. The outer job enforces the 40-minute
+budget for owned work with a cleanup reserve. After worker exit, the
+parent checks the remaining time and replays the preparation receipts
+and successful activation evidence. An exact reviewed approval and
+current readiness are required for a live attempt.
 
 ## Guarded device selector
 

@@ -426,17 +426,29 @@ class ColdNavigationActivationTests(unittest.TestCase):
         run.save(activation._started_path("controller"),
                  dict(request=controller_request, worker=run.caller))
         runtime_path = activation.CONTROL / "runtime-result-v1.json"
-        job = dict(request=run.save(activation._request_path("runtime"), {"synthetic": "runtime"}),
-                   worker=run.worker_identity)
-        runtime = dict(result, request=job["request"], worker=job["worker"], handoff=run.handoff_pin)
+        parent = dict(run.owner_identity, pid=9902)
+        runtime_request = run.save(activation._request_path("runtime"),
+                                   dict(request, kind="runtime", running=None, parent=parent))
+        run.save(activation._started_path("runtime"), dict(request=runtime_request, worker=run.worker_identity))
+        runtime_terminal = run.save(activation._terminal_path("runtime"), terminal())
+        runtime = dict(result, request=runtime_request, worker=run.worker_identity, handoff=run.handoff_pin)
 
-        def replay(value):
+        def replay(value, expected_parent=parent):
             runtime_pin = run.save(runtime_path, value)
-            return activation._verify_runtime(runtime_pin, job, run.admission, run.admission_pin,
-                                              run.authority_pin, run.attempt_pin, run.began_ns, run.until_ns)
+            result_pin = run.save(activation.CONTROL / "activation-result-v1.json", dict(
+                version=1, scope=activation.SCOPE, admission=run.admission_pin, authority=run.authority_pin,
+                attempt=run.attempt_pin, supervisor=runtime_terminal, runtime=runtime_pin,
+                passed=True, reason=None, feature_acceptance=False,
+            ))
+            return activation.verify_result(result_pin, run.admission_pin, run.authority_pin, run.attempt_pin,
+                                            began_ns=run.began_ns, expected_parent=expected_parent)
 
-        with run.ports():
-            self.assertEqual(replay(runtime), runtime)
+        # Outer replay can occur after the inner live activation window closes.
+        run.now_ns = run.until_ns + NANOSECOND
+        with run.ports(), patch.object(owner.contract, "revalidate_inputs"):
+            self.assertEqual(replay(runtime), run.closure)
+            with self.assertRaises(REFUSED):
+                replay(runtime, expected_parent=dict(parent, pid=9903))
             owner_terminal = run.read(runtime["owner_terminal"]["path"])[1]
             changed_terminal = run.save(runtime["owner_terminal"]["path"],
                                         dict(owner_terminal, observer_closed=1))

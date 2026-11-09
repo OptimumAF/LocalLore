@@ -75,7 +75,7 @@ def _ledger(root):
     return pin, entry
 
 
-def _approved_plan(authority_pin, attempt_pin):
+def _read_approval(authority_pin):
     authority = _at(authority_pin, AUTHORITY, cap=16384)
     contract._obj(authority, ("version", "scope", "proposal", "plan", "ledger", "approval_reference",
                               "allow_sdk_prepare", "allow_one_boot", "allow_model", "allow_retirement",
@@ -93,27 +93,45 @@ def _approved_plan(authority_pin, attempt_pin):
     for label, role in (("Plan SHA-256", "plan"), ("Ledger SHA-256", "ledger")):
         _need([line for line in lines if line.startswith(label)] ==
               [label + " " + authority[role]["sha256"]], "authority")
-    attempt = _at(attempt_pin, ATTEMPT, cap=16384)
-    _need(_same(attempt, dict(version=1, scope=OPERATION_SCOPE, authority=authority_pin, no_retry=True)), "attempt")
-    return authority, _at(authority["plan"], PLAN, cap=131072)
+    plan = _at(authority["plan"], PLAN, cap=131072)
+    env.check_binding(authority_pin)
+    return authority, plan
 
 
-def _check_plan(plan, admission):
+def _attempt_record(authority_pin):
+    return dict(version=1, scope=OPERATION_SCOPE, authority=authority_pin, no_retry=True)
+
+
+def _approved_plan(authority_pin, attempt_pin):
+    authority, plan = _read_approval(authority_pin)
+    _need(_same(_at(attempt_pin, ATTEMPT, cap=16384), _attempt_record(authority_pin)), "attempt")
+    return authority, plan
+
+
+def _prepare_plan(plan):
     contract._obj(plan, ("version", "scope", "source_root", "sources", "python", "artifacts", "prepare",
                          "installed", "execution_authorized", "model_material"), "plan")
     _need(_same(plan["version"], 1) and plan["scope"] == PLAN_SCOPE and plan["source_root"] == str(ROOT)
-          and plan["execution_authorized"] is False and plan["model_material"] is False
-          and all(_same(plan[key], admission[key]) for key in ("sources", "python", "artifacts")), "plan")
+          and plan["execution_authorized"] is False and plan["model_material"] is False, "plan")
+    installed = plan["installed"]
+    contract._obj(installed, ("adb", "tools", "emulator", "qemu", "refuser", "refuser_source",
+                              "auth_key_path", "capabilities", "source_review", "compatibility"), "installed")
+    prepare = _at(plan["prepare"], PREPARE, cap=_STORAGE_CAP)
+    env.validate_proposal(prepare, "prepare")
+    _need(prepare["paths"]["root"] == str(GUEST) and prepare["adb_path"] == installed["adb"]["path"]
+          and _same(prepare["memory_mib"], 8192) and _same(prepare["cores"], 4), "profile")
+    return prepare
+
+
+def _check_plan(plan, admission):
+    _prepare_plan(plan)
+    _need(all(_same(plan[key], admission[key]) for key in ("sources", "python", "artifacts")), "plan")
     server, guest = admission["server"], admission["guest"]
     installed = {key: server[key] for key in ("adb", "tools", "capabilities", "source_review")}
     installed.update({key: guest[key] for key in ("emulator", "qemu", "refuser", "refuser_source")})
     installed.update(auth_key_path=server["auth_key"], compatibility=admission["compatibility"])
     _need(_same(plan["installed"], installed), "installed")
 
-    prepare = _at(plan["prepare"], PREPARE, cap=_STORAGE_CAP)
-    env.validate_proposal(prepare, "prepare")
-    _need(prepare["paths"]["root"] == guest["root"] and prepare["adb_path"] == installed["adb"]["path"]
-          and all(_same(prepare[key], guest[key]) for key in ("memory_mib", "cores")), "profile")
     proposal = _at(guest["proposal"], RUN, cap=_STORAGE_CAP)
     env.validate_proposal(proposal, "run")
     authorization = _at(guest["authorization"], RUN_AUTHORITY, cap=4096)
@@ -123,11 +141,15 @@ def _check_plan(plan, admission):
     return proposal
 
 
-def check_window(began_ns, until_ns):
-    now = time.monotonic_ns()
+def check_bounds(began_ns, until_ns):
     _need(type(began_ns) is int and type(until_ns) is int
-          and 0 < began_ns <= now < until_ns <= began_ns + SECONDS * NS
-          and until_ns - now <= ACTIVATION_SECONDS * NS, "deadline")
+          and 0 < began_ns < until_ns <= began_ns + SECONDS * NS, "deadline")
+
+
+def check_window(began_ns, until_ns):
+    check_bounds(began_ns, until_ns)
+    now = time.monotonic_ns()
+    _need(began_ns <= now < until_ns and until_ns - now <= ACTIVATION_SECONDS * NS, "deadline")
     return now
 
 
@@ -197,14 +219,15 @@ def _check_boot_records(admission_pin, admission, authority_pin, attempt_pin, *,
         env.check_binding(pin)
 
 
-def _read_handoff(admission_pin):
+def _read_handoff(admission_pin, *, live=True):
     pin, handoff = _read(HANDOFF)
     contract._obj(handoff, ("version", "scope", "authority", "attempt", "admission",
                             "supervisor", "began_ns", "until_ns"), "handoff")
     _need(_same(handoff["version"], 2) and handoff["scope"] == HANDOFF_SCOPE
           and _same(handoff["admission"], admission_pin), "handoff")
     contract._process(handoff["supervisor"])
-    check_window(handoff["began_ns"], handoff["until_ns"])
+    check = check_window if live else check_bounds
+    check(handoff["began_ns"], handoff["until_ns"])
     return pin, handoff
 
 

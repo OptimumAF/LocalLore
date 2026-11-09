@@ -130,12 +130,14 @@ It starts the owner behind a second stdin barrier, records its observed process
 identity and verifies ancestry and Job membership before releasing it. The
 owner checks that same receipt before entering the existing SDK26 owner adapter.
 
-The activation window is 30 minutes from initial validation. The outer Job
-ends the process tree within the shared watchdog path, with a separate
-60-second host replay window after the activation window. Success requires
-the expected two owner status records, clean watchdog closure, both verified
-instrumentation results, and the closed ledger receipt for the independently
-observed owner. The operation retains its spent claim and any failure records.
+The activation window is 30 minutes from initial validation. The shared
+watchdog closes the outer Job on exit or timeout. The host accepts success
+only if replay finishes by 60 seconds after the activation window ends.
+Success requires the expected two owner status records, clean watchdog
+closure, both verified instrumentation results, and the closed ledger receipt
+for the independently observed owner. The result pins the exact startup
+receipts, handoff and captures used for replay. The operation retains its spent
+claim and any failure records.
 A failure requires review of the original evidence before another proposal.
 
 From the physical D: worktree, with TEMP, TMP and TMPDIR set to

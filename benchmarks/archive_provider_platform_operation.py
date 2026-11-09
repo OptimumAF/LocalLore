@@ -202,17 +202,20 @@ def _verify_capture(terminal):
           and type(elapsed) is int and 0 <= elapsed <= env.REAL_MAX_SECONDS * 1000
           and type(stdout) is int and stdout in {len(value) for value in expected}
           and _same(stderr, 0), "owner")
+    pins = {}
     for channel, size in (("stdout", stdout), ("stderr", stderr)):
         path = env.safe_path(CAPTURE / ("owner-" + channel + "-v1.bin"))
         with path.open("rb") as stream:
             raw = stream.read(size + 1)
         _need(len(raw) == size and (raw in expected if channel == "stdout" else not raw), "owner")
+        pins[channel] = candidate._pin_for_bytes(path, raw)
+    return pins
 
 
 def _verify_terminal(request_pin, request, worker, terminal_pin, terminal):
     _need(worker is not None and _same(_at(terminal_pin, TERMINAL), terminal)
           and _same(_at(request_pin, REQUEST), request), "owner")
-    _verify_capture(terminal)
+    capture = _verify_capture(terminal)
     started_pin, started = _read(STARTED)
     _need(_same(started, dict(request=request_pin, worker=worker)), "identity")
     handoff_pin, value = _read(candidate.HANDOFF)
@@ -235,10 +238,10 @@ def _verify_terminal(request_pin, request, worker, terminal_pin, terminal):
                             admission=admission_pin, **evidence)), "binding")
     for pin in (request_pin, terminal_pin, started_pin, handoff_pin, observed_pin, completion, admission_pin,
                 request["authority"], request["attempt"], request["candidate"], approved["proposal"],
-                *evidence.values()):
+                *evidence.values(), *capture.values()):
         env.check_binding(pin)
-    _verify_capture(terminal)
-    return completion
+    return dict(completion=completion, started=started_pin, handoff=handoff_pin,
+                observed_owner=observed_pin, capture=capture)
 
 
 def execute(authority_pin, candidate_pin):
@@ -261,7 +264,7 @@ def execute(authority_pin, candidate_pin):
                    candidate=candidate_pin, admission=admission_pin, began_ns=began_ns, until_ns=until_ns,
                    parent=parent)
     result = dict(version=1, scope=handoff.AUTHORITY_SCOPE, authority=authority_pin, attempt=attempt,
-                  request=None, supervisor=None, completion=None, passed=False,
+                  request=None, supervisor=None, completion=None, evidence=None, passed=False,
                   reason="activation_refused", feature_acceptance=False)
     worker = None
     try:
@@ -285,9 +288,9 @@ def execute(authority_pin, candidate_pin):
         )
         result["supervisor"] = _save(TERMINAL, terminal)
         _need(time.monotonic_ns() < deadline_ns, "deadline")
-        completion = _verify_terminal(request_pin, request, worker, result["supervisor"], terminal)
+        verified = _verify_terminal(request_pin, request, worker, result["supervisor"], terminal)
         _need(time.monotonic_ns() < deadline_ns, "deadline")
-        result.update(completion=completion, passed=True, reason=None)
+        result.update(completion=verified.pop("completion"), evidence=verified, passed=True, reason=None)
     except (Exception, KeyboardInterrupt) as error:
         if isinstance(error, KeyboardInterrupt):
             result["reason"] = "cancelled"
